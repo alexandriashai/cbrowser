@@ -22,7 +22,9 @@ NAVIGATION
 
 INTERACTION
   click <selector>            Click element (tries text, label, role, CSS)
+    --url <url>               Navigate to URL first, then click
   fill <selector> <value>     Fill input field
+    --url <url>               Navigate to URL first, then fill
 
 EXTRACTION
   extract <what>              Extract data (links, images, headings, forms)
