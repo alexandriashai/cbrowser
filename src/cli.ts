@@ -5,15 +5,15 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript } from "./browser.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest } from "./browser.js";
 import { BUILTIN_PERSONAS } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v3.0.0                                ║
-║    AI-powered browser automation with natural language & fluent API          ║
+║                           CBrowser CLI v4.0.0                                ║
+║    AI-powered browser automation with visual AI & chaos engineering          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -126,6 +126,30 @@ NATURAL LANGUAGE (v3.0.0)
       cbrowser run "click the login button"
       cbrowser run "type 'hello' in the search box"
   script <file>               Execute script file with natural language commands
+
+VISUAL AI (v4.0.0)
+  ai find "<intent>"          Find element by semantic intent
+    Examples:
+      cbrowser ai find "the cheapest product"
+      cbrowser ai find "login button"
+      cbrowser ai find "search box"
+  ai click "<intent>"         Find and click element by intent
+
+BUG HUNTER (v4.0.0)
+  hunt <url>                  Automatically find bugs on a page
+    --max-pages <n>           Max pages to crawl (default: 10)
+    --timeout <ms>            Timeout in ms (default: 60000)
+
+CROSS-BROWSER (v4.0.0)
+  diff <url>                  Compare page across browsers
+    --browsers <list>         chromium,firefox,webkit (default: all)
+
+CHAOS ENGINEERING (v4.0.0)
+  chaos <url>                 Test app resilience
+    --latency <ms>            Add network latency
+    --offline                 Simulate offline mode
+    --block <patterns>        Block URL patterns (comma-separated)
+    --fail-api <pattern:status>  Fail specific API calls
 
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
@@ -1344,6 +1368,202 @@ async function main(): Promise<void> {
         console.log(`\n  Summary: ${passed}/${results.length} commands succeeded`);
 
         if (passed < results.length) {
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Visual AI (Tier 4)
+      // =========================================================================
+
+      case "ai": {
+        const subcommand = args[0];
+        const intent = args.slice(1).join(" ");
+
+        if (!intent) {
+          console.error("Usage: cbrowser ai [find|click] \"<intent>\"");
+          console.error("Examples:");
+          console.error("  cbrowser ai find \"the cheapest product\"");
+          console.error("  cbrowser ai click \"login button\"");
+          process.exit(1);
+        }
+
+        if (options.url) {
+          await browser.navigate(options.url as string);
+        }
+
+        switch (subcommand) {
+          case "find": {
+            console.log(`\n🧠 Finding element: "${intent}"\n`);
+            const result = await findElementByIntent(browser, intent);
+            if (result) {
+              console.log(`✓ Found element`);
+              console.log(`  Selector: ${result.selector}`);
+              console.log(`  Confidence: ${(result.confidence * 100).toFixed(0)}%`);
+              console.log(`  Description: ${result.description}`);
+            } else {
+              console.log(`✗ Could not find element matching: "${intent}"`);
+              process.exit(1);
+            }
+            break;
+          }
+          case "click": {
+            console.log(`\n🧠 Finding and clicking: "${intent}"\n`);
+            const result = await findElementByIntent(browser, intent);
+            if (result) {
+              console.log(`✓ Found: ${result.description}`);
+              await browser.click(result.selector);
+              console.log(`✓ Clicked element`);
+            } else {
+              console.log(`✗ Could not find element matching: "${intent}"`);
+              process.exit(1);
+            }
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser ai [find|click] \"<intent>\"");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Bug Hunter (Tier 4)
+      // =========================================================================
+
+      case "hunt": {
+        const url = args[0];
+        if (!url) {
+          console.error("Usage: cbrowser hunt <url> [--max-pages <n>] [--timeout <ms>]");
+          process.exit(1);
+        }
+
+        const maxPages = options["max-pages"] ? parseInt(options["max-pages"] as string) : 10;
+        const timeout = options.timeout ? parseInt(options.timeout as string) : 60000;
+
+        console.log(`\n🔍 Bug Hunter starting...`);
+        console.log(`   URL: ${url}`);
+        console.log(`   Max pages: ${maxPages}`);
+        console.log(`   Timeout: ${timeout}ms\n`);
+
+        const result = await huntBugs(browser, url, { maxPages, timeout });
+
+        console.log(`📊 Bug Hunt Results:\n`);
+        console.log(`   Pages visited: ${result.pagesVisited}`);
+        console.log(`   Duration: ${result.duration}ms`);
+        console.log(`   Bugs found: ${result.bugs.length}\n`);
+
+        if (result.bugs.length > 0) {
+          const critical = result.bugs.filter(b => b.severity === "critical").length;
+          const high = result.bugs.filter(b => b.severity === "high").length;
+          const medium = result.bugs.filter(b => b.severity === "medium").length;
+
+          console.log(`   Severity: ${critical} critical, ${high} high, ${medium} medium\n`);
+
+          for (const bug of result.bugs) {
+            const icon = bug.severity === "critical" ? "🔴" : bug.severity === "high" ? "🟠" : "🟡";
+            console.log(`   ${icon} [${bug.type}] ${bug.description}`);
+            if (bug.selector) console.log(`      Selector: ${bug.selector}`);
+          }
+        } else {
+          console.log(`   ✅ No bugs found!`);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Cross-Browser Diff (Tier 4)
+      // =========================================================================
+
+      case "diff": {
+        const url = args[0];
+        if (!url) {
+          console.error("Usage: cbrowser diff <url> [--browsers <list>]");
+          process.exit(1);
+        }
+
+        const browserList = options.browsers
+          ? (options.browsers as string).split(",") as Array<"chromium" | "firefox" | "webkit">
+          : ["chromium", "firefox", "webkit"] as const;
+
+        console.log(`\n🔀 Cross-Browser Diff`);
+        console.log(`   URL: ${url}`);
+        console.log(`   Browsers: ${browserList.join(", ")}\n`);
+
+        const result = await crossBrowserDiff(url, [...browserList]);
+
+        console.log(`📊 Results:\n`);
+        console.log(`   Metrics:`);
+        for (const [browser, metrics] of Object.entries(result.metrics)) {
+          console.log(`     ${browser}: ${metrics.loadTime}ms, ${metrics.resourceCount} resources`);
+        }
+
+        if (result.differences.length > 0) {
+          console.log(`\n   ⚠️  Differences found: ${result.differences.length}`);
+          for (const diff of result.differences) {
+            console.log(`     [${diff.type}] ${diff.description}`);
+          }
+        } else {
+          console.log(`\n   ✅ No significant differences found`);
+        }
+
+        console.log(`\n   Screenshots:`);
+        for (const [browser, path] of Object.entries(result.screenshots)) {
+          console.log(`     ${browser}: ${path}`);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Chaos Engineering (Tier 4)
+      // =========================================================================
+
+      case "chaos": {
+        const url = args[0];
+        if (!url) {
+          console.error("Usage: cbrowser chaos <url> [--latency <ms>] [--offline] [--block <patterns>]");
+          process.exit(1);
+        }
+
+        const chaosConfig: any = {};
+
+        if (options.latency) {
+          chaosConfig.networkLatency = parseInt(options.latency as string);
+        }
+        if (options.offline) {
+          chaosConfig.offline = true;
+        }
+        if (options.block) {
+          chaosConfig.blockUrls = (options.block as string).split(",");
+        }
+        if (options["fail-api"]) {
+          const [pattern, status] = (options["fail-api"] as string).split(":");
+          chaosConfig.failApis = [{ pattern, status: parseInt(status) }];
+        }
+
+        console.log(`\n💥 Chaos Engineering Test`);
+        console.log(`   URL: ${url}`);
+        console.log(`   Chaos config:`, chaosConfig);
+        console.log("");
+
+        const result = await runChaosTest(browser, url, chaosConfig);
+
+        console.log(`📊 Results:\n`);
+        console.log(`   Passed: ${result.passed ? "✅ Yes" : "❌ No"}`);
+        console.log(`   Duration: ${result.duration}ms`);
+
+        if (result.errors.length > 0) {
+          console.log(`\n   Errors:`);
+          for (const error of result.errors) {
+            console.log(`     - ${error}`);
+          }
+        }
+
+        if (result.screenshot) {
+          console.log(`\n   Screenshot: ${result.screenshot}`);
+        }
+
+        if (!result.passed) {
           process.exit(1);
         }
         break;

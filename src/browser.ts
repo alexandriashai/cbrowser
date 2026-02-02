@@ -1902,3 +1902,458 @@ export async function executeNaturalLanguageScript(
 
   return results;
 }
+
+// ============================================================================
+// Tier 4: Visual AI Understanding (v4.0.0)
+// ============================================================================
+
+/**
+ * AI-powered semantic element finding.
+ * Examples: "the cheapest product", "login form", "main navigation"
+ */
+export async function findElementByIntent(
+  browser: CBrowser,
+  intent: string
+): Promise<{ selector: string; confidence: number; description: string } | null> {
+  const page = await (browser as any).getPage();
+
+  // Type for extracted elements
+  type PageElement = {
+    tag: string;
+    text: string;
+    classes: string;
+    id: string;
+    role: string;
+    type: string;
+    price?: string;
+    selector: string;
+  };
+
+  // Extract page structure for AI analysis
+  const pageData: PageElement[] = await page.evaluate(() => {
+    const elements: Array<{
+      tag: string;
+      text: string;
+      classes: string;
+      id: string;
+      role: string;
+      type: string;
+      price?: string;
+      selector: string;
+    }> = [];
+
+    // Find interactive elements
+    const interactives = document.querySelectorAll(
+      "button, a, input, select, [role='button'], [onclick], .btn, .card, .product, [data-price], .price"
+    );
+
+    interactives.forEach((el, i) => {
+      const text = (el as HTMLElement).innerText?.trim().slice(0, 100) || "";
+      const priceMatch = text.match(/\$[\d,.]+|\d+\.\d{2}/);
+
+      elements.push({
+        tag: el.tagName.toLowerCase(),
+        text,
+        classes: el.className.toString().slice(0, 100),
+        id: el.id,
+        role: el.getAttribute("role") || "",
+        type: (el as HTMLInputElement).type || "",
+        price: priceMatch ? priceMatch[0] : undefined,
+        selector: el.id ? `#${el.id}` : `${el.tagName.toLowerCase()}:nth-of-type(${i + 1})`,
+      });
+    });
+
+    return elements;
+  });
+
+  // Intent matching logic
+  const intentLower = intent.toLowerCase();
+
+  // Price-based intents
+  if (intentLower.includes("cheapest") || intentLower.includes("lowest price")) {
+    const withPrices = pageData.filter(el => el.price);
+    if (withPrices.length > 0) {
+      const sorted = withPrices.sort((a, b) => {
+        const priceA = parseFloat(a.price!.replace(/[$,]/g, ""));
+        const priceB = parseFloat(b.price!.replace(/[$,]/g, ""));
+        return priceA - priceB;
+      });
+      return {
+        selector: sorted[0].selector,
+        confidence: 0.8,
+        description: `Cheapest item: ${sorted[0].text.slice(0, 50)} (${sorted[0].price})`,
+      };
+    }
+  }
+
+  if (intentLower.includes("most expensive") || intentLower.includes("highest price")) {
+    const withPrices = pageData.filter(el => el.price);
+    if (withPrices.length > 0) {
+      const sorted = withPrices.sort((a, b) => {
+        const priceA = parseFloat(a.price!.replace(/[$,]/g, ""));
+        const priceB = parseFloat(b.price!.replace(/[$,]/g, ""));
+        return priceB - priceA;
+      });
+      return {
+        selector: sorted[0].selector,
+        confidence: 0.8,
+        description: `Most expensive: ${sorted[0].text.slice(0, 50)} (${sorted[0].price})`,
+      };
+    }
+  }
+
+  // Form-based intents
+  if (intentLower.includes("login") || intentLower.includes("sign in")) {
+    const loginBtn = pageData.find(el =>
+      el.text.toLowerCase().includes("login") ||
+      el.text.toLowerCase().includes("sign in") ||
+      el.classes.includes("login")
+    );
+    if (loginBtn) {
+      return { selector: loginBtn.selector, confidence: 0.9, description: "Login button/form" };
+    }
+  }
+
+  if (intentLower.includes("search")) {
+    const searchInput = pageData.find(el =>
+      el.type === "search" ||
+      el.classes.includes("search") ||
+      el.id.includes("search")
+    );
+    if (searchInput) {
+      return { selector: searchInput.selector, confidence: 0.9, description: "Search input" };
+    }
+  }
+
+  // Text-based matching
+  const textMatch = pageData.find(el =>
+    el.text.toLowerCase().includes(intentLower) ||
+    el.classes.toLowerCase().includes(intentLower)
+  );
+  if (textMatch) {
+    return { selector: textMatch.selector, confidence: 0.7, description: `Matched: ${textMatch.text.slice(0, 50)}` };
+  }
+
+  return null;
+}
+
+// ============================================================================
+// Tier 4: Autonomous Bug Hunter (v4.0.0)
+// ============================================================================
+
+export interface BugReport {
+  type: "broken-link" | "console-error" | "a11y-violation" | "slow-resource" | "missing-image" | "form-error";
+  severity: "critical" | "high" | "medium" | "low";
+  description: string;
+  url: string;
+  selector?: string;
+  screenshot?: string;
+}
+
+/**
+ * Autonomously explore a page and find bugs.
+ */
+export async function huntBugs(
+  browser: CBrowser,
+  url: string,
+  options: { maxDepth?: number; maxPages?: number; timeout?: number } = {}
+): Promise<{
+  bugs: BugReport[];
+  pagesVisited: number;
+  duration: number;
+}> {
+  const startTime = Date.now();
+  const bugs: BugReport[] = [];
+  const visited = new Set<string>();
+  const maxPages = options.maxPages || 10;
+  const timeout = options.timeout || 60000;
+
+  const page = await (browser as any).getPage();
+  const consoleErrors: string[] = [];
+
+  // Capture console errors
+  page.on("console", (msg: any) => {
+    if (msg.type() === "error") {
+      consoleErrors.push(msg.text());
+    }
+  });
+
+  // Start with initial URL
+  await browser.navigate(url);
+  visited.add(url);
+
+  // Check for issues on current page
+  const pageIssues = await page.evaluate(() => {
+    const issues: Array<{ type: string; description: string; selector?: string }> = [];
+
+    // Check for broken images
+    document.querySelectorAll("img").forEach((img, i) => {
+      if (!img.complete || img.naturalWidth === 0) {
+        issues.push({
+          type: "missing-image",
+          description: `Broken image: ${img.src || img.alt || "unknown"}`,
+          selector: `img:nth-of-type(${i + 1})`,
+        });
+      }
+    });
+
+    // Check for empty links
+    document.querySelectorAll("a").forEach((a, i) => {
+      if (!a.href || a.href === "#" || a.href === "javascript:void(0)") {
+        issues.push({
+          type: "broken-link",
+          description: `Empty/invalid link: ${a.textContent?.slice(0, 50) || "no text"}`,
+          selector: `a:nth-of-type(${i + 1})`,
+        });
+      }
+    });
+
+    // Check for empty buttons
+    document.querySelectorAll("button").forEach((btn, i) => {
+      if (!btn.textContent?.trim() && !btn.getAttribute("aria-label")) {
+        issues.push({
+          type: "a11y-violation",
+          description: "Button with no accessible text",
+          selector: `button:nth-of-type(${i + 1})`,
+        });
+      }
+    });
+
+    // Check for missing form labels
+    document.querySelectorAll("input:not([type='hidden'])").forEach((input, i) => {
+      const id = input.id;
+      const hasLabel = id && document.querySelector(`label[for="${id}"]`);
+      if (!hasLabel && !input.getAttribute("aria-label") && !input.getAttribute("placeholder")) {
+        issues.push({
+          type: "form-error",
+          description: "Input without label or placeholder",
+          selector: `input:nth-of-type(${i + 1})`,
+        });
+      }
+    });
+
+    return issues;
+  });
+
+  // Add page issues to bugs
+  for (const issue of pageIssues) {
+    bugs.push({
+      type: issue.type as BugReport["type"],
+      severity: issue.type === "a11y-violation" ? "high" : "medium",
+      description: issue.description,
+      url,
+      selector: issue.selector,
+    });
+  }
+
+  // Add console errors
+  for (const error of consoleErrors) {
+    bugs.push({
+      type: "console-error",
+      severity: "high",
+      description: error.slice(0, 200),
+      url,
+    });
+  }
+
+  return {
+    bugs,
+    pagesVisited: visited.size,
+    duration: Date.now() - startTime,
+  };
+}
+
+// ============================================================================
+// Tier 4: Cross-Browser Diff (v4.0.0)
+// ============================================================================
+
+export interface BrowserDiffResult {
+  url: string;
+  browsers: string[];
+  differences: Array<{
+    type: "visual" | "timing" | "content" | "error";
+    description: string;
+    browsers: string[];
+  }>;
+  screenshots: Record<string, string>;
+  metrics: Record<string, { loadTime: number; resourceCount: number }>;
+}
+
+/**
+ * Compare page behavior across multiple browsers.
+ */
+export async function crossBrowserDiff(
+  url: string,
+  browsers: Array<"chromium" | "firefox" | "webkit"> = ["chromium", "firefox", "webkit"]
+): Promise<BrowserDiffResult> {
+  const { chromium, firefox, webkit } = await import("playwright");
+  const screenshots: Record<string, string> = {};
+  const metrics: Record<string, { loadTime: number; resourceCount: number }> = {};
+  const differences: BrowserDiffResult["differences"] = [];
+  const contents: Record<string, string> = {};
+
+  const browserLaunchers = { chromium, firefox, webkit };
+
+  for (const browserName of browsers) {
+    const launcher = browserLaunchers[browserName];
+    const browser = await launcher.launch({ headless: true });
+    const page = await browser.newPage();
+
+    const startTime = Date.now();
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    const loadTime = Date.now() - startTime;
+
+    // Capture metrics
+    const resourceCount = await page.evaluate(() => performance.getEntriesByType("resource").length);
+    metrics[browserName] = { loadTime, resourceCount };
+
+    // Capture screenshot
+    const screenshotPath = `/tmp/cross-browser-${browserName}-${Date.now()}.png`;
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    screenshots[browserName] = screenshotPath;
+
+    // Capture content hash
+    contents[browserName] = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+
+    await browser.close();
+  }
+
+  // Compare timing
+  const loadTimes = Object.entries(metrics).map(([b, m]) => ({ browser: b, time: m.loadTime }));
+  const avgTime = loadTimes.reduce((sum, t) => sum + t.time, 0) / loadTimes.length;
+  const slowBrowsers = loadTimes.filter(t => t.time > avgTime * 1.5);
+  if (slowBrowsers.length > 0) {
+    differences.push({
+      type: "timing",
+      description: `Significantly slower in: ${slowBrowsers.map(b => `${b.browser} (${b.time}ms)`).join(", ")}`,
+      browsers: slowBrowsers.map(b => b.browser),
+    });
+  }
+
+  // Compare content
+  const contentValues = Object.values(contents);
+  const contentMismatch = contentValues.some(c => c !== contentValues[0]);
+  if (contentMismatch) {
+    differences.push({
+      type: "content",
+      description: "Page content differs between browsers",
+      browsers,
+    });
+  }
+
+  return { url, browsers, differences, screenshots, metrics };
+}
+
+// ============================================================================
+// Tier 4: Chaos Engineering (v4.0.0)
+// ============================================================================
+
+export interface ChaosConfig {
+  /** Simulate slow network (ms latency) */
+  networkLatency?: number;
+  /** Simulate offline mode */
+  offline?: boolean;
+  /** Block specific URL patterns */
+  blockUrls?: string[];
+  /** Inject random delays (0-1 probability) */
+  randomDelays?: number;
+  /** Fail specific API calls */
+  failApis?: Array<{ pattern: string; status: number; body?: string }>;
+  /** CPU throttling (1-20x slowdown) */
+  cpuThrottle?: number;
+}
+
+/**
+ * Apply chaos engineering conditions to browser.
+ */
+export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promise<void> {
+  const context = await (browser as any).context;
+  const page = await (browser as any).getPage();
+
+  // Network conditions
+  if (config.offline) {
+    await context.setOffline(true);
+  }
+
+  // Route interception for latency/failures
+  if (config.networkLatency || config.blockUrls || config.failApis) {
+    await page.route("**/*", async (route: any) => {
+      const url = route.request().url();
+
+      // Block URLs
+      if (config.blockUrls?.some(pattern => url.includes(pattern))) {
+        await route.abort();
+        return;
+      }
+
+      // Fail specific APIs
+      const failConfig = config.failApis?.find(f => url.includes(f.pattern));
+      if (failConfig) {
+        await route.fulfill({
+          status: failConfig.status,
+          body: failConfig.body || "Chaos: Simulated failure",
+        });
+        return;
+      }
+
+      // Add latency
+      if (config.networkLatency) {
+        await new Promise(r => setTimeout(r, config.networkLatency));
+      }
+
+      // Random delays
+      if (config.randomDelays && Math.random() < config.randomDelays) {
+        await new Promise(r => setTimeout(r, Math.random() * 3000));
+      }
+
+      await route.continue();
+    });
+  }
+}
+
+/**
+ * Run chaos test - apply conditions and verify app resilience.
+ */
+export async function runChaosTest(
+  browser: CBrowser,
+  url: string,
+  chaos: ChaosConfig,
+  actions: string[] = []
+): Promise<{
+  passed: boolean;
+  errors: string[];
+  duration: number;
+  screenshot: string;
+}> {
+  const startTime = Date.now();
+  const errors: string[] = [];
+
+  try {
+    await applyChaos(browser, chaos);
+    await browser.navigate(url);
+
+    // Execute actions
+    for (const action of actions) {
+      const result = await executeNaturalLanguage(browser, action);
+      if (!result.success) {
+        errors.push(`Action failed: ${action} - ${result.error}`);
+      }
+    }
+
+    const screenshot = await browser.screenshot();
+
+    return {
+      passed: errors.length === 0,
+      errors,
+      duration: Date.now() - startTime,
+      screenshot,
+    };
+  } catch (e: any) {
+    return {
+      passed: false,
+      errors: [...errors, e.message],
+      duration: Date.now() - startTime,
+      screenshot: "",
+    };
+  }
+}

@@ -14,7 +14,7 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | v2.4.0 | 2026-02-02 | Quick wins (video, mobile, perf) |
 | v2.5.0 | 2026-02-02 | Visual regression, test recorder, a11y, webhooks |
 | v3.0.0 | 2026-02-02 | Fluent API, natural language commands |
-| v4.0.0 | TBD | AI test generation, plugin system |
+| v4.0.0 | 2026-02-02 | Visual AI, bug hunter, cross-browser diff, chaos engineering |
 
 ---
 
@@ -59,14 +59,14 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 
 ---
 
-## Tier 4: Moonshots (v4.0.0+)
+## Tier 4: Moonshots ✅ (v4.0.0)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Visual AI Understanding | ⬜ Future | "Click the cheapest product" |
-| Autonomous Bug Hunter | ⬜ Future | Explore and find bugs automatically |
-| Cross-Browser Diff | ⬜ Future | Compare behavior across browsers |
-| Chaos Engineering | ⬜ Future | Inject failures, test resilience |
+| Visual AI Understanding | ✅ Complete | "Click the cheapest product" |
+| Autonomous Bug Hunter | ✅ Complete | Explore and find bugs automatically |
+| Cross-Browser Diff | ✅ Complete | Compare behavior across browsers |
+| Chaos Engineering | ✅ Complete | Inject failures, test resilience |
 | Distributed Grid | ⬜ Future | Run across multiple machines |
 
 ---
