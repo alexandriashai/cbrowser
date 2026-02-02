@@ -138,6 +138,48 @@ export interface JourneyResult {
 }
 
 // ============================================================================
+// Tier 6: Multi-Persona Comparison (v6.0.0)
+// ============================================================================
+
+export interface PersonaJourneyResult {
+  persona: string;
+  description: string;
+  techLevel: string;
+  device: string;
+  success: boolean;
+  totalTime: number;
+  stepCount: number;
+  frictionCount: number;
+  frictionPoints: string[];
+  avgReactionTime: number;
+  errorRate: number;
+  screenshots: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface PersonaComparisonResult {
+  url: string;
+  goal: string;
+  timestamp: string;
+  duration: number;
+  personas: PersonaJourneyResult[];
+  summary: {
+    totalPersonas: number;
+    successCount: number;
+    failureCount: number;
+    fastestPersona: string;
+    slowestPersona: string;
+    mostFriction: string;
+    leastFriction: string;
+    avgCompletionTime: number;
+    commonFrictionPoints: string[];
+  };
+  recommendations: string[];
+}
+
+// ============================================================================
 // Audit Types
 // ============================================================================
 

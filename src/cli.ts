@@ -5,7 +5,7 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest } from "./browser.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport } from "./browser.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -21,8 +21,8 @@ import { startMcpServer } from "./mcp-server.js";
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v5.3.0                                ║
-║    AI-powered browser automation with smart retry & assertions               ║
+║                           CBrowser CLI v6.0.0                                ║
+║    AI-powered browser automation with multi-persona comparison               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -43,6 +43,19 @@ AUTONOMOUS JOURNEYS
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish
     --record-video            Record journey as video
+
+MULTI-PERSONA COMPARISON (v6.0.0)
+  compare-personas            Compare multiple personas on the same journey
+    --start <url>             Starting URL (required)
+    --goal <goal>             What to accomplish (required)
+    --personas <list>         Comma-separated persona names
+    --concurrency <n>         Max parallel browsers (default: 3)
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+    Examples:
+      cbrowser compare-personas --start "https://example.com" \\
+        --goal "Complete checkout" \\
+        --personas power-user,first-timer,elderly-user,mobile-user
 
 PERSONAS
   persona list                List all personas (built-in + custom)
@@ -294,6 +307,140 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function generateHtmlReport(comparison: any): string {
+  const rows = comparison.personas.map((p: any) => `
+    <tr class="${p.success ? 'success' : 'failure'}">
+      <td><strong>${p.persona}</strong><br><small>${p.description}</small></td>
+      <td>${p.success ? '✓' : '✗'}</td>
+      <td>${(p.totalTime / 1000).toFixed(1)}s</td>
+      <td>${p.stepCount}</td>
+      <td>${p.frictionCount}</td>
+      <td>${p.techLevel}</td>
+      <td>${p.device}</td>
+      <td><small>${p.frictionPoints.join('<br>') || '-'}</small></td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona Comparison Report</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    h1 { color: #1a1a1a; border-bottom: 3px solid #3b82f6; padding-bottom: 0.5rem; }
+    .meta { background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+    .meta p { margin: 0.25rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    th { background: #1a1a1a; color: white; }
+    tr.success { background: #ecfdf5; }
+    tr.failure { background: #fef2f2; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .stat {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat .value { font-size: 2rem; font-weight: bold; color: #3b82f6; }
+    .stat .label { color: #666; font-size: 0.875rem; }
+    .recommendations {
+      background: #fffbeb;
+      border: 1px solid #fbbf24;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    .recommendations h3 { margin-top: 0; }
+    .recommendations ul { margin: 0; padding-left: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>🎭 Multi-Persona Comparison Report</h1>
+
+  <div class="meta">
+    <p><strong>URL:</strong> ${comparison.url}</p>
+    <p><strong>Goal:</strong> ${comparison.goal}</p>
+    <p><strong>Timestamp:</strong> ${comparison.timestamp}</p>
+    <p><strong>Total Duration:</strong> ${(comparison.duration / 1000).toFixed(1)}s</p>
+  </div>
+
+  <div class="summary">
+    <div class="stat">
+      <div class="value">${comparison.summary.successCount}/${comparison.summary.totalPersonas}</div>
+      <div class="label">Success Rate</div>
+    </div>
+    <div class="stat">
+      <div class="value">${(comparison.summary.avgCompletionTime / 1000).toFixed(1)}s</div>
+      <div class="label">Avg Completion Time</div>
+    </div>
+    <div class="stat">
+      <div class="value">${comparison.summary.fastestPersona}</div>
+      <div class="label">Fastest</div>
+    </div>
+    <div class="stat">
+      <div class="value">${comparison.summary.mostFriction}</div>
+      <div class="label">Most Friction</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Persona</th>
+        <th>Success</th>
+        <th>Time</th>
+        <th>Steps</th>
+        <th>Friction</th>
+        <th>Tech Level</th>
+        <th>Device</th>
+        <th>Issues</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+
+  <div class="recommendations">
+    <h3>💡 Recommendations</h3>
+    <ul>
+      ${comparison.recommendations.map((r: string) => `<li>${r}</li>`).join('')}
+    </ul>
+  </div>
+
+  <p style="color: #999; text-align: center; margin-top: 2rem;">
+    Generated by CBrowser v6.0.0 - Multi-Persona Comparison
+  </p>
+</body>
+</html>`;
 }
 
 function parseGeoLocation(location: string): { latitude: number; longitude: number } | null {
@@ -743,6 +890,69 @@ async function main(): Promise<void> {
           for (const point of result.frictionPoints) {
             console.log(`   - ${point}`);
           }
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Tier 6: Multi-Persona Comparison (v6.0.0)
+      // =========================================================================
+
+      case "compare-personas": {
+        const startUrl = options.start as string;
+        const goal = options.goal as string;
+        const personaList = options.personas as string;
+
+        if (!startUrl) {
+          console.error("Error: --start URL required");
+          process.exit(1);
+        }
+
+        if (!goal) {
+          console.error("Error: --goal required");
+          process.exit(1);
+        }
+
+        // Default to comparing all built-in personas if none specified
+        const personaNames = personaList
+          ? personaList.split(",").map((p) => p.trim())
+          : Object.keys(BUILTIN_PERSONAS);
+
+        const concurrency = options.concurrency
+          ? parseInt(options.concurrency as string)
+          : 3;
+
+        const comparison = await comparePersonas({
+          startUrl,
+          goal,
+          personas: personaNames,
+          maxConcurrency: concurrency,
+          headless,
+        });
+
+        // Print formatted report
+        const report = formatComparisonReport(comparison);
+        console.log(report);
+
+        // Save JSON output if requested
+        if (options.output) {
+          const fs = await import("fs");
+          fs.writeFileSync(options.output as string, JSON.stringify(comparison, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Generate HTML report if requested
+        if (options.html) {
+          const fs = await import("fs");
+          const htmlReport = generateHtmlReport(comparison);
+          const htmlPath = (options.output as string)?.replace(".json", ".html") || "comparison-report.html";
+          fs.writeFileSync(htmlPath, htmlReport);
+          console.log(`\n🌐 HTML report saved: ${htmlPath}`);
+        }
+
+        // Exit with error if any personas failed
+        if (comparison.summary.failureCount > 0) {
+          process.exit(1);
         }
         break;
       }

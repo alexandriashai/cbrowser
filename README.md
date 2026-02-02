@@ -55,6 +55,52 @@ npx cbrowser assert "page contains 'Welcome'"
 npx cbrowser generate-tests "https://example.com"
 ```
 
+## v6.0.0 Features
+
+### Multi-Persona Comparison
+
+Run the same journey with multiple personas in parallel and compare results:
+
+```bash
+# Compare how different user types experience your site
+npx cbrowser compare-personas \
+  --start "https://example.com" \
+  --goal "Complete checkout" \
+  --personas power-user,first-timer,elderly-user,mobile-user
+
+# Output:
+# ┌─────────────────┬──────────┬──────────┬──────────┬─────────────────┐
+# │ Persona         │ Success  │ Time     │ Friction │ Key Issues      │
+# ├─────────────────┼──────────┼──────────┼──────────┼─────────────────┤
+# │ power-user      │ ✓        │ 12.5s    │ 0        │ -               │
+# │ first-timer     │ ✓        │ 45.2s    │ 2        │ Confusing CTA   │
+# │ elderly-user    │ ✗        │ 120.3s   │ 5        │ Small buttons   │
+# │ mobile-user     │ ✓        │ 28.1s    │ 1        │ Scroll issue    │
+# └─────────────────┴──────────┴──────────┴──────────┴─────────────────┘
+```
+
+**Generate reports:**
+
+```bash
+# JSON report
+npx cbrowser compare-personas --start "..." --goal "..." --output report.json
+
+# HTML report (visual dashboard)
+npx cbrowser compare-personas --start "..." --goal "..." --html
+```
+
+**What you learn:**
+- Which personas struggle most (friction points)
+- Time differences between expert and beginner users
+- Mobile vs desktop experience gaps
+- Accessibility issues affecting specific user types
+- Actionable recommendations for improvement
+
+**Automatic recommendations:**
+- "Beginners take 3.5x longer than experts - consider adding more guidance"
+- "Mobile users experience 2x more friction - review mobile UX"
+- "Common friction: 'Button too small for touch', 'Form validation unclear'"
+
 ## v5.0.0 Features
 
 ### Smart Click with Auto-Retry
