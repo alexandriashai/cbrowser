@@ -158,6 +158,7 @@ STORAGE & CLEANUP
     --older-than <days>       Delete files older than N days (default: 7)
     --keep-screenshots <n>    Keep at least N screenshots (default: 10)
     --keep-journeys <n>       Keep at least N journeys (default: 5)
+  reset                       Clear persistent browser state (cookies, storage)
 
 OPTIONS
   --browser <type>            Browser: chromium, firefox, webkit (default: chromium)
@@ -169,9 +170,6 @@ OPTIONS
   --force                     Bypass red zone safety checks
   --headless                  Run browser in headless mode
   --persistent                Enable persistent browser context (cookies survive)
-
-STORAGE & CLEANUP
-  reset                       Clear persistent browser state (cookies, storage)
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
