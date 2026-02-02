@@ -12,8 +12,8 @@ import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v4.0.0                                ║
-║    AI-powered browser automation with visual AI & chaos engineering          ║
+║                           CBrowser CLI v5.0.0                                ║
+║    AI-powered browser automation with smart retry & assertions               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -152,6 +152,20 @@ CHAOS ENGINEERING (v4.0.0)
     --offline                 Simulate offline mode
     --block <patterns>        Block URL patterns (comma-separated)
     --fail-api <pattern:status>  Fail specific API calls
+
+SMART RETRY & ASSERTIONS (v5.0.0)
+  smart-click <selector>      Click with auto-retry and alternative selectors
+    --url <url>               Navigate to URL first
+    --max-retries <n>         Maximum retry attempts (default: 3)
+    --retry-delay <ms>        Delay between retries (default: 1000)
+  assert "<assertion>"        Natural language assertions
+    --url <url>               Navigate to URL first
+    Examples:
+      cbrowser assert "page contains 'Welcome'"
+      cbrowser assert "title is 'Home Page'"
+      cbrowser assert "url contains '/dashboard'"
+      cbrowser assert "'Login' button exists"
+      cbrowser assert "page has 3 items"
 
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
@@ -368,6 +382,85 @@ async function main(): Promise<void> {
         }
         const result = await browser.extract(what);
         console.log(JSON.stringify(result.data, null, 2));
+        break;
+      }
+
+      // =========================================================================
+      // Tier 5: Smart Retry & Assertions (v5.0.0)
+      // =========================================================================
+
+      case "smart-click": {
+        const selector = args[0];
+        if (!selector) {
+          console.error("Error: Selector required");
+          process.exit(1);
+        }
+
+        if (options.url) {
+          await browser.navigate(options.url as string);
+        }
+
+        const maxRetries = options["max-retries"] ? parseInt(options["max-retries"] as string) : 3;
+        const retryDelay = options["retry-delay"] ? parseInt(options["retry-delay"] as string) : 1000;
+
+        console.log(`\n🔄 Smart clicking: "${selector}" (max ${maxRetries} retries)\n`);
+
+        const result = await browser.smartClick(selector, {
+          force: options.force === true,
+          maxRetries,
+          retryDelay,
+        });
+
+        for (const attempt of result.attempts) {
+          const status = attempt.success ? "✓" : "✗";
+          const altInfo = attempt.alternativeUsed ? ` (${attempt.alternativeUsed})` : "";
+          console.log(`  Attempt ${attempt.attempt}: ${status} ${attempt.selector}${altInfo}`);
+        }
+
+        if (result.success) {
+          console.log(`\n✓ ${result.message}`);
+          if (result.finalSelector !== selector) {
+            console.log(`  Used alternative selector: ${result.finalSelector}`);
+          }
+        } else {
+          console.error(`\n✗ ${result.message}`);
+          if (result.aiSuggestion) {
+            console.log(`\n💡 Suggestion:\n${result.aiSuggestion}`);
+          }
+          process.exit(1);
+        }
+        break;
+      }
+
+      case "assert": {
+        const assertion = args[0];
+        if (!assertion) {
+          console.error("Error: Assertion required");
+          console.error('Example: cbrowser assert "page contains \'Welcome\'"');
+          process.exit(1);
+        }
+
+        if (options.url) {
+          await browser.navigate(options.url as string);
+        }
+
+        const result = await browser.assert(assertion);
+
+        if (result.passed) {
+          console.log(`✓ PASS: ${result.message}`);
+          if (result.actual !== undefined) {
+            console.log(`  Actual: ${result.actual}`);
+          }
+        } else {
+          console.error(`✗ FAIL: ${result.message}`);
+          if (result.actual !== undefined) {
+            console.log(`  Actual: ${result.actual}`);
+          }
+          if (result.expected !== undefined) {
+            console.log(`  Expected: ${result.expected}`);
+          }
+          process.exit(1);
+        }
         break;
       }
 

@@ -31,6 +31,10 @@ import type {
   HARLog,
   PerformanceMetrics,
   PerformanceAuditResult,
+  SmartRetryResult,
+  RetryAttempt,
+  AssertionResult,
+  SelectorAlternative,
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
@@ -813,6 +817,295 @@ export class CBrowser {
         message: `Failed to fill: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
+  }
+
+  // =========================================================================
+  // Tier 5: Smart Retry (v5.0.0)
+  // =========================================================================
+
+  /**
+   * Click with smart retry - automatically retries with alternative selectors on failure.
+   */
+  async smartClick(
+    selector: string,
+    options: { force?: boolean; maxRetries?: number; retryDelay?: number } = {}
+  ): Promise<SmartRetryResult> {
+    const maxRetries = options.maxRetries ?? 3;
+    const retryDelay = options.retryDelay ?? 1000;
+    const attempts: RetryAttempt[] = [];
+
+    // First attempt with original selector
+    let result = await this.click(selector, { force: options.force });
+    attempts.push({
+      attempt: 1,
+      selector,
+      success: result.success,
+      error: result.success ? undefined : result.message,
+      screenshot: result.screenshot,
+    });
+
+    if (result.success) {
+      return {
+        success: true,
+        attempts,
+        finalSelector: selector,
+        message: result.message,
+        screenshot: result.screenshot,
+      };
+    }
+
+    // Try to find alternative selectors
+    const alternatives = await this.findAlternativeSelectors(selector);
+
+    for (let i = 0; i < Math.min(maxRetries - 1, alternatives.length); i++) {
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+      const alt = alternatives[i];
+      result = await this.click(alt.selector, { force: options.force });
+
+      attempts.push({
+        attempt: i + 2,
+        selector: alt.selector,
+        success: result.success,
+        error: result.success ? undefined : result.message,
+        alternativeUsed: alt.reason,
+        screenshot: result.screenshot,
+      });
+
+      if (result.success) {
+        // Cache the working alternative for future use
+        this.cacheAlternativeSelector(selector, alt.selector);
+
+        return {
+          success: true,
+          attempts,
+          finalSelector: alt.selector,
+          message: `Clicked using alternative: ${alt.reason}`,
+          screenshot: result.screenshot,
+        };
+      }
+    }
+
+    // All attempts failed - provide AI suggestion
+    const aiSuggestion = await this.analyzeFailure(selector, attempts);
+
+    return {
+      success: false,
+      attempts,
+      message: `Failed after ${attempts.length} attempts`,
+      screenshot: result.screenshot,
+      aiSuggestion,
+    };
+  }
+
+  /**
+   * Find alternative selectors for an element.
+   */
+  private async findAlternativeSelectors(originalSelector: string): Promise<SelectorAlternative[]> {
+    const page = await this.getPage();
+    const alternatives: SelectorAlternative[] = [];
+
+    try {
+      // Try to find elements with similar text
+      const elements = await page.$$('button, a, [role="button"], input[type="submit"]');
+
+      for (const el of elements.slice(0, 10)) {
+        const text = await el.textContent().catch(() => "");
+        const ariaLabel = await el.getAttribute("aria-label").catch(() => "");
+        const title = await el.getAttribute("title").catch(() => "");
+        const id = await el.getAttribute("id").catch(() => "");
+        const className = await el.getAttribute("class").catch(() => "");
+
+        // Check if text matches original selector
+        if (text && originalSelector.toLowerCase().includes(text.toLowerCase().trim().substring(0, 20))) {
+          alternatives.push({
+            selector: `text="${text.trim()}"`,
+            confidence: 0.8,
+            reason: `Text match: "${text.trim()}"`,
+          });
+        }
+
+        // Check aria-label
+        if (ariaLabel && originalSelector.toLowerCase().includes(ariaLabel.toLowerCase().substring(0, 20))) {
+          alternatives.push({
+            selector: `[aria-label="${ariaLabel}"]`,
+            confidence: 0.9,
+            reason: `Aria-label: "${ariaLabel}"`,
+          });
+        }
+
+        // Check id
+        if (id && originalSelector.toLowerCase().includes(id.toLowerCase())) {
+          alternatives.push({
+            selector: `#${id}`,
+            confidence: 0.95,
+            reason: `ID match: #${id}`,
+          });
+        }
+      }
+
+      // Sort by confidence
+      alternatives.sort((a, b) => b.confidence - a.confidence);
+
+    } catch {
+      // Ignore errors in alternative finding
+    }
+
+    return alternatives.slice(0, 5);
+  }
+
+  /**
+   * Cache a working alternative selector for future use.
+   */
+  private selectorCache: Map<string, string> = new Map();
+
+  private cacheAlternativeSelector(original: string, working: string): void {
+    this.selectorCache.set(original.toLowerCase(), working);
+  }
+
+  /**
+   * Analyze a failure and provide AI-powered suggestions.
+   */
+  private async analyzeFailure(selector: string, attempts: RetryAttempt[]): Promise<string> {
+    const page = await this.getPage();
+
+    try {
+      // Get page context for suggestion
+      const buttons = await page.$$eval('button, a, [role="button"]', els =>
+        els.slice(0, 10).map(el => ({
+          text: el.textContent?.trim().substring(0, 50),
+          tag: el.tagName,
+        }))
+      );
+
+      const buttonList = buttons.map(b => `- ${b.tag}: "${b.text}"`).join("\n");
+
+      return `Element "${selector}" not found after ${attempts.length} attempts.\n\nAvailable clickable elements:\n${buttonList}\n\nTry using the exact text from one of these elements.`;
+    } catch {
+      return `Element "${selector}" not found. Check that the element exists and is visible.`;
+    }
+  }
+
+  // =========================================================================
+  // Tier 5: Assertions (v5.0.0)
+  // =========================================================================
+
+  /**
+   * Assert a condition using natural language.
+   */
+  async assert(assertion: string): Promise<AssertionResult> {
+    const page = await this.getPage();
+
+    try {
+      // Parse the assertion
+      const result = await this.evaluateAssertion(assertion);
+
+      this.audit("assert", assertion, "green", result.passed ? "success" : "failure");
+
+      return {
+        ...result,
+        screenshot: await this.screenshot(),
+      };
+    } catch (error) {
+      return {
+        passed: false,
+        assertion,
+        message: `Assertion error: ${error instanceof Error ? error.message : String(error)}`,
+        screenshot: await this.screenshot(),
+      };
+    }
+  }
+
+  /**
+   * Evaluate a natural language assertion.
+   */
+  private async evaluateAssertion(assertion: string): Promise<Omit<AssertionResult, "screenshot">> {
+    const page = await this.getPage();
+    const lowerAssertion = assertion.toLowerCase();
+
+    // Page title assertions
+    if (lowerAssertion.includes("title") && (lowerAssertion.includes("is") || lowerAssertion.includes("contains"))) {
+      const title = await page.title();
+      const match = assertion.match(/["']([^"']+)["']/);
+      const expected = match?.[1] || "";
+
+      if (lowerAssertion.includes("contains")) {
+        const passed = title.toLowerCase().includes(expected.toLowerCase());
+        return { passed, assertion, actual: title, expected, message: passed ? "Title contains expected text" : `Title "${title}" does not contain "${expected}"` };
+      } else {
+        const passed = title === expected;
+        return { passed, assertion, actual: title, expected, message: passed ? "Title matches" : `Title "${title}" does not match "${expected}"` };
+      }
+    }
+
+    // URL assertions
+    if (lowerAssertion.includes("url") && (lowerAssertion.includes("is") || lowerAssertion.includes("contains"))) {
+      const url = page.url();
+      const match = assertion.match(/["']([^"']+)["']/);
+      const expected = match?.[1] || "";
+
+      if (lowerAssertion.includes("contains")) {
+        const passed = url.includes(expected);
+        return { passed, assertion, actual: url, expected, message: passed ? "URL contains expected text" : `URL "${url}" does not contain "${expected}"` };
+      } else {
+        const passed = url === expected;
+        return { passed, assertion, actual: url, expected, message: passed ? "URL matches" : `URL "${url}" does not match "${expected}"` };
+      }
+    }
+
+    // Text presence assertions
+    if (lowerAssertion.includes("page") && (lowerAssertion.includes("contains") || lowerAssertion.includes("has") || lowerAssertion.includes("shows"))) {
+      const match = assertion.match(/["']([^"']+)["']/);
+      const expected = match?.[1] || "";
+      const content = await page.textContent("body") || "";
+      const passed = content.toLowerCase().includes(expected.toLowerCase());
+
+      return { passed, assertion, expected, message: passed ? `Page contains "${expected}"` : `Page does not contain "${expected}"` };
+    }
+
+    // Element existence assertions
+    if (lowerAssertion.includes("exists") || lowerAssertion.includes("visible") || lowerAssertion.includes("present")) {
+      const match = assertion.match(/["']([^"']+)["']/);
+      const selector = match?.[1] || "";
+      const element = await this.findElement(selector);
+      const passed = element !== null;
+
+      return { passed, assertion, expected: selector, message: passed ? `Element "${selector}" exists` : `Element "${selector}" not found` };
+    }
+
+    // Element count assertions
+    const countMatch = lowerAssertion.match(/(\d+)\s+(items?|elements?|buttons?|links?|rows?)/);
+    if (countMatch) {
+      const expectedCount = parseInt(countMatch[1]);
+      const elementType = countMatch[2];
+
+      let selectorForType: string;
+      switch (elementType.replace(/s$/, "")) {
+        case "button": selectorForType = "button, [role='button']"; break;
+        case "link": selectorForType = "a"; break;
+        case "row": selectorForType = "tr"; break;
+        case "item": selectorForType = "li"; break;
+        default: selectorForType = "*"; break;
+      }
+
+      const elements = await page.$$(selectorForType);
+      const actualCount = elements.length;
+      const passed = actualCount === expectedCount;
+
+      return { passed, assertion, actual: String(actualCount), expected: String(expectedCount), message: passed ? `Found ${expectedCount} ${elementType}` : `Expected ${expectedCount} ${elementType} but found ${actualCount}` };
+    }
+
+    // Default: treat as text search
+    const match = assertion.match(/["']([^"']+)["']/);
+    if (match) {
+      const expected = match[1];
+      const content = await page.textContent("body") || "";
+      const passed = content.toLowerCase().includes(expected.toLowerCase());
+
+      return { passed, assertion, expected, message: passed ? `Found "${expected}"` : `Did not find "${expected}"` };
+    }
+
+    return { passed: false, assertion, message: "Could not parse assertion. Use quotes around expected values." };
   }
 
   /**

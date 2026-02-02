@@ -15,6 +15,7 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | v2.5.0 | 2026-02-02 | Visual regression, test recorder, a11y, webhooks |
 | v3.0.0 | 2026-02-02 | Fluent API, natural language commands |
 | v4.0.0 | 2026-02-02 | Visual AI, bug hunter, cross-browser diff, chaos engineering |
+| v5.0.0 | 2026-02-02 | Smart retry, natural language assertions, self-healing selectors |
 
 ---
 
@@ -68,6 +69,19 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | Cross-Browser Diff | ✅ Complete | Compare behavior across browsers |
 | Chaos Engineering | ✅ Complete | Inject failures, test resilience |
 | Distributed Grid | ⬜ Future | Run across multiple machines |
+
+---
+
+## Tier 5: Smart Automation ✅ (v5.0.0)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Smart Retry | ✅ Complete | Auto-retry with alternative selectors on failure |
+| Natural Language Assertions | ✅ Complete | `assert "page contains 'Welcome'"` |
+| AI Failure Analysis | ✅ Complete | Suggestions when elements not found |
+| Self-Healing Selectors | 🔄 In Progress | Cache working alternatives for future use |
+| AI Test Generation | ⬜ Planned | Analyze page → generate test scenarios |
+| MCP Server Mode | ⬜ Planned | Run as MCP server for Claude integration |
 
 ---
 

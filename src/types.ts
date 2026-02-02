@@ -595,3 +595,58 @@ export interface WebhookConfig {
   events: Array<"test.pass" | "test.fail" | "journey.complete" | "visual.fail">;
   format: "slack" | "discord" | "generic";
 }
+
+// ============================================================================
+// Tier 5: Smart Retry & Assertions (v5.0.0)
+// ============================================================================
+
+export interface SmartRetryOptions {
+  /** Maximum number of retry attempts */
+  maxRetries?: number;
+  /** Delay between retries in ms */
+  retryDelay?: number;
+  /** Use AI to analyze failures and suggest fixes */
+  aiAnalysis?: boolean;
+  /** Try alternative selectors on failure */
+  tryAlternatives?: boolean;
+}
+
+export interface RetryAttempt {
+  attempt: number;
+  selector: string;
+  success: boolean;
+  error?: string;
+  alternativeUsed?: string;
+  screenshot?: string;
+}
+
+export interface SmartRetryResult {
+  success: boolean;
+  attempts: RetryAttempt[];
+  finalSelector?: string;
+  message: string;
+  screenshot: string;
+  aiSuggestion?: string;
+}
+
+export interface AssertionResult {
+  passed: boolean;
+  assertion: string;
+  actual?: string;
+  expected?: string;
+  message: string;
+  screenshot: string;
+}
+
+export interface SelectorAlternative {
+  selector: string;
+  confidence: number;
+  reason: string;
+}
+
+export interface SelfHealingResult {
+  originalSelector: string;
+  workingSelector?: string;
+  alternatives: SelectorAlternative[];
+  healed: boolean;
+}
