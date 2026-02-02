@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, type NLTestSuiteOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, type NLTestSuiteOptions, type RepairTestOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -22,8 +22,8 @@ import { startMcpServer } from "./mcp-server.js";
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v6.1.0                                ║
-║    AI-powered browser automation with natural language test suites           ║
+║                           CBrowser CLI v6.2.0                                ║
+║    AI-powered browser automation with automatic test repair                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -84,6 +84,17 @@ NATURAL LANGUAGE TEST SUITES (v6.1.0)
       type "test query" in search box
       click search button
       verify page contains "results"
+
+AI TEST REPAIR (v6.2.0)
+  repair-tests <file.txt>      Analyze failing tests and suggest/apply repairs
+    --auto-apply               Automatically apply the best repair
+    --verify                   Re-run tests after repair to verify they pass
+    --output <file>            Save repaired tests to new file
+    --json <file>              Save repair report as JSON
+    Examples:
+      cbrowser repair-tests broken-test.txt
+      cbrowser repair-tests tests.txt --auto-apply --verify
+      cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt
 
 PERSONAS
   persona list                List all personas (built-in + custom)
@@ -2618,6 +2629,84 @@ async function main(): Promise<void> {
 
         // Exit with error code if any tests failed
         if (result.summary.failed > 0) {
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // AI Test Repair (Tier 6 - v6.2.0)
+      // =========================================================================
+
+      case "repair-tests": {
+        const filepath = args[0];
+
+        if (!filepath) {
+          console.error("Usage: cbrowser repair-tests <test-file.txt> [--auto-apply] [--verify] [--output <file>]");
+          console.error("");
+          console.error("Options:");
+          console.error("  --auto-apply    Automatically apply the best repair suggestion");
+          console.error("  --verify        Re-run repaired tests to verify they pass");
+          console.error("  --output <file> Save repaired tests to a new file");
+          console.error("  --json <file>   Save repair report as JSON");
+          console.error("");
+          console.error("Examples:");
+          console.error("  cbrowser repair-tests broken-test.txt");
+          console.error("  cbrowser repair-tests tests.txt --auto-apply --verify");
+          console.error("  cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt");
+          process.exit(1);
+        }
+
+        const fs = await import("fs");
+        if (!fs.existsSync(filepath)) {
+          console.error(`Test file not found: ${filepath}`);
+          process.exit(1);
+        }
+
+        const content = fs.readFileSync(filepath, "utf-8");
+        const suiteName = filepath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Test Suite";
+        const suite = parseNLTestSuite(content, suiteName);
+
+        console.log(`\n📝 Parsed ${suite.tests.length} test(s) from ${filepath}`);
+        for (const test of suite.tests) {
+          console.log(`   - ${test.name}: ${test.steps.length} steps`);
+        }
+
+        const repairOptions: RepairTestOptions = {
+          headless,
+          autoApply: options["auto-apply"] === true,
+          verifyRepairs: options.verify === true,
+          maxRetries: options.retries ? parseInt(options.retries as string) : 3,
+        };
+
+        const result = await repairTestSuite(suite, repairOptions);
+
+        // Print formatted report
+        const report = formatRepairReport(result);
+        console.log(report);
+
+        // Save JSON report if requested
+        if (options.json) {
+          fs.writeFileSync(options.json as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.json}`);
+        }
+
+        // Save repaired tests if requested
+        if (options.output && repairOptions.autoApply) {
+          const repairedContent: string[] = [];
+
+          for (const testResult of result.testResults) {
+            repairedContent.push(exportRepairedTest(testResult));
+            repairedContent.push("");
+          }
+
+          fs.writeFileSync(options.output as string, repairedContent.join("\n"));
+          console.log(`\n📝 Repaired tests saved: ${options.output}`);
+        }
+
+        // Exit with status based on whether repairs were needed
+        if (result.summary.testsWithFailures > 0 && !repairOptions.autoApply) {
+          console.log("\n💡 Run with --auto-apply to automatically fix issues");
           process.exit(1);
         }
         break;

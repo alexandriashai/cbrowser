@@ -101,6 +101,71 @@ npx cbrowser compare-personas --start "..." --goal "..." --html
 - "Mobile users experience 2x more friction - review mobile UX"
 - "Common friction: 'Button too small for touch', 'Form validation unclear'"
 
+## v6.2.0 Features
+
+### AI Test Repair
+
+Automatically analyze failing tests and suggest or apply repairs:
+
+```bash
+# Analyze a broken test and see repair suggestions
+npx cbrowser repair-tests broken-test.txt
+
+# Automatically apply the best repairs
+npx cbrowser repair-tests tests.txt --auto-apply
+
+# Apply repairs and verify they work
+npx cbrowser repair-tests tests.txt --auto-apply --verify
+
+# Save repaired tests to a new file
+npx cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt
+```
+
+**What it analyzes:**
+
+| Failure Type | Detection | Repair Strategy |
+|--------------|-----------|-----------------|
+| `selector_not_found` | Element doesn't exist | Find alternative selectors on page |
+| `assertion_failed` | Verify statement false | Suggest updated assertions based on page content |
+| `timeout` | Step took too long | Add wait statements |
+| `element_not_interactable` | Element hidden/disabled | Add scroll/wait before interaction |
+
+**Example output:**
+
+```
+🔧 Analyzing test: Login Flow
+
+   → click the signin button
+     ✗ Failed: Failed to click: signin button
+     💡 Suggestions:
+        - Update selector to "Login" (70%)
+          → click "Login"
+        - Add wait before this step (50%)
+          → wait 2 seconds
+
+📊 SUMMARY
+  Total Failed Steps: 1
+  Repair Success Rate: 100%
+```
+
+**API usage:**
+
+```typescript
+import { repairTestSuite, formatRepairReport, exportRepairedTest } from 'cbrowser';
+
+const result = await repairTestSuite(suite, {
+  autoApply: true,
+  verifyRepairs: true,
+});
+
+console.log(formatRepairReport(result));
+
+// Export repaired test to file format
+for (const testResult of result.testResults) {
+  console.log(exportRepairedTest(testResult));
+}
+```
+
 ## v6.1.0 Features
 
 ### Natural Language Test Suites

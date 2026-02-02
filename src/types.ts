@@ -243,6 +243,94 @@ export interface NLTestSuiteResult {
 }
 
 // ============================================================================
+// Tier 6: AI Test Repair (v6.2.0)
+// ============================================================================
+
+/** Type of failure that was detected */
+export type FailureType =
+  | "selector_not_found"
+  | "assertion_failed"
+  | "timeout"
+  | "navigation_failed"
+  | "element_not_interactable"
+  | "unknown";
+
+/** A suggested repair for a failed test step */
+export interface RepairSuggestion {
+  /** Type of repair */
+  type: "selector_update" | "assertion_update" | "add_wait" | "change_action" | "skip_step";
+  /** Confidence score 0-1 */
+  confidence: number;
+  /** Human-readable description of the fix */
+  description: string;
+  /** The original instruction */
+  originalInstruction: string;
+  /** The suggested replacement instruction */
+  suggestedInstruction: string;
+  /** Reasoning for this suggestion */
+  reasoning: string;
+}
+
+/** Analysis of a single test failure */
+export interface FailureAnalysis {
+  /** The step that failed */
+  step: NLTestStep;
+  /** Error message from the failure */
+  error: string;
+  /** Type of failure detected */
+  failureType: FailureType;
+  /** What element was being targeted */
+  targetSelector?: string;
+  /** Alternative selectors found on the page */
+  alternativeSelectors?: string[];
+  /** Page context at time of failure */
+  pageContext?: {
+    url: string;
+    title: string;
+    visibleText: string[];
+  };
+  /** Suggested repairs */
+  suggestions: RepairSuggestion[];
+}
+
+/** Result of running test repair on a test case */
+export interface TestRepairResult {
+  /** Original test case */
+  originalTest: NLTestCase;
+  /** Repaired test case (if repairs were applied) */
+  repairedTest?: NLTestCase;
+  /** Number of steps that failed */
+  failedSteps: number;
+  /** Number of steps that were repaired */
+  repairedSteps: number;
+  /** Detailed analysis of each failure */
+  failureAnalyses: FailureAnalysis[];
+  /** Whether the repaired test passes */
+  repairedTestPasses?: boolean;
+}
+
+/** Result of running test repair on a full suite */
+export interface TestRepairSuiteResult {
+  /** Suite name */
+  suiteName: string;
+  /** Timestamp */
+  timestamp: string;
+  /** Total duration */
+  duration: number;
+  /** Results per test */
+  testResults: TestRepairResult[];
+  /** Summary */
+  summary: {
+    totalTests: number;
+    testsWithFailures: number;
+    testsRepaired: number;
+    totalFailedSteps: number;
+    totalRepairedSteps: number;
+    repairSuccessRate: number;
+  };
+}
+
+// ============================================================================
 // Audit Types
 // ============================================================================
 
