@@ -5,7 +5,19 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import { CBrowser } from "./browser.js";
+
+// Analysis module imports
+import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent } from "./analysis/index.js";
+
+// Testing module imports
+import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
+
+// Performance module imports
+import { capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./performance/index.js";
+
+// Visual module imports
+import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff, type BrowserDiffResult } from "./visual/index.js";
 import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABComparisonResult, ABSuite, ABSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
@@ -23,7 +35,7 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.3.0                                ║
+║                           CBrowser CLI v7.4.0                                ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 

@@ -1,11 +1,38 @@
 {
   "name": "cbrowser",
-  "version": "7.3.0",
-  "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites.",
+  "version": "7.4.0",
+  "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites. Modular architecture for visual, testing, analysis, and performance modules.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "cbrowser": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./visual": {
+      "types": "./dist/visual/index.d.ts",
+      "import": "./dist/visual/index.js",
+      "require": "./dist/visual/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js",
+      "require": "./dist/testing/index.js"
+    },
+    "./analysis": {
+      "types": "./dist/analysis/index.d.ts",
+      "import": "./dist/analysis/index.js",
+      "require": "./dist/analysis/index.js"
+    },
+    "./performance": {
+      "types": "./dist/performance/index.d.ts",
+      "import": "./dist/performance/index.js",
+      "require": "./dist/performance/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -38,7 +65,9 @@
     "ai-visual-regression",
     "visual-testing",
     "screenshot-comparison",
-    "cross-browser-testing"
+    "cross-browser-testing",
+    "modular-architecture",
+    "performance-testing"
   ],
   "author": "WF Media",
   "license": "MIT",
