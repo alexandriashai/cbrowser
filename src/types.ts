@@ -1457,3 +1457,155 @@ export interface CrossBrowserSuiteResult {
   /** Timestamp */
   timestamp: string;
 }
+
+// ============================================================================
+// Responsive Visual Testing Types (v7.2.0)
+// ============================================================================
+
+/** Preset viewport configurations */
+export interface ViewportPreset {
+  /** Preset name (e.g., "mobile", "tablet", "desktop") */
+  name: string;
+  /** Viewport width */
+  width: number;
+  /** Viewport height */
+  height: number;
+  /** Device type for categorization */
+  deviceType: "mobile" | "tablet" | "desktop";
+  /** Optional device name (e.g., "iPhone 14", "iPad Pro") */
+  deviceName?: string;
+  /** Pixel ratio for high-DPI screens */
+  deviceScaleFactor?: number;
+  /** Whether to emulate touch */
+  hasTouch?: boolean;
+  /** Whether to emulate mobile mode */
+  isMobile?: boolean;
+}
+
+/** Built-in viewport presets */
+export const VIEWPORT_PRESETS: ViewportPreset[] = [
+  // Mobile devices
+  { name: "mobile-sm", width: 320, height: 568, deviceType: "mobile", deviceName: "iPhone SE", hasTouch: true, isMobile: true },
+  { name: "mobile", width: 375, height: 667, deviceType: "mobile", deviceName: "iPhone 8", hasTouch: true, isMobile: true },
+  { name: "mobile-lg", width: 414, height: 896, deviceType: "mobile", deviceName: "iPhone 11 Pro Max", hasTouch: true, isMobile: true },
+  { name: "mobile-xl", width: 428, height: 926, deviceType: "mobile", deviceName: "iPhone 14 Pro Max", hasTouch: true, isMobile: true },
+  // Tablet devices
+  { name: "tablet", width: 768, height: 1024, deviceType: "tablet", deviceName: "iPad", hasTouch: true, isMobile: true },
+  { name: "tablet-lg", width: 1024, height: 1366, deviceType: "tablet", deviceName: "iPad Pro 12.9", hasTouch: true, isMobile: true },
+  // Desktop sizes
+  { name: "desktop-sm", width: 1280, height: 800, deviceType: "desktop", deviceName: "Laptop" },
+  { name: "desktop", width: 1440, height: 900, deviceType: "desktop", deviceName: "Desktop" },
+  { name: "desktop-lg", width: 1920, height: 1080, deviceType: "desktop", deviceName: "Full HD" },
+  { name: "desktop-xl", width: 2560, height: 1440, deviceType: "desktop", deviceName: "QHD" },
+];
+
+/** Screenshot captured at a specific viewport */
+export interface ResponsiveScreenshot {
+  /** Viewport preset used */
+  viewport: ViewportPreset;
+  /** Path to screenshot file */
+  screenshotPath: string;
+  /** Timestamp of capture */
+  timestamp: string;
+  /** Time to capture (ms) */
+  captureTime: number;
+}
+
+/** Comparison between two viewport sizes */
+export interface ResponsiveComparison {
+  /** Smaller viewport */
+  viewportA: ViewportPreset;
+  /** Larger viewport */
+  viewportB: ViewportPreset;
+  /** AI analysis of differences */
+  analysis: AIVisualAnalysis;
+  /** Screenshot paths */
+  screenshots: {
+    a: string;
+    b: string;
+  };
+}
+
+/** Issues detected in responsive testing */
+export interface ResponsiveIssue {
+  /** Issue type */
+  type: "layout_break" | "overflow" | "truncation" | "overlap" | "hidden_content" | "unreadable_text" | "touch_target" | "other";
+  /** Severity */
+  severity: "critical" | "major" | "minor";
+  /** Description */
+  description: string;
+  /** Affected viewports */
+  affectedViewports: string[];
+  /** Breakpoint where issue occurs (if applicable) */
+  breakpointRange?: { min: number; max: number };
+}
+
+/** Result of responsive visual test */
+export interface ResponsiveTestResult {
+  /** URL tested */
+  url: string;
+  /** Screenshots from each viewport */
+  screenshots: ResponsiveScreenshot[];
+  /** Pairwise comparisons between viewports */
+  comparisons: ResponsiveComparison[];
+  /** Detected responsive issues */
+  issues: ResponsiveIssue[];
+  /** Overall status */
+  overallStatus: "responsive" | "minor_issues" | "major_issues";
+  /** Summary of findings */
+  summary: string;
+  /** Viewports with issues */
+  problematicViewports: string[];
+  /** Total duration */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
+}
+
+/** Options for responsive testing */
+export interface ResponsiveTestOptions {
+  /** Viewport presets to test (default: mobile, tablet, desktop) */
+  viewports?: (string | ViewportPreset)[];
+  /** Wait before screenshot (ms) */
+  waitBeforeCapture?: number;
+  /** Wait for selector before capture */
+  waitForSelector?: string;
+  /** Sensitivity for comparison */
+  sensitivity?: "low" | "medium" | "high";
+  /** Generate HTML report */
+  generateReport?: boolean;
+  /** Check specific breakpoints */
+  breakpoints?: number[];
+}
+
+/** Suite definition for testing multiple URLs */
+export interface ResponsiveSuite {
+  /** Suite name */
+  name: string;
+  /** URLs to test */
+  urls: string[];
+  /** Default options */
+  options?: ResponsiveTestOptions;
+}
+
+/** Result of running a responsive test suite */
+export interface ResponsiveSuiteResult {
+  /** Suite info */
+  suite: ResponsiveSuite;
+  /** Results per URL */
+  results: ResponsiveTestResult[];
+  /** Summary */
+  summary: {
+    total: number;
+    responsive: number;
+    minorIssues: number;
+    majorIssues: number;
+    totalIssues: number;
+  };
+  /** Common issues across pages */
+  commonIssues: ResponsiveIssue[];
+  /** Duration */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
+}

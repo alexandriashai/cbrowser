@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -23,7 +23,7 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.1.1                                ║
+║                           CBrowser CLI v7.2.0                                ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -241,7 +241,7 @@ AI VISUAL REGRESSION (v7.0.0)
   ai-visual show <name>       Show baseline details
   ai-visual delete <name>     Delete a baseline
 
-CROSS-BROWSER VISUAL TESTING (v7.1.1)
+CROSS-BROWSER VISUAL TESTING (v7.2.0)
   cross-browser <url>         Compare visual rendering across browsers
     --browsers <list>         Browsers to test: chromium,firefox,webkit (default: all)
     --width <n>               Viewport width (default: 1920)
@@ -266,6 +266,38 @@ CROSS-BROWSER VISUAL TESTING (v7.1.1)
       "urls": ["https://example.com", "https://example.com/about"],
       "options": { "browsers": ["chromium", "firefox"] }
     }
+
+RESPONSIVE VISUAL TESTING (v7.2.0)
+  responsive <url>            Test visual rendering across viewport sizes
+    --viewports <list>        Viewports to test (default: mobile,tablet,desktop)
+    --wait <ms>               Wait before screenshot (ms)
+    --wait-for <selector>     Wait for selector before screenshot
+    --sensitivity <level>     Comparison sensitivity: low, medium, high
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+    Examples:
+      cbrowser responsive "https://example.com"
+      cbrowser responsive "https://example.com" --viewports mobile,tablet,desktop-lg
+      cbrowser responsive "https://example.com" --html --output report.html
+
+  responsive suite <file.json>  Run responsive test suite
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+
+  responsive viewports        List available viewport presets
+
+    Suite file format:
+    {
+      "name": "My Site Responsive",
+      "urls": ["https://example.com", "https://example.com/about"],
+      "options": { "viewports": ["mobile", "tablet", "desktop"] }
+    }
+
+    Available viewport presets:
+      mobile-sm (320x568)     mobile (375x667)      mobile-lg (414x896)
+      mobile-xl (428x926)     tablet (768x1024)     tablet-lg (1024x1366)
+      desktop-sm (1280x800)   desktop (1440x900)    desktop-lg (1920x1080)
+      desktop-xl (2560x1440)
 
 ACCESSIBILITY (v2.5.0)
   a11y audit                  Run WCAG accessibility audit
@@ -2307,7 +2339,7 @@ async function main(): Promise<void> {
       }
 
       // =========================================================================
-      // Cross-Browser Visual Testing (v7.1.1)
+      // Cross-Browser Visual Testing (v7.2.0)
       // =========================================================================
 
       case "cross-browser": {
@@ -2417,6 +2449,149 @@ async function main(): Promise<void> {
           }
 
           if (result.overallStatus === "major_differences") {
+            process.exit(1);
+          }
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Responsive Visual Testing (v7.2.0)
+      // =========================================================================
+
+      case "responsive": {
+        const subcommand = args[0];
+
+        if (subcommand === "viewports") {
+          // List viewport presets
+          const presets = listViewportPresets();
+          console.log("\n📱 Available Viewport Presets\n");
+          console.log("─".repeat(60));
+
+          const byType: Record<string, ViewportPreset[]> = {
+            mobile: [],
+            tablet: [],
+            desktop: [],
+          };
+
+          for (const preset of presets) {
+            byType[preset.deviceType].push(preset);
+          }
+
+          for (const [type, typePresets] of Object.entries(byType)) {
+            console.log(`\n${type.toUpperCase()}:`);
+            for (const p of typePresets) {
+              const touch = p.hasTouch ? " (touch)" : "";
+              const device = p.deviceName ? ` - ${p.deviceName}` : "";
+              console.log(`   ${p.name.padEnd(15)} ${p.width}x${p.height}${touch}${device}`);
+            }
+          }
+          console.log("");
+        } else if (subcommand === "suite") {
+          // Responsive suite
+          const suiteFile = args[1];
+          if (!suiteFile) {
+            console.error("Usage: cbrowser responsive suite <file.json> [options]");
+            console.error("  --html              Generate HTML report");
+            console.error("  --output <file>     Save report to file");
+            process.exit(1);
+          }
+
+          const fs = await import("fs");
+          if (!fs.existsSync(suiteFile)) {
+            console.error(`Suite file not found: ${suiteFile}`);
+            process.exit(1);
+          }
+
+          const suite: ResponsiveSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
+          const result = await runResponsiveSuite(suite);
+
+          // Save outputs
+          if (options.output && !options.html) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved to: ${options.output}`);
+          }
+
+          if (options.html) {
+            const htmlReport = generateResponsiveHtmlReport(result);
+            const outputPath = (options.output as string) || `responsive-${Date.now()}.html`;
+            fs.writeFileSync(outputPath, htmlReport);
+            console.log(`\n📄 HTML report saved to: ${outputPath}`);
+          }
+
+          // Summary
+          console.log(`\n${"═".repeat(60)}`);
+          console.log(`   Results: ${result.summary.responsive} responsive, ${result.summary.minorIssues} minor, ${result.summary.majorIssues} major`);
+          console.log(`   Total issues: ${result.summary.totalIssues}`);
+          console.log(`${"═".repeat(60)}\n`);
+
+          if (result.summary.majorIssues > 0) {
+            process.exit(1);
+          }
+        } else {
+          // Single URL test
+          const url = subcommand; // First arg is the URL
+          if (!url || url.startsWith("--")) {
+            console.error("Usage: cbrowser responsive <url> [options]");
+            console.error("       cbrowser responsive suite <file.json>");
+            console.error("       cbrowser responsive viewports");
+            console.error("\nOptions:");
+            console.error("  --viewports <list>  mobile,tablet,desktop (default: mobile,tablet,desktop)");
+            console.error("  --wait <ms>         Wait before screenshot");
+            console.error("  --wait-for <sel>    Wait for selector");
+            console.error("  --sensitivity <l>   low, medium, high");
+            console.error("  --html              Generate HTML report");
+            console.error("  --output <file>     Save report");
+            console.error("\nViewport presets: mobile-sm, mobile, mobile-lg, mobile-xl,");
+            console.error("                  tablet, tablet-lg, desktop-sm, desktop,");
+            console.error("                  desktop-lg, desktop-xl");
+            process.exit(1);
+          }
+
+          const viewports = options.viewports
+            ? (options.viewports as string).split(",")
+            : undefined;
+
+          const result = await runResponsiveTest(url, {
+            viewports,
+            waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
+            waitForSelector: options["wait-for"] as string | undefined,
+            sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
+          });
+
+          // Print report
+          console.log("\n" + formatResponsiveReport(result));
+
+          // Save outputs
+          const fs = await import("fs");
+
+          if (options.output && !options.html) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved to: ${options.output}`);
+          }
+
+          if (options.html) {
+            const suiteResult: ResponsiveSuiteResult = {
+              suite: { name: "Single URL Test", urls: [url] },
+              results: [result],
+              summary: {
+                total: 1,
+                responsive: result.overallStatus === "responsive" ? 1 : 0,
+                minorIssues: result.overallStatus === "minor_issues" ? 1 : 0,
+                majorIssues: result.overallStatus === "major_issues" ? 1 : 0,
+                totalIssues: result.issues.length,
+              },
+              commonIssues: result.issues,
+              duration: result.duration,
+              timestamp: result.timestamp,
+            };
+            const htmlReport = generateResponsiveHtmlReport(suiteResult);
+            const outputPath = (options.output as string) || `responsive-${Date.now()}.html`;
+            fs.writeFileSync(outputPath, htmlReport);
+            console.log(`\n📄 HTML report saved to: ${outputPath}`);
+          }
+
+          if (result.overallStatus === "major_issues") {
             process.exit(1);
           }
         }
