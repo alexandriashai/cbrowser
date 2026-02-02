@@ -9,9 +9,13 @@ import { existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
+export type BrowserType = "chromium" | "firefox" | "webkit";
+
 export interface CBrowserConfig {
   /** Base directory for all CBrowser data. Default: ~/.cbrowser/ */
   dataDir: string;
+  /** Browser engine to use. Default: chromium */
+  browser: BrowserType;
   /** Run browser in headless mode. Default: false */
   headless: boolean;
   /** Browser viewport width. Default: 1280 */
@@ -34,11 +38,25 @@ export function getDataDir(): string {
 /**
  * Get default configuration, merging with environment variables.
  */
+/**
+ * Validate and return browser type from string.
+ */
+function parseBrowserType(value: string | undefined): BrowserType {
+  if (value === "firefox" || value === "webkit") {
+    return value;
+  }
+  return "chromium"; // default
+}
+
+/**
+ * Get default configuration, merging with environment variables.
+ */
 export function getDefaultConfig(): CBrowserConfig {
   const dataDir = getDataDir();
 
   return {
     dataDir,
+    browser: parseBrowserType(process.env.CBROWSER_BROWSER),
     headless: process.env.CBROWSER_HEADLESS === "true",
     viewportWidth: parseInt(process.env.CBROWSER_VIEWPORT_WIDTH || "1280", 10),
     viewportHeight: parseInt(process.env.CBROWSER_VIEWPORT_HEIGHT || "800", 10),

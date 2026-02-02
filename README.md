@@ -36,7 +36,33 @@ yarn add cbrowser
 ### Install Playwright Browsers
 
 ```bash
+# Install Chromium (default)
 npx playwright install chromium
+
+# Or install all browsers for cross-browser testing
+npx playwright install
+```
+
+### Multi-Browser Support
+
+CBrowser supports all Playwright browsers:
+
+| Browser | Engine | Use Case |
+|---------|--------|----------|
+| `chromium` | Chromium | Default, most compatible |
+| `firefox` | Firefox | Gecko engine testing |
+| `webkit` | WebKit | Safari-like testing |
+
+```bash
+# Use Firefox
+npx cbrowser navigate "https://example.com" --browser firefox
+
+# Use WebKit (Safari)
+npx cbrowser navigate "https://example.com" --browser webkit
+
+# Set default via environment variable
+export CBROWSER_BROWSER=firefox
+npx cbrowser navigate "https://example.com"
 ```
 
 ### Basic Usage

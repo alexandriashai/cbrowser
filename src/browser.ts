@@ -4,7 +4,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, type Browser, type Page, type BrowserContext } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
 
@@ -49,7 +49,14 @@ export class CBrowser {
   async launch(): Promise<void> {
     if (this.browser) return;
 
-    this.browser = await chromium.launch({
+    // Select browser engine based on config
+    const browserType = this.config.browser === "firefox"
+      ? firefox
+      : this.config.browser === "webkit"
+        ? webkit
+        : chromium;
+
+    this.browser = await browserType.launch({
       headless: this.config.headless,
     });
 

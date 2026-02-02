@@ -11,8 +11,8 @@ import { BUILTIN_PERSONAS } from "./personas.js";
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v2.2.0                                ║
-║               AI-powered browser automation with safety                      ║
+║                           CBrowser CLI v2.3.0                                ║
+║         AI-powered browser automation with multi-browser support             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -50,11 +50,13 @@ STORAGE & CLEANUP
     --keep-journeys <n>       Keep at least N journeys (default: 5)
 
 OPTIONS
+  --browser <type>            Browser engine: chromium, firefox, webkit (default: chromium)
   --force                     Bypass red zone safety checks
   --headless                  Run browser in headless mode
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
+  CBROWSER_BROWSER            Browser engine (chromium/firefox/webkit)
   CBROWSER_HEADLESS           Run headless by default (true/false)
   CBROWSER_TIMEOUT            Default timeout in ms (default: 30000)
 
@@ -106,7 +108,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  // Parse browser type
+  const browserType = options.browser === "firefox" ? "firefox"
+    : options.browser === "webkit" ? "webkit"
+    : "chromium";
+
   const browser = new CBrowser({
+    browser: browserType,
     headless: options.headless === true || options.headless === "true",
   });
 

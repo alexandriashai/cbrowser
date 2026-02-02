@@ -14,6 +14,6 @@
 
 export { CBrowser } from "./browser.js";
 export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./config.js";
-export type { CBrowserConfig, CBrowserPaths } from "./config.js";
+export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export * from "./types.js";
 export { BUILTIN_PERSONAS } from "./personas.js";
