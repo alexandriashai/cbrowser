@@ -16,6 +16,11 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | v3.0.0 | 2026-02-02 | Fluent API, natural language commands |
 | v4.0.0 | 2026-02-02 | Visual AI, bug hunter, cross-browser diff, chaos engineering |
 | v5.0.0 | 2026-02-02 | Smart retry, natural language assertions, self-healing selectors |
+| v6.0.0 | 2026-02-02 | Multi-persona comparison, natural language test suites |
+| v6.5.0 | 2026-02-02 | AI test repair, flaky detection, perf regression, coverage mapping |
+| v7.0.0 | 2026-02-02 | AI visual regression with semantic comparison |
+| v7.3.0 | 2026-02-02 | Cross-browser, responsive, A/B visual testing |
+| v7.4.6 | 2026-02-02 | Auth0 OAuth for claude.ai, modular architecture, 31 MCP tools |
 
 ---
 
@@ -82,6 +87,53 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | Self-Healing Selectors | ✅ Complete | Cache working alternatives for future use |
 | AI Test Generation | ✅ Complete | Analyze page → generate test scenarios |
 | MCP Server Mode | ✅ Complete | Run as MCP server for Claude integration |
+
+---
+
+## Tier 6: AI Testing Platform ✅ (v6.0.0 - v6.5.0)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Multi-Persona Comparison | ✅ Complete | Compare UX across power-user, first-timer, mobile, elderly personas |
+| Natural Language Test Suites | ✅ Complete | Write tests in plain English, execute via `npx cbrowser test-suite` |
+| AI Test Repair | ✅ Complete | Automatically fix broken tests with AI suggestions |
+| Flaky Test Detection | ✅ Complete | Identify unreliable tests with configurable runs/threshold |
+| Performance Regression Detection | ✅ Complete | Compare Core Web Vitals against baselines |
+| Test Coverage Mapping | ✅ Complete | Find untested pages, generate coverage gaps reports |
+
+---
+
+## Tier 7: Visual Testing Suite ✅ (v7.0.0 - v7.4.6)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| AI Visual Regression | ✅ Complete | Semantic screenshot comparison using AI (not pixel-diff) |
+| Cross-Browser Visual Testing | ✅ Complete | Compare rendering across Chrome, Firefox, Safari |
+| Responsive Visual Testing | ✅ Complete | Compare mobile, tablet, desktop viewports |
+| A/B Visual Comparison | ✅ Complete | Compare two URLs (staging vs production) |
+| Modular Architecture | ✅ Complete | Tree-shakeable imports (`cbrowser/visual`, `/testing`, `/analysis`, `/performance`) |
+| 31 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
+| Remote MCP Server | ✅ Complete | HTTP endpoint for claude.ai custom connectors |
+| Auth0 OAuth | ✅ Complete | OAuth 2.1 authentication for claude.ai integration |
+| Dual Authentication | ✅ Complete | OAuth + API keys simultaneously |
+| Token Caching | ✅ Complete | 30-minute cache to avoid rate limits |
+
+---
+
+## Tier 8: Enterprise & Monitoring (Future)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Distributed Testing Grid | ⬜ Planned | Run tests across multiple machines in parallel |
+| Real-Time Monitoring | ⬜ Planned | Continuous uptime monitoring with alerts |
+| AI Anomaly Detection | ⬜ Planned | Detect visual/behavioral anomalies automatically |
+| Multi-Environment Orchestration | ⬜ Planned | Coordinate tests across dev, staging, production |
+| Advanced Reporting Dashboard | ⬜ Planned | Web UI for test results, trends, analytics |
+| Team Collaboration | ⬜ Planned | Shared baselines, comments, approval workflows |
+| CI/CD Native Integration | ⬜ Planned | GitHub Actions, GitLab CI, Jenkins plugins |
+| Session Replay Import | ⬜ Planned | Import FullStory/Hotjar recordings as test cases |
+| Plugin System | ⬜ Planned | Extensible architecture for custom tools |
+| SaaS Platform | ⬜ Planned | Hosted CBrowser with managed infrastructure |
 
 ---
 
