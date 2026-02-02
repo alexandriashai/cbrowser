@@ -6,14 +6,22 @@
  */
 
 import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest } from "./browser.js";
-import { BUILTIN_PERSONAS } from "./personas.js";
+import {
+  BUILTIN_PERSONAS,
+  loadCustomPersonas,
+  saveCustomPersona,
+  deleteCustomPersona,
+  isBuiltinPersona,
+  generatePersonaFromDescription,
+  getPersonasDir,
+} from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
 
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v5.0.0                                ║
+║                           CBrowser CLI v5.3.0                                ║
 ║    AI-powered browser automation with smart retry & assertions               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -37,7 +45,17 @@ AUTONOMOUS JOURNEYS
     --record-video            Record journey as video
 
 PERSONAS
-  persona list                List available personas
+  persona list                List all personas (built-in + custom)
+  persona create "<desc>"     Create persona from natural language description
+    --name <name>             Persona name (default: generated from description)
+    Examples:
+      cbrowser persona create "impatient developer who hates slow UIs"
+      cbrowser persona create "elderly user new to computers" --name grandma
+      cbrowser persona create "distracted teen on mobile phone"
+  persona show <name>         Show detailed persona configuration
+  persona delete <name>       Delete a custom persona
+  persona export <name>       Export persona to JSON file
+  persona import <file>       Import persona from JSON file
 
 SESSION MANAGEMENT
   session save <name>         Save browser session (cookies, storage, URL)
@@ -731,16 +749,234 @@ async function main(): Promise<void> {
 
       case "persona": {
         const subcommand = args[0];
-        if (subcommand === "list") {
-          console.log("\n📋 Available Personas:\n");
-          for (const [name, persona] of Object.entries(BUILTIN_PERSONAS)) {
-            console.log(`  ${name}`);
-            console.log(`    ${persona.description}`);
-            console.log(`    Tech level: ${persona.demographics.tech_level}`);
-            console.log("");
+
+        switch (subcommand) {
+          case "list": {
+            console.log("\n📋 Available Personas:\n");
+
+            // Built-in personas
+            console.log("  Built-in:");
+            for (const [name, persona] of Object.entries(BUILTIN_PERSONAS)) {
+              console.log(`    ${name}`);
+              console.log(`      ${persona.description}`);
+              console.log(`      Tech: ${persona.demographics.tech_level} | Device: ${persona.demographics.device}`);
+              console.log("");
+            }
+
+            // Custom personas
+            const customPersonas = loadCustomPersonas();
+            const customNames = Object.keys(customPersonas);
+            if (customNames.length > 0) {
+              console.log("  Custom:");
+              for (const [name, persona] of Object.entries(customPersonas)) {
+                console.log(`    ${name}`);
+                console.log(`      ${persona.description}`);
+                console.log(`      Tech: ${persona.demographics.tech_level} | Device: ${persona.demographics.device}`);
+                console.log("");
+              }
+            }
+            break;
           }
-        } else {
-          console.error("Usage: cbrowser persona list");
+
+          case "create": {
+            const description = args.slice(1).join(" ");
+            if (!description) {
+              console.error("Usage: cbrowser persona create \"<description>\" [--name <name>]");
+              console.error("\nExamples:");
+              console.error("  cbrowser persona create \"impatient developer who hates slow UIs\"");
+              console.error("  cbrowser persona create \"elderly user new to computers\" --name grandma");
+              console.error("  cbrowser persona create \"distracted teen on their phone\"");
+              process.exit(1);
+            }
+
+            // Generate name from description if not provided
+            let personaName = options.name as string;
+            if (!personaName) {
+              // Create a slug from first few words
+              personaName = description
+                .toLowerCase()
+                .replace(/[^a-z0-9\s]/g, "")
+                .split(/\s+/)
+                .slice(0, 3)
+                .join("-");
+            }
+
+            // Check if trying to overwrite built-in
+            if (isBuiltinPersona(personaName)) {
+              console.error(`Error: Cannot overwrite built-in persona "${personaName}"`);
+              console.error("Use a different name with --name <name>");
+              process.exit(1);
+            }
+
+            console.log(`\n🤖 Generating persona from description...\n`);
+            console.log(`   "${description}"\n`);
+
+            const persona = generatePersonaFromDescription(personaName, description);
+
+            // Display the generated persona
+            console.log(`━━━ Generated Persona: ${persona.name} ━━━\n`);
+            console.log(`Description: ${persona.description}`);
+            console.log(`\nDemographics:`);
+            console.log(`  Age Range: ${persona.demographics.age_range}`);
+            console.log(`  Tech Level: ${persona.demographics.tech_level}`);
+            console.log(`  Device: ${persona.demographics.device}`);
+
+            console.log(`\nTiming:`);
+            console.log(`  Reaction Time: ${persona.humanBehavior?.timing.reactionTime.min}-${persona.humanBehavior?.timing.reactionTime.max}ms`);
+            console.log(`  Click Delay: ${persona.humanBehavior?.timing.clickDelay.min}-${persona.humanBehavior?.timing.clickDelay.max}ms`);
+            console.log(`  Type Speed: ${persona.humanBehavior?.timing.typeSpeed.min}-${persona.humanBehavior?.timing.typeSpeed.max}ms/char`);
+            console.log(`  Reading Speed: ${persona.humanBehavior?.timing.readingSpeed} wpm`);
+
+            console.log(`\nError Rates:`);
+            console.log(`  Misclick: ${((persona.humanBehavior?.errors.misClickRate || 0) * 100).toFixed(0)}%`);
+            console.log(`  Accidental Double-click: ${((persona.humanBehavior?.errors.doubleClickAccidental || 0) * 100).toFixed(0)}%`);
+            console.log(`  Typo: ${((persona.humanBehavior?.errors.typoRate || 0) * 100).toFixed(0)}%`);
+
+            console.log(`\nMouse Behavior:`);
+            console.log(`  Speed: ${persona.humanBehavior?.mouse.speed}`);
+            console.log(`  Curvature: ${persona.humanBehavior?.mouse.curvature}`);
+            console.log(`  Jitter: ${persona.humanBehavior?.mouse.jitter}px`);
+
+            console.log(`\nAttention:`);
+            console.log(`  Pattern: ${persona.humanBehavior?.attention.pattern}`);
+            console.log(`  Scroll: ${persona.humanBehavior?.attention.scrollBehavior}`);
+            console.log(`  Focus: ${persona.humanBehavior?.attention.focusAreas.join(", ")}`);
+            console.log(`  Distraction Rate: ${((persona.humanBehavior?.attention.distractionRate || 0) * 100).toFixed(0)}%`);
+
+            console.log(`\nViewport: ${persona.context?.viewport?.[0]}x${persona.context?.viewport?.[1]}`);
+
+            if (Object.keys(persona.behaviors).length > 0) {
+              console.log(`\nBehaviors: ${Object.keys(persona.behaviors).join(", ")}`);
+            }
+
+            // Save the persona
+            const filepath = saveCustomPersona(persona);
+            console.log(`\n✓ Persona saved: ${filepath}`);
+            console.log(`\nUse with: cbrowser journey ${personaName} --start <url> --goal "<goal>"`);
+            break;
+          }
+
+          case "show": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser persona show <name>");
+              process.exit(1);
+            }
+
+            // Check built-in first, then custom
+            let persona = BUILTIN_PERSONAS[name];
+            let isCustom = false;
+
+            if (!persona) {
+              const customPersonas = loadCustomPersonas();
+              persona = customPersonas[name];
+              isCustom = true;
+            }
+
+            if (!persona) {
+              console.error(`Persona not found: ${name}`);
+              console.error("Run 'cbrowser persona list' to see available personas");
+              process.exit(1);
+            }
+
+            console.log(`\n━━━ Persona: ${persona.name} ${isCustom ? "(custom)" : "(built-in)"} ━━━\n`);
+            console.log(JSON.stringify(persona, null, 2));
+            break;
+          }
+
+          case "delete": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser persona delete <name>");
+              process.exit(1);
+            }
+
+            if (isBuiltinPersona(name)) {
+              console.error(`Cannot delete built-in persona: ${name}`);
+              process.exit(1);
+            }
+
+            const deleted = deleteCustomPersona(name);
+            if (deleted) {
+              console.log(`✓ Persona deleted: ${name}`);
+            } else {
+              console.error(`Custom persona not found: ${name}`);
+              process.exit(1);
+            }
+            break;
+          }
+
+          case "export": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser persona export <name>");
+              process.exit(1);
+            }
+
+            // Get persona (built-in or custom)
+            let persona = BUILTIN_PERSONAS[name];
+            if (!persona) {
+              const customPersonas = loadCustomPersonas();
+              persona = customPersonas[name];
+            }
+
+            if (!persona) {
+              console.error(`Persona not found: ${name}`);
+              process.exit(1);
+            }
+
+            const fs = await import("fs");
+            const filename = `${name}.persona.json`;
+            fs.writeFileSync(filename, JSON.stringify(persona, null, 2));
+            console.log(`✓ Exported to: ${filename}`);
+            break;
+          }
+
+          case "import": {
+            const file = args[1];
+            if (!file) {
+              console.error("Usage: cbrowser persona import <file>");
+              process.exit(1);
+            }
+
+            const fs = await import("fs");
+            if (!fs.existsSync(file)) {
+              console.error(`File not found: ${file}`);
+              process.exit(1);
+            }
+
+            try {
+              const content = fs.readFileSync(file, "utf-8");
+              const persona = JSON.parse(content);
+
+              if (!persona.name || !persona.description) {
+                console.error("Invalid persona file: missing name or description");
+                process.exit(1);
+              }
+
+              if (isBuiltinPersona(persona.name)) {
+                console.error(`Cannot import: "${persona.name}" is a built-in persona name`);
+                console.error("Edit the JSON file to change the name");
+                process.exit(1);
+              }
+
+              const filepath = saveCustomPersona(persona);
+              console.log(`✓ Imported persona: ${persona.name}`);
+              console.log(`  Saved to: ${filepath}`);
+            } catch (e: any) {
+              console.error(`Failed to import: ${e.message}`);
+              process.exit(1);
+            }
+            break;
+          }
+
+          default:
+            console.error("Usage: cbrowser persona [list|create|show|delete|export|import]");
+            console.error("\nExamples:");
+            console.error("  cbrowser persona list");
+            console.error("  cbrowser persona create \"impatient developer\" --name dev-persona");
+            console.error("  cbrowser persona show power-user");
+            console.error("  cbrowser persona delete my-custom-persona");
         }
         break;
       }

@@ -291,6 +291,37 @@ cbrowser persona list
 | `elderly-user` | Vision/motor limitations |
 | `impatient-user` | Quick to abandon |
 
+**AI Persona Creation (v5.3.0):**
+
+Create custom personas from natural language descriptions:
+
+```bash
+# Describe the user - AI generates all parameters
+npx cbrowser persona create "impatient developer who hates slow UIs" --name speed-demon
+npx cbrowser persona create "elderly grandmother new to computers with tremors" --name grandma
+npx cbrowser persona create "distracted teenager on their phone"
+
+# List all personas (built-in + custom)
+npx cbrowser persona list
+
+# View full persona config
+npx cbrowser persona show speed-demon
+
+# Export/import for sharing
+npx cbrowser persona export speed-demon
+npx cbrowser persona import custom-persona.json
+
+# Delete custom persona
+npx cbrowser persona delete speed-demon
+```
+
+The AI analyzes your description and generates appropriate:
+- **Timing**: reaction times, click delays, typing speed
+- **Error rates**: misclicks, typos, accidental double-clicks
+- **Mouse behavior**: movement speed, jitter, overshoot
+- **Attention patterns**: reading style, scroll behavior, focus areas
+- **Viewport**: device-appropriate screen size
+
 ### Multi-Browser Support
 
 ```bash
