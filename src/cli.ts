@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -23,8 +23,8 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v6.4.0                                ║
-║    AI-powered browser automation with performance regression detection       ║
+║                           CBrowser CLI v6.5.0                                ║
+║    AI-powered browser automation with test coverage mapping                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -107,6 +107,26 @@ FLAKY TEST DETECTION (v6.3.0)
       cbrowser flaky-check tests.txt
       cbrowser flaky-check tests.txt --runs 10
       cbrowser flaky-check tests.txt --runs 5 --threshold 30 --output flaky-report.json
+
+TEST COVERAGE MAP (v6.5.0)
+  coverage <url>               Generate test coverage map for a site
+    --tests <glob>             Test files to analyze (default: tests/*.txt)
+    --sitemap <url>            Use sitemap.xml instead of crawling
+    --max-pages <n>            Max pages to crawl (default: 100)
+    --include <pattern>        Only include paths matching pattern
+    --exclude <pattern>        Exclude paths matching pattern
+    --min-coverage <n>         Min coverage % to not flag (default: 50)
+    --html                     Generate HTML report
+    --output <file>            Save JSON report to file
+    Examples:
+      cbrowser coverage "https://example.com" --tests "tests/*.txt"
+      cbrowser coverage "https://example.com" --sitemap "https://example.com/sitemap.xml"
+      cbrowser coverage "https://example.com" --html --output coverage.html
+      cbrowser coverage "https://example.com" --exclude "/admin" --min-coverage 70
+
+  coverage gaps <url>          Show only untested pages (quick analysis)
+    --tests <glob>             Test files to analyze
+    --sitemap <url>            Use sitemap.xml
 
 PERSONAS
   persona list                List all personas (built-in + custom)
@@ -3099,6 +3119,149 @@ async function main(): Promise<void> {
           }
         } catch (error: any) {
           console.error(`\n❌ Error: ${error.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Test Coverage Map (Tier 6 - v6.5.0)
+      // =========================================================================
+
+      case "coverage": {
+        const fs = await import("fs");
+        const path = await import("path");
+        const subcommand = args[0];
+
+        // Simple glob function for test files
+        function findTestFiles(pattern: string): string[] {
+          const files: string[] = [];
+          const parts = pattern.split("/");
+          const dir = parts.slice(0, -1).join("/") || ".";
+          const filePattern = parts[parts.length - 1];
+          const regex = new RegExp("^" + filePattern.replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
+
+          try {
+            const dirFiles = fs.readdirSync(dir);
+            for (const file of dirFiles) {
+              if (regex.test(file)) {
+                files.push(path.join(dir, file));
+              }
+            }
+          } catch {
+            // Directory doesn't exist
+          }
+          return files;
+        }
+
+        // Handle "coverage gaps" subcommand
+        if (subcommand === "gaps") {
+          const url = args[1];
+          if (!url) {
+            console.error("Usage: cbrowser coverage gaps <url> [--tests <glob>] [--sitemap <url>]");
+            process.exit(1);
+          }
+
+          console.log(`\n🔍 Finding untested pages for: ${url}`);
+
+          const testPattern = (options.tests as string) || "tests/*.txt";
+          const testFiles = findTestFiles(testPattern);
+
+          if (testFiles.length === 0) {
+            console.error(`No test files found matching: ${testPattern}`);
+            process.exit(1);
+          }
+
+          console.log(`   Analyzing ${testFiles.length} test file(s)...`);
+
+          const coverageOptions: CoverageMapOptions = {
+            sitemapUrl: options.sitemap as string | undefined,
+            maxPages: 50, // Quick mode
+            minCoverage: 50,
+          };
+
+          const result = await generateCoverageMap(url, testFiles, coverageOptions);
+
+          // Show only gaps
+          console.log(`\n🕳️  Coverage Gaps (${result.gaps.length} found):\n`);
+
+          const priorityEmoji: Record<string, string> = { critical: "🚨", high: "🔴", medium: "🟡", low: "🟢" };
+
+          for (const gap of result.gaps) {
+            const emoji = priorityEmoji[gap.priority];
+            console.log(`  ${emoji} ${gap.page.path}`);
+            console.log(`     Priority: ${gap.priority} | Reason: ${gap.reason}`);
+          }
+
+          console.log(`\n📊 Coverage: ${result.analysis.coveragePercent}% (${result.analysis.testedPages}/${result.analysis.totalPages} pages)`);
+          break;
+        }
+
+        // Main coverage command
+        const url = subcommand;
+        if (!url || url.startsWith("-")) {
+          console.error("Usage: cbrowser coverage <url> [--tests <glob>] [--sitemap <url>] [--html] [--output <file>]");
+          process.exit(1);
+        }
+
+        console.log(`\n📊 Generating test coverage map for: ${url}`);
+
+        const testPattern = (options.tests as string) || "tests/*.txt";
+        const testFiles = findTestFiles(testPattern);
+
+        if (testFiles.length === 0) {
+          console.error(`No test files found matching: ${testPattern}`);
+          console.error("Use --tests <glob> to specify test files");
+          process.exit(1);
+        }
+
+        console.log(`   Found ${testFiles.length} test file(s)`);
+        for (const f of testFiles.slice(0, 5)) {
+          console.log(`     - ${f}`);
+        }
+        if (testFiles.length > 5) {
+          console.log(`     ... and ${testFiles.length - 5} more`);
+        }
+
+        const coverageOptions: CoverageMapOptions = {
+          sitemapUrl: options.sitemap as string | undefined,
+          maxPages: options["max-pages"] ? parseInt(options["max-pages"] as string) : 100,
+          includePattern: options.include as string | undefined,
+          excludePattern: options.exclude as string | undefined,
+          minCoverage: options["min-coverage"] ? parseInt(options["min-coverage"] as string) : 50,
+        };
+
+        if (coverageOptions.sitemapUrl) {
+          console.log(`   Using sitemap: ${coverageOptions.sitemapUrl}`);
+        } else {
+          console.log(`   Crawling site (max ${coverageOptions.maxPages} pages)...`);
+        }
+
+        const result = await generateCoverageMap(url, testFiles, coverageOptions);
+
+        // Output format
+        if (options.html) {
+          const htmlReport = generateCoverageHtmlReport(result);
+          const outputPath = (options.output as string) || "coverage-report.html";
+          fs.writeFileSync(outputPath, htmlReport);
+          console.log(`\n✅ HTML report saved: ${outputPath}`);
+        } else if (options.output && (options.output as string).endsWith(".json")) {
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n✅ JSON report saved: ${options.output}`);
+        } else {
+          // Print text report
+          const report = formatCoverageReport(result);
+          console.log(report);
+
+          if (options.output) {
+            fs.writeFileSync(options.output as string, report);
+            console.log(`\n📄 Report saved: ${options.output}`);
+          }
+        }
+
+        // Exit with error if coverage too low
+        if (result.analysis.coveragePercent < (coverageOptions.minCoverage || 50)) {
+          console.log(`\n⚠️  Coverage (${result.analysis.coveragePercent}%) is below threshold (${coverageOptions.minCoverage}%)`);
           process.exit(1);
         }
         break;

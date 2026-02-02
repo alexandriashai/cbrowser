@@ -1122,3 +1122,120 @@ export interface PerformanceRegressionResult {
     overallChange: number; // Average change across all metrics
   };
 }
+
+// ============================================================================
+// Tier 6: Test Coverage Map Types (v6.5.0)
+// ============================================================================
+
+export interface TestedPage {
+  /** URL or route pattern */
+  url: string;
+  /** Normalized path for matching */
+  path: string;
+  /** Test files that cover this page */
+  testFiles: string[];
+  /** Actions tested on this page */
+  actions: TestedAction[];
+  /** Number of test cases covering this page */
+  testCount: number;
+  /** Coverage score (0-100) */
+  coverageScore: number;
+}
+
+export interface TestedAction {
+  /** Action type */
+  type: "navigate" | "click" | "fill" | "verify" | "wait" | "scroll" | "hover";
+  /** Target element description */
+  target?: string;
+  /** Value if applicable */
+  value?: string;
+  /** Test file containing this action */
+  testFile: string;
+  /** Line number in test file */
+  lineNumber?: number;
+}
+
+export interface SitePage {
+  /** Full URL */
+  url: string;
+  /** Path portion of URL */
+  path: string;
+  /** Page title if available */
+  title?: string;
+  /** Discovered from source */
+  source: "sitemap" | "crawl" | "link";
+  /** HTTP status code */
+  status?: number;
+  /** Links found on this page */
+  outboundLinks?: string[];
+  /** Interactive elements found */
+  interactiveElements?: number;
+  /** Forms found */
+  formCount?: number;
+}
+
+export interface CoverageGap {
+  /** Page without adequate test coverage */
+  page: SitePage;
+  /** Why this is flagged as a gap */
+  reason: "untested" | "low-coverage" | "no-interactions" | "no-verifications";
+  /** Priority level */
+  priority: "critical" | "high" | "medium" | "low";
+  /** Suggested test steps */
+  suggestedTests: string[];
+  /** Similar pages that are tested (for reference) */
+  similarTestedPages?: string[];
+}
+
+export interface TestCoverageAnalysis {
+  /** Total pages found on site */
+  totalPages: number;
+  /** Pages with at least one test */
+  testedPages: number;
+  /** Pages with no tests */
+  untestedPages: number;
+  /** Overall coverage percentage */
+  coveragePercent: number;
+  /** Coverage by section/route prefix */
+  sectionCoverage: Record<string, {
+    total: number;
+    tested: number;
+    percent: number;
+  }>;
+}
+
+export interface CoverageMapResult {
+  /** Base URL of the site */
+  baseUrl: string;
+  /** Timestamp of analysis */
+  timestamp: string;
+  /** Duration of analysis */
+  duration: number;
+  /** Test files analyzed */
+  testFiles: string[];
+  /** All pages found on site */
+  sitePages: SitePage[];
+  /** Pages with test coverage */
+  testedPages: TestedPage[];
+  /** Coverage gaps identified */
+  gaps: CoverageGap[];
+  /** Overall analysis */
+  analysis: TestCoverageAnalysis;
+  /** Recommendations */
+  recommendations: string[];
+}
+
+export interface CoverageMapOptions {
+  /** Sitemap URL to use instead of crawling */
+  sitemapUrl?: string;
+  /** Max pages to crawl (default: 100) */
+  maxPages?: number;
+  /** Include only paths matching pattern */
+  includePattern?: string;
+  /** Exclude paths matching pattern */
+  excludePattern?: string;
+  /** Minimum coverage % to not flag as gap (default: 50) */
+  minCoverage?: number;
+  /** Output format */
+  format?: "json" | "html" | "summary";
+}
