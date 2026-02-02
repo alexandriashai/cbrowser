@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABComparisonResult, ABSuite, ABSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -23,7 +23,7 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.2.0                                ║
+║                           CBrowser CLI v7.3.0                                ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -241,7 +241,7 @@ AI VISUAL REGRESSION (v7.0.0)
   ai-visual show <name>       Show baseline details
   ai-visual delete <name>     Delete a baseline
 
-CROSS-BROWSER VISUAL TESTING (v7.2.0)
+CROSS-BROWSER VISUAL TESTING (v7.3.0)
   cross-browser <url>         Compare visual rendering across browsers
     --browsers <list>         Browsers to test: chromium,firefox,webkit (default: all)
     --width <n>               Viewport width (default: 1920)
@@ -267,7 +267,7 @@ CROSS-BROWSER VISUAL TESTING (v7.2.0)
       "options": { "browsers": ["chromium", "firefox"] }
     }
 
-RESPONSIVE VISUAL TESTING (v7.2.0)
+RESPONSIVE VISUAL TESTING (v7.3.0)
   responsive <url>            Test visual rendering across viewport sizes
     --viewports <list>        Viewports to test (default: mobile,tablet,desktop)
     --wait <ms>               Wait before screenshot (ms)
@@ -298,6 +298,36 @@ RESPONSIVE VISUAL TESTING (v7.2.0)
       mobile-xl (428x926)     tablet (768x1024)     tablet-lg (1024x1366)
       desktop-sm (1280x800)   desktop (1440x900)    desktop-lg (1920x1080)
       desktop-xl (2560x1440)
+
+A/B VISUAL COMPARISON (v7.3.0)
+  ab <urlA> <urlB>            Compare two URLs visually
+    --label-a <name>          Label for URL A (default: "Version A")
+    --label-b <name>          Label for URL B (default: "Version B")
+    --width <n>               Viewport width (default: 1920)
+    --height <n>              Viewport height (default: 1080)
+    --wait <ms>               Wait before screenshot (ms)
+    --wait-for <selector>     Wait for selector before screenshot
+    --sensitivity <level>     Comparison sensitivity: low, medium, high
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+    Examples:
+      cbrowser ab "https://staging.example.com" "https://example.com"
+      cbrowser ab "https://old.site.com" "https://new.site.com" --label-a "Old Design" --label-b "New Design"
+      cbrowser ab "https://site-a.com" "https://site-b.com" --html --output comparison.html
+
+  ab suite <file.json>        Run A/B comparison suite
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+
+    Suite file format:
+    {
+      "name": "Staging vs Production",
+      "pairs": [
+        { "urlA": "https://staging.example.com", "urlB": "https://example.com", "name": "Homepage" },
+        { "urlA": "https://staging.example.com/about", "urlB": "https://example.com/about", "name": "About" }
+      ],
+      "options": { "sensitivity": "medium" }
+    }
 
 ACCESSIBILITY (v2.5.0)
   a11y audit                  Run WCAG accessibility audit
@@ -2339,7 +2369,7 @@ async function main(): Promise<void> {
       }
 
       // =========================================================================
-      // Cross-Browser Visual Testing (v7.2.0)
+      // Cross-Browser Visual Testing (v7.3.0)
       // =========================================================================
 
       case "cross-browser": {
@@ -2456,7 +2486,7 @@ async function main(): Promise<void> {
       }
 
       // =========================================================================
-      // Responsive Visual Testing (v7.2.0)
+      // Responsive Visual Testing (v7.3.0)
       // =========================================================================
 
       case "responsive": {
@@ -2592,6 +2622,126 @@ async function main(): Promise<void> {
           }
 
           if (result.overallStatus === "major_issues") {
+            process.exit(1);
+          }
+        }
+        break;
+      }
+
+      // =========================================================================
+      // A/B Visual Comparison (v7.3.0)
+      // =========================================================================
+
+      case "ab": {
+        const subcommand = args[0];
+
+        if (subcommand === "suite") {
+          // A/B suite
+          const suiteFile = args[1];
+          if (!suiteFile) {
+            console.error("Usage: cbrowser ab suite <file.json> [options]");
+            console.error("  --html              Generate HTML report");
+            console.error("  --output <file>     Save report to file");
+            process.exit(1);
+          }
+
+          const fs = await import("fs");
+          if (!fs.existsSync(suiteFile)) {
+            console.error(`Suite file not found: ${suiteFile}`);
+            process.exit(1);
+          }
+
+          const suite: ABSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
+          const result = await runABSuite(suite);
+
+          // Save outputs
+          if (options.output && !options.html) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved to: ${options.output}`);
+          }
+
+          if (options.html) {
+            const htmlReport = generateABHtmlReport(result);
+            const outputPath = (options.output as string) || `ab-comparison-${Date.now()}.html`;
+            fs.writeFileSync(outputPath, htmlReport);
+            console.log(`\n📄 HTML report saved to: ${outputPath}`);
+          }
+
+          // Summary
+          console.log(`\n${"═".repeat(60)}`);
+          console.log(`   Results: ${result.summary.identical} identical, ${result.summary.similar} similar, ${result.summary.different} different, ${result.summary.veryDifferent} very different`);
+          console.log(`${"═".repeat(60)}\n`);
+
+          if (result.summary.veryDifferent > 0) {
+            process.exit(1);
+          }
+        } else {
+          // Single A/B comparison: ab <urlA> <urlB>
+          const urlA = args[0];
+          const urlB = args[1];
+
+          if (!urlA || !urlB || urlA.startsWith("--") || urlB.startsWith("--")) {
+            console.error("Usage: cbrowser ab <urlA> <urlB> [options]");
+            console.error("       cbrowser ab suite <file.json>");
+            console.error("\nOptions:");
+            console.error("  --label-a <name>    Label for URL A (default: 'Version A')");
+            console.error("  --label-b <name>    Label for URL B (default: 'Version B')");
+            console.error("  --width <n>         Viewport width (default: 1920)");
+            console.error("  --height <n>        Viewport height (default: 1080)");
+            console.error("  --wait <ms>         Wait before screenshot");
+            console.error("  --wait-for <sel>    Wait for selector");
+            console.error("  --sensitivity <l>   low, medium, high");
+            console.error("  --html              Generate HTML report");
+            console.error("  --output <file>     Save report");
+            process.exit(1);
+          }
+
+          const result = await runABComparison(urlA, urlB, {
+            labels: options["label-a"] || options["label-b"] ? {
+              a: (options["label-a"] as string) || "Version A",
+              b: (options["label-b"] as string) || "Version B",
+            } : undefined,
+            viewport: options.width || options.height ? {
+              width: parseInt(options.width as string) || 1920,
+              height: parseInt(options.height as string) || 1080,
+            } : undefined,
+            waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
+            waitForSelector: options["wait-for"] as string | undefined,
+            sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
+          });
+
+          // Print report
+          console.log("\n" + formatABReport(result));
+
+          // Save outputs
+          const fs = await import("fs");
+
+          if (options.output && !options.html) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved to: ${options.output}`);
+          }
+
+          if (options.html) {
+            const suiteResult: ABSuiteResult = {
+              suite: { name: "Single Comparison", pairs: [{ urlA, urlB }] },
+              results: [result],
+              summary: {
+                total: 1,
+                identical: result.overallStatus === "identical" ? 1 : 0,
+                similar: result.overallStatus === "similar" ? 1 : 0,
+                different: result.overallStatus === "different" ? 1 : 0,
+                veryDifferent: result.overallStatus === "very_different" ? 1 : 0,
+              },
+              duration: result.duration,
+              timestamp: result.timestamp,
+            };
+            const htmlReport = generateABHtmlReport(suiteResult);
+            const outputPath = (options.output as string) || `ab-comparison-${Date.now()}.html`;
+            fs.writeFileSync(outputPath, htmlReport);
+            console.log(`\n📄 HTML report saved to: ${outputPath}`);
+          }
+
+          if (result.overallStatus === "very_different") {
             process.exit(1);
           }
         }

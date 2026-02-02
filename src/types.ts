@@ -1609,3 +1609,127 @@ export interface ResponsiveSuiteResult {
   /** Timestamp */
   timestamp: string;
 }
+
+// ============================================================================
+// A/B Visual Comparison Types (v7.3.0)
+// ============================================================================
+
+/** Screenshot captured for A/B comparison */
+export interface ABScreenshot {
+  /** Label (A or B) */
+  label: "A" | "B";
+  /** URL captured */
+  url: string;
+  /** Path to screenshot file */
+  screenshotPath: string;
+  /** Page title */
+  title: string;
+  /** Viewport used */
+  viewport: { width: number; height: number };
+  /** Timestamp of capture */
+  timestamp: string;
+  /** Time to capture (ms) */
+  captureTime: number;
+}
+
+/** Difference detected between A and B */
+export interface ABDifference {
+  /** Type of difference */
+  type: "layout" | "content" | "style" | "missing" | "added" | "structure";
+  /** Severity */
+  severity: "critical" | "major" | "minor" | "info";
+  /** Description of difference */
+  description: string;
+  /** Which side has the issue (or both) */
+  affectedSide: "A" | "B" | "both";
+  /** Region where difference was detected */
+  region?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+/** Result of A/B visual comparison */
+export interface ABComparisonResult {
+  /** URL A */
+  urlA: string;
+  /** URL B */
+  urlB: string;
+  /** Labels for display */
+  labels: { a: string; b: string };
+  /** Screenshots */
+  screenshots: {
+    a: ABScreenshot;
+    b: ABScreenshot;
+  };
+  /** AI visual analysis */
+  analysis: AIVisualAnalysis;
+  /** Detailed differences */
+  differences: ABDifference[];
+  /** Overall status */
+  overallStatus: "identical" | "similar" | "different" | "very_different";
+  /** Summary */
+  summary: string;
+  /** Duration */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
+}
+
+/** Options for A/B comparison */
+export interface ABComparisonOptions {
+  /** Custom labels for A and B */
+  labels?: { a: string; b: string };
+  /** Viewport dimensions */
+  viewport?: { width: number; height: number };
+  /** Wait before screenshot (ms) */
+  waitBeforeCapture?: number;
+  /** Wait for selector before capture */
+  waitForSelector?: string;
+  /** Sensitivity for comparison */
+  sensitivity?: "low" | "medium" | "high";
+  /** Generate side-by-side diff image */
+  generateDiff?: boolean;
+}
+
+/** Page pair for A/B suite testing */
+export interface ABPagePair {
+  /** URL A */
+  urlA: string;
+  /** URL B */
+  urlB: string;
+  /** Optional name for this pair */
+  name?: string;
+}
+
+/** Suite definition for A/B testing multiple page pairs */
+export interface ABSuite {
+  /** Suite name */
+  name: string;
+  /** Page pairs to compare */
+  pairs: ABPagePair[];
+  /** Default options */
+  options?: ABComparisonOptions;
+}
+
+/** Result of running an A/B test suite */
+export interface ABSuiteResult {
+  /** Suite info */
+  suite: ABSuite;
+  /** Results per pair */
+  results: ABComparisonResult[];
+  /** Summary */
+  summary: {
+    total: number;
+    identical: number;
+    similar: number;
+    different: number;
+    veryDifferent: number;
+  };
+  /** Duration */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
+}
