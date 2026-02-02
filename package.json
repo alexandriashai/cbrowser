@@ -1,0 +1,60 @@
+{
+  "name": "cbrowser",
+  "version": "2.2.0",
+  "description": "AI-powered browser automation with constitutional safety, personas, session persistence, and autonomous journeys",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "cbrowser": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "bun run src/cli.ts",
+    "test": "bun test",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist/",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "browser-automation",
+    "playwright",
+    "ai-testing",
+    "web-scraping",
+    "e2e-testing",
+    "persona-testing",
+    "session-management",
+    "constitutional-ai",
+    "autonomous-agent"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/cbrowser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/cbrowser/issues"
+  },
+  "homepage": "https://github.com/yourusername/cbrowser#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  },
+  "files": [
+    "dist/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ]
+}

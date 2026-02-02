@@ -1,0 +1,45 @@
+{
+  "name": "qa-tester",
+  "description": "QA tester systematically checking functionality",
+  "demographics": {
+    "age_range": "25-40",
+    "tech_level": "expert",
+    "device": "desktop"
+  },
+  "behaviors": {
+    "methodical": true,
+    "checks_edge_cases": true,
+    "documents_issues": true,
+    "follows_test_plans": true
+  },
+  "humanBehavior": {
+    "timing": {
+      "reactionTime": { "min": 200, "max": 500 },
+      "clickDelay": { "min": 100, "max": 300 },
+      "typeSpeed": { "min": 50, "max": 100 },
+      "readingSpeed": 300,
+      "scrollPauseTime": { "min": 200, "max": 500 }
+    },
+    "errors": {
+      "misClickRate": 0.03,
+      "doubleClickAccidental": 0.02,
+      "typoRate": 0.03,
+      "backtrackRate": 0.1
+    },
+    "mouse": {
+      "curvature": 0.3,
+      "jitter": 3,
+      "overshoot": 0.08,
+      "speed": "normal"
+    },
+    "attention": {
+      "pattern": "thorough",
+      "scrollBehavior": "chunked",
+      "focusAreas": ["cta", "text", "images"],
+      "distractionRate": 0.05
+    }
+  },
+  "context": {
+    "viewport": [1920, 1080]
+  }
+}

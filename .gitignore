@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+bun.lockb
+package-lock.json
+yarn.lock
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# CBrowser data (user-specific, sensitive)
+.cbrowser/
+data/
+*.memory/
+
+# Credentials (NEVER commit)
+credentials.json
+credentials.enc
+*.key
+*.pem
+
+# Screenshots and journey logs (large, user-specific)
+screenshots/
+journeys/
+audit/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
