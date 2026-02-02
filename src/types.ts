@@ -180,6 +180,69 @@ export interface PersonaComparisonResult {
 }
 
 // ============================================================================
+// Tier 6: Natural Language Test Suites (v6.1.0)
+// ============================================================================
+
+export interface NLTestStep {
+  /** Original natural language instruction */
+  instruction: string;
+  /** Parsed action type */
+  action: "navigate" | "click" | "fill" | "select" | "scroll" | "wait" | "assert" | "screenshot" | "unknown";
+  /** Target element or URL */
+  target?: string;
+  /** Value for fill/select actions */
+  value?: string;
+  /** Assertion type for assert actions */
+  assertionType?: "contains" | "equals" | "exists" | "count" | "url" | "title";
+}
+
+export interface NLTestCase {
+  /** Test case name */
+  name: string;
+  /** Description of what the test does */
+  description?: string;
+  /** Parsed test steps */
+  steps: NLTestStep[];
+}
+
+export interface NLTestStepResult {
+  instruction: string;
+  action: NLTestStep["action"];
+  passed: boolean;
+  duration: number;
+  error?: string;
+  screenshot?: string;
+  actualValue?: string;
+}
+
+export interface NLTestCaseResult {
+  name: string;
+  passed: boolean;
+  duration: number;
+  stepResults: NLTestStepResult[];
+  error?: string;
+}
+
+export interface NLTestSuiteResult {
+  /** Suite name */
+  name: string;
+  /** When the suite ran */
+  timestamp: string;
+  /** Total duration */
+  duration: number;
+  /** Individual test results */
+  testResults: NLTestCaseResult[];
+  /** Summary stats */
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    passRate: number;
+  };
+}
+
+// ============================================================================
 // Audit Types
 // ============================================================================
 

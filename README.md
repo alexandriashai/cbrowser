@@ -101,6 +101,91 @@ npx cbrowser compare-personas --start "..." --goal "..." --html
 - "Mobile users experience 2x more friction - review mobile UX"
 - "Common friction: 'Button too small for touch', 'Form validation unclear'"
 
+## v6.1.0 Features
+
+### Natural Language Test Suites
+
+Write tests in plain English - CBrowser parses and executes them:
+
+```bash
+# Run tests from a file
+npx cbrowser test-suite login-test.txt --html
+
+# Run inline tests (steps separated by semicolons)
+npx cbrowser test-suite --inline "go to https://example.com ; click login ; verify url contains /dashboard"
+```
+
+**Test file format:**
+
+```txt
+# Test: Login Flow
+go to https://example.com
+click the login button
+type "user@example.com" in email field
+type "password123" in password field
+click submit
+verify url contains "/dashboard"
+
+# Test: Search Functionality
+go to https://example.com/search
+type "test query" in search box
+click search button
+verify page contains "results"
+take screenshot
+```
+
+**Supported instructions:**
+
+| Instruction | Examples |
+|-------------|----------|
+| **Navigate** | `go to https://...`, `navigate to https://...`, `open https://...` |
+| **Click** | `click the login button`, `click submit`, `press Enter` |
+| **Fill** | `type "value" in email field`, `fill username with "john"` |
+| **Select** | `select "Option A" from dropdown` |
+| **Scroll** | `scroll down`, `scroll up 5 times` |
+| **Wait** | `wait 2 seconds`, `wait for "Loading" appears` |
+| **Assert** | `verify page contains "Welcome"`, `verify url contains "/home"`, `verify title is "Dashboard"` |
+| **Screenshot** | `take screenshot` |
+
+**Output options:**
+
+```bash
+# Continue after failures
+npx cbrowser test-suite tests.txt --continue-on-failure
+
+# Save JSON report
+npx cbrowser test-suite tests.txt --output results.json
+
+# Generate HTML report
+npx cbrowser test-suite tests.txt --html
+
+# Combined
+npx cbrowser test-suite tests.txt --output results.json --html
+```
+
+**API usage:**
+
+```typescript
+import { parseNLTestSuite, runNLTestSuite, formatNLTestReport } from 'cbrowser';
+
+const suite = parseNLTestSuite(`
+  # Test: Homepage
+  go to https://example.com
+  verify title contains "Example"
+  click the about link
+  verify url contains "/about"
+`, "My Test Suite");
+
+const result = await runNLTestSuite(suite, {
+  continueOnFailure: true,
+  screenshotOnFailure: true,
+});
+
+console.log(formatNLTestReport(result));
+// Pass rate: 100%
+// Tests: 1 passed, 0 failed
+```
+
 ## v5.0.0 Features
 
 ### Smart Click with Auto-Retry
