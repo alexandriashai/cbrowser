@@ -38,6 +38,12 @@ import type {
   SelectorCacheEntry,
   SelectorCache,
   SelectorCacheStats,
+  PageElement,
+  PageAnalysis,
+  FormAnalysis,
+  GeneratedTest,
+  TestStep,
+  TestGenerationResult,
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
@@ -1142,6 +1148,343 @@ export class CBrowser {
     }
 
     return entries.sort((a, b) => b.successCount - a.successCount);
+  }
+
+  // =========================================================================
+  // Tier 5: AI Test Generation (v5.0.0)
+  // =========================================================================
+
+  /**
+   * Analyze a page and generate test scenarios.
+   */
+  async generateTests(url?: string): Promise<TestGenerationResult> {
+    if (url) {
+      await this.navigate(url);
+    }
+
+    const page = await this.getPage();
+    const analysis = await this.analyzePage();
+    const tests = this.generateTestScenarios(analysis);
+
+    return {
+      url: page.url(),
+      analysis,
+      tests,
+      cbrowserScript: this.generateCBrowserScript(tests, page.url()),
+      playwrightCode: this.generatePlaywrightCode(tests, page.url()),
+    };
+  }
+
+  /**
+   * Analyze page structure for testable elements.
+   */
+  async analyzePage(): Promise<PageAnalysis> {
+    const page = await this.getPage();
+
+    const analysis = await page.evaluate(() => {
+      const getSelector = (el: Element): string => {
+        if (el.id) return `#${el.id}`;
+        if (el.getAttribute("data-testid")) return `[data-testid="${el.getAttribute("data-testid")}"]`;
+        if (el.getAttribute("name")) return `[name="${el.getAttribute("name")}"]`;
+        const text = el.textContent?.trim().substring(0, 30);
+        if (text) return `text="${text}"`;
+        return el.tagName.toLowerCase();
+      };
+
+      // Analyze forms
+      const forms: FormAnalysis[] = Array.from(document.querySelectorAll("form")).map(form => {
+        const fields: PageElement[] = Array.from(form.querySelectorAll("input, select, textarea")).map(el => ({
+          type: el.tagName.toLowerCase() as PageElement["type"],
+          selector: getSelector(el),
+          name: el.getAttribute("name") || undefined,
+          id: el.id || undefined,
+          placeholder: (el as HTMLInputElement).placeholder || undefined,
+          inputType: (el as HTMLInputElement).type || undefined,
+          required: (el as HTMLInputElement).required || false,
+          ariaLabel: el.getAttribute("aria-label") || undefined,
+        }));
+
+        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+        const submitButton = submitBtn ? {
+          type: "button" as const,
+          selector: getSelector(submitBtn),
+          text: submitBtn.textContent?.trim(),
+        } : undefined;
+
+        // Determine form purpose
+        let purpose: FormAnalysis["purpose"] = "unknown";
+        const formHtml = form.innerHTML.toLowerCase();
+        if (formHtml.includes("password") && formHtml.includes("email")) {
+          purpose = fields.length <= 3 ? "login" : "signup";
+        } else if (formHtml.includes("search")) {
+          purpose = "search";
+        } else if (formHtml.includes("contact") || formHtml.includes("message")) {
+          purpose = "contact";
+        } else if (formHtml.includes("card") || formHtml.includes("payment")) {
+          purpose = "checkout";
+        }
+
+        return {
+          action: form.action || undefined,
+          method: form.method || undefined,
+          fields,
+          submitButton,
+          purpose,
+        };
+      });
+
+      // Analyze buttons
+      const buttons: PageElement[] = Array.from(document.querySelectorAll('button, [role="button"], input[type="button"]'))
+        .slice(0, 20)
+        .map(el => ({
+          type: "button" as const,
+          selector: getSelector(el),
+          text: el.textContent?.trim(),
+          id: el.id || undefined,
+          ariaLabel: el.getAttribute("aria-label") || undefined,
+        }));
+
+      // Analyze links
+      const links: PageElement[] = Array.from(document.querySelectorAll("a[href]"))
+        .slice(0, 20)
+        .map(el => ({
+          type: "link" as const,
+          selector: getSelector(el),
+          text: el.textContent?.trim(),
+          href: (el as HTMLAnchorElement).href,
+        }));
+
+      // Analyze standalone inputs
+      const inputs: PageElement[] = Array.from(document.querySelectorAll("input:not(form input), textarea:not(form textarea)"))
+        .slice(0, 10)
+        .map(el => ({
+          type: "input" as const,
+          selector: getSelector(el),
+          name: el.getAttribute("name") || undefined,
+          placeholder: (el as HTMLInputElement).placeholder || undefined,
+          inputType: (el as HTMLInputElement).type || undefined,
+        }));
+
+      // Analyze selects
+      const selects: PageElement[] = Array.from(document.querySelectorAll("select"))
+        .slice(0, 10)
+        .map(el => ({
+          type: "select" as const,
+          selector: getSelector(el),
+          name: el.getAttribute("name") || undefined,
+          id: el.id || undefined,
+        }));
+
+      return {
+        url: window.location.href,
+        title: document.title,
+        forms,
+        buttons,
+        links,
+        inputs,
+        selects,
+        hasLogin: forms.some(f => f.purpose === "login"),
+        hasSearch: forms.some(f => f.purpose === "search") || inputs.some(i => i.inputType === "search"),
+        hasNavigation: links.filter(l => l.href?.startsWith(window.location.origin)).length > 3,
+      };
+    });
+
+    return analysis;
+  }
+
+  /**
+   * Generate test scenarios from page analysis.
+   */
+  private generateTestScenarios(analysis: PageAnalysis): GeneratedTest[] {
+    const tests: GeneratedTest[] = [];
+
+    // Generate form tests
+    for (const form of analysis.forms) {
+      if (form.purpose === "login") {
+        tests.push({
+          name: "Login Form Submission",
+          description: "Test the login form with valid credentials",
+          steps: [
+            { action: "navigate", target: analysis.url, description: "Navigate to page" },
+            ...form.fields.filter(f => f.inputType !== "submit").map(f => ({
+              action: "fill" as const,
+              target: f.selector,
+              value: f.inputType === "email" ? "test@example.com" : f.inputType === "password" ? "TestPassword123" : "test value",
+              description: `Fill ${f.name || f.placeholder || "field"}`,
+            })),
+            { action: "click", target: form.submitButton?.selector || "Submit", description: "Submit form" },
+            { action: "wait", value: "1000", description: "Wait for response" },
+          ],
+          assertions: ["url contains '/dashboard' OR url contains '/home'", "page does not contain 'error'"],
+        });
+
+        tests.push({
+          name: "Login Form Validation",
+          description: "Test login form with invalid credentials",
+          steps: [
+            { action: "navigate", target: analysis.url, description: "Navigate to page" },
+            { action: "fill", target: form.fields.find(f => f.inputType === "email")?.selector || "", value: "invalid", description: "Enter invalid email" },
+            { action: "click", target: form.submitButton?.selector || "Submit", description: "Submit form" },
+          ],
+          assertions: ["page contains 'error' OR page contains 'invalid'"],
+        });
+      }
+
+      if (form.purpose === "search") {
+        tests.push({
+          name: "Search Functionality",
+          description: "Test search with a query",
+          steps: [
+            { action: "navigate", target: analysis.url, description: "Navigate to page" },
+            { action: "fill", target: form.fields[0]?.selector || "[type='search']", value: "test query", description: "Enter search term" },
+            { action: "click", target: form.submitButton?.selector || "Search", description: "Submit search" },
+          ],
+          assertions: ["url contains 'search' OR url contains 'q='", "page contains 'result'"],
+        });
+      }
+    }
+
+    // Generate navigation tests
+    if (analysis.hasNavigation) {
+      const navLinks = analysis.links.filter(l => l.href?.startsWith(analysis.url.split("/").slice(0, 3).join("/")));
+      if (navLinks.length > 0) {
+        tests.push({
+          name: "Navigation Links",
+          description: "Test main navigation links work",
+          steps: navLinks.slice(0, 5).flatMap(link => [
+            { action: "navigate" as const, target: analysis.url, description: "Start from home" },
+            { action: "click" as const, target: link.selector, description: `Click ${link.text || "link"}` },
+            { action: "assert" as const, target: `url contains '${new URL(link.href || "").pathname}'`, description: "Verify navigation" },
+          ]),
+          assertions: ["no console errors"],
+        });
+      }
+    }
+
+    // Generate button interaction tests
+    const actionButtons = analysis.buttons.filter(b =>
+      b.text && !b.text.toLowerCase().includes("submit") && b.text.length < 30
+    );
+    if (actionButtons.length > 0) {
+      tests.push({
+        name: "Button Interactions",
+        description: "Test clickable buttons respond correctly",
+        steps: [
+          { action: "navigate", target: analysis.url, description: "Navigate to page" },
+          ...actionButtons.slice(0, 3).map(btn => ({
+            action: "click" as const,
+            target: btn.selector,
+            description: `Click "${btn.text}"`,
+          })),
+        ],
+        assertions: ["no console errors", "page is interactive"],
+      });
+    }
+
+    // Default smoke test
+    tests.push({
+      name: "Page Load Smoke Test",
+      description: "Verify page loads without errors",
+      steps: [
+        { action: "navigate", target: analysis.url, description: "Navigate to page" },
+        { action: "assert", target: `title contains '${analysis.title.split(" ")[0]}'`, description: "Verify title" },
+      ],
+      assertions: ["page loads successfully", "no console errors"],
+    });
+
+    return tests;
+  }
+
+  /**
+   * Generate CBrowser script from tests.
+   */
+  private generateCBrowserScript(tests: GeneratedTest[], url: string): string {
+    let script = `# CBrowser Test Script\n# Generated for: ${url}\n# Date: ${new Date().toISOString()}\n\n`;
+
+    for (const test of tests) {
+      script += `# ${test.name}\n`;
+      script += `# ${test.description}\n`;
+
+      for (const step of test.steps) {
+        switch (step.action) {
+          case "navigate":
+            script += `navigate "${step.target}"\n`;
+            break;
+          case "click":
+            script += `click "${step.target}"\n`;
+            break;
+          case "fill":
+            script += `fill "${step.target}" "${step.value}"\n`;
+            break;
+          case "assert":
+            script += `assert "${step.target}"\n`;
+            break;
+          case "wait":
+            script += `# wait ${step.value}ms\n`;
+            break;
+        }
+      }
+
+      for (const assertion of test.assertions) {
+        script += `assert "${assertion}"\n`;
+      }
+
+      script += "\n";
+    }
+
+    return script;
+  }
+
+  /**
+   * Generate Playwright test code from tests.
+   */
+  private generatePlaywrightCode(tests: GeneratedTest[], url: string): string {
+    let code = `// Playwright Test Code\n// Generated for: ${url}\n// Date: ${new Date().toISOString()}\n\n`;
+    code += `import { test, expect } from '@playwright/test';\n\n`;
+
+    for (const testDef of tests) {
+      const testName = testDef.name.toLowerCase().replace(/\s+/g, "-");
+      code += `test('${testDef.name}', async ({ page }) => {\n`;
+      code += `  // ${testDef.description}\n\n`;
+
+      for (const step of testDef.steps) {
+        switch (step.action) {
+          case "navigate":
+            code += `  await page.goto('${step.target}');\n`;
+            break;
+          case "click":
+            if (step.target?.startsWith("text=")) {
+              code += `  await page.getByText('${step.target.replace("text=", "").replace(/"/g, "")}').click();\n`;
+            } else {
+              code += `  await page.locator('${step.target}').click();\n`;
+            }
+            break;
+          case "fill":
+            code += `  await page.locator('${step.target}').fill('${step.value}');\n`;
+            break;
+          case "assert":
+            if (step.target?.includes("url contains")) {
+              const match = step.target.match(/url contains '([^']+)'/);
+              if (match) {
+                code += `  await expect(page).toHaveURL(/${match[1]}/);\n`;
+              }
+            } else if (step.target?.includes("title contains")) {
+              const match = step.target.match(/title contains '([^']+)'/);
+              if (match) {
+                code += `  await expect(page).toHaveTitle(/${match[1]}/);\n`;
+              }
+            }
+            break;
+          case "wait":
+            code += `  await page.waitForTimeout(${step.value});\n`;
+            break;
+        }
+      }
+
+      code += `});\n\n`;
+    }
+
+    return code;
   }
 
   /**

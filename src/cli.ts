@@ -176,6 +176,12 @@ SELF-HEALING SELECTORS (v5.0.0)
   heal test <selector>        Test if a selector would be healed
     --url <url>               Navigate to URL first
 
+AI TEST GENERATION (v5.0.0)
+  generate <url>              Analyze page and generate test scenarios
+    --format <format>         Output: summary, cbrowser, playwright, all (default: summary)
+    --output <file>           Save to file instead of stdout
+  analyze <url>               Show page analysis without generating tests
+
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
   cleanup                     Clean up old files
@@ -562,6 +568,106 @@ async function main(): Promise<void> {
             console.error("Usage: cbrowser heal [stats|list|clear|test]");
             process.exit(1);
         }
+        break;
+      }
+
+      // =========================================================================
+      // Tier 5: AI Test Generation (v5.0.0)
+      // =========================================================================
+
+      case "generate": {
+        const url = args[0];
+        if (!url) {
+          console.error("Error: URL required");
+          console.error("Usage: cbrowser generate <url> [--format summary|cbrowser|playwright|all]");
+          process.exit(1);
+        }
+
+        console.log(`\n🧪 Analyzing page and generating tests...\n`);
+
+        const result = await browser.generateTests(url);
+        const format = (options.format as string) || "summary";
+        const outputFile = options.output as string | undefined;
+
+        let output = "";
+
+        if (format === "summary" || format === "all") {
+          output += `📊 Page Analysis: ${result.url}\n`;
+          output += `   Title: ${result.analysis.title}\n`;
+          output += `   Forms: ${result.analysis.forms.length}\n`;
+          output += `   Buttons: ${result.analysis.buttons.length}\n`;
+          output += `   Links: ${result.analysis.links.length}\n`;
+          output += `   Has Login: ${result.analysis.hasLogin}\n`;
+          output += `   Has Search: ${result.analysis.hasSearch}\n\n`;
+
+          output += `🧪 Generated ${result.tests.length} Test Scenarios:\n\n`;
+          for (const test of result.tests) {
+            output += `  📝 ${test.name}\n`;
+            output += `     ${test.description}\n`;
+            output += `     Steps: ${test.steps.length}\n`;
+            output += `     Assertions: ${test.assertions.join(", ")}\n\n`;
+          }
+        }
+
+        if (format === "cbrowser" || format === "all") {
+          output += `\n${"=".repeat(60)}\n`;
+          output += `📜 CBrowser Script:\n`;
+          output += `${"=".repeat(60)}\n\n`;
+          output += result.cbrowserScript;
+        }
+
+        if (format === "playwright" || format === "all") {
+          output += `\n${"=".repeat(60)}\n`;
+          output += `🎭 Playwright Code:\n`;
+          output += `${"=".repeat(60)}\n\n`;
+          output += result.playwrightCode;
+        }
+
+        if (outputFile) {
+          const { writeFileSync } = await import("fs");
+          writeFileSync(outputFile, output);
+          console.log(`✓ Saved to: ${outputFile}`);
+        } else {
+          console.log(output);
+        }
+        break;
+      }
+
+      case "analyze": {
+        const url = args[0];
+        if (!url) {
+          console.error("Error: URL required");
+          process.exit(1);
+        }
+
+        await browser.navigate(url);
+        const analysis = await browser.analyzePage();
+
+        console.log(`\n📊 Page Analysis: ${analysis.url}\n`);
+        console.log(`Title: ${analysis.title}`);
+        console.log(`\n📝 Forms (${analysis.forms.length}):`);
+        for (const form of analysis.forms) {
+          console.log(`  - Purpose: ${form.purpose}`);
+          console.log(`    Fields: ${form.fields.length}`);
+          for (const field of form.fields) {
+            console.log(`      • ${field.type}: ${field.name || field.placeholder || field.selector}`);
+          }
+        }
+
+        console.log(`\n🔘 Buttons (${analysis.buttons.length}):`);
+        for (const btn of analysis.buttons.slice(0, 10)) {
+          console.log(`  - "${btn.text || btn.ariaLabel || btn.selector}"`);
+        }
+
+        console.log(`\n🔗 Links (${analysis.links.length}):`);
+        for (const link of analysis.links.slice(0, 10)) {
+          console.log(`  - "${link.text}" → ${link.href}`);
+        }
+
+        console.log(`\n📋 Features:`);
+        console.log(`  Has Login: ${analysis.hasLogin}`);
+        console.log(`  Has Search: ${analysis.hasSearch}`);
+        console.log(`  Has Navigation: ${analysis.hasNavigation}`);
         break;
       }
 

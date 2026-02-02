@@ -672,3 +672,63 @@ export interface SelectorCacheStats {
   byDomain: Record<string, number>;
   topHealedSelectors: Array<{ original: string; working: string; heals: number }>;
 }
+
+// ============================================================================
+// Tier 5: AI Test Generation (v5.0.0)
+// ============================================================================
+
+export interface PageElement {
+  type: "button" | "link" | "input" | "form" | "select" | "textarea";
+  selector: string;
+  text?: string;
+  name?: string;
+  id?: string;
+  placeholder?: string;
+  ariaLabel?: string;
+  href?: string;
+  inputType?: string;
+  required?: boolean;
+}
+
+export interface PageAnalysis {
+  url: string;
+  title: string;
+  forms: FormAnalysis[];
+  buttons: PageElement[];
+  links: PageElement[];
+  inputs: PageElement[];
+  selects: PageElement[];
+  hasLogin: boolean;
+  hasSearch: boolean;
+  hasNavigation: boolean;
+}
+
+export interface FormAnalysis {
+  action?: string;
+  method?: string;
+  fields: PageElement[];
+  submitButton?: PageElement;
+  purpose: "login" | "signup" | "search" | "contact" | "checkout" | "unknown";
+}
+
+export interface GeneratedTest {
+  name: string;
+  description: string;
+  steps: TestStep[];
+  assertions: string[];
+}
+
+export interface TestStep {
+  action: "navigate" | "click" | "fill" | "select" | "assert" | "wait";
+  target?: string;
+  value?: string;
+  description: string;
+}
+
+export interface TestGenerationResult {
+  url: string;
+  analysis: PageAnalysis;
+  tests: GeneratedTest[];
+  cbrowserScript: string;
+  playwrightCode: string;
+}
