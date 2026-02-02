@@ -4,8 +4,8 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext } from "playwright";
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync } from "fs";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route } from "playwright";
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 
 import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths } from "./config.js";
@@ -24,7 +24,15 @@ import type {
   CleanupResult,
   JourneyOptions,
   Persona,
+  NetworkMock,
+  NetworkRequest,
+  NetworkResponse,
+  HAREntry,
+  HARLog,
+  PerformanceMetrics,
+  PerformanceAuditResult,
 } from "./types.js";
+import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
 export class CBrowser {
   private config: CBrowserConfig;
@@ -33,6 +41,10 @@ export class CBrowser {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private currentPersona: Persona | null = null;
+  private networkRequests: NetworkRequest[] = [];
+  private networkResponses: Map<string, NetworkResponse> = new Map();
+  private harEntries: HAREntry[] = [];
+  private isRecordingHar = false;
 
   constructor(userConfig: Partial<CBrowserConfig> = {}) {
     this.config = mergeConfig(userConfig);
@@ -60,14 +72,86 @@ export class CBrowser {
       headless: this.config.headless,
     });
 
-    this.context = await this.browser.newContext({
+    // Build context options
+    const contextOptions: Parameters<Browser["newContext"]>[0] = {
       viewport: {
         width: this.config.viewportWidth,
         height: this.config.viewportHeight,
       },
-    });
+    };
 
+    // Apply device emulation if configured
+    if (this.config.device && DEVICE_PRESETS[this.config.device]) {
+      const device = DEVICE_PRESETS[this.config.device];
+      contextOptions.viewport = device.viewport;
+      contextOptions.userAgent = device.userAgent;
+      contextOptions.deviceScaleFactor = device.deviceScaleFactor;
+      contextOptions.isMobile = device.isMobile;
+      contextOptions.hasTouch = device.hasTouch;
+    } else if (this.config.deviceDescriptor) {
+      const device = this.config.deviceDescriptor;
+      contextOptions.viewport = device.viewport;
+      contextOptions.userAgent = device.userAgent;
+      contextOptions.deviceScaleFactor = device.deviceScaleFactor;
+      contextOptions.isMobile = device.isMobile;
+      contextOptions.hasTouch = device.hasTouch;
+    }
+
+    // Apply custom user agent if set (overrides device)
+    if (this.config.userAgent) {
+      contextOptions.userAgent = this.config.userAgent;
+    }
+
+    // Apply geolocation if configured
+    if (this.config.geolocation) {
+      contextOptions.geolocation = {
+        latitude: this.config.geolocation.latitude,
+        longitude: this.config.geolocation.longitude,
+        accuracy: this.config.geolocation.accuracy,
+      };
+      contextOptions.permissions = ["geolocation"];
+    }
+
+    // Apply locale if configured
+    if (this.config.locale) {
+      contextOptions.locale = this.config.locale;
+    }
+
+    // Apply timezone if configured
+    if (this.config.timezone) {
+      contextOptions.timezoneId = this.config.timezone;
+    }
+
+    // Apply color scheme if configured
+    if (this.config.colorScheme) {
+      contextOptions.colorScheme = this.config.colorScheme;
+    }
+
+    // Enable video recording if configured
+    if (this.config.recordVideo) {
+      const videoDir = this.config.videoDir || join(this.paths.dataDir, "videos");
+      if (!existsSync(videoDir)) {
+        mkdirSync(videoDir, { recursive: true });
+      }
+      contextOptions.recordVideo = {
+        dir: videoDir,
+        size: {
+          width: contextOptions.viewport?.width || 1280,
+          height: contextOptions.viewport?.height || 800,
+        },
+      };
+    }
+
+    this.context = await this.browser.newContext(contextOptions);
     this.page = await this.context.newPage();
+
+    // Apply network mocks if configured
+    if (this.config.networkMocks && this.config.networkMocks.length > 0) {
+      await this.setupNetworkMocks(this.config.networkMocks);
+    }
+
+    // Set up network request/response tracking for HAR
+    this.setupNetworkTracking();
   }
 
   /**
@@ -90,6 +174,480 @@ export class CBrowser {
       await this.launch();
     }
     return this.page!;
+  }
+
+  // =========================================================================
+  // Network Mocking
+  // =========================================================================
+
+  /**
+   * Set up network mocks for API interception.
+   */
+  private async setupNetworkMocks(mocks: NetworkMock[]): Promise<void> {
+    const page = this.page!;
+
+    for (const mock of mocks) {
+      const pattern = typeof mock.urlPattern === "string"
+        ? new RegExp(mock.urlPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        : mock.urlPattern;
+
+      await page.route(pattern, async (route: Route) => {
+        const request = route.request();
+
+        // Check method match if specified
+        if (mock.method && request.method() !== mock.method.toUpperCase()) {
+          await route.continue();
+          return;
+        }
+
+        // Handle abort
+        if (mock.abort) {
+          await route.abort();
+          return;
+        }
+
+        // Apply delay if specified
+        if (mock.delay) {
+          await new Promise((r) => setTimeout(r, mock.delay));
+        }
+
+        // Fulfill with mock response
+        const body = typeof mock.body === "object"
+          ? JSON.stringify(mock.body)
+          : mock.body || "";
+
+        await route.fulfill({
+          status: mock.status || 200,
+          headers: mock.headers || { "Content-Type": "application/json" },
+          body,
+        });
+      });
+    }
+  }
+
+  /**
+   * Add a network mock at runtime.
+   */
+  async addNetworkMock(mock: NetworkMock): Promise<void> {
+    const page = await this.getPage();
+    await this.setupNetworkMocks([mock]);
+  }
+
+  /**
+   * Clear all network mocks.
+   */
+  async clearNetworkMocks(): Promise<void> {
+    const page = await this.getPage();
+    await page.unrouteAll();
+  }
+
+  // =========================================================================
+  // Network Tracking & HAR Export
+  // =========================================================================
+
+  /**
+   * Set up network request/response tracking for HAR.
+   */
+  private setupNetworkTracking(): void {
+    if (!this.page) return;
+
+    this.page.on("request", (request) => {
+      const networkRequest: NetworkRequest = {
+        url: request.url(),
+        method: request.method(),
+        headers: request.headers(),
+        postData: request.postData() || undefined,
+        resourceType: request.resourceType(),
+        timestamp: new Date().toISOString(),
+      };
+      this.networkRequests.push(networkRequest);
+
+      if (this.isRecordingHar) {
+        // Start HAR entry
+        const harEntry: Partial<HAREntry> = {
+          startedDateTime: new Date().toISOString(),
+          request: {
+            method: request.method(),
+            url: request.url(),
+            httpVersion: "HTTP/1.1",
+            headers: Object.entries(request.headers()).map(([name, value]) => ({ name, value })),
+            queryString: [],
+            headersSize: -1,
+            bodySize: request.postData()?.length || 0,
+          },
+        };
+        this.networkResponses.set(request.url() + request.method(), harEntry as any);
+      }
+    });
+
+    this.page.on("response", async (response) => {
+      const key = response.url() + response.request().method();
+      const networkResponse: NetworkResponse = {
+        url: response.url(),
+        status: response.status(),
+        statusText: response.statusText(),
+        headers: response.headers(),
+      };
+
+      if (this.isRecordingHar && this.networkResponses.has(key)) {
+        const partial = this.networkResponses.get(key) as Partial<HAREntry>;
+        const startTime = new Date(partial.startedDateTime!).getTime();
+        const endTime = Date.now();
+
+        const harEntry: HAREntry = {
+          ...partial as HAREntry,
+          time: endTime - startTime,
+          response: {
+            status: response.status(),
+            statusText: response.statusText(),
+            httpVersion: "HTTP/1.1",
+            headers: Object.entries(response.headers()).map(([name, value]) => ({ name, value })),
+            content: {
+              size: parseInt(response.headers()["content-length"] || "0"),
+              mimeType: response.headers()["content-type"] || "application/octet-stream",
+            },
+            redirectURL: response.headers()["location"] || "",
+            headersSize: -1,
+            bodySize: parseInt(response.headers()["content-length"] || "-1"),
+          },
+          cache: {},
+          timings: {
+            blocked: 0,
+            dns: -1,
+            connect: -1,
+            send: 0,
+            wait: endTime - startTime,
+            receive: 0,
+            ssl: -1,
+          },
+        };
+
+        this.harEntries.push(harEntry);
+        this.networkResponses.delete(key);
+      }
+    });
+  }
+
+  /**
+   * Start recording HAR.
+   */
+  startHarRecording(): void {
+    this.isRecordingHar = true;
+    this.harEntries = [];
+  }
+
+  /**
+   * Stop recording and export HAR.
+   */
+  async exportHar(outputPath?: string): Promise<string> {
+    this.isRecordingHar = false;
+
+    const harLog: HARLog = {
+      version: "1.2",
+      creator: { name: "CBrowser", version: "2.4.0" },
+      entries: this.harEntries,
+    };
+
+    const har = { log: harLog };
+    const harDir = join(this.paths.dataDir, "har");
+    if (!existsSync(harDir)) {
+      mkdirSync(harDir, { recursive: true });
+    }
+
+    const filename = outputPath || join(harDir, `har-${Date.now()}.har`);
+    writeFileSync(filename, JSON.stringify(har, null, 2));
+
+    return filename;
+  }
+
+  /**
+   * Get all captured network requests.
+   */
+  getNetworkRequests(): NetworkRequest[] {
+    return [...this.networkRequests];
+  }
+
+  /**
+   * Clear network request history.
+   */
+  clearNetworkHistory(): void {
+    this.networkRequests = [];
+    this.harEntries = [];
+  }
+
+  // =========================================================================
+  // Performance Metrics
+  // =========================================================================
+
+  /**
+   * Collect Core Web Vitals and performance metrics.
+   */
+  async getPerformanceMetrics(): Promise<PerformanceMetrics> {
+    const page = await this.getPage();
+
+    const metrics = await page.evaluate(() => {
+      const result: Record<string, number | undefined> = {};
+
+      // Navigation timing
+      const navTiming = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
+      if (navTiming) {
+        result.ttfb = navTiming.responseStart - navTiming.requestStart;
+        result.domContentLoaded = navTiming.domContentLoadedEventEnd - navTiming.startTime;
+        result.load = navTiming.loadEventEnd - navTiming.startTime;
+      }
+
+      // Paint timing
+      const paintEntries = performance.getEntriesByType("paint");
+      for (const entry of paintEntries) {
+        if (entry.name === "first-contentful-paint") {
+          result.fcp = entry.startTime;
+        }
+      }
+
+      // LCP from PerformanceObserver (if available)
+      const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
+      if (lcpEntries.length > 0) {
+        result.lcp = (lcpEntries[lcpEntries.length - 1] as any).startTime;
+      }
+
+      // CLS from layout-shift entries
+      const clsEntries = performance.getEntriesByType("layout-shift");
+      let clsScore = 0;
+      for (const entry of clsEntries) {
+        if (!(entry as any).hadRecentInput) {
+          clsScore += (entry as any).value || 0;
+        }
+      }
+      result.cls = clsScore;
+
+      // Resource counts
+      const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+      result.resourceCount = resources.length;
+      result.transferSize = resources.reduce((sum, r) => sum + (r.transferSize || 0), 0);
+
+      return result;
+    });
+
+    // Rate the metrics
+    const lcpRating = metrics.lcp
+      ? metrics.lcp <= 2500 ? "good" : metrics.lcp <= 4000 ? "needs-improvement" : "poor"
+      : undefined;
+
+    const clsRating = metrics.cls !== undefined
+      ? metrics.cls <= 0.1 ? "good" : metrics.cls <= 0.25 ? "needs-improvement" : "poor"
+      : undefined;
+
+    return {
+      lcp: metrics.lcp,
+      cls: metrics.cls,
+      fcp: metrics.fcp,
+      ttfb: metrics.ttfb,
+      domContentLoaded: metrics.domContentLoaded,
+      load: metrics.load,
+      resourceCount: metrics.resourceCount,
+      transferSize: metrics.transferSize,
+      lcpRating: lcpRating as PerformanceMetrics["lcpRating"],
+      clsRating: clsRating as PerformanceMetrics["clsRating"],
+    };
+  }
+
+  /**
+   * Run a performance audit against a budget.
+   */
+  async auditPerformance(url?: string): Promise<PerformanceAuditResult> {
+    if (url) {
+      await this.navigate(url);
+    }
+
+    const page = await this.getPage();
+    const metrics = await this.getPerformanceMetrics();
+    const budget = this.config.performanceBudget;
+    const violations: string[] = [];
+    let passed = true;
+
+    if (budget) {
+      if (budget.lcp && metrics.lcp && metrics.lcp > budget.lcp) {
+        violations.push(`LCP ${metrics.lcp}ms exceeds budget ${budget.lcp}ms`);
+        passed = false;
+      }
+      if (budget.fcp && metrics.fcp && metrics.fcp > budget.fcp) {
+        violations.push(`FCP ${metrics.fcp}ms exceeds budget ${budget.fcp}ms`);
+        passed = false;
+      }
+      if (budget.cls && metrics.cls && metrics.cls > budget.cls) {
+        violations.push(`CLS ${metrics.cls} exceeds budget ${budget.cls}`);
+        passed = false;
+      }
+      if (budget.ttfb && metrics.ttfb && metrics.ttfb > budget.ttfb) {
+        violations.push(`TTFB ${metrics.ttfb}ms exceeds budget ${budget.ttfb}ms`);
+        passed = false;
+      }
+      if (budget.transferSize && metrics.transferSize && metrics.transferSize > budget.transferSize) {
+        violations.push(`Transfer size ${metrics.transferSize}B exceeds budget ${budget.transferSize}B`);
+        passed = false;
+      }
+      if (budget.resourceCount && metrics.resourceCount && metrics.resourceCount > budget.resourceCount) {
+        violations.push(`Resource count ${metrics.resourceCount} exceeds budget ${budget.resourceCount}`);
+        passed = false;
+      }
+    }
+
+    return {
+      url: page.url(),
+      timestamp: new Date().toISOString(),
+      metrics,
+      budget,
+      passed,
+      violations,
+    };
+  }
+
+  // =========================================================================
+  // Cookie Management
+  // =========================================================================
+
+  /**
+   * Get all cookies for the current context.
+   */
+  async getCookies(urls?: string[]): Promise<SavedSession["cookies"]> {
+    if (!this.context) {
+      await this.launch();
+    }
+    return await this.context!.cookies(urls) as SavedSession["cookies"];
+  }
+
+  /**
+   * Set cookies.
+   */
+  async setCookies(cookies: SavedSession["cookies"]): Promise<void> {
+    if (!this.context) {
+      await this.launch();
+    }
+    await this.context!.addCookies(cookies);
+  }
+
+  /**
+   * Clear all cookies.
+   */
+  async clearCookies(): Promise<void> {
+    if (!this.context) return;
+    await this.context.clearCookies();
+  }
+
+  /**
+   * Delete specific cookies by name.
+   */
+  async deleteCookie(name: string, domain?: string): Promise<void> {
+    const cookies = await this.getCookies();
+    const filtered = cookies.filter((c) => {
+      if (c.name !== name) return true;
+      if (domain && c.domain !== domain) return true;
+      return false;
+    });
+
+    await this.clearCookies();
+    if (filtered.length > 0) {
+      await this.setCookies(filtered);
+    }
+  }
+
+  // =========================================================================
+  // Video Recording
+  // =========================================================================
+
+  /**
+   * Get the path to the video file (after browser closes).
+   */
+  async getVideoPath(): Promise<string | null> {
+    if (!this.page) return null;
+
+    const video = this.page.video();
+    if (!video) return null;
+
+    return await video.path();
+  }
+
+  /**
+   * Save the video with a custom filename.
+   */
+  async saveVideo(outputPath: string): Promise<string | null> {
+    if (!this.page) return null;
+
+    const video = this.page.video();
+    if (!video) return null;
+
+    await video.saveAs(outputPath);
+    return outputPath;
+  }
+
+  // =========================================================================
+  // Device Emulation
+  // =========================================================================
+
+  /**
+   * Set device emulation (requires browser restart).
+   */
+  setDevice(deviceName: string): boolean {
+    if (DEVICE_PRESETS[deviceName]) {
+      this.config.device = deviceName;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * List available device presets.
+   */
+  static listDevices(): string[] {
+    return Object.keys(DEVICE_PRESETS);
+  }
+
+  // =========================================================================
+  // Geolocation
+  // =========================================================================
+
+  /**
+   * Set geolocation (requires browser restart or use setGeolocationRuntime).
+   */
+  setGeolocation(location: string | { latitude: number; longitude: number; accuracy?: number }): boolean {
+    if (typeof location === "string") {
+      if (LOCATION_PRESETS[location]) {
+        this.config.geolocation = LOCATION_PRESETS[location];
+        return true;
+      }
+      return false;
+    }
+    this.config.geolocation = location;
+    return true;
+  }
+
+  /**
+   * Set geolocation at runtime without restarting.
+   */
+  async setGeolocationRuntime(
+    location: string | { latitude: number; longitude: number; accuracy?: number }
+  ): Promise<boolean> {
+    if (!this.context) return false;
+
+    let geo: { latitude: number; longitude: number; accuracy?: number };
+
+    if (typeof location === "string") {
+      if (!LOCATION_PRESETS[location]) return false;
+      geo = LOCATION_PRESETS[location];
+    } else {
+      geo = location;
+    }
+
+    await this.context.setGeolocation(geo);
+    await this.context.grantPermissions(["geolocation"]);
+    return true;
+  }
+
+  /**
+   * List available location presets.
+   */
+  static listLocations(): string[] {
+    return Object.keys(LOCATION_PRESETS);
   }
 
   // =========================================================================

@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "AI-powered browser automation with constitutional safety, personas, session persistence, and autonomous journeys",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,14 @@
     "persona-testing",
     "session-management",
     "constitutional-ai",
-    "autonomous-agent"
+    "autonomous-agent",
+    "device-emulation",
+    "geolocation",
+    "performance-metrics",
+    "core-web-vitals",
+    "har-export",
+    "network-mocking",
+    "video-recording"
   ],
   "author": "Your Name",
   "license": "MIT",

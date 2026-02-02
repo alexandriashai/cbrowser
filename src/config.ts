@@ -5,11 +5,13 @@
  * Default: ~/.cbrowser/
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile } from "./types.js";
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
+export type ColorScheme = "light" | "dark" | "no-preference";
 
 export interface CBrowserConfig {
   /** Base directory for all CBrowser data. Default: ~/.cbrowser/ */
@@ -26,6 +28,28 @@ export interface CBrowserConfig {
   timeout: number;
   /** Enable verbose logging. Default: false */
   verbose: boolean;
+  /** Device emulation preset name */
+  device?: string;
+  /** Device descriptor for custom emulation */
+  deviceDescriptor?: DeviceDescriptor;
+  /** Geolocation coordinates */
+  geolocation?: GeoLocation;
+  /** Browser locale (e.g., "en-US") */
+  locale?: string;
+  /** Browser timezone (e.g., "America/New_York") */
+  timezone?: string;
+  /** Color scheme preference */
+  colorScheme?: ColorScheme;
+  /** Record video of sessions */
+  recordVideo?: boolean;
+  /** Video output directory */
+  videoDir?: string;
+  /** Network mocks to apply */
+  networkMocks?: NetworkMock[];
+  /** Performance budget thresholds */
+  performanceBudget?: PerformanceBudget;
+  /** User agent string override */
+  userAgent?: string;
 }
 
 /**
@@ -49,19 +73,53 @@ function parseBrowserType(value: string | undefined): BrowserType {
 }
 
 /**
- * Get default configuration, merging with environment variables.
+ * Load config from .cbrowserrc.json file if it exists.
+ */
+export function loadConfigFile(dir?: string): CBrowserConfigFile | null {
+  const searchPaths = [
+    join(process.cwd(), ".cbrowserrc.json"),
+    join(process.cwd(), ".cbrowserrc"),
+    join(process.cwd(), "cbrowser.config.json"),
+    join(dir || getDataDir(), "config.json"),
+    join(homedir(), ".cbrowserrc.json"),
+  ];
+
+  for (const path of searchPaths) {
+    if (existsSync(path)) {
+      try {
+        const content = readFileSync(path, "utf-8");
+        return JSON.parse(content) as CBrowserConfigFile;
+      } catch {
+        // Invalid JSON, skip
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Get default configuration, merging with environment variables and config file.
  */
 export function getDefaultConfig(): CBrowserConfig {
   const dataDir = getDataDir();
+  const configFile = loadConfigFile(dataDir);
 
   return {
     dataDir,
-    browser: parseBrowserType(process.env.CBROWSER_BROWSER),
-    headless: process.env.CBROWSER_HEADLESS === "true",
-    viewportWidth: parseInt(process.env.CBROWSER_VIEWPORT_WIDTH || "1280", 10),
-    viewportHeight: parseInt(process.env.CBROWSER_VIEWPORT_HEIGHT || "800", 10),
-    timeout: parseInt(process.env.CBROWSER_TIMEOUT || "30000", 10),
+    browser: parseBrowserType(process.env.CBROWSER_BROWSER || configFile?.browser),
+    headless: process.env.CBROWSER_HEADLESS === "true" || configFile?.headless || false,
+    viewportWidth: parseInt(process.env.CBROWSER_VIEWPORT_WIDTH || String(configFile?.viewport?.width) || "1280", 10),
+    viewportHeight: parseInt(process.env.CBROWSER_VIEWPORT_HEIGHT || String(configFile?.viewport?.height) || "800", 10),
+    timeout: parseInt(process.env.CBROWSER_TIMEOUT || String(configFile?.timeout) || "30000", 10),
     verbose: process.env.CBROWSER_VERBOSE === "true",
+    device: process.env.CBROWSER_DEVICE || configFile?.device,
+    locale: process.env.CBROWSER_LOCALE || configFile?.locale,
+    timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone,
+    colorScheme: (process.env.CBROWSER_COLOR_SCHEME as ColorScheme) || configFile?.colorScheme,
+    recordVideo: process.env.CBROWSER_RECORD_VIDEO === "true" || configFile?.recordVideo || false,
+    videoDir: join(dataDir, "videos"),
+    networkMocks: configFile?.networkMocks,
+    performanceBudget: configFile?.performanceBudget,
   };
 }
 
@@ -72,6 +130,8 @@ export interface CBrowserPaths {
   dataDir: string;
   sessionsDir: string;
   screenshotsDir: string;
+  videosDir: string;
+  harDir: string;
   personasDir: string;
   scenariosDir: string;
   helpersDir: string;
@@ -89,6 +149,8 @@ export function getPaths(dataDir?: string): CBrowserPaths {
     dataDir: base,
     sessionsDir: join(base, "sessions"),
     screenshotsDir: join(base, "screenshots"),
+    videosDir: join(base, "videos"),
+    harDir: join(base, "har"),
     personasDir: join(base, "personas"),
     scenariosDir: join(base, "scenarios"),
     helpersDir: join(base, "helpers"),

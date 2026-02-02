@@ -7,12 +7,13 @@
 
 import { CBrowser } from "./browser.js";
 import { BUILTIN_PERSONAS } from "./personas.js";
+import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v2.3.0                                ║
-║         AI-powered browser automation with multi-browser support             ║
+║                           CBrowser CLI v2.4.0                                ║
+║       AI-powered browser automation with devices, geo & performance          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -30,6 +31,7 @@ AUTONOMOUS JOURNEYS
   journey <persona>           Run autonomous exploration
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish
+    --record-video            Record journey as video
 
 PERSONAS
   persona list                List available personas
@@ -41,6 +43,40 @@ SESSION MANAGEMENT
   session list                List all saved sessions
   session delete <name>       Delete a saved session
 
+COOKIE MANAGEMENT
+  cookie list                 List all cookies for current page
+    --url <url>               Navigate to URL first
+  cookie set <name> <value>   Set a cookie
+    --domain <domain>         Cookie domain
+    --path <path>             Cookie path (default: /)
+  cookie delete <name>        Delete a cookie
+    --domain <domain>         Only delete for this domain
+  cookie clear                Clear all cookies
+
+DEVICE EMULATION
+  device list                 List available device presets
+  device set <name>           Set device emulation for session
+    Example: cbrowser device set iphone-15
+
+GEOLOCATION
+  geo list                    List available location presets
+  geo set <location>          Set geolocation (preset name or lat,lon)
+    Examples:
+      cbrowser geo set new-york
+      cbrowser geo set 37.7749,-122.4194
+
+PERFORMANCE
+  perf [url]                  Collect performance metrics
+  perf audit [url]            Run performance audit against budget
+    --budget-lcp <ms>         LCP budget (default: 2500)
+    --budget-fcp <ms>         FCP budget (default: 1800)
+    --budget-cls <score>      CLS budget (default: 0.1)
+
+NETWORK / HAR
+  har start                   Start recording HAR
+  har stop [output]           Stop and save HAR file
+  network list                List captured network requests
+
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
   cleanup                     Clean up old files
@@ -50,23 +86,53 @@ STORAGE & CLEANUP
     --keep-journeys <n>       Keep at least N journeys (default: 5)
 
 OPTIONS
-  --browser <type>            Browser engine: chromium, firefox, webkit (default: chromium)
+  --browser <type>            Browser: chromium, firefox, webkit (default: chromium)
+  --device <name>             Device preset: iphone-15, pixel-8, ipad-pro-12, etc.
+  --geo <location>            Location preset or lat,lon coordinates
+  --locale <locale>           Browser locale (e.g., en-US, fr-FR)
+  --timezone <tz>             Timezone (e.g., America/New_York)
+  --record-video              Enable video recording
   --force                     Bypass red zone safety checks
   --headless                  Run browser in headless mode
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
   CBROWSER_BROWSER            Browser engine (chromium/firefox/webkit)
+  CBROWSER_DEVICE             Device preset name
+  CBROWSER_LOCALE             Browser locale
+  CBROWSER_TIMEZONE           Timezone
   CBROWSER_HEADLESS           Run headless by default (true/false)
   CBROWSER_TIMEOUT            Default timeout in ms (default: 30000)
+  CBROWSER_RECORD_VIDEO       Record video by default (true/false)
+
+CONFIG FILE
+  CBrowser looks for config in these locations:
+    .cbrowserrc.json          Project config
+    .cbrowserrc               Project config
+    cbrowser.config.json      Project config
+    ~/.cbrowser/config.json   User config
+    ~/.cbrowserrc.json        User config
+
+  Example .cbrowserrc.json:
+    {
+      "browser": "chromium",
+      "device": "iphone-15",
+      "geolocation": "new-york",
+      "locale": "en-US",
+      "recordVideo": true,
+      "performanceBudget": {
+        "lcp": 2500,
+        "cls": 0.1
+      }
+    }
 
 EXAMPLES
   npx cbrowser navigate "https://example.com"
-  npx cbrowser click "Sign in"
-  npx cbrowser fill "email" "user@example.com"
-  npx cbrowser journey first-timer --start "https://example.com" --goal "Find products"
-  npx cbrowser session save "logged-in" --url "https://myapp.com"
-  npx cbrowser cleanup --dry-run
+  npx cbrowser navigate "https://example.com" --device iphone-15
+  npx cbrowser navigate "https://example.com" --geo san-francisco
+  npx cbrowser perf audit "https://example.com" --budget-lcp 2000
+  npx cbrowser journey first-timer --start "https://example.com" --record-video
+  npx cbrowser cookie list --url "https://example.com"
 `);
 }
 
@@ -100,6 +166,23 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function parseGeoLocation(location: string): { latitude: number; longitude: number } | null {
+  // Check if it's a preset
+  if (LOCATION_PRESETS[location]) {
+    return LOCATION_PRESETS[location];
+  }
+  // Try parsing as lat,lon
+  const parts = location.split(",");
+  if (parts.length === 2) {
+    const lat = parseFloat(parts[0]);
+    const lon = parseFloat(parts[1]);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      return { latitude: lat, longitude: lon };
+    }
+  }
+  return null;
+}
+
 async function main(): Promise<void> {
   const { command, args, options } = parseArgs(process.argv.slice(2));
 
@@ -113,9 +196,25 @@ async function main(): Promise<void> {
     : options.browser === "webkit" ? "webkit"
     : "chromium";
 
+  // Parse geolocation
+  let geolocation = undefined;
+  if (options.geo) {
+    geolocation = parseGeoLocation(options.geo as string);
+    if (!geolocation) {
+      console.error(`Invalid geolocation: ${options.geo}`);
+      console.error("Use a preset name (new-york, london, etc.) or lat,lon format");
+      process.exit(1);
+    }
+  }
+
   const browser = new CBrowser({
     browser: browserType,
     headless: options.headless === true || options.headless === "true",
+    device: options.device as string,
+    geolocation,
+    locale: options.locale as string,
+    timezone: options.timezone as string,
+    recordVideo: options["record-video"] === true,
   });
 
   try {
@@ -347,6 +446,295 @@ async function main(): Promise<void> {
         console.log(`  Audit: ${result.details.audit.deleted} files (${formatBytes(result.details.audit.freed)})`);
         console.log("");
         console.log(`  TOTAL: ${result.deleted} files | ${formatBytes(result.freedBytes)} ${cleanupOptions.dryRun ? "would be " : ""}freed`);
+        break;
+      }
+
+      // =========================================================================
+      // Cookie Management
+      // =========================================================================
+
+      case "cookie": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "list": {
+            if (options.url) {
+              await browser.navigate(options.url as string);
+            }
+            const cookies = await browser.getCookies();
+            if (cookies.length === 0) {
+              console.log("No cookies found");
+            } else {
+              console.log("\n🍪 Cookies:\n");
+              for (const cookie of cookies) {
+                console.log(`  ${cookie.name}`);
+                console.log(`    Value: ${cookie.value.substring(0, 50)}${cookie.value.length > 50 ? "..." : ""}`);
+                console.log(`    Domain: ${cookie.domain}`);
+                console.log(`    Path: ${cookie.path}`);
+                console.log(`    Expires: ${cookie.expires === -1 ? "Session" : new Date(cookie.expires * 1000).toISOString()}`);
+                console.log("");
+              }
+            }
+            break;
+          }
+          case "set": {
+            const name = args[1];
+            const value = args[2];
+            if (!name || !value) {
+              console.error("Usage: cbrowser cookie set <name> <value> [--domain <domain>]");
+              process.exit(1);
+            }
+            if (options.url) {
+              await browser.navigate(options.url as string);
+            }
+            const domain = (options.domain as string) || "localhost";
+            const path = (options.path as string) || "/";
+            await browser.setCookies([{
+              name,
+              value,
+              domain,
+              path,
+              expires: -1,
+              httpOnly: false,
+              secure: false,
+              sameSite: "Lax",
+            }]);
+            console.log(`✓ Cookie set: ${name}=${value}`);
+            break;
+          }
+          case "delete": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser cookie delete <name> [--domain <domain>]");
+              process.exit(1);
+            }
+            if (options.url) {
+              await browser.navigate(options.url as string);
+            }
+            await browser.deleteCookie(name, options.domain as string);
+            console.log(`✓ Cookie deleted: ${name}`);
+            break;
+          }
+          case "clear": {
+            await browser.clearCookies();
+            console.log("✓ All cookies cleared");
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser cookie [list|set|delete|clear]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Device Emulation
+      // =========================================================================
+
+      case "device": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "list": {
+            console.log("\n📱 Available Device Presets:\n");
+            for (const [name, device] of Object.entries(DEVICE_PRESETS)) {
+              console.log(`  ${name}`);
+              console.log(`    ${device.name}`);
+              console.log(`    ${device.viewport.width}x${device.viewport.height} @${device.deviceScaleFactor}x`);
+              console.log(`    Mobile: ${device.isMobile} | Touch: ${device.hasTouch}`);
+              console.log("");
+            }
+            break;
+          }
+          case "set": {
+            const deviceName = args[1];
+            if (!deviceName) {
+              console.error("Usage: cbrowser device set <name>");
+              process.exit(1);
+            }
+            if (!DEVICE_PRESETS[deviceName]) {
+              console.error(`Unknown device: ${deviceName}`);
+              console.error("Run 'cbrowser device list' to see available devices");
+              process.exit(1);
+            }
+            console.log(`✓ Device set: ${deviceName}`);
+            console.log("  Note: Device emulation applies to new browser sessions");
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser device [list|set]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Geolocation
+      // =========================================================================
+
+      case "geo": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "list": {
+            console.log("\n🌍 Available Location Presets:\n");
+            for (const [name, loc] of Object.entries(LOCATION_PRESETS)) {
+              console.log(`  ${name}`);
+              console.log(`    Lat: ${loc.latitude}, Lon: ${loc.longitude}`);
+              console.log("");
+            }
+            break;
+          }
+          case "set": {
+            const location = args[1];
+            if (!location) {
+              console.error("Usage: cbrowser geo set <location>");
+              console.error("  Location can be a preset name or lat,lon coordinates");
+              process.exit(1);
+            }
+            const geo = parseGeoLocation(location);
+            if (!geo) {
+              console.error(`Invalid location: ${location}`);
+              process.exit(1);
+            }
+            await browser.setGeolocationRuntime(geo);
+            console.log(`✓ Geolocation set: ${geo.latitude}, ${geo.longitude}`);
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser geo [list|set]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Performance
+      // =========================================================================
+
+      case "perf": {
+        const subcommand = args[0];
+
+        if (subcommand === "audit") {
+          const url = args[1];
+          if (url) {
+            await browser.navigate(url);
+          } else if (options.url) {
+            await browser.navigate(options.url as string);
+          }
+
+          // Create performance budget from options
+          const budget = {
+            lcp: options["budget-lcp"] ? parseInt(options["budget-lcp"] as string) : 2500,
+            fcp: options["budget-fcp"] ? parseInt(options["budget-fcp"] as string) : 1800,
+            cls: options["budget-cls"] ? parseFloat(options["budget-cls"] as string) : 0.1,
+          };
+
+          // Temporarily set budget in config
+          (browser as any).config.performanceBudget = budget;
+
+          const result = await browser.auditPerformance();
+
+          console.log("\n📊 Performance Audit:\n");
+          console.log(`  URL: ${result.url}`);
+          console.log(`  Result: ${result.passed ? "✓ PASSED" : "✗ FAILED"}`);
+          console.log("");
+          console.log("  Metrics:");
+          if (result.metrics.lcp) console.log(`    LCP: ${result.metrics.lcp.toFixed(0)}ms (${result.metrics.lcpRating})`);
+          if (result.metrics.fcp) console.log(`    FCP: ${result.metrics.fcp.toFixed(0)}ms`);
+          if (result.metrics.cls !== undefined) console.log(`    CLS: ${result.metrics.cls.toFixed(3)} (${result.metrics.clsRating})`);
+          if (result.metrics.ttfb) console.log(`    TTFB: ${result.metrics.ttfb.toFixed(0)}ms`);
+          if (result.metrics.load) console.log(`    Load: ${result.metrics.load.toFixed(0)}ms`);
+          if (result.metrics.resourceCount) console.log(`    Resources: ${result.metrics.resourceCount}`);
+          if (result.metrics.transferSize) console.log(`    Transfer: ${formatBytes(result.metrics.transferSize)}`);
+
+          if (result.violations.length > 0) {
+            console.log("");
+            console.log("  ⚠️  Budget Violations:");
+            for (const v of result.violations) {
+              console.log(`    - ${v}`);
+            }
+          }
+        } else {
+          // Just collect metrics
+          const url = args[0];
+          if (url) {
+            await browser.navigate(url);
+          } else if (options.url) {
+            await browser.navigate(options.url as string);
+          }
+
+          const metrics = await browser.getPerformanceMetrics();
+
+          console.log("\n📊 Performance Metrics:\n");
+          if (metrics.lcp) console.log(`  LCP: ${metrics.lcp.toFixed(0)}ms (${metrics.lcpRating})`);
+          if (metrics.fcp) console.log(`  FCP: ${metrics.fcp.toFixed(0)}ms`);
+          if (metrics.cls !== undefined) console.log(`  CLS: ${metrics.cls.toFixed(3)} (${metrics.clsRating})`);
+          if (metrics.ttfb) console.log(`  TTFB: ${metrics.ttfb.toFixed(0)}ms`);
+          if (metrics.domContentLoaded) console.log(`  DOMContentLoaded: ${metrics.domContentLoaded.toFixed(0)}ms`);
+          if (metrics.load) console.log(`  Load: ${metrics.load.toFixed(0)}ms`);
+          if (metrics.resourceCount) console.log(`  Resources: ${metrics.resourceCount}`);
+          if (metrics.transferSize) console.log(`  Transfer Size: ${formatBytes(metrics.transferSize)}`);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // HAR Recording
+      // =========================================================================
+
+      case "har": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "start": {
+            browser.startHarRecording();
+            console.log("✓ HAR recording started");
+            console.log("  Navigate and interact with pages, then run 'cbrowser har stop'");
+            break;
+          }
+          case "stop": {
+            const output = args[1];
+            const filename = await browser.exportHar(output);
+            console.log(`✓ HAR saved: ${filename}`);
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser har [start|stop]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Network
+      // =========================================================================
+
+      case "network": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "list": {
+            const requests = browser.getNetworkRequests();
+            if (requests.length === 0) {
+              console.log("No network requests captured");
+              console.log("Navigate to a page first to capture requests");
+            } else {
+              console.log(`\n🌐 Network Requests (${requests.length}):\n`);
+              for (const req of requests.slice(-20)) {
+                console.log(`  ${req.method} ${req.url.substring(0, 80)}${req.url.length > 80 ? "..." : ""}`);
+                console.log(`    Type: ${req.resourceType} | Time: ${req.timestamp}`);
+              }
+              if (requests.length > 20) {
+                console.log(`\n  ... and ${requests.length - 20} more requests`);
+              }
+            }
+            break;
+          }
+          case "clear": {
+            browser.clearNetworkHistory();
+            console.log("✓ Network history cleared");
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser network [list|clear]");
+        }
         break;
       }
 
