@@ -776,10 +776,10 @@ export interface CBrowserConfigFile {
 }
 
 // ============================================================================
-// Tier 2: Visual Regression Types (v2.5.0)
+// Tier 2: Visual Regression Types (v2.5.0) - Legacy pixel-diff
 // ============================================================================
 
-export interface VisualRegressionResult {
+export interface PixelDiffResult {
   baseline: string;
   current: string;
   diff?: string;
@@ -789,15 +789,7 @@ export interface VisualRegressionResult {
   timestamp: string;
 }
 
-export interface VisualBaseline {
-  name: string;
-  url: string;
-  device?: string;
-  viewport: { width: number; height: number };
-  screenshotPath: string;
-  created: string;
-  lastUsed: string;
-}
+// Old VisualBaseline moved to Tier 7 AI Visual Regression types
 
 // ============================================================================
 // Tier 2: Accessibility Types (v2.5.0)
@@ -1238,4 +1230,134 @@ export interface CoverageMapOptions {
   minCoverage?: number;
   /** Output format */
   format?: "json" | "html" | "summary";
+}
+
+// ============================================================================
+// Tier 7: AI Visual Regression Types (v7.0.0)
+// ============================================================================
+
+export interface VisualBaseline {
+  /** Unique identifier */
+  id: string;
+  /** Human-readable name */
+  name: string;
+  /** URL that was captured */
+  url: string;
+  /** Path to baseline screenshot */
+  screenshotPath: string;
+  /** Screenshot dimensions */
+  dimensions: { width: number; height: number };
+  /** Viewport used */
+  viewport: { width: number; height: number };
+  /** Device emulation if any */
+  device?: string;
+  /** Timestamp of capture */
+  timestamp: string;
+  /** Optional element selector for partial screenshot */
+  selector?: string;
+  /** Metadata for context */
+  metadata?: Record<string, unknown>;
+}
+
+export interface VisualChange {
+  /** Type of change detected */
+  type: "layout" | "content" | "style" | "missing" | "added" | "moved";
+  /** Severity of the change */
+  severity: "breaking" | "warning" | "info" | "acceptable";
+  /** Region where change was detected */
+  region: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  /** AI description of what changed */
+  description: string;
+  /** Why this severity was assigned */
+  reasoning: string;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** Suggested action */
+  suggestion?: string;
+}
+
+export interface AIVisualAnalysis {
+  /** Overall assessment */
+  overallStatus: "pass" | "warning" | "fail";
+  /** Human-readable summary */
+  summary: string;
+  /** Detailed changes detected */
+  changes: VisualChange[];
+  /** Semantic similarity score (0-1) */
+  similarityScore: number;
+  /** Is this acceptable for production? */
+  productionReady: boolean;
+  /** AI confidence in assessment (0-1) */
+  confidence: number;
+  /** Raw AI response for debugging */
+  rawAnalysis?: string;
+}
+
+export interface VisualRegressionResult {
+  /** Did the test pass? */
+  passed: boolean;
+  /** Baseline used */
+  baseline: VisualBaseline;
+  /** Path to current screenshot */
+  currentScreenshotPath: string;
+  /** Path to diff image (highlighted changes) */
+  diffImagePath?: string;
+  /** AI analysis of visual differences */
+  analysis: AIVisualAnalysis;
+  /** Duration of analysis in ms */
+  duration: number;
+}
+
+export interface VisualRegressionOptions {
+  /** Similarity threshold (0-1, default 0.9) */
+  threshold?: number;
+  /** Detection sensitivity: low, medium, high */
+  sensitivity?: "low" | "medium" | "high";
+  /** Regions to ignore (dynamic content areas) */
+  ignoreRegions?: Array<{ x: number; y: number; width: number; height: number }>;
+  /** Generate diff image */
+  generateDiff?: boolean;
+  /** Wait time before capture (ms) */
+  waitBeforeCapture?: number;
+}
+
+export interface VisualTestSuite {
+  /** Suite name */
+  name: string;
+  /** Pages to test */
+  pages: VisualTestPage[];
+}
+
+export interface VisualTestPage {
+  /** Page name/identifier */
+  name: string;
+  /** URL to test */
+  url: string;
+  /** Baseline name to compare against */
+  baselineName: string;
+  /** Page-specific options */
+  options?: VisualRegressionOptions;
+}
+
+export interface VisualTestSuiteResult {
+  /** Suite definition */
+  suite: VisualTestSuite;
+  /** Individual page results */
+  results: VisualRegressionResult[];
+  /** Summary */
+  summary: {
+    total: number;
+    passed: number;
+    warnings: number;
+    failed: number;
+  };
+  /** Total duration in ms */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
 }

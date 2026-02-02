@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -23,8 +23,8 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v6.5.0                                ║
-║    AI-powered browser automation with test coverage mapping                  ║
+║                           CBrowser CLI v7.0.0                                ║
+║    AI-powered browser automation with AI visual regression testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -210,6 +210,36 @@ VISUAL REGRESSION (v2.5.0)
     --threshold <n>           Diff threshold 0-1 (default: 0.1)
   visual list                 List all saved baselines
   visual delete <name>        Delete a baseline
+
+AI VISUAL REGRESSION (v7.0.0)
+  ai-visual capture <url>     Capture AI-analyzed visual baseline
+    --name <name>             Baseline name (required)
+    --selector <sel>          Capture specific element instead of viewport
+    --device <device>         Device emulation (iphone-15, pixel-7, etc.)
+    --width <n>               Viewport width (default: 1920)
+    --height <n>              Viewport height (default: 1080)
+    --wait <ms|selector>      Wait before capture (ms or CSS selector)
+    Examples:
+      cbrowser ai-visual capture "https://example.com" --name homepage
+      cbrowser ai-visual capture "https://example.com/dashboard" --name dashboard --device iphone-15
+
+  ai-visual test <url> <baseline>  Test current page against baseline using AI
+    --threshold <n>           Similarity threshold 0-1 (default: 0.9)
+    --sensitivity <level>     Detection sensitivity: low, medium, high (default: medium)
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+    Examples:
+      cbrowser ai-visual test "https://staging.example.com" homepage
+      cbrowser ai-visual test "https://staging.example.com" homepage --sensitivity high
+
+  ai-visual suite <file.json>  Run visual regression suite
+    --threshold <n>           Global similarity threshold (default: 0.9)
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+
+  ai-visual list              List all AI visual baselines
+  ai-visual show <name>       Show baseline details
+  ai-visual delete <name>     Delete a baseline
 
 ACCESSIBILITY (v2.5.0)
   a11y audit                  Run WCAG accessibility audit
@@ -2016,6 +2046,236 @@ async function main(): Promise<void> {
           }
           default:
             console.error("Usage: cbrowser visual [save|compare|list|delete]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // AI Visual Regression (v7.0.0)
+      // =========================================================================
+
+      case "ai-visual": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "capture": {
+            const url = args[1];
+            if (!url || !options.name) {
+              console.error("Usage: cbrowser ai-visual capture <url> --name <name> [options]");
+              console.error("  --selector <sel>    Capture specific element");
+              console.error("  --device <device>   Device emulation");
+              console.error("  --width <n>         Viewport width");
+              console.error("  --height <n>        Viewport height");
+              console.error("  --wait <ms|sel>     Wait before capture");
+              process.exit(1);
+            }
+
+            console.log(`📸 Capturing visual baseline: ${options.name}`);
+            console.log(`   URL: ${url}`);
+
+            const baseline = await captureVisualBaseline(url, options.name as string, {
+              selector: options.selector as string | undefined,
+              device: options.device as string | undefined,
+              viewport: options.width || options.height ? {
+                width: parseInt(options.width as string) || 1920,
+                height: parseInt(options.height as string) || 1080,
+              } : undefined,
+              waitFor: options.wait ? (
+                /^\d+$/.test(options.wait as string)
+                  ? parseInt(options.wait as string)
+                  : options.wait as string
+              ) : undefined,
+            });
+
+            console.log(`\n✅ Baseline captured successfully!`);
+            console.log(`   ID: ${baseline.id}`);
+            console.log(`   Viewport: ${baseline.viewport.width}x${baseline.viewport.height}`);
+            console.log(`   Screenshot: ${baseline.screenshotPath}`);
+            break;
+          }
+
+          case "test": {
+            const url = args[1];
+            const baselineName = args[2];
+
+            if (!url || !baselineName) {
+              console.error("Usage: cbrowser ai-visual test <url> <baseline-name> [options]");
+              console.error("  --threshold <n>     Similarity threshold 0-1 (default: 0.9)");
+              console.error("  --sensitivity <l>   low, medium, high (default: medium)");
+              console.error("  --html              Generate HTML report");
+              console.error("  --output <file>     Save JSON report");
+              process.exit(1);
+            }
+
+            console.log(`\n🔍 Running AI visual regression test...`);
+            console.log(`   URL: ${url}`);
+            console.log(`   Baseline: ${baselineName}\n`);
+
+            const result = await runVisualRegression(url, baselineName, {
+              threshold: options.threshold ? parseFloat(options.threshold as string) : 0.9,
+              sensitivity: (options.sensitivity as "low" | "medium" | "high") || "medium",
+              generateDiff: true,
+            });
+
+            // Print report
+            console.log(formatVisualRegressionReport(result));
+
+            // Save JSON output if requested
+            if (options.output && !options.html) {
+              const fs = await import("fs");
+              fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+              console.log(`\n📄 JSON report saved to: ${options.output}`);
+            }
+
+            // Generate HTML report if requested
+            if (options.html) {
+              const fs = await import("fs");
+              const suiteResult: VisualTestSuiteResult = {
+                suite: {
+                  name: baselineName,
+                  pages: [{ name: baselineName, url, baselineName }],
+                },
+                results: [result],
+                summary: {
+                  total: 1,
+                  passed: result.passed ? 1 : 0,
+                  failed: result.passed ? 0 : 1,
+                  warnings: result.analysis.overallStatus === "warning" ? 1 : 0,
+                },
+                duration: result.duration,
+                timestamp: new Date().toISOString(),
+              };
+              const htmlReport = generateVisualRegressionHtmlReport(suiteResult);
+              const outputPath = (options.output as string) || `visual-regression-${baselineName}-${Date.now()}.html`;
+              fs.writeFileSync(outputPath, htmlReport);
+              console.log(`\n📄 HTML report saved to: ${outputPath}`);
+            }
+
+            if (!result.passed) {
+              process.exit(1);
+            }
+            break;
+          }
+
+          case "suite": {
+            const suiteFile = args[1];
+            if (!suiteFile) {
+              console.error("Usage: cbrowser ai-visual suite <file.json> [options]");
+              console.error("  --threshold <n>     Global similarity threshold");
+              console.error("  --html              Generate HTML report");
+              console.error("  --output <file>     Save report to file");
+              process.exit(1);
+            }
+
+            const fs = await import("fs");
+            if (!fs.existsSync(suiteFile)) {
+              console.error(`Suite file not found: ${suiteFile}`);
+              process.exit(1);
+            }
+
+            const suite: VisualTestSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
+            console.log(`\n🔍 Running visual regression suite: ${suite.name}`);
+
+            const result = await runVisualRegressionSuite(suite, {
+              threshold: options.threshold ? parseFloat(options.threshold as string) : 0.9,
+            });
+
+            // Save outputs
+            if (options.output && !options.html) {
+              fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+              console.log(`📄 JSON report saved to: ${options.output}`);
+            }
+
+            if (options.html) {
+              const htmlReport = generateVisualRegressionHtmlReport(result);
+              const outputPath = (options.output as string) || `visual-suite-${Date.now()}.html`;
+              fs.writeFileSync(outputPath, htmlReport);
+              console.log(`📄 HTML report saved to: ${outputPath}`);
+            }
+
+            if (result.summary.failed > 0) {
+              process.exit(1);
+            }
+            break;
+          }
+
+          case "list": {
+            const baselines = listVisualBaselines();
+            if (baselines.length === 0) {
+              console.log("\nNo AI visual baselines saved.\n");
+              console.log("Capture one with:");
+              console.log("  cbrowser ai-visual capture <url> --name <name>\n");
+            } else {
+              console.log("\n📸 AI Visual Baselines:\n");
+              console.log("┌──────────────────────┬─────────────────────────────────┬────────────────────┬──────────────┐");
+              console.log("│ Name                 │ URL                             │ Viewport           │ Created      │");
+              console.log("├──────────────────────┼─────────────────────────────────┼────────────────────┼──────────────┤");
+              for (const b of baselines) {
+                const name = b.name.substring(0, 20).padEnd(20);
+                const url = b.url.substring(0, 31).padEnd(31);
+                const viewport = `${b.viewport.width}x${b.viewport.height}`.padEnd(18);
+                const created = new Date(b.timestamp).toLocaleDateString().padEnd(12);
+                console.log(`│ ${name} │ ${url} │ ${viewport} │ ${created} │`);
+              }
+              console.log("└──────────────────────┴─────────────────────────────────┴────────────────────┴──────────────┘\n");
+            }
+            break;
+          }
+
+          case "show": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser ai-visual show <name>");
+              process.exit(1);
+            }
+
+            const baseline = getVisualBaseline(name);
+            if (!baseline) {
+              console.error(`Baseline not found: ${name}`);
+              process.exit(1);
+            }
+
+            console.log("\n📸 AI Visual Baseline Details:\n");
+            console.log(`  Name:       ${baseline.name}`);
+            console.log(`  ID:         ${baseline.id}`);
+            console.log(`  URL:        ${baseline.url}`);
+            console.log(`  Viewport:   ${baseline.viewport.width}x${baseline.viewport.height}`);
+            if (baseline.device) {
+              console.log(`  Device:     ${baseline.device}`);
+            }
+            if (baseline.selector) {
+              console.log(`  Selector:   ${baseline.selector}`);
+            }
+            console.log(`  Created:    ${baseline.timestamp}`);
+            console.log(`  Screenshot: ${baseline.screenshotPath}`);
+            console.log("");
+            break;
+          }
+
+          case "delete": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser ai-visual delete <name>");
+              process.exit(1);
+            }
+
+            if (deleteVisualBaseline(name)) {
+              console.log(`✅ Baseline deleted: ${name}`);
+            } else {
+              console.error(`Baseline not found: ${name}`);
+              process.exit(1);
+            }
+            break;
+          }
+
+          default:
+            console.error("Usage: cbrowser ai-visual [capture|test|suite|list|show|delete]");
+            console.error("       cbrowser ai-visual capture <url> --name <name>");
+            console.error("       cbrowser ai-visual test <url> <baseline>");
+            console.error("       cbrowser ai-visual suite <file.json>");
+            console.error("       cbrowser ai-visual list");
+            console.error("       cbrowser ai-visual show <name>");
+            console.error("       cbrowser ai-visual delete <name>");
         }
         break;
       }

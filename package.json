@@ -1,7 +1,7 @@
 {
   "name": "cbrowser",
-  "version": "6.5.0",
-  "description": "The only browser automation with constitutional AI safety zones and user perspective testing. Tests if real humans can complete tasks safely.",
+  "version": "7.0.0",
+  "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -34,7 +34,10 @@
     "natural-language-tests",
     "e2e-testing",
     "autonomous-agent",
-    "human-behavior-simulation"
+    "human-behavior-simulation",
+    "ai-visual-regression",
+    "visual-testing",
+    "screenshot-comparison"
   ],
   "author": "WF Media",
   "license": "MIT",
