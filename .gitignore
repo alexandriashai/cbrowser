@@ -19,10 +19,12 @@ credentials.enc
 *.key
 *.pem
 
-# Screenshots and journey logs (large, user-specific)
-screenshots/
-journeys/
-audit/
+# Screenshots and journey logs (large, user-specific, in data dir)
+# Note: examples/journeys/ is allowed
+.cbrowser/screenshots/
+.cbrowser/journeys/
+.cbrowser/audit/
+**/journey-*.json
 
 # IDE
 .vscode/

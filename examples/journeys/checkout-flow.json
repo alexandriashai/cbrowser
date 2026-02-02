@@ -1,0 +1,35 @@
+{
+  "name": "checkout-flow",
+  "description": "Test the complete checkout process",
+  "persona": "first-timer",
+  "startUrl": "https://example-shop.com",
+  "goal": "Complete a purchase from product selection to confirmation",
+  "maxSteps": 30,
+  "expectedSteps": [
+    {
+      "description": "Find a product",
+      "successIndicators": ["product page", "add to cart button"]
+    },
+    {
+      "description": "Add to cart",
+      "successIndicators": ["cart updated", "item added"]
+    },
+    {
+      "description": "View cart",
+      "successIndicators": ["cart page", "checkout button"]
+    },
+    {
+      "description": "Begin checkout",
+      "successIndicators": ["checkout form", "shipping address"]
+    },
+    {
+      "description": "Complete purchase",
+      "successIndicators": ["confirmation", "order number", "thank you"]
+    }
+  ],
+  "frictionThresholds": {
+    "maxTimePerStep": 30000,
+    "maxErrorsPerStep": 2,
+    "maxBacktracks": 3
+  }
+}
