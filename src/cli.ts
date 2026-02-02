@@ -8,6 +8,7 @@
 import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest } from "./browser.js";
 import { BUILTIN_PERSONAS } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
+import { startMcpServer } from "./mcp-server.js";
 
 function showHelp(): void {
   console.log(`
@@ -182,6 +183,10 @@ AI TEST GENERATION (v5.0.0)
     --output <file>           Save to file instead of stdout
   analyze <url>               Show page analysis without generating tests
 
+MCP SERVER (v5.0.0)
+  mcp-server                  Start CBrowser as MCP server for Claude integration
+                              Use with Claude Desktop or other MCP-compatible clients
+
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
   cleanup                     Clean up old files
@@ -296,6 +301,13 @@ async function main(): Promise<void> {
   if (command === "help" || options.help) {
     showHelp();
     process.exit(0);
+  }
+
+  // MCP Server mode - runs before browser instantiation
+  if (command === "mcp-server") {
+    console.error("🔌 Starting CBrowser MCP Server...");
+    await startMcpServer();
+    return;
   }
 
   // Parse browser type

@@ -81,7 +81,7 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | AI Failure Analysis | ✅ Complete | Suggestions when elements not found |
 | Self-Healing Selectors | ✅ Complete | Cache working alternatives for future use |
 | AI Test Generation | ✅ Complete | Analyze page → generate test scenarios |
-| MCP Server Mode | ⬜ Planned | Run as MCP server for Claude integration |
+| MCP Server Mode | ✅ Complete | Run as MCP server for Claude integration |
 
 ---
 

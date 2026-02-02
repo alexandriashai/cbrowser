@@ -17,3 +17,4 @@ export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./co
 export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export * from "./types.js";
 export { BUILTIN_PERSONAS } from "./personas.js";
+export { startMcpServer } from "./mcp-server.js";
