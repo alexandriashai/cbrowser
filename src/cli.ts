@@ -23,7 +23,7 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.1.0                                ║
+║                           CBrowser CLI v7.1.1                                ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -241,7 +241,7 @@ AI VISUAL REGRESSION (v7.0.0)
   ai-visual show <name>       Show baseline details
   ai-visual delete <name>     Delete a baseline
 
-CROSS-BROWSER VISUAL TESTING (v7.1.0)
+CROSS-BROWSER VISUAL TESTING (v7.1.1)
   cross-browser <url>         Compare visual rendering across browsers
     --browsers <list>         Browsers to test: chromium,firefox,webkit (default: all)
     --width <n>               Viewport width (default: 1920)
@@ -2307,7 +2307,7 @@ async function main(): Promise<void> {
       }
 
       // =========================================================================
-      // Cross-Browser Visual Testing (v7.1.0)
+      // Cross-Browser Visual Testing (v7.1.1)
       // =========================================================================
 
       case "cross-browser": {

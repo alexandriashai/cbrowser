@@ -90,26 +90,39 @@ import type {
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
-// Fast launch args for Chromium - reduces cold start time significantly
-const FAST_LAUNCH_ARGS = [
-  "--disable-gpu",
-  "--disable-dev-shm-usage",
-  "--disable-setuid-sandbox",
-  "--no-sandbox",
-  "--disable-extensions",
-  "--disable-background-networking",
-  "--disable-background-timer-throttling",
-  "--disable-backgrounding-occluded-windows",
-  "--disable-breakpad",
-  "--disable-component-extensions-with-background-pages",
-  "--disable-features=TranslateUI",
-  "--disable-ipc-flooding-protection",
-  "--disable-renderer-backgrounding",
-  "--enable-features=NetworkService,NetworkServiceInProcess",
-  "--force-color-profile=srgb",
-  "--metrics-recording-only",
-  "--no-first-run",
-];
+// Browser-specific fast launch args for performance optimization
+const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
+  // Chromium args - reduces cold start time significantly
+  chromium: [
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--disable-setuid-sandbox",
+    "--no-sandbox",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-breakpad",
+    "--disable-component-extensions-with-background-pages",
+    "--disable-features=TranslateUI",
+    "--disable-ipc-flooding-protection",
+    "--disable-renderer-backgrounding",
+    "--enable-features=NetworkService,NetworkServiceInProcess",
+    "--force-color-profile=srgb",
+    "--metrics-recording-only",
+    "--no-first-run",
+  ],
+  // Firefox args - uses different flag format
+  firefox: [
+    "-no-remote", // Don't connect to existing Firefox instance
+    "-new-instance", // Force new browser instance
+  ],
+  // WebKit args - minimal flags, WebKit is already lean
+  webkit: [],
+};
+
+// Legacy alias for backward compatibility
+const FAST_LAUNCH_ARGS = BROWSER_LAUNCH_ARGS.chromium;
 
 export class CBrowser {
   private config: CBrowserConfig;
@@ -216,6 +229,9 @@ export class CBrowser {
     }
 
     // Use persistent context if enabled (preserves cookies/localStorage between sessions)
+    // Use browser-specific launch args for optimal performance
+    const launchArgs = BROWSER_LAUNCH_ARGS[this.config.browser];
+
     if (this.config.persistent) {
       const browserStateDir = join(this.paths.dataDir, "browser-state");
       if (!existsSync(browserStateDir)) {
@@ -223,7 +239,7 @@ export class CBrowser {
       }
       this.context = await browserType.launchPersistentContext(browserStateDir, {
         headless: this.config.headless,
-        args: FAST_LAUNCH_ARGS,
+        args: launchArgs,
         ...contextOptions,
       });
       this.page = this.context.pages()[0] || await this.context.newPage();
@@ -233,7 +249,7 @@ export class CBrowser {
     } else {
       this.browser = await browserType.launch({
         headless: this.config.headless,
-        args: FAST_LAUNCH_ARGS,
+        args: launchArgs,
       });
       this.context = await this.browser.newContext(contextOptions);
       this.page = await this.context.newPage();
