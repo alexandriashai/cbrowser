@@ -168,6 +168,10 @@ OPTIONS
   --record-video              Enable video recording
   --force                     Bypass red zone safety checks
   --headless                  Run browser in headless mode
+  --persistent                Enable persistent browser context (cookies survive)
+
+STORAGE & CLEANUP
+  reset                       Clear persistent browser state (cookies, storage)
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
@@ -289,6 +293,8 @@ async function main(): Promise<void> {
     locale: options.locale as string,
     timezone: options.timezone as string,
     recordVideo: options["record-video"] === true,
+    persistent: options.persistent === true || options.persistent === "true",
+    verbose: true,
   });
 
   try {
@@ -1566,6 +1572,12 @@ async function main(): Promise<void> {
         if (!result.passed) {
           process.exit(1);
         }
+        break;
+      }
+
+      case "reset": {
+        await browser.reset();
+        console.log("✓ Browser state reset (cookies, localStorage cleared)");
         break;
       }
 

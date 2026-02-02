@@ -59,7 +59,7 @@ export class CBrowser {
    * Launch the browser.
    */
   async launch(): Promise<void> {
-    if (this.browser) return;
+    if (this.browser || this.context) return;
 
     // Select browser engine based on config
     const browserType = this.config.browser === "firefox"
@@ -67,10 +67,6 @@ export class CBrowser {
       : this.config.browser === "webkit"
         ? webkit
         : chromium;
-
-    this.browser = await browserType.launch({
-      headless: this.config.headless,
-    });
 
     // Build context options
     const contextOptions: Parameters<Browser["newContext"]>[0] = {
@@ -142,8 +138,27 @@ export class CBrowser {
       };
     }
 
-    this.context = await this.browser.newContext(contextOptions);
-    this.page = await this.context.newPage();
+    // Use persistent context if enabled (preserves cookies/localStorage between sessions)
+    if (this.config.persistent) {
+      const browserStateDir = join(this.paths.dataDir, "browser-state");
+      if (!existsSync(browserStateDir)) {
+        mkdirSync(browserStateDir, { recursive: true });
+      }
+      this.context = await browserType.launchPersistentContext(browserStateDir, {
+        headless: this.config.headless,
+        ...contextOptions,
+      });
+      this.page = this.context.pages()[0] || await this.context.newPage();
+      if (this.config.verbose) {
+        console.log(`🔄 Using persistent browser context: ${browserStateDir}`);
+      }
+    } else {
+      this.browser = await browserType.launch({
+        headless: this.config.headless,
+      });
+      this.context = await this.browser.newContext(contextOptions);
+      this.page = await this.context.newPage();
+    }
 
     // Apply network mocks if configured
     if (this.config.networkMocks && this.config.networkMocks.length > 0) {
@@ -158,11 +173,30 @@ export class CBrowser {
    * Close the browser.
    */
   async close(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
+    if (this.context) {
+      await this.context.close().catch(() => {});
       this.context = null;
       this.page = null;
+    }
+    if (this.browser) {
+      await this.browser.close().catch(() => {});
+      this.browser = null;
+    }
+  }
+
+  /**
+   * Reset persistent browser state (clear cookies, localStorage, etc.)
+   */
+  async reset(): Promise<void> {
+    await this.close();
+    const browserStateDir = join(this.paths.dataDir, "browser-state");
+    if (existsSync(browserStateDir)) {
+      const { rmSync } = await import("fs");
+      rmSync(browserStateDir, { recursive: true, force: true });
+      mkdirSync(browserStateDir, { recursive: true });
+    }
+    if (this.config.verbose) {
+      console.log("🔄 Browser state reset");
     }
   }
 

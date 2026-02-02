@@ -50,6 +50,8 @@ export interface CBrowserConfig {
   performanceBudget?: PerformanceBudget;
   /** User agent string override */
   userAgent?: string;
+  /** Enable persistent browser context (cookies/localStorage survive between sessions) */
+  persistent?: boolean;
 }
 
 /**
