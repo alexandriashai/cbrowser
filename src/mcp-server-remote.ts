@@ -1030,7 +1030,7 @@ export async function startRemoteMcpServer(): Promise<void> {
   const apiKeys = getApiKeys();
   const authEnabled = apiKeys !== null && apiKeys.size > 0;
 
-  console.log(`Starting CBrowser Remote MCP Server v7.4.3...`);
+  console.log(`Starting CBrowser Remote MCP Server v7.4.4...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
   console.log(`Listening on ${host}:${port}`);
@@ -1041,7 +1041,7 @@ export async function startRemoteMcpServer(): Promise<void> {
     // Health check endpoint (always open, no auth required)
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", version: "7.4.3", auth: authEnabled }));
+      res.end(JSON.stringify({ status: "ok", version: "7.4.4", auth: authEnabled }));
       return;
     }
 
@@ -1050,7 +1050,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.3",
+        version: "7.4.4",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,
