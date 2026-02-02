@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "AI-powered browser automation with constitutional safety, personas, session persistence, and autonomous journeys",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

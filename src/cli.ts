@@ -167,6 +167,15 @@ SMART RETRY & ASSERTIONS (v5.0.0)
       cbrowser assert "'Login' button exists"
       cbrowser assert "page has 3 items"
 
+SELF-HEALING SELECTORS (v5.0.0)
+  heal stats                  Show selector cache statistics
+  heal list                   List all cached selector mappings
+    --domain <domain>         Filter by domain
+  heal clear                  Clear the selector cache
+    --domain <domain>         Clear only for specific domain
+  heal test <selector>        Test if a selector would be healed
+    --url <url>               Navigate to URL first
+
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
   cleanup                     Clean up old files
@@ -460,6 +469,98 @@ async function main(): Promise<void> {
             console.log(`  Expected: ${result.expected}`);
           }
           process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Tier 5: Self-Healing Selectors (v5.0.0)
+      // =========================================================================
+
+      case "heal": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "stats": {
+            const stats = browser.getSelectorCacheStats();
+            console.log("\n🔧 Self-Healing Selector Cache Statistics\n");
+            console.log(`  Total cached mappings: ${stats.totalEntries}`);
+            console.log(`  Total successful heals: ${stats.totalHeals}`);
+
+            if (Object.keys(stats.byDomain).length > 0) {
+              console.log("\n  By Domain:");
+              for (const [domain, count] of Object.entries(stats.byDomain)) {
+                console.log(`    ${domain}: ${count} selectors`);
+              }
+            }
+
+            if (stats.topHealedSelectors.length > 0) {
+              console.log("\n  Top Healed Selectors:");
+              for (const entry of stats.topHealedSelectors.slice(0, 5)) {
+                console.log(`    "${entry.original}" → "${entry.working}" (${entry.heals} heals)`);
+              }
+            }
+            break;
+          }
+
+          case "list": {
+            const domain = options.domain as string | undefined;
+            const entries = browser.listCachedSelectors(domain);
+
+            if (entries.length === 0) {
+              console.log("No cached selectors" + (domain ? ` for ${domain}` : ""));
+            } else {
+              console.log(`\n🔧 Cached Selectors${domain ? ` for ${domain}` : ""}\n`);
+              for (const entry of entries) {
+                console.log(`  "${entry.originalSelector}" → "${entry.workingSelector}"`);
+                console.log(`    Domain: ${entry.domain} | Heals: ${entry.successCount} | Fails: ${entry.failCount}`);
+                console.log(`    Reason: ${entry.reason}`);
+                console.log("");
+              }
+            }
+            break;
+          }
+
+          case "clear": {
+            const domain = options.domain as string | undefined;
+            const cleared = browser.clearSelectorCache(domain);
+            console.log(`✓ Cleared ${cleared} cached selector${cleared !== 1 ? "s" : ""}${domain ? ` for ${domain}` : ""}`);
+            break;
+          }
+
+          case "test": {
+            const selector = args[1];
+            if (!selector) {
+              console.error("Error: Selector required");
+              console.error("Usage: cbrowser heal test <selector> --url <url>");
+              process.exit(1);
+            }
+
+            if (options.url) {
+              await browser.navigate(options.url as string);
+            }
+
+            // Check if there's a cached mapping
+            const entries = browser.listCachedSelectors();
+            const cached = entries.find(e =>
+              e.originalSelector.toLowerCase() === selector.toLowerCase()
+            );
+
+            if (cached) {
+              console.log(`\n🔧 Selector would be healed:\n`);
+              console.log(`  Original: "${cached.originalSelector}"`);
+              console.log(`  Healed to: "${cached.workingSelector}"`);
+              console.log(`  Success rate: ${cached.successCount}/${cached.successCount + cached.failCount}`);
+            } else {
+              console.log(`\nNo cached healing for "${selector}"`);
+              console.log("Use smart-click to auto-discover alternatives.");
+            }
+            break;
+          }
+
+          default:
+            console.error("Usage: cbrowser heal [stats|list|clear|test]");
+            process.exit(1);
         }
         break;
       }

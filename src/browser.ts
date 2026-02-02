@@ -4,7 +4,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 
@@ -35,6 +35,9 @@ import type {
   RetryAttempt,
   AssertionResult,
   SelectorAlternative,
+  SelectorCacheEntry,
+  SelectorCache,
+  SelectorCacheStats,
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
@@ -954,13 +957,191 @@ export class CBrowser {
     return alternatives.slice(0, 5);
   }
 
+  // =========================================================================
+  // Tier 5: Self-Healing Selector Cache (v5.0.0)
+  // =========================================================================
+
+  private selectorCache: SelectorCache | null = null;
+
+  /**
+   * Get the selector cache file path.
+   */
+  private getSelectorCachePath(): string {
+    return join(this.paths.dataDir, "selector-cache.json");
+  }
+
+  /**
+   * Load the selector cache from disk.
+   */
+  private loadSelectorCache(): SelectorCache {
+    if (this.selectorCache) return this.selectorCache;
+
+    const cachePath = this.getSelectorCachePath();
+    if (existsSync(cachePath)) {
+      try {
+        const data = readFileSync(cachePath, "utf-8");
+        this.selectorCache = JSON.parse(data);
+        return this.selectorCache!;
+      } catch {
+        // Corrupted cache, start fresh
+      }
+    }
+
+    this.selectorCache = { version: 1, entries: {} };
+    return this.selectorCache;
+  }
+
+  /**
+   * Save the selector cache to disk.
+   */
+  private saveSelectorCache(): void {
+    if (!this.selectorCache) return;
+    const cachePath = this.getSelectorCachePath();
+    writeFileSync(cachePath, JSON.stringify(this.selectorCache, null, 2));
+  }
+
+  /**
+   * Get cache key for a selector (includes domain for context).
+   */
+  private getSelectorCacheKey(selector: string, domain?: string): string {
+    const d = domain || this.getCurrentDomain();
+    return `${d}::${selector.toLowerCase()}`;
+  }
+
+  /**
+   * Get current page domain.
+   */
+  private getCurrentDomain(): string {
+    try {
+      if (this.page) {
+        const url = this.page.url();
+        return new URL(url).hostname;
+      }
+    } catch {
+      // Ignore
+    }
+    return "unknown";
+  }
+
   /**
    * Cache a working alternative selector for future use.
    */
-  private selectorCache: Map<string, string> = new Map();
+  private cacheAlternativeSelector(original: string, working: string, reason: string = "Alternative found"): void {
+    const cache = this.loadSelectorCache();
+    const key = this.getSelectorCacheKey(original);
+    const domain = this.getCurrentDomain();
 
-  private cacheAlternativeSelector(original: string, working: string): void {
-    this.selectorCache.set(original.toLowerCase(), working);
+    cache.entries[key] = {
+      originalSelector: original,
+      workingSelector: working,
+      domain,
+      successCount: 1,
+      failCount: 0,
+      lastUsed: new Date().toISOString(),
+      reason,
+    };
+
+    this.saveSelectorCache();
+
+    if (this.config.verbose) {
+      console.log(`📦 Cached healed selector: "${original}" → "${working}"`);
+    }
+  }
+
+  /**
+   * Get a cached alternative selector if available.
+   */
+  private getCachedSelector(original: string): SelectorCacheEntry | null {
+    const cache = this.loadSelectorCache();
+    const key = this.getSelectorCacheKey(original);
+    return cache.entries[key] || null;
+  }
+
+  /**
+   * Update cache entry statistics.
+   */
+  private updateCacheStats(original: string, success: boolean): void {
+    const cache = this.loadSelectorCache();
+    const key = this.getSelectorCacheKey(original);
+    const entry = cache.entries[key];
+
+    if (entry) {
+      if (success) {
+        entry.successCount++;
+      } else {
+        entry.failCount++;
+      }
+      entry.lastUsed = new Date().toISOString();
+      this.saveSelectorCache();
+    }
+  }
+
+  /**
+   * Get selector cache statistics.
+   */
+  getSelectorCacheStats(): SelectorCacheStats {
+    const cache = this.loadSelectorCache();
+    const entries = Object.values(cache.entries);
+
+    const byDomain: Record<string, number> = {};
+    for (const entry of entries) {
+      byDomain[entry.domain] = (byDomain[entry.domain] || 0) + 1;
+    }
+
+    const topHealedSelectors = entries
+      .sort((a, b) => b.successCount - a.successCount)
+      .slice(0, 10)
+      .map(e => ({
+        original: e.originalSelector,
+        working: e.workingSelector,
+        heals: e.successCount,
+      }));
+
+    return {
+      totalEntries: entries.length,
+      totalHeals: entries.reduce((sum, e) => sum + e.successCount, 0),
+      byDomain,
+      topHealedSelectors,
+    };
+  }
+
+  /**
+   * Clear the selector cache.
+   */
+  clearSelectorCache(domain?: string): number {
+    const cache = this.loadSelectorCache();
+    let cleared = 0;
+
+    if (domain) {
+      // Clear only for specific domain
+      for (const [key, entry] of Object.entries(cache.entries)) {
+        if (entry.domain === domain) {
+          delete cache.entries[key];
+          cleared++;
+        }
+      }
+    } else {
+      // Clear all
+      cleared = Object.keys(cache.entries).length;
+      cache.entries = {};
+    }
+
+    this.saveSelectorCache();
+    return cleared;
+  }
+
+  /**
+   * List all cached selectors.
+   */
+  listCachedSelectors(domain?: string): SelectorCacheEntry[] {
+    const cache = this.loadSelectorCache();
+    let entries = Object.values(cache.entries);
+
+    if (domain) {
+      entries = entries.filter(e => e.domain === domain);
+    }
+
+    return entries.sort((a, b) => b.successCount - a.successCount);
   }
 
   /**
@@ -1111,8 +1292,30 @@ export class CBrowser {
   /**
    * Find an element using multiple strategies.
    */
-  private async findElement(selector: string) {
+  private async findElement(selector: string, options: { skipCache?: boolean } = {}): Promise<Locator | null> {
     const page = await this.getPage();
+
+    // Strategy 0: Check self-healing cache first (unless skipped)
+    if (!options.skipCache) {
+      const cached = this.getCachedSelector(selector);
+      if (cached) {
+        try {
+          const cachedElement = await this.findElement(cached.workingSelector, { skipCache: true });
+          if (cachedElement && await cachedElement.count() > 0) {
+            this.updateCacheStats(selector, true);
+            if (this.config.verbose) {
+              console.log(`🔧 Self-healed: "${selector}" → "${cached.workingSelector}"`);
+            }
+            return cachedElement;
+          } else {
+            // Cached selector no longer works
+            this.updateCacheStats(selector, false);
+          }
+        } catch {
+          this.updateCacheStats(selector, false);
+        }
+      }
+    }
 
     // Strategy 1: Direct CSS selector
     if (selector.startsWith("css:")) {

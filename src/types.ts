@@ -650,3 +650,25 @@ export interface SelfHealingResult {
   alternatives: SelectorAlternative[];
   healed: boolean;
 }
+
+export interface SelectorCacheEntry {
+  originalSelector: string;
+  workingSelector: string;
+  domain: string;
+  successCount: number;
+  failCount: number;
+  lastUsed: string;
+  reason: string;
+}
+
+export interface SelectorCache {
+  version: number;
+  entries: Record<string, SelectorCacheEntry>;
+}
+
+export interface SelectorCacheStats {
+  totalEntries: number;
+  totalHeals: number;
+  byDomain: Record<string, number>;
+  topHealedSelectors: Array<{ original: string; working: string; heals: number }>;
+}
