@@ -285,6 +285,11 @@ async function main(): Promise<void> {
     }
   }
 
+  const persistentMode = options.persistent === true || options.persistent === "true";
+  if (persistentMode) {
+    console.log("🔄 Persistent mode enabled");
+  }
+
   const browser = new CBrowser({
     browser: browserType,
     headless: options.headless === true || options.headless === "true",
@@ -293,7 +298,7 @@ async function main(): Promise<void> {
     locale: options.locale as string,
     timezone: options.timezone as string,
     recordVideo: options["record-video"] === true,
-    persistent: options.persistent === true || options.persistent === "true",
+    persistent: persistentMode,
     verbose: true,
   });
 
