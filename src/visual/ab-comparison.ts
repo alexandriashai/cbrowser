@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
 import { CBrowser } from "../browser.js";
 import type {
@@ -23,8 +24,8 @@ import { analyzeVisualDifferences } from "./regression.js";
  * Get the path for A/B comparison screenshots
  */
 function getABScreenshotsPath(): string {
-  const basePath = process.cwd();
-  const screenshotsPath = join(basePath, ".cbrowser", "ab-comparison");
+  const basePath = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+  const screenshotsPath = join(basePath, "ab-comparison");
   if (!existsSync(screenshotsPath)) {
     mkdirSync(screenshotsPath, { recursive: true });
   }

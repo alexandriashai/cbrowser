@@ -1,21 +1,119 @@
 # CBrowser
 
-**The only browser automation that asks: "Can a real user complete this safely?"**
+**The browser automation built for AI agents, not human developers.**
 
-Most AI automation tools ask if a task *can* be completed. CBrowser asks if an **elderly first-timer on mobile** can complete it—and whether the automation should even be allowed to try.
+Most browser automation tools are built for humans writing scripts. CBrowser is built from the ground up as an MCP server for AI agents—natural language is the primary interface, not an afterthought.
 
 [![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MCP Ready](https://img.shields.io/badge/MCP-Remote%20%2B%20Local-blue)](https://modelcontextprotocol.io)
 
-## Why CBrowser Exists
+## The AI-Native Difference
 
-Every AI browser tool now has self-healing selectors and natural language commands. That's table stakes.
+Traditional automation tools were built for developers writing scripts. CBrowser was built for **AI agents operating autonomously**. This fundamental difference shapes everything:
 
-**CBrowser solves three problems no one else does:**
+| Traditional Tools | CBrowser (AI-Native) |
+|-------------------|----------------------|
+| Scripts written by humans | Natural language as primary interface |
+| Stateless between calls | **Session persistence across calls** |
+| Manual test maintenance | **Self-healing selectors + AI test repair** |
+| Only does what you script | **Autonomous discovery (hunt_bugs)** |
+| Breaks when sites change | **Multi-dimensional baselines track drift** |
+| Single execution path | **Persona-based testing for real users** |
+| Fails silently | **Built-in chaos engineering for resilience** |
+| Developer perspective | **Constitutional safety for AI autonomy** |
 
-### 1. Constitutional AI Safety (No One Else Has This)
+---
 
-Other tools will happily click "Delete All Data" or "Transfer $10,000" if you ask. CBrowser classifies every action by risk:
+## 8 Things Only CBrowser Does
+
+### 1. 🤖 AI-Native Architecture
+
+Built from the ground up as an MCP server for AI agents. Every tool is designed to be called by Claude, not scripted by developers. Natural language is the primary interface—not a wrapper around CSS selectors.
+
+```bash
+# Remote MCP for Claude.ai
+https://cbrowser-mcp.wyldfyre.ai/mcp
+
+# Local MCP for Claude Desktop
+npx cbrowser mcp-server
+```
+
+### 2. 💬 Natural Language as First-Class Input
+
+Not just "convenience" natural language on top of selectors. The entire API is natural language native:
+
+```bash
+npx cbrowser smart-click "the blue submit button in the checkout form"
+npx cbrowser fill "email field" "user@example.com"
+npx cbrowser assert "page shows order confirmation with total over $50"
+```
+
+### 3. 🔍 Autonomous Discovery (hunt_bugs)
+
+Most tools wait for you to tell them what to test. CBrowser proactively hunts for bugs:
+
+```bash
+npx cbrowser hunt-bugs "https://your-site.com" --depth 3
+```
+
+It explores your site autonomously, finding broken links, console errors, accessibility violations, and UX issues you didn't know to look for.
+
+### 4. 💥 Built-in Chaos Engineering
+
+Inject failures to see how your site handles them:
+
+```bash
+npx cbrowser chaos-test "https://your-site.com" \
+  --inject network-slowdown,random-timeouts,failed-assets
+```
+
+### 5. 🔄 Self-Healing Selectors + AI Test Repair
+
+When elements change, CBrowser adapts automatically. When tests break, it repairs them:
+
+```bash
+# Auto-repair broken tests
+npx cbrowser repair-tests broken-test.txt --auto-apply --verify
+```
+
+### 6. 📊 Multi-Dimensional Baselines
+
+Not just visual diffs—CBrowser tracks visual appearance AND performance metrics together:
+
+```bash
+npx cbrowser visual-baseline "https://your-site.com" --with-performance
+npx cbrowser visual-compare --check-perf-regression
+```
+
+### 7. 👥 Persona-Based Testing
+
+Test as different user types with realistic human behavior:
+
+```bash
+npx cbrowser compare-personas \
+  --start "https://your-site.com" \
+  --goal "Complete checkout" \
+  --personas power-user,elderly-user,mobile-user,first-timer
+```
+
+Each persona has realistic timing, error rates, and attention patterns.
+
+### 8. 🗂️ Session Persistence Across Calls
+
+The killer feature for AI agents: state persists between invocations. Your AI agent can log in, do work across multiple calls, and maintain context—solving the statelessness problem that makes other tools impractical for agents.
+
+```bash
+npx cbrowser session save "logged-in"
+# ... later, in a new session ...
+npx cbrowser session load "logged-in"
+```
+
+---
+
+## Constitutional AI Safety
+
+CBrowser is the only browser automation with built-in ethical boundaries—critical when AI agents operate autonomously:
 
 | Zone | Actions | Behavior |
 |------|---------|----------|
@@ -24,43 +122,38 @@ Other tools will happily click "Delete All Data" or "Transfer $10,000" if you as
 | 🔴 **Red** | Submit, delete, purchase | **Requires verification** |
 | ⬛ **Black** | Bypass auth, inject scripts | **Never executes** |
 
-This isn't just guardrails—it's the only AI browser automation with built-in ethical boundaries.
-
-### 2. User Perspective Testing (Not Just "Does It Work?")
-
-Other tools test if buttons click. CBrowser tests if **real humans** can use your site:
-
-```bash
-npx cbrowser compare-personas \
-  --start "https://your-site.com" \
-  --goal "Complete checkout" \
-  --personas power-user,elderly-user,mobile-user
-```
-
-Each persona has realistic human behavior: reaction times, typo rates, mouse jitter, attention patterns. You'll discover that your checkout works fine for developers but fails for 40% of real users.
-
-### 3. Claude-Native MCP Integration
-
-Built for the Claude ecosystem. Add to Claude Desktop and get browser automation as a native capability—no API keys, no external services, no vendor lock-in.
+This isn't optional safety theater—it's how you give AI agents browser access without risking catastrophic actions.
 
 ---
 
 ## Feature Comparison
 
-| Feature | CBrowser | Skyvern | Browser-Use | Testim |
-|---------|:--------:|:-------:|:-----------:|:------:|
-| Self-healing selectors | ✅ | ✅ | ✅ | ✅ |
-| Natural language | ✅ | ✅ | ✅ | ⚠️ |
-| **Constitutional safety zones** | ✅ | ❌ | ❌ | ❌ |
-| **Multi-persona comparison** | ✅ | ❌ | ❌ | ❌ |
-| **Human behavior simulation** | ✅ | ❌ | ❌ | ❌ |
-| **Claude MCP server** | ✅ | ❌ | ❌ | ❌ |
-| Flaky test detection | ✅ | ❌ | ❌ | ✅ |
-| AI test repair | ✅ | ❌ | ❌ | ⚠️ |
+### AI-Native Capabilities (Only CBrowser)
+
+| Capability | CBrowser | Skyvern | Browser-Use | Playwright |
+|------------|:--------:|:-------:|:-----------:|:----------:|
+| **Built as MCP Server** | ✅ Native | ❌ | ❌ | ❌ |
+| **Remote MCP (claude.ai)** | ✅ | ❌ | ❌ | ❌ |
+| **Session persistence** | ✅ | ❌ | ❌ | Manual |
+| **Autonomous bug hunting** | ✅ | ❌ | ❌ | ❌ |
+| **Chaos engineering** | ✅ | ❌ | ❌ | ❌ |
+| **Constitutional safety** | ✅ | ❌ | ❌ | ❌ |
+| **Multi-persona testing** | ✅ | ❌ | ❌ | ❌ |
+| **AI test repair** | ✅ | ❌ | ❌ | ❌ |
+| **Visual + perf baselines** | ✅ | ❌ | ❌ | ❌ |
+
+### Table Stakes (Everyone Has)
+
+| Feature | CBrowser | Others |
+|---------|:--------:|:------:|
+| Natural language selectors | ✅ | ✅ |
+| Self-healing selectors | ✅ | ✅ |
+| Screenshot capture | ✅ | ✅ |
+| Form filling | ✅ | ✅ |
 
 ---
 
-## Also Included (Table Stakes)
+## Also Included
 
 | Traditional Automation | CBrowser |
 |------------------------|----------|
@@ -69,7 +162,7 @@ Built for the Claude ecosystem. Add to Claude Desktop and get browser automation
 | Crashes on element not found | **Smart retry** finds alternatives |
 | Manual test assertions | **Natural language assertions** |
 | Scripted tests only | **AI test generation** from page analysis |
-| Stateless between runs | Persistent sessions, cookies, localStorage |
+| Stateless between runs | **Persistent sessions, cookies, localStorage** |
 
 ## Quick Start
 
@@ -539,9 +632,23 @@ Output:
    Has Navigation: ✅
 ```
 
-### MCP Server Mode
+### MCP Server Integration
 
-Run CBrowser as an MCP server for Claude Desktop integration:
+CBrowser can run as an MCP server for both Claude Desktop (local) and claude.ai (remote).
+
+#### Option 1: Remote MCP (claude.ai)
+
+Connect claude.ai directly to a remote CBrowser server:
+
+1. Deploy CBrowser on your server ([full guide](docs/REMOTE-MCP-SERVER.md))
+2. In claude.ai: Settings → Integrations → Custom MCP Servers
+3. Add URL: `https://your-cbrowser-domain.com/mcp`
+
+**Try our public demo:** `https://cbrowser-mcp.wyldfyre.ai/mcp`
+
+#### Option 2: Local MCP (Claude Desktop)
+
+Run CBrowser locally for Claude Desktop:
 
 ```bash
 npx cbrowser mcp-server
@@ -560,17 +667,21 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 }
 ```
 
-**Available MCP Tools:**
-- `navigate` - Navigate to URL and screenshot
-- `click` / `smart_click` - Click elements
-- `fill` - Fill form fields
-- `screenshot` - Capture page
-- `extract` - Extract page data
-- `assert` - Natural language assertions
-- `analyze_page` - Analyze page structure
-- `generate_tests` - Generate test scenarios
-- `save_session` / `load_session` - Session management
-- `heal_stats` - Self-healing cache stats
+#### Available MCP Tools (31 total)
+
+| Category | Tools |
+|----------|-------|
+| **Navigation** | `navigate`, `screenshot`, `extract` |
+| **Interaction** | `click`, `smart_click`, `fill`, `scroll`, `press_key` |
+| **Assertions** | `assert`, `analyze_page` |
+| **Testing** | `generate_tests`, `test_suite`, `repair_tests`, `flaky_check` |
+| **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
+| **Personas** | `journey`, `compare_personas`, `create_persona`, `list_personas` |
+| **Sessions** | `save_session`, `load_session`, `list_sessions` |
+| **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit` |
+| **Utilities** | `heal_stats`, `list_baselines` |
+
+See [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md) for full deployment instructions.
 
 ## Core Features
 

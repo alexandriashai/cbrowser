@@ -1,0 +1,22 @@
+# CBrowser Remote MCP Server
+# Add this to your Caddyfile
+
+cbrowser-mcp.wyldfyre.ai {
+    # Reverse proxy to MCP server
+    reverse_proxy localhost:3100
+
+    # Enable WebSocket/SSE support
+    header {
+        # CORS headers for claude.ai
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods "GET, POST, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Mcp-Session-Id"
+        Access-Control-Expose-Headers "Mcp-Session-Id"
+    }
+
+    # Log access
+    log {
+        output file /var/log/caddy/cbrowser-mcp.log
+        format json
+    }
+}

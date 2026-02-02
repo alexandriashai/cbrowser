@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
 import { CBrowser } from "../browser.js";
 import type {
@@ -22,7 +23,7 @@ import type {
  * Get the path to visual baselines storage
  */
 function getVisualBaselinesPath(): string {
-  const baseDir = process.env.CBROWSER_DATA_DIR || join(process.cwd(), ".cbrowser");
+  const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
   const baselinesDir = join(baseDir, "visual-baselines");
   if (!existsSync(baselinesDir)) {
     mkdirSync(baselinesDir, { recursive: true });

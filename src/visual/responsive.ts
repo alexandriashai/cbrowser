@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
 import { CBrowser } from "../browser.js";
 import type {
@@ -48,8 +49,8 @@ function resolveViewports(viewports?: (string | ViewportPreset)[]): ViewportPres
  * Get the path for responsive testing screenshots
  */
 function getResponsiveScreenshotsPath(): string {
-  const basePath = process.cwd();
-  const screenshotsPath = join(basePath, ".cbrowser", "responsive");
+  const basePath = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+  const screenshotsPath = join(basePath, "responsive");
   if (!existsSync(screenshotsPath)) {
     mkdirSync(screenshotsPath, { recursive: true });
   }

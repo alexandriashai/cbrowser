@@ -1,0 +1,27 @@
+[Unit]
+Description=CBrowser Remote MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=wyld-web
+Group=wyld
+WorkingDirectory=/home/wyld-web/static/cbrowser-public
+ExecStartPre=/bin/bash -c 'mkdir -p /home/wyld-web/.cbrowser/{sessions,screenshots,videos,har,personas,scenarios,helpers,audit,baselines,browser-state,cache,journeys,performance,visual,tests,repairs,config,visual-baselines,cross-browser,responsive,ab-comparison}'
+ExecStart=/usr/bin/node dist/mcp-server-remote.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3100
+Environment=HOST=127.0.0.1
+Environment=MCP_SESSION_MODE=stateless
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ReadWritePaths=/home/wyld-web/static/cbrowser-public /home/wyld-web/.cbrowser /home/wyld-web/.cache/ms-playwright
+
+[Install]
+WantedBy=multi-user.target

@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
 import { CBrowser } from "../browser.js";
 import type {
@@ -23,7 +24,7 @@ import { analyzeVisualDifferences } from "./regression.js";
  * Get the path for cross-browser screenshots
  */
 function getCrossBrowserScreenshotsPath(): string {
-  const baseDir = process.env.CBROWSER_DATA_DIR || join(process.cwd(), ".cbrowser");
+  const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
   const dir = join(baseDir, "cross-browser");
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
