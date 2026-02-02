@@ -5,15 +5,15 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser } from "./browser.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript } from "./browser.js";
 import { BUILTIN_PERSONAS } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v2.4.0                                ║
-║       AI-powered browser automation with devices, geo & performance          ║
+║                           CBrowser CLI v3.0.0                                ║
+║    AI-powered browser automation with natural language & fluent API          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -76,6 +76,56 @@ NETWORK / HAR
   har start                   Start recording HAR
   har stop [output]           Stop and save HAR file
   network list                List captured network requests
+
+VISUAL REGRESSION (v2.5.0)
+  visual save <name>          Save baseline screenshot
+    --url <url>               Navigate to URL first
+  visual compare <name>       Compare current page against baseline
+    --threshold <n>           Diff threshold 0-1 (default: 0.1)
+  visual list                 List all saved baselines
+  visual delete <name>        Delete a baseline
+
+ACCESSIBILITY (v2.5.0)
+  a11y audit                  Run WCAG accessibility audit
+    --url <url>               Navigate to URL first
+  a11y audit [url]            Audit a specific URL
+
+TEST RECORDING (v2.5.0)
+  record start                Start recording interactions
+    --url <url>               Navigate to URL to begin recording
+  record stop                 Stop recording and show actions
+  record save <name>          Save recorded test
+  record list                 List saved recordings
+  record generate <name>      Generate Playwright test code
+
+TEST EXPORT (v2.5.0)
+  export junit <name> [output]   Export test results as JUnit XML
+  export tap <name> [output]     Export test results as TAP format
+
+WEBHOOKS (v2.5.0)
+  webhook add <name> <url>    Add webhook notification
+    --events <events>         Comma-separated: test.pass,test.fail,journey.complete
+    --format <format>         slack, discord, or generic
+  webhook list                List configured webhooks
+  webhook delete <name>       Delete a webhook
+  webhook test <name>         Send test notification
+
+PARALLEL EXECUTION (v2.5.0)
+  parallel devices <url>      Run same URL across multiple devices
+    --devices <list>          Comma-separated device names (default: all)
+    --concurrency <n>         Max parallel browsers (default: 3)
+  parallel urls <urls>        Run same task across multiple URLs
+    --concurrency <n>         Max parallel browsers (default: 3)
+  parallel perf <urls>        Performance audit multiple URLs in parallel
+    --concurrency <n>         Max parallel browsers (default: 3)
+
+NATURAL LANGUAGE (v3.0.0)
+  run "<command>"             Execute natural language command
+    Examples:
+      cbrowser run "go to https://example.com"
+      cbrowser run "click the login button"
+      cbrowser run "type 'hello' in the search box"
+  script <file>               Execute script file with natural language commands
 
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
@@ -734,6 +784,567 @@ async function main(): Promise<void> {
           }
           default:
             console.error("Usage: cbrowser network [list|clear]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Visual Regression (Tier 2)
+      // =========================================================================
+
+      case "visual": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "save": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser visual save <name> [--url <url>]");
+              process.exit(1);
+            }
+            if (options.url) {
+              await browser.navigate(options.url as string);
+            }
+            const path = await browser.saveBaseline(name);
+            console.log(`✓ Baseline saved: ${name}`);
+            console.log(`  Path: ${path}`);
+            break;
+          }
+          case "compare": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser visual compare <name> [--threshold <n>]");
+              process.exit(1);
+            }
+            if (options.url) {
+              await browser.navigate(options.url as string);
+            }
+            const threshold = options.threshold ? parseFloat(options.threshold as string) : 0.1;
+            const result = await browser.compareBaseline(name, threshold);
+
+            console.log("\n🔍 Visual Comparison:\n");
+            console.log(`  Baseline: ${name}`);
+            console.log(`  Difference: ${(result.diffPercentage * 100).toFixed(2)}%`);
+            console.log(`  Threshold: ${(threshold * 100).toFixed(0)}%`);
+            console.log(`  Result: ${result.passed ? "✓ PASSED" : "✗ FAILED"}`);
+            if (result.diffPath) {
+              console.log(`  Diff image: ${result.diffPath}`);
+            }
+            if (!result.passed) {
+              process.exit(1);
+            }
+            break;
+          }
+          case "list": {
+            const baselines = browser.listBaselines();
+            if (baselines.length === 0) {
+              console.log("No baselines saved");
+            } else {
+              console.log("\n📸 Visual Baselines:\n");
+              for (const b of baselines) {
+                console.log(`  - ${b}`);
+              }
+            }
+            break;
+          }
+          case "delete": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser visual delete <name>");
+              process.exit(1);
+            }
+            // Delete baseline file
+            const fs = await import("fs");
+            const path = await import("path");
+            const baselinePath = path.join(browser.getDataDir(), "baselines", `${name}.png`);
+            if (fs.existsSync(baselinePath)) {
+              fs.unlinkSync(baselinePath);
+              console.log(`✓ Baseline deleted: ${name}`);
+            } else {
+              console.error(`✗ Baseline not found: ${name}`);
+              process.exit(1);
+            }
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser visual [save|compare|list|delete]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Accessibility (Tier 2)
+      // =========================================================================
+
+      case "a11y": {
+        const subcommand = args[0];
+
+        if (subcommand === "audit") {
+          const url = args[1];
+          if (url) {
+            await browser.navigate(url);
+          } else if (options.url) {
+            await browser.navigate(options.url as string);
+          }
+
+          const result = await browser.auditAccessibility();
+
+          console.log("\n♿ Accessibility Audit:\n");
+          console.log(`  URL: ${result.url}`);
+          console.log(`  Score: ${result.score}/100`);
+          console.log(`  Passes: ${result.passes}`);
+          console.log(`  Violations: ${result.violations.length}`);
+
+          if (result.violations.length > 0) {
+            console.log("\n  ⚠️  Violations:\n");
+            for (const v of result.violations) {
+              console.log(`    [${v.impact.toUpperCase()}] ${v.id}`);
+              console.log(`      ${v.description}`);
+              console.log(`      Help: ${v.helpUrl}`);
+              console.log("");
+            }
+          }
+        } else {
+          console.error("Usage: cbrowser a11y audit [url]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Test Recording (Tier 2)
+      // =========================================================================
+
+      case "record": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "start": {
+            const url = options.url as string;
+            await browser.startRecording(url);
+            console.log("✓ Recording started");
+            if (url) {
+              console.log(`  Navigated to: ${url}`);
+            }
+            console.log("  Interact with the page, then run 'cbrowser record stop'");
+            break;
+          }
+          case "stop": {
+            const actions = browser.stopRecording();
+            console.log(`✓ Recording stopped`);
+            console.log(`  Captured ${actions.length} actions`);
+            if (actions.length > 0) {
+              console.log("\n  Actions:");
+              for (const action of actions) {
+                console.log(`    ${action.type}: ${action.selector || action.url || action.value || ""}`);
+              }
+            }
+            break;
+          }
+          case "save": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser record save <name>");
+              process.exit(1);
+            }
+            const path = browser.saveRecording(name);
+            console.log(`✓ Recording saved: ${name}`);
+            console.log(`  Path: ${path}`);
+            break;
+          }
+          case "list": {
+            const fs = await import("fs");
+            const path = await import("path");
+            const recordingsDir = path.join(browser.getDataDir(), "recordings");
+            if (!fs.existsSync(recordingsDir)) {
+              console.log("No recordings saved");
+            } else {
+              const files = fs.readdirSync(recordingsDir).filter((f: string) => f.endsWith(".json"));
+              if (files.length === 0) {
+                console.log("No recordings saved");
+              } else {
+                console.log("\n🎬 Saved Recordings:\n");
+                for (const f of files) {
+                  console.log(`  - ${f.replace(".json", "")}`);
+                }
+              }
+            }
+            break;
+          }
+          case "generate": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser record generate <name>");
+              process.exit(1);
+            }
+            const fs = await import("fs");
+            const path = await import("path");
+            const recordingPath = path.join(browser.getDataDir(), "recordings", `${name}.json`);
+            if (!fs.existsSync(recordingPath)) {
+              console.error(`Recording not found: ${name}`);
+              process.exit(1);
+            }
+            const recording = JSON.parse(fs.readFileSync(recordingPath, "utf-8"));
+            const code = browser.generateTestCode(name, recording.actions);
+            console.log(code);
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser record [start|stop|save|list|generate]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Test Export (Tier 2)
+      // =========================================================================
+
+      case "export": {
+        const format = args[0];
+        const name = args[1];
+        const output = args[2];
+
+        if (!format || !name) {
+          console.error("Usage: cbrowser export [junit|tap] <name> [output]");
+          process.exit(1);
+        }
+
+        // Load test results (for now, create a mock suite)
+        const fs = await import("fs");
+        const path = await import("path");
+        const resultsPath = path.join(browser.getDataDir(), "results", `${name}.json`);
+
+        let suite;
+        if (fs.existsSync(resultsPath)) {
+          suite = JSON.parse(fs.readFileSync(resultsPath, "utf-8"));
+        } else {
+          console.error(`Test results not found: ${name}`);
+          console.error("Run tests first to generate results");
+          process.exit(1);
+        }
+
+        if (format === "junit") {
+          const exportPath = browser.exportJUnit(suite, output);
+          console.log(`✓ JUnit XML exported: ${exportPath}`);
+        } else if (format === "tap") {
+          const exportPath = browser.exportTAP(suite, output);
+          console.log(`✓ TAP exported: ${exportPath}`);
+        } else {
+          console.error("Unknown export format. Use 'junit' or 'tap'");
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Webhooks (Tier 2)
+      // =========================================================================
+
+      case "webhook": {
+        const subcommand = args[0];
+        const fs = await import("fs");
+        const path = await import("path");
+        const webhooksPath = path.join(browser.getDataDir(), "webhooks.json");
+
+        // Load existing webhooks
+        let webhooks: Array<{ name: string; url: string; events: string[]; format: string }> = [];
+        if (fs.existsSync(webhooksPath)) {
+          webhooks = JSON.parse(fs.readFileSync(webhooksPath, "utf-8"));
+        }
+
+        switch (subcommand) {
+          case "add": {
+            const name = args[1];
+            const url = args[2];
+            if (!name || !url) {
+              console.error("Usage: cbrowser webhook add <name> <url> [--events <events>] [--format <format>]");
+              process.exit(1);
+            }
+            const events = options.events
+              ? (options.events as string).split(",")
+              : ["test.fail", "journey.complete"];
+            const format = (options.format as string) || "generic";
+
+            // Remove existing webhook with same name
+            webhooks = webhooks.filter(w => w.name !== name);
+            webhooks.push({ name, url, events, format });
+
+            fs.writeFileSync(webhooksPath, JSON.stringify(webhooks, null, 2));
+            console.log(`✓ Webhook added: ${name}`);
+            console.log(`  URL: ${url}`);
+            console.log(`  Events: ${events.join(", ")}`);
+            console.log(`  Format: ${format}`);
+            break;
+          }
+          case "list": {
+            if (webhooks.length === 0) {
+              console.log("No webhooks configured");
+            } else {
+              console.log("\n🔔 Configured Webhooks:\n");
+              for (const w of webhooks) {
+                console.log(`  ${w.name}`);
+                console.log(`    URL: ${w.url}`);
+                console.log(`    Events: ${w.events.join(", ")}`);
+                console.log(`    Format: ${w.format}`);
+                console.log("");
+              }
+            }
+            break;
+          }
+          case "delete": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser webhook delete <name>");
+              process.exit(1);
+            }
+            const originalLength = webhooks.length;
+            webhooks = webhooks.filter(w => w.name !== name);
+            if (webhooks.length < originalLength) {
+              fs.writeFileSync(webhooksPath, JSON.stringify(webhooks, null, 2));
+              console.log(`✓ Webhook deleted: ${name}`);
+            } else {
+              console.error(`✗ Webhook not found: ${name}`);
+              process.exit(1);
+            }
+            break;
+          }
+          case "test": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser webhook test <name>");
+              process.exit(1);
+            }
+            const webhook = webhooks.find(w => w.name === name);
+            if (!webhook) {
+              console.error(`✗ Webhook not found: ${name}`);
+              process.exit(1);
+            }
+
+            // Send test notification
+            const testPayload = webhook.format === "slack"
+              ? { text: "🔔 CBrowser test notification" }
+              : webhook.format === "discord"
+              ? { content: "🔔 CBrowser test notification" }
+              : { event: "test", message: "CBrowser test notification", timestamp: new Date().toISOString() };
+
+            try {
+              const response = await fetch(webhook.url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(testPayload),
+              });
+              if (response.ok) {
+                console.log(`✓ Test notification sent to: ${name}`);
+              } else {
+                console.error(`✗ Webhook returned ${response.status}`);
+                process.exit(1);
+              }
+            } catch (e: any) {
+              console.error(`✗ Failed to send notification: ${e.message}`);
+              process.exit(1);
+            }
+            break;
+          }
+          default:
+            console.error("Usage: cbrowser webhook [add|list|delete|test]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Parallel Execution (Tier 2)
+      // =========================================================================
+
+      case "parallel": {
+        const subcommand = args[0];
+
+        switch (subcommand) {
+          case "devices": {
+            const url = args[1];
+            if (!url) {
+              console.error("Usage: cbrowser parallel devices <url> [--devices <list>] [--concurrency <n>]");
+              process.exit(1);
+            }
+
+            const deviceList = options.devices
+              ? (options.devices as string).split(",")
+              : Object.keys(DEVICE_PRESETS);
+            const concurrency = options.concurrency ? parseInt(options.concurrency as string) : 3;
+
+            console.log(`\n🚀 Running parallel device tests...`);
+            console.log(`   URL: ${url}`);
+            console.log(`   Devices: ${deviceList.length}`);
+            console.log(`   Concurrency: ${concurrency}\n`);
+
+            const results = await CBrowser.parallelDevices(
+              deviceList,
+              async (b, device) => {
+                const nav = await b.navigate(url);
+                const screenshot = await b.screenshot();
+                return { title: nav.title, loadTime: nav.loadTime, screenshot };
+              },
+              { maxConcurrency: concurrency }
+            );
+
+            console.log("📊 Results:\n");
+            for (const r of results) {
+              if (r.error) {
+                console.log(`  ✗ ${r.device}: ${r.error} (${r.duration}ms)`);
+              } else {
+                console.log(`  ✓ ${r.device}: ${r.result?.title} - ${r.result?.loadTime}ms (${r.duration}ms total)`);
+              }
+            }
+
+            const passed = results.filter(r => !r.error).length;
+            console.log(`\n  Summary: ${passed}/${results.length} passed`);
+            break;
+          }
+
+          case "urls": {
+            const urls = args.slice(1);
+            if (urls.length === 0) {
+              console.error("Usage: cbrowser parallel urls <url1> <url2> ... [--concurrency <n>]");
+              process.exit(1);
+            }
+
+            const concurrency = options.concurrency ? parseInt(options.concurrency as string) : 3;
+
+            console.log(`\n🚀 Running parallel URL tests...`);
+            console.log(`   URLs: ${urls.length}`);
+            console.log(`   Concurrency: ${concurrency}\n`);
+
+            const results = await CBrowser.parallelUrls(
+              urls,
+              async (b, url) => {
+                const nav = await b.navigate(url);
+                return { title: nav.title, loadTime: nav.loadTime };
+              },
+              { maxConcurrency: concurrency }
+            );
+
+            console.log("📊 Results:\n");
+            for (const r of results) {
+              if (r.error) {
+                console.log(`  ✗ ${r.url}: ${r.error}`);
+              } else {
+                console.log(`  ✓ ${r.url}: ${r.result?.title} (${r.result?.loadTime}ms)`);
+              }
+            }
+            break;
+          }
+
+          case "perf": {
+            const urls = args.slice(1);
+            if (urls.length === 0) {
+              console.error("Usage: cbrowser parallel perf <url1> <url2> ... [--concurrency <n>]");
+              process.exit(1);
+            }
+
+            const concurrency = options.concurrency ? parseInt(options.concurrency as string) : 3;
+
+            console.log(`\n🚀 Running parallel performance audits...`);
+            console.log(`   URLs: ${urls.length}`);
+            console.log(`   Concurrency: ${concurrency}\n`);
+
+            const results = await CBrowser.parallelUrls(
+              urls,
+              async (b, url) => {
+                await b.navigate(url);
+                return await b.getPerformanceMetrics();
+              },
+              { maxConcurrency: concurrency }
+            );
+
+            console.log("📊 Performance Results:\n");
+            for (const r of results) {
+              if (r.error) {
+                console.log(`  ✗ ${r.url}: ${r.error}`);
+              } else {
+                const m = r.result;
+                console.log(`  ✓ ${r.url}`);
+                if (m?.lcp) console.log(`      LCP: ${m.lcp.toFixed(0)}ms (${m.lcpRating})`);
+                if (m?.fcp) console.log(`      FCP: ${m.fcp.toFixed(0)}ms`);
+                if (m?.cls !== undefined) console.log(`      CLS: ${m.cls.toFixed(3)}`);
+              }
+            }
+            break;
+          }
+
+          default:
+            console.error("Usage: cbrowser parallel [devices|urls|perf]");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Natural Language (Tier 3)
+      // =========================================================================
+
+      case "run": {
+        const nlCommand = args.join(" ");
+        if (!nlCommand) {
+          console.error("Usage: cbrowser run \"<natural language command>\"");
+          console.error("Examples:");
+          console.error("  cbrowser run \"go to https://example.com\"");
+          console.error("  cbrowser run \"click the login button\"");
+          console.error("  cbrowser run \"type 'hello' in the search box\"");
+          process.exit(1);
+        }
+
+        console.log(`\n🗣️  Executing: "${nlCommand}"\n`);
+
+        const result = await executeNaturalLanguage(browser, nlCommand);
+
+        if (result.success) {
+          console.log(`✓ Action: ${result.action}`);
+          if (result.result && typeof result.result === "object") {
+            const r = result.result as Record<string, unknown>;
+            if (r.url) console.log(`  URL: ${r.url}`);
+            if (r.title) console.log(`  Title: ${r.title}`);
+            if (r.message) console.log(`  ${r.message}`);
+            if (r.screenshot) console.log(`  Screenshot: ${r.screenshot}`);
+          }
+        } else {
+          console.error(`✗ ${result.error}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case "script": {
+        const scriptFile = args[0];
+        if (!scriptFile) {
+          console.error("Usage: cbrowser script <file>");
+          process.exit(1);
+        }
+
+        const fs = await import("fs");
+        if (!fs.existsSync(scriptFile)) {
+          console.error(`Script file not found: ${scriptFile}`);
+          process.exit(1);
+        }
+
+        const content = fs.readFileSync(scriptFile, "utf-8");
+        const commands = content.split("\n").filter(line => line.trim() && !line.trim().startsWith("#"));
+
+        console.log(`\n📜 Executing script: ${scriptFile}`);
+        console.log(`   Commands: ${commands.length}\n`);
+
+        const results = await executeNaturalLanguageScript(browser, commands);
+
+        for (const r of results) {
+          if (r.success) {
+            console.log(`✓ ${r.command}`);
+          } else {
+            console.log(`✗ ${r.command}`);
+            console.log(`  Error: ${r.error}`);
+          }
+        }
+
+        const passed = results.filter(r => r.success).length;
+        console.log(`\n  Summary: ${passed}/${results.length} commands succeeded`);
+
+        if (passed < results.length) {
+          process.exit(1);
         }
         break;
       }

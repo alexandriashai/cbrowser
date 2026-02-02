@@ -493,3 +493,105 @@ export interface CBrowserConfigFile {
   networkMocks?: NetworkMock[];
   performanceBudget?: PerformanceBudget;
 }
+
+// ============================================================================
+// Tier 2: Visual Regression Types (v2.5.0)
+// ============================================================================
+
+export interface VisualRegressionResult {
+  baseline: string;
+  current: string;
+  diff?: string;
+  diffPercentage: number;
+  passed: boolean;
+  threshold: number;
+  timestamp: string;
+}
+
+export interface VisualBaseline {
+  name: string;
+  url: string;
+  device?: string;
+  viewport: { width: number; height: number };
+  screenshotPath: string;
+  created: string;
+  lastUsed: string;
+}
+
+// ============================================================================
+// Tier 2: Accessibility Types (v2.5.0)
+// ============================================================================
+
+export interface AccessibilityViolation {
+  id: string;
+  impact: "critical" | "serious" | "moderate" | "minor";
+  description: string;
+  help: string;
+  helpUrl: string;
+  nodes: Array<{
+    html: string;
+    target: string[];
+    failureSummary: string;
+  }>;
+}
+
+export interface AccessibilityAuditResult {
+  url: string;
+  timestamp: string;
+  violations: AccessibilityViolation[];
+  passes: number;
+  incomplete: number;
+  score: number;
+}
+
+// ============================================================================
+// Tier 2: Test Recording Types (v2.5.0)
+// ============================================================================
+
+export interface RecordedAction {
+  type: "navigate" | "click" | "fill" | "select" | "screenshot" | "wait";
+  selector?: string;
+  value?: string;
+  url?: string;
+  timestamp: number;
+}
+
+export interface RecordedTest {
+  name: string;
+  startUrl: string;
+  actions: RecordedAction[];
+  created: string;
+}
+
+// ============================================================================
+// Tier 2: Test Output Types (v2.5.0)
+// ============================================================================
+
+export interface TestResult {
+  name: string;
+  status: "passed" | "failed" | "skipped";
+  duration: number;
+  error?: string;
+  screenshot?: string;
+}
+
+export interface TestSuiteResult {
+  name: string;
+  timestamp: string;
+  duration: number;
+  tests: TestResult[];
+  passed: number;
+  failed: number;
+  skipped: number;
+}
+
+// ============================================================================
+// Tier 2: Webhook Types (v2.5.0)
+// ============================================================================
+
+export interface WebhookConfig {
+  name: string;
+  url: string;
+  events: Array<"test.pass" | "test.fail" | "journey.complete" | "visual.fail">;
+  format: "slack" | "discord" | "generic";
+}

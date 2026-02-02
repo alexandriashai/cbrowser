@@ -11,9 +11,10 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 |---------|---------|------------|
 | v2.2.0 | 2026-02-02 | Initial public release |
 | v2.3.0 | 2026-02-02 | Multi-browser support |
-| v2.4.0 | TBD | Quick wins (video, mobile, perf) |
-| v2.5.0 | TBD | Visual regression, test recorder |
-| v3.0.0 | TBD | AI test generation, plugin system |
+| v2.4.0 | 2026-02-02 | Quick wins (video, mobile, perf) |
+| v2.5.0 | 2026-02-02 | Visual regression, test recorder, a11y, webhooks |
+| v3.0.0 | 2026-02-02 | Fluent API, natural language commands |
+| v4.0.0 | TBD | AI test generation, plugin system |
 
 ---
 
@@ -32,16 +33,16 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 
 ---
 
-## Tier 2: Medium Effort (v2.5.0)
+## Tier 2: Medium Effort ✅ (v2.5.0)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Visual Regression | ⬜ Planned | Screenshot diff with perceptual hashing |
-| Accessibility Audit | ⬜ Planned | WCAG violations per page |
-| Parallel Execution | ⬜ Planned | Run multiple browsers simultaneously |
-| Test Recorder | ⬜ Planned | Record interactions → generate code |
-| Webhook Notifications | ⬜ Planned | Slack/Discord alerts |
-| JUnit/TAP Output | ⬜ Planned | CI-friendly result formats |
+| Visual Regression | ✅ Complete | Screenshot diff with size comparison |
+| Accessibility Audit | ✅ Complete | WCAG violations per page |
+| Parallel Execution | ✅ Complete | Run multiple browsers simultaneously |
+| Test Recorder | ✅ Complete | Record interactions → generate code |
+| Webhook Notifications | ✅ Complete | Slack/Discord/generic alerts |
+| JUnit/TAP Output | ✅ Complete | CI-friendly result formats |
 
 ---
 
@@ -49,12 +50,12 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 
 | Feature | Status | Description |
 |---------|--------|-------------|
+| Fluent API | ✅ Complete | `browser.goto(url).click(x).fill(y)` |
+| Natural Language API | ✅ Complete | "Go to cart and checkout" |
 | AI Test Generation | ⬜ Planned | Analyze page → generate test scenarios |
 | Self-Healing Selectors | ⬜ Planned | AI finds alternatives when broken |
 | Session Replay Import | ⬜ Planned | Import FullStory/Hotjar recordings |
 | Plugin System | ⬜ Planned | Extensible architecture |
-| Fluent API | ⬜ Planned | `browser.goto(url).click(x).fill(y)` |
-| Natural Language API | ⬜ Planned | "Go to cart and checkout" |
 
 ---
 

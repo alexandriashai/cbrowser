@@ -1330,4 +1330,575 @@ export class CBrowser {
 
     return stats;
   }
+
+  /**
+   * Get the data directory path.
+   */
+  getDataDir(): string {
+    return this.paths.dataDir;
+  }
+
+  // =========================================================================
+  // Tier 2: Visual Regression (v2.5.0)
+  // =========================================================================
+
+  /**
+   * Save a visual baseline screenshot.
+   */
+  async saveBaseline(name: string, url?: string): Promise<string> {
+    const baselinesDir = join(this.paths.dataDir, "baselines");
+    if (!existsSync(baselinesDir)) {
+      mkdirSync(baselinesDir, { recursive: true });
+    }
+
+    const page = await this.getPage();
+    const screenshotPath = join(baselinesDir, `${name}.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+
+    const baseline = {
+      name,
+      url: url || page.url(),
+      viewport: page.viewportSize() || { width: 1280, height: 800 },
+      screenshotPath,
+      created: new Date().toISOString(),
+      lastUsed: new Date().toISOString(),
+    };
+
+    const metaPath = join(baselinesDir, `${name}.json`);
+    writeFileSync(metaPath, JSON.stringify(baseline, null, 2));
+
+    return screenshotPath;
+  }
+
+  /**
+   * Compare current page to a baseline.
+   */
+  async compareBaseline(name: string, threshold: number = 0.1): Promise<{
+    baseline: string;
+    current: string;
+    diffPath?: string;
+    diffPercentage: number;
+    passed: boolean;
+  }> {
+    const baselinesDir = join(this.paths.dataDir, "baselines");
+    const metaPath = join(baselinesDir, `${name}.json`);
+
+    if (!existsSync(metaPath)) {
+      throw new Error(`Baseline not found: ${name}`);
+    }
+
+    const baseline = JSON.parse(readFileSync(metaPath, "utf-8"));
+    const page = await this.getPage();
+
+    const currentPath = join(baselinesDir, `${name}-current-${Date.now()}.png`);
+    await page.screenshot({ path: currentPath, fullPage: true });
+
+    const baselineBuffer = readFileSync(baseline.screenshotPath);
+    const currentBuffer = readFileSync(currentPath);
+
+    const sizeDiff = Math.abs(baselineBuffer.length - currentBuffer.length);
+    const maxSize = Math.max(baselineBuffer.length, currentBuffer.length);
+    const diffPercentage = sizeDiff / maxSize;
+
+    return {
+      baseline: baseline.screenshotPath,
+      current: currentPath,
+      diffPercentage,
+      passed: diffPercentage <= threshold,
+    };
+  }
+
+  /**
+   * List all visual baselines.
+   */
+  listBaselines(): string[] {
+    const baselinesDir = join(this.paths.dataDir, "baselines");
+    if (!existsSync(baselinesDir)) return [];
+    return readdirSync(baselinesDir)
+      .filter(f => f.endsWith(".json"))
+      .map(f => f.replace(".json", ""));
+  }
+
+  // =========================================================================
+  // Tier 2: Accessibility Audit (v2.5.0)
+  // =========================================================================
+
+  /**
+   * Run accessibility audit on current page.
+   */
+  async auditAccessibility(): Promise<{
+    url: string;
+    violations: Array<{ id: string; impact: string; description: string; helpUrl: string }>;
+    passes: number;
+    score: number;
+  }> {
+    const page = await this.getPage();
+
+    const results = await page.evaluate(() => {
+      const violations: Array<{ id: string; impact: string; description: string; helpUrl: string }> = [];
+
+      // Check images without alt
+      document.querySelectorAll("img").forEach(img => {
+        if (!img.alt && !img.getAttribute("aria-label")) {
+          violations.push({
+            id: "img-alt",
+            impact: "serious",
+            description: "Image missing alt text",
+            helpUrl: "https://dequeuniversity.com/rules/axe/4.4/image-alt",
+          });
+        }
+      });
+
+      // Check buttons without text
+      document.querySelectorAll("button").forEach(btn => {
+        if (!btn.textContent?.trim() && !btn.getAttribute("aria-label")) {
+          violations.push({
+            id: "button-name",
+            impact: "critical",
+            description: "Button has no accessible name",
+            helpUrl: "https://dequeuniversity.com/rules/axe/4.4/button-name",
+          });
+        }
+      });
+
+      // Check inputs without labels
+      document.querySelectorAll("input:not([type='hidden'])").forEach(input => {
+        const id = input.id;
+        const hasLabel = id && document.querySelector(`label[for="${id}"]`);
+        if (!hasLabel && !input.getAttribute("aria-label")) {
+          violations.push({
+            id: "label",
+            impact: "serious",
+            description: "Form input missing label",
+            helpUrl: "https://dequeuniversity.com/rules/axe/4.4/label",
+          });
+        }
+      });
+
+      // Check lang attribute
+      if (!document.documentElement.lang) {
+        violations.push({
+          id: "html-has-lang",
+          impact: "serious",
+          description: "Page missing lang attribute",
+          helpUrl: "https://dequeuniversity.com/rules/axe/4.4/html-has-lang",
+        });
+      }
+
+      const passes = document.querySelectorAll("img[alt], button:not(:empty), label").length;
+      return { violations, passes };
+    });
+
+    const score = results.passes > 0
+      ? Math.round((results.passes / (results.passes + results.violations.length)) * 100)
+      : 100;
+
+    return {
+      url: page.url(),
+      violations: results.violations,
+      passes: results.passes,
+      score,
+    };
+  }
+
+  // =========================================================================
+  // Tier 2: Test Recording (v2.5.0)
+  // =========================================================================
+
+  private recordingActions: Array<{ type: string; selector?: string; value?: string; url?: string; timestamp: number }> = [];
+  private isRecording = false;
+
+  /**
+   * Start recording user interactions.
+   */
+  async startRecording(url?: string): Promise<void> {
+    this.isRecording = true;
+    this.recordingActions = [];
+
+    if (url) {
+      await this.navigate(url);
+      this.recordingActions.push({ type: "navigate", url, timestamp: Date.now() });
+    }
+  }
+
+  /**
+   * Stop recording and return actions.
+   */
+  stopRecording(): Array<{ type: string; selector?: string; value?: string; url?: string; timestamp: number }> {
+    this.isRecording = false;
+    return [...this.recordingActions];
+  }
+
+  /**
+   * Save recording to file.
+   */
+  saveRecording(name: string, actions?: Array<{ type: string; selector?: string; value?: string; url?: string; timestamp: number }>): string {
+    const recordingsDir = join(this.paths.dataDir, "recordings");
+    if (!existsSync(recordingsDir)) {
+      mkdirSync(recordingsDir, { recursive: true });
+    }
+
+    const recording = {
+      name,
+      actions: actions || this.recordingActions,
+      created: new Date().toISOString(),
+    };
+
+    const filePath = join(recordingsDir, `${name}.json`);
+    writeFileSync(filePath, JSON.stringify(recording, null, 2));
+
+    return filePath;
+  }
+
+  /**
+   * Generate test code from recording.
+   */
+  generateTestCode(name: string, actions: Array<{ type: string; selector?: string; value?: string; url?: string }>): string {
+    let code = `// Generated test: ${name}\n\n`;
+    code += `import { CBrowser } from 'cbrowser';\n\n`;
+    code += `async function test_${name.replace(/[^a-zA-Z0-9]/g, "_")}() {\n`;
+    code += `  const browser = new CBrowser();\n\n`;
+
+    for (const action of actions) {
+      switch (action.type) {
+        case "navigate":
+          code += `  await browser.navigate("${action.url}");\n`;
+          break;
+        case "click":
+          code += `  await browser.click("${action.selector}");\n`;
+          break;
+        case "fill":
+          code += `  await browser.fill("${action.selector}", "${action.value}");\n`;
+          break;
+      }
+    }
+
+    code += `\n  await browser.close();\n`;
+    code += `}\n\n`;
+    code += `test_${name.replace(/[^a-zA-Z0-9]/g, "_")}();\n`;
+
+    return code;
+  }
+
+  // =========================================================================
+  // Tier 2: Test Export (v2.5.0)
+  // =========================================================================
+
+  /**
+   * Export test results as JUnit XML.
+   */
+  exportJUnit(suite: { name: string; tests: Array<{ name: string; status: string; duration: number; error?: string }> }, outputPath?: string): string {
+    const filename = outputPath || join(this.paths.dataDir, `junit-${Date.now()}.xml`);
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<testsuite name="${suite.name}" tests="${suite.tests.length}">\n`;
+
+    for (const test of suite.tests) {
+      xml += `  <testcase name="${test.name}" time="${(test.duration / 1000).toFixed(3)}">\n`;
+      if (test.status === "failed" && test.error) {
+        xml += `    <failure message="${test.error.replace(/"/g, "&quot;")}">${test.error}</failure>\n`;
+      }
+      xml += `  </testcase>\n`;
+    }
+
+    xml += `</testsuite>\n`;
+    writeFileSync(filename, xml);
+
+    return filename;
+  }
+
+  /**
+   * Export test results as TAP format.
+   */
+  exportTAP(suite: { name: string; tests: Array<{ name: string; status: string; error?: string }> }, outputPath?: string): string {
+    const filename = outputPath || join(this.paths.dataDir, `tap-${Date.now()}.tap`);
+
+    let tap = `TAP version 13\n`;
+    tap += `1..${suite.tests.length}\n`;
+
+    suite.tests.forEach((test, i) => {
+      const status = test.status === "passed" ? "ok" : "not ok";
+      tap += `${status} ${i + 1} ${test.name}\n`;
+    });
+
+    writeFileSync(filename, tap);
+    return filename;
+  }
+
+  // =========================================================================
+  // Tier 2: Parallel Execution (v2.5.0)
+  // =========================================================================
+
+  /**
+   * Run multiple browser tasks in parallel.
+   */
+  static async parallel<T>(
+    tasks: Array<{
+      name: string;
+      config?: Partial<import("./config.js").CBrowserConfig>;
+      run: (browser: CBrowser) => Promise<T>;
+    }>,
+    options: { maxConcurrency?: number } = {}
+  ): Promise<Array<{ name: string; result?: T; error?: string; duration: number }>> {
+    const maxConcurrency = options.maxConcurrency || tasks.length;
+    const results: Array<{ name: string; result?: T; error?: string; duration: number }> = [];
+
+    // Process tasks in batches
+    for (let i = 0; i < tasks.length; i += maxConcurrency) {
+      const batch = tasks.slice(i, i + maxConcurrency);
+
+      const batchResults = await Promise.all(
+        batch.map(async (task) => {
+          const startTime = Date.now();
+          const browser = new CBrowser(task.config || {});
+
+          try {
+            const result = await task.run(browser);
+            return {
+              name: task.name,
+              result,
+              duration: Date.now() - startTime,
+            };
+          } catch (e: any) {
+            return {
+              name: task.name,
+              error: e.message,
+              duration: Date.now() - startTime,
+            };
+          } finally {
+            await browser.close();
+          }
+        })
+      );
+
+      results.push(...batchResults);
+    }
+
+    return results;
+  }
+
+  /**
+   * Run the same task across multiple device configurations in parallel.
+   */
+  static async parallelDevices<T>(
+    devices: string[],
+    run: (browser: CBrowser, device: string) => Promise<T>,
+    options: { maxConcurrency?: number } = {}
+  ): Promise<Array<{ device: string; result?: T; error?: string; duration: number }>> {
+    const tasks = devices.map(device => ({
+      name: device,
+      config: { device },
+      run: (browser: CBrowser) => run(browser, device),
+    }));
+
+    const results = await CBrowser.parallel(tasks, options);
+    return results.map(r => ({ device: r.name, ...r }));
+  }
+
+  /**
+   * Run the same task across multiple URLs in parallel.
+   */
+  static async parallelUrls<T>(
+    urls: string[],
+    run: (browser: CBrowser, url: string) => Promise<T>,
+    options: { maxConcurrency?: number; config?: Partial<import("./config.js").CBrowserConfig> } = {}
+  ): Promise<Array<{ url: string; result?: T; error?: string; duration: number }>> {
+    const tasks = urls.map(url => ({
+      name: url,
+      config: options.config,
+      run: (browser: CBrowser) => run(browser, url),
+    }));
+
+    const results = await CBrowser.parallel(tasks, options);
+    return results.map(r => ({ url: r.name, ...r }));
+  }
+
+  // =========================================================================
+  // Tier 3: Fluent API (v3.0.0)
+  // =========================================================================
+
+  /**
+   * Fluent API - navigate and return chainable instance.
+   */
+  async goto(url: string): Promise<FluentCBrowser> {
+    await this.navigate(url);
+    return new FluentCBrowser(this);
+  }
+}
+
+/**
+ * Fluent wrapper for chainable API.
+ */
+export class FluentCBrowser {
+  constructor(private browser: CBrowser) {}
+
+  async click(selector: string, options?: { force?: boolean }): Promise<FluentCBrowser> {
+    await this.browser.click(selector, options);
+    return this;
+  }
+
+  async fill(selector: string, value: string): Promise<FluentCBrowser> {
+    await this.browser.fill(selector, value);
+    return this;
+  }
+
+  async screenshot(path?: string): Promise<FluentCBrowser> {
+    await this.browser.screenshot(path);
+    return this;
+  }
+
+  async wait(ms: number): Promise<FluentCBrowser> {
+    await new Promise(resolve => setTimeout(resolve, ms));
+    return this;
+  }
+
+  async extract(what: string): Promise<{ data: unknown; fluent: FluentCBrowser }> {
+    const result = await this.browser.extract(what);
+    return { data: result.data, fluent: this };
+  }
+
+  async close(): Promise<void> {
+    await this.browser.close();
+  }
+
+  get instance(): CBrowser {
+    return this.browser;
+  }
+}
+
+// ============================================================================
+// Tier 3: Natural Language API (v3.0.0)
+// ============================================================================
+
+/**
+ * Natural language command patterns.
+ */
+const NL_PATTERNS: Array<{
+  pattern: RegExp;
+  action: string;
+  extract: (match: RegExpMatchArray) => Record<string, string>;
+}> = [
+  // Navigation
+  { pattern: /^(?:go to|navigate to|open|visit)\s+(.+)$/i, action: "navigate", extract: (m) => ({ url: m[1] }) },
+  { pattern: /^(?:go\s+)?back$/i, action: "back", extract: () => ({}) },
+  { pattern: /^(?:go\s+)?forward$/i, action: "forward", extract: () => ({}) },
+  { pattern: /^refresh|reload$/i, action: "reload", extract: () => ({}) },
+
+  // Clicking
+  { pattern: /^click(?:\s+on)?\s+(?:the\s+)?["']?(.+?)["']?$/i, action: "click", extract: (m) => ({ selector: m[1] }) },
+  { pattern: /^press(?:\s+the)?\s+["']?(.+?)["']?(?:\s+button)?$/i, action: "click", extract: (m) => ({ selector: m[1] }) },
+  { pattern: /^tap(?:\s+on)?\s+["']?(.+?)["']?$/i, action: "click", extract: (m) => ({ selector: m[1] }) },
+
+  // Form filling
+  { pattern: /^(?:type|enter|input|fill(?:\s+in)?)\s+["'](.+?)["']\s+(?:in(?:to)?|on)\s+(?:the\s+)?["']?(.+?)["']?$/i, action: "fill", extract: (m) => ({ value: m[1], selector: m[2] }) },
+  { pattern: /^(?:fill(?:\s+in)?|set)\s+(?:the\s+)?["']?(.+?)["']?\s+(?:to|with|as)\s+["'](.+?)["']$/i, action: "fill", extract: (m) => ({ selector: m[1], value: m[2] }) },
+
+  // Selecting
+  { pattern: /^select\s+["'](.+?)["']\s+(?:from|in)\s+(?:the\s+)?["']?(.+?)["']?$/i, action: "select", extract: (m) => ({ value: m[1], selector: m[2] }) },
+  { pattern: /^choose\s+["'](.+?)["']$/i, action: "click", extract: (m) => ({ selector: m[1] }) },
+
+  // Screenshots
+  { pattern: /^(?:take\s+a?\s*)?screenshot(?:\s+as\s+["']?(.+?)["']?)?$/i, action: "screenshot", extract: (m) => ({ path: m[1] || "" }) },
+  { pattern: /^capture(?:\s+the)?\s+(?:page|screen)$/i, action: "screenshot", extract: () => ({}) },
+
+  // Waiting
+  { pattern: /^wait(?:\s+for)?\s+(\d+)\s*(?:ms|milliseconds?)?$/i, action: "wait", extract: (m) => ({ ms: m[1] }) },
+  { pattern: /^wait(?:\s+for)?\s+(\d+)\s*(?:s|seconds?)$/i, action: "waitSeconds", extract: (m) => ({ seconds: m[1] }) },
+  { pattern: /^wait(?:\s+for)?\s+["']?(.+?)["']?(?:\s+to\s+appear)?$/i, action: "waitFor", extract: (m) => ({ selector: m[1] }) },
+
+  // Scrolling
+  { pattern: /^scroll\s+(?:to\s+)?(?:the\s+)?(top|bottom)$/i, action: "scroll", extract: (m) => ({ direction: m[1] }) },
+  { pattern: /^scroll\s+(up|down)(?:\s+(\d+))?$/i, action: "scrollBy", extract: (m) => ({ direction: m[1], amount: m[2] || "300" }) },
+
+  // Extraction
+  { pattern: /^(?:get|extract|find)\s+(?:all\s+)?(?:the\s+)?(.+)$/i, action: "extract", extract: (m) => ({ what: m[1] }) },
+];
+
+/**
+ * Parse natural language into browser action.
+ */
+export function parseNaturalLanguage(command: string): { action: string; params: Record<string, string> } | null {
+  const trimmed = command.trim();
+
+  for (const { pattern, action, extract } of NL_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (match) {
+      return { action, params: extract(match) };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Execute a natural language command.
+ */
+export async function executeNaturalLanguage(browser: CBrowser, command: string): Promise<{
+  success: boolean;
+  action: string;
+  result?: unknown;
+  error?: string;
+}> {
+  const parsed = parseNaturalLanguage(command);
+
+  if (!parsed) {
+    return { success: false, action: "unknown", error: `Could not parse command: "${command}"` };
+  }
+
+  const { action, params } = parsed;
+
+  try {
+    let result: unknown;
+
+    switch (action) {
+      case "navigate":
+        result = await browser.navigate(params.url);
+        break;
+      case "click":
+        result = await browser.click(params.selector);
+        break;
+      case "fill":
+        result = await browser.fill(params.selector, params.value);
+        break;
+      case "screenshot":
+        result = await browser.screenshot(params.path || undefined);
+        break;
+      case "wait":
+        await new Promise(r => setTimeout(r, parseInt(params.ms)));
+        result = { waited: parseInt(params.ms) };
+        break;
+      case "waitSeconds":
+        await new Promise(r => setTimeout(r, parseInt(params.seconds) * 1000));
+        result = { waited: parseInt(params.seconds) * 1000 };
+        break;
+      case "extract":
+        result = await browser.extract(params.what);
+        break;
+      default:
+        return { success: false, action, error: `Unsupported action: ${action}` };
+    }
+
+    return { success: true, action, result };
+  } catch (e: any) {
+    return { success: false, action, error: e.message };
+  }
+}
+
+/**
+ * Execute multiple natural language commands in sequence.
+ */
+export async function executeNaturalLanguageScript(
+  browser: CBrowser,
+  commands: string[]
+): Promise<Array<{ command: string; success: boolean; action: string; result?: unknown; error?: string }>> {
+  const results = [];
+
+  for (const command of commands) {
+    if (!command.trim() || command.startsWith("#")) continue; // Skip empty lines and comments
+    const result = await executeNaturalLanguage(browser, command);
+    results.push({ command, ...result });
+    if (!result.success) break; // Stop on first error
+  }
+
+  return results;
 }
