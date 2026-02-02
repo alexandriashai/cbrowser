@@ -1013,3 +1013,112 @@ export interface TestGenerationResult {
   cbrowserScript: string;
   playwrightCode: string;
 }
+
+// ============================================================================
+// Tier 6: Performance Regression Types (v6.4.0)
+// ============================================================================
+
+export interface PerformanceBaseline {
+  /** Unique identifier for this baseline */
+  id: string;
+  /** URL this baseline was captured from */
+  url: string;
+  /** Human-readable name for this baseline */
+  name: string;
+  /** Timestamp when baseline was captured */
+  timestamp: string;
+  /** Performance metrics captured */
+  metrics: PerformanceMetrics;
+  /** Number of runs averaged (for stability) */
+  runsAveraged: number;
+  /** Environment info */
+  environment: {
+    browser: string;
+    viewport: { width: number; height: number };
+    device?: string;
+    connection?: string;
+  };
+}
+
+export interface PerformanceRegressionThresholds {
+  /** Max allowed increase in LCP (percentage, default: 20) */
+  lcp?: number;
+  /** Max allowed increase in FID (percentage, default: 50) */
+  fid?: number;
+  /** Max allowed increase in CLS (absolute, default: 0.1) */
+  cls?: number;
+  /** Max allowed increase in FCP (percentage, default: 20) */
+  fcp?: number;
+  /** Max allowed increase in TTFB (percentage, default: 30) */
+  ttfb?: number;
+  /** Max allowed increase in TTI (percentage, default: 25) */
+  tti?: number;
+  /** Max allowed increase in TBT (percentage, default: 50) */
+  tbt?: number;
+  /** Max allowed increase in transfer size (percentage, default: 25) */
+  transferSize?: number;
+}
+
+export interface MetricRegression {
+  /** Metric name */
+  metric: keyof PerformanceMetrics;
+  /** Baseline value */
+  baselineValue: number;
+  /** Current value */
+  currentValue: number;
+  /** Change amount */
+  change: number;
+  /** Change percentage */
+  changePercent: number;
+  /** Threshold that was exceeded */
+  threshold: number;
+  /** Severity of regression */
+  severity: "warning" | "regression" | "critical";
+}
+
+export interface PerformanceComparison {
+  /** Metric name */
+  metric: keyof PerformanceMetrics;
+  /** Baseline value */
+  baseline: number;
+  /** Current value */
+  current: number;
+  /** Change amount (positive = worse, negative = better) */
+  change: number;
+  /** Change percentage */
+  changePercent: number;
+  /** Is this a regression? */
+  isRegression: boolean;
+  /** Is this an improvement? */
+  isImprovement: boolean;
+  /** Status indicator */
+  status: "improved" | "stable" | "warning" | "regression" | "critical";
+}
+
+export interface PerformanceRegressionResult {
+  /** URL tested */
+  url: string;
+  /** Baseline used for comparison */
+  baseline: PerformanceBaseline;
+  /** Current metrics */
+  currentMetrics: PerformanceMetrics;
+  /** Timestamp of this test */
+  timestamp: string;
+  /** Duration of test */
+  duration: number;
+  /** Detailed comparison per metric */
+  comparisons: PerformanceComparison[];
+  /** Detected regressions */
+  regressions: MetricRegression[];
+  /** Overall result */
+  passed: boolean;
+  /** Summary */
+  summary: {
+    totalMetrics: number;
+    improved: number;
+    stable: number;
+    regressed: number;
+    critical: number;
+    overallChange: number; // Average change across all metrics
+  };
+}

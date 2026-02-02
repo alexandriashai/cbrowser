@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -18,12 +18,13 @@ import {
 } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
+import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v6.3.0                                ║
-║    AI-powered browser automation with flaky test detection                   ║
+║                           CBrowser CLI v6.4.0                                ║
+║    AI-powered browser automation with performance regression detection       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -156,6 +157,27 @@ PERFORMANCE
     --budget-fcp <ms>         FCP budget (default: 1800)
     --budget-cls <score>      CLS budget (default: 0.1)
 
+PERFORMANCE REGRESSION (v6.4.0)
+  perf-baseline save <url>    Capture and save performance baseline
+    --name <name>             Human-readable name for baseline
+    --runs <n>                Number of runs to average (default: 3)
+    Examples:
+      cbrowser perf-baseline save "https://example.com" --name "homepage"
+      cbrowser perf-baseline save "https://example.com/checkout" --runs 5
+
+  perf-baseline list          List all saved baselines
+  perf-baseline show <name>   Show baseline details
+  perf-baseline delete <name> Delete a baseline
+
+  perf-regression <url> <baseline>  Compare current performance against baseline
+    --threshold-lcp <n>       Max LCP increase % (default: 20)
+    --threshold-cls <n>       Max CLS increase (default: 0.1)
+    --threshold-fcp <n>       Max FCP increase % (default: 20)
+    --output <file>           Save JSON report to file
+    Examples:
+      cbrowser perf-regression "https://example.com" homepage
+      cbrowser perf-regression "https://example.com" homepage --threshold-lcp 30
+
 NETWORK / HAR
   har start                   Start recording HAR
   har stop [output]           Stop and save HAR file
@@ -267,6 +289,16 @@ AI TEST GENERATION (v5.0.0)
 MCP SERVER (v5.0.0)
   mcp-server                  Start CBrowser as MCP server for Claude integration
                               Use with Claude Desktop or other MCP-compatible clients
+
+DAEMON MODE (v6.4.0)
+  daemon start                Start background daemon (keeps browser running)
+    --port <port>             Daemon port (default: 9222)
+    --timeout <min>           Idle timeout in minutes (default: 30)
+  daemon stop                 Stop the running daemon
+  daemon status               Check if daemon is running
+  daemon run                  Run daemon in foreground (internal use)
+    Note: When daemon is running, all commands automatically connect to it
+          instead of launching a new browser - much faster for iteration!
 
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
@@ -679,6 +711,99 @@ async function main(): Promise<void> {
   if (command === "mcp-server") {
     console.error("🔌 Starting CBrowser MCP Server...");
     await startMcpServer();
+    return;
+  }
+
+  // Daemon mode commands
+  if (command === "daemon") {
+    const subCommand = args[0];
+    const port = parseInt(options.port as string) || 9222;
+
+    switch (subCommand) {
+      case "start": {
+        console.log("🚀 Starting CBrowser daemon...");
+        const result = await startDaemon(port);
+        console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
+        process.exit(result.success ? 0 : 1);
+        break;
+      }
+
+      case "stop": {
+        console.log("🛑 Stopping CBrowser daemon...");
+        const result = await stopDaemon();
+        console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
+        process.exit(0);
+        break;
+      }
+
+      case "status": {
+        const status = await getDaemonStatus();
+        console.log(status);
+        process.exit(0);
+        break;
+      }
+
+      case "run": {
+        // Internal: run daemon in foreground
+        console.log("🔧 Running daemon in foreground mode...");
+        const browserType = options.browser === "firefox" ? "firefox"
+          : options.browser === "webkit" ? "webkit"
+          : "chromium";
+        // runDaemonServer will merge with defaults internally
+        await runDaemonServer({
+          browser: browserType,
+          headless: options.headless !== false && options.headless !== "false",
+        }, port);
+        return;
+      }
+
+      default:
+        console.error(`Unknown daemon command: ${subCommand}`);
+        console.error("Use: daemon start | daemon stop | daemon status");
+        process.exit(1);
+    }
+    return;
+  }
+
+  // Check if daemon is running and use it for supported commands
+  const daemonRunning = await isDaemonRunning();
+  if (daemonRunning && ["navigate", "click", "fill", "screenshot", "extract", "run"].includes(command)) {
+    console.log("🔌 Connected to running daemon");
+
+    let daemonCommand = command;
+    let daemonArgs: Record<string, unknown> = {};
+
+    switch (command) {
+      case "navigate":
+        daemonArgs = { url: args[0] };
+        break;
+      case "click":
+        daemonArgs = { selector: args[0] };
+        break;
+      case "fill":
+        daemonArgs = { selector: args[0], value: args[1] };
+        break;
+      case "screenshot":
+        daemonArgs = { path: args[0] };
+        break;
+      case "extract":
+        daemonArgs = { what: args[0] };
+        break;
+      case "run":
+        daemonArgs = { command: args.join(" ") };
+        break;
+    }
+
+    const result = await sendToDaemon(daemonCommand, daemonArgs);
+    if (result.success) {
+      console.log("✓ Command executed via daemon");
+      if (result.result) {
+        console.log(JSON.stringify(result.result, null, 2));
+      }
+    } else {
+      console.error(`✗ Daemon error: ${result.error}`);
+      process.exit(1);
+    }
     return;
   }
 
@@ -2782,6 +2907,198 @@ async function main(): Promise<void> {
 
         // Exit with error code if flaky tests found
         if (result.summary.flakyTests > 0) {
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Performance Regression Detection (Tier 6 - v6.4.0)
+      // =========================================================================
+
+      case "perf-baseline": {
+        const subcommand = args[0];
+        const fs = await import("fs");
+
+        switch (subcommand) {
+          case "save": {
+            const url = args[1];
+            if (!url) {
+              console.error("Usage: cbrowser perf-baseline save <url> [--name <name>] [--runs <n>]");
+              process.exit(1);
+            }
+
+            console.log(`\n📊 Capturing performance baseline for: ${url}`);
+
+            const baselineOptions: PerformanceBaselineOptions = {
+              headless,
+              name: options.name as string | undefined,
+              runs: options.runs ? parseInt(options.runs as string) : 3,
+            };
+
+            console.log(`   Running ${baselineOptions.runs} measurement(s)...`);
+
+            const baseline = await capturePerformanceBaseline(url, baselineOptions);
+
+            console.log(`\n✅ Baseline saved: ${baseline.name}`);
+            console.log(`   ID: ${baseline.id}`);
+            console.log(`   URL: ${baseline.url}`);
+            console.log(`   Timestamp: ${new Date(baseline.timestamp).toLocaleString()}`);
+            console.log(`\n📈 Metrics (averaged over ${baseline.runsAveraged} runs):`);
+            if (baseline.metrics.lcp !== undefined) {
+              console.log(`   LCP: ${baseline.metrics.lcp.toFixed(0)}ms (${baseline.metrics.lcpRating})`);
+            }
+            if (baseline.metrics.fcp !== undefined) {
+              console.log(`   FCP: ${baseline.metrics.fcp.toFixed(0)}ms`);
+            }
+            if (baseline.metrics.cls !== undefined) {
+              console.log(`   CLS: ${baseline.metrics.cls.toFixed(3)} (${baseline.metrics.clsRating})`);
+            }
+            if (baseline.metrics.ttfb !== undefined) {
+              console.log(`   TTFB: ${baseline.metrics.ttfb.toFixed(0)}ms`);
+            }
+            if (baseline.metrics.tti !== undefined) {
+              console.log(`   TTI: ${baseline.metrics.tti.toFixed(0)}ms`);
+            }
+            if (baseline.metrics.transferSize !== undefined) {
+              console.log(`   Transfer: ${(baseline.metrics.transferSize / 1024).toFixed(1)}KB`);
+            }
+            break;
+          }
+
+          case "list": {
+            const baselines = listPerformanceBaselines();
+
+            if (baselines.length === 0) {
+              console.log("\n📊 No performance baselines saved yet.");
+              console.log("   Use: cbrowser perf-baseline save <url> --name <name>");
+            } else {
+              console.log(`\n📊 Performance Baselines (${baselines.length}):\n`);
+              for (const b of baselines) {
+                const date = new Date(b.timestamp).toLocaleDateString();
+                const lcp = b.metrics.lcp ? `LCP: ${b.metrics.lcp.toFixed(0)}ms` : "";
+                console.log(`   ${b.name}`);
+                console.log(`     ID: ${b.id}`);
+                console.log(`     URL: ${b.url}`);
+                console.log(`     Date: ${date} | ${lcp}`);
+                console.log("");
+              }
+            }
+            break;
+          }
+
+          case "show": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser perf-baseline show <name|id>");
+              process.exit(1);
+            }
+
+            const baseline = loadPerformanceBaseline(name);
+            if (!baseline) {
+              console.error(`Baseline not found: ${name}`);
+              process.exit(1);
+            }
+
+            console.log(`\n📊 Performance Baseline: ${baseline.name}`);
+            console.log(`   ID: ${baseline.id}`);
+            console.log(`   URL: ${baseline.url}`);
+            console.log(`   Timestamp: ${new Date(baseline.timestamp).toLocaleString()}`);
+            console.log(`   Runs Averaged: ${baseline.runsAveraged}`);
+            console.log(`\n📈 Metrics:`);
+            console.log(JSON.stringify(baseline.metrics, null, 2));
+            console.log(`\n🖥️  Environment:`);
+            console.log(JSON.stringify(baseline.environment, null, 2));
+            break;
+          }
+
+          case "delete": {
+            const name = args[1];
+            if (!name) {
+              console.error("Usage: cbrowser perf-baseline delete <name|id>");
+              process.exit(1);
+            }
+
+            const deleted = deletePerformanceBaseline(name);
+            if (deleted) {
+              console.log(`\n✅ Deleted baseline: ${name}`);
+            } else {
+              console.error(`Baseline not found: ${name}`);
+              process.exit(1);
+            }
+            break;
+          }
+
+          default:
+            console.error("Usage: cbrowser perf-baseline <save|list|show|delete>");
+            console.error("");
+            console.error("Subcommands:");
+            console.error("  save <url>        Capture and save performance baseline");
+            console.error("  list              List all saved baselines");
+            console.error("  show <name>       Show baseline details");
+            console.error("  delete <name>     Delete a baseline");
+            process.exit(1);
+        }
+        break;
+      }
+
+      case "perf-regression": {
+        const url = args[0];
+        const baselineName = args[1];
+
+        if (!url || !baselineName) {
+          console.error("Usage: cbrowser perf-regression <url> <baseline-name> [options]");
+          console.error("");
+          console.error("Options:");
+          console.error("  --threshold-lcp <n>   Max LCP increase % (default: 20)");
+          console.error("  --threshold-cls <n>   Max CLS increase absolute (default: 0.1)");
+          console.error("  --threshold-fcp <n>   Max FCP increase % (default: 20)");
+          console.error("  --threshold-ttfb <n>  Max TTFB increase % (default: 30)");
+          console.error("  --output <file>       Save JSON report to file");
+          console.error("");
+          console.error("Examples:");
+          console.error("  cbrowser perf-regression https://example.com homepage");
+          console.error("  cbrowser perf-regression https://example.com homepage --threshold-lcp 30");
+          process.exit(1);
+        }
+
+        console.log(`\n🔍 Checking for performance regressions...`);
+        console.log(`   URL: ${url}`);
+        console.log(`   Baseline: ${baselineName}`);
+
+        const thresholds: PerformanceRegressionThresholds = {};
+        if (options["threshold-lcp"]) thresholds.lcp = parseInt(options["threshold-lcp"] as string);
+        if (options["threshold-cls"]) thresholds.cls = parseFloat(options["threshold-cls"] as string);
+        if (options["threshold-fcp"]) thresholds.fcp = parseInt(options["threshold-fcp"] as string);
+        if (options["threshold-ttfb"]) thresholds.ttfb = parseInt(options["threshold-ttfb"] as string);
+        if (options["threshold-tti"]) thresholds.tti = parseInt(options["threshold-tti"] as string);
+        if (options["threshold-tbt"]) thresholds.tbt = parseInt(options["threshold-tbt"] as string);
+
+        const regressionOptions: PerformanceRegressionOptions = {
+          headless,
+          thresholds: Object.keys(thresholds).length > 0 ? thresholds : undefined,
+        };
+
+        try {
+          const result = await detectPerformanceRegression(url, baselineName, regressionOptions);
+
+          // Print formatted report
+          const report = formatPerformanceRegressionReport(result);
+          console.log("\n" + report);
+
+          // Save JSON report if requested
+          const fs = await import("fs");
+          if (options.output) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved: ${options.output}`);
+          }
+
+          // Exit with error code if regressions found
+          if (!result.passed) {
+            process.exit(1);
+          }
+        } catch (error: any) {
+          console.error(`\n❌ Error: ${error.message}`);
           process.exit(1);
         }
         break;

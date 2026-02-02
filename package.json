@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "6.3.2",
+  "version": "6.4.0",
   "description": "The only browser automation with constitutional AI safety zones and user perspective testing. Tests if real humans can complete tasks safely.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
