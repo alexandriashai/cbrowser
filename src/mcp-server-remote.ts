@@ -4,6 +4,7 @@
  *
  * HTTP-based MCP server for remote access via claude.ai custom connectors.
  * Uses StreamableHTTPServerTransport for HTTP/SSE communication.
+ * Supports OAuth 2.1 via Auth0 for claude.ai integration.
  *
  * Run with: cbrowser mcp-remote
  * Or: npx cbrowser mcp-remote
@@ -15,10 +16,16 @@
  *   MCP_SESSION_MODE - 'stateful' or 'stateless' (default: stateless)
  *   MCP_API_KEY - API key for authentication (optional, if not set server is open)
  *   MCP_API_KEYS - Comma-separated list of valid API keys (optional, alternative to MCP_API_KEY)
+ *
+ * Auth0 OAuth Environment Variables:
+ *   AUTH0_DOMAIN - Your Auth0 tenant domain (e.g., 'your-tenant.auth0.com')
+ *   AUTH0_AUDIENCE - API audience/identifier (e.g., 'https://cbrowser-mcp.wyldfyre.ai')
+ *   AUTH0_CLIENT_ID - Optional: Client ID for static registration
  */
 
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
@@ -77,6 +84,127 @@ async function getBrowser(): Promise<CBrowser> {
 // Transport instances by session (for stateful mode)
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
+// =========================================================================
+// Auth0 OAuth Configuration
+// =========================================================================
+
+interface Auth0Config {
+  domain: string;
+  audience: string;
+  clientId?: string;
+  jwks: ReturnType<typeof createRemoteJWKSet>;
+}
+
+let auth0Config: Auth0Config | null = null;
+
+// Token cache to avoid hitting Auth0 rate limits
+const tokenCache = new Map<string, { payload: JWTPayload; expires: number }>();
+const TOKEN_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Initialize Auth0 configuration from environment variables
+ */
+function getAuth0Config(): Auth0Config | null {
+  const domain = process.env.AUTH0_DOMAIN;
+  const audience = process.env.AUTH0_AUDIENCE;
+
+  if (!domain || !audience) {
+    return null;
+  }
+
+  if (!auth0Config || auth0Config.domain !== domain) {
+    auth0Config = {
+      domain,
+      audience,
+      clientId: process.env.AUTH0_CLIENT_ID,
+      jwks: createRemoteJWKSet(new URL(`https://${domain}/.well-known/jwks.json`)),
+    };
+  }
+
+  return auth0Config;
+}
+
+/**
+ * Validate Auth0 token - supports both JWT and opaque tokens with caching
+ */
+async function validateAuth0Token(token: string): Promise<JWTPayload | null> {
+  const config = getAuth0Config();
+  if (!config) {
+    return null;
+  }
+
+  // Check cache first (use first 32 chars of token as key for security)
+  const cacheKey = token.substring(0, 32);
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) {
+    return cached.payload;
+  }
+
+  const tokenParts = token.split('.');
+
+  // If it's a proper JWT (3 parts), validate locally
+  if (tokenParts.length === 3) {
+    try {
+      const { payload } = await jwtVerify(token, config.jwks, {
+        issuer: `https://${config.domain}/`,
+        audience: config.audience,
+      });
+      console.log("JWT validated successfully for subject:", payload.sub);
+      // Cache the result
+      tokenCache.set(cacheKey, { payload, expires: Date.now() + TOKEN_CACHE_TTL });
+      return payload;
+    } catch (error) {
+      console.error("JWT validation failed:", error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  // For opaque/JWE tokens (5 parts), validate via Auth0's userinfo endpoint
+  console.log("Opaque token detected, validating via Auth0 userinfo...");
+  try {
+    const response = await fetch(`https://${config.domain}/userinfo`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.ok) {
+      const userinfo = await response.json();
+      console.log("Token validated via userinfo for:", userinfo.sub || userinfo.email);
+      // Cache the result
+      tokenCache.set(cacheKey, { payload: userinfo as JWTPayload, expires: Date.now() + TOKEN_CACHE_TTL });
+      return userinfo as JWTPayload;
+    } else {
+      console.error("Userinfo validation failed:", response.status, await response.text());
+      return null;
+    }
+  } catch (error) {
+    console.error("Userinfo request failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/**
+ * Get Protected Resource Metadata (RFC 9728)
+ * This tells OAuth clients where to authenticate
+ */
+function getProtectedResourceMetadata(): object | null {
+  const config = getAuth0Config();
+  if (!config) {
+    return null;
+  }
+
+  const serverUrl = process.env.MCP_SERVER_URL || `https://cbrowser-mcp.wyldfyre.ai`;
+
+  return {
+    resource: serverUrl,
+    authorization_servers: [`https://${config.domain}`],
+    bearer_methods_supported: ["header"],
+    scopes_supported: ["openid", "profile", "cbrowser:read", "cbrowser:write"],
+    resource_documentation: "https://github.com/alexandriashai/cbrowser#readme",
+  };
+}
+
 /**
  * Get configured API keys from environment
  */
@@ -122,16 +250,66 @@ function validateApiKey(req: IncomingMessage, validKeys: Set<string>): boolean {
 }
 
 /**
- * Send 401 Unauthorized response
+ * Validate authentication - supports both API keys and Auth0 JWT
+ * Returns: { valid: true } or { valid: false, reason: string }
  */
-function sendUnauthorized(res: ServerResponse): void {
+async function validateAuth(
+  req: IncomingMessage,
+  apiKeys: Set<string> | null,
+  auth0Enabled: boolean
+): Promise<{ valid: boolean; reason?: string; user?: JWTPayload }> {
+  const authHeader = req.headers.authorization;
+
+  // Try API key first (if configured)
+  if (apiKeys && apiKeys.size > 0) {
+    if (validateApiKey(req, apiKeys)) {
+      return { valid: true };
+    }
+  }
+
+  // Try Auth0 JWT (if configured)
+  if (auth0Enabled && authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    const payload = await validateAuth0Token(token);
+    if (payload) {
+      return { valid: true, user: payload };
+    }
+    return { valid: false, reason: "Invalid or expired JWT token" };
+  }
+
+  // No valid auth found
+  if (!apiKeys && !auth0Enabled) {
+    // No auth configured - allow all
+    return { valid: true };
+  }
+
+  return { valid: false, reason: "Authentication required" };
+}
+
+/**
+ * Send 401 Unauthorized response with proper WWW-Authenticate header
+ */
+function sendUnauthorized(res: ServerResponse, message?: string): void {
+  const auth0 = getAuth0Config();
+  let wwwAuth = 'Bearer realm="cbrowser-mcp"';
+
+  if (auth0) {
+    // Include Auth0 authorization server info per RFC 9728
+    wwwAuth = `Bearer realm="cbrowser-mcp", authorization_uri="https://${auth0.domain}/authorize", token_uri="https://${auth0.domain}/oauth/token"`;
+  }
+
   res.writeHead(401, {
     "Content-Type": "application/json",
-    "WWW-Authenticate": "Bearer realm=\"cbrowser-mcp\""
+    "WWW-Authenticate": wwwAuth,
   });
   res.end(JSON.stringify({
     error: "Unauthorized",
-    message: "Valid API key required. Use Authorization: Bearer <key> or X-API-Key: <key>"
+    message: message || "Valid authentication required. Use Authorization: Bearer <token>",
+    ...(auth0 && {
+      auth0_domain: auth0.domain,
+      authorization_endpoint: `https://${auth0.domain}/authorize`,
+      token_endpoint: `https://${auth0.domain}/oauth/token`,
+    }),
   }));
 }
 
@@ -980,7 +1158,7 @@ function configureMcpTools(server: McpServer): void {
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.2",
+    version: "7.4.6",
   });
   configureMcpTools(server);
   return server;
@@ -994,17 +1172,7 @@ async function handleMcpRequest(
   res: ServerResponse,
   transport: StreamableHTTPServerTransport
 ): Promise<void> {
-  // Handle CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Mcp-Session-Id");
-  res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  // CORS headers are set at the top level in startRemoteMcpServer
 
   // Parse body for POST requests
   if (req.method === "POST") {
@@ -1028,41 +1196,100 @@ export async function startRemoteMcpServer(): Promise<void> {
   const host = process.env.HOST || "0.0.0.0";
   const sessionMode = process.env.MCP_SESSION_MODE || "stateless";
   const apiKeys = getApiKeys();
-  const authEnabled = apiKeys !== null && apiKeys.size > 0;
+  const auth0 = getAuth0Config();
+  const apiKeyAuthEnabled = apiKeys !== null && apiKeys.size > 0;
+  const auth0Enabled = auth0 !== null;
+  const authEnabled = apiKeyAuthEnabled || auth0Enabled;
 
-  console.log(`Starting CBrowser Remote MCP Server v7.4.4...`);
+  console.log(`Starting CBrowser Remote MCP Server v7.4.5...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
+  if (apiKeyAuthEnabled) {
+    console.log(`  - API Key auth: enabled (${apiKeys?.size} keys)`);
+  }
+  if (auth0Enabled) {
+    console.log(`  - Auth0 OAuth: enabled (${auth0?.domain})`);
+  }
   console.log(`Listening on ${host}:${port}`);
 
   const httpServer = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
-    // Health check endpoint (always open, no auth required)
-    if (url.pathname === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", version: "7.4.4", auth: authEnabled }));
+    // CORS headers for all responses
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id, X-API-Key");
+    res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
       return;
     }
 
-    // Server info endpoint (always open)
+    // =====================================================================
+    // Public Endpoints (no auth required)
+    // =====================================================================
+
+    // Health check endpoint
+    if (url.pathname === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        status: "ok",
+        version: "7.4.6",
+        auth: authEnabled,
+        auth_methods: {
+          api_key: apiKeyAuthEnabled,
+          oauth: auth0Enabled,
+        },
+      }));
+      return;
+    }
+
+    // Server info endpoint
     if (url.pathname === "/info") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.4",
+        version: "7.4.6",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,
+        auth_methods: {
+          api_key: apiKeyAuthEnabled,
+          oauth: auth0Enabled ? {
+            domain: auth0?.domain,
+            authorization_endpoint: `https://${auth0?.domain}/authorize`,
+            token_endpoint: `https://${auth0?.domain}/oauth/token`,
+          } : false,
+        },
         capabilities: ["navigation", "interaction", "visual-testing", "nlp-testing", "performance"],
       }));
       return;
     }
 
+    // Protected Resource Metadata (RFC 9728) - required for OAuth
+    if (url.pathname === "/.well-known/oauth-protected-resource") {
+      const metadata = getProtectedResourceMetadata();
+      if (metadata) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(metadata));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "OAuth not configured" }));
+      }
+      return;
+    }
+
+    // =====================================================================
+    // Protected Endpoints (auth required)
+    // =====================================================================
+
     // Auth check for protected endpoints
-    if (authEnabled && apiKeys) {
-      if (!validateApiKey(req, apiKeys)) {
-        sendUnauthorized(res);
+    if (authEnabled) {
+      const authResult = await validateAuth(req, apiKeys, auth0Enabled);
+      if (!authResult.valid) {
+        sendUnauthorized(res, authResult.reason);
         return;
       }
     }
@@ -1110,16 +1337,28 @@ export async function startRemoteMcpServer(): Promise<void> {
   httpServer.listen(port, host, () => {
     console.log(`\nCognitive Browser Remote MCP Server running at http://${host}:${port}`);
     console.log(`\nEndpoints:`);
-    console.log(`  MCP:    http://${host}:${port}/mcp`);
-    console.log(`  Health: http://${host}:${port}/health`);
-    console.log(`  Info:   http://${host}:${port}/info`);
+    console.log(`  MCP:      http://${host}:${port}/mcp`);
+    console.log(`  Health:   http://${host}:${port}/health`);
+    console.log(`  Info:     http://${host}:${port}/info`);
+    if (auth0Enabled) {
+      console.log(`  OAuth:    http://${host}:${port}/.well-known/oauth-protected-resource`);
+    }
     if (authEnabled) {
       console.log(`\nAuthentication:`);
-      console.log(`  Header: Authorization: Bearer <your-api-key>`);
-      console.log(`  Or:     X-API-Key: <your-api-key>`);
+      if (apiKeyAuthEnabled) {
+        console.log(`  API Key:  Authorization: Bearer <your-api-key>`);
+        console.log(`            X-API-Key: <your-api-key>`);
+      }
+      if (auth0Enabled) {
+        console.log(`  OAuth:    Authorization: Bearer <jwt-token>`);
+        console.log(`            Auth0 Domain: ${auth0?.domain}`);
+      }
     }
     console.log(`\nFor claude.ai custom connector:`);
     console.log(`  URL: https://cbrowser-mcp.wyldfyre.ai/mcp`);
+    if (auth0Enabled) {
+      console.log(`  OAuth metadata: https://cbrowser-mcp.wyldfyre.ai/.well-known/oauth-protected-resource`);
+    }
   });
 
   // Graceful shutdown

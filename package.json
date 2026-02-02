@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "7.4.4",
+  "version": "7.4.6",
   "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites. Modular architecture for visual, testing, analysis, and performance modules.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -89,6 +89,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "jose": "^5.2.0",
     "playwright": "^1.40.0",
     "zod": "^3.25.76"
   },

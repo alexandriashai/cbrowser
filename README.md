@@ -643,10 +643,19 @@ CBrowser can run as an MCP server for both Claude Desktop (local) and claude.ai 
 Connect claude.ai directly to a remote CBrowser server:
 
 1. Deploy CBrowser on your server ([full guide](docs/REMOTE-MCP-SERVER.md))
-2. In claude.ai: Settings → Integrations → Custom MCP Servers
+2. In claude.ai: Settings → Connectors → Add Custom Connector
 3. Add URL: `https://your-cbrowser-domain.com/mcp`
+4. Configure OAuth with Auth0 ([setup guide](docs/AUTH0-SETUP.md))
 
-**Try our public demo:** `https://cbrowser-mcp.wyldfyre.ai/mcp`
+**Public Demo (rate-limited):** `https://cbrowser-mcp-demo.wyldfyre.ai/mcp`
+- No authentication required
+- Rate limit: 5 requests/minute, burst of 10
+- For evaluation purposes only
+
+**Authenticated Server:** `https://cbrowser-mcp.wyldfyre.ai/mcp`
+- **OAuth 2.1 via Auth0** - For claude.ai web interface ([setup guide](docs/AUTH0-SETUP.md))
+- **API Key** - For Claude Code CLI and programmatic access
+- No rate limits for authenticated users
 
 #### Option 2: Local MCP (Claude Desktop)
 

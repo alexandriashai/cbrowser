@@ -295,7 +295,7 @@ Create a page rule to bypass caching:
 
 ```bash
 curl https://cbrowser-mcp.yourdomain.com/health
-# {"status":"ok","version":"7.4.2"}
+# {"status":"ok","version":"7.4.6","auth":true,"auth_methods":{"api_key":true,"oauth":true}}
 ```
 
 ### Info Endpoint
@@ -317,14 +317,34 @@ curl -X POST https://cbrowser-mcp.yourdomain.com/mcp \
 
 ## Step 6: Connect to Claude.ai
 
-1. Go to [claude.ai](https://claude.ai)
-2. Open **Settings → Integrations → Custom MCP Servers**
-3. Add new connector:
-   - **Name:** CBrowser
-   - **URL:** `https://cbrowser-mcp.yourdomain.com/mcp`
-4. Click **Connect**
+### Option A: With Auth0 OAuth (Recommended)
 
-You should see 31 CBrowser tools become available in Claude.
+For secure authentication with claude.ai, set up Auth0 OAuth:
+
+1. See the [Auth0 Setup Guide](AUTH0-SETUP.md) to configure Auth0
+2. Add Auth0 environment variables to your systemd service:
+   ```ini
+   Environment=AUTH0_DOMAIN=your-tenant.auth0.com
+   Environment=AUTH0_AUDIENCE=https://cbrowser-mcp.yourdomain.com/
+   ```
+3. Restart the service: `sudo systemctl restart cbrowser-mcp`
+4. Go to [claude.ai](https://claude.ai) → **Settings → Connectors**
+5. Click **Add Custom Connector**
+6. Enter URL: `https://cbrowser-mcp.yourdomain.com/mcp`
+7. Enter your Auth0 **Client ID** and **Client Secret** when prompted
+8. Complete the OAuth login flow
+
+### Option B: Open Access (Public Demo)
+
+For a public demo server without authentication:
+
+1. Remove `MCP_API_KEY` from your systemd service
+2. Remove `AUTH0_*` variables
+3. Add rate limiting in nginx (see Security section)
+4. Go to [claude.ai](https://claude.ai) → **Settings → Connectors**
+5. Add URL: `https://cbrowser-mcp.yourdomain.com/mcp`
+
+You should see 31+ CBrowser tools become available in Claude.
 
 ---
 
@@ -340,11 +360,29 @@ sudo ufw allow 443/tcp   # HTTPS
 sudo ufw enable
 ```
 
-### Authentication (v7.4.3+)
+### Authentication (v7.4.6+)
 
-CBrowser Remote MCP Server supports API key authentication:
+CBrowser Remote MCP Server supports two authentication methods:
 
-**Enable authentication:**
+#### Method 1: Auth0 OAuth (for claude.ai)
+
+Claude.ai requires OAuth 2.1 authentication. Set up Auth0:
+
+```bash
+# Auth0 OAuth (enables claude.ai login)
+Environment=AUTH0_DOMAIN=your-tenant.auth0.com
+Environment=AUTH0_AUDIENCE=https://cbrowser-mcp.yourdomain.com/
+```
+
+See [Auth0 Setup Guide](AUTH0-SETUP.md) for full configuration.
+
+**OAuth Endpoints:**
+- `/.well-known/oauth-protected-resource` - OAuth metadata discovery
+- `/mcp` - MCP endpoint (requires valid JWT)
+
+#### Method 2: API Key (for Claude Code CLI)
+
+For programmatic access and Claude Code CLI:
 
 ```bash
 # Single API key
@@ -370,14 +408,24 @@ curl -H "Authorization: Bearer your-api-key" https://your-server/mcp
 curl -H "X-API-Key: your-api-key" https://your-server/mcp
 ```
 
-**Endpoints:**
-- `/health` and `/info` are always open (no auth required)
-- `/mcp` requires authentication when `MCP_API_KEY` or `MCP_API_KEYS` is set
+#### Dual Authentication
+
+Both methods can be enabled simultaneously:
+- **OAuth** - For claude.ai web interface
+- **API Key** - For Claude Code CLI and scripts
+
+**Public Endpoints (no auth required):**
+- `/health` - Server health status
+- `/info` - Server information
+- `/.well-known/oauth-protected-resource` - OAuth metadata
+
+**Protected Endpoints:**
+- `/mcp` - MCP endpoint (requires valid auth)
 
 **Additional security layers:**
-1. Use Cloudflare Access for additional authentication
-2. Restrict to IP whitelist in nginx
-3. Enable rate limiting (see below)
+1. Rate limiting in nginx
+2. Cloudflare WAF rules
+3. IP whitelisting
 
 ### Rate Limiting
 
