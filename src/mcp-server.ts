@@ -12,6 +12,43 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { CBrowser } from "./browser.js";
 
+// Visual module imports
+import {
+  runVisualRegression,
+  runCrossBrowserTest,
+  runResponsiveTest,
+  runABComparison,
+  crossBrowserDiff,
+  captureVisualBaseline,
+  listVisualBaselines,
+} from "./visual/index.js";
+
+// Testing module imports
+import {
+  runNLTestSuite,
+  runNLTestFile,
+  parseNLTestSuite,
+  repairTest,
+  detectFlakyTests,
+  generateCoverageMap,
+} from "./testing/index.js";
+import type { NLTestCase, NLTestStep } from "./types.js";
+
+// Analysis module imports
+import {
+  huntBugs,
+  runChaosTest,
+  comparePersonas,
+  findElementByIntent,
+} from "./analysis/index.js";
+
+// Performance module imports
+import {
+  capturePerformanceBaseline,
+  detectPerformanceRegression,
+  listPerformanceBaselines,
+} from "./performance/index.js";
+
 // Shared browser instance
 let browser: CBrowser | null = null;
 
@@ -28,7 +65,7 @@ async function getBrowser(): Promise<CBrowser> {
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "cbrowser",
-    version: "5.0.0",
+    version: "7.4.0",
   });
 
   // =========================================================================
@@ -349,6 +386,515 @@ export async function startMcpServer(): Promise<void> {
           {
             type: "text",
             text: JSON.stringify(stats, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Visual Testing Tools (v7.0.0+)
+  // =========================================================================
+
+  server.tool(
+    "visual_baseline",
+    "Capture a visual baseline for a URL",
+    {
+      url: z.string().url().describe("URL to capture baseline for"),
+      name: z.string().describe("Name for the baseline"),
+    },
+    async ({ url, name }) => {
+      const result = await captureVisualBaseline(url, name, {});
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              name: result.name,
+              url: result.url,
+              timestamp: result.timestamp,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "visual_regression",
+    "Run AI visual regression test against a baseline",
+    {
+      url: z.string().url().describe("URL to test"),
+      baselineName: z.string().describe("Name of baseline to compare against"),
+    },
+    async ({ url, baselineName }) => {
+      const result = await runVisualRegression(url, baselineName);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              passed: result.passed,
+              similarityScore: result.analysis?.similarityScore,
+              summary: result.analysis?.summary,
+              changes: result.analysis?.changes?.length || 0,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "cross_browser_test",
+    "Test page rendering across multiple browsers",
+    {
+      url: z.string().url().describe("URL to test"),
+      browsers: z.array(z.enum(["chromium", "firefox", "webkit"])).optional().describe("Browsers to test"),
+    },
+    async ({ url, browsers }) => {
+      const result = await runCrossBrowserTest(url, { browsers });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              url: result.url,
+              overallStatus: result.overallStatus,
+              summary: result.summary,
+              screenshotCount: result.screenshots.length,
+              comparisonCount: result.comparisons.length,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "cross_browser_diff",
+    "Quick diff of page metrics across browsers",
+    {
+      url: z.string().url().describe("URL to compare"),
+      browsers: z.array(z.enum(["chromium", "firefox", "webkit"])).optional().describe("Browsers to compare"),
+    },
+    async ({ url, browsers }) => {
+      const result = await crossBrowserDiff(url, browsers);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              url: result.url,
+              browsers: result.browsers,
+              differences: result.differences,
+              metrics: result.metrics,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "responsive_test",
+    "Test page across different viewport sizes",
+    {
+      url: z.string().url().describe("URL to test"),
+      viewports: z.array(z.string()).optional().describe("Viewport presets (mobile, tablet, desktop, etc.)"),
+    },
+    async ({ url, viewports }) => {
+      const result = await runResponsiveTest(url, { viewports });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              url: result.url,
+              overallStatus: result.overallStatus,
+              summary: result.summary,
+              viewportsCount: result.screenshots.length,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "ab_comparison",
+    "Compare two URLs visually (staging vs production)",
+    {
+      urlA: z.string().url().describe("First URL (e.g., staging)"),
+      urlB: z.string().url().describe("Second URL (e.g., production)"),
+      labelA: z.string().optional().describe("Label for first URL"),
+      labelB: z.string().optional().describe("Label for second URL"),
+    },
+    async ({ urlA, urlB, labelA, labelB }) => {
+      const labels = labelA && labelB ? { a: labelA, b: labelB } : undefined;
+      const result = await runABComparison(urlA, urlB, { labels });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              overallStatus: result.overallStatus,
+              similarityScore: result.analysis?.similarityScore,
+              summary: result.analysis?.summary,
+              changesCount: result.analysis?.changes?.length || 0,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Testing Tools (v6.0.0+)
+  // =========================================================================
+
+  server.tool(
+    "nl_test_file",
+    "Run natural language test suite from a file",
+    {
+      filepath: z.string().describe("Path to the test file"),
+    },
+    async ({ filepath }) => {
+      const result = await runNLTestFile(filepath);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              name: result.name,
+              total: result.summary.total,
+              passed: result.summary.passed,
+              failed: result.summary.failed,
+              passRate: `${result.summary.passRate.toFixed(1)}%`,
+              duration: result.duration,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "nl_test_inline",
+    "Run natural language tests from inline content",
+    {
+      content: z.string().describe("Test content with instructions like 'go to https://...' and 'click login'"),
+      name: z.string().optional().describe("Name for the test suite"),
+    },
+    async ({ content, name }) => {
+      const suite = parseNLTestSuite(content, name || "Inline Test");
+      const result = await runNLTestSuite(suite);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              name: result.name,
+              total: result.summary.total,
+              passed: result.summary.passed,
+              failed: result.summary.failed,
+              passRate: `${result.summary.passRate.toFixed(1)}%`,
+              duration: result.duration,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "repair_test",
+    "AI-powered test repair for broken tests",
+    {
+      testName: z.string().describe("Name for the test"),
+      steps: z.array(z.string()).describe("Test step instructions"),
+      autoApply: z.boolean().optional().describe("Automatically apply repairs"),
+    },
+    async ({ testName, steps, autoApply }) => {
+      const testCase: NLTestCase = {
+        name: testName,
+        steps: steps.map(instruction => ({
+          instruction,
+          action: "unknown" as NLTestStep["action"],
+        })),
+      };
+      const result = await repairTest(testCase, { autoApply: autoApply || false });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              originalTest: result.originalTest.name,
+              failedSteps: result.failedSteps,
+              repairedSteps: result.repairedSteps,
+              repairedTestPasses: result.repairedTestPasses,
+              repairs: result.failureAnalyses.map(a => ({
+                step: a.step.instruction,
+                error: a.error,
+                suggestion: a.suggestions[0]?.suggestedInstruction || "No suggestion",
+              })),
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "detect_flaky_tests",
+    "Detect flaky/unreliable tests by running multiple times",
+    {
+      testContent: z.string().describe("Test content to analyze"),
+      runs: z.number().optional().default(5).describe("Number of times to run each test"),
+      threshold: z.number().optional().default(20).describe("Flakiness threshold percentage"),
+    },
+    async ({ testContent, runs, threshold }) => {
+      const suite = parseNLTestSuite(testContent, "Flaky Test Analysis");
+      const result = await detectFlakyTests(suite, { runs, flakinessThreshold: threshold });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              suiteName: result.suiteName,
+              totalTests: result.summary.totalTests,
+              stablePass: result.summary.stablePassTests,
+              stableFail: result.summary.stableFailTests,
+              flakyTests: result.summary.flakyTests,
+              overallFlakiness: `${result.summary.overallFlakinessScore.toFixed(1)}%`,
+              analyses: result.testAnalyses.map(a => ({
+                test: a.testName,
+                classification: a.classification,
+                passRate: `${((a.passCount / a.totalRuns) * 100).toFixed(0)}%`,
+                flakiness: `${a.flakinessScore}%`,
+              })),
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "coverage_map",
+    "Generate test coverage map for a site",
+    {
+      baseUrl: z.string().url().describe("Base URL to analyze"),
+      testFiles: z.array(z.string()).describe("Array of test file paths"),
+      maxPages: z.number().optional().default(100).describe("Maximum pages to crawl"),
+    },
+    async ({ baseUrl, testFiles, maxPages }) => {
+      const result = await generateCoverageMap(baseUrl, testFiles, { maxPages });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              totalPages: result.sitePages.length,
+              testedPages: result.testedPages.length,
+              untestedPages: result.analysis.untestedPages,
+              overallCoverage: `${result.analysis.coveragePercent.toFixed(1)}%`,
+              gaps: result.gaps.slice(0, 10).map(g => ({
+                url: g.page.url,
+                priority: g.priority,
+                reason: g.reason,
+              })),
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Analysis Tools (v4.0.0+)
+  // =========================================================================
+
+  server.tool(
+    "hunt_bugs",
+    "Autonomous bug hunting - crawl and find issues",
+    {
+      url: z.string().url().describe("Starting URL to hunt from"),
+      maxPages: z.number().optional().default(10).describe("Maximum pages to visit"),
+      timeout: z.number().optional().default(60000).describe("Timeout in milliseconds"),
+    },
+    async ({ url, maxPages, timeout }) => {
+      const b = await getBrowser();
+      const result = await huntBugs(b, url, { maxPages, timeout });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              pagesVisited: result.pagesVisited,
+              bugsFound: result.bugs.length,
+              duration: result.duration,
+              bugs: result.bugs.slice(0, 10),
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "chaos_test",
+    "Inject failures and test resilience",
+    {
+      url: z.string().url().describe("URL to test"),
+      networkLatency: z.number().optional().describe("Simulate network latency (ms)"),
+      offline: z.boolean().optional().describe("Simulate offline mode"),
+      blockUrls: z.array(z.string()).optional().describe("URL patterns to block"),
+    },
+    async ({ url, networkLatency, offline, blockUrls }) => {
+      const b = await getBrowser();
+      const result = await runChaosTest(b, url, { networkLatency, offline, blockUrls });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              passed: result.passed,
+              errors: result.errors,
+              duration: result.duration,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "compare_personas",
+    "Compare how different user personas experience a journey",
+    {
+      url: z.string().url().describe("Starting URL"),
+      goal: z.string().describe("Goal to accomplish"),
+      personas: z.array(z.string()).describe("Persona names to compare"),
+    },
+    async ({ url, goal, personas }) => {
+      const result = await comparePersonas({
+        startUrl: url,
+        goal,
+        personas,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              url: result.url,
+              goal: result.goal,
+              personasCompared: result.personas.length,
+              summary: result.summary,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "find_element_by_intent",
+    "AI-powered semantic element finding",
+    {
+      intent: z.string().describe("Natural language description like 'the cheapest product' or 'login form'"),
+    },
+    async ({ intent }) => {
+      const b = await getBrowser();
+      const result = await findElementByIntent(b, intent);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result || { found: false, message: "No matching element found" }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Performance Tools (v6.4.0+)
+  // =========================================================================
+
+  server.tool(
+    "perf_baseline",
+    "Capture performance baseline for a URL",
+    {
+      url: z.string().url().describe("URL to capture baseline for"),
+      name: z.string().describe("Name for the baseline"),
+      runs: z.number().optional().default(3).describe("Number of runs to average"),
+    },
+    async ({ url, name, runs }) => {
+      const result = await capturePerformanceBaseline(url, { name, runs });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              name: result.name,
+              url: result.url,
+              lcp: result.metrics.lcp,
+              fcp: result.metrics.fcp,
+              ttfb: result.metrics.ttfb,
+              cls: result.metrics.cls,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "perf_regression",
+    "Detect performance regression against baseline",
+    {
+      url: z.string().url().describe("URL to test"),
+      baselineName: z.string().describe("Name of baseline to compare against"),
+      thresholdLcp: z.number().optional().default(20).describe("LCP threshold percentage"),
+    },
+    async ({ url, baselineName, thresholdLcp }) => {
+      const result = await detectPerformanceRegression(url, baselineName, {
+        thresholds: { lcp: thresholdLcp },
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              passed: result.passed,
+              regressions: result.regressions,
+              currentMetrics: result.currentMetrics,
+              baseline: result.baseline.name,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "list_baselines",
+    "List all saved baselines (visual and performance)",
+    {},
+    async () => {
+      const visualBaselines = await listVisualBaselines();
+      const perfBaselines = await listPerformanceBaselines();
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              visual: visualBaselines,
+              performance: perfBaselines,
+            }, null, 2),
           },
         ],
       };
