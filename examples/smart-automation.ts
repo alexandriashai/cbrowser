@@ -1,16 +1,19 @@
 /**
- * CBrowser v5.0.0 Smart Automation Examples
+ * CBrowser v7.x Smart Automation Examples
  *
  * Demonstrates:
  * - Smart click with auto-retry
  * - Natural language assertions
  * - Self-healing selector cache
  * - AI test generation
+ * - Modular imports
  *
  * Run with: npx ts-node examples/smart-automation.ts
+ * Or: bun run examples/smart-automation.ts
  */
 
-import { CBrowser } from "../src/index.js";
+import { CBrowser } from "cbrowser";
+// For local development: import { CBrowser } from "../src/index.js";
 
 async function smartClickExample() {
   console.log("=== Smart Click with Auto-Retry ===\n");

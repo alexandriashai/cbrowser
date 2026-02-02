@@ -145,15 +145,52 @@ bun test --coverage
 
 ## Architecture Overview
 
+### Modular Architecture (v7.4.1+)
+
 ```
 src/
-├── index.ts        # Public exports
-├── cli.ts          # CLI entry point
-├── browser.ts      # Main CBrowser class (with Tier 5 features)
-├── config.ts       # Configuration management
-├── types.ts        # TypeScript interfaces
-├── personas.ts     # Built-in personas
-└── mcp-server.ts   # MCP Server for Claude integration
+├── index.ts              # Main exports (re-exports all modules)
+├── cli.ts                # CLI entry point
+├── browser.ts            # Core CBrowser class
+├── config.ts             # Configuration management
+├── types.ts              # TypeScript interfaces
+├── personas.ts           # Built-in personas
+├── mcp-server.ts         # MCP Server for Claude Desktop
+├── mcp-server-remote.ts  # Remote MCP Server for claude.ai
+├── visual/
+│   ├── index.ts          # Visual module exports
+│   ├── regression.ts     # AI visual regression (v7.0)
+│   ├── cross-browser.ts  # Cross-browser testing (v7.1)
+│   ├── responsive.ts     # Responsive testing (v7.2)
+│   └── ab-comparison.ts  # A/B comparison (v7.3)
+├── testing/
+│   ├── index.ts          # Testing module exports
+│   ├── nl-test-suite.ts  # Natural language tests (v6.1)
+│   ├── test-repair.ts    # AI test repair (v6.2)
+│   ├── flaky-detection.ts # Flaky test detection (v6.3)
+│   └── coverage.ts       # Test coverage mapping (v6.5)
+├── analysis/
+│   ├── index.ts          # Analysis module exports
+│   ├── natural-language.ts
+│   ├── bug-hunter.ts
+│   ├── chaos-testing.ts
+│   └── persona-comparison.ts
+└── performance/
+    ├── index.ts          # Performance module exports
+    └── metrics.ts        # Performance baselines (v6.4)
+```
+
+### Tree-Shakeable Imports
+
+```typescript
+// Import everything
+import { CBrowser, runVisualRegression } from 'cbrowser';
+
+// Import only what you need (smaller bundles)
+import { runVisualRegression, runCrossBrowserTest } from 'cbrowser/visual';
+import { runNLTestSuite, detectFlakyTests } from 'cbrowser/testing';
+import { huntBugs, runChaosTest } from 'cbrowser/analysis';
+import { capturePerformanceBaseline } from 'cbrowser/performance';
 ```
 
 ### Key Concepts
@@ -162,11 +199,14 @@ src/
 - **Personas**: User archetypes with specific behaviors and timing
 - **Sessions**: Persistent browser state (cookies, storage)
 - **Journeys**: Autonomous exploration with a goal
-- **Smart Retry**: Auto-retry with alternative selector generation (v5.0.0)
-- **Self-Healing**: Domain-specific selector cache that learns (v5.0.0)
-- **Assertions**: Natural language condition checking (v5.0.0)
-- **Test Generation**: AI-powered test scenario creation (v5.0.0)
-- **MCP Server**: Claude Desktop integration via MCP protocol (v5.0.0)
+- **Smart Retry**: Auto-retry with alternative selector generation
+- **Self-Healing**: Domain-specific selector cache that learns
+- **Assertions**: Natural language condition checking
+- **Test Generation**: AI-powered test scenario creation
+- **MCP Server**: Claude Desktop integration via MCP protocol
+- **Remote MCP**: claude.ai integration with Auth0 OAuth (v7.4.6)
+- **Visual Testing**: AI-powered visual regression, cross-browser, responsive (v7.x)
+- **Test Automation**: NL test suites, AI repair, flaky detection (v6.x)
 
 ## Questions?
 
