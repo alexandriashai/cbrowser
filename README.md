@@ -1,11 +1,66 @@
 # CBrowser
 
-**The browser that thinks.** AI-powered browser automation with self-healing selectors, natural language assertions, constitutional safety, and autonomous journeys.
+**The only browser automation that asks: "Can a real user complete this safely?"**
+
+Most AI automation tools ask if a task *can* be completed. CBrowser asks if an **elderly first-timer on mobile** can complete it—and whether the automation should even be allowed to try.
 
 [![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## What Makes This Different
+## Why CBrowser Exists
+
+Every AI browser tool now has self-healing selectors and natural language commands. That's table stakes.
+
+**CBrowser solves three problems no one else does:**
+
+### 1. Constitutional AI Safety (No One Else Has This)
+
+Other tools will happily click "Delete All Data" or "Transfer $10,000" if you ask. CBrowser classifies every action by risk:
+
+| Zone | Actions | Behavior |
+|------|---------|----------|
+| 🟢 **Green** | Navigate, read, screenshot | Auto-execute |
+| 🟡 **Yellow** | Click buttons, fill forms | Log and proceed |
+| 🔴 **Red** | Submit, delete, purchase | **Requires verification** |
+| ⬛ **Black** | Bypass auth, inject scripts | **Never executes** |
+
+This isn't just guardrails—it's the only AI browser automation with built-in ethical boundaries.
+
+### 2. User Perspective Testing (Not Just "Does It Work?")
+
+Other tools test if buttons click. CBrowser tests if **real humans** can use your site:
+
+```bash
+npx cbrowser compare-personas \
+  --start "https://your-site.com" \
+  --goal "Complete checkout" \
+  --personas power-user,elderly-user,mobile-user
+```
+
+Each persona has realistic human behavior: reaction times, typo rates, mouse jitter, attention patterns. You'll discover that your checkout works fine for developers but fails for 40% of real users.
+
+### 3. Claude-Native MCP Integration
+
+Built for the Claude ecosystem. Add to Claude Desktop and get browser automation as a native capability—no API keys, no external services, no vendor lock-in.
+
+---
+
+## Feature Comparison
+
+| Feature | CBrowser | Skyvern | Browser-Use | Testim |
+|---------|:--------:|:-------:|:-----------:|:------:|
+| Self-healing selectors | ✅ | ✅ | ✅ | ✅ |
+| Natural language | ✅ | ✅ | ✅ | ⚠️ |
+| **Constitutional safety zones** | ✅ | ❌ | ❌ | ❌ |
+| **Multi-persona comparison** | ✅ | ❌ | ❌ | ❌ |
+| **Human behavior simulation** | ✅ | ❌ | ❌ | ❌ |
+| **Claude MCP server** | ✅ | ❌ | ❌ | ❌ |
+| Flaky test detection | ✅ | ❌ | ❌ | ✅ |
+| AI test repair | ✅ | ❌ | ❌ | ⚠️ |
+
+---
+
+## Also Included (Table Stakes)
 
 | Traditional Automation | CBrowser |
 |------------------------|----------|
@@ -15,8 +70,6 @@
 | Manual test assertions | **Natural language assertions** |
 | Scripted tests only | **AI test generation** from page analysis |
 | Stateless between runs | Persistent sessions, cookies, localStorage |
-| No user context | Personas with goals, behaviors, limitations |
-| Standalone tool | **MCP Server** for Claude integration |
 
 ## Quick Start
 
