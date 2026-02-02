@@ -1361,3 +1361,99 @@ export interface VisualTestSuiteResult {
   /** Timestamp */
   timestamp: string;
 }
+
+// ============================================================================
+// Tier 7.1: Cross-Browser Visual Testing Types (v7.1.0)
+// ============================================================================
+
+export type SupportedBrowser = "chromium" | "firefox" | "webkit";
+
+export interface BrowserScreenshot {
+  /** Browser used */
+  browser: SupportedBrowser;
+  /** Path to screenshot */
+  screenshotPath: string;
+  /** Viewport used */
+  viewport: { width: number; height: number };
+  /** User agent */
+  userAgent: string;
+  /** Capture timestamp */
+  timestamp: string;
+  /** Time to capture (ms) */
+  captureTime: number;
+}
+
+export interface BrowserComparison {
+  /** First browser */
+  browserA: SupportedBrowser;
+  /** Second browser */
+  browserB: SupportedBrowser;
+  /** AI analysis of differences */
+  analysis: AIVisualAnalysis;
+  /** Screenshots compared */
+  screenshots: {
+    a: string;
+    b: string;
+  };
+}
+
+export interface CrossBrowserResult {
+  /** URL tested */
+  url: string;
+  /** Screenshots from each browser */
+  screenshots: BrowserScreenshot[];
+  /** Pairwise comparisons between browsers */
+  comparisons: BrowserComparison[];
+  /** Overall status */
+  overallStatus: "consistent" | "minor_differences" | "major_differences";
+  /** Summary of findings */
+  summary: string;
+  /** Browsers with issues */
+  problematicBrowsers: SupportedBrowser[];
+  /** Total duration */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
+}
+
+export interface CrossBrowserOptions {
+  /** Browsers to test (default: all three) */
+  browsers?: SupportedBrowser[];
+  /** Viewport dimensions */
+  viewport?: { width: number; height: number };
+  /** Wait before screenshot (ms) */
+  waitBeforeCapture?: number;
+  /** Wait for selector before capture */
+  waitForSelector?: string;
+  /** Sensitivity for comparison */
+  sensitivity?: "low" | "medium" | "high";
+  /** Generate comparison report */
+  generateReport?: boolean;
+}
+
+export interface CrossBrowserSuite {
+  /** Suite name */
+  name: string;
+  /** URLs to test */
+  urls: string[];
+  /** Default options */
+  options?: CrossBrowserOptions;
+}
+
+export interface CrossBrowserSuiteResult {
+  /** Suite info */
+  suite: CrossBrowserSuite;
+  /** Results per URL */
+  results: CrossBrowserResult[];
+  /** Summary */
+  summary: {
+    total: number;
+    consistent: number;
+    minorDifferences: number;
+    majorDifferences: number;
+  };
+  /** Duration */
+  duration: number;
+  /** Timestamp */
+  timestamp: string;
+}

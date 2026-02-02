@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -37,7 +37,8 @@
     "human-behavior-simulation",
     "ai-visual-regression",
     "visual-testing",
-    "screenshot-comparison"
+    "screenshot-comparison",
+    "cross-browser-testing"
   ],
   "author": "WF Media",
   "license": "MIT",

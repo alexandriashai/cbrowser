@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -23,8 +23,8 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.0.0                                ║
-║    AI-powered browser automation with AI visual regression testing          ║
+║                           CBrowser CLI v7.1.0                                ║
+║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -240,6 +240,32 @@ AI VISUAL REGRESSION (v7.0.0)
   ai-visual list              List all AI visual baselines
   ai-visual show <name>       Show baseline details
   ai-visual delete <name>     Delete a baseline
+
+CROSS-BROWSER VISUAL TESTING (v7.1.0)
+  cross-browser <url>         Compare visual rendering across browsers
+    --browsers <list>         Browsers to test: chromium,firefox,webkit (default: all)
+    --width <n>               Viewport width (default: 1920)
+    --height <n>              Viewport height (default: 1080)
+    --wait <ms>               Wait before screenshot (ms)
+    --wait-for <selector>     Wait for selector before screenshot
+    --sensitivity <level>     Comparison sensitivity: low, medium, high
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+    Examples:
+      cbrowser cross-browser "https://example.com"
+      cbrowser cross-browser "https://example.com" --browsers chromium,firefox
+      cbrowser cross-browser "https://example.com" --html --output report.html
+
+  cross-browser suite <file.json>  Run cross-browser test suite
+    --html                    Generate HTML report
+    --output <file>           Save JSON report to file
+
+    Suite file format:
+    {
+      "name": "My Site",
+      "urls": ["https://example.com", "https://example.com/about"],
+      "options": { "browsers": ["chromium", "firefox"] }
+    }
 
 ACCESSIBILITY (v2.5.0)
   a11y audit                  Run WCAG accessibility audit
@@ -2276,6 +2302,123 @@ async function main(): Promise<void> {
             console.error("       cbrowser ai-visual list");
             console.error("       cbrowser ai-visual show <name>");
             console.error("       cbrowser ai-visual delete <name>");
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Cross-Browser Visual Testing (v7.1.0)
+      // =========================================================================
+
+      case "cross-browser": {
+        const subcommand = args[0];
+
+        if (subcommand === "suite") {
+          // Cross-browser suite
+          const suiteFile = args[1];
+          if (!suiteFile) {
+            console.error("Usage: cbrowser cross-browser suite <file.json> [options]");
+            console.error("  --html              Generate HTML report");
+            console.error("  --output <file>     Save report to file");
+            process.exit(1);
+          }
+
+          const fs = await import("fs");
+          if (!fs.existsSync(suiteFile)) {
+            console.error(`Suite file not found: ${suiteFile}`);
+            process.exit(1);
+          }
+
+          const suite: CrossBrowserSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
+          const result = await runCrossBrowserSuite(suite);
+
+          // Save outputs
+          if (options.output && !options.html) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved to: ${options.output}`);
+          }
+
+          if (options.html) {
+            const htmlReport = generateCrossBrowserHtmlReport(result);
+            const outputPath = (options.output as string) || `cross-browser-${Date.now()}.html`;
+            fs.writeFileSync(outputPath, htmlReport);
+            console.log(`\n📄 HTML report saved to: ${outputPath}`);
+          }
+
+          // Summary
+          console.log(`\n${"═".repeat(60)}`);
+          console.log(`   Results: ${result.summary.consistent} consistent, ${result.summary.minorDifferences} minor, ${result.summary.majorDifferences} major`);
+          console.log(`${"═".repeat(60)}\n`);
+
+          if (result.summary.majorDifferences > 0) {
+            process.exit(1);
+          }
+        } else {
+          // Single URL test
+          const url = subcommand; // First arg is the URL
+          if (!url || url.startsWith("--")) {
+            console.error("Usage: cbrowser cross-browser <url> [options]");
+            console.error("       cbrowser cross-browser suite <file.json>");
+            console.error("\nOptions:");
+            console.error("  --browsers <list>   chromium,firefox,webkit (default: all)");
+            console.error("  --width <n>         Viewport width (default: 1920)");
+            console.error("  --height <n>        Viewport height (default: 1080)");
+            console.error("  --wait <ms>         Wait before screenshot");
+            console.error("  --wait-for <sel>    Wait for selector");
+            console.error("  --sensitivity <l>   low, medium, high");
+            console.error("  --html              Generate HTML report");
+            console.error("  --output <file>     Save report");
+            process.exit(1);
+          }
+
+          const browsers = options.browsers
+            ? (options.browsers as string).split(",") as SupportedBrowser[]
+            : undefined;
+
+          const result = await runCrossBrowserTest(url, {
+            browsers,
+            viewport: options.width || options.height ? {
+              width: parseInt(options.width as string) || 1920,
+              height: parseInt(options.height as string) || 1080,
+            } : undefined,
+            waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
+            waitForSelector: options["wait-for"] as string | undefined,
+            sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
+          });
+
+          // Print report
+          console.log("\n" + formatCrossBrowserReport(result));
+
+          // Save outputs
+          const fs = await import("fs");
+
+          if (options.output && !options.html) {
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 JSON report saved to: ${options.output}`);
+          }
+
+          if (options.html) {
+            const suiteResult: CrossBrowserSuiteResult = {
+              suite: { name: "Single URL Test", urls: [url] },
+              results: [result],
+              summary: {
+                total: 1,
+                consistent: result.overallStatus === "consistent" ? 1 : 0,
+                minorDifferences: result.overallStatus === "minor_differences" ? 1 : 0,
+                majorDifferences: result.overallStatus === "major_differences" ? 1 : 0,
+              },
+              duration: result.duration,
+              timestamp: result.timestamp,
+            };
+            const htmlReport = generateCrossBrowserHtmlReport(suiteResult);
+            const outputPath = (options.output as string) || `cross-browser-${Date.now()}.html`;
+            fs.writeFileSync(outputPath, htmlReport);
+            console.log(`\n📄 HTML report saved to: ${outputPath}`);
+          }
+
+          if (result.overallStatus === "major_differences") {
+            process.exit(1);
+          }
         }
         break;
       }
