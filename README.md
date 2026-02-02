@@ -166,6 +166,103 @@ for (const testResult of result.testResults) {
 }
 ```
 
+## v6.3.0 Features
+
+### Flaky Test Detection
+
+Identify unreliable tests by running them multiple times and analyzing consistency:
+
+```bash
+# Run tests 5 times (default) and detect flakiness
+npx cbrowser flaky-check tests.txt
+
+# Custom number of runs
+npx cbrowser flaky-check tests.txt --runs 10
+
+# Set custom flakiness threshold (default: 20%)
+npx cbrowser flaky-check tests.txt --threshold 30
+
+# Save report to file
+npx cbrowser flaky-check tests.txt --output flaky-report.json
+```
+
+**What it measures:**
+
+| Metric | Description |
+|--------|-------------|
+| **Flakiness Score** | 0% = perfectly stable, 100% = maximally flaky (50/50 pass/fail) |
+| **Classification** | `stable_pass`, `stable_fail`, `flaky`, `mostly_pass`, `mostly_fail` |
+| **Per-Step Analysis** | Identifies which specific steps are unreliable |
+| **Duration Variance** | Detects timing-sensitive tests |
+
+**Example output:**
+
+```
+🔍 FLAKY TEST DETECTION REPORT
+══════════════════════════════════════════════════════════════
+
+📋 Suite: Login Tests
+   Runs per test: 5
+   Total duration: 45.2s
+
+──────────────────────────────────────────────────────────────
+TEST RESULTS
+──────────────────────────────────────────────────────────────
+
+✅ STABLE_PASS (5/5 passed, flakiness: 0%)
+   Login Flow
+   └─ Avg duration: 2.1s (±0.1s)
+
+⚠️  FLAKY (3/5 passed, flakiness: 80%)
+   Search Functionality
+   └─ Avg duration: 3.5s (±1.2s)
+   └─ Flaky steps:
+      • wait for "Loading" appears (60% flaky)
+      • verify page contains "results" (40% flaky)
+
+══════════════════════════════════════════════════════════════
+📊 SUMMARY
+══════════════════════════════════════════════════════════════
+
+✅ Overall Flakiness: 40%
+   Stable tests: 1 | Flaky tests: 1
+
+⚠️  Most flaky test: Search Functionality (80%)
+⚠️  Most flaky step: wait for "Loading" appears (60%)
+
+💡 RECOMMENDATIONS
+• Search Functionality: Add explicit waits, increase timeout
+• wait for "Loading" appears: Use more specific selector
+```
+
+**API usage:**
+
+```typescript
+import { parseNLTestSuite, detectFlakyTests, formatFlakyTestReport } from 'cbrowser';
+
+const suite = parseNLTestSuite(testContent, "My Tests");
+
+const result = await detectFlakyTests(suite, {
+  runs: 10,
+  flakinessThreshold: 25,
+  delayBetweenRuns: 1000,
+});
+
+console.log(formatFlakyTestReport(result));
+
+// Access detailed analysis
+for (const test of result.testAnalyses) {
+  if (test.isFlaky) {
+    console.log(`${test.testName}: ${test.flakinessScore}% flaky`);
+    for (const step of test.stepAnalysis) {
+      if (step.isFlaky) {
+        console.log(`  └─ ${step.instruction}: ${step.flakinessScore}% flaky`);
+      }
+    }
+  }
+}
+```
+
 ## v6.1.0 Features
 
 ### Natural Language Test Suites

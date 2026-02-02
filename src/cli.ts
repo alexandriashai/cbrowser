@@ -5,8 +5,8 @@
  * AI-powered browser automation from the command line.
  */
 
-import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, type NLTestSuiteOptions, type RepairTestOptions } from "./browser.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult } from "./types.js";
+import { CBrowser, executeNaturalLanguage, executeNaturalLanguageScript, findElementByIntent, huntBugs, crossBrowserDiff, runChaosTest, comparePersonas, formatComparisonReport, parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./browser.js";
+import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -22,8 +22,8 @@ import { startMcpServer } from "./mcp-server.js";
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v6.2.0                                ║
-║    AI-powered browser automation with automatic test repair                  ║
+║                           CBrowser CLI v6.3.0                                ║
+║    AI-powered browser automation with flaky test detection                   ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -95,6 +95,17 @@ AI TEST REPAIR (v6.2.0)
       cbrowser repair-tests broken-test.txt
       cbrowser repair-tests tests.txt --auto-apply --verify
       cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt
+
+FLAKY TEST DETECTION (v6.3.0)
+  flaky-check <file.txt>       Run tests multiple times to detect flaky tests
+    --runs <n>                 Number of runs per test (default: 5)
+    --threshold <n>            Flakiness % threshold to flag (default: 20)
+    --delay <ms>               Delay between runs (default: 500)
+    --output <file>            Save JSON report to file
+    Examples:
+      cbrowser flaky-check tests.txt
+      cbrowser flaky-check tests.txt --runs 10
+      cbrowser flaky-check tests.txt --runs 5 --threshold 30 --output flaky-report.json
 
 PERSONAS
   persona list                List all personas (built-in + custom)
@@ -2707,6 +2718,70 @@ async function main(): Promise<void> {
         // Exit with status based on whether repairs were needed
         if (result.summary.testsWithFailures > 0 && !repairOptions.autoApply) {
           console.log("\n💡 Run with --auto-apply to automatically fix issues");
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Flaky Test Detection (Tier 6 - v6.3.0)
+      // =========================================================================
+
+      case "flaky-check": {
+        const filepath = args[0];
+
+        if (!filepath) {
+          console.error("Usage: cbrowser flaky-check <test-file.txt> [--runs <n>] [--threshold <n>] [--output <file>]");
+          console.error("");
+          console.error("Options:");
+          console.error("  --runs <n>        Number of times to run each test (default: 5)");
+          console.error("  --threshold <n>   Flakiness threshold % to flag a test (default: 20)");
+          console.error("  --delay <ms>      Delay between runs in ms (default: 500)");
+          console.error("  --output <file>   Save JSON report to file");
+          console.error("");
+          console.error("Examples:");
+          console.error("  cbrowser flaky-check tests.txt");
+          console.error("  cbrowser flaky-check tests.txt --runs 10");
+          console.error("  cbrowser flaky-check tests.txt --runs 5 --threshold 30 --output flaky-report.json");
+          process.exit(1);
+        }
+
+        const fs = await import("fs");
+        if (!fs.existsSync(filepath)) {
+          console.error(`Test file not found: ${filepath}`);
+          process.exit(1);
+        }
+
+        const content = fs.readFileSync(filepath, "utf-8");
+        const suiteName = filepath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Test Suite";
+        const suite = parseNLTestSuite(content, suiteName);
+
+        console.log(`\n📝 Parsed ${suite.tests.length} test(s) from ${filepath}`);
+        for (const test of suite.tests) {
+          console.log(`   - ${test.name}: ${test.steps.length} steps`);
+        }
+
+        const flakyOptions: FlakyTestOptions = {
+          headless,
+          runs: options.runs ? parseInt(options.runs as string) : 5,
+          flakinessThreshold: options.threshold ? parseInt(options.threshold as string) : 20,
+          delayBetweenRuns: options.delay ? parseInt(options.delay as string) : 500,
+        };
+
+        const result = await detectFlakyTests(suite, flakyOptions);
+
+        // Print formatted report
+        const report = formatFlakyTestReport(result);
+        console.log(report);
+
+        // Save JSON report if requested
+        if (options.output) {
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Exit with error code if flaky tests found
+        if (result.summary.flakyTests > 0) {
           process.exit(1);
         }
         break;

@@ -331,6 +331,94 @@ export interface TestRepairSuiteResult {
 }
 
 // ============================================================================
+// Tier 6: Flaky Test Detection (v6.3.0)
+// ============================================================================
+
+/** Result of a single test run */
+export interface FlakyTestRun {
+  /** Run number (1-indexed) */
+  runNumber: number;
+  /** Whether the test passed */
+  passed: boolean;
+  /** Duration in ms */
+  duration: number;
+  /** Error if failed */
+  error?: string;
+  /** Per-step results */
+  stepResults: {
+    instruction: string;
+    passed: boolean;
+    error?: string;
+  }[];
+}
+
+/** Flakiness analysis for a single step */
+export interface FlakyStepAnalysis {
+  /** The instruction */
+  instruction: string;
+  /** Number of times it passed */
+  passCount: number;
+  /** Number of times it failed */
+  failCount: number;
+  /** Flakiness score (0-100) - 0 = stable, 100 = always different */
+  flakinessScore: number;
+  /** Whether this step is considered flaky */
+  isFlaky: boolean;
+  /** Errors seen across runs */
+  errors: string[];
+}
+
+/** Flakiness analysis for a single test case */
+export interface FlakyTestAnalysis {
+  /** Test name */
+  testName: string;
+  /** Number of runs */
+  totalRuns: number;
+  /** Number of passes */
+  passCount: number;
+  /** Number of failures */
+  failCount: number;
+  /** Flakiness score (0-100) - 0 = always same result, 100 = 50/50 */
+  flakinessScore: number;
+  /** Whether this test is considered flaky */
+  isFlaky: boolean;
+  /** Classification */
+  classification: "stable_pass" | "stable_fail" | "flaky" | "mostly_pass" | "mostly_fail";
+  /** Individual run results */
+  runs: FlakyTestRun[];
+  /** Per-step flakiness analysis */
+  stepAnalysis: FlakyStepAnalysis[];
+  /** Average duration across runs */
+  avgDuration: number;
+  /** Duration variance (std dev) */
+  durationVariance: number;
+}
+
+/** Result of flaky test detection on a suite */
+export interface FlakyTestSuiteResult {
+  /** Suite name */
+  suiteName: string;
+  /** Timestamp */
+  timestamp: string;
+  /** Total duration */
+  duration: number;
+  /** Number of runs per test */
+  runsPerTest: number;
+  /** Results per test */
+  testAnalyses: FlakyTestAnalysis[];
+  /** Summary */
+  summary: {
+    totalTests: number;
+    stablePassTests: number;
+    stableFailTests: number;
+    flakyTests: number;
+    mostFlakyTest?: string;
+    mostFlakyStep?: string;
+    overallFlakinessScore: number;
+  };
+}
+
+// ============================================================================
 // Audit Types
 // ============================================================================
 

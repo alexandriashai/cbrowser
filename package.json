@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "6.2.0",
+  "version": "6.3.0",
   "description": "AI-powered browser automation with self-healing selectors, natural language assertions, test generation, MCP server, constitutional safety, and autonomous journeys",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
