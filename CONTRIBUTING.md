@@ -15,7 +15,7 @@ Thank you for your interest in contributing to CBrowser! This document provides 
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/yourusername/cbrowser.git
+   git clone https://github.com/alexandriashai/cbrowser.git
    cd cbrowser
    ```
 3. Install dependencies:
@@ -149,10 +149,11 @@ bun test --coverage
 src/
 ├── index.ts        # Public exports
 ├── cli.ts          # CLI entry point
-├── browser.ts      # Main CBrowser class
+├── browser.ts      # Main CBrowser class (with Tier 5 features)
 ├── config.ts       # Configuration management
 ├── types.ts        # TypeScript interfaces
-└── personas.ts     # Built-in personas
+├── personas.ts     # Built-in personas
+└── mcp-server.ts   # MCP Server for Claude integration
 ```
 
 ### Key Concepts
@@ -161,6 +162,11 @@ src/
 - **Personas**: User archetypes with specific behaviors and timing
 - **Sessions**: Persistent browser state (cookies, storage)
 - **Journeys**: Autonomous exploration with a goal
+- **Smart Retry**: Auto-retry with alternative selector generation (v5.0.0)
+- **Self-Healing**: Domain-specific selector cache that learns (v5.0.0)
+- **Assertions**: Natural language condition checking (v5.0.0)
+- **Test Generation**: AI-powered test scenario creation (v5.0.0)
+- **MCP Server**: Claude Desktop integration via MCP protocol (v5.0.0)
 
 ## Questions?
 

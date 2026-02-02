@@ -18,7 +18,7 @@ export interface CBrowserConfig {
   dataDir: string;
   /** Browser engine to use. Default: chromium */
   browser: BrowserType;
-  /** Run browser in headless mode. Default: false */
+  /** Run browser in headless mode. Default: true (for CLI) */
   headless: boolean;
   /** Browser viewport width. Default: 1280 */
   viewportWidth: number;
@@ -109,7 +109,7 @@ export function getDefaultConfig(): CBrowserConfig {
   return {
     dataDir,
     browser: parseBrowserType(process.env.CBROWSER_BROWSER || configFile?.browser),
-    headless: process.env.CBROWSER_HEADLESS === "true" || configFile?.headless || false,
+    headless: process.env.CBROWSER_HEADLESS !== "false" && (configFile?.headless !== false),
     viewportWidth: parseInt(process.env.CBROWSER_VIEWPORT_WIDTH || (configFile?.viewport?.width?.toString()) || "1280", 10) || 1280,
     viewportHeight: parseInt(process.env.CBROWSER_VIEWPORT_HEIGHT || (configFile?.viewport?.height?.toString()) || "800", 10) || 800,
     timeout: parseInt(process.env.CBROWSER_TIMEOUT || (configFile?.timeout?.toString()) || "30000", 10) || 30000,

@@ -1,8 +1,8 @@
 # CBrowser
 
-**The browser that thinks.** AI-powered browser automation with constitutional safety, persona-driven testing, session persistence, and autonomous journeys.
+**The browser that thinks.** AI-powered browser automation with self-healing selectors, natural language assertions, constitutional safety, and autonomous journeys.
 
-[![npm version](https://badge.fury.io/js/cbrowser.svg)](https://badge.fury.io/js/cbrowser)
+[![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What Makes This Different
@@ -10,59 +10,33 @@
 | Traditional Automation | CBrowser |
 |------------------------|----------|
 | Brittle CSS selectors | AI vision: "click the blue login button" |
-| Breaks when DOM changes | Self-healing locators adapt automatically |
-| Stateless between runs | Remembers sites, patterns, sessions |
-| Blind execution | Constitutional verification before actions |
-| Manual debugging | Auto-diagnostic with visual diffs |
+| Breaks when DOM changes | **Self-healing selectors** adapt automatically |
+| Crashes on element not found | **Smart retry** finds alternatives |
+| Manual test assertions | **Natural language assertions** |
+| Scripted tests only | **AI test generation** from page analysis |
+| Stateless between runs | Persistent sessions, cookies, localStorage |
 | No user context | Personas with goals, behaviors, limitations |
-| Manual login flows | Credential vault with session persistence |
-| Scripted tests only | Autonomous goal-driven journeys |
+| Standalone tool | **MCP Server** for Claude integration |
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-# Using npm
+# npm
 npm install cbrowser
 
-# Using bun (recommended)
+# bun (recommended)
 bun add cbrowser
 
-# Using yarn
+# yarn
 yarn add cbrowser
 ```
 
 ### Install Playwright Browsers
 
 ```bash
-# Install Chromium (default)
 npx playwright install chromium
-
-# Or install all browsers for cross-browser testing
-npx playwright install
-```
-
-### Multi-Browser Support
-
-CBrowser supports all Playwright browsers:
-
-| Browser | Engine | Use Case |
-|---------|--------|----------|
-| `chromium` | Chromium | Default, most compatible |
-| `firefox` | Firefox | Gecko engine testing |
-| `webkit` | WebKit | Safari-like testing |
-
-```bash
-# Use Firefox
-npx cbrowser navigate "https://example.com" --browser firefox
-
-# Use WebKit (Safari)
-npx cbrowser navigate "https://example.com" --browser webkit
-
-# Set default via environment variable
-export CBROWSER_BROWSER=firefox
-npx cbrowser navigate "https://example.com"
 ```
 
 ### Basic Usage
@@ -71,21 +45,190 @@ npx cbrowser navigate "https://example.com"
 # Navigate to a URL
 npx cbrowser navigate "https://example.com"
 
-# Click an element using natural language
-npx cbrowser click "the blue submit button"
+# Click with auto-retry and self-healing
+npx cbrowser smart-click "Add to Cart"
 
-# Fill a form field
-npx cbrowser fill "email input" "user@example.com"
+# Natural language assertions
+npx cbrowser assert "page contains 'Welcome'"
 
-# Take a screenshot
-npx cbrowser screenshot "./my-screenshot.png"
+# Generate tests from any page
+npx cbrowser generate-tests "https://example.com"
 ```
 
-## Features
+## v5.0.0 Features
+
+### Smart Click with Auto-Retry
+
+When an element isn't found, CBrowser automatically:
+1. Checks the self-healing cache for known alternatives
+2. Generates alternative selectors (text variants, ARIA roles, attributes)
+3. Tries each alternative with configurable retry logic
+4. Caches working selectors for future use
+
+```bash
+# Smart click with retry
+npx cbrowser smart-click "Submit" --max-retries 5
+
+# Navigate then click
+npx cbrowser smart-click "Login" --url "https://example.com"
+```
+
+```typescript
+import { CBrowser } from 'cbrowser';
+
+const browser = new CBrowser();
+const result = await browser.smartClick("Submit Button", { maxRetries: 3 });
+
+console.log(result.success);        // true/false
+console.log(result.finalSelector);  // The selector that worked
+console.log(result.attempts);       // Array of all attempts
+console.log(result.aiSuggestion);   // AI suggestion if failed
+```
+
+### Natural Language Assertions
+
+Write assertions in plain English:
+
+```bash
+# Title assertions
+npx cbrowser assert "title contains 'Dashboard'"
+npx cbrowser assert "title is 'Home Page'"
+
+# URL assertions
+npx cbrowser assert "url contains '/login'"
+
+# Content assertions
+npx cbrowser assert "page contains 'Welcome back'"
+
+# Element assertions
+npx cbrowser assert "'#submit-btn' exists"
+
+# Count assertions
+npx cbrowser assert "5 buttons"
+npx cbrowser assert "3 links"
+```
+
+```typescript
+const result = await browser.assert("page contains 'Success'");
+console.log(result.passed);   // true/false
+console.log(result.message);  // Human-readable result
+console.log(result.actual);   // What was found
+console.log(result.expected); // What was expected
+```
+
+### Self-Healing Selector Cache
+
+CBrowser remembers which selectors work on each domain:
+
+```bash
+# View cache statistics
+npx cbrowser heal-stats
+
+# Clear the cache
+npx cbrowser heal-clear
+```
+
+```typescript
+const stats = browser.getSelectorCacheStats();
+console.log(stats.totalEntries);    // 42
+console.log(stats.totalSuccesses);  // 156
+console.log(stats.topDomains);      // [{ domain: 'example.com', count: 15 }, ...]
+```
+
+### AI Test Generation
+
+Analyze any page and generate test scenarios automatically:
+
+```bash
+# Generate tests for a page
+npx cbrowser generate-tests "https://example.com"
+
+# Output specific format
+npx cbrowser generate-tests "https://example.com" --format playwright
+npx cbrowser generate-tests "https://example.com" --format cbrowser
+
+# Save to file
+npx cbrowser generate-tests "https://example.com" --output tests.ts
+```
+
+```typescript
+const result = await browser.generateTests("https://example.com");
+
+console.log(result.analysis);       // Page structure analysis
+console.log(result.tests);          // Generated test scenarios
+console.log(result.playwrightCode); // Playwright test code
+console.log(result.cbrowserScript); // CBrowser CLI script
+```
+
+**Example generated test:**
+```typescript
+test('Login - Valid Credentials', async ({ page }) => {
+  await page.goto('https://example.com');
+  await page.locator('[name="email"]').fill('test@example.com');
+  await page.locator('[name="password"]').fill('password123');
+  await page.locator('button[type="submit"]').click();
+  await expect(page).toHaveURL(/dashboard/);
+});
+```
+
+### Page Analysis
+
+Understand any page's structure:
+
+```bash
+npx cbrowser analyze "https://example.com"
+```
+
+Output:
+```
+📊 Page Analysis:
+   Title: Example Domain
+   Forms: 1
+     - form#login (3 fields)
+       🔐 Login form detected
+   Buttons: 5
+   Links: 12
+   Has Login: ✅
+   Has Search: ❌
+   Has Navigation: ✅
+```
+
+### MCP Server Mode
+
+Run CBrowser as an MCP server for Claude Desktop integration:
+
+```bash
+npx cbrowser mcp-server
+```
+
+Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
+
+```json
+{
+  "mcpServers": {
+    "cbrowser": {
+      "command": "npx",
+      "args": ["cbrowser", "mcp-server"]
+    }
+  }
+}
+```
+
+**Available MCP Tools:**
+- `navigate` - Navigate to URL and screenshot
+- `click` / `smart_click` - Click elements
+- `fill` - Fill form fields
+- `screenshot` - Capture page
+- `extract` - Extract page data
+- `assert` - Natural language assertions
+- `analyze_page` - Analyze page structure
+- `generate_tests` - Generate test scenarios
+- `save_session` / `load_session` - Session management
+- `heal_stats` - Self-healing cache stats
+
+## Core Features
 
 ### AI-Powered Element Selection
-
-Forget brittle CSS selectors. Describe elements naturally:
 
 ```bash
 # Natural language
@@ -101,39 +244,40 @@ cbrowser click "visual:red button in header"
 # Semantic type
 cbrowser fill "semantic:email" "user@example.com"
 
-# Fallback to CSS when needed
+# Fallback to CSS
 cbrowser click "css:#login-btn"
 ```
 
 ### Session Persistence
 
-Save and restore complete browser sessions:
+```bash
+# Save session (cookies, localStorage, sessionStorage)
+cbrowser session save "logged-in" --url "https://example.com"
+
+# Load session
+cbrowser session load "logged-in"
+
+# List sessions
+cbrowser session list
+```
+
+### Persistent Browser Context
+
+Enable persistent mode to keep cookies and localStorage between CLI calls:
 
 ```bash
-# Save current session (cookies, localStorage, sessionStorage)
-cbrowser session save "github-logged-in" --url "https://github.com"
-
-# Load a saved session
-cbrowser session load "github-logged-in"
-
-# List all sessions
-cbrowser session list
-
-# Delete a session
-cbrowser session delete "github-logged-in"
+npx cbrowser navigate "https://example.com" --persistent
 ```
 
 ### Persona-Driven Testing
 
-Test your site from different user perspectives:
-
 ```bash
-# Run an autonomous journey as a specific persona
+# Run autonomous journey as a persona
 cbrowser journey "first-timer" \
   --start "https://mysite.com" \
-  --goal "Complete signup and reach dashboard"
+  --goal "Complete signup"
 
-# List available personas
+# List personas
 cbrowser persona list
 ```
 
@@ -141,290 +285,182 @@ cbrowser persona list
 
 | Persona | Description |
 |---------|-------------|
-| `power-user` | Tech-savvy expert who expects efficiency |
-| `first-timer` | New user exploring for the first time |
-| `mobile-user` | Smartphone user with touch interface |
-| `screen-reader-user` | Blind user with screen reader |
-| `elderly-user` | Older adult with vision/motor limitations |
-| `impatient-user` | Quick to abandon slow experiences |
+| `power-user` | Tech-savvy, expects efficiency |
+| `first-timer` | New user, slow and exploratory |
+| `mobile-user` | Touch interface, small screen |
+| `elderly-user` | Vision/motor limitations |
+| `impatient-user` | Quick to abandon |
 
-### Credential Management
-
-Securely store and use credentials:
+### Multi-Browser Support
 
 ```bash
-# Add credentials for a site
-cbrowser creds add "github" \
-  --username "me@email.com" \
-  --password "my-secret-password"
+# Firefox
+npx cbrowser navigate "https://example.com" --browser firefox
 
-# List stored credentials
-cbrowser creds list
-
-# Authenticate using stored credentials
-cbrowser auth "github"
+# WebKit (Safari)
+npx cbrowser navigate "https://example.com" --browser webkit
 ```
 
-### Data Extraction
-
-Extract structured data from pages:
+### Device Emulation
 
 ```bash
-# Extract all links
-cbrowser extract "links" --format json
+# Mobile
+npx cbrowser navigate "https://example.com" --device iphone-15
 
-# Extract headings
-cbrowser extract "headings"
+# Tablet
+npx cbrowser navigate "https://example.com" --device ipad-pro-12
 
-# Extract form data
-cbrowser extract "forms"
-
-# Extract product cards (AI-powered)
-cbrowser extract "all product cards" --format json
+# List devices
+npx cbrowser device list
 ```
 
-### Storage Management
-
-Keep your data directory clean:
+### Performance Metrics
 
 ```bash
-# Show storage usage
-cbrowser storage
+# Core Web Vitals
+npx cbrowser perf "https://example.com"
 
-# Preview cleanup
-cbrowser cleanup --dry-run
-
-# Clean old files
-cbrowser cleanup --older-than 7 --keep-screenshots 10
-```
-
-## Configuration
-
-### Data Directory
-
-By default, CBrowser stores data in `~/.cbrowser/`. Override with:
-
-```bash
-# Environment variable
-export CBROWSER_DATA_DIR="/path/to/data"
-
-# Or per-command
-CBROWSER_DATA_DIR="./my-data" cbrowser navigate "https://example.com"
-```
-
-### Directory Structure
-
-```
-~/.cbrowser/
-├── sessions/           # Saved browser sessions
-├── screenshots/        # Captured screenshots
-├── personas/           # Custom persona definitions
-├── scenarios/          # Test scenarios
-├── helpers/            # Learned site patterns
-├── audit/              # Action audit logs
-└── credentials.json    # Encrypted credentials
-```
-
-## Constitutional Safety
-
-CBrowser implements a safety framework with action zones:
-
-| Zone | Actions | Behavior |
-|------|---------|----------|
-| **Green** | Navigate, read, screenshot, scroll | Auto-execute |
-| **Yellow** | Click buttons, fill forms, select | Log and proceed |
-| **Red** | Submit, delete, purchase, account changes | Requires `--force` |
-| **Black** | Bypass auth, violate ToS, inject scripts | Never execute |
-
-### Safety Bypass
-
-For automated testing, you can bypass yellow/red zone warnings:
-
-```bash
-cbrowser click "Delete Account" --force
+# With budget
+npx cbrowser perf audit "https://example.com" --budget-lcp 2500
 ```
 
 ## API Usage
-
-Use CBrowser programmatically:
 
 ```typescript
 import { CBrowser } from 'cbrowser';
 
 const browser = new CBrowser({
-  dataDir: './my-data',
   headless: true,
+  persistent: true,  // Persist cookies between sessions
 });
 
+// Navigate
 await browser.navigate('https://example.com');
-await browser.click('Sign In');
-await browser.fill('email', 'user@example.com');
-await browser.fill('password', 'secret123');
-await browser.click('Submit');
 
-const screenshot = await browser.screenshot();
+// Smart click with retry
+const clickResult = await browser.smartClick('Sign In');
+
+// Fill form
+await browser.fill('email', 'user@example.com');
+
+// Assert
+const assertion = await browser.assert("page contains 'Welcome'");
+if (!assertion.passed) {
+  console.error(assertion.message);
+}
+
+// Generate tests
+const tests = await browser.generateTests();
+console.log(tests.playwrightCode);
+
+// Cleanup
 await browser.close();
 ```
 
-### With Sessions
+## Configuration
 
-```typescript
-import { CBrowser } from 'cbrowser';
+### Environment Variables
 
-const browser = new CBrowser();
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CBROWSER_DATA_DIR` | `~/.cbrowser` | Data storage directory |
+| `CBROWSER_HEADLESS` | `true` | Run headless (set to `false` for GUI) |
+| `CBROWSER_BROWSER` | `chromium` | Browser engine |
+| `CBROWSER_TIMEOUT` | `30000` | Default timeout (ms) |
 
-// Load existing session or create new
-const hasSession = await browser.loadSession('my-app');
-if (!hasSession) {
-  await browser.navigate('https://myapp.com/login');
-  await browser.fill('email', 'user@example.com');
-  await browser.fill('password', 'secret');
-  await browser.click('Login');
-  await browser.saveSession('my-app');
+### Config File
+
+Create `.cbrowserrc.json`:
+
+```json
+{
+  "headless": true,
+  "timeout": 60000,
+  "persistent": true,
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  }
 }
-
-// Now authenticated, continue with tests
-await browser.navigate('https://myapp.com/dashboard');
 ```
 
-### Running Journeys
+## Constitutional Safety
 
-```typescript
-import { CBrowser } from 'cbrowser';
+CBrowser classifies actions by risk level:
 
-const browser = new CBrowser();
-const result = await browser.journey({
-  persona: 'first-timer',
-  startUrl: 'https://example.com',
-  goal: 'Find pricing information',
-  maxSteps: 20,
-});
+| Zone | Actions | Behavior |
+|------|---------|----------|
+| **Green** | Navigate, read, screenshot | Auto-execute |
+| **Yellow** | Click, fill forms | Log and proceed |
+| **Red** | Submit, delete, purchase | Requires `--force` |
+| **Black** | Bypass auth, inject scripts | Never execute |
 
-console.log('Journey completed:', result.success);
-console.log('Friction points:', result.frictionPoints);
-console.log('Console logs:', result.consoleLogs);
+```bash
+# Bypass safety for testing
+cbrowser click "Delete Account" --force
 ```
+
+## Performance
+
+CBrowser uses optimized Chromium launch flags for fast startup:
+
+- **~1 second** browser cold start (vs 3-5s default)
+- **Persistent context** keeps cookies between calls
+- **Self-healing cache** reduces retry overhead
 
 ## Examples
 
-### E2E Test with Session Reuse
+See the [`examples/`](examples/) directory:
 
-```typescript
-// tests/checkout.test.ts
-import { CBrowser } from 'cbrowser';
-
-describe('Checkout Flow', () => {
-  let browser: CBrowser;
-
-  beforeAll(async () => {
-    browser = new CBrowser();
-    await browser.loadSession('logged-in-user');
-  });
-
-  afterAll(async () => {
-    await browser.close();
-  });
-
-  it('should add item to cart', async () => {
-    await browser.navigate('https://shop.example.com/products');
-    await browser.click('Add to Cart');
-    await browser.click('View Cart');
-
-    const cartItems = await browser.extract('cart items');
-    expect(cartItems.length).toBeGreaterThan(0);
-  });
-});
-```
-
-### Multi-Persona Comparison
-
-```typescript
-import { CBrowser } from 'cbrowser';
-
-const personas = ['power-user', 'first-timer', 'mobile-user'];
-const results = [];
-
-for (const persona of personas) {
-  const browser = new CBrowser();
-  const result = await browser.journey({
-    persona,
-    startUrl: 'https://example.com',
-    goal: 'Complete checkout',
-  });
-
-  results.push({
-    persona,
-    success: result.success,
-    timeMs: result.totalTime,
-    frictionPoints: result.frictionPoints,
-  });
-
-  await browser.close();
-}
-
-console.table(results);
-```
+- `basic-usage.ts` - Navigation, extraction, sessions
+- `smart-automation.ts` - Smart click, assertions, test generation
+- `journeys/checkout-flow.json` - Persona journey definition
+- `personas/custom-persona.json` - Custom persona template
 
 ## Troubleshooting
 
 ### Browser Not Starting
 
 ```bash
-# Ensure Playwright browsers are installed
-npx playwright install chromium
-
-# Check for display issues (Linux servers)
-export DISPLAY=:0
-# Or run headless
-cbrowser navigate "https://example.com" --headless
+npx playwright install chromium --force
 ```
 
-### Session Not Persisting
+### Display Issues (Linux)
 
-Sessions are domain-specific. Make sure you're loading the session on the same domain:
+CBrowser runs headless by default. For GUI mode:
 
 ```bash
-# Save from example.com
-cbrowser session save "my-session" --url "https://example.com"
-
-# Load must also be on example.com
-cbrowser session load "my-session"
-# This navigates to the saved URL automatically
+CBROWSER_HEADLESS=false npx cbrowser navigate "https://example.com"
 ```
 
-### Credential Security
+### Self-Healing Not Working
 
-Credentials are stored in `~/.cbrowser/credentials.json`. For production:
+```bash
+# Check cache status
+npx cbrowser heal-stats
 
-1. Set restrictive permissions: `chmod 600 ~/.cbrowser/credentials.json`
-2. Consider using environment variables instead
-3. Never commit the data directory to git
+# Clear if corrupted
+npx cbrowser heal-clear
+```
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
-
 ```bash
-# Clone the repo
-git clone https://github.com/yourusername/cbrowser.git
+git clone https://github.com/alexandriashai/cbrowser.git
 cd cbrowser
-
-# Install dependencies
 bun install
-
-# Run in development
 bun run dev
-
-# Run tests
-bun test
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT - see [LICENSE](LICENSE) for details.
+MIT - see [LICENSE](LICENSE)
 
-## Acknowledgments
+## Links
 
-- Built on [Playwright](https://playwright.dev/) for reliable browser automation
-- Inspired by constitutional AI principles for safe automation
-- Persona framework based on UX research methodologies
+- [NPM Package](https://www.npmjs.com/package/cbrowser)
+- [GitHub Repository](https://github.com/alexandriashai/cbrowser)
+- [Issue Tracker](https://github.com/alexandriashai/cbrowser/issues)
+- [Roadmap](ROADMAP.md)

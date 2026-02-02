@@ -47,6 +47,27 @@ import type {
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 
+// Fast launch args for Chromium - reduces cold start time significantly
+const FAST_LAUNCH_ARGS = [
+  "--disable-gpu",
+  "--disable-dev-shm-usage",
+  "--disable-setuid-sandbox",
+  "--no-sandbox",
+  "--disable-extensions",
+  "--disable-background-networking",
+  "--disable-background-timer-throttling",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-breakpad",
+  "--disable-component-extensions-with-background-pages",
+  "--disable-features=TranslateUI",
+  "--disable-ipc-flooding-protection",
+  "--disable-renderer-backgrounding",
+  "--enable-features=NetworkService,NetworkServiceInProcess",
+  "--force-color-profile=srgb",
+  "--metrics-recording-only",
+  "--no-first-run",
+];
+
 export class CBrowser {
   private config: CBrowserConfig;
   private paths: CBrowserPaths;
@@ -159,6 +180,7 @@ export class CBrowser {
       }
       this.context = await browserType.launchPersistentContext(browserStateDir, {
         headless: this.config.headless,
+        args: FAST_LAUNCH_ARGS,
         ...contextOptions,
       });
       this.page = this.context.pages()[0] || await this.context.newPage();
@@ -168,6 +190,7 @@ export class CBrowser {
     } else {
       this.browser = await browserType.launch({
         headless: this.config.headless,
+        args: FAST_LAUNCH_ARGS,
       });
       this.context = await this.browser.newContext(contextOptions);
       this.page = await this.context.newPage();

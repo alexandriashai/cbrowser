@@ -57,7 +57,7 @@ CBROWSER_DATA_DIR="./data" npx cbrowser navigate "https://example.com"
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CBROWSER_DATA_DIR` | `~/.cbrowser` | Data storage directory |
-| `CBROWSER_HEADLESS` | `false` | Run headless by default |
+| `CBROWSER_HEADLESS` | `true` | Run headless by default (set to `false` for GUI) |
 | `CBROWSER_TIMEOUT` | `30000` | Default timeout (ms) |
 | `CBROWSER_VIEWPORT_WIDTH` | `1280` | Default viewport width |
 | `CBROWSER_VIEWPORT_HEIGHT` | `800` | Default viewport height |

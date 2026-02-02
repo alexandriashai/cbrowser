@@ -1,7 +1,7 @@
 {
   "name": "cbrowser",
-  "version": "5.1.0",
-  "description": "AI-powered browser automation with constitutional safety, personas, session persistence, and autonomous journeys",
+  "version": "5.2.0",
+  "description": "AI-powered browser automation with self-healing selectors, natural language assertions, test generation, MCP server, constitutional safety, and autonomous journeys",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -32,18 +32,24 @@
     "core-web-vitals",
     "har-export",
     "network-mocking",
-    "video-recording"
+    "video-recording",
+    "self-healing-selectors",
+    "smart-retry",
+    "natural-language-assertions",
+    "test-generation",
+    "mcp-server",
+    "claude-integration"
   ],
-  "author": "Your Name",
+  "author": "Wyld Digital",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/cbrowser.git"
+    "url": "git+https://github.com/alexandriashai/cbrowser.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/cbrowser/issues"
+    "url": "https://github.com/alexandriashai/cbrowser/issues"
   },
-  "homepage": "https://github.com/yourusername/cbrowser#readme",
+  "homepage": "https://github.com/alexandriashai/cbrowser#readme",
   "engines": {
     "node": ">=18.0.0"
   },

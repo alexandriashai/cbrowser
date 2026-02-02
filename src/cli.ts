@@ -331,9 +331,12 @@ async function main(): Promise<void> {
     console.log("🔄 Persistent mode enabled");
   }
 
+  // Default to headless for CLI usage, unless explicitly set to false
+  const headless = options.headless !== false && options.headless !== "false";
+
   const browser = new CBrowser({
     browser: browserType,
-    headless: options.headless === true || options.headless === "true",
+    headless,
     device: options.device as string,
     geolocation,
     locale: options.locale as string,

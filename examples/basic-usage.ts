@@ -2,9 +2,11 @@
  * CBrowser Basic Usage Examples
  *
  * Run with: npx ts-node examples/basic-usage.ts
+ * Or: bun run examples/basic-usage.ts
  */
 
-import { CBrowser } from "../src/index.js";
+import { CBrowser } from "cbrowser";
+// For local development: import { CBrowser } from "../src/index.js";
 
 async function basicNavigation() {
   console.log("=== Basic Navigation ===\n");
