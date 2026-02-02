@@ -30,12 +30,13 @@ import {
 } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
+import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.4.0                                ║
+║                           CBrowser CLI v7.4.2                                ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -439,6 +440,10 @@ AI TEST GENERATION (v5.0.0)
 MCP SERVER (v5.0.0)
   mcp-server                  Start CBrowser as MCP server for Claude integration
                               Use with Claude Desktop or other MCP-compatible clients
+  mcp-remote                  Start remote HTTP MCP server for claude.ai connectors
+    --port <port>             Port to listen on (default: 3000)
+    --host <host>             Host to bind to (default: 0.0.0.0)
+    --stateful                Use stateful session mode
 
 DAEMON MODE (v6.4.0)
   daemon start                Start background daemon (keeps browser running)
@@ -861,6 +866,15 @@ async function main(): Promise<void> {
   if (command === "mcp-server") {
     console.error("🔌 Starting CBrowser MCP Server...");
     await startMcpServer();
+    return;
+  }
+
+  // Remote MCP Server mode - HTTP server for claude.ai connectors
+  if (command === "mcp-remote") {
+    if (options.port) process.env.PORT = String(options.port);
+    if (options.host) process.env.HOST = String(options.host);
+    if (options.stateful) process.env.MCP_SESSION_MODE = "stateful";
+    await startRemoteMcpServer();
     return;
   }
 

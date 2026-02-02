@@ -1,6 +1,6 @@
 # Remote MCP Server Deployment Guide
 
-Deploy CBrowser as a remote MCP server for claude.ai custom connectors. This allows your entire team to use CBrowser through Claude without local installation.
+Deploy CBrowser (Cognitive Browser) as a remote MCP server for claude.ai custom connectors. This allows your entire team to use CBrowser through Claude without local installation.
 
 ## Architecture Overview
 
@@ -113,6 +113,11 @@ Environment=PORT=3100
 Environment=HOST=127.0.0.1
 Environment=MCP_SESSION_MODE=stateless
 Environment=CBROWSER_DATA_DIR=/home/YOUR_USERNAME/.cbrowser
+
+# Authentication (optional - remove to allow open access)
+# Generate a secure key: openssl rand -hex 32
+Environment=MCP_API_KEY=your-secure-api-key-here
+# Or use multiple keys: Environment=MCP_API_KEYS=key1,key2,key3
 
 # Security hardening (optional but recommended)
 NoNewPrivileges=yes
@@ -335,13 +340,44 @@ sudo ufw allow 443/tcp   # HTTPS
 sudo ufw enable
 ```
 
-### Authentication (Future)
+### Authentication (v7.4.3+)
 
-The current MCP server is open. For production with sensitive data:
+CBrowser Remote MCP Server supports API key authentication:
 
-1. Use Cloudflare Access for authentication
-2. Or add API key validation (coming in future version)
-3. Or restrict to IP whitelist in nginx
+**Enable authentication:**
+
+```bash
+# Single API key
+Environment=MCP_API_KEY=your-secure-key
+
+# Multiple API keys (for different users/services)
+Environment=MCP_API_KEYS=user1-key,user2-key,service-key
+```
+
+**Generate a secure key:**
+
+```bash
+openssl rand -hex 32
+```
+
+**Client usage:**
+
+```bash
+# Bearer token (recommended)
+curl -H "Authorization: Bearer your-api-key" https://your-server/mcp
+
+# X-API-Key header (alternative)
+curl -H "X-API-Key: your-api-key" https://your-server/mcp
+```
+
+**Endpoints:**
+- `/health` and `/info` are always open (no auth required)
+- `/mcp` requires authentication when `MCP_API_KEY` or `MCP_API_KEYS` is set
+
+**Additional security layers:**
+1. Use Cloudflare Access for additional authentication
+2. Restrict to IP whitelist in nginx
+3. Enable rate limiting (see below)
 
 ### Rate Limiting
 

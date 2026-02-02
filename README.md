@@ -1,6 +1,8 @@
-# CBrowser
+# CBrowser (Cognitive Browser)
 
 **The browser automation built for AI agents, not human developers.**
+
+*CBrowser = Cognitive Browser — browser automation that thinks.*
 
 Most browser automation tools are built for humans writing scripts. CBrowser is built from the ground up as an MCP server for AI agents—natural language is the primary interface, not an afterthought.
 

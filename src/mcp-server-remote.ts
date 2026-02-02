@@ -13,6 +13,8 @@
  *   PORT - Port to listen on (default: 3000)
  *   HOST - Host to bind to (default: 0.0.0.0)
  *   MCP_SESSION_MODE - 'stateful' or 'stateless' (default: stateless)
+ *   MCP_API_KEY - API key for authentication (optional, if not set server is open)
+ *   MCP_API_KEYS - Comma-separated list of valid API keys (optional, alternative to MCP_API_KEY)
  */
 
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
@@ -74,6 +76,64 @@ async function getBrowser(): Promise<CBrowser> {
 
 // Transport instances by session (for stateful mode)
 const transports = new Map<string, StreamableHTTPServerTransport>();
+
+/**
+ * Get configured API keys from environment
+ */
+function getApiKeys(): Set<string> | null {
+  const singleKey = process.env.MCP_API_KEY;
+  const multipleKeys = process.env.MCP_API_KEYS;
+
+  if (!singleKey && !multipleKeys) {
+    return null; // No authentication configured
+  }
+
+  const keys = new Set<string>();
+  if (singleKey) {
+    keys.add(singleKey);
+  }
+  if (multipleKeys) {
+    multipleKeys.split(",").map(k => k.trim()).filter(k => k).forEach(k => keys.add(k));
+  }
+  return keys;
+}
+
+/**
+ * Validate API key from request headers
+ * Supports: Authorization: Bearer <key> or X-API-Key: <key>
+ */
+function validateApiKey(req: IncomingMessage, validKeys: Set<string>): boolean {
+  // Check Authorization header (Bearer token)
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    if (validKeys.has(token)) {
+      return true;
+    }
+  }
+
+  // Check X-API-Key header
+  const apiKeyHeader = req.headers["x-api-key"];
+  if (typeof apiKeyHeader === "string" && validKeys.has(apiKeyHeader)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Send 401 Unauthorized response
+ */
+function sendUnauthorized(res: ServerResponse): void {
+  res.writeHead(401, {
+    "Content-Type": "application/json",
+    "WWW-Authenticate": "Bearer realm=\"cbrowser-mcp\""
+  });
+  res.end(JSON.stringify({
+    error: "Unauthorized",
+    message: "Valid API key required. Use Authorization: Bearer <key> or X-API-Key: <key>"
+  }));
+}
 
 /**
  * Configure all CBrowser tools on an MCP server instance.
@@ -967,32 +1027,44 @@ export async function startRemoteMcpServer(): Promise<void> {
   const port = parseInt(process.env.PORT || "3000", 10);
   const host = process.env.HOST || "0.0.0.0";
   const sessionMode = process.env.MCP_SESSION_MODE || "stateless";
+  const apiKeys = getApiKeys();
+  const authEnabled = apiKeys !== null && apiKeys.size > 0;
 
-  console.log(`Starting CBrowser Remote MCP Server v7.4.2...`);
+  console.log(`Starting CBrowser Remote MCP Server v7.4.3...`);
   console.log(`Mode: ${sessionMode}`);
+  console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
   console.log(`Listening on ${host}:${port}`);
 
   const httpServer = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
-    // Health check endpoint
+    // Health check endpoint (always open, no auth required)
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", version: "7.4.2" }));
+      res.end(JSON.stringify({ status: "ok", version: "7.4.3", auth: authEnabled }));
       return;
     }
 
-    // Server info endpoint (for discovery)
+    // Server info endpoint (always open)
     if (url.pathname === "/info") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.2",
-        description: "AI-powered browser automation with constitutional safety",
+        version: "7.4.3",
+        description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
+        auth_required: authEnabled,
         capabilities: ["navigation", "interaction", "visual-testing", "nlp-testing", "performance"],
       }));
       return;
+    }
+
+    // Auth check for protected endpoints
+    if (authEnabled && apiKeys) {
+      if (!validateApiKey(req, apiKeys)) {
+        sendUnauthorized(res);
+        return;
+      }
     }
 
     // MCP endpoint
@@ -1036,11 +1108,16 @@ export async function startRemoteMcpServer(): Promise<void> {
   });
 
   httpServer.listen(port, host, () => {
-    console.log(`\nCBrowser Remote MCP Server running at http://${host}:${port}`);
+    console.log(`\nCognitive Browser Remote MCP Server running at http://${host}:${port}`);
     console.log(`\nEndpoints:`);
     console.log(`  MCP:    http://${host}:${port}/mcp`);
     console.log(`  Health: http://${host}:${port}/health`);
     console.log(`  Info:   http://${host}:${port}/info`);
+    if (authEnabled) {
+      console.log(`\nAuthentication:`);
+      console.log(`  Header: Authorization: Bearer <your-api-key>`);
+      console.log(`  Or:     X-API-Key: <your-api-key>`);
+    }
     console.log(`\nFor claude.ai custom connector:`);
     console.log(`  URL: https://cbrowser-mcp.wyldfyre.ai/mcp`);
   });

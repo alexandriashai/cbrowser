@@ -65,7 +65,7 @@ async function getBrowser(): Promise<CBrowser> {
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.0",
+    version: "7.4.2",
   });
 
   // =========================================================================
