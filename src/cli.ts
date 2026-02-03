@@ -36,7 +36,7 @@ import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.4.2                                ║
+║                           CBrowser CLI v7.4.6                                ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -443,6 +443,11 @@ MCP SERVER (v5.0.0)
   mcp-remote                  Start remote HTTP MCP server for claude.ai connectors
     --port <port>             Port to listen on (default: 3000)
     --host <host>             Host to bind to (default: 0.0.0.0)
+
+PAI SKILL INSTALLATION (v7.4.6)
+  install-skill               Install CBrowser as a PAI skill to ~/.claude/skills/
+                              Downloads skill files from GitHub and creates directory structure
+                              Add to skill-index.json after installation
     --stateful                Use stateful session mode
 
 DAEMON MODE (v6.4.0)
@@ -875,6 +880,91 @@ async function main(): Promise<void> {
     if (options.host) process.env.HOST = String(options.host);
     if (options.stateful) process.env.MCP_SESSION_MODE = "stateful";
     await startRemoteMcpServer();
+    return;
+  }
+
+  // Install PAI skill
+  if (command === "install-skill") {
+    const { execSync } = await import("child_process");
+    const path = await import("path");
+    const fs = await import("fs");
+    const os = await import("os");
+
+    const skillDir = path.join(os.homedir(), ".claude", "skills", "CBrowser");
+    const repoUrl = "https://raw.githubusercontent.com/alexandriashai/cbrowser/main";
+
+    console.log(`
+╔═══════════════════════════════════════════════════════════════╗
+║           CBrowser PAI Skill Installer v7.4.6                 ║
+╚═══════════════════════════════════════════════════════════════╝
+`);
+
+    // Check if ~/.claude/skills exists
+    const skillsDir = path.join(os.homedir(), ".claude", "skills");
+    if (!fs.existsSync(skillsDir)) {
+      console.log("Creating ~/.claude/skills directory...");
+      fs.mkdirSync(skillsDir, { recursive: true });
+    }
+
+    // Check if skill exists
+    if (fs.existsSync(skillDir)) {
+      console.log("CBrowser skill already exists. Updating...");
+      fs.rmSync(skillDir, { recursive: true });
+    }
+
+    // Create directories
+    console.log("Creating skill directory structure...");
+    fs.mkdirSync(path.join(skillDir, "Workflows"), { recursive: true });
+    fs.mkdirSync(path.join(skillDir, "Tools"), { recursive: true });
+    fs.mkdirSync(path.join(skillDir, ".memory", "sessions"), { recursive: true });
+
+    // Download files
+    console.log("Downloading skill files...");
+    const files = [
+      "SKILL.md",
+      "Philosophy.md",
+      "AIVision.md",
+      "SessionManagement.md",
+      "Credentials.md",
+      "Personas.md",
+      "Workflows/Navigate.md",
+      "Workflows/Interact.md",
+      "Workflows/Extract.md",
+      "Workflows/Authenticate.md",
+      "Workflows/Test.md",
+      "Workflows/Journey.md",
+      "Tools/CBrowser.ts",
+    ];
+
+    for (const file of files) {
+      try {
+        const url = `${repoUrl}/skill/${file}`;
+        const dest = path.join(skillDir, file);
+        console.log(`  - ${file}`);
+        execSync(`curl -fsSL "${url}" -o "${dest}"`, { stdio: "pipe" });
+      } catch {
+        console.log(`  Warning: Could not download ${file}`);
+      }
+    }
+
+    console.log(`
+╔═══════════════════════════════════════════════════════════════╗
+║              CBrowser Skill Installed Successfully!           ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Skill installed to: ${skillDir}
+
+Next steps:
+  1. Add to your skill-index.json:
+     "CBrowser": "${skillDir}/SKILL.md"
+
+  2. Install all Playwright browsers (for cross-browser testing):
+     npx playwright install
+
+  3. Start using CBrowser in Claude Code!
+
+Documentation: https://github.com/alexandriashai/cbrowser/wiki
+`);
     return;
   }
 
