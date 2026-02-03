@@ -168,7 +168,40 @@ This isn't optional safety theater—it's how you give AI agents browser access 
 
 ## Quick Start
 
-### Installation
+### Option 1: PAI Skill Installation (Claude Code Users)
+
+If you use [Claude Code](https://claude.ai/claude-code) with [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/Personal_AI_Infrastructure), install CBrowser as a skill:
+
+```bash
+# One-line installation
+curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
+
+# Or via npm CLI
+npx cbrowser install-skill
+```
+
+This installs CBrowser to `~/.claude/skills/CBrowser/` with full skill structure:
+- `SKILL.md` - Main skill file with workflow routing
+- `Workflows/` - Navigate, Interact, Extract, Test, Journey workflows
+- `Tools/CBrowser.ts` - CLI wrapper for PAI
+- `.memory/` - Session, selector, and persona storage
+
+After installation, add to your `~/.claude/skills/skill-index.json`:
+
+```json
+{
+  "CBrowser": "~/.claude/skills/CBrowser/SKILL.md"
+}
+```
+
+Then install dependencies:
+
+```bash
+npm install -g cbrowser
+npx playwright install
+```
+
+### Option 2: npm Installation (Standard)
 
 ```bash
 # npm
@@ -184,6 +217,10 @@ yarn add cbrowser
 ### Install Playwright Browsers
 
 ```bash
+# Install all browsers (recommended for cross-browser testing)
+npx playwright install
+
+# Or just Chromium
 npx playwright install chromium
 ```
 

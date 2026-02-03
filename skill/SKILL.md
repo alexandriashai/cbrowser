@@ -1,9 +1,16 @@
 ---
 name: CBrowser
-description: Cognitive Browser - AI-powered browser automation with constitutional safety, AI visual regression, cross-browser testing, responsive testing, A/B comparison, and user perspective testing. v7.4.6 (modular architecture + 31 MCP tools + remote MCP with Auth0 OAuth for claude.ai). USE WHEN cognitive browser, smart browser, AI browser automation, vision-based automation, self-healing selectors, autonomous web agent, user testing, persona testing, authenticated automation, test suite, natural language tests, repair tests, fix broken tests, flaky test detection, detect flaky tests, unreliable tests, constitutional safety, safe automation, visual regression, screenshot comparison, cross-browser, responsive testing, viewport testing, mobile testing, A/B testing, staging vs production, compare URLs, performance regression, test coverage, coverage map, coverage gaps, MCP server, Claude Desktop, remote MCP, custom connector, Auth0 OAuth.
+description: Cognitive Browser - AI-powered browser automation with constitutional safety, AI visual regression, cross-browser testing, responsive testing, A/B comparison, and user perspective testing. v7.4.7 (modular architecture + 31 MCP tools + remote MCP with Auth0 OAuth for claude.ai + PAI Skill system). USE WHEN cognitive browser, smart browser, AI browser automation, vision-based automation, self-healing selectors, autonomous web agent, user testing, persona testing, authenticated automation, test suite, natural language tests, repair tests, fix broken tests, flaky test detection, detect flaky tests, unreliable tests, constitutional safety, safe automation, visual regression, screenshot comparison, cross-browser, responsive testing, viewport testing, mobile testing, A/B testing, staging vs production, compare URLs, performance regression, test coverage, coverage map, coverage gaps, MCP server, Claude Desktop, remote MCP, custom connector, Auth0 OAuth, PAI skill, Personal AI Infrastructure.
 ---
 
 # CBrowser (Cognitive Browser)
+
+> **PAI Skill Installation:** This skill is compatible with [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/Personal_AI_Infrastructure).
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
+> npm install -g cbrowser && npx playwright install
+> ```
+> Then add to `~/.claude/skills/skill-index.json`: `{"CBrowser": "~/.claude/skills/CBrowser/SKILL.md"}`
 
 **The browser automation built for AI agents, not human developers.**
 
