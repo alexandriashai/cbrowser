@@ -5,6 +5,22 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.10] - 2026-02-03
+
+### Fixed
+- **Navigate `--url` flag** - `navigate --url <url>` now works as alternative to positional arg
+- **Click element finding** - Added `networkidle` wait + 1s hydration delay after session restore, fixing click failures on restored pages
+- **Fill element finding** - Added 5 new selector strategies: name attribute, type attribute, id attribute, textarea, and fuzzy attribute matching
+- **Extract text on SPAs** - Added fallbacks when `innerText` is empty: `textContent`, then individual element extraction
+- **Missing screen-reader-user persona** - Added to skill `BUILTIN_PERSONAS` (was already in npm package)
+- **YAML custom personas** - `loadCustomPersonas()` and `listPersonas` now support `.yaml`/`.yml` files alongside `.json`
+- **Custom persona deletion** - `deleteCustomPersona()` checks all file extensions (json/yaml/yml)
+- **findElement strategies** - Added 6 new strategies to modular `browser.ts`: name attr, type attr, id, textarea, link role, fuzzy JS match
+
+### Changed
+- `fill` and `extract` CLI commands now support `--url` for pre-navigation (skill CLI, already present in npm CLI)
+- Synced all skill files to latest
+
 ## [7.4.9] - 2026-02-02
 
 ### Fixed
