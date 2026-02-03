@@ -34,11 +34,26 @@ export function loadCustomPersonas(): Record<string, Persona> {
   const personas: Record<string, Persona> = {};
 
   try {
-    const files = readdirSync(PERSONAS_DIR).filter(f => f.endsWith(".json"));
+    const files = readdirSync(PERSONAS_DIR).filter(f => f.endsWith(".json") || f.endsWith(".yaml") || f.endsWith(".yml"));
     for (const file of files) {
       try {
         const content = readFileSync(join(PERSONAS_DIR, file), "utf-8");
-        const persona = JSON.parse(content) as Persona;
+        let persona: Persona;
+        if (file.endsWith(".json")) {
+          persona = JSON.parse(content) as Persona;
+        } else {
+          // Simple YAML parsing for persona files
+          const nameMatch = content.match(/^name:\s*(.+)$/m);
+          const descMatch = content.match(/^description:\s*(.+)$/m);
+          persona = {
+            name: nameMatch ? nameMatch[1].trim().replace(/^["']|["']$/g, "") : file.replace(/\.(yaml|yml)$/, ""),
+            description: descMatch ? descMatch[1].trim().replace(/^["']|["']$/g, "") : "Custom persona",
+            demographics: { age_range: "any", tech_level: "intermediate", device: "desktop" },
+            behaviors: {},
+            humanBehavior: BUILTIN_PERSONAS["first-timer"].humanBehavior,
+            context: { viewport: [1280, 800] },
+          } as Persona;
+        }
         personas[persona.name] = persona;
       } catch {
         // Skip invalid files
@@ -73,16 +88,19 @@ export function deleteCustomPersona(name: string): boolean {
     return false;
   }
 
-  const filename = `${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}.json`;
-  const filepath = join(PERSONAS_DIR, filename);
+  const baseName = name.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const extensions = [".json", ".yaml", ".yml"];
 
-  try {
-    if (existsSync(filepath)) {
-      unlinkSync(filepath);
-      return true;
+  for (const ext of extensions) {
+    const filepath = join(PERSONAS_DIR, `${baseName}${ext}`);
+    try {
+      if (existsSync(filepath)) {
+        unlinkSync(filepath);
+        return true;
+      }
+    } catch {
+      // Ignore errors
     }
-  } catch {
-    // Ignore errors
   }
 
   return false;

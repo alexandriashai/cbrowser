@@ -357,6 +357,9 @@ export class CBrowser {
             waitUntil: "domcontentloaded",
             timeout: 15000,
           });
+          // Wait for network idle and JS hydration
+          await this.page!.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+          await this.page!.waitForTimeout(1000);
           // Apply saved viewport if available
           if (savedSession.viewport) {
             await this.page!.setViewportSize(savedSession.viewport);
@@ -438,6 +441,9 @@ export class CBrowser {
               waitUntil: "domcontentloaded",
               timeout: 15000,
             });
+            // Wait for network idle and JS hydration
+            await this.page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+            await this.page.waitForTimeout(1000);
             if (savedSession.viewport) {
               await this.page.setViewportSize(savedSession.viewport);
             }
@@ -1938,6 +1944,76 @@ export class CBrowser {
       // Invalid CSS selector, continue
     }
 
+    // Strategy 8: Input by name attribute
+    try {
+      const byName = page.locator(`input[name="${selector}"]`).first();
+      if (await byName.count() > 0) return byName;
+    } catch {}
+
+    // Strategy 9: Input by type attribute (e.g., "email", "password")
+    try {
+      const byType = page.locator(`input[type="${selector}"]`).first();
+      if (await byType.count() > 0) return byType;
+    } catch {}
+
+    // Strategy 10: Element by id
+    try {
+      const byId = page.locator(`#${selector}`).first();
+      if (await byId.count() > 0) return byId;
+    } catch {}
+
+    // Strategy 11: Textarea by name
+    try {
+      const byTextarea = page.locator(`textarea[name="${selector}"]`).first();
+      if (await byTextarea.count() > 0) return byTextarea;
+    } catch {}
+
+    // Strategy 12: Role link with name
+    try {
+      const byLink = page.getByRole("link", { name: selector }).first();
+      if (await byLink.count() > 0) return byLink;
+    } catch {}
+
+    // Strategy 13: Fuzzy attribute match via JS
+    try {
+      const fuzzyHandle = await page.evaluateHandle((search) => {
+        const inputs = Array.from(document.querySelectorAll("input, textarea, select, button, a, [role='button'], [role='link']"));
+        const searchLower = search.toLowerCase();
+        for (const el of inputs) {
+          const name = el.getAttribute("name")?.toLowerCase() || "";
+          const id = el.getAttribute("id")?.toLowerCase() || "";
+          const placeholder = el.getAttribute("placeholder")?.toLowerCase() || "";
+          const type = el.getAttribute("type")?.toLowerCase() || "";
+          const ariaLabel = el.getAttribute("aria-label")?.toLowerCase() || "";
+          const text = (el as HTMLElement).innerText?.toLowerCase() || "";
+          if (name.includes(searchLower) || id.includes(searchLower) ||
+              placeholder.includes(searchLower) || type === searchLower ||
+              ariaLabel.includes(searchLower) || text.includes(searchLower)) {
+            return el;
+          }
+        }
+        return null;
+      }, selector);
+
+      const element = fuzzyHandle.asElement();
+      if (element) {
+        // Convert ElementHandle back to Locator isn't directly possible,
+        // but we can get a selector from it
+        const generatedSelector = await page.evaluate((el) => {
+          if (el.id) return `#${el.id}`;
+          const name = el.getAttribute("name");
+          if (name) return `[name="${name}"]`;
+          const testId = el.getAttribute("data-testid");
+          if (testId) return `[data-testid="${testId}"]`;
+          return null;
+        }, element);
+
+        if (generatedSelector) {
+          return page.locator(generatedSelector).first();
+        }
+      }
+    } catch {}
+
     return null;
   }
 
@@ -1996,8 +2072,27 @@ export class CBrowser {
         break;
 
       default:
-        // Generic text extraction
-        data = await page.evaluate(() => document.body.innerText);
+        // Generic text extraction with fallbacks for SPAs
+        data = await page.evaluate(() => {
+          let text = document.body.innerText;
+          // Fallback: if innerText is empty (SPA hydration), try textContent
+          if (!text || text.trim() === "") {
+            text = document.body.textContent || "";
+          }
+          // Second fallback: extract from visible elements
+          if (!text || text.trim() === "") {
+            const elements = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6, p, span, li, td, th, a, label, div"));
+            const texts: string[] = [];
+            for (const el of elements) {
+              const t = (el as HTMLElement).innerText?.trim();
+              if (t && t.length > 0 && !texts.includes(t)) {
+                texts.push(t);
+              }
+            }
+            text = texts.join("\n");
+          }
+          return text;
+        });
     }
 
     return {

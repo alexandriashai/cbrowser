@@ -1,107 +1,190 @@
-# AI Vision Selectors
+# AI Vision Element Detection
 
-CBrowser uses AI to find elements on pages using natural language descriptions instead of brittle CSS selectors.
+## How It Works
+
+CBrowser uses AI to understand page structure and find elements using natural language descriptions instead of brittle CSS selectors.
+
+---
 
 ## Selector Modes
 
-| Mode | Syntax | Example |
-|------|--------|---------|
-| Natural Language | `"description"` | `click "the main navigation menu"` |
-| Visual | `visual:description` | `click "visual:red button in header"` |
-| Accessibility | `aria:role/name` | `click "aria:button/Submit"` |
-| Semantic | `semantic:type` | `fill "semantic:email" "user@example.com"` |
-| Fallback CSS | `css:selector` | `click "css:#login-btn"` |
+### 1. Natural Language (Default)
+
+Describe what you want to interact with in plain English:
+
+```bash
+bun run Tools/CBrowser.ts click "the blue login button"
+bun run Tools/CBrowser.ts fill "email input field" "user@example.com"
+bun run Tools/CBrowser.ts click "the third product card"
+```
+
+**How it works:**
+1. Takes screenshot of current page
+2. Uses Claude's vision to identify the described element
+3. Returns element reference for interaction
+4. Falls back to accessibility tree if vision fails
+
+### 2. Visual Mode (`visual:`)
+
+Explicitly use visual recognition:
+
+```bash
+bun run Tools/CBrowser.ts click "visual:red button in the header"
+bun run Tools/CBrowser.ts click "visual:shopping cart icon"
+```
+
+**Best for:**
+- Elements with distinctive visual appearance
+- Icons without text labels
+- Buttons with specific colors
+- Elements in specific screen regions
+
+### 3. Accessibility Mode (`aria:`)
+
+Use ARIA roles and labels:
+
+```bash
+bun run Tools/CBrowser.ts click "aria:button/Submit"
+bun run Tools/CBrowser.ts fill "aria:textbox/Email" "user@example.com"
+```
+
+**Syntax:** `aria:role/name`
+
+**Common roles:**
+- `button`, `link`, `textbox`, `checkbox`
+- `combobox`, `listbox`, `menu`, `menuitem`
+- `tab`, `tabpanel`, `dialog`, `alert`
+
+### 4. Semantic Mode (`semantic:`)
+
+Find elements by their semantic purpose:
+
+```bash
+bun run Tools/CBrowser.ts fill "semantic:email" "user@example.com"
+bun run Tools/CBrowser.ts fill "semantic:password" "secret123"
+bun run Tools/CBrowser.ts click "semantic:submit"
+```
+
+**Semantic types:**
+- `email`, `password`, `username`, `phone`
+- `search`, `submit`, `cancel`, `close`
+- `navigation`, `main`, `footer`, `header`
+
+### 5. Fallback CSS (`css:`)
+
+When you know the exact selector:
+
+```bash
+bun run Tools/CBrowser.ts click "css:#login-btn"
+bun run Tools/CBrowser.ts fill "css:input[name='email']" "user@example.com"
+```
+
+**Use only when:**
+- You control the page and selectors are stable
+- AI methods fail for edge cases
+- Performance is critical (no AI overhead)
 
 ---
 
-## Natural Language Selectors
+## Resolution Strategy
 
-The default mode. Describe what you want to interact with:
+CBrowser attempts selectors in this order:
 
-```bash
-# Buttons
-click "the login button"
-click "submit button at the bottom"
-click "blue primary action button"
-
-# Forms
-fill "email input" "user@example.com"
-fill "the password field" "secret123"
-fill "search box in the header" "query"
-
-# Links
-click "the about us link"
-click "learn more link in the footer"
-
-# Complex descriptions
-click "the third product in the list"
-click "the checkbox next to 'I agree to terms'"
+```
+1. Natural Language / Visual AI
+   ↓ (fails)
+2. Accessibility Tree (ARIA)
+   ↓ (fails)
+3. Semantic Detection
+   ↓ (fails)
+4. CSS Fallback (if provided)
+   ↓ (fails)
+5. Screenshot + Ask User
 ```
 
----
-
-## Visual Selectors
-
-Use visual descriptions when elements lack good text or accessibility labels:
-
-```bash
-click "visual:red button in the top right corner"
-click "visual:shopping cart icon"
-click "visual:hamburger menu icon"
-click "visual:profile avatar image"
-```
-
----
-
-## Accessibility Selectors
-
-Use ARIA roles and names for reliable selection:
-
-```bash
-click "aria:button/Submit"
-click "aria:link/Home"
-click "aria:textbox/Email"
-click "aria:checkbox/Remember me"
-```
-
----
-
-## Semantic Selectors
-
-Use semantic types for common form elements:
-
-```bash
-fill "semantic:email" "user@example.com"
-fill "semantic:password" "secret123"
-fill "semantic:search" "query"
-fill "semantic:phone" "555-1234"
-```
+Each successful resolution is cached for future use on the same site.
 
 ---
 
 ## Self-Healing Selectors
 
-When a selector fails, CBrowser:
+When a previously working selector fails:
 
-1. **Checks the cache** for known working alternatives
-2. **Generates alternatives** (text variants, ARIA roles, attributes)
-3. **Tries each alternative** with configurable retries
-4. **Caches the working selector** for future use
+1. **Detection:** Element not found at expected location
+2. **Screenshot:** Capture current page state
+3. **Analysis:** Compare to last known good state
+4. **Resolution:** Use AI to find element's new location
+5. **Update:** Cache new selector mapping
+6. **Retry:** Execute action with updated selector
+7. **Report:** If still fails, show visual diff to user
 
-```bash
-# View cache statistics
-npx cbrowser heal-stats
+---
 
-# Clear the cache
-npx cbrowser heal-clear
+## Confidence Scores
+
+Every AI selection includes a confidence score:
+
+```json
+{
+  "selector": "visual:blue login button",
+  "resolved": "button.btn-primary[type='submit']",
+  "confidence": 0.95,
+  "alternatives": [
+    {"selector": "button.btn-secondary", "confidence": 0.72}
+  ]
+}
 ```
+
+**Thresholds:**
+- `> 0.90`: Auto-execute
+- `0.70 - 0.90`: Execute with warning in log
+- `< 0.70`: Pause and ask user to confirm
+
+---
+
+## Caching
+
+Selector resolutions are cached in:
+```
+~/.claude/skills/CBrowser/.memory/selectors/
+├── example.com.json
+├── github.com.json
+└── ...
+```
+
+Cache format:
+```json
+{
+  "site": "example.com",
+  "mappings": [
+    {
+      "natural": "blue login button",
+      "resolved": "button.btn-primary[type='submit']",
+      "lastUsed": "2026-01-31T22:30:00Z",
+      "successCount": 15,
+      "failCount": 0
+    }
+  ]
+}
+```
+
+**Cache invalidation:**
+- After 3 consecutive failures for a selector
+- When page structure changes significantly
+- Manual: `bun run Tools/CBrowser.ts cache clear`
 
 ---
 
 ## Best Practices
 
-1. **Start with natural language** - it's the most readable
-2. **Use accessibility selectors** for critical paths (more stable)
-3. **Add visual descriptions** for icon-only buttons
-4. **Avoid CSS selectors** unless absolutely necessary
-5. **Let self-healing work** - don't fight selector changes
+### DO:
+- Start with natural language descriptions
+- Be specific: "the blue Submit button" not just "the button"
+- Include location hints: "login button in the header"
+- Use semantic mode for common form fields
+
+### DON'T:
+- Jump straight to CSS selectors
+- Use overly complex descriptions
+- Rely on element order ("the first button")
+- Ignore confidence warnings

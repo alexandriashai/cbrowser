@@ -1029,7 +1029,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
     switch (command) {
       case "navigate":
-        daemonArgs = { url: args[0] };
+        daemonArgs = { url: args[0] || options.url };
         break;
       case "click":
         daemonArgs = { selector: args[0] };
@@ -1100,7 +1100,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   try {
     switch (command) {
       case "navigate": {
-        const url = args[0];
+        const url = args[0] || (typeof options.url === "string" ? options.url : undefined);
         if (!url) {
           console.error("Error: URL required");
           process.exit(1);
