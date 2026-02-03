@@ -11,6 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { CBrowser } from "./browser.js";
+import { ensureDirectories } from "./config.js";
 
 // Visual module imports
 import {
@@ -63,6 +64,9 @@ async function getBrowser(): Promise<CBrowser> {
 }
 
 export async function startMcpServer(): Promise<void> {
+  // Auto-initialize all data directories on server start
+  ensureDirectories();
+
   const server = new McpServer({
     name: "cbrowser",
     version: "7.4.2",

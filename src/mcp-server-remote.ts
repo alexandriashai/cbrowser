@@ -30,6 +30,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { CBrowser } from "./browser.js";
+import { ensureDirectories } from "./config.js";
 
 // Visual module imports
 import {
@@ -1192,6 +1193,9 @@ async function handleMcpRequest(
  * Start the remote HTTP MCP server
  */
 export async function startRemoteMcpServer(): Promise<void> {
+  // Auto-initialize all data directories on server start
+  ensureDirectories();
+
   const port = parseInt(process.env.PORT || "3000", 10);
   const host = process.env.HOST || "0.0.0.0";
   const sessionMode = process.env.MCP_SESSION_MODE || "stateless";

@@ -138,6 +138,11 @@ export interface CBrowserPaths {
   scenariosDir: string;
   helpersDir: string;
   auditDir: string;
+  baselinesDir: string;
+  recordingsDir: string;
+  visualBaselinesDir: string;
+  visualScreenshotsDir: string;
+  browserStateDir: string;
   credentialsFile: string;
 }
 
@@ -157,6 +162,11 @@ export function getPaths(dataDir?: string): CBrowserPaths {
     scenariosDir: join(base, "scenarios"),
     helpersDir: join(base, "helpers"),
     auditDir: join(base, "audit"),
+    baselinesDir: join(base, "baselines"),
+    recordingsDir: join(base, "recordings"),
+    visualBaselinesDir: join(base, "visual-baselines"),
+    visualScreenshotsDir: join(base, "visual-baselines", "screenshots"),
+    browserStateDir: join(base, "browser-state"),
     credentialsFile: join(base, "credentials.json"),
   };
 }
@@ -171,10 +181,17 @@ export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
     p.dataDir,
     p.sessionsDir,
     p.screenshotsDir,
+    p.videosDir,
+    p.harDir,
     p.personasDir,
     p.scenariosDir,
     p.helpersDir,
     p.auditDir,
+    p.baselinesDir,
+    p.recordingsDir,
+    p.visualBaselinesDir,
+    p.visualScreenshotsDir,
+    p.browserStateDir,
   ];
 
   for (const dir of dirs) {

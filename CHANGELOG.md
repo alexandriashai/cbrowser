@@ -5,6 +5,17 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.11] - 2026-02-03
+
+### Fixed
+- **Auto-initialize data directories on first run** - All required data directories are now created automatically when CBrowser is instantiated or MCP server starts, eliminating ENOENT errors for first-time users (#2)
+
+### Added
+- `ensureDirectories()` now creates 14 directories: base, sessions, screenshots, videos, har, personas, scenarios, helpers, audit, baselines, recordings, visual-baselines, visual-baselines/screenshots, browser-state
+- `CBrowserPaths` interface expanded with `baselinesDir`, `recordingsDir`, `visualBaselinesDir`, `visualScreenshotsDir`, `browserStateDir`
+- MCP server (`mcp-server.ts`) and remote MCP server (`mcp-server-remote.ts`) call `ensureDirectories()` on startup
+- Skill CLI initializes `har`, `baselines`, `recordings`, `browser-state` directories at module load
+
 ## [7.4.10] - 2026-02-03
 
 ### Fixed

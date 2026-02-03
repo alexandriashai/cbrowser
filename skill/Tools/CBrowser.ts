@@ -44,10 +44,14 @@ const SCENARIOS_DIR = join(MEMORY_DIR, "scenarios");
 const AUDIT_DIR = join(MEMORY_DIR, "audit");
 const SCREENSHOTS_DIR = join(MEMORY_DIR, "screenshots");
 const HELPERS_DIR = join(MEMORY_DIR, "helpers");
+const HAR_DIR = join(MEMORY_DIR, "har");
+const BASELINES_DIR_INIT = join(MEMORY_DIR, "baselines");
+const RECORDINGS_DIR_INIT = join(MEMORY_DIR, "recordings");
+const BROWSER_STATE_DIR_INIT = join(MEMORY_DIR, "browser-state");
 const CREDENTIALS_FILE = join(MEMORY_DIR, "credentials.json");
 
-// Ensure directories exist
-[MEMORY_DIR, SESSIONS_DIR, PERSONAS_DIR, SCENARIOS_DIR, AUDIT_DIR, SCREENSHOTS_DIR, HELPERS_DIR].forEach(
+// Ensure all data directories exist on first run
+[MEMORY_DIR, SESSIONS_DIR, PERSONAS_DIR, SCENARIOS_DIR, AUDIT_DIR, SCREENSHOTS_DIR, HELPERS_DIR, HAR_DIR, BASELINES_DIR_INIT, RECORDINGS_DIR_INIT, BROWSER_STATE_DIR_INIT].forEach(
   (dir) => {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
