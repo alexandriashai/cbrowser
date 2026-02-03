@@ -32,6 +32,7 @@ import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
+import { getStatusInfo, formatStatus } from "./config.js";
 
 function showHelp(): void {
   console.log(`
@@ -460,6 +461,10 @@ DAEMON MODE (v6.4.0)
     Note: When daemon is running, all commands automatically connect to it
           instead of launching a new browser - much faster for iteration!
 
+DIAGNOSTICS
+  status                      Show environment status and diagnostics
+                              Displays data directories, browsers, config, heal cache
+
 STORAGE & CLEANUP
   storage                     Show storage usage statistics
   cleanup                     Clean up old files
@@ -881,6 +886,23 @@ async function main(): Promise<void> {
     if (options.stateful) process.env.MCP_SESSION_MODE = "stateful";
     await startRemoteMcpServer();
     return;
+  }
+
+  // Status command - runs before browser instantiation
+  if (command === "status") {
+    const fs = await import("fs");
+    const path = await import("path");
+    let version = "7.4.12";
+    // Try to read version from package.json at runtime
+    try {
+      const pkgPath = path.resolve(__dirname, "..", "package.json");
+      if (fs.existsSync(pkgPath)) {
+        version = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version;
+      }
+    } catch {}
+    const info = await getStatusInfo(version);
+    console.log(formatStatus(info));
+    process.exit(0);
   }
 
   // Install PAI skill

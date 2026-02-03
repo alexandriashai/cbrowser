@@ -8398,6 +8398,56 @@ async function main(): Promise<void> {
         break;
       }
 
+      case "status": {
+        const dirs = [
+          ["screenshots", SCREENSHOTS_DIR],
+          ["sessions", SESSIONS_DIR],
+          ["baselines", BASELINES_DIR_INIT],
+          ["recordings", RECORDINGS_DIR_INIT],
+          ["har", HAR_DIR],
+          ["personas", PERSONAS_DIR],
+          ["browser-state", BROWSER_STATE_DIR_INIT],
+          ["audit", AUDIT_DIR],
+          ["scenarios", SCENARIOS_DIR],
+          ["helpers", HELPERS_DIR],
+        ] as const;
+
+        console.log("╔══════════════════════════════════════════════════════════════╗");
+        console.log("║               CBrowser Skill Status                          ║");
+        console.log("╚══════════════════════════════════════════════════════════════╝");
+        console.log("");
+        console.log(`📁 Data Directory: ${MEMORY_DIR}`);
+        for (let i = 0; i < dirs.length; i++) {
+          const [name, dirPath] = dirs[i];
+          const prefix = i === dirs.length - 1 ? "└──" : "├──";
+          let fileCount = 0;
+          if (existsSync(dirPath)) {
+            try { fileCount = readdirSync(dirPath).filter((f: string) => !f.startsWith(".")).length; } catch {}
+          }
+          const status = existsSync(dirPath) ? `✓ exists (${fileCount} files)` : "✗ missing";
+          console.log(`   ${prefix} ${name.padEnd(20)} ${status}`);
+        }
+        console.log("");
+
+        // Config
+        console.log("🔧 Configuration:");
+        console.log(`   ├── Headless:    true`);
+        console.log(`   ├── Persistent:  true`);
+        console.log(`   └── State dir:   ${BROWSER_STATE_DIR_INIT}`);
+        console.log("");
+
+        // Self-healing cache
+        const cacheStats = getSelectorCacheStats();
+        console.log("📊 Self-Healing Cache:");
+        console.log(`   ├── Total entries:    ${cacheStats.totalEntries}`);
+        console.log(`   ├── Total successes:  ${cacheStats.totalSuccesses}`);
+        console.log(`   └── Total failures:   ${cacheStats.totalFailures}`);
+        console.log("");
+
+        console.log("✅ Status complete");
+        break;
+      }
+
       case "heal-stats": {
         const stats = getSelectorCacheStats();
         console.log(`\n📊 Self-Healing Selector Cache Stats:`);

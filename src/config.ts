@@ -5,7 +5,7 @@
  * Default: ~/.cbrowser/
  */
 
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile } from "./types.js";
@@ -209,4 +209,255 @@ export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
 export function mergeConfig(userConfig: Partial<CBrowserConfig>): CBrowserConfig {
   const defaults = getDefaultConfig();
   return { ...defaults, ...userConfig };
+}
+
+/**
+ * Status info for diagnostics.
+ */
+export interface DirStatus {
+  name: string;
+  path: string;
+  exists: boolean;
+  fileCount: number;
+}
+
+export interface BrowserStatus {
+  name: string;
+  installed: boolean;
+  version: string;
+}
+
+export interface StatusInfo {
+  version: string;
+  dataDir: string;
+  directories: DirStatus[];
+  browsers: BrowserStatus[];
+  config: {
+    headless: boolean;
+    browser: string;
+    timeout: number;
+    viewportWidth: number;
+    viewportHeight: number;
+    configFile: string | null;
+  };
+  healCache: {
+    totalEntries: number;
+    totalHeals: number;
+    topDomain: string | null;
+  };
+  sessions: number;
+  baselines: number;
+  visualBaselines: number;
+  recordings: number;
+  suggestions: string[];
+}
+
+function countFiles(dir: string, ext?: string): number {
+  if (!existsSync(dir)) return 0;
+  try {
+    const files = readdirSync(dir);
+    if (ext) return files.filter(f => f.endsWith(ext)).length;
+    return files.filter(f => !f.startsWith(".")).length;
+  } catch {
+    return 0;
+  }
+}
+
+function findConfigFile(): string | null {
+  const searchPaths = [
+    join(process.cwd(), ".cbrowserrc.json"),
+    join(process.cwd(), ".cbrowserrc"),
+    join(process.cwd(), "cbrowser.config.json"),
+    join(getDataDir(), "config.json"),
+    join(homedir(), ".cbrowserrc.json"),
+  ];
+  for (const p of searchPaths) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+/**
+ * Check which Playwright browsers are installed.
+ */
+export async function checkBrowsers(): Promise<BrowserStatus[]> {
+  const results: BrowserStatus[] = [];
+  const { chromium, firefox, webkit } = await import("playwright");
+
+  for (const [name, browserType] of [["chromium", chromium], ["firefox", firefox], ["webkit", webkit]] as const) {
+    try {
+      const b = await (browserType as any).launch({ headless: true });
+      const version = b.version();
+      await b.close();
+      results.push({ name, installed: true, version });
+    } catch {
+      results.push({ name, installed: false, version: "" });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Gather environment status info for diagnostics.
+ */
+export async function getStatusInfo(version: string): Promise<StatusInfo> {
+  const paths = getPaths();
+  const config = getDefaultConfig();
+
+  // Directory status
+  const dirEntries: Array<[string, string, string?]> = [
+    ["screenshots", paths.screenshotsDir, ".png"],
+    ["sessions", paths.sessionsDir, ".json"],
+    ["baselines", paths.baselinesDir, ".json"],
+    ["visual-baselines", paths.visualBaselinesDir],
+    ["recordings", paths.recordingsDir, ".json"],
+    ["har", paths.harDir, ".har"],
+    ["personas", paths.personasDir],
+    ["browser-state", paths.browserStateDir],
+    ["videos", paths.videosDir],
+    ["audit", paths.auditDir],
+  ];
+
+  const directories: DirStatus[] = dirEntries.map(([name, dirPath, ext]) => ({
+    name,
+    path: dirPath,
+    exists: existsSync(dirPath),
+    fileCount: countFiles(dirPath, ext),
+  }));
+
+  // Self-healing cache
+  const cachePath = join(paths.dataDir, "selector-cache.json");
+  let healCache = { totalEntries: 0, totalHeals: 0, topDomain: null as string | null };
+  if (existsSync(cachePath)) {
+    try {
+      const data = JSON.parse(readFileSync(cachePath, "utf-8"));
+      const entries = Object.values(data.entries || {}) as Array<{ domain: string; successCount: number }>;
+      const byDomain: Record<string, number> = {};
+      let totalHeals = 0;
+      for (const e of entries) {
+        byDomain[e.domain] = (byDomain[e.domain] || 0) + 1;
+        totalHeals += e.successCount || 0;
+      }
+      const topDomain = Object.entries(byDomain).sort((a, b) => b[1] - a[1])[0];
+      healCache = {
+        totalEntries: entries.length,
+        totalHeals,
+        topDomain: topDomain ? `${topDomain[0]} (${topDomain[1]} entries)` : null,
+      };
+    } catch { /* corrupted cache */ }
+  }
+
+  // Browser detection
+  const browsers = await checkBrowsers();
+
+  // Suggestions
+  const suggestions: string[] = [];
+  const missingBrowsers = browsers.filter(b => !b.installed).map(b => b.name);
+  if (missingBrowsers.length > 0) {
+    suggestions.push(`Install missing browsers: npx playwright install ${missingBrowsers.join(" ")}`);
+  }
+  if (!findConfigFile()) {
+    suggestions.push("Create a config file: .cbrowserrc.json for project-level settings");
+  }
+  const sessions = countFiles(paths.sessionsDir, ".json");
+  const baselines = countFiles(paths.baselinesDir, ".json");
+  const visualBaselines = countFiles(paths.visualBaselinesDir);
+  const recordings = countFiles(paths.recordingsDir, ".json");
+
+  return {
+    version,
+    dataDir: paths.dataDir,
+    directories,
+    browsers,
+    config: {
+      headless: config.headless,
+      browser: config.browser,
+      timeout: config.timeout,
+      viewportWidth: config.viewportWidth,
+      viewportHeight: config.viewportHeight,
+      configFile: findConfigFile(),
+    },
+    healCache,
+    sessions,
+    baselines,
+    visualBaselines,
+    recordings,
+    suggestions,
+  };
+}
+
+/**
+ * Format status info as a human-readable string.
+ */
+export function formatStatus(info: StatusInfo): string {
+  const lines: string[] = [];
+
+  lines.push("╔══════════════════════════════════════════════════════════════╗");
+  lines.push(`║               CBrowser v${info.version} Status${" ".repeat(Math.max(0, 26 - info.version.length))}║`);
+  lines.push("╚══════════════════════════════════════════════════════════════╝");
+  lines.push("");
+
+  // Data directory
+  lines.push(`📁 Data Directory: ${info.dataDir}`);
+  for (let i = 0; i < info.directories.length; i++) {
+    const d = info.directories[i];
+    const prefix = i === info.directories.length - 1 ? "└──" : "├──";
+    const status = d.exists ? `✓ exists (${d.fileCount} files)` : "✗ missing";
+    lines.push(`   ${prefix} ${d.name.padEnd(20)} ${status}`);
+  }
+  lines.push("");
+
+  // Browsers
+  lines.push("🌐 Browsers:");
+  for (let i = 0; i < info.browsers.length; i++) {
+    const b = info.browsers[i];
+    const prefix = i === info.browsers.length - 1 ? "└──" : "├──";
+    const status = b.installed ? `✓ installed (v${b.version})` : "✗ not installed";
+    lines.push(`   ${prefix} ${b.name.padEnd(12)} ${status}`);
+  }
+  lines.push("");
+
+  // Configuration
+  lines.push("🔧 Configuration:");
+  lines.push(`   ├── Browser:     ${info.config.browser}`);
+  lines.push(`   ├── Headless:    ${info.config.headless}`);
+  lines.push(`   ├── Timeout:     ${info.config.timeout}ms`);
+  lines.push(`   ├── Viewport:    ${info.config.viewportWidth}x${info.config.viewportHeight}`);
+  lines.push(`   └── Config file: ${info.config.configFile || "none found"}`);
+  lines.push("");
+
+  // Self-healing cache
+  lines.push("📊 Self-Healing Cache:");
+  lines.push(`   ├── Total entries: ${info.healCache.totalEntries}`);
+  lines.push(`   ├── Total heals:   ${info.healCache.totalHeals}`);
+  lines.push(`   └── Top domain:    ${info.healCache.topDomain || "none"}`);
+  lines.push("");
+
+  // Summary counts
+  lines.push("📋 Data:");
+  lines.push(`   ├── Sessions:         ${info.sessions}`);
+  lines.push(`   ├── Baselines:        ${info.baselines}`);
+  lines.push(`   ├── Visual baselines: ${info.visualBaselines}`);
+  lines.push(`   └── Recordings:       ${info.recordings}`);
+  lines.push("");
+
+  // MCP
+  lines.push("🔌 MCP Server:");
+  lines.push("   └── Ready to start: npx cbrowser mcp-server");
+  lines.push("");
+
+  // Suggestions
+  if (info.suggestions.length > 0) {
+    lines.push("💡 Suggestions:");
+    for (const s of info.suggestions) {
+      lines.push(`   • ${s}`);
+    }
+    lines.push("");
+  }
+
+  const allGood = info.browsers.some(b => b.installed) && info.directories.every(d => d.exists);
+  lines.push(allGood ? "✅ All systems operational" : "⚠️  Some issues detected — see suggestions above");
+
+  return lines.join("\n");
 }

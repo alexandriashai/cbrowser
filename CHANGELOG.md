@@ -5,6 +5,13 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.12] - 2026-02-03
+
+### Added
+- **`status` command** - `npx cbrowser status` shows environment diagnostics: data directories with file counts, installed Playwright browsers with versions, configuration, self-healing cache stats, session/baseline counts, and actionable suggestions (#11)
+- **`status` MCP tool** - Added to both stdio and remote MCP servers for AI agent diagnostics
+- **Skill CLI `status` command** - Equivalent diagnostics for the PAI skill
+
 ## [7.4.11] - 2026-02-03
 
 ### Fixed

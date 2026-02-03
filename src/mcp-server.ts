@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { CBrowser } from "./browser.js";
-import { ensureDirectories } from "./config.js";
+import { ensureDirectories, getStatusInfo, formatStatus } from "./config.js";
 
 // Visual module imports
 import {
@@ -899,6 +899,27 @@ export async function startMcpServer(): Promise<void> {
               visual: visualBaselines,
               performance: perfBaselines,
             }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Diagnostics Tools
+  // =========================================================================
+
+  server.tool(
+    "status",
+    "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, and self-healing cache statistics",
+    {},
+    async () => {
+      const info = await getStatusInfo("7.4.12");
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(info, null, 2),
           },
         ],
       };
