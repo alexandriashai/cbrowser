@@ -21,6 +21,38 @@ import type {
 import { analyzeVisualDifferences } from "./regression.js";
 
 /**
+ * Check which browsers are actually available for launching.
+ * Returns a map of browser name -> available boolean.
+ */
+async function checkBrowserAvailability(
+  browsers: SupportedBrowser[]
+): Promise<{ available: SupportedBrowser[]; missing: SupportedBrowser[] }> {
+  const { chromium, firefox, webkit } = await import("playwright");
+  const launchers = { chromium, firefox, webkit } as const;
+  const available: SupportedBrowser[] = [];
+  const missing: SupportedBrowser[] = [];
+
+  for (const name of browsers) {
+    try {
+      const b = await (launchers[name] as any).launch({ headless: true, timeout: 5000 });
+      await b.close();
+      available.push(name);
+    } catch {
+      missing.push(name);
+    }
+  }
+
+  return { available, missing };
+}
+
+/**
+ * Get the installation command for missing browsers.
+ */
+function getInstallCommand(missing: SupportedBrowser[]): string {
+  return `npx playwright install ${missing.join(" ")}`;
+}
+
+/**
  * Get the path for cross-browser screenshots
  */
 function getCrossBrowserScreenshotsPath(): string {
@@ -95,13 +127,39 @@ export async function runCrossBrowserTest(
   options: CrossBrowserOptions = {}
 ): Promise<CrossBrowserResult> {
   const startTime = Date.now();
-  const browsers: SupportedBrowser[] = options.browsers || ["chromium", "firefox", "webkit"];
+  const requestedBrowsers: SupportedBrowser[] = options.browsers || ["chromium", "firefox", "webkit"];
 
   console.log(`\n🌐 Cross-Browser Visual Test`);
   console.log(`   URL: ${url}`);
-  console.log(`   Browsers: ${browsers.join(", ")}\n`);
+  console.log(`   Browsers: ${requestedBrowsers.join(", ")}\n`);
 
-  // Capture screenshots from each browser
+  // Check browser availability upfront
+  const { available, missing } = await checkBrowserAvailability(requestedBrowsers);
+
+  if (missing.length > 0) {
+    console.log(`   ⚠️  Missing browsers: ${missing.join(", ")}`);
+    console.log(`   💡 Install with: ${getInstallCommand(missing)}\n`);
+  }
+
+  if (available.length === 0) {
+    return {
+      url,
+      screenshots: [],
+      comparisons: [],
+      overallStatus: "major_differences",
+      summary: `None of the requested browsers are installed: ${missing.join(", ")}`,
+      problematicBrowsers: [],
+      duration: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+      missingBrowsers: missing,
+      availableBrowsers: available,
+      suggestion: getInstallCommand(missing),
+    };
+  }
+
+  const browsers = available;
+
+  // Capture screenshots from each available browser
   const screenshots: BrowserScreenshot[] = [];
 
   for (const browserType of browsers) {
@@ -121,10 +179,15 @@ export async function runCrossBrowserTest(
       screenshots,
       comparisons: [],
       overallStatus: "major_differences",
-      summary: "Could not capture enough screenshots for comparison",
+      summary: screenshots.length === 0
+        ? "Could not capture any screenshots"
+        : `Only captured ${screenshots.length} screenshot — need at least 2 for comparison`,
       problematicBrowsers: [],
       duration: Date.now() - startTime,
       timestamp: new Date().toISOString(),
+      missingBrowsers: missing,
+      availableBrowsers: available,
+      suggestion: missing.length > 0 ? getInstallCommand(missing) : undefined,
     };
   }
 
@@ -191,10 +254,15 @@ export async function runCrossBrowserTest(
     screenshots,
     comparisons,
     overallStatus,
-    summary,
+    summary: missing.length > 0
+      ? `${summary}. Note: ${missing.join(", ")} not installed.`
+      : summary,
     problematicBrowsers: Array.from(problematicBrowsers),
     duration: Date.now() - startTime,
     timestamp: new Date().toISOString(),
+    missingBrowsers: missing,
+    availableBrowsers: available,
+    suggestion: missing.length > 0 ? getInstallCommand(missing) : undefined,
   };
 }
 
@@ -307,9 +375,22 @@ export function formatCrossBrowserReport(result: CrossBrowserResult): string {
     lines.push("");
   }
 
+  if (result.missingBrowsers && result.missingBrowsers.length > 0) {
+    lines.push("───────────────────────────────────────────────────────────────────────────────");
+    lines.push("⚠️  MISSING BROWSERS");
+    lines.push("───────────────────────────────────────────────────────────────────────────────");
+    for (const browser of result.missingBrowsers) {
+      lines.push(`   ✗ ${browser} — not installed`);
+    }
+    if (result.suggestion) {
+      lines.push(`\n   💡 Install: ${result.suggestion}`);
+    }
+    lines.push("");
+  }
+
   if (result.problematicBrowsers.length > 0) {
     lines.push("───────────────────────────────────────────────────────────────────────────────");
-    lines.push("⚠️  BROWSERS WITH ISSUES");
+    lines.push("⚠️  BROWSERS WITH RENDERING ISSUES");
     lines.push("───────────────────────────────────────────────────────────────────────────────");
     for (const browser of result.problematicBrowsers) {
       lines.push(`   • ${browser}`);
@@ -464,6 +545,9 @@ export interface BrowserDiffResult {
   }>;
   screenshots: Record<string, string>;
   metrics: Record<string, { loadTime: number; resourceCount: number }>;
+  missingBrowsers?: string[];
+  availableBrowsers?: string[];
+  suggestion?: string;
 }
 
 /**
@@ -473,6 +557,32 @@ export async function crossBrowserDiff(
   url: string,
   browsers: Array<"chromium" | "firefox" | "webkit"> = ["chromium", "firefox", "webkit"]
 ): Promise<BrowserDiffResult> {
+  // Check browser availability upfront
+  const { available, missing } = await checkBrowserAvailability(browsers);
+
+  if (available.length === 0) {
+    return {
+      url,
+      browsers,
+      differences: [{
+        type: "error",
+        description: `None of the requested browsers are installed: ${missing.join(", ")}`,
+        browsers: missing,
+      }],
+      screenshots: {},
+      metrics: {},
+      missingBrowsers: missing,
+      availableBrowsers: [],
+      suggestion: getInstallCommand(missing),
+    };
+  }
+
+  if (missing.length > 0) {
+    console.log(`   ⚠️  Missing browsers: ${missing.join(", ")}`);
+    console.log(`   💡 Install with: ${getInstallCommand(missing)}`);
+    console.log(`   Proceeding with: ${available.join(", ")}\n`);
+  }
+
   const { chromium, firefox, webkit } = await import("playwright");
   const screenshots: Record<string, string> = {};
   const metrics: Record<string, { loadTime: number; resourceCount: number }> = {};
@@ -481,52 +591,71 @@ export async function crossBrowserDiff(
 
   const browserLaunchers = { chromium, firefox, webkit };
 
-  for (const browserName of browsers) {
+  for (const browserName of available) {
     const launcher = browserLaunchers[browserName];
-    const browser = await launcher.launch({ headless: true });
-    const page = await browser.newPage();
+    try {
+      const browser = await launcher.launch({ headless: true });
+      const page = await browser.newPage();
 
-    const startTime = Date.now();
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-    const loadTime = Date.now() - startTime;
+      const startTime = Date.now();
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      const loadTime = Date.now() - startTime;
 
-    // Capture metrics
-    const resourceCount = await page.evaluate(() => performance.getEntriesByType("resource").length);
-    metrics[browserName] = { loadTime, resourceCount };
+      // Capture metrics
+      const resourceCount = await page.evaluate(() => performance.getEntriesByType("resource").length);
+      metrics[browserName] = { loadTime, resourceCount };
 
-    // Capture screenshot
-    const screenshotPath = `/tmp/cross-browser-${browserName}-${Date.now()}.png`;
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    screenshots[browserName] = screenshotPath;
+      // Capture screenshot
+      const screenshotPath = `/tmp/cross-browser-${browserName}-${Date.now()}.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      screenshots[browserName] = screenshotPath;
 
-    // Capture content hash
-    contents[browserName] = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+      // Capture content hash
+      contents[browserName] = await page.evaluate(() => document.body.innerText.slice(0, 1000));
 
-    await browser.close();
+      await browser.close();
+    } catch (error) {
+      differences.push({
+        type: "error",
+        description: `${browserName}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        browsers: [browserName],
+      });
+    }
   }
 
-  // Compare timing
-  const loadTimes = Object.entries(metrics).map(([b, m]) => ({ browser: b, time: m.loadTime }));
-  const avgTime = loadTimes.reduce((sum, t) => sum + t.time, 0) / loadTimes.length;
-  const slowBrowsers = loadTimes.filter(t => t.time > avgTime * 1.5);
-  if (slowBrowsers.length > 0) {
-    differences.push({
-      type: "timing",
-      description: `Significantly slower in: ${slowBrowsers.map(b => `${b.browser} (${b.time}ms)`).join(", ")}`,
-      browsers: slowBrowsers.map(b => b.browser),
-    });
+  // Compare timing (only if we have multiple results)
+  if (Object.keys(metrics).length >= 2) {
+    const loadTimes = Object.entries(metrics).map(([b, m]) => ({ browser: b, time: m.loadTime }));
+    const avgTime = loadTimes.reduce((sum, t) => sum + t.time, 0) / loadTimes.length;
+    const slowBrowsers = loadTimes.filter(t => t.time > avgTime * 1.5);
+    if (slowBrowsers.length > 0) {
+      differences.push({
+        type: "timing",
+        description: `Significantly slower in: ${slowBrowsers.map(b => `${b.browser} (${b.time}ms)`).join(", ")}`,
+        browsers: slowBrowsers.map(b => b.browser),
+      });
+    }
+
+    // Compare content
+    const contentValues = Object.values(contents);
+    const contentMismatch = contentValues.some(c => c !== contentValues[0]);
+    if (contentMismatch) {
+      differences.push({
+        type: "content",
+        description: "Page content differs between browsers",
+        browsers: available,
+      });
+    }
   }
 
-  // Compare content
-  const contentValues = Object.values(contents);
-  const contentMismatch = contentValues.some(c => c !== contentValues[0]);
-  if (contentMismatch) {
-    differences.push({
-      type: "content",
-      description: "Page content differs between browsers",
-      browsers,
-    });
-  }
-
-  return { url, browsers, differences, screenshots, metrics };
+  return {
+    url,
+    browsers: available,
+    differences,
+    screenshots,
+    metrics,
+    missingBrowsers: missing.length > 0 ? missing : undefined,
+    availableBrowsers: available,
+    suggestion: missing.length > 0 ? getInstallCommand(missing) : undefined,
+  };
 }

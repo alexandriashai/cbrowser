@@ -5,6 +5,17 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.13] - 2026-02-03
+
+### Fixed
+- **Graceful browser fallback** - `cross_browser_test` and `cross_browser_diff` now check browser availability before launching, skip missing browsers, return partial results with available browsers, and include actionable installation commands (#4)
+- **`crossBrowserDiff` error handling** - Previously crashed with generic error when a browser wasn't installed; now wraps each browser in try-catch and returns structured error info
+
+### Added
+- `CrossBrowserResult` and `BrowserDiffResult` types include `missingBrowsers`, `availableBrowsers`, and `suggestion` fields
+- MCP tools surface browser availability info in JSON responses
+- CLI cross-browser report includes "MISSING BROWSERS" section with install command
+
 ## [7.4.12] - 2026-02-03
 
 ### Added

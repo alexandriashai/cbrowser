@@ -1414,6 +1414,12 @@ export interface CrossBrowserResult {
   duration: number;
   /** Timestamp */
   timestamp: string;
+  /** Browsers that were not installed */
+  missingBrowsers?: SupportedBrowser[];
+  /** Browsers that were available and used */
+  availableBrowsers?: SupportedBrowser[];
+  /** Installation suggestion for missing browsers */
+  suggestion?: string;
 }
 
 export interface CrossBrowserOptions {
