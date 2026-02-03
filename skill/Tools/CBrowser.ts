@@ -4640,9 +4640,9 @@ async function setCookie(name: string, value: string, domain: string, path: stri
     value,
     domain,
     path,
-    expires: -1,
+    expires: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
     httpOnly: false,
-    secure: false,
+    secure: domain.includes(".") ? true : false,
     sameSite: "Lax" as const,
   }]);
   console.log(`✓ Cookie set: ${name}=${value}`);
