@@ -203,6 +203,77 @@ npx cbrowser assert "page contains 'Welcome'"
 npx cbrowser generate-tests "https://example.com"
 ```
 
+## v7.x Features
+
+### AI Visual Regression (v7.0)
+
+Semantic screenshot comparison using AI—not just pixel diffs:
+
+```bash
+# Capture a baseline
+npx cbrowser ai-visual capture "https://example.com" --name homepage
+
+# Compare against baseline
+npx cbrowser ai-visual test "https://staging.example.com" homepage --html
+
+# List baselines
+npx cbrowser ai-visual list
+```
+
+The AI understands what changed semantically (button moved, text changed, new section added) rather than flagging every pixel difference.
+
+### Cross-Browser Visual Testing (v7.1)
+
+Compare rendering across Chrome, Firefox, and Safari:
+
+```bash
+npx cbrowser cross-browser "https://example.com" --html
+npx cbrowser cross-browser "https://example.com" --browsers chromium,firefox,webkit
+```
+
+### Responsive Visual Testing (v7.2)
+
+Test across viewport sizes (mobile, tablet, desktop):
+
+```bash
+npx cbrowser responsive "https://example.com" --html
+npx cbrowser responsive "https://example.com" --viewports mobile,tablet,desktop-lg
+npx cbrowser responsive viewports  # list available presets
+```
+
+### A/B Visual Comparison (v7.3)
+
+Compare two different URLs (staging vs production, old vs new design):
+
+```bash
+npx cbrowser ab "https://staging.example.com" "https://example.com" --html
+npx cbrowser ab "https://old.site.com" "https://new.site.com" --label-a "Old" --label-b "New"
+```
+
+### Modular Architecture (v7.4.1)
+
+Tree-shakeable imports for smaller bundles:
+
+```typescript
+// Import everything (unchanged)
+import { CBrowser, runVisualRegression, detectFlakyTests } from 'cbrowser';
+
+// Import only what you need (modular)
+import { runVisualRegression, runCrossBrowserTest } from 'cbrowser/visual';
+import { runNLTestSuite, detectFlakyTests, repairTest } from 'cbrowser/testing';
+import { huntBugs, runChaosTest, findElementByIntent } from 'cbrowser/analysis';
+import { capturePerformanceBaseline, detectPerformanceRegression } from 'cbrowser/performance';
+```
+
+| Module | Purpose |
+|--------|---------|
+| `cbrowser/visual` | Visual testing (regression, cross-browser, responsive, A/B) |
+| `cbrowser/testing` | Test automation (NL suites, repair, flaky detection, coverage) |
+| `cbrowser/analysis` | AI analysis (bug hunting, chaos testing, persona comparison) |
+| `cbrowser/performance` | Performance (baselines, regression detection) |
+
+---
+
 ## v6.0.0 Features
 
 ### Multi-Persona Comparison
@@ -913,6 +984,8 @@ See the [`examples/`](examples/) directory:
 
 - `basic-usage.ts` - Navigation, extraction, sessions
 - `smart-automation.ts` - Smart click, assertions, test generation
+- `visual-testing.ts` - AI visual regression, cross-browser, responsive, A/B comparison
+- `remote-mcp.ts` - Remote MCP server, Auth0 OAuth, demo server setup
 - `journeys/checkout-flow.json` - Persona journey definition
 - `personas/custom-persona.json` - Custom persona template
 
