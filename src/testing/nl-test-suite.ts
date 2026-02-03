@@ -116,25 +116,26 @@ export function parseNLInstruction(instruction: string): NLTestStep {
   }
 
   // Assert/verify patterns
+  // Note: Quotes around values are optional - patterns use ['"]? to match with or without quotes
   const assertPatterns = [
-    // Title assertions
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?(?:page\s+)?title\s+(?:contains?|has)\s+['"](.+?)['"]$/i, type: "title" as const, assertType: "contains" as const },
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?(?:page\s+)?title\s+(?:is|equals?)\s+['"](.+?)['"]$/i, type: "title" as const, assertType: "equals" as const },
+    // Title assertions (quotes optional)
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:the\s+)?(?:page\s+)?title\s+(?:contains?|has|includes?)\s+['"]?(.+?)['"]?$/i, type: "title" as const, assertType: "contains" as const },
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:the\s+)?(?:page\s+)?title\s+(?:is|equals?)\s+['"]?(.+?)['"]?$/i, type: "title" as const, assertType: "equals" as const },
 
-    // URL assertions
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?url\s+(?:contains?|has)\s+['"](.+?)['"]$/i, type: "url" as const, assertType: "contains" as const },
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?url\s+(?:is|equals?)\s+['"](.+?)['"]$/i, type: "url" as const, assertType: "equals" as const },
+    // URL assertions (quotes optional)
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:the\s+)?url\s+(?:contains?|has|includes?)\s+['"]?(.+?)['"]?$/i, type: "url" as const, assertType: "contains" as const },
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:the\s+)?url\s+(?:is|equals?)\s+['"]?(.+?)['"]?$/i, type: "url" as const, assertType: "equals" as const },
 
-    // Content assertions
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?(?:page\s+)?(?:contains?|has|shows?)\s+['"](.+?)['"]$/i, type: "content" as const, assertType: "contains" as const },
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?['"](.+?)['"]\s+(?:is\s+)?(?:visible|displayed|shown)$/i, type: "content" as const, assertType: "contains" as const },
+    // Content assertions (quotes optional)
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:the\s+)?(?:page\s+)?(?:contains?|has|shows?|includes?)\s+['"]?(.+?)['"]?$/i, type: "content" as const, assertType: "contains" as const },
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?['"]?(.+?)['"]?\s+(?:is\s+)?(?:visible|displayed|shown|present)$/i, type: "content" as const, assertType: "contains" as const },
 
-    // Element exists
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?['"](.+?)['"]\s+exists?$/i, type: "element" as const, assertType: "exists" as const },
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?(?:there\s+is\s+)?(?:a|an)\s+['"](.+?)['"]$/i, type: "element" as const, assertType: "exists" as const },
+    // Element exists (quotes optional)
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?['"]?(.+?)['"]?\s+exists?$/i, type: "element" as const, assertType: "exists" as const },
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:there\s+is\s+)?(?:a|an)\s+['"]?(.+?)['"]?$/i, type: "element" as const, assertType: "exists" as const },
 
     // Count assertions
-    { pattern: /^(?:verify|assert|check)\s+(?:that\s+)?(?:there\s+are\s+)?(\d+)\s+(.+?)$/i, type: "count" as const, assertType: "count" as const },
+    { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:there\s+are\s+)?(\d+)\s+(.+?)$/i, type: "count" as const, assertType: "count" as const },
   ];
 
   for (const { pattern, type, assertType } of assertPatterns) {
