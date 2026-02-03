@@ -22,7 +22,7 @@ NC='\033[0m' # No Color
 SKILL_NAME="CBrowser"
 SKILL_DIR="${HOME}/.claude/skills/${SKILL_NAME}"
 REPO_URL="https://raw.githubusercontent.com/alexandriashai/cbrowser/main"
-VERSION="7.4.7"
+VERSION="7.4.8"
 
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
