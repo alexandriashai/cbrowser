@@ -139,6 +139,13 @@ const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
 // Legacy alias for backward compatibility
 const FAST_LAUNCH_ARGS = BROWSER_LAUNCH_ARGS.chromium;
 
+// Session state persistence - saves current URL between CLI invocations
+interface SessionState {
+  url: string;
+  timestamp: number;
+  viewport?: { width: number; height: number };
+}
+
 export class CBrowser {
   private config: CBrowserConfig;
   private paths: CBrowserPaths;
@@ -150,10 +157,70 @@ export class CBrowser {
   private networkResponses: Map<string, NetworkResponse> = new Map();
   private harEntries: HAREntry[] = [];
   private isRecordingHar = false;
+  private skipSessionRestore = false;
 
   constructor(userConfig: Partial<CBrowserConfig> = {}) {
     this.config = mergeConfig(userConfig);
     this.paths = ensureDirectories(getPaths(this.config.dataDir));
+  }
+
+  // =========================================================================
+  // Session State Persistence
+  // =========================================================================
+
+  private get sessionStateFile(): string {
+    return join(this.paths.dataDir, "browser-state", "last-session.json");
+  }
+
+  private saveSessionState(url: string, viewport?: { width: number; height: number }): void {
+    try {
+      // Don't save about:blank or empty URLs
+      if (!url || url === "about:blank" || url === "") return;
+
+      const state: SessionState = {
+        url,
+        timestamp: Date.now(),
+        viewport,
+      };
+
+      const stateDir = join(this.paths.dataDir, "browser-state");
+      if (!existsSync(stateDir)) {
+        mkdirSync(stateDir, { recursive: true });
+      }
+
+      writeFileSync(this.sessionStateFile, JSON.stringify(state, null, 2));
+    } catch (e) {
+      // Silently fail - this is a best-effort feature
+    }
+  }
+
+  private loadSessionState(): SessionState | null {
+    try {
+      if (!existsSync(this.sessionStateFile)) return null;
+      const content = readFileSync(this.sessionStateFile, "utf-8");
+      const state = JSON.parse(content) as SessionState;
+
+      // Expire sessions older than 1 hour
+      const oneHour = 60 * 60 * 1000;
+      if (Date.now() - state.timestamp > oneHour) {
+        unlinkSync(this.sessionStateFile);
+        return null;
+      }
+
+      return state;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  private clearSessionState(): void {
+    try {
+      if (existsSync(this.sessionStateFile)) {
+        unlinkSync(this.sessionStateFile);
+      }
+    } catch (e) {
+      // Silently fail
+    }
   }
 
   // =========================================================================
@@ -277,12 +344,48 @@ export class CBrowser {
 
     // Set up network request/response tracking for HAR
     this.setupNetworkTracking();
+
+    // Restore previous session URL if available (persistent mode only)
+    if (this.config.persistent && !this.skipSessionRestore) {
+      const savedSession = this.loadSessionState();
+      if (savedSession && savedSession.url && savedSession.url !== "about:blank") {
+        try {
+          if (this.config.verbose) {
+            console.log(`🔄 Restoring session: ${savedSession.url}`);
+          }
+          await this.page!.goto(savedSession.url, {
+            waitUntil: "domcontentloaded",
+            timeout: 15000,
+          });
+          // Apply saved viewport if available
+          if (savedSession.viewport) {
+            await this.page!.setViewportSize(savedSession.viewport);
+          }
+        } catch (e) {
+          // If restore fails, continue with blank page
+          if (this.config.verbose) {
+            console.log(`⚠️ Could not restore session: ${(e as Error).message}`);
+          }
+        }
+      }
+    }
   }
 
   /**
    * Close the browser.
    */
   async close(): Promise<void> {
+    // Save current URL before closing so next invocation can restore it
+    if (this.page && !this.page.isClosed()) {
+      try {
+        const currentUrl = this.page.url();
+        const viewport = this.page.viewportSize();
+        this.saveSessionState(currentUrl, viewport || undefined);
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+    }
+
     if (this.context) {
       await this.context.close().catch(() => {});
       this.context = null;
@@ -298,6 +401,8 @@ export class CBrowser {
    * Reset persistent browser state (clear cookies, localStorage, etc.)
    */
   async reset(): Promise<void> {
+    // Clear session state first (to prevent close() from saving)
+    this.clearSessionState();
     await this.close();
     const browserStateDir = join(this.paths.dataDir, "browser-state");
     if (existsSync(browserStateDir)) {
@@ -312,11 +417,39 @@ export class CBrowser {
 
   /**
    * Get the current page, launching if needed.
+   * If the page exists but is at about:blank, restores the previous session.
    */
   async getPage(): Promise<Page> {
     if (!this.page) {
       await this.launch();
     }
+
+    // Check if page is at about:blank and needs session restoration
+    if (this.page && this.config.persistent && !this.skipSessionRestore) {
+      const currentUrl = this.page.url();
+      if (currentUrl === "about:blank" || currentUrl === "") {
+        const savedSession = this.loadSessionState();
+        if (savedSession && savedSession.url && savedSession.url !== "about:blank") {
+          try {
+            if (this.config.verbose) {
+              console.log(`🔄 Restoring session: ${savedSession.url}`);
+            }
+            await this.page.goto(savedSession.url, {
+              waitUntil: "domcontentloaded",
+              timeout: 15000,
+            });
+            if (savedSession.viewport) {
+              await this.page.setViewportSize(savedSession.viewport);
+            }
+          } catch (e) {
+            if (this.config.verbose) {
+              console.log(`⚠️ Could not restore session: ${(e as Error).message}`);
+            }
+          }
+        }
+      }
+    }
+
     return this.page!;
   }
 
@@ -802,7 +935,10 @@ export class CBrowser {
    * Navigate to a URL.
    */
   async navigate(url: string): Promise<NavigationResult> {
+    // Skip session restore since we're explicitly navigating to a new URL
+    this.skipSessionRestore = true;
     const page = await this.getPage();
+    this.skipSessionRestore = false;
     const startTime = Date.now();
 
     const errors: string[] = [];
