@@ -1,0 +1,35 @@
+{
+  "name": "User Signup Flow",
+  "description": "New user registration through email verification",
+  "persona": "first-timer",
+  "startUrl": "https://app.example.com/signup",
+  "goal": "Complete user registration",
+  "maxSteps": 8,
+  "expectedSteps": [
+    {
+      "description": "Fill registration form with name, email, and password",
+      "successIndicators": ["name field filled", "email field filled", "password field filled"]
+    },
+    {
+      "description": "Accept terms of service",
+      "successIndicators": ["terms checkbox checked", "terms accepted"]
+    },
+    {
+      "description": "Submit registration form",
+      "successIndicators": ["form submitted", "processing", "loading"]
+    },
+    {
+      "description": "View email verification prompt",
+      "successIndicators": ["check your email", "verification sent", "confirm your email"]
+    },
+    {
+      "description": "Arrive at welcome or onboarding page",
+      "successIndicators": ["welcome", "get started", "complete your profile"]
+    }
+  ],
+  "frictionThresholds": {
+    "maxTimePerStep": 15000,
+    "maxErrorsPerStep": 1,
+    "maxBacktracks": 2
+  }
+}

@@ -1,0 +1,57 @@
+# CBrowser CI/CD — GitHub Actions
+# Runs natural-language E2E tests, visual regression, and performance
+# regression checks on every pull request targeting main.
+
+name: CBrowser PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  cbrowser-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install CBrowser and Playwright Chromium
+        run: |
+          npm install -g cbrowser
+          npx playwright install chromium --with-deps
+
+      # ── Natural-language test suite ────────────────────────────
+      - name: Run NL test suite
+        run: |
+          npx cbrowser test-suite tests/e2e-suite.txt \
+            --output results.json \
+            --html
+
+      # ── Visual regression ─────────────────────────────────────
+      - name: Visual regression check
+        run: |
+          npx cbrowser visual-regression ${{ vars.STAGING_URL }} \
+            --baseline production
+
+      # ── Performance regression ────────────────────────────────
+      - name: Performance regression check
+        run: |
+          npx cbrowser perf-regression ${{ vars.STAGING_URL }} \
+            --baseline production-perf \
+            --sensitivity strict
+
+      # ── Upload artifacts ──────────────────────────────────────
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cbrowser-results
+          path: |
+            results.json
+            *.html

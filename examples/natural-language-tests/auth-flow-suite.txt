@@ -1,0 +1,47 @@
+# Test: Login with Valid Credentials
+
+go to https://app.example.com/login
+verify page contains "Sign In"
+take screenshot
+fill "Email" with "user@example.com"
+fill "Password" with "SecurePass123!"
+click "Sign In"
+wait 3 seconds
+verify page contains "Dashboard"
+verify url contains "/dashboard"
+take screenshot
+
+# Test: Login with Invalid Credentials
+
+go to https://app.example.com/login
+verify page contains "Sign In"
+fill "Email" with "user@example.com"
+fill "Password" with "WrongPassword"
+click "Sign In"
+wait 2 seconds
+verify page contains "Invalid email or password"
+take screenshot
+verify url contains "/login"
+
+fill "Email" with "nonexistent@example.com"
+fill "Password" with "AnyPassword1"
+click "Sign In"
+wait 2 seconds
+verify page contains "Invalid email or password"
+take screenshot
+
+# Test: Password Reset Flow
+
+go to https://app.example.com/login
+verify page contains "Sign In"
+click "Forgot password?"
+wait 2 seconds
+verify page contains "Reset Password"
+verify url contains "/reset-password"
+take screenshot
+fill "Email" with "user@example.com"
+click "Send Reset Link"
+wait 3 seconds
+verify page contains "Check your email"
+verify page contains "reset link"
+take screenshot

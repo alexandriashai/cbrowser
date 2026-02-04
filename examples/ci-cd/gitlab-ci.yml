@@ -1,0 +1,63 @@
+# CBrowser CI/CD — GitLab CI
+# Runs natural-language E2E tests, visual regression, and performance
+# regression checks across three pipeline stages.
+
+image: node:20
+
+stages:
+  - test
+  - visual
+  - performance
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+# ── Shared setup ──────────────────────────────────────────────
+.cbrowser-setup: &cbrowser-setup
+  before_script:
+    - npm install -g cbrowser
+    - npx playwright install chromium --with-deps
+
+# ── Stage 1: Natural-language test suite ──────────────────────
+nl-test-suite:
+  stage: test
+  <<: *cbrowser-setup
+  script:
+    - npx cbrowser test-suite tests/e2e-suite.txt
+        --output results.json
+        --html
+  artifacts:
+    when: always
+    paths:
+      - results.json
+      - "*.html"
+    expire_in: 7 days
+
+# ── Stage 2: Visual regression ────────────────────────────────
+visual-regression:
+  stage: visual
+  <<: *cbrowser-setup
+  script:
+    - npx cbrowser visual-regression $STAGING_URL
+        --baseline production
+  artifacts:
+    when: always
+    paths:
+      - "*.html"
+    expire_in: 7 days
+
+# ── Stage 3: Performance regression ──────────────────────────
+perf-regression:
+  stage: performance
+  <<: *cbrowser-setup
+  script:
+    - npx cbrowser perf-regression $STAGING_URL
+        --baseline production-perf
+        --sensitivity strict
+  artifacts:
+    when: always
+    paths:
+      - "*.html"
+    expire_in: 7 days

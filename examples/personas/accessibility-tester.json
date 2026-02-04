@@ -1,0 +1,53 @@
+{
+  "name": "accessibility-tester",
+  "description": "User with visual impairments who relies on screen magnification and keyboard navigation",
+  "demographics": {
+    "age_range": "40-65",
+    "tech_level": "intermediate",
+    "device": "desktop"
+  },
+  "behaviors": {
+    "methodical": true,
+    "checks_edge_cases": true,
+    "documents_issues": false,
+    "follows_test_plans": false,
+    "uses_keyboard_navigation": true,
+    "avoids_mouse": true,
+    "uses_screen_magnification": true,
+    "prefers_high_contrast": true
+  },
+  "humanBehavior": {
+    "timing": {
+      "reactionTime": { "min": 800, "max": 2000 },
+      "clickDelay": { "min": 400, "max": 900 },
+      "typeSpeed": { "min": 120, "max": 250 },
+      "readingSpeed": 150,
+      "scrollPauseTime": { "min": 800, "max": 2000 }
+    },
+    "errors": {
+      "misClickRate": 0.15,
+      "doubleClickAccidental": 0.08,
+      "typoRate": 0.10,
+      "backtrackRate": 0.25
+    },
+    "mouse": {
+      "curvature": 0.6,
+      "jitter": 12,
+      "overshoot": 0.20,
+      "speed": "slow"
+    },
+    "attention": {
+      "pattern": "focused",
+      "scrollBehavior": "incremental",
+      "focusAreas": ["text", "cta"],
+      "distractionRate": 0.15
+    }
+  },
+  "context": {
+    "viewport": [1920, 1080],
+    "zoom": 200,
+    "assistiveTech": ["screen-magnifier", "keyboard-only"],
+    "preferredNavigation": "keyboard",
+    "colorScheme": "high-contrast"
+  }
+}

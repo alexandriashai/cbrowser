@@ -1019,12 +1019,34 @@ CBrowser uses optimized Chromium launch flags for fast startup:
 
 See the [`examples/`](examples/) directory:
 
-- `basic-usage.ts` - Navigation, extraction, sessions
-- `smart-automation.ts` - Smart click, assertions, test generation
-- `visual-testing.ts` - AI visual regression, cross-browser, responsive, A/B comparison
-- `remote-mcp.ts` - Remote MCP server, Auth0 OAuth, demo server setup
-- `journeys/checkout-flow.json` - Persona journey definition
-- `personas/custom-persona.json` - Custom persona template
+### TypeScript Examples
+- [`basic-usage.ts`](examples/basic-usage.ts) - Navigation, extraction, sessions
+- [`smart-automation.ts`](examples/smart-automation.ts) - Smart click, assertions, test generation
+- [`visual-testing.ts`](examples/visual-testing.ts) - AI visual regression, cross-browser, responsive, A/B comparison
+- [`remote-mcp.ts`](examples/remote-mcp.ts) - Remote MCP server, Auth0 OAuth, demo server setup
+
+### Workflow Recipes
+- [`workflows/e2e-login-checkout.md`](examples/workflows/e2e-login-checkout.md) - End-to-end login and checkout flow with session persistence
+- [`workflows/visual-regression-ci.md`](examples/workflows/visual-regression-ci.md) - Visual regression testing with baselines, cross-browser, and responsive checks
+- [`workflows/accessibility-audit.md`](examples/workflows/accessibility-audit.md) - Accessibility bug hunting with persona-based a11y testing
+- [`workflows/chaos-resilience-testing.md`](examples/workflows/chaos-resilience-testing.md) - Chaos engineering: network failures, slow responses, element removal
+- [`workflows/persona-comparison-report.md`](examples/workflows/persona-comparison-report.md) - Multi-persona comparison with heatmaps and prioritized recommendations
+
+### CI/CD Integration
+- [`ci-cd/github-actions.yml`](examples/ci-cd/github-actions.yml) - GitHub Actions workflow for NL tests, visual and perf regression
+- [`ci-cd/gitlab-ci.yml`](examples/ci-cd/gitlab-ci.yml) - GitLab CI pipeline with staged checks
+- [`ci-cd/README.md`](examples/ci-cd/README.md) - Setup guide and baseline management
+
+### Natural Language Tests
+- [`natural-language-tests/e-commerce-suite.txt`](examples/natural-language-tests/e-commerce-suite.txt) - E-commerce guest checkout, search, and mobile tests
+- [`natural-language-tests/auth-flow-suite.txt`](examples/natural-language-tests/auth-flow-suite.txt) - Login, invalid credentials, and password reset flows
+- [`natural-language-tests/README.md`](examples/natural-language-tests/README.md) - NL test syntax reference and tips
+
+### Configuration Templates
+- [`journeys/checkout-flow.json`](examples/journeys/checkout-flow.json) - Checkout journey definition
+- [`journeys/signup-flow.json`](examples/journeys/signup-flow.json) - User registration journey
+- [`personas/custom-persona.json`](examples/personas/custom-persona.json) - QA tester persona template
+- [`personas/accessibility-tester.json`](examples/personas/accessibility-tester.json) - Visual impairment persona with screen magnification
 
 ## Troubleshooting
 

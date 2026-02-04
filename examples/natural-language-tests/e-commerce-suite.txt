@@ -1,0 +1,96 @@
+# Test: Guest Checkout Flow
+
+go to https://shop.example.com
+verify page contains "Welcome"
+click "Shop All"
+wait 2 seconds
+scroll down 3 times
+click "Classic Cotton T-Shirt"
+verify page contains "Add to Cart"
+take screenshot
+click "Add to Cart"
+verify page contains "Added to cart"
+click "Cart"
+verify page contains "Classic Cotton T-Shirt"
+click "Proceed to Checkout"
+verify page contains "Checkout"
+click "Continue as Guest"
+fill "Email" with "guest@example.com"
+fill "First Name" with "Jordan"
+fill "Last Name" with "Lee"
+fill "Address" with "742 Evergreen Terrace"
+fill "City" with "Springfield"
+fill "Zip Code" with "62704"
+click "Continue to Shipping"
+verify page contains "Shipping Method"
+click "Standard Shipping"
+click "Continue to Payment"
+verify page contains "Payment"
+take screenshot
+fill "Card Number" with "4111111111111111"
+fill "Expiration" with "12/28"
+fill "CVV" with "123"
+click "Place Order"
+wait 3 seconds
+verify page contains "Order Confirmed"
+verify page contains "Thank you"
+take screenshot
+
+# Test: Search and Filter Products
+
+go to https://shop.example.com
+fill "Search" with "running shoes"
+click "Search"
+wait 2 seconds
+verify page contains "running shoes"
+take screenshot
+click "Price: Low to High"
+wait 1 seconds
+click "Size"
+click "10"
+click "Color"
+click "Black"
+click "Apply Filters"
+wait 2 seconds
+verify page contains "results"
+scroll down 2 times
+take screenshot
+click the first product in the results
+verify page contains "Add to Cart"
+verify page contains "running"
+verify url contains "/product/"
+take screenshot
+
+# Test: Mobile Responsive Checkout
+
+@viewport mobile
+go to https://shop.example.com
+verify page contains "Welcome"
+take screenshot
+click the hamburger menu icon
+wait 1 seconds
+click "Shop All"
+wait 2 seconds
+scroll down 2 times
+click the first product card
+verify page contains "Add to Cart"
+click "Add to Cart"
+verify page contains "Added to cart"
+take screenshot
+click the cart icon
+verify page contains "Cart"
+click "Checkout"
+verify page contains "Checkout"
+fill "Email" with "mobile@example.com"
+fill "First Name" with "Alex"
+fill "Last Name" with "Rivera"
+fill "Address" with "100 Main Street"
+fill "City" with "Portland"
+fill "Zip Code" with "97201"
+scroll down
+click "Continue to Shipping"
+wait 2 seconds
+click "Standard Shipping"
+click "Continue to Payment"
+take screenshot
+verify page contains "Payment"

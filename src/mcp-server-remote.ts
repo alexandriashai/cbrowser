@@ -1301,7 +1301,7 @@ function configureMcpTools(server: McpServer): void {
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.19",
+    version: "7.9.0",
   });
   configureMcpTools(server);
   return server;
@@ -1382,7 +1382,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         status: "ok",
-        version: "7.4.19",
+        version: "7.9.0",
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthEnabled,
@@ -1397,7 +1397,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.19",
+        version: "7.9.0",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,

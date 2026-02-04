@@ -5,6 +5,17 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.9.0] - 2026-02-03
+
+### Added
+- **Comprehensive example recipes** - 13 new example files covering workflows, CI/CD, natural language tests, and configuration templates (#10)
+- **5 workflow guides** - `workflows/` directory with e2e-login-checkout, visual-regression-ci, accessibility-audit, chaos-resilience-testing, persona-comparison-report
+- **CI/CD integration** - `ci-cd/` directory with GitHub Actions and GitLab CI pipeline templates plus setup README
+- **Natural language test suites** - `natural-language-tests/` directory with e-commerce and auth flow test files plus NL syntax reference
+- **New journey template** - `journeys/signup-flow.json` for user registration flows
+- **New persona template** - `personas/accessibility-tester.json` for visual impairment testing with screen magnification and keyboard navigation
+- **Expanded README examples section** - Organized by category (TypeScript, Workflows, CI/CD, NL Tests, Configuration) with deep links to all 19 example files
+
 ## [7.4.19] - 2026-02-03
 
 ### Added
