@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 
 export default defineConfig({
   // Use relative paths for Chrome extension compatibility
@@ -18,10 +18,19 @@ export default defineConfig({
           resolve(__dirname, 'dist/manifest.json')
         );
 
-        // Create icons directory
-        const iconsDir = resolve(__dirname, 'dist/icons');
-        if (!existsSync(iconsDir)) {
-          mkdirSync(iconsDir, { recursive: true });
+        // Copy icons
+        const srcIconsDir = resolve(__dirname, 'src/icons');
+        const distIconsDir = resolve(__dirname, 'dist/icons');
+        if (!existsSync(distIconsDir)) {
+          mkdirSync(distIconsDir, { recursive: true });
+        }
+        if (existsSync(srcIconsDir)) {
+          for (const file of readdirSync(srcIconsDir)) {
+            copyFileSync(
+              resolve(srcIconsDir, file),
+              resolve(distIconsDir, file)
+            );
+          }
         }
 
         // Fix sidepanel HTML - copy to correct location and fix paths
