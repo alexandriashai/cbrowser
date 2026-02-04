@@ -19,10 +19,9 @@
   "github": {
     "release": true,
     "releaseName": "v${version}",
-    "autoGenerate": false,
+    "autoGenerate": true,
     "draft": false,
-    "preRelease": false,
-    "tokenRef": "GITHUB_TOKEN"
+    "preRelease": false
   },
   "plugins": {
     "@release-it/conventional-changelog": {
