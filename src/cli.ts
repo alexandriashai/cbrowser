@@ -1075,12 +1075,34 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "fill":
         daemonArgs = { selector: args[0], value: args[1] };
         break;
-      case "screenshot":
-        daemonArgs = { path: args[0] };
+      case "screenshot": {
+        let ssUrl: string | undefined;
+        let ssPath: string | undefined = typeof options.output === "string" ? options.output : undefined;
+        if (args[0]) {
+          if (args[0].startsWith("http://") || args[0].startsWith("https://") || args[0].startsWith("www.")) {
+            ssUrl = args[0];
+            if (args[1] && !args[1].startsWith("-")) ssPath = args[1];
+          } else {
+            ssPath = args[0];
+          }
+        }
+        daemonArgs = { path: ssPath, url: ssUrl || options.url };
         break;
-      case "extract":
-        daemonArgs = { what: args[0] };
+      }
+      case "extract": {
+        let extractUrl: string | undefined;
+        let extractWhat = "text";
+        if (args[0]) {
+          if (args[0].startsWith("http://") || args[0].startsWith("https://") || args[0].startsWith("www.")) {
+            extractUrl = args[0];
+            extractWhat = args[1] || "text";
+          } else {
+            extractWhat = args[0];
+          }
+        }
+        daemonArgs = { what: extractWhat, url: extractUrl || options.url };
         break;
+      }
       case "run":
         daemonArgs = { command: args.join(" ") };
         break;
@@ -1224,9 +1246,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       }
 
       case "extract": {
-        const what = args[0] || "text";
-        if (options.url) {
-          await browser.navigate(options.url as string);
+        let url = typeof options.url === "string" ? options.url : undefined;
+        let what = "text";
+        if (args[0]) {
+          if (args[0].startsWith("http://") || args[0].startsWith("https://") || args[0].startsWith("www.")) {
+            url = args[0];
+            what = args[1] || "text";
+          } else {
+            what = args[0];
+          }
+        }
+        if (url) {
+          await browser.navigate(url);
         }
         const result = await browser.extract(what);
         console.log(JSON.stringify(result.data, null, 2));
@@ -1450,6 +1481,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // Tier 5: AI Test Generation (v5.0.0)
       // =========================================================================
 
+      case "generate-tests":
       case "generate": {
         const url = args[0];
         if (!url) {
@@ -1547,11 +1579,22 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       }
 
       case "screenshot": {
-        const path = args[0];
-        if (options.url) {
-          await browser.navigate(options.url as string);
+        let screenshotUrl = typeof options.url === "string" ? options.url : undefined;
+        let screenshotPath = typeof options.output === "string" ? options.output : undefined;
+        if (args[0]) {
+          if (args[0].startsWith("http://") || args[0].startsWith("https://") || args[0].startsWith("www.")) {
+            screenshotUrl = args[0];
+            if (args[1] && !args[1].startsWith("-")) {
+              screenshotPath = args[1];
+            }
+          } else {
+            screenshotPath = args[0];
+          }
         }
-        const file = await browser.screenshot(path);
+        if (screenshotUrl) {
+          await browser.navigate(screenshotUrl);
+        }
+        const file = await browser.screenshot(screenshotPath);
         console.log(`✓ Screenshot saved: ${file}`);
         break;
       }
@@ -3202,6 +3245,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             }
             break;
           }
+          case "generate-tests":
           case "generate": {
             const name = args[1];
             if (!name) {
@@ -3639,6 +3683,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // Bug Hunter (Tier 4)
       // =========================================================================
 
+      case "hunt-bugs":
       case "hunt": {
         const url = args[0];
         if (!url) {
@@ -3727,6 +3772,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // Chaos Engineering (Tier 4)
       // =========================================================================
 
+      case "chaos-test":
       case "chaos": {
         const url = args[0];
         if (!url) {
@@ -3986,6 +4032,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // AI Test Repair (Tier 6 - v6.2.0)
       // =========================================================================
 
+      case "repair":
       case "repair-tests": {
         const filepath = args[0];
 
@@ -4064,6 +4111,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // Flaky Test Detection (Tier 6 - v6.3.0)
       // =========================================================================
 
+      case "flaky":
       case "flaky-check": {
         const filepath = args[0];
 

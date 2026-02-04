@@ -4,7 +4,7 @@
  * Capture baselines and compare screenshots using AI-powered analysis.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -291,74 +291,99 @@ Respond ONLY with the JSON, no other text.`;
 }
 
 /**
- * Perform heuristic visual analysis when AI is not available
+ * Perform heuristic visual analysis when AI is not available.
+ * Uses byte-level PNG comparison for more accurate results than file-size-only.
  */
 function performHeuristicAnalysis(
   baselinePath: string,
   currentPath: string,
   options: VisualRegressionOptions = {}
 ): AIVisualAnalysis {
-  const baselineStats = statSync(baselinePath);
-  const currentStats = statSync(currentPath);
+  const baselineBuffer = readFileSync(baselinePath);
+  const currentBuffer = readFileSync(currentPath);
 
-  // Simple heuristic: compare file sizes
-  const sizeDiff = Math.abs(baselineStats.size - currentStats.size);
-  const sizeRatio = sizeDiff / baselineStats.size;
+  // Byte-level comparison of the full PNG data
+  const minLength = Math.min(baselineBuffer.length, currentBuffer.length);
+  const maxLength = Math.max(baselineBuffer.length, currentBuffer.length);
+
+  let differentBytes = 0;
+  for (let i = 0; i < minLength; i++) {
+    if (baselineBuffer[i] !== currentBuffer[i]) {
+      differentBytes++;
+    }
+  }
+  // Bytes beyond the shorter file are all different
+  differentBytes += maxLength - minLength;
+
+  const diffRatio = differentBytes / maxLength;
+  // Similarity is the inverse of the difference ratio
+  // Apply a curve: small byte differences should still show high similarity
+  const rawSimilarity = 1 - diffRatio;
+  // Scale similarity: anything above 0.95 raw is essentially identical
+  // Below that, scale proportionally
+  let similarityScore: number;
+  if (rawSimilarity >= 0.99) {
+    similarityScore = 1.0;
+  } else if (rawSimilarity >= 0.95) {
+    similarityScore = 0.90 + (rawSimilarity - 0.95) * 2.5; // 0.90-1.0
+  } else if (rawSimilarity >= 0.80) {
+    similarityScore = 0.65 + (rawSimilarity - 0.80) * 1.667; // 0.65-0.90
+  } else {
+    similarityScore = rawSimilarity * 0.8125; // 0.0-0.65
+  }
+
+  // Round to 2 decimals
+  similarityScore = Math.round(similarityScore * 100) / 100;
 
   const changes: VisualChange[] = [];
   let overallStatus: "pass" | "warning" | "fail" = "pass";
-  let similarityScore = 1.0;
 
-  // Size-based heuristics
-  if (sizeRatio > 0.3) {
+  if (similarityScore < 0.7) {
     changes.push({
       type: "layout",
       severity: "breaking",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: "Significant visual change detected (>30% size difference)",
-      reasoning: "Large file size difference indicates substantial visual changes",
-      confidence: 0.7,
+      description: `Significant visual differences detected (${(diffRatio * 100).toFixed(1)}% bytes differ)`,
+      reasoning: "Byte-level comparison shows substantial differences in rendered content",
+      confidence: 0.8,
       suggestion: "Review the visual changes manually",
     });
     overallStatus = "fail";
-    similarityScore = 0.5;
-  } else if (sizeRatio > 0.1) {
+  } else if (similarityScore < 0.85) {
     changes.push({
       type: "content",
       severity: "warning",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: "Moderate visual change detected (10-30% size difference)",
-      reasoning: "Moderate file size difference suggests some visual changes",
-      confidence: 0.6,
+      description: `Moderate visual differences detected (${(diffRatio * 100).toFixed(1)}% bytes differ)`,
+      reasoning: "Byte-level comparison shows moderate differences",
+      confidence: 0.7,
       suggestion: "Review to confirm changes are expected",
     });
     overallStatus = "warning";
-    similarityScore = 0.75;
-  } else if (sizeRatio > 0.02) {
+  } else if (similarityScore < 0.98) {
     changes.push({
       type: "style",
       severity: "info",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: "Minor visual change detected (2-10% size difference)",
-      reasoning: "Small file size difference indicates minor rendering differences",
-      confidence: 0.5,
+      description: `Minor visual differences detected (${(diffRatio * 100).toFixed(1)}% bytes differ)`,
+      reasoning: "Byte-level comparison shows minor rendering differences",
+      confidence: 0.6,
     });
-    similarityScore = 0.9;
   }
 
   // Apply sensitivity adjustments
   if (options.sensitivity === "low" && overallStatus === "warning") {
     overallStatus = "pass";
-  } else if (options.sensitivity === "high" && changes.length === 0 && sizeRatio > 0.005) {
+  } else if (options.sensitivity === "high" && changes.length === 0 && diffRatio > 0.005) {
     changes.push({
       type: "style",
       severity: "info",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
       description: "Very minor visual change detected",
-      reasoning: "Slight file size difference at high sensitivity",
+      reasoning: "Slight byte-level differences at high sensitivity",
       confidence: 0.4,
     });
-    similarityScore = 0.95;
+    similarityScore = Math.min(similarityScore, 0.95);
   }
 
   return {
@@ -369,8 +394,8 @@ function performHeuristicAnalysis(
     changes,
     similarityScore,
     productionReady: overallStatus !== "fail",
-    confidence: 0.6, // Lower confidence for heuristic analysis
-    rawAnalysis: "Heuristic analysis based on file comparison (AI analysis not available)",
+    confidence: 0.75, // Higher confidence than old file-size heuristic
+    rawAnalysis: "Byte-level PNG comparison (AI analysis not available)",
   };
 }
 

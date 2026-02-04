@@ -1364,7 +1364,7 @@ export async function startRemoteMcpServer(): Promise<void> {
   const auth0Enabled = auth0 !== null;
   const authEnabled = apiKeyAuthEnabled || auth0Enabled;
 
-  console.log(`Starting CBrowser Remote MCP Server v7.9.1...`);
+  console.log(`Starting CBrowser Remote MCP Server v7.10.0...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
   if (apiKeyAuthEnabled) {

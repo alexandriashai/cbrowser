@@ -5,6 +5,21 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.10.0] - 2026-02-03
+
+### Fixed
+- **`extract` CLI positional URL** - URL passed as first argument now correctly triggers navigation instead of being treated as the extraction type (#13)
+- **`screenshot` CLI positional URL** - URL passed as first argument now correctly triggers navigation; `--output` flag properly honored (#14)
+- **A/B comparison uses byte-level PNG diff** - Replaced file-size-only heuristic with byte-by-byte PNG buffer comparison, preventing false "identical" reports for different pages with similar file sizes (#15)
+- **`fill` always shows available inputs on failure** - Available fields and AI suggestions now display on every fill failure, not just with `--verbose` (#16)
+- **Self-healing cache rejects empty selectors** - `text=""` and empty-string selectors are now rejected from caching and lookup, preventing false-positive clicks (#17)
+- **`session save` handles SecurityError gracefully** - localStorage/sessionStorage access wrapped in try-catch; no longer crashes on `about:blank` or restricted pages (#18)
+- **Responsive test no longer flags expected differences** - Viewport differences with similarity >= 0.3 treated as expected responsive adaptation, not "MAJOR ISSUES" (#19)
+- **`analyze` detects non-standard search patterns** - Now checks `[role="search"]`, `placeholder*="search"`, and `aria-label*="search"` in addition to form-based detection (#21)
+
+### Added
+- **CLI command aliases** - `hunt-bugs`, `chaos-test`, `generate-tests`, `repair`, `flaky` now work alongside their short forms (#20)
+
 ## [7.9.1] - 2026-02-03
 
 ### Changed

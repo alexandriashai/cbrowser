@@ -1075,16 +1075,17 @@ export class CBrowser {
       const element = await this.findElement(selector);
 
       if (!element) {
+        const available = await this.getAvailableInputs(page);
+        const aiSuggestion = this.generateFillSuggestion(selector, available);
         const result: ClickResult = {
           success: false,
           screenshot: await this.screenshot(),
           message: `Element not found: ${selector}`,
+          availableInputs: available,
+          aiSuggestion,
         };
 
         if (options.verbose) {
-          const available = await this.getAvailableInputs(page);
-          result.availableInputs = available;
-          result.aiSuggestion = this.generateFillSuggestion(selector, available);
           result.debugScreenshot = await this.captureDebugScreenshot(page, {
             availableSelectors: available.map(e => e.selector),
             attemptedSelector: selector,
@@ -1113,10 +1114,10 @@ export class CBrowser {
         message: `Failed to fill: ${error instanceof Error ? error.message : String(error)}`,
       };
 
+      const available = await this.getAvailableInputs(page);
+      result.availableInputs = available;
+      result.aiSuggestion = this.generateFillSuggestion(selector, available);
       if (options.verbose) {
-        const available = await this.getAvailableInputs(page);
-        result.availableInputs = available;
-        result.aiSuggestion = this.generateFillSuggestion(selector, available);
         result.debugScreenshot = await this.captureDebugScreenshot(page, {
           availableSelectors: available.map(e => e.selector),
           attemptedSelector: selector,
@@ -1688,6 +1689,14 @@ export class CBrowser {
    * Cache a working alternative selector for future use.
    */
   private cacheAlternativeSelector(original: string, working: string, reason: string = "Alternative found"): void {
+    // Reject empty or meaningless selectors
+    if (!working || working.trim() === "" || working === 'text=""' || working === "text=''") {
+        if (this.config.verbose) {
+            console.log(`⚠️ Rejected invalid selector for caching: "${working}"`);
+        }
+        return;
+    }
+
     const cache = this.loadSelectorCache();
     const key = this.getSelectorCacheKey(original);
     const domain = this.getCurrentDomain();
@@ -1715,7 +1724,11 @@ export class CBrowser {
   private getCachedSelector(original: string): SelectorCacheEntry | null {
     const cache = this.loadSelectorCache();
     const key = this.getSelectorCacheKey(original);
-    return cache.entries[key] || null;
+    const entry = cache.entries[key] || null;
+    if (entry && (entry.workingSelector === 'text=""' || entry.workingSelector === "text=''" || entry.workingSelector.trim() === "")) {
+      return null; // Reject invalid cached selectors
+    }
+    return entry;
   }
 
   /**
@@ -1939,7 +1952,11 @@ export class CBrowser {
         inputs,
         selects,
         hasLogin: forms.some(f => f.purpose === "login"),
-        hasSearch: forms.some(f => f.purpose === "search") || inputs.some(i => i.inputType === "search"),
+        hasSearch: forms.some(f => f.purpose === "search") ||
+            inputs.some(i => i.inputType === "search") ||
+            !!document.querySelector('[role="search"]') ||
+            !!document.querySelector('input[placeholder*="search" i], input[placeholder*="Search" i]') ||
+            !!document.querySelector('input[aria-label*="search" i], input[aria-label*="Search" i]'),
         hasNavigation: links.filter(l => l.href?.startsWith(window.location.origin)).length > 3,
       };
     });
@@ -2676,23 +2693,33 @@ export class CBrowser {
     const context = this.context!;
 
     const cookies = await context.cookies();
-    const localStorage = await page.evaluate(() => {
-      const data: Record<string, string> = {};
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const key = window.localStorage.key(i);
-        if (key) data[key] = window.localStorage.getItem(key) || "";
-      }
-      return data;
-    });
+    let localStorage: Record<string, string> = {};
+    try {
+      localStorage = await page.evaluate(() => {
+        const data: Record<string, string> = {};
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key) data[key] = window.localStorage.getItem(key) || "";
+        }
+        return data;
+      });
+    } catch {
+      // localStorage may be inaccessible on about:blank or restricted pages
+    }
 
-    const sessionStorage = await page.evaluate(() => {
-      const data: Record<string, string> = {};
-      for (let i = 0; i < window.sessionStorage.length; i++) {
-        const key = window.sessionStorage.key(i);
-        if (key) data[key] = window.sessionStorage.getItem(key) || "";
-      }
-      return data;
-    });
+    let sessionStorage: Record<string, string> = {};
+    try {
+      sessionStorage = await page.evaluate(() => {
+        const data: Record<string, string> = {};
+        for (let i = 0; i < window.sessionStorage.length; i++) {
+          const key = window.sessionStorage.key(i);
+          if (key) data[key] = window.sessionStorage.getItem(key) || "";
+        }
+        return data;
+      });
+    } catch {
+      // sessionStorage may be inaccessible on about:blank or restricted pages
+    }
 
     const url = page.url();
     const domain = new URL(url).hostname;
