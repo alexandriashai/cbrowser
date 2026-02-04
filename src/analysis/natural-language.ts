@@ -144,14 +144,21 @@ export async function executeNaturalLanguageScript(
 // Tier 4: Visual AI Understanding (v4.0.0)
 // ============================================================================
 
+/** Options for findElementByIntent */
+export interface FindByIntentOptions {
+  verbose?: boolean;
+  debugDir?: string;
+}
+
 /**
  * AI-powered semantic element finding.
  * Examples: "the cheapest product", "login form", "main navigation"
  */
 export async function findElementByIntent(
   browser: CBrowser,
-  intent: string
-): Promise<{ selector: string; confidence: number; description: string } | null> {
+  intent: string,
+  options: FindByIntentOptions = {}
+): Promise<{ selector: string; confidence: number; description: string; alternatives?: Array<{ selector: string; text: string; tag: string; confidence: number }>; aiSuggestion?: string; debugScreenshot?: string } | null> {
   const page = await (browser as any).getPage();
 
   // Type for extracted elements
@@ -269,6 +276,40 @@ export async function findElementByIntent(
   );
   if (textMatch) {
     return { selector: textMatch.selector, confidence: 0.7, description: `Matched: ${textMatch.text.slice(0, 50)}` };
+  }
+
+  // No match found — return null, or verbose data if requested
+  if (options.verbose) {
+    // Build alternatives from partial matches
+    const alternatives = pageData
+      .filter(el => el.text.length > 0)
+      .slice(0, 10)
+      .map(el => {
+        // Compute similarity score based on word overlap
+        const intentWords = intentLower.split(/\s+/);
+        const elText = el.text.toLowerCase();
+        const matchingWords = intentWords.filter(w => w.length > 2 && elText.includes(w));
+        const confidence = intentWords.length > 0 ? matchingWords.length / intentWords.length * 0.6 : 0;
+        return {
+          selector: el.selector,
+          text: el.text.slice(0, 60),
+          tag: el.tag,
+          confidence: Math.round(confidence * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.confidence - a.confidence);
+
+    const list = alternatives.slice(0, 8).map(a => `  • ${a.tag}: "${a.text}" → ${a.selector}`).join("\n");
+    const aiSuggestion = `No element matching "${intent}" found.\n\nAvailable interactive elements:\n${list}\n\nTry using the exact text or a more specific description.`;
+
+    // Return a "not found" result with verbose info instead of null
+    return {
+      selector: "",
+      confidence: 0,
+      description: "No match found",
+      alternatives,
+      aiSuggestion,
+    };
   }
 
   return null;

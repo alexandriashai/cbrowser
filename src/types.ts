@@ -104,6 +104,44 @@ export interface ClickResult {
   success: boolean;
   screenshot: string;
   message: string;
+  /** Available clickable elements (verbose mode) */
+  availableElements?: Array<{
+    tag: string;
+    text: string;
+    selector: string;
+    role?: string;
+  }>;
+  /** Available input fields (verbose mode, fill only) */
+  availableInputs?: Array<{
+    selector: string;
+    type: string;
+    name: string;
+    placeholder: string;
+    label: string;
+  }>;
+  /** AI-generated suggestion for fixing the failure (verbose mode) */
+  aiSuggestion?: string;
+  /** Debug screenshot with highlighted elements (verbose mode) */
+  debugScreenshot?: string;
+}
+
+/** Result from findElementByIntent with verbose info */
+export interface FindByIntentResult {
+  found: boolean;
+  selector?: string;
+  confidence?: number;
+  description?: string;
+  /** Alternative elements found on the page (verbose mode) */
+  alternatives?: Array<{
+    selector: string;
+    text: string;
+    tag: string;
+    confidence: number;
+  }>;
+  /** AI-generated suggestion (verbose mode) */
+  aiSuggestion?: string;
+  /** Debug screenshot (verbose mode) */
+  debugScreenshot?: string;
 }
 
 export interface ExtractResult {

@@ -5,6 +5,27 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.16] - 2026-02-03
+
+### Added
+- **`--verbose` flag for `click` and `fill`** - Returns available elements/inputs, AI suggestions, and debug screenshots on failure (#8)
+- **`verbose` parameter for MCP tools** - `click`, `fill`, and `find_element_by_intent` MCP tools accept `verbose: true` for enriched failure responses
+- **Debug screenshots with highlighting** - `captureDebugScreenshot()` injects green outlines on available elements and red outline on attempted selector
+- **`--step-through` mode for `test-suite`** - Interactive step-by-step execution with parsed interpretation, Enter to execute, `s` to skip, `q` to quit
+- **`--debug-dir` flag** - Save debug screenshots to a custom directory
+- **AI suggestions for `fill` failures** - Lists available input fields with selector, type, name, placeholder, and associated label
+- **AI suggestions for `click` failures** - Lists available clickable elements with tag, text, and selector
+- **`findElementByIntent` verbose mode** - Returns alternatives array with confidence scores and AI suggestion when no match found
+
+### Technical Details
+- `getAvailableClickables(page)` — enumerates buttons, links, role=button elements (up to 15)
+- `getAvailableInputs(page)` — enumerates inputs/textareas/selects with label association (up to 15)
+- `generateClickSuggestion()` / `generateFillSuggestion()` — context-aware fix suggestions
+- `captureDebugScreenshot()` — injects CSS outlines, screenshots, cleans up highlights
+- `ClickResult` extended with optional `availableElements`, `availableInputs`, `aiSuggestion`, `debugScreenshot`
+- `FindByIntentResult` type with `alternatives` and `aiSuggestion` fields
+- Step-through uses Node.js readline with graceful stdin close handling
+
 ## [7.4.15] - 2026-02-03
 
 ### Added

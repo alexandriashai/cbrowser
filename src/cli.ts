@@ -48,8 +48,12 @@ NAVIGATION
 INTERACTION
   click <selector>            Click element (tries text, label, role, CSS)
     --url <url>               Navigate to URL first, then click
+    --verbose                 Show available elements and AI suggestions on failure
+    --debug-dir <dir>         Save debug screenshots to directory
   fill <selector> <value>     Fill input field
     --url <url>               Navigate to URL first, then fill
+    --verbose                 Show available inputs and AI suggestions on failure
+    --debug-dir <dir>         Save debug screenshots to directory
 
 EXTRACTION
   extract <what>              Extract data (links, images, headings, forms)
@@ -82,11 +86,13 @@ NATURAL LANGUAGE TEST SUITES (v6.1.0)
     --timeout <ms>             Timeout per step (default: 30000)
     --dry-run                  Parse and display test steps without executing
     --fuzzy-match              Use case-insensitive fuzzy matching for assertions
+    --step-through             Pause before each step for interactive execution
   test-suite --inline "..."    Run inline test (semicolon-separated steps)
     Examples:
       cbrowser test-suite login-flow.txt --html
       cbrowser test-suite --inline "go to https://example.com ; click login ; verify url contains /dashboard"
       cbrowser test-suite login-flow.txt --dry-run
+      cbrowser test-suite login-flow.txt --step-through
 
     Test File Format:
       # Test: Login Flow
@@ -1156,11 +1162,25 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.url) {
           await browser.navigate(options.url as string);
         }
-        const result = await browser.click(selector, { force: options.force === true });
+        const verbose = options.verbose === true;
+        const debugDir = options["debug-dir"] as string | undefined;
+        const result = await browser.click(selector, { force: options.force === true, verbose, debugDir });
         if (result.success) {
           console.log(`✓ ${result.message}`);
         } else {
           console.error(`✗ ${result.message}`);
+          if (verbose && result.aiSuggestion) {
+            console.error(`\n💡 ${result.aiSuggestion}`);
+          }
+          if (verbose && result.availableElements && result.availableElements.length > 0) {
+            console.error(`\n📋 Available clickable elements:`);
+            for (const el of result.availableElements) {
+              console.error(`   ${el.tag}: "${el.text}" → ${el.selector}`);
+            }
+          }
+          if (verbose && result.debugScreenshot) {
+            console.error(`\n📸 Debug screenshot: ${result.debugScreenshot}`);
+          }
           process.exit(1);
         }
         break;
@@ -1176,11 +1196,26 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.url) {
           await browser.navigate(options.url as string);
         }
-        const result = await browser.fill(selector, value);
+        const verbose = options.verbose === true;
+        const debugDir = options["debug-dir"] as string | undefined;
+        const result = await browser.fill(selector, value, { verbose, debugDir });
         if (result.success) {
           console.log(`✓ ${result.message}`);
         } else {
           console.error(`✗ ${result.message}`);
+          if (verbose && result.aiSuggestion) {
+            console.error(`\n💡 ${result.aiSuggestion}`);
+          }
+          if (verbose && result.availableInputs && result.availableInputs.length > 0) {
+            console.error(`\n📋 Available input fields:`);
+            for (const input of result.availableInputs) {
+              const desc = input.label || input.placeholder || input.name || input.type;
+              console.error(`   ${desc} (${input.type}) → ${input.selector}`);
+            }
+          }
+          if (verbose && result.debugScreenshot) {
+            console.error(`\n📸 Debug screenshot: ${result.debugScreenshot}`);
+          }
           process.exit(1);
         }
         break;
@@ -3635,6 +3670,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("  --timeout <ms>           Timeout per step (default: 30000)");
           console.error("  --dry-run                Parse and display test steps without executing");
           console.error("  --fuzzy-match            Case-insensitive fuzzy matching for assertions");
+          console.error("  --step-through           Pause before each step for interactive execution");
           console.error("");
           console.error("Test File Format:");
           console.error("  # Test: Login Flow");
@@ -3684,6 +3720,93 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.log(`     ${i + 1}. ${step.instruction}  ${parsed}`);
             }
             console.log("");
+          }
+          break;
+        }
+
+        // Step-through mode: pause before each step
+        if (options["step-through"]) {
+          const readline = await import("readline");
+          const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY || false });
+          const ask = (q: string): Promise<string> => new Promise((resolve, reject) => {
+            rl.question(q, resolve);
+            rl.once("close", () => reject(new Error("stdin closed")));
+          });
+
+          console.log(`\n🔍 Step-through mode enabled. Press Enter to execute each step.\n`);
+
+          const { CBrowser } = await import("./browser.js");
+          const stepBrowser = new CBrowser({ headless });
+          await (stepBrowser as any).launch();
+
+          try {
+            let totalSteps = suite.tests.reduce((sum, t) => sum + t.steps.length, 0);
+            let stepNum = 0;
+            let stopped = false;
+
+            for (const test of suite.tests) {
+              if (stopped) break;
+              console.log(`\n📋 Test: ${test.name}`);
+
+              for (const step of test.steps) {
+                stepNum++;
+                const parsed = `[${step.action}${step.target ? `: ${step.target}` : ""}${step.value ? ` = "${step.value}"` : ""}]`;
+                console.log(`\nStep ${stepNum}/${totalSteps}: ${step.instruction}`);
+                console.log(`  → Parsed as: ${parsed}`);
+
+                let input = "";
+                try {
+                  input = await ask("  Press [Enter] to execute, [s] to skip, [q] to quit: ");
+                } catch {
+                  console.log("\n⏹ Stopped (stdin closed).");
+                  stopped = true;
+                  break;
+                }
+
+                if (input.trim().toLowerCase() === "q") {
+                  console.log("\n⏹ Stopped by user.");
+                  stopped = true;
+                  break;
+                }
+                if (input.trim().toLowerCase() === "s") {
+                  console.log("  ⏭ Skipped");
+                  continue;
+                }
+
+                const start = Date.now();
+                try {
+                  switch (step.action) {
+                    case "navigate":
+                      await stepBrowser.navigate(step.target || "");
+                      break;
+                    case "click":
+                      await stepBrowser.smartClick(step.target || "");
+                      break;
+                    case "fill":
+                      await stepBrowser.fill(step.target || "", step.value || "");
+                      break;
+                    case "assert":
+                      const r = await stepBrowser.assert(step.instruction);
+                      if (!r.passed) throw new Error(r.message);
+                      break;
+                    case "screenshot":
+                      await stepBrowser.screenshot();
+                      break;
+                    case "wait":
+                      if (step.value) await new Promise(r => setTimeout(r, parseFloat(step.value!) * 1000));
+                      break;
+                    default:
+                      await stepBrowser.smartClick(step.target || step.instruction);
+                  }
+                  console.log(`  ✓ Completed (${Date.now() - start}ms)`);
+                } catch (e: any) {
+                  console.log(`  ✗ Failed: ${e.message} (${Date.now() - start}ms)`);
+                }
+              }
+            }
+          } finally {
+            rl.close();
+            await stepBrowser.close();
           }
           break;
         }

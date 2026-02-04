@@ -356,25 +356,27 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "click",
-    "Click an element on the page using text, selector, or description",
+    "Click an element on the page using text, selector, or description. Use verbose=true for detailed debug info on failure.",
     {
       selector: z.string().describe("Element to click (text content, CSS selector, or description)"),
       force: z.boolean().optional().describe("Bypass safety checks for destructive actions"),
+      verbose: z.boolean().optional().describe("Return available elements and AI suggestions on failure"),
     },
-    async ({ selector, force }) => {
+    async ({ selector, force, verbose }) => {
       const b = await getBrowser();
-      const result = await b.click(selector, { force });
+      const result = await b.click(selector, { force, verbose });
+      const response: Record<string, unknown> = {
+        success: result.success,
+        message: result.message,
+        screenshot: result.screenshot,
+      };
+      if (verbose && !result.success) {
+        if (result.availableElements) response.availableElements = result.availableElements;
+        if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
+        if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
+      }
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              success: result.success,
-              message: result.message,
-              screenshot: result.screenshot,
-            }, null, 2),
-          },
-        ],
+        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
       };
     }
   );
@@ -436,24 +438,26 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "fill",
-    "Fill a form field with text",
+    "Fill a form field with text. Use verbose=true for detailed debug info on failure.",
     {
       selector: z.string().describe("Input field to fill (name, placeholder, label, or selector)"),
       value: z.string().describe("Value to enter"),
+      verbose: z.boolean().optional().describe("Return available inputs and AI suggestions on failure"),
     },
-    async ({ selector, value }) => {
+    async ({ selector, value, verbose }) => {
       const b = await getBrowser();
-      const result = await b.fill(selector, value);
+      const result = await b.fill(selector, value, { verbose });
+      const response: Record<string, unknown> = {
+        success: result.success,
+        message: result.message,
+      };
+      if (verbose && !result.success) {
+        if (result.availableInputs) response.availableInputs = result.availableInputs;
+        if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
+        if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
+      }
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              success: result.success,
-              message: result.message,
-            }, null, 2),
-          },
-        ],
+        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
       };
     }
   );
@@ -1141,20 +1145,21 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "find_element_by_intent",
-    "AI-powered semantic element finding",
+    "AI-powered semantic element finding. Use verbose=true to get alternative elements and suggestions when no match found.",
     {
       intent: z.string().describe("Natural language description like 'the cheapest product' or 'login form'"),
+      verbose: z.boolean().optional().describe("Include alternative matches and AI suggestions"),
     },
-    async ({ intent }) => {
+    async ({ intent, verbose }) => {
       const b = await getBrowser();
-      const result = await findElementByIntent(b, intent);
+      const result = await findElementByIntent(b, intent, { verbose });
+      if (result && result.confidence > 0) {
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result || { found: false, message: "No matching element found" }, null, 2),
-          },
-        ],
+        content: [{ type: "text", text: JSON.stringify(result || { found: false, message: "No matching element found" }, null, 2) }],
       };
     }
   );
@@ -1265,7 +1270,7 @@ function configureMcpTools(server: McpServer): void {
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.15",
+    version: "7.4.16",
   });
   configureMcpTools(server);
   return server;
@@ -1346,7 +1351,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         status: "ok",
-        version: "7.4.15",
+        version: "7.4.16",
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthEnabled,
@@ -1361,7 +1366,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.15",
+        version: "7.4.16",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,

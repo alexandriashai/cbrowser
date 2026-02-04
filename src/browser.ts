@@ -989,7 +989,7 @@ export class CBrowser {
   /**
    * Click an element using AI-powered selector.
    */
-  async click(selector: string, options: { force?: boolean } = {}): Promise<ClickResult> {
+  async click(selector: string, options: { force?: boolean; verbose?: boolean; debugDir?: string } = {}): Promise<ClickResult> {
     const page = await this.getPage();
 
     // Classify action zone
@@ -1007,11 +1007,24 @@ export class CBrowser {
       const element = await this.findElement(selector);
 
       if (!element) {
-        return {
+        const result: ClickResult = {
           success: false,
           screenshot: await this.screenshot(),
           message: `Element not found: ${selector}`,
         };
+
+        if (options.verbose) {
+          const available = await this.getAvailableClickables(page);
+          result.availableElements = available;
+          result.aiSuggestion = this.generateClickSuggestion(selector, available);
+          result.debugScreenshot = await this.captureDebugScreenshot(page, {
+            availableSelectors: available.map(e => e.selector),
+            attemptedSelector: selector,
+            debugDir: options.debugDir,
+          });
+        }
+
+        return result;
       }
 
       await element.click();
@@ -1028,29 +1041,56 @@ export class CBrowser {
       };
     } catch (error) {
       this.audit("click", selector, zone, "failure");
-      return {
+
+      const result: ClickResult = {
         success: false,
         screenshot: await this.screenshot(),
         message: `Failed to click: ${error instanceof Error ? error.message : String(error)}`,
       };
+
+      if (options.verbose) {
+        const available = await this.getAvailableClickables(page);
+        result.availableElements = available;
+        result.aiSuggestion = this.generateClickSuggestion(selector, available);
+        result.debugScreenshot = await this.captureDebugScreenshot(page, {
+          availableSelectors: available.map(e => e.selector),
+          attemptedSelector: selector,
+          debugDir: options.debugDir,
+        });
+      }
+
+      return result;
     }
   }
 
   /**
    * Fill a form field.
    */
-  async fill(selector: string, value: string): Promise<ClickResult> {
+  async fill(selector: string, value: string, options: { verbose?: boolean; debugDir?: string } = {}): Promise<ClickResult> {
     const page = await this.getPage();
 
     try {
       const element = await this.findElement(selector);
 
       if (!element) {
-        return {
+        const result: ClickResult = {
           success: false,
           screenshot: await this.screenshot(),
           message: `Element not found: ${selector}`,
         };
+
+        if (options.verbose) {
+          const available = await this.getAvailableInputs(page);
+          result.availableInputs = available;
+          result.aiSuggestion = this.generateFillSuggestion(selector, available);
+          result.debugScreenshot = await this.captureDebugScreenshot(page, {
+            availableSelectors: available.map(e => e.selector),
+            attemptedSelector: selector,
+            debugDir: options.debugDir,
+          });
+        }
+
+        return result;
       }
 
       await element.fill(value);
@@ -1064,11 +1104,25 @@ export class CBrowser {
       };
     } catch (error) {
       this.audit("fill", selector, "yellow", "failure");
-      return {
+
+      const result: ClickResult = {
         success: false,
         screenshot: await this.screenshot(),
         message: `Failed to fill: ${error instanceof Error ? error.message : String(error)}`,
       };
+
+      if (options.verbose) {
+        const available = await this.getAvailableInputs(page);
+        result.availableInputs = available;
+        result.aiSuggestion = this.generateFillSuggestion(selector, available);
+        result.debugScreenshot = await this.captureDebugScreenshot(page, {
+          availableSelectors: available.map(e => e.selector),
+          attemptedSelector: selector,
+          debugDir: options.debugDir,
+        });
+      }
+
+      return result;
     }
   }
 
@@ -2084,6 +2138,138 @@ export class CBrowser {
     }
 
     return code;
+  }
+
+  // =========================================================================
+  // Verbose Debug Helpers (v7.4.16)
+  // =========================================================================
+
+  /**
+   * Get all clickable elements on the page for verbose output.
+   */
+  private async getAvailableClickables(page: Page): Promise<Array<{ tag: string; text: string; selector: string; role?: string }>> {
+    try {
+      return await page.$$eval('button, a, [role="button"], input[type="submit"], input[type="button"]', els =>
+        els.slice(0, 15).map((el, i) => ({
+          tag: el.tagName.toLowerCase(),
+          text: (el as HTMLElement).innerText?.trim().substring(0, 60) || el.getAttribute("aria-label") || "",
+          selector: el.id ? `#${el.id}` : el.getAttribute("data-testid") ? `[data-testid="${el.getAttribute("data-testid")}"]` : `${el.tagName.toLowerCase()}:nth-of-type(${i + 1})`,
+          role: el.getAttribute("role") || undefined,
+        }))
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get all input fields on the page for verbose output.
+   */
+  private async getAvailableInputs(page: Page): Promise<Array<{ selector: string; type: string; name: string; placeholder: string; label: string }>> {
+    try {
+      return await page.$$eval('input, textarea, select', els =>
+        els.slice(0, 15).map(el => {
+          const input = el as HTMLInputElement;
+          // Find associated label
+          let label = "";
+          if (input.id) {
+            const labelEl = document.querySelector(`label[for="${input.id}"]`);
+            if (labelEl) label = (labelEl as HTMLElement).innerText?.trim().substring(0, 50) || "";
+          }
+          if (!label && input.closest("label")) {
+            label = (input.closest("label") as HTMLElement).innerText?.trim().substring(0, 50) || "";
+          }
+          return {
+            selector: input.id ? `#${input.id}` : input.name ? `[name="${input.name}"]` : input.placeholder ? `[placeholder="${input.placeholder}"]` : `${el.tagName.toLowerCase()}`,
+            type: input.type || el.tagName.toLowerCase(),
+            name: input.name || "",
+            placeholder: input.placeholder || "",
+            label,
+          };
+        })
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Generate AI suggestion for a failed click.
+   */
+  private generateClickSuggestion(selector: string, available: Array<{ tag: string; text: string; selector: string }>): string {
+    if (available.length === 0) {
+      return `No clickable elements found on the page. The page may still be loading.`;
+    }
+    const list = available.slice(0, 8).map(e => `  • ${e.tag}: "${e.text}" → ${e.selector}`).join("\n");
+    return `Element "${selector}" not found.\n\nAvailable clickable elements:\n${list}\n\nTry using the exact text or selector from one of these elements.`;
+  }
+
+  /**
+   * Generate AI suggestion for a failed fill.
+   */
+  private generateFillSuggestion(selector: string, available: Array<{ selector: string; type: string; name: string; placeholder: string; label: string }>): string {
+    if (available.length === 0) {
+      return `No input fields found on the page. The page may still be loading.`;
+    }
+    const list = available.slice(0, 8).map(e => {
+      const desc = e.label || e.placeholder || e.name || e.type;
+      return `  • ${desc} (${e.type}) → ${e.selector}`;
+    }).join("\n");
+    return `Input "${selector}" not found.\n\nAvailable input fields:\n${list}\n\nTry using the name, placeholder, or label text from one of these fields.`;
+  }
+
+  /**
+   * Capture a debug screenshot with element highlighting.
+   * Green outlines = available alternatives, Red outline = attempted selector.
+   */
+  private async captureDebugScreenshot(
+    page: Page,
+    options: { availableSelectors?: string[]; attemptedSelector?: string; debugDir?: string }
+  ): Promise<string> {
+    try {
+      // Inject CSS highlights
+      await page.evaluate((opts: { availableSelectors?: string[]; attemptedSelector?: string }) => {
+        // Highlight available elements in green
+        for (const sel of opts.availableSelectors || []) {
+          try {
+            const el = document.querySelector(sel);
+            if (el) {
+              (el as HTMLElement).style.outline = "3px solid #22c55e";
+              (el as HTMLElement).style.outlineOffset = "2px";
+            }
+          } catch {}
+        }
+        // Mark attempted element in red
+        if (opts.attemptedSelector) {
+          try {
+            const el = document.querySelector(opts.attemptedSelector);
+            if (el) {
+              (el as HTMLElement).style.outline = "3px solid #ef4444";
+              (el as HTMLElement).style.outlineOffset = "2px";
+            }
+          } catch {}
+        }
+      }, { availableSelectors: options.availableSelectors, attemptedSelector: options.attemptedSelector });
+
+      // Take screenshot
+      const dir = options.debugDir || this.paths.screenshotsDir;
+      const filename = `debug-${Date.now()}.png`;
+      const filepath = join(dir, filename);
+      await page.screenshot({ path: filepath, fullPage: false });
+
+      // Clean up highlights
+      await page.evaluate(() => {
+        const highlighted = document.querySelectorAll('[style*="outline"]');
+        for (let i = 0; i < highlighted.length; i++) {
+          (highlighted[i] as HTMLElement).style.outline = "";
+          (highlighted[i] as HTMLElement).style.outlineOffset = "";
+        }
+      });
+
+      return filepath;
+    } catch {
+      return await this.screenshot();
+    }
   }
 
   /**

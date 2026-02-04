@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "7.4.15",
+  "version": "7.4.16",
   "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites. Modular architecture for visual, testing, analysis, and performance modules.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
