@@ -1316,6 +1316,7 @@ async function handleMcpRequest(
   transport: StreamableHTTPServerTransport
 ): Promise<void> {
   // CORS headers are set at the top level in startRemoteMcpServer
+  const start = Date.now();
 
   // Parse body for POST requests
   if (req.method === "POST") {
@@ -1325,9 +1326,25 @@ async function handleMcpRequest(
     }
     const body = Buffer.concat(chunks).toString("utf-8");
     const parsedBody = body ? JSON.parse(body) : undefined;
+
+    // Log request details
+    const method = parsedBody?.method || "unknown";
+    let logLine = `← ${method}`;
+    if (method === "tools/call" && parsedBody?.params?.name) {
+      logLine += ` [${parsedBody.params.name}]`;
+    }
+    if (method === "notifications/initialized") {
+      logLine = `← session initialized`;
+    }
+
     await transport.handleRequest(req, res, parsedBody);
+
+    const duration = Date.now() - start;
+    console.log(`${logLine} → ${res.statusCode} (${duration}ms)`);
   } else {
     await transport.handleRequest(req, res);
+    const duration = Date.now() - start;
+    console.log(`← ${req.method} → ${res.statusCode} (${duration}ms)`);
   }
 }
 
@@ -1347,7 +1364,7 @@ export async function startRemoteMcpServer(): Promise<void> {
   const auth0Enabled = auth0 !== null;
   const authEnabled = apiKeyAuthEnabled || auth0Enabled;
 
-  console.log(`Starting CBrowser Remote MCP Server v7.4.5...`);
+  console.log(`Starting CBrowser Remote MCP Server v7.9.1...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
   if (apiKeyAuthEnabled) {
