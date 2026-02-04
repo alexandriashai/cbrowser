@@ -5,6 +5,24 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.17] - 2026-02-03
+
+### Added
+- **Accessibility-first element finding** - `findElementByIntent` now uses ARIA-first selector strategy: aria-label > aria-labelledby > role > semantic HTML > input-type > ID > data-testid > name > css-class (#9)
+- **`selectorType` field** - Returns which selector strategy matched (e.g., `"aria-label"`, `"role"`, `"semantic-element"`)
+- **`accessibilityScore` (0-1)** - Quantifies element's accessibility quality based on ARIA attributes, semantic HTML, and label associations
+- **Enhanced alternatives** - Verbose mode returns typed alternatives with `type: SelectorStrategyType` and confidence scores per strategy
+- **Enhanced `hunt_bugs` a11y checks** - New checks for missing alt text, empty links, placeholder-only labels, non-interactive onclick handlers, heading level skips
+- **Actionable recommendations** - Every bug report includes a `recommendation` field with specific fix suggestions
+
+### Technical Details
+- `SelectorStrategyType` union type: 11 strategy types for selector classification
+- `SELECTOR_PRIORITY` array defines strategy order with base confidence scores
+- `generatePrioritySelectors(el)` generates ordered selector candidates from enriched element data
+- `calculateAccessibilityScore(el)` scores: aria-label (+0.3), role (+0.2), semantic element (+0.2), label association (+0.2), text content (+0.1)
+- `EnrichedPageElement` collects ariaLabel, ariaLabelledby, role, name, title, dataTestId, placeholder, isSemanticElement
+- `BugReport.recommendation` field added for all bug types
+
 ## [7.4.16] - 2026-02-03
 
 ### Added

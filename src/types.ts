@@ -125,17 +125,36 @@ export interface ClickResult {
   debugScreenshot?: string;
 }
 
+/** Selector strategy type used for element finding */
+export type SelectorStrategyType =
+  | "aria-label"
+  | "aria-labelledby"
+  | "role"
+  | "semantic-element"
+  | "input-type"
+  | "id"
+  | "data-testid"
+  | "name"
+  | "css-class"
+  | "text-content"
+  | "nth-of-type";
+
 /** Result from findElementByIntent with verbose info */
 export interface FindByIntentResult {
   found: boolean;
   selector?: string;
   confidence?: number;
   description?: string;
-  /** Alternative elements found on the page (verbose mode) */
+  /** Which selector strategy was used (e.g., "aria-label", "id", "text-content") */
+  selectorType?: SelectorStrategyType;
+  /** Accessibility score 0-1 based on ARIA/semantic attributes */
+  accessibilityScore?: number;
+  /** Alternative selectors for the same element, ordered by priority */
   alternatives?: Array<{
     selector: string;
     text: string;
     tag: string;
+    type: SelectorStrategyType;
     confidence: number;
   }>;
   /** AI-generated suggestion (verbose mode) */

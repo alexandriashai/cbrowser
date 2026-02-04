@@ -3539,6 +3539,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             const icon = bug.severity === "critical" ? "🔴" : bug.severity === "high" ? "🟠" : "🟡";
             console.log(`   ${icon} [${bug.type}] ${bug.description}`);
             if (bug.selector) console.log(`      Selector: ${bug.selector}`);
+            if (bug.recommendation) console.log(`      💡 ${bug.recommendation}`);
           }
         } else {
           console.log(`   ✅ No bugs found!`);

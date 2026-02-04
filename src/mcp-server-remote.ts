@@ -1061,7 +1061,7 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "hunt_bugs",
-    "Autonomous bug hunting - crawl and find issues",
+    "Autonomous bug hunting - crawl and find issues. Returns bugs with severity, selector, and actionable recommendation for each issue found.",
     {
       url: z.string().url().describe("Starting URL to hunt from"),
       maxPages: z.number().optional().default(10).describe("Maximum pages to visit"),
@@ -1078,7 +1078,14 @@ function configureMcpTools(server: McpServer): void {
               pagesVisited: result.pagesVisited,
               bugsFound: result.bugs.length,
               duration: result.duration,
-              bugs: result.bugs.slice(0, 10),
+              bugs: result.bugs.slice(0, 10).map(bug => ({
+                type: bug.type,
+                severity: bug.severity,
+                description: bug.description,
+                url: bug.url,
+                selector: bug.selector,
+                recommendation: bug.recommendation,
+              })),
             }, null, 2),
           },
         ],
@@ -1145,10 +1152,10 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "find_element_by_intent",
-    "AI-powered semantic element finding. Use verbose=true to get alternative elements and suggestions when no match found.",
+    "AI-powered semantic element finding with ARIA-first selector strategy. Prioritizes aria-label > role > semantic HTML > ID > name > class. Returns selectorType, accessibilityScore (0-1), and alternatives. Use verbose=true for enriched failure responses.",
     {
       intent: z.string().describe("Natural language description like 'the cheapest product' or 'login form'"),
-      verbose: z.boolean().optional().describe("Include alternative matches and AI suggestions"),
+      verbose: z.boolean().optional().describe("Include alternative matches with confidence scores and AI suggestions"),
     },
     async ({ intent, verbose }) => {
       const b = await getBrowser();
@@ -1270,7 +1277,7 @@ function configureMcpTools(server: McpServer): void {
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.16",
+    version: "7.4.17",
   });
   configureMcpTools(server);
   return server;
@@ -1351,7 +1358,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         status: "ok",
-        version: "7.4.16",
+        version: "7.4.17",
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthEnabled,
@@ -1366,7 +1373,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.16",
+        version: "7.4.17",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,

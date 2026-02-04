@@ -70,7 +70,7 @@ export async function startMcpServer(): Promise<void> {
 
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.16",
+    version: "7.4.17",
   });
 
   // =========================================================================
@@ -814,7 +814,7 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "hunt_bugs",
-    "Autonomous bug hunting - crawl and find issues",
+    "Autonomous bug hunting - crawl and find issues. Returns bugs with severity, selector, and actionable recommendation for each issue found.",
     {
       url: z.string().url().describe("Starting URL to hunt from"),
       maxPages: z.number().optional().default(10).describe("Maximum pages to visit"),
@@ -831,7 +831,14 @@ export async function startMcpServer(): Promise<void> {
               pagesVisited: result.pagesVisited,
               bugsFound: result.bugs.length,
               duration: result.duration,
-              bugs: result.bugs.slice(0, 10),
+              bugs: result.bugs.slice(0, 10).map(bug => ({
+                type: bug.type,
+                severity: bug.severity,
+                description: bug.description,
+                url: bug.url,
+                selector: bug.selector,
+                recommendation: bug.recommendation,
+              })),
             }, null, 2),
           },
         ],
@@ -898,10 +905,10 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "find_element_by_intent",
-    "AI-powered semantic element finding. Use verbose=true to get alternative elements and suggestions when no match found.",
+    "AI-powered semantic element finding with ARIA-first selector strategy. Prioritizes aria-label > role > semantic HTML > ID > name > class. Returns selectorType, accessibilityScore (0-1), and alternatives. Use verbose=true for enriched failure responses.",
     {
       intent: z.string().describe("Natural language description like 'the cheapest product' or 'login form'"),
-      verbose: z.boolean().optional().describe("Include alternative matches and AI suggestions"),
+      verbose: z.boolean().optional().describe("Include alternative matches with confidence scores and AI suggestions"),
     },
     async ({ intent, verbose }) => {
       const b = await getBrowser();
