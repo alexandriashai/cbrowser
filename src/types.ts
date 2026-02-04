@@ -205,12 +205,29 @@ export interface NLTestCase {
   steps: NLTestStep[];
 }
 
+/** Enriched error info for NL test step failures (v7.4.15) */
+export interface NLTestStepError {
+  /** Why the step failed */
+  reason: string;
+  /** What was actually found */
+  actual?: string;
+  /** What was expected */
+  expected?: string;
+  /** Partial text matches found on the page */
+  partialMatches?: string[];
+  /** AI-generated suggestion for fixing the test */
+  suggestion?: string;
+}
+
 export interface NLTestStepResult {
   instruction: string;
+  /** Parsed interpretation of the instruction */
+  parsed: NLTestStep;
   action: NLTestStep["action"];
   passed: boolean;
   duration: number;
-  error?: string;
+  /** Enriched error information */
+  error?: NLTestStepError;
   screenshot?: string;
   actualValue?: string;
 }
@@ -240,6 +257,8 @@ export interface NLTestSuiteResult {
     skipped: number;
     passRate: number;
   };
+  /** AI-generated recommendations for fixing failures */
+  recommendations?: string[];
 }
 
 // ============================================================================

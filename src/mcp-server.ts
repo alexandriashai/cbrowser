@@ -29,6 +29,7 @@ import {
   runNLTestSuite,
   runNLTestFile,
   parseNLTestSuite,
+  dryRunNLTestSuite,
   repairTest,
   detectFlakyTests,
   generateCoverageMap,
@@ -69,7 +70,7 @@ export async function startMcpServer(): Promise<void> {
 
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.14",
+    version: "7.4.15",
   });
 
   // =========================================================================
@@ -594,12 +595,27 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "nl_test_file",
-    "Run natural language test suite from a file",
+    "Run natural language test suite from a file. Returns step-level results with enriched error info, partial matches, and suggestions.",
     {
       filepath: z.string().describe("Path to the test file"),
+      dryRun: z.boolean().optional().describe("Parse and display steps without executing"),
+      fuzzyMatch: z.boolean().optional().describe("Use case-insensitive fuzzy matching for assertions"),
     },
-    async ({ filepath }) => {
-      const result = await runNLTestFile(filepath);
+    async ({ filepath, dryRun, fuzzyMatch }) => {
+      const fs = await import("fs");
+      if (!fs.existsSync(filepath)) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Test file not found: ${filepath}` }) }] };
+      }
+      const fileContent = fs.readFileSync(filepath, "utf-8");
+      const suiteName = filepath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Test Suite";
+      const suite = parseNLTestSuite(fileContent, suiteName);
+
+      if (dryRun) {
+        const dryResult = dryRunNLTestSuite(suite);
+        return { content: [{ type: "text", text: JSON.stringify(dryResult, null, 2) }] };
+      }
+
+      const result = await runNLTestSuite(suite, { fuzzyMatch: fuzzyMatch || false });
       return {
         content: [
           {
@@ -611,6 +627,21 @@ export async function startMcpServer(): Promise<void> {
               failed: result.summary.failed,
               passRate: `${result.summary.passRate.toFixed(1)}%`,
               duration: result.duration,
+              recommendations: result.recommendations,
+              testResults: result.testResults.map(t => ({
+                name: t.name,
+                passed: t.passed,
+                duration: t.duration,
+                error: t.error,
+                steps: t.stepResults.map(s => ({
+                  instruction: s.instruction,
+                  parsed: s.parsed,
+                  passed: s.passed,
+                  duration: s.duration,
+                  error: s.error,
+                  actualValue: s.actualValue,
+                })),
+              })),
             }, null, 2),
           },
         ],
@@ -620,14 +651,22 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "nl_test_inline",
-    "Run natural language tests from inline content",
+    "Run natural language tests from inline content. Returns step-level results with enriched error info, partial matches, and suggestions.",
     {
       content: z.string().describe("Test content with instructions like 'go to https://...' and 'click login'"),
       name: z.string().optional().describe("Name for the test suite"),
+      dryRun: z.boolean().optional().describe("Parse and display steps without executing"),
+      fuzzyMatch: z.boolean().optional().describe("Use case-insensitive fuzzy matching for assertions"),
     },
-    async ({ content, name }) => {
+    async ({ content, name, dryRun, fuzzyMatch }) => {
       const suite = parseNLTestSuite(content, name || "Inline Test");
-      const result = await runNLTestSuite(suite);
+
+      if (dryRun) {
+        const dryResult = dryRunNLTestSuite(suite);
+        return { content: [{ type: "text", text: JSON.stringify(dryResult, null, 2) }] };
+      }
+
+      const result = await runNLTestSuite(suite, { fuzzyMatch: fuzzyMatch || false });
       return {
         content: [
           {
@@ -639,6 +678,21 @@ export async function startMcpServer(): Promise<void> {
               failed: result.summary.failed,
               passRate: `${result.summary.passRate.toFixed(1)}%`,
               duration: result.duration,
+              recommendations: result.recommendations,
+              testResults: result.testResults.map(t => ({
+                name: t.name,
+                passed: t.passed,
+                duration: t.duration,
+                error: t.error,
+                steps: t.stepResults.map(s => ({
+                  instruction: s.instruction,
+                  parsed: s.parsed,
+                  passed: s.passed,
+                  duration: s.duration,
+                  error: s.error,
+                  actualValue: s.actualValue,
+                })),
+              })),
             }, null, 2),
           },
         ],

@@ -5,6 +5,25 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.15] - 2026-02-03
+
+### Added
+- **Enhanced NL test error reporting** - Step-level results with parsed instructions, enriched errors, partial matches, and AI suggestions (#6)
+- **`--dry-run` flag for `test-suite`** - Parse and display test steps without executing, in CLI and MCP tools
+- **`--fuzzy-match` flag for `test-suite`** - Case-insensitive, whitespace-normalized matching for text assertions
+- **Recommendations engine** - Auto-generated recommendations based on failure patterns (e.g., "use fuzzy matching", "check for overlays")
+- **Step-level report details** - `formatNLTestReport` now shows each step with parsed action, duration, enriched errors, partial matches, and suggestions
+- **MCP tools return step-level data** - `nl_test_file` and `nl_test_inline` now return full step results with `dryRun` and `fuzzyMatch` params
+
+### Technical Details
+- `NLTestStepError` interface: `reason`, `actual`, `expected`, `partialMatches`, `suggestion`
+- `NLTestStepResult` includes `parsed: NLTestStep` field for parsed interpretation
+- `NLTestSuiteResult` includes optional `recommendations` array
+- `findPartialMatches()` - word-by-word overlap search with context extraction
+- `generateAssertionSuggestion()` - context-aware fix suggestions per assertion type
+- `generateRecommendations()` - aggregate failure pattern analysis
+- `dryRunNLTestSuite()` - returns parsed steps without browser execution
+
 ## [7.4.14] - 2026-02-03
 
 ### Added

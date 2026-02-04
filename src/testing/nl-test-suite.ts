@@ -12,6 +12,7 @@ import type {
   NLTestStep,
   NLTestCase,
   NLTestStepResult,
+  NLTestStepError,
   NLTestCaseResult,
   NLTestSuiteResult,
 } from "../types.js";
@@ -243,6 +244,90 @@ export interface NLTestSuiteOptions {
   screenshotOnFailure?: boolean;
   /** Run headless */
   headless?: boolean;
+  /** Use fuzzy matching for text assertions */
+  fuzzyMatch?: boolean;
+}
+
+/**
+ * Find partial text matches for a failed content assertion.
+ */
+function findPartialMatches(pageText: string, expected: string, maxResults: number = 3): string[] {
+  if (!pageText || !expected) return [];
+  const lowerPage = pageText.toLowerCase();
+  const lowerExpected = expected.toLowerCase();
+  const matches: string[] = [];
+
+  // Check word-by-word overlap
+  const words = lowerExpected.split(/\s+/).filter(w => w.length > 2);
+  for (const word of words) {
+    const idx = lowerPage.indexOf(word);
+    if (idx !== -1) {
+      // Extract surrounding context (up to 60 chars)
+      const start = Math.max(0, idx - 20);
+      const end = Math.min(pageText.length, idx + word.length + 40);
+      const context = pageText.substring(start, end).trim();
+      if (!matches.some(m => m.includes(context.substring(0, 20)))) {
+        matches.push(context);
+      }
+    }
+    if (matches.length >= maxResults) break;
+  }
+
+  return matches;
+}
+
+/**
+ * Generate a suggestion for a failed assertion step.
+ */
+function generateAssertionSuggestion(step: NLTestStep, actual?: string, partialMatches?: string[]): string {
+  if (step.assertionType === "contains" && partialMatches && partialMatches.length > 0) {
+    return `Partial matches found on the page. Try: verify page contains "${partialMatches[0].substring(0, 50)}"`;
+  }
+  if (step.assertionType === "equals" && actual) {
+    return `Actual value is "${actual}". Try using 'contains' instead of exact match: verify title contains "${step.target}"`;
+  }
+  if (step.assertionType === "exists") {
+    return `Element "${step.target}" not found. Check if the element has loaded or try a more specific selector.`;
+  }
+  return `Assertion failed. Try using --fuzzy-match for case-insensitive partial matching.`;
+}
+
+/**
+ * Generate recommendations from failed test results.
+ */
+function generateRecommendations(testResults: NLTestCaseResult[]): string[] {
+  const recs: string[] = [];
+  const failedSteps = testResults.flatMap(t => t.stepResults.filter(s => !s.passed));
+
+  for (const step of failedSteps) {
+    if (step.error?.partialMatches && step.error.partialMatches.length > 0) {
+      recs.push(`Step "${step.instruction}" failed on exact match but found similar text. Consider using fuzzy matching.`);
+    }
+    if (step.action === "click" && step.error?.reason?.includes("Failed to click")) {
+      recs.push(`Click "${step.parsed?.target}" failed. Try using a more specific selector or check if an overlay is blocking.`);
+    }
+    if (step.action === "navigate" && step.error) {
+      recs.push(`Navigation to "${step.parsed?.target}" failed. Verify the URL is accessible.`);
+    }
+  }
+
+  // Deduplicate
+  return [...new Set(recs)].slice(0, 5);
+}
+
+/**
+ * Dry-run a test suite: parse all instructions and return without executing.
+ */
+export function dryRunNLTestSuite(
+  suite: { name: string; tests: NLTestCase[] }
+): { name: string; tests: Array<{ name: string; steps: NLTestStep[] }> } {
+  return {
+    name: suite.name,
+    tests: suite.tests.map(t => ({
+      name: t.name,
+      steps: t.steps,
+    })),
+  };
 }
 
 /**
@@ -257,6 +342,7 @@ export async function runNLTestSuite(
     continueOnFailure = true,
     screenshotOnFailure = true,
     headless = true,
+    fuzzyMatch = false,
   } = options;
 
   const startTime = Date.now();
@@ -265,6 +351,7 @@ export async function runNLTestSuite(
   console.log(`\n🧪 Running Test Suite: ${suite.name}`);
   console.log(`   Tests: ${suite.tests.length}`);
   console.log(`   Continue on failure: ${continueOnFailure}`);
+  if (fuzzyMatch) console.log(`   Fuzzy matching: enabled`);
   console.log("");
 
   const browser = new CBrowser({
@@ -284,15 +371,15 @@ export async function runNLTestSuite(
 
       for (const step of test.steps) {
         console.log(`   → ${step.instruction}`);
+        console.log(`     [${step.action}${step.target ? `: ${step.target}` : ""}${step.value ? ` = "${step.value}"` : ""}]`);
 
         const stepStartTime = Date.now();
         let stepPassed = true;
-        let stepError: string | undefined;
+        let stepErrorObj: NLTestStepError | undefined;
         let screenshot: string | undefined;
         let actualValue: string | undefined;
 
         try {
-          // Execute the step based on action type
           switch (step.action) {
             case "navigate": {
               await browser.navigate(step.target || "");
@@ -319,7 +406,6 @@ export async function runNLTestSuite(
 
             case "scroll": {
               const direction = step.target?.toLowerCase() === "up" ? -500 : 500;
-              // Use private page access through cast
               const page = (browser as any).page as Page;
               if (page) {
                 await page.evaluate((d) => window.scrollBy(0, d), direction);
@@ -329,13 +415,11 @@ export async function runNLTestSuite(
 
             case "wait": {
               if (step.target) {
-                // Wait for text to appear - use private page access
                 const page = (browser as any).page as Page;
                 if (page) {
                   await page.waitForSelector(`text=${step.target}`, { timeout: stepTimeout });
                 }
               } else {
-                // Wait for duration
                 const ms = parseFloat(step.value || "1") * 1000;
                 await new Promise(r => setTimeout(r, ms));
               }
@@ -343,11 +427,54 @@ export async function runNLTestSuite(
             }
 
             case "assert": {
-              const assertResult = await browser.assert(step.instruction);
-              stepPassed = assertResult.passed;
-              actualValue = String(assertResult.actual);
-              if (!assertResult.passed) {
-                stepError = assertResult.message;
+              if (fuzzyMatch && step.assertionType === "contains") {
+                // Fuzzy match: case-insensitive substring with normalized whitespace
+                const page = await browser.getPage();
+                if (step.target) {
+                  const expected = step.target.toLowerCase().replace(/\s+/g, " ").trim();
+                  const title = (await page.title()).toLowerCase().replace(/\s+/g, " ").trim();
+                  const bodyText = (await page.evaluate(() => document.body?.innerText || "")).toLowerCase().replace(/\s+/g, " ").trim();
+                  const url = page.url().toLowerCase();
+
+                  let matched = false;
+                  if (step.assertionType === "contains") {
+                    matched = bodyText.includes(expected) || title.includes(expected) || url.includes(expected);
+                  }
+                  stepPassed = matched;
+                  actualValue = matched ? `Found (fuzzy)` : `Not found`;
+                  if (!matched) {
+                    const partialMatches = findPartialMatches(bodyText, expected);
+                    stepErrorObj = {
+                      reason: "Fuzzy match failed",
+                      expected: step.target,
+                      actual: `Page text does not contain "${step.target}" (case-insensitive)`,
+                      partialMatches,
+                      suggestion: generateAssertionSuggestion(step, actualValue, partialMatches),
+                    };
+                  }
+                }
+              } else {
+                const assertResult = await browser.assert(step.instruction);
+                stepPassed = assertResult.passed;
+                actualValue = String(assertResult.actual);
+                if (!assertResult.passed) {
+                  // Enrich the error with partial matches
+                  let partialMatches: string[] | undefined;
+                  if (step.assertionType === "contains" && step.target) {
+                    try {
+                      const page = await browser.getPage();
+                      const pageText = await page.evaluate(() => document.body?.innerText || "");
+                      partialMatches = findPartialMatches(pageText, step.target);
+                    } catch {}
+                  }
+                  stepErrorObj = {
+                    reason: assertResult.message,
+                    actual: assertResult.actual !== undefined ? String(assertResult.actual) : undefined,
+                    expected: assertResult.expected !== undefined ? String(assertResult.expected) : step.target,
+                    partialMatches,
+                    suggestion: generateAssertionSuggestion(step, actualValue, partialMatches),
+                  };
+                }
               }
               break;
             }
@@ -358,7 +485,6 @@ export async function runNLTestSuite(
             }
 
             case "unknown": {
-              // Try to interpret as a click or fill
               console.log(`   ⚠️ Unknown instruction, attempting smart interpretation...`);
               const result = await browser.smartClick(step.target || step.instruction);
               if (!result.success) {
@@ -368,36 +494,51 @@ export async function runNLTestSuite(
             }
           }
 
-          console.log(`     ✓ Passed (${Date.now() - stepStartTime}ms)`);
+          if (stepPassed) {
+            console.log(`     ✓ Passed (${Date.now() - stepStartTime}ms)`);
+          } else {
+            testPassed = false;
+            testError = testError || stepErrorObj?.reason || "Assertion failed";
+            console.log(`     ✗ Failed: ${stepErrorObj?.reason || "Assertion failed"}`);
+            if (stepErrorObj?.suggestion) {
+              console.log(`     💡 ${stepErrorObj.suggestion}`);
+            }
+            if (screenshotOnFailure) {
+              try { screenshot = await browser.screenshot(); } catch {}
+            }
+          }
         } catch (e: any) {
           stepPassed = false;
-          stepError = e.message;
           testPassed = false;
           testError = testError || e.message;
+          stepErrorObj = {
+            reason: e.message,
+            suggestion: step.action === "click"
+              ? `Try using a more specific selector or check if an overlay is blocking.`
+              : step.action === "fill"
+                ? `Check if the form field is visible and not disabled.`
+                : undefined,
+          };
 
           console.log(`     ✗ Failed: ${e.message}`);
 
           if (screenshotOnFailure) {
-            try {
-              screenshot = await browser.screenshot();
-            } catch {}
+            try { screenshot = await browser.screenshot(); } catch {}
           }
         }
 
         stepResults.push({
           instruction: step.instruction,
+          parsed: step,
           action: step.action,
           passed: stepPassed,
           duration: Date.now() - stepStartTime,
-          error: stepError,
+          error: stepErrorObj,
           screenshot,
           actualValue,
         });
 
-        // Stop test if step failed and not continuing on failure
-        if (!stepPassed && !continueOnFailure) {
-          break;
-        }
+        if (!stepPassed && !continueOnFailure) break;
       }
 
       testResults.push({
@@ -416,6 +557,7 @@ export async function runNLTestSuite(
 
   const passed = testResults.filter(t => t.passed).length;
   const failed = testResults.filter(t => !t.passed).length;
+  const recommendations = generateRecommendations(testResults);
 
   const result: NLTestSuiteResult = {
     name: suite.name,
@@ -429,6 +571,7 @@ export async function runNLTestSuite(
       skipped: 0,
       passRate: suite.tests.length > 0 ? (passed / suite.tests.length) * 100 : 0,
     },
+    recommendations: recommendations.length > 0 ? recommendations : undefined,
   };
 
   return result;
@@ -472,25 +615,50 @@ export function formatNLTestReport(result: NLTestSuiteResult): string {
   lines.push("└───────────────────────────────────────┴──────────┴──────────┴────────────────────┘");
   lines.push("");
 
-  // Failed test details
-  const failedTests = result.testResults.filter(t => !t.passed);
-  if (failedTests.length > 0) {
-    lines.push("❌ FAILED TESTS");
-    lines.push("─".repeat(60));
+  // Step-level details for all tests
+  for (const test of result.testResults) {
+    const icon = test.passed ? "✅" : "❌";
+    lines.push(`${icon} ${test.name}`);
 
-    for (const test of failedTests) {
-      lines.push(`\n  📋 ${test.name}`);
+    for (const step of test.stepResults) {
+      const stepIcon = step.passed ? "  ✓" : "  ✗";
+      const parsedInfo = step.parsed
+        ? `[${step.parsed.action}${step.parsed.target ? `: ${step.parsed.target}` : ""}${step.parsed.value ? ` = "${step.parsed.value}"` : ""}]`
+        : "";
+      lines.push(`${stepIcon} ${step.instruction}  ${parsedInfo}  (${step.duration}ms)`);
 
-      const failedSteps = test.stepResults.filter(s => !s.passed);
-      for (const step of failedSteps) {
-        lines.push(`     ✗ ${step.instruction}`);
-        if (step.error) {
-          lines.push(`       Error: ${step.error}`);
+      if (!step.passed && step.error) {
+        lines.push(`      Error: ${step.error.reason}`);
+        if (step.error.expected) {
+          lines.push(`      Expected: ${step.error.expected}`);
+        }
+        if (step.error.actual) {
+          lines.push(`      Actual:   ${step.error.actual}`);
+        }
+        if (step.error.partialMatches && step.error.partialMatches.length > 0) {
+          lines.push(`      Partial matches:`);
+          for (const match of step.error.partialMatches) {
+            lines.push(`        - "${match}"`);
+          }
+        }
+        if (step.error.suggestion) {
+          lines.push(`      💡 ${step.error.suggestion}`);
         }
         if (step.screenshot) {
-          lines.push(`       Screenshot: ${step.screenshot}`);
+          lines.push(`      Screenshot: ${step.screenshot}`);
         }
       }
+    }
+
+    lines.push("");
+  }
+
+  // Recommendations
+  if (result.recommendations && result.recommendations.length > 0) {
+    lines.push("💡 RECOMMENDATIONS");
+    lines.push("─".repeat(60));
+    for (const rec of result.recommendations) {
+      lines.push(`  • ${rec}`);
     }
     lines.push("");
   }

@@ -11,7 +11,7 @@ import { CBrowser } from "./browser.js";
 import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent } from "./analysis/index.js";
 
 // Testing module imports
-import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
+import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, dryRunNLTestSuite, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
 
 // Performance module imports
 import { capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./performance/index.js";
@@ -80,10 +80,13 @@ NATURAL LANGUAGE TEST SUITES (v6.1.0)
     --output <file>            Save JSON report to file
     --html                     Generate HTML report
     --timeout <ms>             Timeout per step (default: 30000)
+    --dry-run                  Parse and display test steps without executing
+    --fuzzy-match              Use case-insensitive fuzzy matching for assertions
   test-suite --inline "..."    Run inline test (semicolon-separated steps)
     Examples:
       cbrowser test-suite login-flow.txt --html
       cbrowser test-suite --inline "go to https://example.com ; click login ; verify url contains /dashboard"
+      cbrowser test-suite login-flow.txt --dry-run
 
     Test File Format:
       # Test: Login Flow
@@ -3630,6 +3633,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("  --output <file>          Save JSON report to file");
           console.error("  --html                   Generate HTML report");
           console.error("  --timeout <ms>           Timeout per step (default: 30000)");
+          console.error("  --dry-run                Parse and display test steps without executing");
+          console.error("  --fuzzy-match            Case-insensitive fuzzy matching for assertions");
           console.error("");
           console.error("Test File Format:");
           console.error("  # Test: Login Flow");
@@ -3667,11 +3672,28 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log(`   - ${test.name}: ${test.steps.length} steps`);
         }
 
+        // Dry-run mode: parse and display without executing
+        if (options["dry-run"]) {
+          const dryResult = dryRunNLTestSuite(suite);
+          console.log(`\n🔍 DRY RUN - Parsed steps (no execution):\n`);
+          for (const test of dryResult.tests) {
+            console.log(`  📋 ${test.name}`);
+            for (let i = 0; i < test.steps.length; i++) {
+              const step = test.steps[i];
+              const parsed = `[${step.action}${step.target ? `: ${step.target}` : ""}${step.value ? ` = "${step.value}"` : ""}]`;
+              console.log(`     ${i + 1}. ${step.instruction}  ${parsed}`);
+            }
+            console.log("");
+          }
+          break;
+        }
+
         const suiteOptions: NLTestSuiteOptions = {
           stepTimeout: options.timeout ? parseInt(options.timeout as string) : 30000,
           continueOnFailure: options["continue-on-failure"] === true,
           screenshotOnFailure: options["screenshot-on-failure"] !== false,
           headless,
+          fuzzyMatch: options["fuzzy-match"] === true,
         };
 
         const result = await runNLTestSuite(suite, suiteOptions);
