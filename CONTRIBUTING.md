@@ -56,17 +56,40 @@ bun run lint
 - Keep functions focused and small
 - Use meaningful variable names
 
-### Commit Messages
+### Commit Messages (Enforced)
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) with automated enforcement via commitlint. Your commit messages **must** follow this format or they will be rejected.
+
+**Format:** `<type>(<scope>): <description>`
 
 ```
-feat: add new persona type
-fix: resolve session loading issue
-docs: update README examples
-test: add click action tests
-refactor: simplify element finding logic
+feat: add new persona type           # → MINOR version bump (new feature)
+fix: resolve session loading issue   # → PATCH version bump (bug fix)
+feat!: remove deprecated API         # → MAJOR version bump (breaking change)
+docs: update README examples         # → No version bump
+test: add click action tests         # → No version bump
+refactor: simplify element finding   # → No version bump
+perf: optimize selector caching      # → PATCH version bump (performance)
 ```
+
+**Semantic Versioning ([semver.org](https://semver.org/)):**
+
+| Commit Type | Version Bump | When to Use |
+|-------------|--------------|-------------|
+| `feat:` | MINOR (x.Y.z) | New backwards-compatible feature |
+| `fix:` | PATCH (x.y.Z) | Bug fix |
+| `perf:` | PATCH (x.y.Z) | Performance improvement |
+| `BREAKING CHANGE:` in footer | MAJOR (X.y.z) | API breaking change |
+| `feat!:` / `fix!:` | MAJOR (X.y.z) | Breaking change (shorthand) |
+| `docs:`, `test:`, `chore:` | None | No release |
+
+**Automated Release:** When you push to `main`, GitHub Actions automatically:
+1. Analyzes commits since last release
+2. Determines version bump (major/minor/patch)
+3. Updates CHANGELOG.md
+4. Creates git tag
+5. Publishes to npm
+6. Creates GitHub release
 
 ## Adding Features
 

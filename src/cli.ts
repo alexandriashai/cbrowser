@@ -37,8 +37,9 @@ import { getStatusInfo, formatStatus } from "./config.js";
 function showHelp(): void {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v7.4.6                                ║
+║                           CBrowser CLI                                       ║
 ║    AI-powered browser automation with cross-browser visual testing          ║
+║    Semantic Versioning: https://semver.org/                                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION
@@ -461,10 +462,12 @@ MCP SERVER (v5.0.0)
     --port <port>             Port to listen on (default: 3000)
     --host <host>             Host to bind to (default: 0.0.0.0)
 
-PAI SKILL INSTALLATION (v7.4.6)
+PAI SKILL INSTALLATION & SYNC
   install-skill               Install CBrowser as a PAI skill to ~/.claude/skills/
-                              Downloads skill files from GitHub and creates directory structure
-                              Add to skill-index.json after installation
+  sync-skill                  Sync local skill to match npm version (same as install-skill)
+                              Downloads latest skill files from GitHub
+                              Run after 'npm update -g cbrowser' to stay in sync
+                              Add to skill-index.json after first installation
     --stateful                Use stateful session mode
 
 DAEMON MODE (v6.4.0)
@@ -921,8 +924,8 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  // Install PAI skill
-  if (command === "install-skill") {
+  // Install/Sync PAI skill (both commands do the same thing)
+  if (command === "install-skill" || command === "sync-skill") {
     const { execSync } = await import("child_process");
     const path = await import("path");
     const fs = await import("fs");
@@ -933,7 +936,7 @@ async function main(): Promise<void> {
 
     console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║           CBrowser PAI Skill Installer v7.4.6                 ║
+║           CBrowser PAI Skill Sync (auto-versioned)            ║
 ╚═══════════════════════════════════════════════════════════════╝
 `);
 

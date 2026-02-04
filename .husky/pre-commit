@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linting on staged files
+npx lint-staged || true
+
+# Type check
+bun run build || exit 1
