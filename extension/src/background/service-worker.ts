@@ -59,11 +59,11 @@ async function saveSettings(settings: Partial<ExtensionSettings>): Promise<void>
   const updated = { ...current, ...settings };
   await chrome.storage.sync.set({ settings: updated });
 
-  // Update MCP bridge if server URL changed
-  if (settings.mcpServerUrl) {
+  // Update MCP bridge if server URL or auth token changed
+  if (settings.mcpServerUrl || settings.mcpAuthToken !== undefined) {
     setMCPBridge({
-      serverUrl: settings.mcpServerUrl,
-      authToken: settings.mcpAuthToken,
+      serverUrl: updated.mcpServerUrl,
+      authToken: updated.mcpAuthToken,
     });
   }
 }

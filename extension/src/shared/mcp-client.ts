@@ -60,6 +60,7 @@ export class MCPBridge {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json, text/event-stream',
           ...(this.config.authToken
             ? { Authorization: `Bearer ${this.config.authToken}` }
             : {}),

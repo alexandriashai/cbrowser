@@ -112,13 +112,21 @@ export function QuickActions({ onResult }: QuickActionsProps) {
     setLoading(item.id);
     try {
       const result = await item.action();
-      if (result && !result.error) {
-        onResult({ type: item.id, ...result });
+      // Always show result, including errors
+      if (result) {
+        if (result.error) {
+          onResult({ type: 'error', error: result.error, action: item.id });
+        } else {
+          onResult({ type: item.id, ...result });
+        }
+      } else {
+        onResult({ type: 'error', error: 'No response from extension', action: item.id });
       }
     } catch (error) {
       onResult({
         type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : String(error),
+        action: item.id,
       });
     } finally {
       setLoading(null);
