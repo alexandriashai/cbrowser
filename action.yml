@@ -1,5 +1,5 @@
-name: 'CBrowser - Cross-Browser Visual Testing'
-description: 'Run CBrowser visual regression tests, URL analysis, or custom commands with Playwright browsers'
+name: 'CBrowser - AI Browser Automation with Safety Boundaries'
+description: 'The only browser automation with constitutional AI safety, persona-based UX testing, and natural language interface. Built for AI agents, not scripts.'
 author: 'alexandriashai'
 
 branding:
