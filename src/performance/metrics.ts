@@ -15,6 +15,8 @@ import type {
   PerformanceComparison,
   PerformanceRegressionResult,
   PerformanceMetrics,
+  SensitivityProfile,
+  DualThreshold,
 } from "../types.js";
 
 // ============================================================================
@@ -30,6 +32,52 @@ const DEFAULT_REGRESSION_THRESHOLDS: PerformanceRegressionThresholds = {
   tti: 25,      // 25% increase
   tbt: 50,      // 50% increase
   transferSize: 25, // 25% increase
+};
+
+// ============================================================================
+// Sensitivity Profiles (v7.4.18)
+// ============================================================================
+
+export const SENSITIVITY_PROFILES: Record<string, SensitivityProfile> = {
+  strict: {
+    name: "strict",
+    thresholds: {
+      fcp:          { percent: 10,  minAbsolute: 50 },
+      lcp:          { percent: 10,  minAbsolute: 100 },
+      ttfb:         { percent: 15,  minAbsolute: 30 },
+      cls:          { percent: 10,  minAbsolute: 0.02 },
+      tti:          { percent: 15,  minAbsolute: 100 },
+      tbt:          { percent: 20,  minAbsolute: 50 },
+      fid:          { percent: 25,  minAbsolute: 20 },
+      transferSize: { percent: 15,  minAbsolute: 10240 },  // 10KB
+    },
+  },
+  normal: {
+    name: "normal",
+    thresholds: {
+      fcp:          { percent: 20,  minAbsolute: 100 },
+      lcp:          { percent: 20,  minAbsolute: 200 },
+      ttfb:         { percent: 20,  minAbsolute: 50 },
+      cls:          { percent: 20,  minAbsolute: 0.05 },
+      tti:          { percent: 25,  minAbsolute: 200 },
+      tbt:          { percent: 50,  minAbsolute: 100 },
+      fid:          { percent: 50,  minAbsolute: 50 },
+      transferSize: { percent: 25,  minAbsolute: 51200 },  // 50KB
+    },
+  },
+  lenient: {
+    name: "lenient",
+    thresholds: {
+      fcp:          { percent: 30,  minAbsolute: 200 },
+      lcp:          { percent: 30,  minAbsolute: 400 },
+      ttfb:         { percent: 30,  minAbsolute: 100 },
+      cls:          { percent: 30,  minAbsolute: 0.1 },
+      tti:          { percent: 30,  minAbsolute: 400 },
+      tbt:          { percent: 50,  minAbsolute: 200 },
+      fid:          { percent: 50,  minAbsolute: 100 },
+      transferSize: { percent: 30,  minAbsolute: 102400 }, // 100KB
+    },
+  },
 };
 
 // ============================================================================
@@ -50,8 +98,12 @@ export interface PerformanceBaselineOptions {
 }
 
 export interface PerformanceRegressionOptions {
-  /** Regression thresholds */
+  /** Regression thresholds (legacy percentage-only, overridden by sensitivity) */
   thresholds?: PerformanceRegressionThresholds;
+  /** Sensitivity profile: strict, normal, lenient (default: normal) */
+  sensitivity?: "strict" | "normal" | "lenient";
+  /** Custom dual thresholds per metric (overrides sensitivity profile) */
+  customThresholds?: Partial<Record<string, DualThreshold>>;
   /** Headless mode */
   headless?: boolean;
 }
@@ -208,15 +260,51 @@ export function deletePerformanceBaseline(idOrName: string): boolean {
 // ============================================================================
 
 /**
- * Compare current performance against a baseline
+ * Resolve the effective dual threshold for a metric.
+ * Priority: customThresholds > sensitivity profile > legacy thresholds > normal profile
+ */
+function resolveThreshold(
+  metric: string,
+  profile: SensitivityProfile,
+  customThresholds?: Partial<Record<string, DualThreshold>>,
+  legacyThresholds?: PerformanceRegressionThresholds,
+): DualThreshold {
+  // Custom threshold takes highest priority
+  if (customThresholds?.[metric]) {
+    return customThresholds[metric]!;
+  }
+  // Sensitivity profile threshold
+  const profileThreshold = profile.thresholds[metric as keyof SensitivityProfile["thresholds"]];
+  if (profileThreshold) {
+    // If legacy threshold is set for this metric, use it for the percent part
+    const legacyPercent = legacyThresholds?.[metric as keyof PerformanceRegressionThresholds];
+    if (legacyPercent !== undefined) {
+      return { percent: legacyPercent, minAbsolute: profileThreshold.minAbsolute };
+    }
+    return profileThreshold;
+  }
+  return { percent: 20, minAbsolute: 100 };
+}
+
+/**
+ * Compare current performance against a baseline.
+ * Both percentage AND absolute thresholds must be exceeded to flag a regression.
  */
 export async function detectPerformanceRegression(
   url: string,
   baselineIdOrName: string,
   options: PerformanceRegressionOptions = {}
 ): Promise<PerformanceRegressionResult> {
-  const { thresholds = DEFAULT_REGRESSION_THRESHOLDS, headless = true } = options;
+  const {
+    thresholds: legacyThresholds,
+    sensitivity = "normal",
+    customThresholds,
+    headless = true,
+  } = options;
   const startTime = Date.now();
+
+  // Resolve sensitivity profile
+  const profile = SENSITIVITY_PROFILES[sensitivity] || SENSITIVITY_PROFILES.normal;
 
   // Load baseline
   const baseline = loadPerformanceBaseline(baselineIdOrName);
@@ -239,6 +327,7 @@ export async function detectPerformanceRegression(
   // Compare metrics
   const comparisons: PerformanceComparison[] = [];
   const regressions: MetricRegression[] = [];
+  const notes: Array<{ metric: string; message: string }> = [];
 
   const metricsToCompare: (keyof PerformanceMetrics)[] = [
     "lcp", "fid", "cls", "fcp", "ttfb", "tti", "tbt", "transferSize"
@@ -251,24 +340,32 @@ export async function detectPerformanceRegression(
     if (baselineValue === undefined || currentValue === undefined) continue;
 
     const change = currentValue - baselineValue;
+    const absoluteChange = Math.abs(change);
     const changePercent = baselineValue > 0 ? (change / baselineValue) * 100 : 0;
 
-    // Determine threshold and if it's a regression
-    const threshold = thresholds[metric as keyof PerformanceRegressionThresholds] || 20;
+    // Resolve dual threshold for this metric
+    const dualThreshold = resolveThreshold(metric, profile, customThresholds, legacyThresholds);
     const isClsMetric = metric === "cls";
 
-    // For CLS, threshold is absolute; for others, it's percentage
-    const exceedsThreshold = isClsMetric
-      ? change > threshold
-      : changePercent > threshold;
+    // DUAL THRESHOLD: Both percentage AND absolute must be exceeded
+    const exceedsPercent = changePercent > dualThreshold.percent;
+    const exceedsAbsolute = absoluteChange > dualThreshold.minAbsolute;
+    const exceedsThreshold = exceedsPercent && exceedsAbsolute;
 
     let status: PerformanceComparison["status"] = "stable";
     let severity: MetricRegression["severity"] = "warning";
+    let note: string | undefined;
 
     if (changePercent < -10 || (isClsMetric && change < -0.05)) {
       status = "improved";
+    } else if (exceedsPercent && !exceedsAbsolute) {
+      // Large percentage but small absolute change — noise
+      status = "stable";
+      const unit = isClsMetric ? "" : "ms";
+      note = `${changePercent.toFixed(1)}% change but only ${absoluteChange.toFixed(isClsMetric ? 3 : 0)}${unit} absolute — within noise threshold (min: ${dualThreshold.minAbsolute}${unit})`;
+      notes.push({ metric, message: note });
     } else if (exceedsThreshold) {
-      if (isClsMetric ? change > threshold * 2 : changePercent > threshold * 2) {
+      if (changePercent > dualThreshold.percent * 2) {
         status = "critical";
         severity = "critical";
       } else {
@@ -288,6 +385,7 @@ export async function detectPerformanceRegression(
       isRegression: status === "regression" || status === "critical",
       isImprovement: status === "improved",
       status,
+      note,
     };
     comparisons.push(comparison);
 
@@ -298,7 +396,8 @@ export async function detectPerformanceRegression(
         currentValue,
         change,
         changePercent,
-        threshold,
+        threshold: dualThreshold.percent,
+        absoluteThreshold: dualThreshold.minAbsolute,
         severity,
       });
     }
@@ -319,9 +418,11 @@ export async function detectPerformanceRegression(
     currentMetrics,
     timestamp: new Date().toISOString(),
     duration: Date.now() - startTime,
+    sensitivity: profile.name,
     comparisons,
     regressions,
     passed: regressions.length === 0,
+    notes,
     summary: {
       totalMetrics: comparisons.length,
       improved,
@@ -348,6 +449,7 @@ export function formatPerformanceRegressionReport(result: PerformanceRegressionR
   lines.push("");
   lines.push(`URL: ${result.url}`);
   lines.push(`Baseline: ${result.baseline.name} (${new Date(result.baseline.timestamp).toLocaleDateString()})`);
+  lines.push(`Sensitivity: ${result.sensitivity || "normal"}`);
   lines.push(`Duration: ${(result.duration / 1000).toFixed(1)}s`);
   lines.push("");
 
@@ -398,6 +500,19 @@ export function formatPerformanceRegressionReport(result: PerformanceRegressionR
 
     lines.push(`${icon} ${name}`);
     lines.push(`   Baseline: ${baseVal}${unit} -> Current: ${currVal}${unit} (${changeStr})`);
+    lines.push("");
+  }
+
+  // Notes (noise threshold)
+  if (result.notes && result.notes.length > 0) {
+    lines.push("-".repeat(60));
+    lines.push("NOTES (within noise threshold)");
+    lines.push("-".repeat(60));
+    lines.push("");
+    for (const note of result.notes) {
+      const name = metricNames[note.metric] || note.metric;
+      lines.push(`[INFO] ${name}: ${note.message}`);
+    }
     lines.push("");
   }
 

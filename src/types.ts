@@ -1127,6 +1127,31 @@ export interface PerformanceRegressionThresholds {
   transferSize?: number;
 }
 
+/** Threshold with both percentage and absolute minimum */
+export interface DualThreshold {
+  /** Percentage threshold */
+  percent: number;
+  /** Minimum absolute change in ms (or absolute for CLS) to count as regression */
+  minAbsolute: number;
+}
+
+/** Sensitivity profile for performance regression detection */
+export interface SensitivityProfile {
+  /** Profile name */
+  name: "strict" | "normal" | "lenient";
+  /** Per-metric dual thresholds */
+  thresholds: {
+    fcp: DualThreshold;
+    lcp: DualThreshold;
+    ttfb: DualThreshold;
+    cls: DualThreshold;
+    tti: DualThreshold;
+    tbt: DualThreshold;
+    fid: DualThreshold;
+    transferSize: DualThreshold;
+  };
+}
+
 export interface MetricRegression {
   /** Metric name */
   metric: keyof PerformanceMetrics;
@@ -1138,8 +1163,10 @@ export interface MetricRegression {
   change: number;
   /** Change percentage */
   changePercent: number;
-  /** Threshold that was exceeded */
+  /** Percentage threshold that was exceeded */
   threshold: number;
+  /** Absolute threshold that was exceeded */
+  absoluteThreshold: number;
   /** Severity of regression */
   severity: "warning" | "regression" | "critical";
 }
@@ -1161,6 +1188,8 @@ export interface PerformanceComparison {
   isImprovement: boolean;
   /** Status indicator */
   status: "improved" | "stable" | "warning" | "regression" | "critical";
+  /** Note about why a large % change was not flagged (noise threshold) */
+  note?: string;
 }
 
 export interface PerformanceRegressionResult {
@@ -1174,12 +1203,16 @@ export interface PerformanceRegressionResult {
   timestamp: string;
   /** Duration of test */
   duration: number;
+  /** Sensitivity profile used */
+  sensitivity: "strict" | "normal" | "lenient";
   /** Detailed comparison per metric */
   comparisons: PerformanceComparison[];
   /** Detected regressions */
   regressions: MetricRegression[];
   /** Overall result */
   passed: boolean;
+  /** Notes about changes within noise threshold */
+  notes: Array<{ metric: string; message: string }>;
   /** Summary */
   summary: {
     totalMetrics: number;

@@ -1205,15 +1205,17 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "perf_regression",
-    "Detect performance regression against baseline",
+    "Detect performance regression against baseline with configurable sensitivity. Uses dual thresholds: both percentage AND absolute change must be exceeded. Profiles: strict (CI/CD, FCP 10%/50ms), normal (default, FCP 20%/100ms), lenient (dev, FCP 30%/200ms). Sub-50ms FCP variations ignored by default.",
     {
       url: z.string().url().describe("URL to test"),
       baselineName: z.string().describe("Name of baseline to compare against"),
-      thresholdLcp: z.number().optional().default(20).describe("LCP threshold percentage"),
+      sensitivity: z.enum(["strict", "normal", "lenient"]).optional().default("normal").describe("Sensitivity profile: strict (CI/CD), normal (default), lenient (development)"),
+      thresholdLcp: z.number().optional().describe("Override LCP threshold percentage"),
     },
-    async ({ url, baselineName, thresholdLcp }) => {
+    async ({ url, baselineName, sensitivity, thresholdLcp }) => {
       const result = await detectPerformanceRegression(url, baselineName, {
-        thresholds: { lcp: thresholdLcp },
+        sensitivity,
+        thresholds: thresholdLcp ? { lcp: thresholdLcp } : undefined,
       });
       return {
         content: [
@@ -1221,6 +1223,8 @@ function configureMcpTools(server: McpServer): void {
             type: "text",
             text: JSON.stringify({
               passed: result.passed,
+              sensitivity: result.sensitivity,
+              notes: result.notes,
               regressions: result.regressions,
               currentMetrics: result.currentMetrics,
               baseline: result.baseline.name,
@@ -1277,7 +1281,7 @@ function configureMcpTools(server: McpServer): void {
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.17",
+    version: "7.4.18",
   });
   configureMcpTools(server);
   return server;
@@ -1358,7 +1362,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         status: "ok",
-        version: "7.4.17",
+        version: "7.4.18",
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthEnabled,
@@ -1373,7 +1377,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.17",
+        version: "7.4.18",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,

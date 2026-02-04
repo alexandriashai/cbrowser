@@ -70,7 +70,7 @@ export async function startMcpServer(): Promise<void> {
 
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.17",
+    version: "7.4.18",
   });
 
   // =========================================================================
@@ -959,15 +959,17 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "perf_regression",
-    "Detect performance regression against baseline",
+    "Detect performance regression against baseline with configurable sensitivity. Uses dual thresholds: both percentage AND absolute change must be exceeded. Profiles: strict (CI/CD, FCP 10%/50ms), normal (default, FCP 20%/100ms), lenient (dev, FCP 30%/200ms). Sub-50ms FCP variations ignored by default.",
     {
       url: z.string().url().describe("URL to test"),
       baselineName: z.string().describe("Name of baseline to compare against"),
-      thresholdLcp: z.number().optional().default(20).describe("LCP threshold percentage"),
+      sensitivity: z.enum(["strict", "normal", "lenient"]).optional().default("normal").describe("Sensitivity profile: strict (CI/CD), normal (default), lenient (development)"),
+      thresholdLcp: z.number().optional().describe("Override LCP threshold percentage"),
     },
-    async ({ url, baselineName, thresholdLcp }) => {
+    async ({ url, baselineName, sensitivity, thresholdLcp }) => {
       const result = await detectPerformanceRegression(url, baselineName, {
-        thresholds: { lcp: thresholdLcp },
+        sensitivity,
+        thresholds: thresholdLcp ? { lcp: thresholdLcp } : undefined,
       });
       return {
         content: [
@@ -975,6 +977,8 @@ export async function startMcpServer(): Promise<void> {
             type: "text",
             text: JSON.stringify({
               passed: result.passed,
+              sensitivity: result.sensitivity,
+              notes: result.notes,
               regressions: result.regressions,
               currentMetrics: result.currentMetrics,
               baseline: result.baseline.name,

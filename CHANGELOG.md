@@ -5,6 +5,26 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.18] - 2026-02-03
+
+### Added
+- **Configurable performance regression sensitivity** - Dual thresholds: both percentage AND absolute change must be exceeded to flag a regression (#5)
+- **Three sensitivity profiles** - `strict` (CI/CD), `normal` (default), `lenient` (development) with per-metric percent and absolute thresholds
+- **`--sensitivity` CLI flag** - `npx cbrowser perf-regression <url> <baseline> --sensitivity strict`
+- **`sensitivity` MCP parameter** - `perf_regression` tool accepts `strict`, `normal`, `lenient`
+- **Noise threshold notes** - Large percentage changes within absolute noise threshold reported as informational notes instead of regressions
+
+### Fixed
+- **False positive regressions** - A 16ms FCP change (66%) is no longer flagged as "critical". Normal profile requires both 20% AND 100ms absolute change for FCP.
+
+### Technical Details
+- `SensitivityProfile` and `DualThreshold` types in types.ts
+- `SENSITIVITY_PROFILES` constant with strict/normal/lenient presets
+- `resolveThreshold()` merges custom > profile > legacy > normal defaults
+- `PerformanceRegressionResult` includes `sensitivity`, `notes` fields
+- `PerformanceComparison` includes optional `note` for noise threshold info
+- `MetricRegression` includes `absoluteThreshold` field
+
 ## [7.4.17] - 2026-02-03
 
 ### Added
