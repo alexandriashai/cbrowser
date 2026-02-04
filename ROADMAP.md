@@ -15,12 +15,14 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | v2.5.0 | 2026-02-02 | Visual regression, test recorder, a11y, webhooks |
 | v3.0.0 | 2026-02-02 | Fluent API, natural language commands |
 | v4.0.0 | 2026-02-02 | Visual AI, bug hunter, cross-browser diff, chaos engineering |
-| v5.0.0 | 2026-02-02 | Smart retry, natural language assertions, self-healing selectors |
+| v5.0.0 | 2026-02-02 | Smart retry, NL assertions, self-healing selectors, MCP server |
 | v6.0.0 | 2026-02-02 | Multi-persona comparison, natural language test suites |
 | v6.5.0 | 2026-02-02 | AI test repair, flaky detection, perf regression, coverage mapping |
 | v7.0.0 | 2026-02-02 | AI visual regression with semantic comparison |
 | v7.3.0 | 2026-02-02 | Cross-browser, responsive, A/B visual testing |
-| v7.4.6 | 2026-02-02 | Auth0 OAuth for claude.ai, modular architecture, 31 MCP tools |
+| v7.4.6 | 2026-02-02 | Auth0 OAuth for claude.ai, modular architecture, 33 MCP tools |
+| v7.4.10-19 | 2026-02-03 | Session management, overlay dismissal, verbose debugging, NL test enhancements, a11y-first selectors, perf sensitivity profiles, example recipes |
+| v8.0.0 | 2026-02-03 | 9 bug fixes from stress testing: byte-level A/B comparison, CLI arg routing, self-healing cache validation, responsive test scoring |
 
 ---
 
@@ -52,16 +54,14 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 
 ---
 
-## Tier 3: Ambitious (v3.0.0)
+## Tier 3: Ambitious ✅ (v3.0.0)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Fluent API | ✅ Complete | `browser.goto(url).click(x).fill(y)` |
 | Natural Language API | ✅ Complete | "Go to cart and checkout" |
-| AI Test Generation | ⬜ Planned | Analyze page → generate test scenarios |
-| Self-Healing Selectors | ⬜ Planned | AI finds alternatives when broken |
-| Session Replay Import | ⬜ Planned | Import FullStory/Hotjar recordings |
-| Plugin System | ⬜ Planned | Extensible architecture |
+| AI Test Generation | ✅ Complete | Analyze page → generate test scenarios (shipped in v5.0.0) |
+| Self-Healing Selectors | ✅ Complete | AI finds alternatives when broken (shipped in v5.0.0) |
 
 ---
 
@@ -73,7 +73,6 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | Autonomous Bug Hunter | ✅ Complete | Explore and find bugs automatically |
 | Cross-Browser Diff | ✅ Complete | Compare behavior across browsers |
 | Chaos Engineering | ✅ Complete | Inject failures, test resilience |
-| Distributed Grid | ⬜ Future | Run across multiple machines |
 
 ---
 
@@ -103,37 +102,53 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 
 ---
 
-## Tier 7: Visual Testing Suite ✅ (v7.0.0 - v7.4.6)
+## Tier 7: Visual Testing Suite ✅ (v7.0.0 - v7.4.19)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| AI Visual Regression | ✅ Complete | Semantic screenshot comparison using AI (not pixel-diff) |
+| AI Visual Regression | ✅ Complete | Semantic screenshot comparison using AI |
 | Cross-Browser Visual Testing | ✅ Complete | Compare rendering across Chrome, Firefox, Safari |
 | Responsive Visual Testing | ✅ Complete | Compare mobile, tablet, desktop viewports |
 | A/B Visual Comparison | ✅ Complete | Compare two URLs (staging vs production) |
 | Modular Architecture | ✅ Complete | Tree-shakeable imports (`cbrowser/visual`, `/testing`, `/analysis`, `/performance`) |
-| 31 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
+| 33 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
 | Remote MCP Server | ✅ Complete | HTTP endpoint for claude.ai custom connectors |
 | Auth0 OAuth | ✅ Complete | OAuth 2.1 authentication for claude.ai integration |
-| Dual Authentication | ✅ Complete | OAuth + API keys simultaneously |
-| Token Caching | ✅ Complete | 30-minute cache to avoid rate limits |
+| Rich Session Management | ✅ Complete | Save/load/export/import sessions with metadata, cleanup, cross-domain warnings |
+| Overlay Dismissal | ✅ Complete | Auto-dismiss cookie consent, age verification, newsletter popups |
+| Verbose Debugging | ✅ Complete | Debug screenshots, AI suggestions, available elements on failure |
+| Accessibility-First Selectors | ✅ Complete | ARIA-first strategy with accessibility scoring |
+| Performance Sensitivity Profiles | ✅ Complete | Strict/normal/lenient thresholds for regression detection |
+| Example Recipes | ✅ Complete | 13 examples: workflows, CI/CD templates, NL tests, personas |
 
 ---
 
-## Tier 8: Enterprise & Monitoring (Future)
+## Tier 7.5: Stability ✅ (v8.0.0)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Distributed Testing Grid | ⬜ Planned | Run tests across multiple machines in parallel |
-| Real-Time Monitoring | ⬜ Planned | Continuous uptime monitoring with alerts |
-| AI Anomaly Detection | ⬜ Planned | Detect visual/behavioral anomalies automatically |
-| Multi-Environment Orchestration | ⬜ Planned | Coordinate tests across dev, staging, production |
-| Advanced Reporting Dashboard | ⬜ Planned | Web UI for test results, trends, analytics |
-| Team Collaboration | ⬜ Planned | Shared baselines, comments, approval workflows |
-| CI/CD Native Integration | ⬜ Planned | GitHub Actions, GitLab CI, Jenkins plugins |
-| Session Replay Import | ⬜ Planned | Import FullStory/Hotjar recordings as test cases |
-| Plugin System | ⬜ Planned | Extensible architecture for custom tools |
-| SaaS Platform | ⬜ Planned | Hosted CBrowser with managed infrastructure |
+| CLI Arg Routing Fixes | ✅ Complete | `extract` and `screenshot` accept positional URLs correctly |
+| Byte-Level A/B Comparison | ✅ Complete | Replaced file-size heuristic with PNG buffer diff |
+| Self-Healing Cache Validation | ✅ Complete | Reject empty/invalid selectors from cache |
+| Session Save Error Handling | ✅ Complete | Graceful SecurityError handling on restricted pages |
+| Responsive Test Scoring | ✅ Complete | Expected viewport differences no longer flagged as failures |
+| Fill Failure Hints | ✅ Complete | Always show available inputs on fill failure |
+| Search Detection | ✅ Complete | Detect `role="search"`, placeholder, and aria-label patterns |
+| CLI Command Aliases | ✅ Complete | `hunt-bugs`, `chaos-test`, `generate-tests`, `repair`, `flaky` |
+
+---
+
+## Tier 8: Integration & Monitoring (Next)
+
+| Priority | Feature | Status | Description |
+|----------|---------|--------|-------------|
+| 1 | CI/CD Native Integration | ⬜ Planned | GitHub Action + GitLab CI component for zero-config pipeline integration |
+| 2 | Real-Time Monitoring | ⬜ Planned | `cbrowser monitor` command with scheduled checks and alert webhooks |
+| 3 | AI Anomaly Detection | ⬜ Planned | Automated visual + performance drift detection against baselines |
+| 4 | Multi-Environment Orchestration | ⬜ Planned | Coordinate tests across dev, staging, production environments |
+| 5 | Plugin System | ⬜ Planned | Extensible architecture for community-built tools and reporters |
+| 6 | Session Replay Import | ⬜ Planned | Import FullStory/Hotjar/LogRocket recordings as test cases |
+| 7 | Reporting Dashboard | ⬜ Planned | Web UI for test results, trends, and historical analytics |
 
 ---
 
