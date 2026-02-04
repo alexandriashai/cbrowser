@@ -1,24 +1,38 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 
 export default defineConfig({
+  // Use relative paths for Chrome extension compatibility
+  base: './',
   plugins: [
     react(),
-    // Copy manifest and icons after build
+    // Post-build fixes for Chrome extension
     {
-      name: 'copy-manifest',
+      name: 'chrome-extension-fix',
       closeBundle() {
         // Copy manifest
         copyFileSync(
           resolve(__dirname, 'src/manifest.json'),
           resolve(__dirname, 'dist/manifest.json')
         );
+
         // Create icons directory
         const iconsDir = resolve(__dirname, 'dist/icons');
         if (!existsSync(iconsDir)) {
           mkdirSync(iconsDir, { recursive: true });
+        }
+
+        // Fix sidepanel HTML - copy to correct location and fix paths
+        const srcHtml = resolve(__dirname, 'dist/src/sidepanel/index.html');
+        const destHtml = resolve(__dirname, 'dist/sidepanel/index.html');
+        if (existsSync(srcHtml)) {
+          let html = readFileSync(srcHtml, 'utf-8');
+          // Fix paths from ../../ to ./ for sidepanel location
+          html = html.replace(/src="\.\.\/\.\.\/sidepanel\//g, 'src="./');
+          html = html.replace(/href="\.\.\/\.\.\/assets\//g, 'href="../assets/');
+          writeFileSync(destHtml, html);
         }
       },
     },
