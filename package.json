@@ -72,7 +72,11 @@
     "screenshot-comparison",
     "cross-browser-testing",
     "modular-architecture",
-    "performance-testing"
+    "performance-testing",
+    "session-management",
+    "responsive-testing",
+    "chaos-testing",
+    "ab-testing"
   ],
   "author": "WF Media",
   "license": "MIT",
