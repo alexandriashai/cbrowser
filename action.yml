@@ -1,0 +1,96 @@
+name: 'CBrowser - Cross-Browser Visual Testing'
+description: 'Run CBrowser visual regression tests, URL analysis, or custom commands with Playwright browsers'
+author: 'alexandriashai'
+
+branding:
+  icon: 'monitor'
+  color: 'blue'
+
+inputs:
+  test-file:
+    description: 'Path to a CBrowser test suite file to run'
+    required: false
+  url:
+    description: 'URL to analyze with CBrowser'
+    required: false
+  command:
+    description: 'Custom cbrowser command to run (without the cbrowser prefix)'
+    required: false
+  browsers:
+    description: 'Browsers to install (space-separated: chromium firefox webkit)'
+    required: false
+    default: 'chromium'
+  sensitivity:
+    description: 'Visual diff sensitivity level (low, normal, high)'
+    required: false
+    default: 'normal'
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  artifact-name:
+    description: 'Name for the uploaded artifact bundle'
+    required: false
+    default: 'cbrowser-results'
+  output-dir:
+    description: 'Directory for CBrowser output files'
+    required: false
+    default: 'cbrowser-output'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install CBrowser
+      shell: bash
+      run: npm install -g cbrowser
+
+    - name: Install Playwright browsers
+      shell: bash
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      run: npx playwright install --with-deps $BROWSERS
+
+    - name: Create output directory
+      shell: bash
+      env:
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: mkdir -p "$OUTPUT_DIR"
+
+    - name: Run CBrowser
+      shell: bash
+      env:
+        TEST_FILE: ${{ inputs.test-file }}
+        URL: ${{ inputs.url }}
+        COMMAND: ${{ inputs.command }}
+        SENSITIVITY: ${{ inputs.sensitivity }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        if [ -n "$TEST_FILE" ]; then
+          echo "Running test suite: $TEST_FILE"
+          npx cbrowser test-suite "$TEST_FILE" --sensitivity "$SENSITIVITY" --output "$OUTPUT_DIR/results.json" --html
+        elif [ -n "$URL" ]; then
+          echo "Analyzing URL: $URL"
+          npx cbrowser analyze "$URL" --output "$OUTPUT_DIR/analysis.json"
+        elif [ -n "$COMMAND" ]; then
+          echo "Running custom command: cbrowser $COMMAND"
+          npx cbrowser $COMMAND
+        else
+          echo "::error::No test-file, url, or command provided. Set at least one input."
+          exit 1
+        fi
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ inputs.output-dir }}/**/*.png
+          ${{ inputs.output-dir }}/**/*.html
+          ${{ inputs.output-dir }}/**/*.json
+        if-no-files-found: ignore

@@ -829,6 +829,61 @@ CBrowser uses optimized Chromium launch flags for fast startup:
 
 ---
 
+## CI/CD Integration
+
+CBrowser provides native integrations for CI/CD pipelines. Add browser automation, visual regression, and NL test validation to every pull request.
+
+### GitHub Actions
+
+Use the official GitHub Action for zero-config setup:
+
+```yaml
+# .github/workflows/cbrowser.yml
+name: CBrowser Tests
+on: [pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: alexandriashai/cbrowser@v8
+        with:
+          test-file: tests/e2e/checkout.txt
+          sensitivity: strict
+```
+
+Available inputs: `test-file`, `url`, `command`, `browsers`, `sensitivity`.
+
+### GitLab CI
+
+Include the reusable component:
+
+```yaml
+include:
+  - component: gitlab.com/alexandriashai/cbrowser/.gitlab-ci-component.yml
+    inputs:
+      test-file: tests/e2e/checkout.txt
+      sensitivity: strict
+```
+
+### Docker
+
+Run CBrowser in any CI system using the Docker image:
+
+```bash
+docker run --rm -v $(pwd)/tests:/work/tests ghcr.io/alexandriashai/cbrowser:latest \
+  test-suite tests/checkout.txt --output results.json --html
+```
+
+### Exit Codes
+
+CBrowser exits with code 1 on test failure, making it compatible with any CI system that uses exit codes to determine pass/fail status.
+
+For detailed setup guides and examples, see [`examples/ci-cd/`](examples/ci-cd/).
+
+---
+
 ## Examples
 
 See the [`examples/`](examples/) directory:

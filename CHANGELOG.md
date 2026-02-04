@@ -5,6 +5,15 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.1.0] - 2026-02-03
+
+### Added
+- **GitHub Action** - `uses: alexandriashai/cbrowser@v8` composite action with inputs for test-file, url, command, browsers, and sensitivity. Artifact collection via `actions/upload-artifact` (#22)
+- **Dockerfile** - Pre-built image with Playwright + CBrowser for any CI system: `docker run ghcr.io/alexandriashai/cbrowser:latest test-suite tests/e2e.txt` (#22)
+- **GitLab CI component** - Reusable `.gitlab-ci-component.yml` with `spec.inputs` and `$[[ ]]` interpolation (#22)
+- **CI/CD documentation** - New `## CI/CD Integration` section in README with quick-start examples for GitHub Actions, GitLab CI, and Docker
+- **Updated examples/ci-cd/** - Expanded CI/CD guide with GitHub Action, Docker image, and GitLab component sections
+
 ## [8.0.0] - 2026-02-03
 
 ### Fixed

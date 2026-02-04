@@ -1,0 +1,84 @@
+# CBrowser - GitLab CI/CD Reusable Component
+# Include this component in your .gitlab-ci.yml to run visual regression,
+# accessibility, and browser automation tests with CBrowser.
+#
+# Usage:
+#   include:
+#     - component: $CI_SERVER_FQDN/<namespace>/cbrowser@<version>
+#       inputs:
+#         test-file: tests/visual-regression.js
+#         browsers: "chromium,firefox"
+#
+# Or with a URL:
+#   include:
+#     - component: $CI_SERVER_FQDN/<namespace>/cbrowser@<version>
+#       inputs:
+#         url: "https://staging.example.com"
+#         command: test
+#
+# Or with a raw command:
+#   include:
+#     - component: $CI_SERVER_FQDN/<namespace>/cbrowser@<version>
+#       inputs:
+#         command: "screenshot https://example.com --full-page"
+
+spec:
+  inputs:
+    test-file:
+      description: "Path to a CBrowser test file to execute"
+      type: string
+      default: ""
+    url:
+      description: "URL to test (used with default test command when no test-file is provided)"
+      type: string
+      default: ""
+    command:
+      description: "Raw CBrowser command to execute (used when no test-file or url is provided)"
+      type: string
+      default: ""
+    browsers:
+      description: "Comma-separated list of browsers to test against (chromium, firefox, webkit)"
+      type: string
+      default: "chromium"
+    sensitivity:
+      description: "Visual comparison sensitivity level (low, normal, high, pixel-perfect)"
+      type: string
+      default: "normal"
+    node-version:
+      description: "Node.js version to use"
+      type: string
+      default: "20"
+    stage:
+      description: "CI stage to run the job in"
+      type: string
+      default: "test"
+
+---
+
+.cbrowser-test:
+  image: node:$[[ inputs.node-version ]]
+  stage: $[[ inputs.stage ]]
+  before_script:
+    - npm install -g cbrowser
+    - npx playwright install --with-deps $[[ inputs.browsers ]]
+  script:
+    - |
+      mkdir -p cbrowser-output
+      if [ -n "$[[ inputs.test-file ]]" ]; then
+        npx cbrowser test-suite "$[[ inputs.test-file ]]" \
+          --sensitivity "$[[ inputs.sensitivity ]]" \
+          --output cbrowser-output/results.json --html
+      elif [ -n "$[[ inputs.url ]]" ]; then
+        npx cbrowser analyze "$[[ inputs.url ]]" \
+          --output cbrowser-output/analysis.json
+      elif [ -n "$[[ inputs.command ]]" ]; then
+        npx cbrowser $[[ inputs.command ]]
+      else
+        echo "Error: One of test-file, url, or command must be provided."
+        exit 1
+      fi
+  artifacts:
+    paths:
+      - cbrowser-output/**
+    when: always
+    expire_in: 7 days

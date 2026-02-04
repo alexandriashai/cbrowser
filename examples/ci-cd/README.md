@@ -8,6 +8,53 @@ Add CBrowser checks to your existing CI pipeline so every pull request is automa
 - A **staging URL** that reflects the PR branch (set as a CI variable)
 - CBrowser baselines captured at least once before the first CI run
 
+## GitHub Action
+
+The official GitHub Action provides zero-config CBrowser in any workflow:
+
+```yaml
+# .github/workflows/cbrowser.yml
+name: CBrowser Tests
+on: [pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: alexandriashai/cbrowser@v8
+        with:
+          test-file: tests/e2e/checkout.txt
+          sensitivity: strict
+```
+
+Available inputs: `test-file`, `url`, `command`, `browsers`, `sensitivity`.
+
+## Docker Image
+
+Run CBrowser in any CI system using the official Docker image:
+
+```bash
+docker run --rm \
+  -v $(pwd)/tests:/work/tests \
+  ghcr.io/alexandriashai/cbrowser:latest \
+  test-suite tests/checkout.txt --output results.json --html
+```
+
+The image includes Chromium and all dependencies. Mount your test directory and collect results as artifacts.
+
+## GitLab CI Component
+
+Include the reusable GitLab CI component:
+
+```yaml
+include:
+  - component: gitlab.com/alexandriashai/cbrowser/.gitlab-ci-component.yml
+    inputs:
+      test-file: tests/e2e/checkout.txt
+      sensitivity: strict
+```
+
 ## Quick start
 
 1. Copy the workflow file for your platform into your repository:
