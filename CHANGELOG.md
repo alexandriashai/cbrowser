@@ -5,6 +5,14 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [8.2.0](https://github.com/alexandriashai/cbrowser/compare/v8.1.0...v8.2.0) (2026-02-04)
+
+
+### Added
+
+* add automated semantic versioning with release-it ([7b33cc1](https://github.com/alexandriashai/cbrowser/commit/7b33cc18f341e037a4b2ccf4966df597fce87c12))
+
 ## [8.1.0] - 2026-02-03
 
 ### Added
