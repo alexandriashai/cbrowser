@@ -50,6 +50,30 @@ export class MCPBridge {
   }
 
   /**
+   * Parse SSE response format to extract JSON
+   * SSE format: "event: message\ndata: {json}\n\n"
+   */
+  private parseSSEResponse(text: string): any {
+    // Split into lines and find data lines
+    const lines = text.split('\n');
+    const dataLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        dataLines.push(line.substring(6)); // Remove "data: " prefix
+      }
+    }
+
+    // Join all data lines and parse as JSON
+    const jsonStr = dataLines.join('');
+    if (!jsonStr) {
+      throw new Error('No data in SSE response');
+    }
+
+    return JSON.parse(jsonStr);
+  }
+
+  /**
    * Call an MCP tool on the remote server
    */
   async callTool(name: string, args: Record<string, unknown>): Promise<MCPToolResult> {
@@ -84,7 +108,20 @@ export class MCPBridge {
         };
       }
 
-      const data = await response.json();
+      // Get response as text first
+      const text = await response.text();
+
+      // Parse based on content type - SSE or JSON
+      let data: any;
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream') || text.startsWith('event:')) {
+        // Parse SSE format
+        data = this.parseSSEResponse(text);
+      } else {
+        // Parse as plain JSON
+        data = JSON.parse(text);
+      }
 
       if (data.error) {
         return {
