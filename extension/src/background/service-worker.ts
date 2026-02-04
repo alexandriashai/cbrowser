@@ -215,13 +215,46 @@ async function handleMessage(
     // ============================================
     case 'ENABLE_INSPECTOR':
       if (!tab?.id) throw new Error('No active tab');
-      await chrome.tabs.sendMessage(tab.id, { type: 'ENABLE_INSPECTOR' });
-      return { success: true };
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'ENABLE_INSPECTOR' });
+        return { success: true };
+      } catch (e) {
+        // Content script not loaded - try injecting it first
+        const url = tab.url || '';
+        if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+          throw new Error('Cannot inspect browser pages (chrome://, about:, etc.)');
+        }
+        throw new Error('Content script not loaded. Try refreshing the page.');
+      }
 
     case 'DISABLE_INSPECTOR':
       if (!tab?.id) throw new Error('No active tab');
-      await chrome.tabs.sendMessage(tab.id, { type: 'DISABLE_INSPECTOR' });
-      return { success: true };
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'DISABLE_INSPECTOR' });
+        return { success: true };
+      } catch {
+        return { success: true }; // Already disabled or not loaded
+      }
+
+    case 'HIGHLIGHT_ELEMENT':
+      if (!tab?.id) throw new Error('No active tab');
+      try {
+        return await chrome.tabs.sendMessage(tab.id, {
+          type: 'HIGHLIGHT_ELEMENT',
+          selector: message.selector,
+        });
+      } catch (e) {
+        throw new Error('Cannot highlight - content script not loaded. Refresh the page.');
+      }
+
+    case 'CLEAR_HIGHLIGHT':
+      if (!tab?.id) throw new Error('No active tab');
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'CLEAR_HIGHLIGHT' });
+        return { success: true };
+      } catch {
+        return { success: true };
+      }
 
     case 'ELEMENT_SELECTED':
       // Forward from content script to sidepanel

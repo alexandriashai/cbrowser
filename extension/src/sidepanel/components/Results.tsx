@@ -3,11 +3,36 @@
  * Displays results from various operations
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 interface ResultsProps {
   result: any;
   screenshot: string | null;
+}
+
+/**
+ * Highlight an element on the page by selector
+ */
+async function highlightOnPage(selector: string): Promise<void> {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'HIGHLIGHT_ELEMENT',
+      selector,
+    });
+  } catch (e) {
+    console.error('Failed to highlight element:', e);
+  }
+}
+
+/**
+ * Clear any active highlight
+ */
+async function clearHighlightOnPage(): Promise<void> {
+  try {
+    await chrome.runtime.sendMessage({ type: 'CLEAR_HIGHLIGHT' });
+  } catch (e) {
+    // Ignore errors
+  }
 }
 
 type ViewMode = 'preview' | 'nltest' | 'typescript' | 'json';
@@ -233,16 +258,43 @@ export function Results({ result, screenshot }: ResultsProps) {
           {/* A11y Issues */}
           {result.a11yIssues?.length > 0 && (
             <div className="card" style={{ marginBottom: '16px' }}>
-              <div className="card-header">⚠️ Accessibility Issues</div>
+              <div className="card-header">⚠️ Accessibility Issues (click to highlight)</div>
               <div className="card-body">
                 {result.a11yIssues.map((issue: any, index: number) => (
-                  <div key={index} style={{ marginBottom: index < result.a11yIssues.length - 1 ? '12px' : 0 }}>
-                    <div className={`badge badge-${issue.severity === 'critical' ? 'error' : issue.severity === 'serious' ? 'warning' : 'success'}`}>
-                      {issue.severity}
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: index < result.a11yIssues.length - 1 ? '12px' : 0,
+                      padding: '8px',
+                      borderRadius: '4px',
+                      cursor: issue.selector || issue.element ? 'pointer' : 'default',
+                      transition: 'background 0.15s',
+                    }}
+                    onClick={() => {
+                      const selector = issue.selector || issue.element;
+                      if (selector) highlightOnPage(selector);
+                    }}
+                    onMouseEnter={(e) => {
+                      if (issue.selector || issue.element) {
+                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-tertiary)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      clearHighlightOnPage();
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className={`badge badge-${issue.severity === 'critical' ? 'error' : issue.severity === 'serious' ? 'warning' : 'success'}`}>
+                        {issue.severity}
+                      </div>
+                      {(issue.selector || issue.element) && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>👆 click to highlight</span>
+                      )}
                     </div>
                     <div style={{ marginTop: '4px', fontSize: '13px' }}>{issue.message}</div>
-                    <div style={{ marginTop: '2px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {issue.element}
+                    <div style={{ marginTop: '2px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                      {issue.selector || issue.element}
                     </div>
                   </div>
                 ))}
@@ -292,13 +344,35 @@ export function Results({ result, screenshot }: ResultsProps) {
 
         {/* Bug List */}
         {bugs.length > 0 && bugs.map((bug: any, i: number) => (
-          <div key={i} className="card" style={{ marginBottom: '12px' }}>
+          <div
+            key={i}
+            className="card"
+            style={{
+              marginBottom: '12px',
+              cursor: bug.selector ? 'pointer' : 'default',
+              transition: 'box-shadow 0.15s',
+            }}
+            onClick={() => {
+              if (bug.selector) highlightOnPage(bug.selector);
+            }}
+            onMouseEnter={(e) => {
+              if (bug.selector) {
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 2px var(--primary)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+              clearHighlightOnPage();
+            }}
+          >
             <div className="card-body">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span className={`badge badge-${bug.severity === 'high' ? 'error' : bug.severity === 'medium' ? 'warning' : 'success'}`}>
                   {bug.severity || 'info'}
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{bug.type || 'issue'}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {bug.selector && '👆 '}{bug.type || 'issue'}
+                </span>
               </div>
               <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>{bug.message || bug.description}</div>
               {bug.selector && <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{bug.selector}</div>}

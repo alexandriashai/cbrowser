@@ -304,6 +304,54 @@ export function getSelectedElement(): ElementInfo | null {
   return getElementInfo(state.selectedElement);
 }
 
+/**
+ * Highlight a specific element by selector (for a11y issue highlighting)
+ */
+export function highlightElement(selector: string): boolean {
+  try {
+    const el = document.querySelector(selector) as HTMLElement;
+    if (!el) return false;
+
+    // Create or reuse overlay
+    if (!state.overlay) {
+      state.overlay = createOverlay();
+      document.body.appendChild(state.overlay);
+    }
+    if (!state.tooltip) {
+      state.tooltip = createTooltip();
+      document.body.appendChild(state.tooltip);
+    }
+
+    // Style for "issue" highlighting (orange/warning color)
+    state.overlay.style.borderColor = '#f59e0b';
+    state.overlay.style.background = 'rgba(245, 158, 11, 0.15)';
+
+    // Scroll element into view
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Update highlight position
+    updateHighlight(el);
+
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Clear any active highlight
+ */
+export function clearHighlight(): void {
+  if (state.overlay) {
+    state.overlay.remove();
+    state.overlay = null;
+  }
+  if (state.tooltip) {
+    state.tooltip.remove();
+    state.tooltip = null;
+  }
+}
+
 // Listen for messages from background/sidepanel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -321,6 +369,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         element: getSelectedElement(),
       });
+      break;
+
+    case 'HIGHLIGHT_ELEMENT':
+      const found = highlightElement(message.selector);
+      sendResponse({ success: found, selector: message.selector });
+      break;
+
+    case 'CLEAR_HIGHLIGHT':
+      clearHighlight();
+      sendResponse({ success: true });
       break;
 
     default:
