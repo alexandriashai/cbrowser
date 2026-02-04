@@ -5,6 +5,22 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.14] - 2026-02-03
+
+### Added
+- **`dismiss_overlay` MCP tool** - Detect and dismiss modal overlays (cookie consent, age verification, newsletter popups). Tool #32. (#3)
+- **`dismiss-overlay` CLI command** - `npx cbrowser dismiss-overlay --type auto --url <url>` with auto/cookie/age-verify/newsletter/custom types
+- **`--dismiss-overlays` flag for `smart_click`** - Pre-dismiss overlays before clicking, in both MCP tool and CLI
+- **Multi-pass overlay dismissal** - Automatically handles cascading overlays (e.g., age verification followed by welcome dialog) in a single call, up to 5 passes
+- **Text-content overlay classification** - Classifies overlays by text content ("Age Verification" → age-verify, "cookie" → cookie, etc.) instead of relying solely on CSS selectors
+- **Force-click fallback** - When another overlay intercepts a button click, falls back to `force: true` click
+- **Constitutional Yellow zone logging** - All dismissed overlays are logged to the audit trail per constitutional safety rules
+
+### Technical Details
+- `detectOverlays()` uses unified page.evaluate to find all fixed/absolute elements with z-index > 100 AND `role="dialog"` elements, classifies by text content, sorts by z-index descending
+- `tryDismissOverlay()` tries close buttons from matched pattern, then all patterns, then generic selectors, then Escape key
+- Overlay types: `OverlayType`, `OverlayPattern`, `DismissOverlayOptions`, `DetectedOverlay`, `DismissOverlayResult` added to types.ts
+
 ## [7.4.13] - 2026-02-03
 
 ### Fixed

@@ -69,7 +69,7 @@ export async function startMcpServer(): Promise<void> {
 
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.13",
+    version: "7.4.14",
   });
 
   // =========================================================================
@@ -137,10 +137,11 @@ export async function startMcpServer(): Promise<void> {
     {
       selector: z.string().describe("Element to click"),
       maxRetries: z.number().optional().default(3).describe("Maximum retry attempts"),
+      dismissOverlays: z.boolean().optional().default(false).describe("Dismiss overlays before clicking"),
     },
-    async ({ selector, maxRetries }) => {
+    async ({ selector, maxRetries, dismissOverlays }) => {
       const b = await getBrowser();
-      const result = await b.smartClick(selector, { maxRetries });
+      const result = await b.smartClick(selector, { maxRetries, dismissOverlays });
       return {
         content: [
           {
@@ -151,6 +152,33 @@ export async function startMcpServer(): Promise<void> {
               finalSelector: result.finalSelector,
               message: result.message,
               aiSuggestion: result.aiSuggestion,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "dismiss_overlay",
+    "Detect and dismiss modal overlays (cookie consent, age verification, newsletter popups). Constitutional Yellow zone.",
+    {
+      type: z.enum(["auto", "cookie", "age-verify", "newsletter", "custom"]).optional().default("auto").describe("Overlay type to detect"),
+      customSelector: z.string().optional().describe("Custom CSS selector for overlay close button"),
+    },
+    async ({ type, customSelector }) => {
+      const b = await getBrowser();
+      const result = await b.dismissOverlay({ type, customSelector });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              dismissed: result.dismissed,
+              overlaysFound: result.overlaysFound,
+              overlaysDismissed: result.overlaysDismissed,
+              details: result.details,
+              suggestion: result.suggestion,
             }, null, 2),
           },
         ],

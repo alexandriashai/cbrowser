@@ -1739,3 +1739,49 @@ export interface ABSuiteResult {
   /** Timestamp */
   timestamp: string;
 }
+
+// ============================================================================
+// Overlay Detection Types (v7.4.14)
+// ============================================================================
+
+/** Supported overlay types for detection */
+export type OverlayType = "cookie" | "age-verify" | "newsletter" | "custom" | "unknown";
+
+/** Pattern definition for overlay detection */
+export interface OverlayPattern {
+  type: OverlayType;
+  selectors: string[];
+  closeButtons: string[];
+}
+
+/** Options for dismissing overlays */
+export interface DismissOverlayOptions {
+  type?: "auto" | OverlayType;
+  customSelector?: string;
+  timeout?: number;
+}
+
+/** Result of overlay detection */
+export interface DetectedOverlay {
+  type: OverlayType;
+  selector: string;
+  text: string;
+  zIndex: number;
+  position: string;
+}
+
+/** Result of overlay dismissal */
+export interface DismissOverlayResult {
+  dismissed: boolean;
+  overlaysFound: number;
+  overlaysDismissed: number;
+  details: Array<{
+    type: OverlayType;
+    selector: string;
+    dismissed: boolean;
+    closeMethod?: string;
+    error?: string;
+  }>;
+  screenshot: string;
+  suggestion?: string;
+}

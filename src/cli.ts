@@ -414,6 +414,11 @@ SMART RETRY & ASSERTIONS (v5.0.0)
     --url <url>               Navigate to URL first
     --max-retries <n>         Maximum retry attempts (default: 3)
     --retry-delay <ms>        Delay between retries (default: 1000)
+    --dismiss-overlays        Dismiss overlays before clicking
+  dismiss-overlay             Detect and dismiss modal overlays
+    --type <type>             Overlay type: auto|cookie|age-verify|newsletter|custom (default: auto)
+    --selector <sel>          Custom selector for overlay close button
+    --url <url>               Navigate to URL first
   assert "<assertion>"        Natural language assertions
     --url <url>               Navigate to URL first
     Examples:
@@ -1212,6 +1217,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           force: options.force === true,
           maxRetries,
           retryDelay,
+          dismissOverlays: options["dismiss-overlays"] === true,
         });
 
         for (const attempt of result.attempts) {
@@ -1231,6 +1237,47 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`\n💡 Suggestion:\n${result.aiSuggestion}`);
           }
           process.exit(1);
+        }
+        break;
+      }
+
+      case "dismiss-overlay": {
+        if (options.url) {
+          await browser.navigate(options.url as string);
+        }
+
+        const overlayType = (options.type as string) || "auto";
+        const customSelector = options.selector as string | undefined;
+
+        console.log(`\n🔍 Detecting overlays (type: ${overlayType})...\n`);
+
+        const result = await browser.dismissOverlay({
+          type: overlayType as any,
+          customSelector,
+        });
+
+        if (result.overlaysFound === 0) {
+          console.log("  No overlays detected on this page.");
+        } else {
+          console.log(`  Found ${result.overlaysFound} overlay(s):\n`);
+          for (const d of result.details) {
+            const status = d.dismissed ? "✓ Dismissed" : "✗ Not dismissed";
+            console.log(`    ${status} [${d.type}] ${d.selector}`);
+            if (d.closeMethod) console.log(`      Method: ${d.closeMethod}`);
+            if (d.error) console.log(`      Error: ${d.error}`);
+          }
+        }
+
+        if (result.dismissed) {
+          console.log(`\n✓ Dismissed ${result.overlaysDismissed} overlay(s)`);
+        } else if (result.overlaysFound > 0) {
+          console.error("\n✗ Could not dismiss detected overlays");
+          if (result.suggestion) console.log(`\n💡 ${result.suggestion}`);
+          process.exit(1);
+        }
+
+        if (result.screenshot) {
+          console.log(`\n📸 Screenshot: ${result.screenshot}`);
         }
         break;
       }

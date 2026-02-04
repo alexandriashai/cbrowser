@@ -6544,7 +6544,7 @@ async function generateAlternativeSelectors(selector: string): Promise<SelectorA
 
 async function smartClick(
   selector: string,
-  options: { force?: boolean; maxRetries?: number; retryDelay?: number } = {}
+  options: { force?: boolean; maxRetries?: number; retryDelay?: number; dismissOverlays?: boolean } = {}
 ): Promise<SmartRetryResult> {
   const { maxRetries = 3, retryDelay = 500 } = options;
   const page = await getPage();
@@ -6552,6 +6552,11 @@ async function smartClick(
   const domain = url.hostname;
 
   const attempts: RetryAttempt[] = [];
+
+  // Dismiss overlays first if requested
+  if (options.dismissOverlays) {
+    await dismissOverlay({ type: "auto", timeout: 3000 });
+  }
 
   // Check cache first
   const cached = getCachedSelector(selector, domain);
@@ -6660,6 +6665,257 @@ async function smartClick(
     screenshot: await takeScreenshotInternal(),
     aiSuggestion,
   };
+}
+
+// ============================================================================
+// Overlay Detection & Dismissal (v7.4.14)
+// ============================================================================
+
+interface OverlayPattern {
+  type: string;
+  selectors: string[];
+  closeButtons: string[];
+}
+
+interface DismissOverlayOptions {
+  type?: string;
+  customSelector?: string;
+  timeout?: number;
+}
+
+interface DismissOverlayResult {
+  dismissed: boolean;
+  overlaysFound: number;
+  overlaysDismissed: number;
+  details: Array<{
+    type: string;
+    selector: string;
+    dismissed: boolean;
+    closeMethod?: string;
+    error?: string;
+  }>;
+  screenshot: string;
+  suggestion?: string;
+}
+
+const OVERLAY_PATTERNS: OverlayPattern[] = [
+  {
+    type: "cookie",
+    selectors: [
+      '[class*="cookie"]', '[id*="cookie"]', '[class*="consent"]', '[id*="consent"]',
+      '[class*="gdpr"]', '[id*="gdpr"]', '[class*="cc-"]', '[id*="cc-"]',
+      '[class*="CookieBanner"]', '[class*="cookie-banner"]', '[class*="cookie_banner"]',
+      '[aria-label*="cookie" i]', '[aria-label*="consent" i]',
+    ],
+    closeButtons: [
+      'button:has-text("Accept")', 'button:has-text("Accept All")', 'button:has-text("Accept all")',
+      'button:has-text("I agree")', 'button:has-text("Agree")', 'button:has-text("Got it")',
+      'button:has-text("OK")', 'button:has-text("Allow")', 'button:has-text("Allow All")',
+      'button:has-text("Close")', '[class*="accept"]', '[class*="agree"]',
+      '[id*="accept"]', '[data-action="accept"]',
+    ],
+  },
+  {
+    type: "age-verify",
+    selectors: [
+      '[class*="age-verif"]', '[id*="age-verif"]', '[class*="age_verif"]',
+      '[class*="age-gate"]', '[id*="age-gate"]', '[class*="agegate"]',
+      '[class*="age-check"]', '[id*="age-check"]',
+    ],
+    closeButtons: [
+      'button:has-text("I am 18")', 'button:has-text("I am 21")',
+      'button:has-text("Yes")', 'button:has-text("Enter")',
+      'button:has-text("I\'m over")', 'button:has-text("Confirm")',
+    ],
+  },
+  {
+    type: "newsletter",
+    selectors: [
+      '[class*="newsletter"]', '[id*="newsletter"]',
+      '[class*="popup"]', '[id*="popup"]',
+      '[class*="subscribe"]', '[id*="subscribe"]',
+      '[class*="signup-modal"]', '[class*="email-capture"]',
+    ],
+    closeButtons: [
+      'button:has-text("Close")', 'button:has-text("No thanks")',
+      'button:has-text("Not now")', 'button:has-text("Maybe later")',
+      '[class*="close"]', '[aria-label="Close"]', '[aria-label="close"]',
+      'button[class*="dismiss"]',
+    ],
+  },
+];
+
+/** Text content keywords for overlay type classification */
+const OVERLAY_TEXT_PATTERNS: Record<string, string[]> = {
+  "age-verify": ["age verif", "18+", "21+", "over 18", "over 21", "years or older", "age gate", "age check", "must be 18", "must be 21", "legal age", "adult content"],
+  "cookie": ["cookie", "consent", "gdpr", "privacy policy", "we use cookies", "this site uses cookies", "accept cookies"],
+  "newsletter": ["newsletter", "subscribe", "sign up for", "email updates", "stay updated", "join our mailing"],
+};
+
+function classifyOverlayType(text: string): string {
+  const lowerText = text.toLowerCase();
+  for (const [type, keywords] of Object.entries(OVERLAY_TEXT_PATTERNS)) {
+    if (keywords.some(kw => lowerText.includes(kw))) return type;
+  }
+  return "unknown";
+}
+
+async function detectOverlays(page: any, options: DismissOverlayOptions): Promise<Array<{ type: string; selector: string; text: string; zIndex: number }>> {
+  try {
+    const rawOverlays: Array<{ selector: string; text: string; zIndex: number; role: string | null }> = await page.evaluate(() => {
+      const results: Array<{ selector: string; text: string; zIndex: number; role: string | null }> = [];
+      const seen = new Set<Element>();
+      const all = Array.from(document.querySelectorAll("*"));
+      for (let i = 0; i < all.length; i++) {
+        const el = all[i] as HTMLElement;
+        if (seen.has(el)) continue;
+        const cs = window.getComputedStyle(el);
+        const pos = cs.position;
+        const zIndex = parseInt(cs.zIndex) || 0;
+        const rect = el.getBoundingClientRect();
+        const isDialog = el.getAttribute("role") === "dialog" || el.getAttribute("aria-modal") === "true";
+        if (((pos === "fixed" || pos === "absolute") && zIndex > 100 && rect.width > 200 && rect.height > 80) || isDialog) {
+          if (rect.width < 50 || rect.height < 30) continue;
+          if (cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0") continue;
+          const text = (el.textContent || "").substring(0, 300).trim();
+          let selector = el.tagName.toLowerCase();
+          if (el.id) selector = "#" + el.id;
+          else if (el.className && typeof el.className === "string") {
+            const cls = el.className.split(/\s+/).filter((c: string) => c.length > 0 && c.length < 40)[0];
+            if (cls) selector = "." + cls;
+          }
+          seen.add(el);
+          results.push({ selector, text, zIndex: zIndex || (isDialog ? 99999 : 0), role: el.getAttribute("role") });
+        }
+      }
+      return results;
+    });
+
+    const detected = rawOverlays.map(r => ({
+      type: classifyOverlayType(r.text),
+      selector: r.selector,
+      text: r.text.substring(0, 200),
+      zIndex: r.zIndex,
+    }));
+
+    // Filter by requested type
+    const filtered = options.type && options.type !== "auto"
+      ? detected.filter(d => d.type === options.type || d.type === "unknown")
+      : detected;
+
+    // Sort by z-index descending, deduplicate by type
+    filtered.sort((a, b) => b.zIndex - a.zIndex);
+    const seen = new Set<string>();
+    const deduped: typeof filtered = [];
+    for (const d of filtered) {
+      if (d.type !== "unknown" && seen.has(d.type)) continue;
+      seen.add(d.type);
+      deduped.push(d);
+    }
+    return deduped;
+  } catch { return []; }
+}
+
+async function tryDismissOneOverlay(page: any, overlay: { type: string; selector: string }, timeout: number): Promise<DismissOverlayResult["details"][0]> {
+  // Collect close button selectors: matched pattern first, then others, then generic
+  const allButtons: Array<{ source: string; selectors: string[] }> = [];
+  const matched = OVERLAY_PATTERNS.find(p => p.type === overlay.type);
+  if (matched) allButtons.push({ source: "matched-pattern", selectors: matched.closeButtons });
+  for (const p of OVERLAY_PATTERNS) {
+    if (p.type !== overlay.type) allButtons.push({ source: `${p.type}-pattern`, selectors: p.closeButtons });
+  }
+  allButtons.push({
+    source: "generic",
+    selectors: [
+      'button[aria-label="Close"]', 'button[aria-label="close"]',
+      'button[class*="close"]', '[class*="close-btn"]',
+      'button:has-text("×")', 'button:has-text("Close")',
+      'button:has-text("No thanks")', 'button:has-text("Dismiss")',
+      'button:has-text("Not now")',
+    ],
+  });
+
+  for (const set of allButtons) {
+    for (const btnSel of set.selectors) {
+      try {
+        const btn = page.locator(btnSel).first();
+        if (await btn.isVisible({ timeout: 800 })) {
+          try { await btn.click({ timeout: Math.min(timeout, 3000) }); }
+          catch { try { await btn.click({ force: true, timeout: 2000 }); } catch { continue; } }
+          await page.waitForTimeout(500);
+          return { type: overlay.type, selector: overlay.selector, dismissed: true, closeMethod: `${set.source}: ${btnSel}` };
+        }
+      } catch {}
+    }
+  }
+
+  // Try Escape
+  try {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(500);
+    const stillVisible = await page.locator(overlay.selector).first().isVisible().catch(() => true);
+    if (!stillVisible) return { type: overlay.type, selector: overlay.selector, dismissed: true, closeMethod: "escape-key" };
+  } catch {}
+
+  return { type: overlay.type, selector: overlay.selector, dismissed: false, error: "Could not find a way to dismiss" };
+}
+
+async function dismissOverlay(options: DismissOverlayOptions = { type: "auto" }): Promise<DismissOverlayResult> {
+  const page = await getPage();
+  const timeout = options.timeout ?? 5000;
+  const details: DismissOverlayResult["details"] = [];
+  const maxPasses = 5;
+
+  try {
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const detected = await detectOverlays(page, options);
+
+      if (pass === 0 && detected.length === 0 && options.customSelector) {
+        try {
+          const customEl = page.locator(options.customSelector).first();
+          if (await customEl.isVisible({ timeout: 2000 })) {
+            await customEl.click();
+            await page.waitForTimeout(500);
+            details.push({ type: "custom", selector: options.customSelector, dismissed: true, closeMethod: "custom-selector-click" });
+            continue;
+          }
+        } catch {}
+      }
+
+      if (detected.length === 0) break;
+
+      let dismissedThisPass = false;
+      for (const overlay of detected) {
+        const result = await tryDismissOneOverlay(page, overlay, timeout);
+        details.push(result);
+        if (result.dismissed) dismissedThisPass = true;
+      }
+
+      if (!dismissedThisPass) break;
+      await page.waitForTimeout(800);
+    }
+
+    const overlaysDismissed = details.filter(d => d.dismissed).length;
+    return {
+      dismissed: overlaysDismissed > 0,
+      overlaysFound: details.length,
+      overlaysDismissed,
+      details,
+      screenshot: await takeScreenshotInternal(),
+      suggestion: overlaysDismissed === 0 && details.length > 0
+        ? "Overlays detected but could not be dismissed automatically. Try providing a custom selector."
+        : undefined,
+    };
+  } catch (error) {
+    return {
+      dismissed: false,
+      overlaysFound: 0,
+      overlaysDismissed: 0,
+      details,
+      screenshot: await takeScreenshotInternal(),
+      suggestion: `Error: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }
 
 // ============================================================================
@@ -7270,6 +7526,11 @@ SMART AUTOMATION (v5.0.0)
   smart-click <selector>      Click with auto-retry and self-healing
     --max-retries <n>         Maximum retry attempts (default: 3)
     --url <url>               Navigate first, then click
+    --dismiss-overlays        Dismiss overlays before clicking
+  dismiss-overlay             Detect and dismiss modal overlays
+    --type <type>             auto|cookie|age-verify|newsletter|custom
+    --selector <sel>          Custom selector for close button
+    --url <url>               Navigate to URL first
     Examples:
       bun run CBrowser.ts smart-click "Submit"
       bun run CBrowser.ts smart-click "Add to Cart" --url "https://shop.example.com"
@@ -8258,6 +8519,7 @@ async function main(): Promise<void> {
         console.log(`\n🔍 Smart Click: "${smartSelector}"`);
         const smartResult = await smartClick(smartSelector, {
           maxRetries: options["max-retries"] ? parseInt(options["max-retries"], 10) : 3,
+          dismissOverlays: options["dismiss-overlays"] === "true" || options["dismiss-overlays"] === true,
         });
 
         console.log(`\n📊 Result:`);
@@ -8271,6 +8533,46 @@ async function main(): Promise<void> {
           console.log(`\n   💡 Suggestion: ${smartResult.aiSuggestion}`);
         }
         console.log(`\n   Screenshot: ${smartResult.screenshot}`);
+        break;
+      }
+
+      case "dismiss-overlay": {
+        if (options.url) {
+          await navigate(options.url, {});
+        }
+
+        const overlayType = (options.type as string) || "auto";
+        const customSelector = options.selector as string | undefined;
+
+        console.log(`\n🔍 Detecting overlays (type: ${overlayType})...\n`);
+
+        const overlayResult = await dismissOverlay({
+          type: overlayType,
+          customSelector,
+        });
+
+        if (overlayResult.overlaysFound === 0) {
+          console.log("  No overlays detected on this page.");
+        } else {
+          console.log(`  Found ${overlayResult.overlaysFound} overlay(s):\n`);
+          for (const d of overlayResult.details) {
+            const status = d.dismissed ? "✓ Dismissed" : "✗ Not dismissed";
+            console.log(`    ${status} [${d.type}] ${d.selector}`);
+            if (d.closeMethod) console.log(`      Method: ${d.closeMethod}`);
+            if (d.error) console.log(`      Error: ${d.error}`);
+          }
+        }
+
+        if (overlayResult.dismissed) {
+          console.log(`\n✓ Dismissed ${overlayResult.overlaysDismissed} overlay(s)`);
+        } else if (overlayResult.overlaysFound > 0) {
+          console.log("\n✗ Could not dismiss detected overlays");
+          if (overlayResult.suggestion) console.log(`\n💡 ${overlayResult.suggestion}`);
+        }
+
+        if (overlayResult.screenshot) {
+          console.log(`\n📸 Screenshot: ${overlayResult.screenshot}`);
+        }
         break;
       }
 
