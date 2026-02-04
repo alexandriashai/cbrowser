@@ -49,6 +49,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Don't minify for Chrome extension compatibility
+    minify: false,
     rollupOptions: {
       input: {
         'sidepanel/index': resolve(__dirname, 'src/sidepanel/index.html'),
@@ -62,7 +64,7 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
-    sourcemap: process.env.NODE_ENV !== 'production',
+    sourcemap: true,
   },
   resolve: {
     alias: {
