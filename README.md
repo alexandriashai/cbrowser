@@ -1,170 +1,22 @@
 # CBrowser (Cognitive Browser)
 
-**The browser automation built for AI agents, not human developers.**
-
-*CBrowser = Cognitive Browser — browser automation that thinks.*
-
-Most browser automation tools are built for humans writing scripts. CBrowser is built from the ground up as an MCP server for AI agents—natural language is the primary interface, not an afterthought.
+AI-powered browser automation designed for MCP-based AI agents. Built on Playwright with session persistence, self-healing selectors, constitutional safety boundaries, and natural language as the primary interface.
 
 [![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Ready](https://img.shields.io/badge/MCP-Remote%20%2B%20Local-blue)](https://modelcontextprotocol.io)
 
-## The AI-Native Difference
+## Why CBrowser?
 
-Traditional automation tools were built for developers writing scripts. CBrowser was built for **AI agents operating autonomously**. This fundamental difference shapes everything:
+Most browser automation libraries assume a human developer is writing and maintaining test scripts. When an AI agent needs to operate a browser autonomously across multiple calls, several problems arise:
 
-| Traditional Tools | CBrowser (AI-Native) |
-|-------------------|----------------------|
-| Scripts written by humans | Natural language as primary interface |
-| Stateless between calls | **Session persistence across calls** |
-| Manual test maintenance | **Self-healing selectors + AI test repair** |
-| Only does what you script | **Autonomous discovery (hunt_bugs)** |
-| Breaks when sites change | **Multi-dimensional baselines track drift** |
-| Single execution path | **Persona-based testing for real users** |
-| Fails silently | **Built-in chaos engineering for resilience** |
-| Developer perspective | **Constitutional safety for AI autonomy** |
+- **State is lost between calls.** Standard Playwright/Puppeteer sessions are ephemeral. An agent that logs in during one call loses that session on the next call. CBrowser persists cookies, localStorage, and session state across invocations.
+- **Selectors break silently.** When a site updates its DOM, CSS selectors stop working. CBrowser maintains a self-healing selector cache and generates alternative selectors automatically, so agents don't stall on stale selectors.
+- **There's no safety boundary.** An autonomous agent with unrestricted browser access can submit forms, make purchases, or delete data. CBrowser classifies actions by risk level and enforces verification requirements for destructive operations.
+- **Test maintenance is manual.** When tests break, someone has to figure out what changed and fix them. CBrowser can analyze failures, suggest repairs, and apply fixes automatically.
+- **Natural language is bolted on.** Most tools accept CSS selectors natively and treat natural language as a convenience layer. CBrowser treats natural language as the primary input, which is what AI agents actually produce.
 
 ---
-
-## 8 Things Only CBrowser Does
-
-### 1. 🤖 AI-Native Architecture
-
-Built from the ground up as an MCP server for AI agents. Every tool is designed to be called by Claude, not scripted by developers. Natural language is the primary interface—not a wrapper around CSS selectors.
-
-```bash
-# Remote MCP for Claude.ai
-https://cbrowser-mcp.wyldfyre.ai/mcp
-
-# Local MCP for Claude Desktop
-npx cbrowser mcp-server
-```
-
-### 2. 💬 Natural Language as First-Class Input
-
-Not just "convenience" natural language on top of selectors. The entire API is natural language native:
-
-```bash
-npx cbrowser smart-click "the blue submit button in the checkout form"
-npx cbrowser fill "email field" "user@example.com"
-npx cbrowser assert "page shows order confirmation with total over $50"
-```
-
-### 3. 🔍 Autonomous Discovery (hunt_bugs)
-
-Most tools wait for you to tell them what to test. CBrowser proactively hunts for bugs:
-
-```bash
-npx cbrowser hunt-bugs "https://your-site.com" --depth 3
-```
-
-It explores your site autonomously, finding broken links, console errors, accessibility violations, and UX issues you didn't know to look for.
-
-### 4. 💥 Built-in Chaos Engineering
-
-Inject failures to see how your site handles them:
-
-```bash
-npx cbrowser chaos-test "https://your-site.com" \
-  --inject network-slowdown,random-timeouts,failed-assets
-```
-
-### 5. 🔄 Self-Healing Selectors + AI Test Repair
-
-When elements change, CBrowser adapts automatically. When tests break, it repairs them:
-
-```bash
-# Auto-repair broken tests
-npx cbrowser repair-tests broken-test.txt --auto-apply --verify
-```
-
-### 6. 📊 Multi-Dimensional Baselines
-
-Not just visual diffs—CBrowser tracks visual appearance AND performance metrics together:
-
-```bash
-npx cbrowser visual-baseline "https://your-site.com" --with-performance
-npx cbrowser visual-compare --check-perf-regression
-```
-
-### 7. 👥 Persona-Based Testing
-
-Test as different user types with realistic human behavior:
-
-```bash
-npx cbrowser compare-personas \
-  --start "https://your-site.com" \
-  --goal "Complete checkout" \
-  --personas power-user,elderly-user,mobile-user,first-timer
-```
-
-Each persona has realistic timing, error rates, and attention patterns.
-
-### 8. 🗂️ Session Persistence Across Calls
-
-The killer feature for AI agents: state persists between invocations. Your AI agent can log in, do work across multiple calls, and maintain context—solving the statelessness problem that makes other tools impractical for agents.
-
-```bash
-npx cbrowser session save "logged-in"
-# ... later, in a new session ...
-npx cbrowser session load "logged-in"
-```
-
----
-
-## Constitutional AI Safety
-
-CBrowser is the only browser automation with built-in ethical boundaries—critical when AI agents operate autonomously:
-
-| Zone | Actions | Behavior |
-|------|---------|----------|
-| 🟢 **Green** | Navigate, read, screenshot | Auto-execute |
-| 🟡 **Yellow** | Click buttons, fill forms | Log and proceed |
-| 🔴 **Red** | Submit, delete, purchase | **Requires verification** |
-| ⬛ **Black** | Bypass auth, inject scripts | **Never executes** |
-
-This isn't optional safety theater—it's how you give AI agents browser access without risking catastrophic actions.
-
----
-
-## Feature Comparison
-
-### AI-Native Capabilities (Only CBrowser)
-
-| Capability | CBrowser | Skyvern | Browser-Use | Playwright |
-|------------|:--------:|:-------:|:-----------:|:----------:|
-| **Built as MCP Server** | ✅ Native | ❌ | ❌ | ❌ |
-| **Remote MCP (claude.ai)** | ✅ | ❌ | ❌ | ❌ |
-| **Session persistence** | ✅ | ❌ | ❌ | Manual |
-| **Autonomous bug hunting** | ✅ | ❌ | ❌ | ❌ |
-| **Chaos engineering** | ✅ | ❌ | ❌ | ❌ |
-| **Constitutional safety** | ✅ | ❌ | ❌ | ❌ |
-| **Multi-persona testing** | ✅ | ❌ | ❌ | ❌ |
-| **AI test repair** | ✅ | ❌ | ❌ | ❌ |
-| **Visual + perf baselines** | ✅ | ❌ | ❌ | ❌ |
-
-### Table Stakes (Everyone Has)
-
-| Feature | CBrowser | Others |
-|---------|:--------:|:------:|
-| Natural language selectors | ✅ | ✅ |
-| Self-healing selectors | ✅ | ✅ |
-| Screenshot capture | ✅ | ✅ |
-| Form filling | ✅ | ✅ |
-
----
-
-## Also Included
-
-| Traditional Automation | CBrowser |
-|------------------------|----------|
-| Brittle CSS selectors | AI vision: "click the blue login button" |
-| Breaks when DOM changes | **Self-healing selectors** adapt automatically |
-| Crashes on element not found | **Smart retry** finds alternatives |
-| Manual test assertions | **Natural language assertions** |
-| Scripted tests only | **AI test generation** from page analysis |
-| Stateless between runs | **Persistent sessions, cookies, localStorage** |
 
 ## Quick Start
 
@@ -240,297 +92,137 @@ npx cbrowser assert "page contains 'Welcome'"
 npx cbrowser generate-tests "https://example.com"
 ```
 
-## v7.x Features
+---
 
-### AI Visual Regression (v7.0)
+## Core Capabilities
 
-Semantic screenshot comparison using AI—not just pixel diffs:
+### Natural Language Interface
 
-```bash
-# Capture a baseline
-npx cbrowser ai-visual capture "https://example.com" --name homepage
-
-# Compare against baseline
-npx cbrowser ai-visual test "https://staging.example.com" homepage --html
-
-# List baselines
-npx cbrowser ai-visual list
-```
-
-The AI understands what changed semantically (button moved, text changed, new section added) rather than flagging every pixel difference.
-
-### Cross-Browser Visual Testing (v7.1)
-
-Compare rendering across Chrome, Firefox, and Safari:
+CBrowser accepts natural language descriptions for element selection, assertions, and test definitions. This is useful when AI agents need to interact with pages they haven't seen before, since they can describe what they want rather than knowing exact selectors.
 
 ```bash
-npx cbrowser cross-browser "https://example.com" --html
-npx cbrowser cross-browser "https://example.com" --browsers chromium,firefox,webkit
+npx cbrowser smart-click "the blue submit button in the checkout form"
+npx cbrowser fill "email field" "user@example.com"
+npx cbrowser assert "page shows order confirmation with total over $50"
 ```
 
-### Responsive Visual Testing (v7.2)
-
-Test across viewport sizes (mobile, tablet, desktop):
+Element selection supports multiple strategies, tried in priority order:
 
 ```bash
-npx cbrowser responsive "https://example.com" --html
-npx cbrowser responsive "https://example.com" --viewports mobile,tablet,desktop-lg
-npx cbrowser responsive viewports  # list available presets
+# Natural language (default)
+cbrowser click "the main navigation menu"
+
+# Accessibility-based (ARIA selectors)
+cbrowser click "aria:button/Submit"
+
+# Visual description
+cbrowser click "visual:red button in header"
+
+# Semantic type
+cbrowser fill "semantic:email" "user@example.com"
+
+# Fallback to CSS when needed
+cbrowser click "css:#login-btn"
 ```
 
-### A/B Visual Comparison (v7.3)
+### Session Persistence
 
-Compare two different URLs (staging vs production, old vs new design):
+AI agents typically need multiple calls to complete a task (log in, navigate, fill a form, submit). CBrowser saves and restores browser state so agents can pick up where they left off.
 
 ```bash
-npx cbrowser ab "https://staging.example.com" "https://example.com" --html
-npx cbrowser ab "https://old.site.com" "https://new.site.com" --label-a "Old" --label-b "New"
+# Save session (cookies, localStorage, sessionStorage)
+cbrowser session save "logged-in" --url "https://example.com"
+
+# Load session in a later invocation
+cbrowser session load "logged-in"
+
+# List saved sessions with metadata
+cbrowser session list
+
+# Show detailed session info
+cbrowser session show "logged-in"
+
+# Manage sessions
+cbrowser session cleanup --older-than 30
+cbrowser session export "logged-in" --output session.json
+cbrowser session import session.json --name "restored"
 ```
 
-### Modular Architecture (v7.4.1)
+### Self-Healing Selectors
 
-Tree-shakeable imports for smaller bundles:
+When an element isn't found, CBrowser automatically:
+1. Checks its selector cache for known alternatives on that domain
+2. Generates alternative selectors (text variants, ARIA roles, attributes)
+3. Tries each alternative with configurable retry logic
+4. Caches working selectors for future use
+
+This is particularly useful in CI/CD pipelines where site updates would otherwise break every test run.
+
+```bash
+# Smart click with retry
+npx cbrowser smart-click "Submit" --max-retries 5
+
+# Navigate then click
+npx cbrowser smart-click "Login" --url "https://example.com"
+```
 
 ```typescript
-// Import everything (unchanged)
-import { CBrowser, runVisualRegression, detectFlakyTests } from 'cbrowser';
+import { CBrowser } from 'cbrowser';
 
-// Import only what you need (modular)
-import { runVisualRegression, runCrossBrowserTest } from 'cbrowser/visual';
-import { runNLTestSuite, detectFlakyTests, repairTest } from 'cbrowser/testing';
-import { huntBugs, runChaosTest, findElementByIntent } from 'cbrowser/analysis';
-import { capturePerformanceBaseline, detectPerformanceRegression } from 'cbrowser/performance';
+const browser = new CBrowser();
+const result = await browser.smartClick("Submit Button", { maxRetries: 3 });
+
+console.log(result.success);        // true/false
+console.log(result.finalSelector);  // The selector that worked
+console.log(result.attempts);       // Array of all attempts
+console.log(result.aiSuggestion);   // AI suggestion if failed
 ```
 
-| Module | Purpose |
-|--------|---------|
-| `cbrowser/visual` | Visual testing (regression, cross-browser, responsive, A/B) |
-| `cbrowser/testing` | Test automation (NL suites, repair, flaky detection, coverage) |
-| `cbrowser/analysis` | AI analysis (bug hunting, chaos testing, persona comparison) |
-| `cbrowser/performance` | Performance (baselines, regression detection) |
+```bash
+# View cache statistics
+npx cbrowser heal-stats
+
+# Clear the cache
+npx cbrowser heal-clear
+```
+
+### Constitutional Safety
+
+When AI agents operate browsers autonomously, they need guardrails to prevent destructive actions. CBrowser classifies every action by risk level:
+
+| Zone | Actions | Behavior |
+|------|---------|----------|
+| **Green** | Navigate, read, screenshot | Auto-execute |
+| **Yellow** | Click buttons, fill forms | Log and proceed |
+| **Red** | Submit, delete, purchase | Requires verification |
+| **Black** | Bypass auth, inject scripts | Never executes |
+
+This means an AI agent can freely browse and gather information, but cannot accidentally submit a form or delete data without explicit verification. For testing scenarios where you need to override this:
+
+```bash
+cbrowser click "Delete Account" --force
+```
 
 ---
 
-## v6.0.0 Features
-
-### Multi-Persona Comparison
-
-Run the same journey with multiple personas in parallel and compare results:
-
-```bash
-# Compare how different user types experience your site
-npx cbrowser compare-personas \
-  --start "https://example.com" \
-  --goal "Complete checkout" \
-  --personas power-user,first-timer,elderly-user,mobile-user
-
-# Output:
-# ┌─────────────────┬──────────┬──────────┬──────────┬─────────────────┐
-# │ Persona         │ Success  │ Time     │ Friction │ Key Issues      │
-# ├─────────────────┼──────────┼──────────┼──────────┼─────────────────┤
-# │ power-user      │ ✓        │ 12.5s    │ 0        │ -               │
-# │ first-timer     │ ✓        │ 45.2s    │ 2        │ Confusing CTA   │
-# │ elderly-user    │ ✗        │ 120.3s   │ 5        │ Small buttons   │
-# │ mobile-user     │ ✓        │ 28.1s    │ 1        │ Scroll issue    │
-# └─────────────────┴──────────┴──────────┴──────────┴─────────────────┘
-```
-
-**Generate reports:**
-
-```bash
-# JSON report
-npx cbrowser compare-personas --start "..." --goal "..." --output report.json
-
-# HTML report (visual dashboard)
-npx cbrowser compare-personas --start "..." --goal "..." --html
-```
-
-**What you learn:**
-- Which personas struggle most (friction points)
-- Time differences between expert and beginner users
-- Mobile vs desktop experience gaps
-- Accessibility issues affecting specific user types
-- Actionable recommendations for improvement
-
-**Automatic recommendations:**
-- "Beginners take 3.5x longer than experts - consider adding more guidance"
-- "Mobile users experience 2x more friction - review mobile UX"
-- "Common friction: 'Button too small for touch', 'Form validation unclear'"
-
-## v6.2.0 Features
-
-### AI Test Repair
-
-Automatically analyze failing tests and suggest or apply repairs:
-
-```bash
-# Analyze a broken test and see repair suggestions
-npx cbrowser repair-tests broken-test.txt
-
-# Automatically apply the best repairs
-npx cbrowser repair-tests tests.txt --auto-apply
-
-# Apply repairs and verify they work
-npx cbrowser repair-tests tests.txt --auto-apply --verify
-
-# Save repaired tests to a new file
-npx cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt
-```
-
-**What it analyzes:**
-
-| Failure Type | Detection | Repair Strategy |
-|--------------|-----------|-----------------|
-| `selector_not_found` | Element doesn't exist | Find alternative selectors on page |
-| `assertion_failed` | Verify statement false | Suggest updated assertions based on page content |
-| `timeout` | Step took too long | Add wait statements |
-| `element_not_interactable` | Element hidden/disabled | Add scroll/wait before interaction |
-
-**Example output:**
-
-```
-🔧 Analyzing test: Login Flow
-
-   → click the signin button
-     ✗ Failed: Failed to click: signin button
-     💡 Suggestions:
-        - Update selector to "Login" (70%)
-          → click "Login"
-        - Add wait before this step (50%)
-          → wait 2 seconds
-
-📊 SUMMARY
-  Total Failed Steps: 1
-  Repair Success Rate: 100%
-```
-
-**API usage:**
-
-```typescript
-import { repairTestSuite, formatRepairReport, exportRepairedTest } from 'cbrowser';
-
-const result = await repairTestSuite(suite, {
-  autoApply: true,
-  verifyRepairs: true,
-});
-
-console.log(formatRepairReport(result));
-
-// Export repaired test to file format
-for (const testResult of result.testResults) {
-  console.log(exportRepairedTest(testResult));
-}
-```
-
-## v6.3.0 Features
-
-### Flaky Test Detection
-
-Identify unreliable tests by running them multiple times and analyzing consistency:
-
-```bash
-# Run tests 5 times (default) and detect flakiness
-npx cbrowser flaky-check tests.txt
-
-# Custom number of runs
-npx cbrowser flaky-check tests.txt --runs 10
-
-# Set custom flakiness threshold (default: 20%)
-npx cbrowser flaky-check tests.txt --threshold 30
-
-# Save report to file
-npx cbrowser flaky-check tests.txt --output flaky-report.json
-```
-
-**What it measures:**
-
-| Metric | Description |
-|--------|-------------|
-| **Flakiness Score** | 0% = perfectly stable, 100% = maximally flaky (50/50 pass/fail) |
-| **Classification** | `stable_pass`, `stable_fail`, `flaky`, `mostly_pass`, `mostly_fail` |
-| **Per-Step Analysis** | Identifies which specific steps are unreliable |
-| **Duration Variance** | Detects timing-sensitive tests |
-
-**Example output:**
-
-```
-🔍 FLAKY TEST DETECTION REPORT
-══════════════════════════════════════════════════════════════
-
-📋 Suite: Login Tests
-   Runs per test: 5
-   Total duration: 45.2s
-
-──────────────────────────────────────────────────────────────
-TEST RESULTS
-──────────────────────────────────────────────────────────────
-
-✅ STABLE_PASS (5/5 passed, flakiness: 0%)
-   Login Flow
-   └─ Avg duration: 2.1s (±0.1s)
-
-⚠️  FLAKY (3/5 passed, flakiness: 80%)
-   Search Functionality
-   └─ Avg duration: 3.5s (±1.2s)
-   └─ Flaky steps:
-      • wait for "Loading" appears (60% flaky)
-      • verify page contains "results" (40% flaky)
-
-══════════════════════════════════════════════════════════════
-📊 SUMMARY
-══════════════════════════════════════════════════════════════
-
-✅ Overall Flakiness: 40%
-   Stable tests: 1 | Flaky tests: 1
-
-⚠️  Most flaky test: Search Functionality (80%)
-⚠️  Most flaky step: wait for "Loading" appears (60%)
-
-💡 RECOMMENDATIONS
-• Search Functionality: Add explicit waits, increase timeout
-• wait for "Loading" appears: Use more specific selector
-```
-
-**API usage:**
-
-```typescript
-import { parseNLTestSuite, detectFlakyTests, formatFlakyTestReport } from 'cbrowser';
-
-const suite = parseNLTestSuite(testContent, "My Tests");
-
-const result = await detectFlakyTests(suite, {
-  runs: 10,
-  flakinessThreshold: 25,
-  delayBetweenRuns: 1000,
-});
-
-console.log(formatFlakyTestReport(result));
-
-// Access detailed analysis
-for (const test of result.testAnalyses) {
-  if (test.isFlaky) {
-    console.log(`${test.testName}: ${test.flakinessScore}% flaky`);
-    for (const step of test.stepAnalysis) {
-      if (step.isFlaky) {
-        console.log(`  └─ ${step.instruction}: ${step.flakinessScore}% flaky`);
-      }
-    }
-  }
-}
-```
-
-## v6.1.0 Features
+## Testing
 
 ### Natural Language Test Suites
 
-Write tests in plain English - CBrowser parses and executes them:
+Write tests in plain English instead of code. Useful for QA teams or AI agents that need to define and run tests without writing Playwright scripts.
 
 ```bash
 # Run tests from a file
 npx cbrowser test-suite login-test.txt --html
 
-# Run inline tests (steps separated by semicolons)
+# Run inline tests
 npx cbrowser test-suite --inline "go to https://example.com ; click login ; verify url contains /dashboard"
+
+# Dry run (parse without executing)
+npx cbrowser test-suite tests.txt --dry-run
+
+# Fuzzy matching for assertions
+npx cbrowser test-suite tests.txt --fuzzy-match
 ```
 
 **Test file format:**
@@ -576,9 +268,6 @@ npx cbrowser test-suite tests.txt --output results.json
 
 # Generate HTML report
 npx cbrowser test-suite tests.txt --html
-
-# Combined
-npx cbrowser test-suite tests.txt --output results.json --html
 ```
 
 **API usage:**
@@ -600,43 +289,11 @@ const result = await runNLTestSuite(suite, {
 });
 
 console.log(formatNLTestReport(result));
-// Pass rate: 100%
-// Tests: 1 passed, 0 failed
-```
-
-## v5.0.0 Features
-
-### Smart Click with Auto-Retry
-
-When an element isn't found, CBrowser automatically:
-1. Checks the self-healing cache for known alternatives
-2. Generates alternative selectors (text variants, ARIA roles, attributes)
-3. Tries each alternative with configurable retry logic
-4. Caches working selectors for future use
-
-```bash
-# Smart click with retry
-npx cbrowser smart-click "Submit" --max-retries 5
-
-# Navigate then click
-npx cbrowser smart-click "Login" --url "https://example.com"
-```
-
-```typescript
-import { CBrowser } from 'cbrowser';
-
-const browser = new CBrowser();
-const result = await browser.smartClick("Submit Button", { maxRetries: 3 });
-
-console.log(result.success);        // true/false
-console.log(result.finalSelector);  // The selector that worked
-console.log(result.attempts);       // Array of all attempts
-console.log(result.aiSuggestion);   // AI suggestion if failed
 ```
 
 ### Natural Language Assertions
 
-Write assertions in plain English:
+Write assertions in plain English for use in scripts or standalone:
 
 ```bash
 # Title assertions
@@ -665,28 +322,9 @@ console.log(result.actual);   // What was found
 console.log(result.expected); // What was expected
 ```
 
-### Self-Healing Selector Cache
-
-CBrowser remembers which selectors work on each domain:
-
-```bash
-# View cache statistics
-npx cbrowser heal-stats
-
-# Clear the cache
-npx cbrowser heal-clear
-```
-
-```typescript
-const stats = browser.getSelectorCacheStats();
-console.log(stats.totalEntries);    // 42
-console.log(stats.totalSuccesses);  // 156
-console.log(stats.topDomains);      // [{ domain: 'example.com', count: 15 }, ...]
-```
-
 ### AI Test Generation
 
-Analyze any page and generate test scenarios automatically:
+Analyze any page and generate test scenarios automatically. Useful for bootstrapping test coverage on existing sites.
 
 ```bash
 # Generate tests for a page
@@ -709,16 +347,173 @@ console.log(result.playwrightCode); // Playwright test code
 console.log(result.cbrowserScript); // CBrowser CLI script
 ```
 
-**Example generated test:**
-```typescript
-test('Login - Valid Credentials', async ({ page }) => {
-  await page.goto('https://example.com');
-  await page.locator('[name="email"]').fill('test@example.com');
-  await page.locator('[name="password"]').fill('password123');
-  await page.locator('button[type="submit"]').click();
-  await expect(page).toHaveURL(/dashboard/);
-});
+### AI Test Repair
+
+When tests break due to site changes, CBrowser can analyze the failures and suggest or apply repairs automatically. This reduces the maintenance burden of large test suites.
+
+```bash
+# Analyze a broken test and see repair suggestions
+npx cbrowser repair-tests broken-test.txt
+
+# Automatically apply the best repairs
+npx cbrowser repair-tests tests.txt --auto-apply
+
+# Apply repairs and verify they work
+npx cbrowser repair-tests tests.txt --auto-apply --verify
+
+# Save repaired tests to a new file
+npx cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt
 ```
+
+**Failure types and repair strategies:**
+
+| Failure Type | Detection | Repair Strategy |
+|--------------|-----------|-----------------|
+| `selector_not_found` | Element doesn't exist | Find alternative selectors on page |
+| `assertion_failed` | Verify statement false | Suggest updated assertions based on page content |
+| `timeout` | Step took too long | Add wait statements |
+| `element_not_interactable` | Element hidden/disabled | Add scroll/wait before interaction |
+
+**API usage:**
+
+```typescript
+import { repairTestSuite, formatRepairReport, exportRepairedTest } from 'cbrowser';
+
+const result = await repairTestSuite(suite, {
+  autoApply: true,
+  verifyRepairs: true,
+});
+
+console.log(formatRepairReport(result));
+
+for (const testResult of result.testResults) {
+  console.log(exportRepairedTest(testResult));
+}
+```
+
+### Flaky Test Detection
+
+Identify unreliable tests by running them multiple times and analyzing consistency. Useful for catching timing-sensitive tests before they cause CI failures.
+
+```bash
+# Run tests 5 times (default) and detect flakiness
+npx cbrowser flaky-check tests.txt
+
+# Custom number of runs
+npx cbrowser flaky-check tests.txt --runs 10
+
+# Set custom flakiness threshold (default: 20%)
+npx cbrowser flaky-check tests.txt --threshold 30
+
+# Save report to file
+npx cbrowser flaky-check tests.txt --output flaky-report.json
+```
+
+**What it measures:**
+
+| Metric | Description |
+|--------|-------------|
+| **Flakiness Score** | 0% = perfectly stable, 100% = maximally flaky (50/50 pass/fail) |
+| **Classification** | `stable_pass`, `stable_fail`, `flaky`, `mostly_pass`, `mostly_fail` |
+| **Per-Step Analysis** | Identifies which specific steps are unreliable |
+| **Duration Variance** | Detects timing-sensitive tests |
+
+**API usage:**
+
+```typescript
+import { parseNLTestSuite, detectFlakyTests, formatFlakyTestReport } from 'cbrowser';
+
+const suite = parseNLTestSuite(testContent, "My Tests");
+
+const result = await detectFlakyTests(suite, {
+  runs: 10,
+  flakinessThreshold: 25,
+  delayBetweenRuns: 1000,
+});
+
+console.log(formatFlakyTestReport(result));
+
+for (const test of result.testAnalyses) {
+  if (test.isFlaky) {
+    console.log(`${test.testName}: ${test.flakinessScore}% flaky`);
+    for (const step of test.stepAnalysis) {
+      if (step.isFlaky) {
+        console.log(`  - ${step.instruction}: ${step.flakinessScore}% flaky`);
+      }
+    }
+  }
+}
+```
+
+---
+
+## Visual Testing
+
+### AI Visual Regression
+
+Compare screenshots semantically rather than pixel-by-pixel. Traditional pixel diffing flags every minor rendering difference (anti-aliasing, font hinting). AI-based comparison understands what actually changed: a button moved, text was updated, a new section was added.
+
+```bash
+# Capture a baseline
+npx cbrowser ai-visual capture "https://example.com" --name homepage
+
+# Compare against baseline
+npx cbrowser ai-visual test "https://staging.example.com" homepage --html
+
+# List baselines
+npx cbrowser ai-visual list
+```
+
+### Cross-Browser Visual Testing
+
+Compare how a page renders across Chrome, Firefox, and Safari to catch browser-specific layout issues:
+
+```bash
+npx cbrowser cross-browser "https://example.com" --html
+npx cbrowser cross-browser "https://example.com" --browsers chromium,firefox,webkit
+```
+
+### Responsive Visual Testing
+
+Test across viewport sizes (mobile, tablet, desktop) to verify responsive layouts:
+
+```bash
+npx cbrowser responsive "https://example.com" --html
+npx cbrowser responsive "https://example.com" --viewports mobile,tablet,desktop-lg
+npx cbrowser responsive viewports  # list available presets
+```
+
+### A/B Visual Comparison
+
+Compare two different URLs side by side (e.g., staging vs production, old design vs new):
+
+```bash
+npx cbrowser ab "https://staging.example.com" "https://example.com" --html
+npx cbrowser ab "https://old.site.com" "https://new.site.com" --label-a "Old" --label-b "New"
+```
+
+---
+
+## Analysis
+
+### Autonomous Bug Hunting
+
+Rather than waiting for you to specify what to test, `hunt_bugs` explores a site autonomously and reports issues it finds: broken links, console errors, accessibility violations, and UX problems.
+
+```bash
+npx cbrowser hunt-bugs "https://your-site.com" --depth 3
+```
+
+### Chaos Engineering
+
+Inject controlled failures to verify how your site handles degraded conditions:
+
+```bash
+npx cbrowser chaos-test "https://your-site.com" \
+  --inject network-slowdown,random-timeouts,failed-assets
+```
+
+This is useful for verifying error states, loading indicators, and graceful degradation before they happen in production.
 
 ### Page Analysis
 
@@ -730,28 +525,151 @@ npx cbrowser analyze "https://example.com"
 
 Output:
 ```
-📊 Page Analysis:
+Page Analysis:
    Title: Example Domain
    Forms: 1
      - form#login (3 fields)
-       🔐 Login form detected
+       Login form detected
    Buttons: 5
    Links: 12
-   Has Login: ✅
-   Has Search: ❌
-   Has Navigation: ✅
+   Has Login: yes
+   Has Search: no
+   Has Navigation: yes
 ```
 
-### MCP Server Integration
+---
 
-CBrowser can run as an MCP server for both Claude Desktop (local) and claude.ai (remote).
+## Persona-Based Testing
 
-#### Option 1: Remote MCP (claude.ai)
+Test your site from different user perspectives. Each persona has realistic timing, error rates, and attention patterns that simulate how different types of users actually interact with interfaces.
+
+```bash
+# Run an autonomous journey as a persona
+cbrowser journey "first-timer" \
+  --start "https://mysite.com" \
+  --goal "Complete signup"
+
+# Compare how different user types experience the same flow
+npx cbrowser compare-personas \
+  --start "https://example.com" \
+  --goal "Complete checkout" \
+  --personas power-user,first-timer,elderly-user,mobile-user
+```
+
+**Built-in Personas:**
+
+| Persona | Description |
+|---------|-------------|
+| `power-user` | Fast, efficient, uses keyboard shortcuts |
+| `first-timer` | Slow, exploratory, reads everything |
+| `mobile-user` | Touch interface, small screen |
+| `elderly-user` | Larger text needs, slower interactions |
+| `impatient-user` | Quick to abandon on friction |
+
+**Example comparison output:**
+
+```
+Persona          | Success | Time    | Friction | Key Issues
+-----------------+---------+---------+----------+------------------
+power-user       | pass    | 12.5s   | 0        | -
+first-timer      | pass    | 45.2s   | 2        | Confusing CTA
+elderly-user     | fail    | 120.3s  | 5        | Small buttons
+mobile-user      | pass    | 28.1s   | 1        | Scroll issue
+```
+
+This helps identify which user groups struggle with your interface and where the friction points are, so you can prioritize UX improvements based on data rather than assumptions.
+
+**Custom persona creation:**
+
+```bash
+# Describe the user - AI generates appropriate parameters
+npx cbrowser persona create "impatient developer who hates slow UIs" --name speed-demon
+npx cbrowser persona create "elderly grandmother new to computers" --name grandma
+
+# List all personas (built-in + custom)
+npx cbrowser persona list
+
+# View, export, import, delete
+npx cbrowser persona show speed-demon
+npx cbrowser persona export speed-demon
+npx cbrowser persona import custom-persona.json
+npx cbrowser persona delete speed-demon
+```
+
+The AI generates appropriate timing, error rates, mouse behavior, attention patterns, and viewport based on your description.
+
+**Generate reports:**
+
+```bash
+# JSON report
+npx cbrowser compare-personas --start "..." --goal "..." --output report.json
+
+# HTML report
+npx cbrowser compare-personas --start "..." --goal "..." --html
+```
+
+---
+
+## Performance
+
+### Performance Metrics
+
+```bash
+# Core Web Vitals
+npx cbrowser perf "https://example.com"
+
+# With budget
+npx cbrowser perf audit "https://example.com" --budget-lcp 2500
+```
+
+### Performance Regression Detection
+
+Track performance baselines and detect regressions with configurable sensitivity to avoid false positives:
+
+```bash
+npx cbrowser visual-baseline "https://your-site.com" --with-performance
+npx cbrowser visual-compare --check-perf-regression
+
+# Sensitivity profiles: strict (CI/CD), normal (default), lenient (development)
+npx cbrowser perf-regression "https://example.com" baseline.json --sensitivity strict
+```
+
+---
+
+## Modular Architecture
+
+CBrowser is split into tree-shakeable modules so you can import only what you need:
+
+```typescript
+// Import everything
+import { CBrowser, runVisualRegression, detectFlakyTests } from 'cbrowser';
+
+// Import specific modules
+import { runVisualRegression, runCrossBrowserTest } from 'cbrowser/visual';
+import { runNLTestSuite, detectFlakyTests, repairTest } from 'cbrowser/testing';
+import { huntBugs, runChaosTest, findElementByIntent } from 'cbrowser/analysis';
+import { capturePerformanceBaseline, detectPerformanceRegression } from 'cbrowser/performance';
+```
+
+| Module | Purpose |
+|--------|---------|
+| `cbrowser/visual` | Visual testing (regression, cross-browser, responsive, A/B) |
+| `cbrowser/testing` | Test automation (NL suites, repair, flaky detection, coverage) |
+| `cbrowser/analysis` | AI analysis (bug hunting, chaos testing, persona comparison) |
+| `cbrowser/performance` | Performance (baselines, regression detection) |
+
+---
+
+## MCP Server Integration
+
+CBrowser runs as an MCP server for both Claude Desktop (local) and claude.ai (remote).
+
+### Remote MCP (claude.ai)
 
 Connect claude.ai directly to a remote CBrowser server:
 
 1. Deploy CBrowser on your server ([full guide](docs/REMOTE-MCP-SERVER.md))
-2. In claude.ai: Settings → Connectors → Add Custom Connector
+2. In claude.ai: Settings > Connectors > Add Custom Connector
 3. Add URL: `https://your-cbrowser-domain.com/mcp`
 4. Configure OAuth with Auth0 ([setup guide](docs/AUTH0-SETUP.md))
 
@@ -765,7 +683,7 @@ Connect claude.ai directly to a remote CBrowser server:
 - **API Key** - For Claude Code CLI and programmatic access
 - No rate limits for authenticated users
 
-#### Option 2: Local MCP (Claude Desktop)
+### Local MCP (Claude Desktop)
 
 Run CBrowser locally for Claude Desktop:
 
@@ -786,7 +704,7 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 }
 ```
 
-#### Available MCP Tools (31 total)
+### Available MCP Tools (33 total)
 
 | Category | Tools |
 |----------|-------|
@@ -796,140 +714,13 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 | **Testing** | `generate_tests`, `test_suite`, `repair_tests`, `flaky_check` |
 | **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
 | **Personas** | `journey`, `compare_personas`, `create_persona`, `list_personas` |
-| **Sessions** | `save_session`, `load_session`, `list_sessions` |
-| **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit` |
-| **Utilities** | `heal_stats`, `list_baselines` |
+| **Sessions** | `save_session`, `load_session`, `list_sessions`, `delete_session` |
+| **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit`, `dismiss_overlay` |
+| **Utilities** | `heal_stats`, `list_baselines`, `status` |
 
 See [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md) for full deployment instructions.
 
-## Core Features
-
-### AI-Powered Element Selection
-
-```bash
-# Natural language
-cbrowser click "the main navigation menu"
-cbrowser fill "password field" "secret123"
-
-# Accessibility-based
-cbrowser click "aria:button/Submit"
-
-# Visual description
-cbrowser click "visual:red button in header"
-
-# Semantic type
-cbrowser fill "semantic:email" "user@example.com"
-
-# Fallback to CSS
-cbrowser click "css:#login-btn"
-```
-
-### Session Persistence
-
-```bash
-# Save session (cookies, localStorage, sessionStorage)
-cbrowser session save "logged-in" --url "https://example.com"
-
-# Load session
-cbrowser session load "logged-in"
-
-# List sessions
-cbrowser session list
-```
-
-### Persistent Browser Context
-
-Enable persistent mode to keep cookies and localStorage between CLI calls:
-
-```bash
-npx cbrowser navigate "https://example.com" --persistent
-```
-
-### Persona-Driven Testing
-
-```bash
-# Run autonomous journey as a persona
-cbrowser journey "first-timer" \
-  --start "https://mysite.com" \
-  --goal "Complete signup"
-
-# List personas
-cbrowser persona list
-```
-
-**Built-in Personas:**
-
-| Persona | Description |
-|---------|-------------|
-| `power-user` | Tech-savvy, expects efficiency |
-| `first-timer` | New user, slow and exploratory |
-| `mobile-user` | Touch interface, small screen |
-| `elderly-user` | Vision/motor limitations |
-| `impatient-user` | Quick to abandon |
-
-**AI Persona Creation (v5.3.0):**
-
-Create custom personas from natural language descriptions:
-
-```bash
-# Describe the user - AI generates all parameters
-npx cbrowser persona create "impatient developer who hates slow UIs" --name speed-demon
-npx cbrowser persona create "elderly grandmother new to computers with tremors" --name grandma
-npx cbrowser persona create "distracted teenager on their phone"
-
-# List all personas (built-in + custom)
-npx cbrowser persona list
-
-# View full persona config
-npx cbrowser persona show speed-demon
-
-# Export/import for sharing
-npx cbrowser persona export speed-demon
-npx cbrowser persona import custom-persona.json
-
-# Delete custom persona
-npx cbrowser persona delete speed-demon
-```
-
-The AI analyzes your description and generates appropriate:
-- **Timing**: reaction times, click delays, typing speed
-- **Error rates**: misclicks, typos, accidental double-clicks
-- **Mouse behavior**: movement speed, jitter, overshoot
-- **Attention patterns**: reading style, scroll behavior, focus areas
-- **Viewport**: device-appropriate screen size
-
-### Multi-Browser Support
-
-```bash
-# Firefox
-npx cbrowser navigate "https://example.com" --browser firefox
-
-# WebKit (Safari)
-npx cbrowser navigate "https://example.com" --browser webkit
-```
-
-### Device Emulation
-
-```bash
-# Mobile
-npx cbrowser navigate "https://example.com" --device iphone-15
-
-# Tablet
-npx cbrowser navigate "https://example.com" --device ipad-pro-12
-
-# List devices
-npx cbrowser device list
-```
-
-### Performance Metrics
-
-```bash
-# Core Web Vitals
-npx cbrowser perf "https://example.com"
-
-# With budget
-npx cbrowser perf audit "https://example.com" --budget-lcp 2500
-```
+---
 
 ## API Usage
 
@@ -964,6 +755,8 @@ console.log(tests.playwrightCode);
 await browser.close();
 ```
 
+---
+
 ## Configuration
 
 ### Environment Variables
@@ -991,29 +784,50 @@ Create `.cbrowserrc.json`:
 }
 ```
 
-## Constitutional Safety
+---
 
-CBrowser classifies actions by risk level:
-
-| Zone | Actions | Behavior |
-|------|---------|----------|
-| **Green** | Navigate, read, screenshot | Auto-execute |
-| **Yellow** | Click, fill forms | Log and proceed |
-| **Red** | Submit, delete, purchase | Requires `--force` |
-| **Black** | Bypass auth, inject scripts | Never execute |
+## Multi-Browser Support
 
 ```bash
-# Bypass safety for testing
-cbrowser click "Delete Account" --force
+# Firefox
+npx cbrowser navigate "https://example.com" --browser firefox
+
+# WebKit (Safari)
+npx cbrowser navigate "https://example.com" --browser webkit
 ```
+
+### Device Emulation
+
+```bash
+# Mobile
+npx cbrowser navigate "https://example.com" --device iphone-15
+
+# Tablet
+npx cbrowser navigate "https://example.com" --device ipad-pro-12
+
+# List devices
+npx cbrowser device list
+```
+
+### Persistent Browser Context
+
+Enable persistent mode to keep cookies and localStorage between CLI calls:
+
+```bash
+npx cbrowser navigate "https://example.com" --persistent
+```
+
+---
 
 ## Performance
 
 CBrowser uses optimized Chromium launch flags for fast startup:
 
-- **~1 second** browser cold start (vs 3-5s default)
-- **Persistent context** keeps cookies between calls
-- **Self-healing cache** reduces retry overhead
+- ~1 second browser cold start (vs 3-5s default)
+- Persistent context keeps cookies between calls
+- Self-healing cache reduces retry overhead
+
+---
 
 ## Examples
 
