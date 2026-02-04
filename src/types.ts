@@ -87,6 +87,27 @@ export interface SavedSession {
   };
 }
 
+export interface SessionMetadata {
+  name: string;
+  created: string;
+  lastUsed: string;
+  domain: string;
+  url: string;
+  cookies: number;
+  localStorageKeys: number;
+  sessionStorageKeys: number;
+  sizeBytes: number;
+}
+
+export interface LoadSessionResult {
+  success: boolean;
+  name: string;
+  cookiesRestored: number;
+  localStorageKeysRestored: number;
+  sessionStorageKeysRestored: number;
+  warning?: string;
+}
+
 // ============================================================================
 // Result Types
 // ============================================================================

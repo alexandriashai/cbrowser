@@ -107,6 +107,8 @@ import type {
   DismissOverlayOptions,
   DetectedOverlay,
   DismissOverlayResult,
+  SessionMetadata,
+  LoadSessionResult,
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS, VIEWPORT_PRESETS } from "./types.js";
 
@@ -2717,16 +2719,37 @@ export class CBrowser {
   /**
    * Load a saved session.
    */
-  async loadSession(name: string): Promise<boolean> {
+  async loadSession(name: string): Promise<LoadSessionResult> {
     const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
 
     if (!existsSync(sessionPath)) {
-      return false;
+      return { success: false, name, cookiesRestored: 0, localStorageKeysRestored: 0, sessionStorageKeysRestored: 0 };
     }
 
     const session: SavedSession = JSON.parse(readFileSync(sessionPath, "utf-8"));
     const page = await this.getPage();
     const context = this.context!;
+
+    const result: LoadSessionResult = {
+      success: true,
+      name,
+      cookiesRestored: session.cookies.length,
+      localStorageKeysRestored: Object.keys(session.localStorage).length,
+      sessionStorageKeysRestored: Object.keys(session.sessionStorage).length,
+    };
+
+    // Cross-domain warning
+    const currentUrl = page.url();
+    if (currentUrl && currentUrl !== "about:blank") {
+      try {
+        const currentDomain = new URL(currentUrl).hostname;
+        if (session.domain && currentDomain !== session.domain) {
+          result.warning = `Session '${name}' was saved for ${session.domain} but current page is ${currentDomain}. Some cookies may not apply.`;
+        }
+      } catch {
+        // URL parsing failed, skip warning
+      }
+    }
 
     // Restore cookies
     if (session.cookies.length > 0) {
@@ -2757,15 +2780,60 @@ export class CBrowser {
     session.lastUsed = new Date().toISOString();
     writeFileSync(sessionPath, JSON.stringify(session, null, 2));
 
-    return true;
+    return result;
   }
 
   /**
-   * List all saved sessions.
+   * List all saved session names.
    */
   listSessions(): string[] {
     const files = readdirSync(this.paths.sessionsDir);
-    return files.filter((f) => f.endsWith(".json")).map((f) => f.replace(".json", ""));
+    return files.filter((f) => f.endsWith(".json") && f !== "last-session.json").map((f) => f.replace(".json", ""));
+  }
+
+  /**
+   * List all saved sessions with rich metadata.
+   */
+  listSessionsDetailed(): SessionMetadata[] {
+    const files = readdirSync(this.paths.sessionsDir);
+    const sessions: SessionMetadata[] = [];
+
+    for (const file of files) {
+      if (!file.endsWith(".json") || file === "last-session.json") continue;
+      const filePath = join(this.paths.sessionsDir, file);
+      try {
+        const data: SavedSession = JSON.parse(readFileSync(filePath, "utf-8"));
+        const stats = statSync(filePath);
+        sessions.push({
+          name: data.name || file.replace(".json", ""),
+          created: data.created,
+          lastUsed: data.lastUsed,
+          domain: data.domain,
+          url: data.url,
+          cookies: data.cookies?.length || 0,
+          localStorageKeys: Object.keys(data.localStorage || {}).length,
+          sessionStorageKeys: Object.keys(data.sessionStorage || {}).length,
+          sizeBytes: stats.size,
+        });
+      } catch {
+        // Skip malformed session files
+      }
+    }
+
+    return sessions.sort((a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime());
+  }
+
+  /**
+   * Get detailed info for a single session.
+   */
+  getSessionDetails(name: string): SavedSession | null {
+    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
+    if (!existsSync(sessionPath)) return null;
+    try {
+      return JSON.parse(readFileSync(sessionPath, "utf-8"));
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -2778,6 +2846,63 @@ export class CBrowser {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Delete sessions older than a given number of days.
+   */
+  cleanupSessions(olderThanDays: number): { deleted: string[]; kept: string[] } {
+    const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+    const deleted: string[] = [];
+    const kept: string[] = [];
+
+    const files = readdirSync(this.paths.sessionsDir);
+    for (const file of files) {
+      if (!file.endsWith(".json") || file === "last-session.json") continue;
+      const filePath = join(this.paths.sessionsDir, file);
+      const name = file.replace(".json", "");
+      try {
+        const data: SavedSession = JSON.parse(readFileSync(filePath, "utf-8"));
+        const lastUsed = new Date(data.lastUsed).getTime();
+        if (lastUsed < cutoff) {
+          unlinkSync(filePath);
+          deleted.push(name);
+        } else {
+          kept.push(name);
+        }
+      } catch {
+        kept.push(name);
+      }
+    }
+
+    return { deleted, kept };
+  }
+
+  /**
+   * Export a session to a portable JSON file.
+   */
+  exportSession(name: string, outputPath: string): boolean {
+    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
+    if (!existsSync(sessionPath)) return false;
+    const data = readFileSync(sessionPath, "utf-8");
+    writeFileSync(outputPath, data);
+    return true;
+  }
+
+  /**
+   * Import a session from a JSON file.
+   */
+  importSession(inputPath: string, name: string): boolean {
+    if (!existsSync(inputPath)) return false;
+    try {
+      const data: SavedSession = JSON.parse(readFileSync(inputPath, "utf-8"));
+      data.name = name;
+      const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
+      writeFileSync(sessionPath, JSON.stringify(data, null, 2));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // =========================================================================

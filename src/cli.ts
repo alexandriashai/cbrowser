@@ -1908,9 +1908,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Error: Session name required");
               process.exit(1);
             }
-            const loaded = await browser.loadSession(name);
-            if (loaded) {
+            const loadResult = await browser.loadSession(name);
+            if (loadResult.success) {
               console.log(`✓ Session loaded: ${name}`);
+              console.log(`  Cookies: ${loadResult.cookiesRestored}, localStorage: ${loadResult.localStorageKeysRestored}, sessionStorage: ${loadResult.sessionStorageKeysRestored}`);
+              if (loadResult.warning) {
+                console.log(`  ⚠️  ${loadResult.warning}`);
+              }
             } else {
               console.error(`✗ Session not found: ${name}`);
               process.exit(1);
@@ -1918,14 +1922,133 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             break;
           }
           case "list": {
-            const sessions = browser.listSessions();
+            const sessions = browser.listSessionsDetailed();
             if (sessions.length === 0) {
               console.log("No saved sessions");
             } else {
               console.log("\n📋 Saved Sessions:\n");
-              for (const session of sessions) {
-                console.log(`  - ${session}`);
+              // Table header
+              const nameW = Math.max(16, ...sessions.map((s) => s.name.length)) + 2;
+              const domainW = Math.max(16, ...sessions.map((s) => s.domain.length)) + 2;
+              console.log(
+                `  ${"Name".padEnd(nameW)}${"Domain".padEnd(domainW)}${"Created".padEnd(22)}${"Cookies".padEnd(10)}${"Size".padEnd(10)}`
+              );
+              console.log(`  ${"─".repeat(nameW)}${"─".repeat(domainW)}${"─".repeat(22)}${"─".repeat(10)}${"─".repeat(10)}`);
+              for (const s of sessions) {
+                const created = new Date(s.created).toLocaleString("en-US", {
+                  month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                });
+                const size = s.sizeBytes < 1024
+                  ? `${s.sizeBytes} B`
+                  : `${(s.sizeBytes / 1024).toFixed(1)} KB`;
+                console.log(
+                  `  ${s.name.padEnd(nameW)}${s.domain.padEnd(domainW)}${created.padEnd(22)}${String(s.cookies).padEnd(10)}${size.padEnd(10)}`
+                );
               }
+              console.log();
+            }
+            break;
+          }
+          case "show": {
+            if (!name) {
+              console.error("Error: Session name required");
+              process.exit(1);
+            }
+            const details = browser.getSessionDetails(name);
+            if (!details) {
+              console.error(`✗ Session not found: ${name}`);
+              process.exit(1);
+            }
+            const fs = await import("fs");
+            const path = await import("path");
+            const sessionPath = path.join(browser["paths"].sessionsDir, `${name}.json`);
+            const fileSize = fs.statSync(sessionPath).size;
+            console.log(`\n📋 Session: ${name}\n`);
+            console.log(`  Domain:           ${details.domain}`);
+            console.log(`  URL:              ${details.url}`);
+            console.log(`  Created:          ${new Date(details.created).toLocaleString()}`);
+            console.log(`  Last Used:        ${new Date(details.lastUsed).toLocaleString()}`);
+            console.log(`  Viewport:         ${details.viewport.width}x${details.viewport.height}`);
+            console.log(`  File Size:        ${(fileSize / 1024).toFixed(1)} KB`);
+            console.log(`\n  Cookies (${details.cookies.length}):`);
+            if (details.cookies.length > 0) {
+              const domains = [...new Set(details.cookies.map((c) => c.domain))];
+              for (const d of domains) {
+                const count = details.cookies.filter((c) => c.domain === d).length;
+                console.log(`    ${d}: ${count}`);
+              }
+            }
+            console.log(`\n  localStorage (${Object.keys(details.localStorage).length} keys):`);
+            for (const key of Object.keys(details.localStorage).slice(0, 10)) {
+              const val = details.localStorage[key];
+              const preview = val.length > 60 ? val.substring(0, 60) + "..." : val;
+              console.log(`    ${key}: ${preview}`);
+            }
+            if (Object.keys(details.localStorage).length > 10) {
+              console.log(`    ... and ${Object.keys(details.localStorage).length - 10} more`);
+            }
+            console.log(`\n  sessionStorage (${Object.keys(details.sessionStorage).length} keys):`);
+            for (const key of Object.keys(details.sessionStorage).slice(0, 10)) {
+              const val = details.sessionStorage[key];
+              const preview = val.length > 60 ? val.substring(0, 60) + "..." : val;
+              console.log(`    ${key}: ${preview}`);
+            }
+            if (Object.keys(details.sessionStorage).length > 10) {
+              console.log(`    ... and ${Object.keys(details.sessionStorage).length - 10} more`);
+            }
+            if (details.testCredentials) {
+              console.log(`\n  Test Credentials:  ${details.testCredentials.email} @ ${details.testCredentials.baseUrl}`);
+            }
+            console.log();
+            break;
+          }
+          case "cleanup": {
+            const olderThan = parseInt(options["older-than"] as string || "30", 10);
+            if (isNaN(olderThan) || olderThan <= 0) {
+              console.error("Error: --older-than must be a positive number of days");
+              process.exit(1);
+            }
+            const result = browser.cleanupSessions(olderThan);
+            if (result.deleted.length === 0) {
+              console.log(`No sessions older than ${olderThan} days`);
+            } else {
+              console.log(`\n🧹 Cleaned up ${result.deleted.length} session(s):\n`);
+              for (const d of result.deleted) {
+                console.log(`  ✓ Deleted: ${d}`);
+              }
+            }
+            console.log(`  ${result.kept.length} session(s) kept`);
+            break;
+          }
+          case "export": {
+            if (!name) {
+              console.error("Error: Session name required");
+              process.exit(1);
+            }
+            const output = (options.output as string) || `${name}.json`;
+            const exported = browser.exportSession(name, output);
+            if (exported) {
+              console.log(`✓ Session exported: ${name} → ${output}`);
+            } else {
+              console.error(`✗ Session not found: ${name}`);
+              process.exit(1);
+            }
+            break;
+          }
+          case "import": {
+            // args[0] = "import", args[1] = file path
+            const filePath = args[1];
+            if (!filePath) {
+              console.error("Error: File path required");
+              process.exit(1);
+            }
+            const importName = (options.name as string) || filePath.replace(/\.json$/, "").split("/").pop()!;
+            const imported = browser.importSession(filePath, importName);
+            if (imported) {
+              console.log(`✓ Session imported: ${filePath} → ${importName}`);
+            } else {
+              console.error(`✗ Failed to import session from: ${filePath}`);
+              process.exit(1);
             }
             break;
           }
@@ -1943,7 +2066,15 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             break;
           }
           default:
-            console.error("Usage: cbrowser session [save|load|list|delete] <name>");
+            console.error("Usage: cbrowser session [save|load|list|show|delete|cleanup|export|import] <name>");
+            console.error("\n  save <name>                    Save current session");
+            console.error("  load <name>                    Load a saved session");
+            console.error("  list                           List all sessions with metadata");
+            console.error("  show <name>                    Show detailed session info");
+            console.error("  delete <name>                  Delete a session");
+            console.error("  cleanup --older-than <days>    Delete old sessions");
+            console.error("  export <name> --output <file>  Export session to file");
+            console.error("  import <file> --name <name>    Import session from file");
         }
         break;
       }

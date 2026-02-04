@@ -638,16 +638,36 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "list_sessions",
-    "List all saved sessions",
+    "List all saved sessions with metadata (name, domain, cookies count, localStorage keys, created date, size)",
     {},
     async () => {
       const b = await getBrowser();
-      const sessions = await b.listSessions();
+      const sessions = b.listSessionsDetailed();
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(sessions, null, 2),
+            text: JSON.stringify({ sessions }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "delete_session",
+    "Delete a saved session by name",
+    {
+      name: z.string().describe("Name of the session to delete"),
+    },
+    async ({ name }) => {
+      const b = await getBrowser();
+      const deleted = b.deleteSession(name);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ success: deleted, name, message: deleted ? `Session '${name}' deleted` : `Session '${name}' not found` }),
           },
         ],
       };
@@ -1281,7 +1301,7 @@ function configureMcpTools(server: McpServer): void {
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.4.18",
+    version: "7.4.19",
   });
   configureMcpTools(server);
   return server;
@@ -1362,7 +1382,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         status: "ok",
-        version: "7.4.18",
+        version: "7.4.19",
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthEnabled,
@@ -1377,7 +1397,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.4.18",
+        version: "7.4.19",
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,

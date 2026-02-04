@@ -5,6 +5,31 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.19] - 2026-02-03
+
+### Added
+- **Rich session metadata** - `listSessionsDetailed()` returns `SessionMetadata[]` with name, domain, cookies count, localStorage/sessionStorage key counts, created/lastUsed dates, file size (#7)
+- **`session show <name>` CLI command** - Detailed session info: domain, URL, dates, cookies by domain, localStorage/sessionStorage keys with previews, viewport, file size
+- **`session cleanup --older-than <days>` CLI command** - Delete sessions older than N days for maintenance
+- **`session export <name> --output <file>` CLI command** - Export session to portable JSON file
+- **`session import <file> --name <name>` CLI command** - Import session from JSON file
+- **`delete_session` MCP tool** - Tool #33 for deleting sessions via MCP
+- **Cross-domain session warning** - `loadSession()` returns `LoadSessionResult` with warning when session domain differs from current page
+
+### Changed
+- **`list_sessions` MCP tool** - Returns enriched `SessionMetadata[]` with domain, cookies, size instead of bare name array
+- **`session list` CLI** - Now displays formatted table with Name, Domain, Created, Cookies, Size columns
+- **`session load` CLI** - Shows restored counts and cross-domain warnings
+
+### Technical Details
+- `SessionMetadata` interface: name, created, lastUsed, domain, url, cookies, localStorageKeys, sessionStorageKeys, sizeBytes
+- `LoadSessionResult` interface: success, name, cookiesRestored, localStorageKeysRestored, sessionStorageKeysRestored, warning?
+- `listSessionsDetailed()` reads session files + statSync for size, sorted by lastUsed descending
+- `getSessionDetails(name)` returns full `SavedSession` for show command
+- `cleanupSessions(olderThanDays)` returns `{ deleted, kept }` arrays
+- `exportSession(name, outputPath)` / `importSession(inputPath, name)` for portable sessions
+- `listSessions()` now excludes `last-session.json` from results
+
 ## [7.4.18] - 2026-02-03
 
 ### Added
