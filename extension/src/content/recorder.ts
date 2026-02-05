@@ -332,7 +332,51 @@ function stopRecording(): { steps: RecordedStep[]; journey: JourneyRecording } {
     viewportHeight: window.innerHeight,
   };
 
-  return { steps: recorderState.steps, journey };
+  // Consolidate consecutive fill actions to avoid duplicates
+  const consolidatedSteps = consolidateSteps(recorderState.steps);
+
+  return { steps: consolidatedSteps, journey };
+}
+
+/**
+ * Consolidate consecutive fill actions on the same target into a single step
+ * This prevents capturing every keystroke as a separate step
+ */
+function consolidateSteps(steps: RecordedStep[]): RecordedStep[] {
+  const consolidated: RecordedStep[] = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const current = steps[i];
+
+    // For fill actions, look ahead to find the final value
+    if (current.action === 'fill' && current.target) {
+      // Find all consecutive fills on the same target
+      let lastFillIndex = i;
+      for (let j = i + 1; j < steps.length; j++) {
+        const next = steps[j];
+        if (next.action === 'fill' && next.target === current.target) {
+          lastFillIndex = j;
+        } else {
+          break;
+        }
+      }
+
+      // Use the last fill's value (the final/complete input)
+      const finalFill = steps[lastFillIndex];
+      consolidated.push({
+        ...finalFill,
+        id: current.id, // Keep original ID
+        timestamp: current.timestamp, // Keep original timestamp
+      });
+
+      // Skip the intermediate fills
+      i = lastFillIndex;
+    } else {
+      consolidated.push(current);
+    }
+  }
+
+  return consolidated;
 }
 
 /**
