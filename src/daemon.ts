@@ -288,7 +288,21 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
 
         case "click": {
           const selector = req.args.selector as string;
-          const result = await b.click(selector);
+          // Use hoverClick for better dropdown menu support
+          const result = await b.hoverClick(selector);
+          return { success: true, result };
+        }
+
+        case "hover": {
+          const selector = req.args.selector as string;
+          const result = await b.hover(selector);
+          return { success: true, result };
+        }
+
+        case "hoverClick": {
+          const selector = req.args.selector as string;
+          const hoverParent = req.args.hoverParent as string | undefined;
+          const result = await b.hoverClick(selector, { hoverParent });
           return { success: true, result };
         }
 

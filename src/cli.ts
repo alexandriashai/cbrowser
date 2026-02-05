@@ -1164,7 +1164,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
   // Check if daemon is running and use it for supported commands
   const daemonRunning = await isDaemonRunning();
-  if (daemonRunning && ["navigate", "click", "fill", "screenshot", "extract", "run"].includes(command)) {
+  if (daemonRunning && ["navigate", "click", "fill", "hover", "screenshot", "extract", "run"].includes(command)) {
     console.log("🔌 Connected to running daemon");
 
     let daemonCommand = command;
@@ -1175,6 +1175,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         daemonArgs = { url: args[0] || options.url };
         break;
       case "click":
+        daemonArgs = { selector: args[0] };
+        break;
+      case "hover":
         daemonArgs = { selector: args[0] };
         break;
       case "fill":
@@ -1310,6 +1313,25 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           if (verbose && result.debugScreenshot) {
             console.error(`\n📸 Debug screenshot: ${result.debugScreenshot}`);
           }
+          process.exit(1);
+        }
+        break;
+      }
+
+      case "hover": {
+        const selector = args[0];
+        if (!selector) {
+          console.error("Error: Selector required");
+          process.exit(1);
+        }
+        if (options.url) {
+          await browser.navigate(options.url as string);
+        }
+        const result = await browser.hover(selector);
+        if (result.success) {
+          console.log(`✓ ${result.message}`);
+        } else {
+          console.error(`✗ ${result.message}`);
           process.exit(1);
         }
         break;
