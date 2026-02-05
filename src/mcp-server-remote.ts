@@ -1620,7 +1620,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.9.0",
+    version: VERSION,
   });
   configureMcpTools(server);
   return server;
@@ -1683,7 +1683,7 @@ export async function startRemoteMcpServer(): Promise<void> {
   const auth0Enabled = auth0 !== null;
   const authEnabled = apiKeyAuthEnabled || auth0Enabled;
 
-  console.log(`Starting CBrowser Remote MCP Server v8.1.0...`);
+  console.log(`Starting CBrowser Remote MCP Server v${VERSION}...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
   if (apiKeyAuthEnabled) {
@@ -1718,7 +1718,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         status: "ok",
-        version: "7.9.0",
+        version: VERSION,
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthEnabled,
@@ -1733,7 +1733,7 @@ export async function startRemoteMcpServer(): Promise<void> {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "cbrowser",
-        version: "7.9.0",
+        version: VERSION,
         description: "Cognitive Browser - AI-powered browser automation with constitutional safety",
         mcp_endpoint: "/mcp",
         auth_required: authEnabled,
