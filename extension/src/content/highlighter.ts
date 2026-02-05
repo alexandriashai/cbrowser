@@ -13,7 +13,7 @@ interface HighlighterState {
   tooltip: HTMLDivElement | null;
 }
 
-const state: HighlighterState = {
+const highlighterState: HighlighterState = {
   active: false,
   hoveredElement: null,
   selectedElement: null,
@@ -137,9 +137,9 @@ function formatTooltipContent(info: ElementInfo): string {
  * Position the tooltip near the element
  */
 function positionTooltip(rect: DOMRect): void {
-  if (!state.tooltip) return;
+  if (!highlighterState.tooltip) return;
 
-  const tooltipRect = state.tooltip.getBoundingClientRect();
+  const tooltipRect = highlighterState.tooltip.getBoundingClientRect();
   const padding = 8;
 
   // Default: below the element
@@ -159,28 +159,28 @@ function positionTooltip(rect: DOMRect): void {
   // Ensure not off left edge
   left = Math.max(padding, left);
 
-  state.tooltip.style.top = `${top}px`;
-  state.tooltip.style.left = `${left}px`;
+  highlighterState.tooltip.style.top = `${top}px`;
+  highlighterState.tooltip.style.left = `${left}px`;
 }
 
 /**
  * Update the highlight overlay position
  */
 function updateHighlight(el: HTMLElement): void {
-  if (!state.overlay || !state.tooltip) return;
+  if (!highlighterState.overlay || !highlighterState.tooltip) return;
 
   const rect = el.getBoundingClientRect();
 
   // Update overlay position
-  state.overlay.style.top = `${rect.top}px`;
-  state.overlay.style.left = `${rect.left}px`;
-  state.overlay.style.width = `${rect.width}px`;
-  state.overlay.style.height = `${rect.height}px`;
+  highlighterState.overlay.style.top = `${rect.top}px`;
+  highlighterState.overlay.style.left = `${rect.left}px`;
+  highlighterState.overlay.style.width = `${rect.width}px`;
+  highlighterState.overlay.style.height = `${rect.height}px`;
 
   // Update tooltip
   const info = getElementInfo(el);
-  state.tooltip.innerHTML = formatTooltipContent(info);
-  state.tooltip.style.opacity = '1';
+  highlighterState.tooltip.innerHTML = formatTooltipContent(info);
+  highlighterState.tooltip.style.opacity = '1';
 
   // Position tooltip after content is set (to get accurate dimensions)
   requestAnimationFrame(() => positionTooltip(rect));
@@ -190,15 +190,15 @@ function updateHighlight(el: HTMLElement): void {
  * Handle mouse move during inspection
  */
 function handleMouseMove(e: MouseEvent): void {
-  if (!state.active) return;
+  if (!highlighterState.active) return;
 
   // Ignore our own elements
   const target = e.target as HTMLElement;
   if (target.closest('[data-cbrowser-ignore]')) return;
 
   // Update hovered element
-  if (target !== state.hoveredElement) {
-    state.hoveredElement = target;
+  if (target !== highlighterState.hoveredElement) {
+    highlighterState.hoveredElement = target;
     updateHighlight(target);
   }
 }
@@ -207,7 +207,7 @@ function handleMouseMove(e: MouseEvent): void {
  * Handle click during inspection
  */
 function handleClick(e: MouseEvent): void {
-  if (!state.active) return;
+  if (!highlighterState.active) return;
 
   const target = e.target as HTMLElement;
   if (target.closest('[data-cbrowser-ignore]')) return;
@@ -217,12 +217,12 @@ function handleClick(e: MouseEvent): void {
   e.stopPropagation();
 
   // Set selected element
-  state.selectedElement = target;
+  highlighterState.selectedElement = target;
 
   // Change overlay color to indicate selection
-  if (state.overlay) {
-    state.overlay.style.borderColor = '#22c55e';
-    state.overlay.style.background = 'rgba(34, 197, 94, 0.1)';
+  if (highlighterState.overlay) {
+    highlighterState.overlay.style.borderColor = '#22c55e';
+    highlighterState.overlay.style.background = 'rgba(34, 197, 94, 0.1)';
   }
 
   // Get element info
@@ -239,7 +239,7 @@ function handleClick(e: MouseEvent): void {
  * Handle keydown during inspection
  */
 function handleKeyDown(e: KeyboardEvent): void {
-  if (!state.active) return;
+  if (!highlighterState.active) return;
 
   // Escape to cancel
   if (e.key === 'Escape') {
@@ -252,15 +252,15 @@ function handleKeyDown(e: KeyboardEvent): void {
  * Start the element inspector
  */
 export function startInspector(): void {
-  if (state.active) return;
+  if (highlighterState.active) return;
 
-  state.active = true;
+  highlighterState.active = true;
 
   // Create overlay and tooltip
-  state.overlay = createOverlay();
-  state.tooltip = createTooltip();
-  document.body.appendChild(state.overlay);
-  document.body.appendChild(state.tooltip);
+  highlighterState.overlay = createOverlay();
+  highlighterState.tooltip = createTooltip();
+  document.body.appendChild(highlighterState.overlay);
+  document.body.appendChild(highlighterState.tooltip);
 
   // Add event listeners
   document.addEventListener('mousemove', handleMouseMove, true);
@@ -275,17 +275,17 @@ export function startInspector(): void {
  * Stop the element inspector
  */
 export function stopInspector(): void {
-  if (!state.active) return;
+  if (!highlighterState.active) return;
 
-  state.active = false;
-  state.hoveredElement = null;
-  state.selectedElement = null;
+  highlighterState.active = false;
+  highlighterState.hoveredElement = null;
+  highlighterState.selectedElement = null;
 
   // Remove overlay and tooltip
-  state.overlay?.remove();
-  state.tooltip?.remove();
-  state.overlay = null;
-  state.tooltip = null;
+  highlighterState.overlay?.remove();
+  highlighterState.tooltip?.remove();
+  highlighterState.overlay = null;
+  highlighterState.tooltip = null;
 
   // Remove event listeners
   document.removeEventListener('mousemove', handleMouseMove, true);
@@ -300,8 +300,8 @@ export function stopInspector(): void {
  * Get the currently selected element info
  */
 export function getSelectedElement(): ElementInfo | null {
-  if (!state.selectedElement) return null;
-  return getElementInfo(state.selectedElement);
+  if (!highlighterState.selectedElement) return null;
+  return getElementInfo(highlighterState.selectedElement);
 }
 
 /**
@@ -313,18 +313,18 @@ export function highlightElement(selector: string): boolean {
     if (!el) return false;
 
     // Create or reuse overlay
-    if (!state.overlay) {
-      state.overlay = createOverlay();
-      document.body.appendChild(state.overlay);
+    if (!highlighterState.overlay) {
+      highlighterState.overlay = createOverlay();
+      document.body.appendChild(highlighterState.overlay);
     }
-    if (!state.tooltip) {
-      state.tooltip = createTooltip();
-      document.body.appendChild(state.tooltip);
+    if (!highlighterState.tooltip) {
+      highlighterState.tooltip = createTooltip();
+      document.body.appendChild(highlighterState.tooltip);
     }
 
     // Style for "issue" highlighting (orange/warning color)
-    state.overlay.style.borderColor = '#f59e0b';
-    state.overlay.style.background = 'rgba(245, 158, 11, 0.15)';
+    highlighterState.overlay.style.borderColor = '#f59e0b';
+    highlighterState.overlay.style.background = 'rgba(245, 158, 11, 0.15)';
 
     // Scroll element into view
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -342,13 +342,13 @@ export function highlightElement(selector: string): boolean {
  * Clear any active highlight
  */
 export function clearHighlight(): void {
-  if (state.overlay) {
-    state.overlay.remove();
-    state.overlay = null;
+  if (highlighterState.overlay) {
+    highlighterState.overlay.remove();
+    highlighterState.overlay = null;
   }
-  if (state.tooltip) {
-    state.tooltip.remove();
-    state.tooltip = null;
+  if (highlighterState.tooltip) {
+    highlighterState.tooltip.remove();
+    highlighterState.tooltip = null;
   }
 }
 

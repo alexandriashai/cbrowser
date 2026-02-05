@@ -11,7 +11,7 @@ interface RecorderState {
   startUrl: string;
 }
 
-const state: RecorderState = {
+const recorderState: RecorderState = {
   recording: false,
   steps: [],
   startUrl: '',
@@ -86,7 +86,7 @@ function getSelector(el: Element): string {
  * Record a step
  */
 function recordStep(step: Omit<RecordedStep, 'id' | 'timestamp'>): void {
-  if (!state.recording) return;
+  if (!recorderState.recording) return;
 
   const fullStep: RecordedStep = {
     id: generateStepId(),
@@ -94,7 +94,7 @@ function recordStep(step: Omit<RecordedStep, 'id' | 'timestamp'>): void {
     ...step,
   };
 
-  state.steps.push(fullStep);
+  recorderState.steps.push(fullStep);
 
   // Send to background script
   chrome.runtime.sendMessage({
@@ -107,7 +107,7 @@ function recordStep(step: Omit<RecordedStep, 'id' | 'timestamp'>): void {
  * Handle click events
  */
 function handleClick(e: MouseEvent): void {
-  if (!state.recording) return;
+  if (!recorderState.recording) return;
 
   const target = e.target as HTMLElement;
   if (!target) return;
@@ -128,7 +128,7 @@ function handleClick(e: MouseEvent): void {
  * Handle input changes
  */
 function handleInput(e: Event): void {
-  if (!state.recording) return;
+  if (!recorderState.recording) return;
 
   const target = e.target as HTMLInputElement | HTMLTextAreaElement;
   if (!target) return;
@@ -163,7 +163,7 @@ function handleInput(e: Event): void {
  * Handle select changes
  */
 function handleSelectChange(e: Event): void {
-  if (!state.recording) return;
+  if (!recorderState.recording) return;
 
   const target = e.target as HTMLSelectElement;
   if (!target || target.tagName !== 'SELECT') return;
@@ -183,7 +183,7 @@ function handleSelectChange(e: Event): void {
  * Handle form submissions
  */
 function handleSubmit(e: SubmitEvent): void {
-  if (!state.recording) return;
+  if (!recorderState.recording) return;
 
   const form = e.target as HTMLFormElement;
   const submitBtn = form.querySelector('[type="submit"], button:not([type="button"])');
@@ -199,7 +199,7 @@ function handleSubmit(e: SubmitEvent): void {
  * Handle navigation (popstate, initial load)
  */
 function recordNavigation(): void {
-  if (!state.recording) return;
+  if (!recorderState.recording) return;
 
   recordStep({
     action: 'navigate',
@@ -212,9 +212,9 @@ function recordNavigation(): void {
  * Start recording
  */
 function startRecording(): void {
-  state.recording = true;
-  state.steps = [];
-  state.startUrl = window.location.href;
+  recorderState.recording = true;
+  recorderState.steps = [];
+  recorderState.startUrl = window.location.href;
   stepCounter = 0;
 
   // Record initial navigation
@@ -236,7 +236,7 @@ function startRecording(): void {
  * Stop recording and return steps
  */
 function stopRecording(): RecordedStep[] {
-  state.recording = false;
+  recorderState.recording = false;
 
   // Remove event listeners
   document.removeEventListener('click', handleClick, true);
@@ -245,7 +245,7 @@ function stopRecording(): RecordedStep[] {
   document.removeEventListener('submit', handleSubmit, true);
   window.removeEventListener('popstate', recordNavigation);
 
-  return state.steps;
+  return recorderState.steps;
 }
 
 /**
@@ -340,8 +340,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'GET_RECORDING_STATUS':
       sendResponse({
-        recording: state.recording,
-        stepCount: state.steps.length,
+        recording: recorderState.recording,
+        stepCount: recorderState.steps.length,
       });
       break;
 
