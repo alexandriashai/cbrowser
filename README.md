@@ -579,7 +579,7 @@ mobile-user      | pass    | 28.1s   | 1        | Scroll issue
 
 This helps identify which user groups struggle with your interface and where the friction points are, so you can prioritize UX improvements based on data rather than assumptions.
 
-### Cognitive User Simulation (v8.2.5)
+### Cognitive User Simulation (v8.3.0)
 
 Go beyond timing and click patterns—simulate how users actually **think**. Cognitive journeys model realistic decision-making with abandonment detection, frustration tracking, and genuine cognitive traits.
 
