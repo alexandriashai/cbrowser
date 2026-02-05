@@ -77,6 +77,47 @@ async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
   return tab || null;
 }
 
+/**
+ * Inject content scripts programmatically (for pages loaded before extension)
+ */
+async function injectContentScripts(tabId: number): Promise<void> {
+  console.log('[CBrowser SW] Injecting content scripts into tab:', tabId);
+
+  try {
+    // Inject all content scripts
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content/recorder.js', 'content/highlighter.js', 'content/journey-player.js'],
+    });
+    console.log('[CBrowser SW] Content scripts injected successfully');
+  } catch (e) {
+    console.error('[CBrowser SW] Failed to inject content scripts:', e);
+    throw new Error('Cannot inject scripts into this page (may be a protected page)');
+  }
+}
+
+/**
+ * Send message to tab, injecting scripts if needed
+ */
+async function sendToContentScript(
+  tabId: number,
+  message: any,
+  canInject: boolean = true
+): Promise<any> {
+  try {
+    return await chrome.tabs.sendMessage(tabId, message);
+  } catch (e: any) {
+    if (canInject && e?.message?.includes('Could not establish connection')) {
+      // Content script not loaded - inject and retry
+      await injectContentScripts(tabId);
+      // Small delay to let scripts initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return await chrome.tabs.sendMessage(tabId, message);
+    }
+    throw e;
+  }
+}
+
 async function executeInTab<T>(
   tabId: number,
   func: () => T | Promise<T>
@@ -99,8 +140,8 @@ async function startRecording(): Promise<void> {
   state.recording = true;
   state.recordedSteps = [];
 
-  // Send message to content script
-  await chrome.tabs.sendMessage(tab.id, { type: 'START_RECORDING' });
+  // Send message to content script (inject if needed)
+  await sendToContentScript(tab.id, { type: 'START_RECORDING' });
 
   // Notify sidepanel
   broadcastToSidepanel({ type: 'RECORDING_STARTED' });
@@ -108,6 +149,7 @@ async function startRecording(): Promise<void> {
 
 async function stopRecording(): Promise<{
   steps: RecordedStep[];
+  journey: any;
   nlTest: string;
   typescript: string;
 }> {
@@ -117,14 +159,13 @@ async function stopRecording(): Promise<{
   state.recording = false;
 
   // Get recording from content script
-  const response = await chrome.tabs.sendMessage(tab.id, {
-    type: 'STOP_RECORDING',
-  });
+  const response = await sendToContentScript(tab.id, { type: 'STOP_RECORDING' }, false);
 
   // Notify sidepanel
   broadcastToSidepanel({
     type: 'RECORDING_STOPPED',
     steps: response.steps,
+    journey: response.journey,
     nlTest: response.nlTest,
     typescript: response.typescript,
   });
@@ -216,24 +257,19 @@ async function handleMessage(
     case 'ENABLE_INSPECTOR':
       console.log('[CBrowser SW] ENABLE_INSPECTOR received, tab:', tab?.id, tab?.url);
       if (!tab?.id) throw new Error('No active tab');
-      try {
-        const result = await chrome.tabs.sendMessage(tab.id, { type: 'ENABLE_INSPECTOR' });
-        console.log('[CBrowser SW] ENABLE_INSPECTOR result:', result);
-        return { success: true };
-      } catch (e) {
-        console.error('[CBrowser SW] ENABLE_INSPECTOR error:', e);
-        // Content script not loaded - try injecting it first
-        const url = tab.url || '';
-        if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
-          throw new Error('Cannot inspect browser pages (chrome://, about:, etc.)');
-        }
-        throw new Error('Content script not loaded. Try refreshing the page.');
+      // Check for protected pages
+      const inspectUrl = tab.url || '';
+      if (inspectUrl.startsWith('chrome://') || inspectUrl.startsWith('chrome-extension://') || inspectUrl.startsWith('about:')) {
+        throw new Error('Cannot inspect browser pages (chrome://, about:, etc.)');
       }
+      const inspectResult = await sendToContentScript(tab.id, { type: 'ENABLE_INSPECTOR' });
+      console.log('[CBrowser SW] ENABLE_INSPECTOR result:', inspectResult);
+      return { success: true };
 
     case 'DISABLE_INSPECTOR':
       if (!tab?.id) throw new Error('No active tab');
       try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'DISABLE_INSPECTOR' });
+        await sendToContentScript(tab.id, { type: 'DISABLE_INSPECTOR' }, false);
         return { success: true };
       } catch {
         return { success: true }; // Already disabled or not loaded
@@ -242,22 +278,17 @@ async function handleMessage(
     case 'HIGHLIGHT_ELEMENT':
       console.log('[CBrowser SW] HIGHLIGHT_ELEMENT received:', message.selector);
       if (!tab?.id) throw new Error('No active tab');
-      try {
-        const result = await chrome.tabs.sendMessage(tab.id, {
-          type: 'HIGHLIGHT_ELEMENT',
-          selector: message.selector,
-        });
-        console.log('[CBrowser SW] HIGHLIGHT_ELEMENT result:', result);
-        return result;
-      } catch (e) {
-        console.error('[CBrowser SW] HIGHLIGHT_ELEMENT error:', e);
-        throw new Error('Cannot highlight - content script not loaded. Refresh the page.');
-      }
+      const highlightResult = await sendToContentScript(tab.id, {
+        type: 'HIGHLIGHT_ELEMENT',
+        selector: message.selector,
+      });
+      console.log('[CBrowser SW] HIGHLIGHT_ELEMENT result:', highlightResult);
+      return highlightResult;
 
     case 'CLEAR_HIGHLIGHT':
       if (!tab?.id) throw new Error('No active tab');
       try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'CLEAR_HIGHLIGHT' });
+        await sendToContentScript(tab.id, { type: 'CLEAR_HIGHLIGHT' }, false);
         return { success: true };
       } catch {
         return { success: true };
@@ -268,7 +299,7 @@ async function handleMessage(
     // ============================================
     case 'JOURNEY_PLAY':
       if (!tab?.id) throw new Error('No active tab');
-      return await chrome.tabs.sendMessage(tab.id, {
+      return await sendToContentScript(tab.id, {
         type: 'JOURNEY_PLAY',
         journey: message.journey,
         speed: message.speed,
@@ -276,26 +307,30 @@ async function handleMessage(
 
     case 'JOURNEY_PAUSE':
       if (!tab?.id) throw new Error('No active tab');
-      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_PAUSE' });
+      return await sendToContentScript(tab.id, { type: 'JOURNEY_PAUSE' }, false);
 
     case 'JOURNEY_RESUME':
       if (!tab?.id) throw new Error('No active tab');
-      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_RESUME' });
+      return await sendToContentScript(tab.id, { type: 'JOURNEY_RESUME' }, false);
 
     case 'JOURNEY_STOP':
       if (!tab?.id) throw new Error('No active tab');
-      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_STOP' });
+      return await sendToContentScript(tab.id, { type: 'JOURNEY_STOP' }, false);
 
     case 'JOURNEY_SET_SPEED':
       if (!tab?.id) throw new Error('No active tab');
-      return await chrome.tabs.sendMessage(tab.id, {
+      return await sendToContentScript(tab.id, {
         type: 'JOURNEY_SET_SPEED',
         speed: message.speed,
-      });
+      }, false);
 
     case 'JOURNEY_GET_STATUS':
       if (!tab?.id) throw new Error('No active tab');
-      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_GET_STATUS' });
+      try {
+        return await sendToContentScript(tab.id, { type: 'JOURNEY_GET_STATUS' }, false);
+      } catch {
+        return { playing: false, currentTime: 0, speed: 1, duration: 0 };
+      }
 
     case 'ELEMENT_SELECTED':
       // Forward from content script to sidepanel
