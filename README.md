@@ -1113,7 +1113,7 @@ CBrowser is source-available software. You can:
 
 On **February 5, 2030**, the license automatically converts to **Apache 2.0** (fully open source).
 
-For commercial licensing: [licensing@wyldfyre.ai](mailto:licensing@wyldfyre.ai)
+For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.shai.eden@gmail.com)
 
 See [LICENSE](LICENSE) for full terms.
 
