@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.3.0](https://github.com/alexandriashai/cbrowser/compare/v8.2.4...v8.3.0) (2026-02-05)
+
+
+### Added
+
+* **cognitive:** Add autonomous cognitive user simulation (v8.2.0) ([3dabcc6](https://github.com/alexandriashai/cbrowser/commit/3dabcc649da9517141ec1a1e3f33bc9ed81417b1))
+
 ## [8.2.4](https://github.com/alexandriashai/cbrowser/compare/v8.2.3...v8.2.4) (2026-02-04)
 
 ## [8.2.3](https://github.com/alexandriashai/cbrowser/compare/v8.2.2...v8.2.3) (2026-02-04)
