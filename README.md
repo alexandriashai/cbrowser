@@ -557,10 +557,17 @@ Page Analysis:
 Test your site from different user perspectives. Each persona has realistic timing, error rates, and attention patterns that simulate how different types of users actually interact with interfaces.
 
 ```bash
-# Run an autonomous journey as a persona
-cbrowser journey "first-timer" \
+# Quick exploration (free, heuristic-based)
+cbrowser explore "first-timer" \
   --start "https://mysite.com" \
   --goal "Complete signup"
+
+# Cognitive journey (API-powered, realistic user simulation)
+cbrowser cognitive-journey \
+  --persona "first-timer" \
+  --start "https://mysite.com" \
+  --goal "Complete signup" \
+  --verbose
 
 # Compare how different user types experience the same flow
 npx cbrowser compare-personas \

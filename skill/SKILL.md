@@ -1,6 +1,6 @@
 ---
 name: CBrowser
-description: Cognitive Browser - AI-powered browser automation with constitutional safety, AI visual regression, cross-browser testing, responsive testing, A/B comparison, and user perspective testing. v8.4.0 (vision mode + hover-before-click + page content extraction + daemon mode hover + cognitive user simulation + abandonment detection + CI/CD integration + GitHub Action + Docker + CLI aliases + session management + perf sensitivity profiles + ARIA-first selectors). USE WHEN cognitive browser, smart browser, AI browser automation, vision-based automation, self-healing selectors, autonomous web agent, user testing, persona testing, authenticated automation, test suite, natural language tests, repair tests, fix broken tests, flaky test detection, detect flaky tests, unreliable tests, constitutional safety, safe automation, visual regression, screenshot comparison, cross-browser, responsive testing, viewport testing, mobile testing, A/B testing, staging vs production, compare URLs, performance regression, test coverage, coverage map, coverage gaps, MCP server, Claude Desktop, remote MCP, custom connector, Auth0 OAuth, accessibility, a11y, ARIA, verbose, debug, overlay, dismiss overlay, CI/CD, GitHub Action, Docker, GitLab CI, cognitive journey, cognitive simulation, user abandonment, friction detection, cognitive traits, patience, frustration, confusion, vision mode, hover, dropdown menu, daemon mode, persistent session.
+description: Cognitive Browser - AI-powered browser automation with constitutional safety, AI visual regression, cross-browser testing, responsive testing, A/B comparison, and user perspective testing. v8.9.0 (explore command + click priority scoring + custom dropdown handling + ESM support). USE WHEN cognitive browser, smart browser, AI browser automation, vision-based automation, self-healing selectors, autonomous web agent, user testing, persona testing, authenticated automation, test suite, natural language tests, repair tests, fix broken tests, flaky test detection, detect flaky tests, unreliable tests, constitutional safety, safe automation, visual regression, screenshot comparison, cross-browser, responsive testing, viewport testing, mobile testing, A/B testing, staging vs production, compare URLs, performance regression, test coverage, coverage map, coverage gaps, MCP server, Claude Desktop, remote MCP, custom connector, Auth0 OAuth, accessibility, a11y, ARIA, verbose, debug, overlay, dismiss overlay, CI/CD, GitHub Action, Docker, GitLab CI, cognitive journey, cognitive simulation, user abandonment, friction detection, cognitive traits, patience, frustration, confusion, vision mode, hover, dropdown menu, daemon mode, persistent session, explore, custom dropdown, Alpine.js, React Select.
 ---
 
 # CBrowser (Cognitive Browser)
@@ -75,8 +75,8 @@ Built for the Claude ecosystem. First-class MCP server for Claude Desktop integr
 | "click", "fill", "submit", "interact" | `Workflows/Interact.md` | AI-guided interactions |
 | "login", "authenticate", "sign in" | `Workflows/Authenticate.md` | Handle login flows with credentials |
 | "test", "run test", "validate" | `Workflows/Test.md` | Run scripted test scenarios |
-| "journey", "run as", "simulate user" | `Workflows/Journey.md` | Autonomous persona-driven exploration |
-| "cognitive journey", "cognitive simulation", "as [persona]" | `Workflows/CognitiveJourney.md` | Realistic cognitive user simulation with abandonment |
+| "explore", "run as", "simulate user" | `Workflows/Journey.md` | Quick heuristic exploration (free, no API) |
+| "cognitive journey", "cognitive simulation", "as [persona]" | `Workflows/CognitiveJourney.md` | Realistic cognitive simulation with abandonment (API-powered) |
 | "test-suite", "natural language test" | npm: `test-suite` | Natural language test execution (v6.1.0) |
 | "repair", "fix tests", "broken test" | npm: `repair-tests` | AI-powered test repair (v6.2.0) |
 | "flaky", "unreliable", "detect flaky" | npm: `flaky-check` | Flaky test detection (v6.3.0) |
@@ -797,6 +797,7 @@ User: "Simulate a confused first-timer trying to register as a provider"
 
 | Version | Features |
 |---------|----------|
+| v8.9.0 | **`journey` renamed to `explore`** (heuristic-based, free). Improved help text clarifies `explore` vs `cognitive-journey`. Click priority scoring prefers exact matches over fuzzy. Click avoids sticky nav when better candidate exists. Custom dropdown/input handling for Alpine.js, React Select. Version single source of truth from package.json. ESM support via `"type": "module"`. |
 | v8.4.0 | Vision mode (`--vision`) for cognitive journeys - sends screenshots to Claude. Hover-before-click for dropdown menus. Page content extraction. `hover()` and `hoverClick()` browser methods. `hover:selector` action type. Daemon mode hover support for persistent CLI sessions. |
 | v8.3.4 | Fix: cognitive journey click/fill results now properly checked instead of always returning success |
 | v8.3.1 | Cognitive User Simulation: autonomous goal-driven journeys with 7 cognitive traits, abandonment detection, friction tracking, internal monologue. 3 new MCP tools (`cognitive_journey_init`, `cognitive_journey_update_state`, `list_cognitive_personas`). CLI `cognitive-journey` command with Anthropic API. Config commands for API key management. |

@@ -41,10 +41,18 @@ import {
   isApiKeyConfigured,
 } from "./cognitive/index.js";
 
+// Version from package.json - single source of truth
+import { VERSION } from "./version.js";
+
 function showHelp(): void {
+  // Pad version string to maintain banner alignment
+  const versionStr = `CBrowser CLI v${VERSION}`;
+  const padding = ' '.repeat(Math.max(0, (80 - 2 - versionStr.length) / 2));
+  const rightPadding = ' '.repeat(Math.max(0, 80 - 2 - padding.length - versionStr.length));
+
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI v8.2.5                                ║
+║${padding}${versionStr}${rightPadding}║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ║    Semantic Versioning: https://semver.org/                                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -66,23 +74,31 @@ INTERACTION
 EXTRACTION
   extract <what>              Extract data (links, images, headings, forms)
 
-AUTONOMOUS JOURNEYS
-  journey <persona>           Run autonomous exploration
+SITE EXPLORATION (Free, heuristic-based)
+  explore <persona>           Quick autonomous exploration using built-in heuristics
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish
-    --record-video            Record journey as video
+    --record-video            Record exploration as video
+    Note: No API key needed. Uses rule-based navigation - fast but not "smart".
 
-COGNITIVE JOURNEY (v8.0.0) - API-powered autonomous user simulation
-  cognitive-journey           Run autonomous cognitive simulation using Claude API
+COGNITIVE JOURNEY (API-powered, realistic user simulation)
+  cognitive-journey           Simulate a real user with emotions, patience, and abandonment
     --persona <name>          Persona name or description (default: first-timer)
     --start <url>             Starting URL (required)
     --goal <goal>             Goal statement (required)
     --max-steps <n>           Maximum steps before timeout (default: 50)
     --max-time <s>            Maximum time in seconds (default: 120)
-    --verbose                 Show step-by-step narration
+    --verbose                 Show step-by-step narration and internal monologue
     --vision                  Enable vision mode - send screenshots to Claude (more accurate)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
+
+    Why use this over 'explore'?
+      • Tracks cognitive state: patience, frustration, confusion
+      • Can realistically abandon: "This is too confusing, I give up"
+      • Makes human-like mistakes based on persona traits
+      • Costs API tokens but provides genuine UX insights
+
     Examples:
       cbrowser cognitive-journey --start "https://example.com" \\
         --goal "Sign up for an account" --persona first-timer
@@ -572,7 +588,7 @@ EXAMPLES
   npx cbrowser navigate "https://example.com" --device iphone-15
   npx cbrowser navigate "https://example.com" --geo san-francisco
   npx cbrowser perf audit "https://example.com" --budget-lcp 2000
-  npx cbrowser journey first-timer --start "https://example.com" --record-video
+  npx cbrowser explore first-timer --start "https://example.com" --record-video
   npx cbrowser cookie list --url "https://example.com"
 `);
 }
@@ -941,17 +957,8 @@ async function main(): Promise<void> {
 
   // Status command - runs before browser instantiation
   if (command === "status") {
-    const fs = await import("fs");
-    const path = await import("path");
-    let version = "8.5.1";
-    // Try to read version from package.json at runtime
-    try {
-      const pkgPath = path.resolve(__dirname, "..", "package.json");
-      if (fs.existsSync(pkgPath)) {
-        version = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version;
-      }
-    } catch {}
-    const info = await getStatusInfo(version);
+    // VERSION is imported from version.ts which reads from package.json
+    const info = await getStatusInfo(VERSION);
     console.log(formatStatus(info));
     process.exit(0);
   }
@@ -1726,7 +1733,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         break;
       }
 
-      case "journey": {
+      case "journey": // Deprecated alias for 'explore'
+      case "explore": {
+        if (command === "journey") {
+          console.warn("⚠️  'journey' is deprecated. Use 'explore' instead.\n");
+        }
         const persona = args[0] || "first-timer";
         const startUrl = options.start as string;
         const goal = (options.goal as string) || "Explore the site";
@@ -1736,8 +1747,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
-        console.log(`🚀 Starting journey as "${persona}"...`);
+        console.log(`🔍 Starting exploration as "${persona}"...`);
         console.log(`   Goal: ${goal}`);
+        console.log(`   Mode: Heuristic (free, no API)`);
         console.log("");
 
         const result = await browser.journey({ persona, startUrl, goal });

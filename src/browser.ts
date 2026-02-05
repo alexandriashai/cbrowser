@@ -1650,6 +1650,91 @@ export class CBrowser {
   }
 
   /**
+   * Find the best click candidate from multiple matches.
+   * Prioritizes: exact text match > non-sticky elements > shorter text (closer match)
+   */
+  private async findBestClickCandidate(locator: Locator, searchText: string): Promise<Locator | null> {
+    const page = await this.getPage();
+    const count = await locator.count();
+
+    if (count === 0) return null;
+    if (count === 1) return locator.first();
+
+    // Score each candidate
+    const candidates: Array<{ index: number; score: number }> = [];
+    const searchLower = searchText.toLowerCase();
+
+    for (let i = 0; i < count; i++) {
+      const el = locator.nth(i);
+      let score = 0;
+
+      try {
+        const info = await el.evaluate((element: Element, search: string) => {
+          const text = element.textContent?.trim() || '';
+          const style = getComputedStyle(element);
+
+          // Check if element is in a sticky/fixed container
+          let inStickyContainer = false;
+          let parent: Element | null = element;
+          while (parent) {
+            const parentStyle = getComputedStyle(parent);
+            if (parentStyle.position === 'fixed' || parentStyle.position === 'sticky') {
+              inStickyContainer = true;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          // Check for exact text match vs partial
+          const textLower = text.toLowerCase();
+          const isExactMatch = textLower === search.toLowerCase();
+          const isPartialMatch = textLower.includes(search.toLowerCase());
+
+          // Get element role/type info
+          const tagName = element.tagName.toLowerCase();
+          const role = element.getAttribute('role');
+          const isInteractive = ['button', 'a', 'input', 'select'].includes(tagName) ||
+                               ['button', 'link', 'option'].includes(role || '');
+
+          return {
+            text,
+            textLength: text.length,
+            inStickyContainer,
+            isExactMatch,
+            isPartialMatch,
+            isInteractive,
+          };
+        }, searchLower);
+
+        // Scoring:
+        // +100: exact text match
+        // +50: not in sticky container
+        // +20: is interactive element
+        // -1 per extra character (prefer shorter matches)
+
+        if (info.isExactMatch) score += 100;
+        if (!info.inStickyContainer) score += 50;
+        if (info.isInteractive) score += 20;
+        score -= Math.abs(info.textLength - searchText.length);
+
+        candidates.push({ index: i, score });
+      } catch {
+        // If evaluation fails, give low score
+        candidates.push({ index: i, score: -1000 });
+      }
+    }
+
+    // Sort by score descending and return the best match
+    candidates.sort((a, b) => b.score - a.score);
+
+    if (candidates.length > 0 && candidates[0].score > -1000) {
+      return locator.nth(candidates[0].index);
+    }
+
+    return locator.first();
+  }
+
+  /**
    * Hover then click - useful for dropdown menus that need hover to reveal items.
    * ALWAYS hovers the parent menu and keeps it hovered while clicking the submenu item.
    */
@@ -1834,6 +1919,50 @@ export class CBrowser {
             };
           }
         }
+      }
+
+      // Check if this is a select element - requires selectOption instead of fill
+      const tagName = await element.evaluate((el: Element) => el.tagName.toLowerCase());
+
+      if (tagName === 'select') {
+        // For select elements, use selectOption
+        // Try to match by label text first, then by value
+        try {
+          await element.selectOption({ label: value });
+        } catch {
+          // If label match fails, try value match
+          try {
+            await element.selectOption({ value: value });
+          } catch {
+            // Try partial/case-insensitive label match
+            const options = await element.evaluate((el: Element) => {
+              const select = el as HTMLSelectElement;
+              return Array.from(select.options).map(o => ({
+                value: o.value,
+                text: o.text,
+              }));
+            });
+
+            const match = options.find(o =>
+              o.text.toLowerCase().includes(value.toLowerCase()) ||
+              o.value.toLowerCase().includes(value.toLowerCase())
+            );
+
+            if (match) {
+              await element.selectOption({ value: match.value });
+            } else {
+              throw new Error(`No option matching "${value}" in select. Available: ${options.map(o => o.text).join(', ')}`);
+            }
+          }
+        }
+
+        this.audit("fill", `${selector} (select)`, "yellow", "success");
+
+        return {
+          success: true,
+          screenshot: await this.screenshot(),
+          message: `Selected: ${value} in ${selector}`,
+        };
       }
 
       // Standard fill - works for visible inputs and textareas
@@ -3039,11 +3168,26 @@ export class CBrowser {
   /**
    * Get all input fields on the page for verbose output.
    */
-  private async getAvailableInputs(page: Page): Promise<Array<{ selector: string; type: string; name: string; placeholder: string; label: string }>> {
+  /**
+   * Get available form inputs on the page, including hidden ones with custom UI triggers.
+   * Public so cognitive journey can use it.
+   */
+  async getAvailableInputs(page?: Page): Promise<Array<{ selector: string; type: string; name: string; placeholder: string; label: string; isHidden?: boolean; triggerText?: string; options?: string[] }>> {
+    const activePage = page || await this.getPage();
     try {
-      return await page.$$eval('input, textarea, select', els =>
-        els.slice(0, 15).map(el => {
+      return await activePage.$$eval('input, textarea, select', els =>
+        els.slice(0, 20).map(el => {
           const input = el as HTMLInputElement;
+          const htmlEl = el as HTMLElement;
+
+          // Check if element is hidden (common with custom dropdowns)
+          const style = window.getComputedStyle(el);
+          const isHidden = style.display === 'none' ||
+                          style.visibility === 'hidden' ||
+                          parseFloat(style.opacity) === 0 ||
+                          htmlEl.offsetWidth === 0 ||
+                          htmlEl.offsetHeight === 0;
+
           // Find associated label
           let label = "";
           if (input.id) {
@@ -3053,12 +3197,48 @@ export class CBrowser {
           if (!label && input.closest("label")) {
             label = (input.closest("label") as HTMLElement).innerText?.trim().substring(0, 50) || "";
           }
+
+          // For hidden elements, try to find the visible trigger
+          let triggerText = "";
+          if (isHidden) {
+            // Look for sibling or parent with visible text (custom dropdown trigger)
+            const parent = el.parentElement;
+            if (parent) {
+              const siblings = Array.from(parent.children).filter(c => c !== el);
+              for (const sib of siblings) {
+                const sibStyle = window.getComputedStyle(sib);
+                if (sibStyle.display !== 'none' && (sib as HTMLElement).innerText?.trim()) {
+                  triggerText = (sib as HTMLElement).innerText.trim().substring(0, 50);
+                  break;
+                }
+              }
+            }
+            // Also check for aria-labelledby or data attributes
+            if (!triggerText) {
+              const ariaLabel = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby');
+              if (ariaLabel) triggerText = ariaLabel.substring(0, 50);
+            }
+          }
+
+          // For select elements, get available options
+          let options: string[] | undefined;
+          if (el.tagName.toLowerCase() === 'select') {
+            const selectEl = el as HTMLSelectElement;
+            options = Array.from(selectEl.options)
+              .filter(opt => opt.value && opt.text.trim()) // Skip empty/placeholder options
+              .slice(0, 10) // Limit to first 10 options
+              .map(opt => opt.text.trim());
+          }
+
           return {
             selector: input.id ? `#${input.id}` : input.name ? `[name="${input.name}"]` : input.placeholder ? `[placeholder="${input.placeholder}"]` : `${el.tagName.toLowerCase()}`,
             type: input.type || el.tagName.toLowerCase(),
             name: input.name || "",
             placeholder: input.placeholder || "",
             label,
+            isHidden,
+            triggerText,
+            options,
           };
         })
       );
@@ -3330,10 +3510,29 @@ export class CBrowser {
       return page.getByRole(role as any, { name }).first();
     }
 
-    // Strategy 3: Text content
-    const byText = page.getByText(selector, { exact: false }).first();
-    if (await byText.count() > 0) {
-      return byText;
+    // Strategy 3: Text content - prefer exact matches over fuzzy, non-sticky over sticky
+    // First, try exact text match
+    const byTextExact = page.getByText(selector, { exact: true });
+    const exactCount = await byTextExact.count();
+    if (exactCount > 0) {
+      // If multiple exact matches, prefer non-sticky elements
+      if (exactCount > 1) {
+        const bestMatch = await this.findBestClickCandidate(byTextExact, selector);
+        if (bestMatch) return bestMatch;
+      }
+      return byTextExact.first();
+    }
+
+    // Then try partial/fuzzy text match (but with sticky deprioritization)
+    const byTextFuzzy = page.getByText(selector, { exact: false });
+    const fuzzyCount = await byTextFuzzy.count();
+    if (fuzzyCount > 0) {
+      // If multiple fuzzy matches, prefer non-sticky elements and shorter/exact matches
+      if (fuzzyCount > 1) {
+        const bestMatch = await this.findBestClickCandidate(byTextFuzzy, selector);
+        if (bestMatch) return bestMatch;
+      }
+      return byTextFuzzy.first();
     }
 
     // Strategy 4: Placeholder

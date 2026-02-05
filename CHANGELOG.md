@@ -15,8 +15,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.9.1](https://github.com/alexandriashai/cbrowser/compare/v8.9.0...v8.9.1) (2026-02-05)
+
+### Fixed
+
+* **browser:** `fill()` now correctly handles `<select>` elements using Playwright's `selectOption()` instead of `fill()`
+* **cognitive-journey:** AI now uses `fill` for dropdown/select elements instead of trying to click them
+* **cognitive-journey:** select element options are now shown in the prompt so AI knows available values
+
 ### Added
 
+* **browser:** `getAvailableInputs()` now returns `options` array for select elements
+* **cognitive-journey:** improved prompt explicitly instructs AI to use `fill:FieldName:OptionValue` for dropdowns
+
+## [8.9.0](https://github.com/alexandriashai/cbrowser/compare/v8.8.0...v8.9.0) (2026-02-05)
+
+### Changed
+
+* **cli:** `journey` command renamed to `explore` (heuristic-based, free)
+* **cli:** `journey` remains as deprecated alias with warning
+* **cli:** improved help text clarifies `explore` vs `cognitive-journey` distinction
+* **version:** single source of truth - version now read from package.json at runtime
+* **package:** added `"type": "module"` for proper ESM support
+
+### Added
+
+* **browser:** click priority scoring prefers exact matches over fuzzy matches
+* **browser:** click avoids sticky nav elements when better candidates exist
 * **browser:** custom dropdown/input handling for hidden elements (Alpine.js, React Select, etc.)
 * **browser:** `isElementHidden()` - detects visually hidden elements (display:none, visibility:hidden, opacity:0, off-screen)
 * **browser:** `findCustomDropdownTrigger()` - finds visible UI trigger for hidden select elements
@@ -24,11 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **browser:** `handleCustomDropdown()` - orchestrates custom dropdown interaction
 * **browser:** `handleCustomInput()` - handles hidden inputs with custom UI (datepickers, autocomplete)
 * **browser:** `fill()` now auto-detects hidden elements and uses custom handling strategies
+* **browser:** `findBestClickCandidate()` - scores click candidates by exact match, position, interactivity
 
 ### Improved
 
 * **fill:** automatically detects Alpine.js/React Select/Vue Select style dropdowns and interacts with visible UI
 * **fill:** handles datepickers and other custom input components with hidden inputs
+* **click:** avoids clicking sticky nav when exact match exists in content area
 
 ## [8.7.3](https://github.com/alexandriashai/cbrowser/compare/v8.7.2...v8.7.3) (2026-02-05)
 

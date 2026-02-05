@@ -66,8 +66,8 @@ import {
   listPerformanceBaselines,
 } from "./performance/index.js";
 
-// Version constant - keep in sync with package.json
-const VERSION = "8.7.0";
+// Version from package.json - single source of truth
+import { VERSION } from "./version.js";
 
 // Shared browser instance
 let browser: CBrowser | null = null;

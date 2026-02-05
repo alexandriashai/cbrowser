@@ -278,6 +278,7 @@ export async function runCognitiveJourney(
     const page = await browser.getPage();
     const pageTitle = await page.title() || "Current Page";
     const availableElements = await browser.getAvailableClickables();
+    const availableInputs = await browser.getAvailableInputs();
 
     // Extract visible page content (headings, paragraphs, etc.)
     const pageContent = await page.evaluate(() => {
@@ -296,8 +297,8 @@ export async function runCognitiveJourney(
       return content.slice(0, 10).join('\n');
     }).catch(() => '');
 
-    // Build step prompt with available elements so Claude knows what's clickable
-    const stepPrompt = buildStepPrompt(state, currentUrl, pageTitle, step, availableElements, pageContent);
+    // Build step prompt with available elements so Claude knows what's clickable and fillable
+    const stepPrompt = buildStepPrompt(state, currentUrl, pageTitle, step, availableElements, availableInputs, pageContent);
 
     // Build message content - with or without vision
     let messageContent: Anthropic.MessageParam["content"];
@@ -506,7 +507,9 @@ RESPONSE FORMAT (JSON):
 ACTIONS:
 - click:selector - Click an element (auto-hovers parent menus for dropdowns)
 - hover:selector - Hover over element to reveal dropdown menus
-- fill:selector:value - Type text into an input field
+- fill:selector:value - Type text into an input field OR select an option from a dropdown
+  IMPORTANT: For <select> dropdowns, use fill with the option text (e.g., fill:Gender:Female)
+  Do NOT click on select dropdowns - use fill directly with the desired option value
 - navigate:url - Go to a URL directly
 
 ABANDONMENT THRESHOLDS:
@@ -535,17 +538,45 @@ interface PageElement {
   role?: string;
 }
 
+interface AvailableInput {
+  selector: string;
+  type: string;
+  name: string;
+  placeholder: string;
+  label: string;
+  isHidden?: boolean;
+  triggerText?: string;
+  options?: string[]; // Available options for select elements
+}
+
 function buildStepPrompt(
   state: CognitiveState,
   currentUrl: string,
   pageTitle: string,
   step: number,
   availableElements: PageElement[] = [],
+  availableInputs: AvailableInput[] = [],
   pageContent: string = ""
 ): string {
   const elementsStr = availableElements.length > 0
     ? availableElements.map(e => `  - "${e.text}" (${e.tag}${e.role ? `, role=${e.role}` : ""})`).join("\n")
-    : "  (unable to detect elements)";
+    : "  (no clickable elements detected)";
+
+  // Format inputs - highlight hidden ones with their triggers, show options for selects
+  const inputsStr = availableInputs.length > 0
+    ? availableInputs.map(i => {
+        const desc = i.label || i.placeholder || i.name || i.type;
+        if (i.isHidden && i.triggerText) {
+          return `  - "${desc}" (${i.type}, custom dropdown - click "${i.triggerText}" to open)`;
+        } else if (i.isHidden) {
+          return `  - "${desc}" (${i.type}, hidden/custom UI)`;
+        } else if (i.type === 'select' && i.options && i.options.length > 0) {
+          // Show available options for select dropdowns
+          return `  - "${desc}" (select dropdown) → use fill:${desc}:OptionValue\n      Options: ${i.options.join(", ")}`;
+        }
+        return `  - "${desc}" (${i.type})`;
+      }).join("\n")
+    : "  (no form inputs detected)";
 
   const contentStr = pageContent
     ? `\nVISIBLE PAGE CONTENT:\n${pageContent}\n`
@@ -560,6 +591,9 @@ ${contentStr}
 AVAILABLE ELEMENTS (clickable):
 ${elementsStr}
 
+FORM INPUTS (fillable):
+${inputsStr}
+
 CURRENT STATE:
 - Patience: ${(state.patienceRemaining * 100).toFixed(0)}%
 - Confusion: ${(state.confusionLevel * 100).toFixed(0)}%
@@ -569,8 +603,10 @@ CURRENT STATE:
 - Pages Visited: ${state.memory.pagesVisited.length}
 - Actions Attempted: ${state.memory.actionsAttempted.length}
 
-Based on the page content and AVAILABLE ELEMENTS above, what do you perceive, comprehend, and decide to do?
-Choose an action using element text from the list above.
+Based on the page content, AVAILABLE ELEMENTS, and FORM INPUTS above, what do you perceive, comprehend, and decide to do?
+- To click: use "click:ElementText"
+- To fill a form field: use "fill:FieldName:value"
+- To navigate: use "navigate:URL"
 Respond in JSON format.`;
 }
 
