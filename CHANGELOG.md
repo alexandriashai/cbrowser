@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * **mcp:** add cognitive journey tools to remote MCP server ([79bdbbe](https://github.com/alexandriashai/cbrowser/commit/79bdbbe1a213f7334adc460f6ef54d5f51fa7155))
+* **browser:** automatic sticky element handling - clicks work through sticky headers, navs, and floating elements
+* **browser:** `checkForInterception()` - detects if click would be intercepted by fixed/sticky element
+* **browser:** `handleStickyInterception()` - tries 3 strategies: scroll-to-safe-zone, hide-interceptor, force-js-click
+* **browser:** `findStickyElements()` - lists all position:fixed and position:sticky elements on page
 
 ## [8.5.3](https://github.com/alexandriashai/cbrowser/compare/v8.5.2...v8.5.3) (2026-02-05)
 

@@ -4,7 +4,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator, type ElementHandle } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 
@@ -1029,7 +1029,36 @@ export class CBrowser {
         return result;
       }
 
-      await element.click();
+      // Check for sticky element interception before clicking
+      const interception = await this.checkForInterception(element);
+
+      if (interception.intercepted && interception.interceptorSelector) {
+        if (options.verbose) {
+          console.log(`Sticky element detected: ${interception.interceptorInfo}`);
+        }
+
+        // Try to handle the interception
+        const handled = await this.handleStickyInterception(
+          element,
+          interception.interceptorSelector,
+          { verbose: options.verbose }
+        );
+
+        if (!handled.success) {
+          return {
+            success: false,
+            screenshot: await this.screenshot(),
+            message: `Click intercepted by sticky element (${interception.interceptorInfo}). ${handled.error || 'All mitigation strategies failed.'}`,
+          };
+        }
+
+        if (options.verbose) {
+          console.log(`Successfully clicked using strategy: ${handled.strategy}`);
+        }
+      } else {
+        // No interception, normal click
+        await element.click();
+      }
 
       // Wait for any navigation or network activity
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
@@ -1100,6 +1129,189 @@ export class CBrowser {
         success: false,
         screenshot: await this.screenshot(),
         message: `Failed to hover: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Check if a click on an element would be intercepted by a sticky/fixed element.
+   * Returns the intercepting element locator if found, null otherwise.
+   */
+  async checkForInterception(element: Locator): Promise<{ intercepted: boolean; interceptorSelector: string | null; interceptorInfo?: string }> {
+    const page = await this.getPage();
+
+    try {
+      const box = await element.boundingBox();
+      if (!box) {
+        return { intercepted: false, interceptorSelector: null };
+      }
+
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      // Get info about element at the click point using coordinates only
+      const result = await page.evaluate(([x, y]) => {
+        const topElement = document.elementFromPoint(x, y);
+        if (!topElement) return { intercepted: false, interceptorInfo: null, interceptorSelector: null };
+
+        // Build a selector for the top element
+        let selector = topElement.tagName.toLowerCase();
+        if (topElement.id) {
+          selector = `#${topElement.id}`;
+        } else if (topElement.className && typeof topElement.className === 'string') {
+          selector += `.${topElement.className.split(' ')[0]}`;
+        }
+
+        // Check if it's a sticky/fixed element (those are the problematic ones)
+        const style = getComputedStyle(topElement);
+        const isSticky = style.position === 'fixed' || style.position === 'sticky';
+
+        if (!isSticky) {
+          // Not a sticky element, let normal click handle it
+          return { intercepted: false, interceptorInfo: null, interceptorSelector: null };
+        }
+
+        // It's a sticky element - gather info
+        const info = {
+          tag: topElement.tagName.toLowerCase(),
+          id: topElement.id,
+          classes: topElement.className,
+          position: style.position,
+          zIndex: style.zIndex,
+          text: topElement.textContent?.slice(0, 50) || '',
+        };
+
+        return {
+          intercepted: true,
+          interceptorSelector: selector,
+          interceptorInfo: `${info.tag}${info.id ? '#' + info.id : ''}${info.classes && typeof info.classes === 'string' ? '.' + info.classes.split(' ')[0] : ''} (position: ${info.position}, z-index: ${info.zIndex})`
+        };
+      }, [centerX, centerY]);
+
+      return {
+        intercepted: result.intercepted,
+        interceptorSelector: result.interceptorSelector,
+        interceptorInfo: result.interceptorInfo || undefined
+      };
+    } catch {
+      // If check fails, assume not intercepted and let normal click try
+      return { intercepted: false, interceptorSelector: null };
+    }
+  }
+
+  /**
+   * Find all sticky/fixed positioned elements that could intercept clicks.
+   */
+  async findStickyElements(): Promise<Array<{ selector: string; position: string; rect: DOMRect }>> {
+    const page = await this.getPage();
+
+    return page.evaluate(() => {
+      const results: Array<{ selector: string; position: string; rect: DOMRect }> = [];
+      const allElements = Array.from(document.querySelectorAll('*'));
+
+      for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i];
+        const style = getComputedStyle(el);
+        if (style.position === 'fixed' || style.position === 'sticky') {
+          const rect = el.getBoundingClientRect();
+          // Only include elements that are visible and have size
+          if (rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none') {
+            let selector = el.tagName.toLowerCase();
+            if (el.id) selector += `#${el.id}`;
+            else if (el.className && typeof el.className === 'string') selector += `.${el.className.split(' ')[0]}`;
+
+            results.push({
+              selector,
+              position: style.position,
+              rect: rect.toJSON() as DOMRect,
+            });
+          }
+        }
+      }
+
+      return results;
+    });
+  }
+
+  /**
+   * Handle a sticky element intercepting a click by trying multiple strategies.
+   */
+  async handleStickyInterception(
+    element: Locator,
+    interceptorSelector: string,
+    options: { verbose?: boolean } = {}
+  ): Promise<{ success: boolean; strategy?: string; error?: string }> {
+    const page = await this.getPage();
+
+    // Strategy 1: Scroll element to viewport center (away from sticky headers/footers)
+    try {
+      if (options.verbose) console.log('  Trying strategy: scroll to safe zone');
+
+      await element.evaluate((el: Element) => {
+        const rect = el.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const targetY = rect.top + window.scrollY - (viewportHeight / 2) + (rect.height / 2);
+        window.scrollTo({ top: targetY, behavior: 'instant' });
+      });
+
+      await page.waitForTimeout(100);
+
+      // Check if still intercepted
+      const recheck = await this.checkForInterception(element);
+      if (!recheck.intercepted) {
+        await element.click();
+        return { success: true, strategy: 'scroll-to-safe-zone' };
+      }
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 2: Temporarily hide the interceptor
+    try {
+      if (options.verbose) console.log('  Trying strategy: hide interceptor');
+
+      const interceptor = page.locator(interceptorSelector).first();
+
+      // Store original display value and hide
+      const originalDisplay = await interceptor.evaluate((el: Element) => {
+        const style = (el as HTMLElement).style;
+        const original = style.display;
+        style.setProperty('display', 'none', 'important');
+        return original;
+      });
+
+      await page.waitForTimeout(50);
+
+      // Click the element
+      await element.click();
+
+      // Restore the interceptor
+      await interceptor.evaluate((el: Element, original: string) => {
+        (el as HTMLElement).style.display = original;
+      }, originalDisplay);
+
+      return { success: true, strategy: 'hide-interceptor' };
+    } catch (e) {
+      // Try to restore even on failure
+      const interceptor = page.locator(interceptorSelector).first();
+      await interceptor.evaluate((el: Element) => {
+        (el as HTMLElement).style.removeProperty('display');
+      }).catch(() => {});
+    }
+
+    // Strategy 3: Force JavaScript click (bypasses coordinate-based clicking)
+    try {
+      if (options.verbose) console.log('  Trying strategy: force JS click');
+
+      await element.evaluate((el: Element) => {
+        (el as HTMLElement).click();
+      });
+
+      return { success: true, strategy: 'force-js-click' };
+    } catch (e) {
+      return {
+        success: false,
+        error: `All strategies failed: ${e instanceof Error ? e.message : String(e)}`
       };
     }
   }
