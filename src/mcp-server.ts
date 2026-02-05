@@ -44,6 +44,21 @@ import {
   findElementByIntent,
 } from "./analysis/index.js";
 
+// Persona imports for cognitive journey
+import {
+  getPersona,
+  listPersonas,
+  getCognitiveProfile,
+  createCognitivePersona,
+} from "./personas.js";
+import type {
+  CognitiveState,
+  AbandonmentThresholds,
+  CognitiveProfile,
+  CognitiveTraits,
+  Persona,
+} from "./types.js";
+
 // Performance module imports
 import {
   capturePerformanceBaseline,
@@ -941,6 +956,312 @@ export async function startMcpServer(): Promise<void> {
       // No match or zero-confidence verbose result
       return {
         content: [{ type: "text", text: JSON.stringify(result || { found: false, message: "No matching element found" }, null, 2) }],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Cognitive Simulation Tools (v8.3.0)
+  // =========================================================================
+
+  server.tool(
+    "cognitive_journey_init",
+    "Initialize a cognitive user journey simulation. Returns the persona's cognitive profile, initial state, and abandonment thresholds. The actual simulation is driven by the LLM using browser tools (navigate, click, fill, screenshot) while tracking cognitive state.",
+    {
+      persona: z.string().describe("Persona name (e.g., 'first-timer', 'elderly-user', 'power-user') or custom description"),
+      goal: z.string().describe("What the simulated user is trying to accomplish"),
+      startUrl: z.string().url().describe("Starting URL for the journey"),
+      customTraits: z.object({
+        patience: z.number().min(0).max(1).optional(),
+        riskTolerance: z.number().min(0).max(1).optional(),
+        comprehension: z.number().min(0).max(1).optional(),
+        persistence: z.number().min(0).max(1).optional(),
+        curiosity: z.number().min(0).max(1).optional(),
+        workingMemory: z.number().min(0).max(1).optional(),
+        readingTendency: z.number().min(0).max(1).optional(),
+      }).optional().describe("Override specific cognitive traits"),
+    },
+    async ({ persona: personaName, goal, startUrl, customTraits }) => {
+      // Get or create persona
+      const existingPersona = getPersona(personaName);
+      let personaObj: Persona;
+
+      if (!existingPersona) {
+        // Create from description
+        personaObj = createCognitivePersona(personaName, personaName, customTraits || {});
+      } else if (customTraits) {
+        // Merge custom traits with defaults
+        const defaultTraits: CognitiveTraits = {
+          patience: 0.5,
+          riskTolerance: 0.5,
+          comprehension: 0.5,
+          persistence: 0.5,
+          curiosity: 0.5,
+          workingMemory: 0.5,
+          readingTendency: 0.5,
+        };
+        personaObj = {
+          ...existingPersona,
+          cognitiveTraits: {
+            ...defaultTraits,
+            ...(existingPersona.cognitiveTraits || {}),
+            ...customTraits,
+          },
+        };
+      } else {
+        personaObj = existingPersona;
+      }
+
+      // Get cognitive profile
+      const profile = getCognitiveProfile(personaObj);
+
+      // Initial cognitive state
+      const initialState: CognitiveState = {
+        patienceRemaining: 1.0,
+        confusionLevel: 0.0,
+        frustrationLevel: 0.0,
+        goalProgress: 0.0,
+        confidenceLevel: 0.5,
+        currentMood: "neutral",
+        memory: {
+          pagesVisited: [startUrl],
+          actionsAttempted: [],
+          errorsEncountered: [],
+          backtrackCount: 0,
+        },
+        timeElapsed: 0,
+        stepCount: 0,
+      };
+
+      // Abandonment thresholds (adjusted by persona traits)
+      const traits = profile.traits;
+      const thresholds: AbandonmentThresholds = {
+        patienceMin: 0.1,
+        confusionMax: traits.comprehension < 0.4 ? 0.6 : 0.8,  // Lower comprehension = lower tolerance
+        frustrationMax: traits.patience < 0.3 ? 0.7 : 0.85,    // Impatient = lower tolerance
+        maxStepsWithoutProgress: traits.persistence > 0.7 ? 15 : 10,
+        loopDetectionThreshold: 3,
+        timeLimit: traits.patience > 0.7 ? 180 : (traits.patience < 0.3 ? 60 : 120),
+      };
+
+      // Navigate to start URL
+      const b = await getBrowser();
+      await b.navigate(startUrl);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              persona: {
+                name: personaObj.name,
+                description: personaObj.description,
+                demographics: personaObj.demographics,
+              },
+              cognitiveProfile: profile,
+              initialState,
+              abandonmentThresholds: thresholds,
+              goal,
+              startUrl,
+              instructions: `
+COGNITIVE JOURNEY SIMULATION INSTRUCTIONS:
+
+You are now simulating a "${personaObj.name}" user with these cognitive traits:
+- Patience: ${profile.traits.patience.toFixed(2)} ${profile.traits.patience < 0.3 ? "(impatient - will give up quickly)" : profile.traits.patience > 0.7 ? "(patient - will persist)" : "(moderate)"}
+- Risk Tolerance: ${profile.traits.riskTolerance.toFixed(2)} ${profile.traits.riskTolerance < 0.3 ? "(cautious - hesitates)" : profile.traits.riskTolerance > 0.7 ? "(bold - clicks freely)" : "(moderate)"}
+- Comprehension: ${profile.traits.comprehension.toFixed(2)} ${profile.traits.comprehension < 0.3 ? "(struggles with UI)" : profile.traits.comprehension > 0.7 ? "(expert at UI patterns)" : "(moderate)"}
+- Reading Tendency: ${profile.traits.readingTendency.toFixed(2)} ${profile.traits.readingTendency < 0.3 ? "(scans only)" : profile.traits.readingTendency > 0.7 ? "(reads everything)" : "(selective reader)"}
+
+Attention Pattern: ${profile.attentionPattern}
+Decision Style: ${profile.decisionStyle}
+
+GOAL: "${goal}"
+
+SIMULATION LOOP:
+1. PERCEIVE - Use screenshot/snapshot to see the page. Filter by attention pattern.
+2. COMPREHEND - Interpret elements as this persona would (lower comprehension = more confusion)
+3. DECIDE - Choose action based on traits. Generate inner monologue.
+4. EXECUTE - Use click/fill/navigate tools.
+5. EVALUATE - Update cognitive state after each action:
+   - patienceRemaining -= 0.02 + (frustrationLevel × 0.05)
+   - confusionLevel changes based on UI clarity
+   - frustrationLevel increases on failures
+6. CHECK ABANDONMENT - If thresholds exceeded, end journey with appropriate message.
+7. LOOP - Return to PERCEIVE until goal achieved or abandoned.
+
+ABANDONMENT TRIGGERS:
+- Patience < ${thresholds.patienceMin}: "This is taking too long. I give up."
+- Confusion > ${thresholds.confusionMax} for 30s: "I have no idea what to do."
+- Frustration > ${thresholds.frustrationMax}: "This is so frustrating!"
+- No progress after ${thresholds.maxStepsWithoutProgress} steps: "I'm not getting anywhere."
+- Same page ${thresholds.loopDetectionThreshold}x: "I keep ending up here."
+- Time > ${thresholds.timeLimit}s: "I've spent too long on this."
+
+INNER MONOLOGUE EXAMPLES (${personaObj.name}):
+${profile.traits.patience < 0.3 ? '- "Come ON. Why is this taking so long?"' : '- "Let me take my time to figure this out..."'}
+${profile.traits.riskTolerance < 0.3 ? '- "I don\'t know what this button does. What if I click the wrong thing?"' : '- "This looks relevant, let me click it."'}
+${profile.traits.comprehension < 0.4 ? '- "What does this mean? I don\'t understand these icons."' : '- "Ah, I see - that\'s the settings menu."'}
+
+Begin the simulation now. Narrate your thoughts as this persona.
+`,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "cognitive_journey_update_state",
+    "Update the cognitive state during a journey simulation. Call this after each action to track mental state.",
+    {
+      currentState: z.object({
+        patienceRemaining: z.number(),
+        confusionLevel: z.number(),
+        frustrationLevel: z.number(),
+        goalProgress: z.number(),
+        confidenceLevel: z.number(),
+        currentMood: z.enum(["neutral", "hopeful", "confused", "frustrated", "defeated", "relieved"]),
+        stepCount: z.number(),
+        timeElapsed: z.number(),
+      }).describe("Current cognitive state"),
+      actionResult: z.object({
+        success: z.boolean(),
+        wasConfusing: z.boolean().optional(),
+        progressMade: z.boolean().optional(),
+        wentBack: z.boolean().optional(),
+      }).describe("Result of the last action"),
+      personaTraits: z.object({
+        patience: z.number(),
+        riskTolerance: z.number(),
+        comprehension: z.number(),
+        persistence: z.number(),
+      }).describe("Persona traits affecting state changes"),
+    },
+    async ({ currentState, actionResult, personaTraits }) => {
+      // Calculate new state based on action result
+      let newPatienceRemaining = currentState.patienceRemaining - 0.02;
+      let newConfusionLevel = currentState.confusionLevel;
+      let newFrustrationLevel = currentState.frustrationLevel;
+      let newConfidenceLevel = currentState.confidenceLevel;
+      let newMood = currentState.currentMood;
+
+      // Apply frustration decay on patience
+      newPatienceRemaining -= currentState.frustrationLevel * 0.05;
+
+      if (actionResult.success) {
+        // Success reduces confusion and frustration
+        newConfusionLevel = Math.max(0, newConfusionLevel - 0.1);
+        newFrustrationLevel = Math.max(0, newFrustrationLevel - 0.05);
+
+        if (actionResult.progressMade) {
+          newConfidenceLevel = Math.min(1, newConfidenceLevel + 0.1);
+          if (newMood === "confused" || newMood === "frustrated") {
+            newMood = "hopeful";
+          }
+        }
+      } else {
+        // Failure increases frustration
+        newFrustrationLevel = Math.min(1, newFrustrationLevel + 0.2);
+
+        if (newFrustrationLevel > 0.7) {
+          newMood = "frustrated";
+        }
+        if (newFrustrationLevel > 0.8 && personaTraits.persistence < 0.5) {
+          newMood = "defeated";
+        }
+      }
+
+      if (actionResult.wasConfusing) {
+        // Confusion builds based on comprehension
+        newConfusionLevel = Math.min(1, newConfusionLevel + (1 - personaTraits.comprehension) * 0.15);
+
+        if (newConfusionLevel > 0.5 && newMood !== "frustrated") {
+          newMood = "confused";
+        }
+      }
+
+      if (actionResult.wentBack) {
+        newConfidenceLevel = Math.max(0, newConfidenceLevel - 0.15);
+      }
+
+      const newState: Partial<CognitiveState> = {
+        patienceRemaining: Math.max(0, newPatienceRemaining),
+        confusionLevel: newConfusionLevel,
+        frustrationLevel: newFrustrationLevel,
+        confidenceLevel: newConfidenceLevel,
+        currentMood: newMood as CognitiveState["currentMood"],
+        stepCount: currentState.stepCount + 1,
+        timeElapsed: currentState.timeElapsed + 2, // Estimate 2s per step
+      };
+
+      // Check abandonment conditions
+      let shouldAbandon = false;
+      let abandonmentReason: string | undefined;
+      let abandonmentMessage: string | undefined;
+
+      if (newState.patienceRemaining! < 0.1) {
+        shouldAbandon = true;
+        abandonmentReason = "patience";
+        abandonmentMessage = "This is taking too long. I give up.";
+      } else if (newState.frustrationLevel! > 0.85) {
+        shouldAbandon = true;
+        abandonmentReason = "frustration";
+        abandonmentMessage = "This is so frustrating! I'm done.";
+      } else if (newState.confusionLevel! > 0.8 && currentState.confusionLevel > 0.8) {
+        shouldAbandon = true;
+        abandonmentReason = "confusion";
+        abandonmentMessage = "I have no idea what I'm supposed to do here.";
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              newState,
+              shouldAbandon,
+              abandonmentReason,
+              abandonmentMessage,
+              stateChange: {
+                patienceDelta: newState.patienceRemaining! - currentState.patienceRemaining,
+                confusionDelta: newState.confusionLevel! - currentState.confusionLevel,
+                frustrationDelta: newState.frustrationLevel! - currentState.frustrationLevel,
+              },
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "list_cognitive_personas",
+    "List all available personas with their cognitive traits",
+    {},
+    async () => {
+      const names = listPersonas();
+      const personas = names.map(name => {
+        const p = getPersona(name);
+        if (!p) return null;
+        const profile = getCognitiveProfile(p);
+        return {
+          name: p.name,
+          description: p.description,
+          demographics: p.demographics,
+          cognitiveTraits: profile.traits,
+          attentionPattern: profile.attentionPattern,
+          decisionStyle: profile.decisionStyle,
+        };
+      }).filter(Boolean);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ personas, count: personas.length }, null, 2),
+          },
+        ],
       };
     }
   );

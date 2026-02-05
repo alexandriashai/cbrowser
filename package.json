@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "8.2.4",
+  "version": "8.2.5",
   "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites. Modular architecture for visual, testing, analysis, and performance modules.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -96,6 +96,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "jose": "^5.2.0",
     "playwright": "^1.40.0",
