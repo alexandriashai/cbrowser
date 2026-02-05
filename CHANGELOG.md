@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.8.0](https://github.com/alexandriashai/cbrowser/compare/v8.7.3...v8.8.0) (2026-02-05)
+
+
+### Added
+
+* **browser:** custom dropdown/input handling for hidden elements ([5ff65fd](https://github.com/alexandriashai/cbrowser/commit/5ff65fdc9a43976ec7d9c348483dcf50b3e56a93))
+
 ## [Unreleased]
 
 ### Added
