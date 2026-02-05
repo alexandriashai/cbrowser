@@ -1,6 +1,8 @@
 # CBrowser (Cognitive Browser)
 
-AI-powered browser automation designed for MCP-based AI agents. Built on Playwright with session persistence, self-healing selectors, constitutional safety boundaries, and natural language as the primary interface.
+**The browser automation that thinks like your users.** Simulate real user cognition with patience thresholds, frustration tracking, and abandonment detection — know when users give up before they do.
+
+Built on Playwright with cognitive user simulation, constitutional safety boundaries, and the only UX testing that models how humans actually think.
 
 [![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,13 +10,24 @@ AI-powered browser automation designed for MCP-based AI agents. Built on Playwri
 
 ## Why CBrowser?
 
-Most browser automation libraries assume a human developer is writing and maintaining test scripts. When an AI agent needs to operate a browser autonomously across multiple calls, several problems arise:
+Most browser automation tests if buttons click. CBrowser tests if **real humans** can use your site.
 
-- **State is lost between calls.** Standard Playwright/Puppeteer sessions are ephemeral. An agent that logs in during one call loses that session on the next call. CBrowser persists cookies, localStorage, and session state across invocations.
-- **Selectors break silently.** When a site updates its DOM, CSS selectors stop working. CBrowser maintains a self-healing selector cache and generates alternative selectors automatically, so agents don't stall on stale selectors.
-- **There's no safety boundary.** An autonomous agent with unrestricted browser access can submit forms, make purchases, or delete data. CBrowser classifies actions by risk level and enforces verification requirements for destructive operations.
-- **Test maintenance is manual.** When tests break, someone has to figure out what changed and fix them. CBrowser can analyze failures, suggest repairs, and apply fixes automatically.
-- **Natural language is bolted on.** Most tools accept CSS selectors natively and treat natural language as a convenience layer. CBrowser treats natural language as the primary input, which is what AI agents actually produce.
+### What Makes CBrowser Different
+
+| Problem | Traditional Tools | CBrowser |
+|---------|-------------------|----------|
+| **User behavior** | Simulates clicks and typing | **Simulates how users THINK** — patience, frustration, confusion |
+| **UX friction** | Fails when buttons don't work | **Detects when users would give up** before they do |
+| **AI safety** | No guardrails for autonomous agents | **Constitutional safety** — risk zones prevent destructive actions |
+| **Resilience** | Tests happy paths | **Chaos engineering** — inject failures to test error handling |
+| **Bug discovery** | Tests what you specify | **Autonomous bug hunting** — finds issues you didn't know to look for |
+
+### Also Includes (Table Stakes)
+
+- **Session persistence** — State persists across calls (cookies, localStorage)
+- **Self-healing selectors** — Automatically adapts when DOM changes
+- **Natural language interface** — Describe elements instead of CSS selectors
+- **MCP server** — Works with Claude Desktop, claude.ai, and any MCP client
 
 ---
 
