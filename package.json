@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "8.3.3",
+  "version": "8.3.4",
   "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites. Modular architecture for visual, testing, analysis, and performance modules.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
