@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.6.0](https://github.com/alexandriashai/cbrowser/compare/v8.5.3...v8.6.0) (2026-02-05)
+
+
+### Added
+
+* **mcp:** add cognitive journey tools to remote MCP server ([79bdbbe](https://github.com/alexandriashai/cbrowser/commit/79bdbbe1a213f7334adc460f6ef54d5f51fa7155))
+
 ## [8.5.3](https://github.com/alexandriashai/cbrowser/compare/v8.5.2...v8.5.3) (2026-02-05)
 
 
