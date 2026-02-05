@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Added
+
+* **browser:** custom dropdown/input handling for hidden elements (Alpine.js, React Select, etc.)
+* **browser:** `isElementHidden()` - detects visually hidden elements (display:none, visibility:hidden, opacity:0, off-screen)
+* **browser:** `findCustomDropdownTrigger()` - finds visible UI trigger for hidden select elements
+* **browser:** `selectCustomDropdownOption()` - clicks trigger, waits for options, selects target
+* **browser:** `handleCustomDropdown()` - orchestrates custom dropdown interaction
+* **browser:** `handleCustomInput()` - handles hidden inputs with custom UI (datepickers, autocomplete)
+* **browser:** `fill()` now auto-detects hidden elements and uses custom handling strategies
+
+### Improved
+
+* **fill:** automatically detects Alpine.js/React Select/Vue Select style dropdowns and interacts with visible UI
+* **fill:** handles datepickers and other custom input components with hidden inputs
+
 ## [8.7.3](https://github.com/alexandriashai/cbrowser/compare/v8.7.2...v8.7.3) (2026-02-05)
 
 ## [8.7.2](https://github.com/alexandriashai/cbrowser/compare/v8.7.1...v8.7.2) (2026-02-05)
