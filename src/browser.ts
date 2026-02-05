@@ -1066,6 +1066,162 @@ export class CBrowser {
   }
 
   /**
+   * Hover over an element using AI-powered selector.
+   */
+  async hover(selector: string): Promise<ClickResult> {
+    const page = await this.getPage();
+
+    try {
+      const element = await this.findElement(selector);
+
+      if (!element) {
+        return {
+          success: false,
+          screenshot: await this.screenshot(),
+          message: `Element not found for hover: ${selector}`,
+        };
+      }
+
+      await element.hover();
+      // Wait a bit for any hover-triggered animations/menus
+      await page.waitForTimeout(300);
+
+      this.audit("hover", selector, "green", "success");
+
+      return {
+        success: true,
+        screenshot: await this.screenshot(),
+        message: `Hovered: ${selector}`,
+      };
+    } catch (error) {
+      this.audit("hover", selector, "green", "failure");
+
+      return {
+        success: false,
+        screenshot: await this.screenshot(),
+        message: `Failed to hover: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Hover then click - useful for dropdown menus that need hover to reveal items.
+   * ALWAYS hovers the parent menu and keeps it hovered while clicking the submenu item.
+   */
+  async hoverClick(
+    selector: string,
+    options: { force?: boolean; hoverParent?: string } = {}
+  ): Promise<ClickResult> {
+    const page = await this.getPage();
+
+    try {
+      // STEP 1: Detect the likely parent menu from selector text
+      // e.g., "International Admissions" → parent is likely "Admissions"
+      const selectorWords = selector.split(/\s+/);
+      const possibleParents = [
+        // Last word is often the parent menu name
+        selectorWords[selectorWords.length - 1],
+        // Common menu words
+        ...selectorWords.filter(w =>
+          ['Admissions', 'Academics', 'About', 'Resources', 'Campus', 'Student', 'Apply'].includes(w)
+        ),
+      ];
+
+      // STEP 2: Find and hover the parent menu trigger
+      let parentHovered = false;
+
+      if (options.hoverParent) {
+        await this.hover(options.hoverParent);
+        await page.waitForTimeout(400);
+        parentHovered = true;
+      } else {
+        for (const parentName of possibleParents) {
+          if (!parentName || parentName.length < 3) continue;
+
+          // Find the parent menu trigger
+          const parentSelectors = [
+            `nav a:text-is("${parentName}")`,
+            `header a:text-is("${parentName}")`,
+            `[role="menubar"] a:text-is("${parentName}")`,
+            `nav button:text-is("${parentName}")`,
+            `.nav-link:text-is("${parentName}")`,
+          ];
+
+          for (const ps of parentSelectors) {
+            try {
+              const parentEl = await page.$(ps);
+              if (parentEl) {
+                await parentEl.hover();
+                await page.waitForTimeout(500); // Wait for dropdown animation
+                parentHovered = true;
+                break;
+              }
+            } catch {
+              // Continue
+            }
+          }
+          if (parentHovered) break;
+        }
+      }
+
+      // STEP 3: While parent is hovered, find the target element
+      const element = await this.findElement(selector);
+
+      if (!element) {
+        // If not found, try generic nav hovering
+        if (!parentHovered) {
+          const navItems = await page.$$('nav > ul > li > a, [role="menubar"] > li > a');
+          for (const item of navItems.slice(0, 8)) {
+            try {
+              await item.hover();
+              await page.waitForTimeout(400);
+              const found = await this.findElement(selector);
+              if (found) {
+                await found.click();
+                await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+                this.audit("hoverClick", selector, "yellow", "success");
+                return {
+                  success: true,
+                  screenshot: await this.screenshot(),
+                  message: `Hover-clicked (nav scan): ${selector}`,
+                };
+              }
+            } catch {
+              // Continue
+            }
+          }
+        }
+
+        return {
+          success: false,
+          screenshot: await this.screenshot(),
+          message: `Element not found after hover attempts: ${selector}`,
+        };
+      }
+
+      // STEP 4: Click the element (parent should still be hovered)
+      await element.click();
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+
+      this.audit("hoverClick", selector, "yellow", "success");
+
+      return {
+        success: true,
+        screenshot: await this.screenshot(),
+        message: `Hover-clicked: ${selector}`,
+      };
+    } catch (error) {
+      this.audit("hoverClick", selector, "yellow", "failure");
+
+      return {
+        success: false,
+        screenshot: await this.screenshot(),
+        message: `Failed to hover-click: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
    * Fill a form field.
    */
   async fill(selector: string, value: string, options: { verbose?: boolean; debugDir?: string } = {}): Promise<ClickResult> {
@@ -2165,10 +2321,12 @@ export class CBrowser {
 
   /**
    * Get all clickable elements on the page for verbose output.
+   * Public so cognitive journey can use it to show Claude what's clickable.
    */
-  private async getAvailableClickables(page: Page): Promise<Array<{ tag: string; text: string; selector: string; role?: string }>> {
+  async getAvailableClickables(page?: Page): Promise<Array<{ tag: string; text: string; selector: string; role?: string }>> {
+    const targetPage = page || await this.getPage();
     try {
-      return await page.$$eval('button, a, [role="button"], input[type="submit"], input[type="button"]', els =>
+      return await targetPage.$$eval('button, a, [role="button"], input[type="submit"], input[type="button"]', els =>
         els.slice(0, 15).map((el, i) => ({
           tag: el.tagName.toLowerCase(),
           text: (el as HTMLElement).innerText?.trim().substring(0, 60) || el.getAttribute("aria-label") || "",

@@ -593,14 +593,31 @@ npx cbrowser cognitive-journey \
   --start "https://example.com" \
   --goal "sign up for an account"
 
-# With options
+# With vision mode (v8.3.5) - sends screenshots to Claude for visual understanding
+npx cbrowser cognitive-journey \
+  --persona elderly-user \
+  --start "https://example.com" \
+  --goal "find the help page" \
+  --vision \
+  --verbose
+
+# With all options
 npx cbrowser cognitive-journey \
   --persona elderly-user \
   --start "https://example.com" \
   --goal "find the help page" \
   --max-steps 50 \
+  --max-time 180 \
+  --vision \
+  --headless \
   --verbose
 ```
+
+**Vision Mode (v8.3.5):** Enable `--vision` to send actual screenshots to Claude. This dramatically improves accuracy for:
+- Complex layouts with multiple similar elements
+- Dropdown menus that need hover to reveal items
+- Visual cues that aren't captured in element text
+- Pages with dynamic content
 
 **Cognitive Traits (7 dimensions):**
 

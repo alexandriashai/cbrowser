@@ -80,6 +80,7 @@ COGNITIVE JOURNEY (v8.0.0) - API-powered autonomous user simulation
     --max-steps <n>           Maximum steps before timeout (default: 50)
     --max-time <s>            Maximum time in seconds (default: 120)
     --verbose                 Show step-by-step narration
+    --vision                  Enable vision mode - send screenshots to Claude (more accurate)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Examples:
@@ -4655,12 +4656,14 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const maxTime = options["max-time"] ? parseInt(options["max-time"] as string) : 120;
         const verbose = options.verbose === true;
         const headless = options.headless === true;
+        const vision = options.vision === true;
 
         console.log(`\n🧠 COGNITIVE JOURNEY`);
         console.log(`   Persona: ${personaName}`);
         console.log(`   Goal: "${goal}"`);
         console.log(`   URL: ${startUrl}`);
         console.log(`   Max steps: ${maxSteps} | Max time: ${maxTime}s`);
+        if (vision) console.log(`   Vision: enabled (screenshots sent to Claude)`);
         console.log("");
 
         try {
@@ -4672,6 +4675,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             maxTime,
             verbose,
             headless,
+            vision,
             onStep: verbose ? undefined : (step) => {
               process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
             },

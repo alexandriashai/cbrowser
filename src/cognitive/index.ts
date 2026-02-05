@@ -125,6 +125,8 @@ export interface CognitiveJourneyOptions {
   verbose?: boolean;
   /** Run in headless mode (default: false for live viewing, auto-detects server) */
   headless?: boolean;
+  /** Enable vision mode - send screenshots to Claude for visual understanding */
+  vision?: boolean;
   /** Callback for step updates */
   onStep?: (step: CognitiveStep) => void;
 }
@@ -271,11 +273,56 @@ export async function runCognitiveJourney(
 
     // Get page state via screenshot
     const screenshotPath = await browser.screenshot();
-    const pageTitle = "Current Page"; // Simplified - CBrowser doesn't expose title directly
 
-    // Build step prompt
-    const stepPrompt = buildStepPrompt(state, currentUrl, pageTitle, step);
-    messages.push({ role: "user", content: stepPrompt });
+    // Get page info and available elements
+    const page = await browser.getPage();
+    const pageTitle = await page.title() || "Current Page";
+    const availableElements = await browser.getAvailableClickables();
+
+    // Extract visible page content (headings, paragraphs, etc.)
+    const pageContent = await page.evaluate(() => {
+      const content: string[] = [];
+      // Get main headings
+      document.querySelectorAll('h1, h2, h3').forEach(el => {
+        const text = (el as HTMLElement).innerText?.trim();
+        if (text && text.length < 100) content.push(`[${el.tagName}] ${text}`);
+      });
+      // Get key paragraphs (first 3)
+      const paragraphs = Array.from(document.querySelectorAll('p, .content, main, article'));
+      paragraphs.slice(0, 3).forEach(el => {
+        const text = (el as HTMLElement).innerText?.trim().substring(0, 200);
+        if (text && text.length > 20) content.push(`[content] ${text}...`);
+      });
+      return content.slice(0, 10).join('\n');
+    }).catch(() => '');
+
+    // Build step prompt with available elements so Claude knows what's clickable
+    const stepPrompt = buildStepPrompt(state, currentUrl, pageTitle, step, availableElements, pageContent);
+
+    // Build message content - with or without vision
+    let messageContent: Anthropic.MessageParam["content"];
+    if (options.vision && screenshotPath && existsSync(screenshotPath)) {
+      // Vision mode: send screenshot as image
+      const imageData = readFileSync(screenshotPath).toString('base64');
+      messageContent = [
+        {
+          type: "image" as const,
+          source: {
+            type: "base64" as const,
+            media_type: "image/png" as const,
+            data: imageData,
+          },
+        },
+        {
+          type: "text" as const,
+          text: stepPrompt,
+        },
+      ];
+    } else {
+      messageContent = stepPrompt;
+    }
+
+    messages.push({ role: "user", content: messageContent as string });
 
     // Call Claude for cognitive reasoning
     const response = await anthropic.messages.create({
@@ -445,7 +492,7 @@ RESPONSE FORMAT (JSON):
 {
   "phase": "perceive|comprehend|decide|execute|evaluate",
   "monologue": "Internal thought as this persona (first person)",
-  "action": "click:selector|fill:selector:value|navigate:url|null",
+  "action": "click:selector|hover:selector|fill:selector:value|navigate:url|null",
   "actionTarget": "description of what you're clicking/filling",
   "goalAchieved": boolean,
   "goalProgress": 0.0-1.0,
@@ -456,6 +503,12 @@ RESPONSE FORMAT (JSON):
   "frictionElement": "element that caused friction" | null
 }
 
+ACTIONS:
+- click:selector - Click an element (auto-hovers parent menus for dropdowns)
+- hover:selector - Hover over element to reveal dropdown menus
+- fill:selector:value - Type text into an input field
+- navigate:url - Go to a URL directly
+
 ABANDONMENT THRESHOLDS:
 - If patience drops below ${thresholds.patienceMin}, give up
 - If confusion exceeds ${thresholds.confusionMax}, give up
@@ -465,25 +518,47 @@ BEHAVIOR GUIDELINES:
 1. PERCEIVE: Describe what you see on the page
 2. COMPREHEND: Interpret UI based on your comprehension level (low = more confusion)
 3. DECIDE: Choose action based on risk tolerance and goal relevance
-4. For click actions, use descriptive selectors like "login button", "email input", etc.
-5. If comprehension is low, misinterpret ambiguous elements
-6. If patience is low, get frustrated quickly with delays
-7. Generate authentic inner monologue matching persona voice
+4. For click actions, use text that matches elements from AVAILABLE ELEMENTS (partial match OK, e.g., "Admissions" or "Apply" - the system does fuzzy matching)
+5. Prefer clicking elements you can SEE in the AVAILABLE ELEMENTS list - avoid guessing element names
+6. For dropdown menus: if a click doesn't work, try hover:menuname first to reveal the submenu
+7. If comprehension is low, misinterpret ambiguous elements
+8. If patience is low, get frustrated quickly with delays
+9. Generate authentic inner monologue matching persona voice
 
 Always respond with valid JSON.`;
+}
+
+interface PageElement {
+  tag: string;
+  text: string;
+  selector: string;
+  role?: string;
 }
 
 function buildStepPrompt(
   state: CognitiveState,
   currentUrl: string,
   pageTitle: string,
-  step: number
+  step: number,
+  availableElements: PageElement[] = [],
+  pageContent: string = ""
 ): string {
+  const elementsStr = availableElements.length > 0
+    ? availableElements.map(e => `  - "${e.text}" (${e.tag}${e.role ? `, role=${e.role}` : ""})`).join("\n")
+    : "  (unable to detect elements)";
+
+  const contentStr = pageContent
+    ? `\nVISIBLE PAGE CONTENT:\n${pageContent}\n`
+    : "";
+
   return `STEP ${step}
 
 CURRENT PAGE:
 - URL: ${currentUrl}
 - Title: ${pageTitle}
+${contentStr}
+AVAILABLE ELEMENTS (clickable):
+${elementsStr}
 
 CURRENT STATE:
 - Patience: ${(state.patienceRemaining * 100).toFixed(0)}%
@@ -494,8 +569,8 @@ CURRENT STATE:
 - Pages Visited: ${state.memory.pagesVisited.length}
 - Actions Attempted: ${state.memory.actionsAttempted.length}
 
-Based on this information, what do you perceive, comprehend, and decide to do?
-Describe what you would expect to see on a page at this URL, then choose an action.
+Based on the page content and AVAILABLE ELEMENTS above, what do you perceive, comprehend, and decide to do?
+Choose an action using element text from the list above.
 Respond in JSON format.`;
 }
 
@@ -590,7 +665,20 @@ async function executeAction(browser: CBrowser, action: string): Promise<ActionR
   switch (type) {
     case "click": {
       const selector = args.join(":");
-      const result = await browser.click(selector);
+      // Use hoverClick for potentially dropdown menu items
+      // This will try hovering parent menus if the element isn't immediately found
+      const result = await browser.hoverClick(selector);
+      return { success: result.success };
+    }
+    case "hover": {
+      const selector = args.join(":");
+      const result = await browser.hover(selector);
+      return { success: result.success };
+    }
+    case "hoverclick": {
+      // Explicit hover-click with optional parent: hoverclick:target:parent
+      const [selector, parent] = args;
+      const result = await browser.hoverClick(selector, { hoverParent: parent });
       return { success: result.success };
     }
     case "fill": {

@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.3.5](https://github.com/alexandriashai/cbrowser/compare/v8.3.4...v8.3.5) (2026-02-05)
+
+### Added
+
+* **cognitive:** Vision mode (`--vision`) - Send screenshots to Claude for visual understanding of pages
+* **cognitive:** Page content extraction - Claude now sees headings, paragraphs, and visible text, not just clickable elements
+* **cognitive:** Available elements display - Claude sees actual clickable elements on the page for better decision making
+* **browser:** `hover()` method - Hover over elements to reveal dropdown menus
+* **browser:** `hoverClick()` method - Smart hover-before-click that auto-detects and hovers parent menu triggers
+* **cognitive:** `hover:selector` action type - Explicit hover action for dropdown menus
+
+### Improved
+
+* **cognitive:** All clicks now use hover-first logic for better dropdown menu interaction
+* **cognitive:** System prompt includes action documentation and dropdown menu guidance
+* **browser:** `getAvailableClickables()` now public for cognitive journey element visibility
+
 ## [8.3.4](https://github.com/alexandriashai/cbrowser/compare/v8.3.3...v8.3.4) (2026-02-05)
 
 
