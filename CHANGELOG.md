@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.5.0](https://github.com/alexandriashai/cbrowser/compare/v8.4.0...v8.5.0) (2026-02-05)
+
+
+### Added
+
+* **daemon:** add hover command for persistent session workflows ([5089870](https://github.com/alexandriashai/cbrowser/commit/50898704e775e6a9390b787c4b2661a4c0bb1976))
+
 ## [8.4.0](https://github.com/alexandriashai/cbrowser/compare/v8.3.4...v8.4.0) (2026-02-05)
 
 
