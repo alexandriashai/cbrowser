@@ -590,13 +590,13 @@ async function executeAction(browser: CBrowser, action: string): Promise<ActionR
   switch (type) {
     case "click": {
       const selector = args.join(":");
-      await browser.click(selector);
-      return { success: true };
+      const result = await browser.click(selector);
+      return { success: result.success };
     }
     case "fill": {
       const [selector, ...valueParts] = args;
-      await browser.fill(selector, valueParts.join(":"));
-      return { success: true };
+      const result = await browser.fill(selector, valueParts.join(":"));
+      return { success: result.success };
     }
     case "navigate": {
       const url = args.join(":");
