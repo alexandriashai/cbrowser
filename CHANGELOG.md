@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.5.3](https://github.com/alexandriashai/cbrowser/compare/v8.5.2...v8.5.3) (2026-02-05)
+
+
+### Fixed
+
+* **status:** use executablePath instead of browser launch for speed ([2658c0d](https://github.com/alexandriashai/cbrowser/commit/2658c0d4b9aba8c6ae4989a86b08dc8ff7f8d5a4))
+
 ## [8.5.2](https://github.com/alexandriashai/cbrowser/compare/v8.5.1...v8.5.2) (2026-02-05)
 
 ## [8.5.1](https://github.com/alexandriashai/cbrowser/compare/v8.5.0...v8.5.1) (2026-02-05)
