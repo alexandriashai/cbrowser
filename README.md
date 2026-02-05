@@ -579,6 +579,96 @@ mobile-user      | pass    | 28.1s   | 1        | Scroll issue
 
 This helps identify which user groups struggle with your interface and where the friction points are, so you can prioritize UX improvements based on data rather than assumptions.
 
+### Cognitive User Simulation (v8.2.5)
+
+Go beyond timing and click patterns—simulate how users actually **think**. Cognitive journeys model realistic decision-making with abandonment detection, frustration tracking, and genuine cognitive traits.
+
+**Why it matters:** Traditional persona testing simulates motor behavior (slow clicks, typos). Cognitive simulation models mental behavior: "Would a confused first-timer give up here? Would they even notice that button?"
+
+```bash
+# Run a cognitive journey (requires Anthropic API key)
+npx cbrowser config set-api-key
+npx cbrowser cognitive-journey \
+  --persona first-timer \
+  --start "https://example.com" \
+  --goal "sign up for an account"
+
+# With options
+npx cbrowser cognitive-journey \
+  --persona elderly-user \
+  --start "https://example.com" \
+  --goal "find the help page" \
+  --max-steps 50 \
+  --verbose
+```
+
+**Cognitive Traits (7 dimensions):**
+
+| Trait | What it measures | Example impact |
+|-------|------------------|----------------|
+| `patience` | How quickly they give up | Low patience → abandons after 3 failed attempts |
+| `riskTolerance` | Willingness to click unfamiliar elements | Low risk → avoids buttons without clear labels |
+| `comprehension` | Ability to understand UI conventions | Low comprehension → misreads icons |
+| `persistence` | Tendency to retry vs. try something else | High persistence → keeps trying same approach |
+| `curiosity` | Tendency to explore vs. stay focused | High curiosity → clicks interesting sidebars |
+| `workingMemory` | Remembers what they've tried | Low memory → repeats failed actions |
+| `readingTendency` | Reads content vs. scans for CTAs | High reading → notices inline instructions |
+
+**Attention Patterns:**
+
+- `targeted` — Direct path to goal (power users)
+- `f-pattern` — Scans top, then left side (web convention)
+- `z-pattern` — Diagonal scanning (marketing pages)
+- `exploratory` — Random exploration (curious users)
+- `sequential` — Top-to-bottom reading (thorough users)
+- `thorough` — Reads everything carefully (careful users)
+- `skim` — Rapid scanning for keywords (impatient users)
+
+**Abandonment Detection:**
+
+The simulation automatically stops when a realistic user would give up:
+
+| Trigger | Threshold | Monologue |
+|---------|-----------|-----------|
+| Patience depleted | `< 0.1` | "This is taking too long..." |
+| Too confused | `> 0.8` for 30s | "I have no idea what to do..." |
+| Too frustrated | `> 0.85` | "This is so frustrating..." |
+| No progress | 10+ steps, `< 0.1` progress | "I'm not getting anywhere..." |
+| Stuck in loop | Same pages 3x | "I keep ending up here..." |
+
+**Output includes:**
+- Goal achievement status
+- Abandonment reason (if applicable)
+- Step-by-step decision trace with reasoning
+- Friction points with screenshots
+- Cognitive state over time (patience, confusion, frustration)
+- Full internal monologue
+
+**MCP Integration (Claude Desktop/Code):**
+
+For Claude Desktop or Claude Code users, use the MCP tools instead:
+
+```typescript
+// Initialize cognitive journey
+const profile = await mcp.cognitive_journey_init({
+  persona: "first-timer",
+  goal: "sign up as a provider",
+  startUrl: "https://example.com"
+});
+
+// After each action, update state
+const state = await mcp.cognitive_journey_update_state({
+  sessionId: profile.sessionId,
+  patienceChange: -0.05,
+  confusionChange: 0.1,
+  currentUrl: "https://example.com/register"
+});
+
+if (state.shouldAbandon) {
+  console.log(`User gave up: ${state.abandonmentReason}`);
+}
+```
+
 **Custom persona creation:**
 
 ```bash
@@ -704,7 +794,7 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 }
 ```
 
-### Available MCP Tools (33 total)
+### Available MCP Tools (36 total)
 
 | Category | Tools |
 |----------|-------|
@@ -714,6 +804,7 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 | **Testing** | `generate_tests`, `test_suite`, `repair_tests`, `flaky_check` |
 | **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
 | **Personas** | `journey`, `compare_personas`, `create_persona`, `list_personas` |
+| **Cognitive** | `cognitive_journey_init`, `cognitive_journey_update_state`, `list_cognitive_personas` |
 | **Sessions** | `save_session`, `load_session`, `list_sessions`, `delete_session` |
 | **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit`, `dismiss_overlay` |
 | **Utilities** | `heal_stats`, `list_baselines`, `status` |
@@ -783,6 +874,26 @@ Create `.cbrowserrc.json`:
   }
 }
 ```
+
+### API Key Configuration (for Cognitive Journeys)
+
+Cognitive journeys require an Anthropic API key for standalone CLI usage:
+
+```bash
+# Set your API key (stored in ~/.cbrowserrc.json)
+npx cbrowser config set-api-key
+
+# View configured key (masked)
+npx cbrowser config show-api-key
+
+# Remove API key
+npx cbrowser config remove-api-key
+
+# Set custom model (default: claude-sonnet-4-20250514)
+npx cbrowser config set-model claude-opus-4-20250514
+```
+
+**Note:** MCP users (Claude Desktop/Code) don't need API key configuration—cognitive journeys use the existing Claude session.
 
 ---
 
@@ -893,6 +1004,7 @@ See the [`examples/`](examples/) directory:
 - [`smart-automation.ts`](examples/smart-automation.ts) - Smart click, assertions, test generation
 - [`visual-testing.ts`](examples/visual-testing.ts) - AI visual regression, cross-browser, responsive, A/B comparison
 - [`remote-mcp.ts`](examples/remote-mcp.ts) - Remote MCP server, Auth0 OAuth, demo server setup
+- [`cognitive-journey.ts`](examples/cognitive-journey.ts) - Cognitive user simulation with personas, abandonment, and friction detection
 
 ### Workflow Recipes
 - [`workflows/e2e-login-checkout.md`](examples/workflows/e2e-login-checkout.md) - End-to-end login and checkout flow with session persistence
@@ -900,6 +1012,7 @@ See the [`examples/`](examples/) directory:
 - [`workflows/accessibility-audit.md`](examples/workflows/accessibility-audit.md) - Accessibility bug hunting with persona-based a11y testing
 - [`workflows/chaos-resilience-testing.md`](examples/workflows/chaos-resilience-testing.md) - Chaos engineering: network failures, slow responses, element removal
 - [`workflows/persona-comparison-report.md`](examples/workflows/persona-comparison-report.md) - Multi-persona comparison with heatmaps and prioritized recommendations
+- [`workflows/cognitive-journey-testing.md`](examples/workflows/cognitive-journey-testing.md) - Cognitive user simulation with abandonment detection and friction analysis
 
 ### CI/CD Integration
 - [`ci-cd/github-actions.yml`](examples/ci-cd/github-actions.yml) - GitHub Actions workflow for NL tests, visual and perf regression
@@ -909,13 +1022,16 @@ See the [`examples/`](examples/) directory:
 ### Natural Language Tests
 - [`natural-language-tests/e-commerce-suite.txt`](examples/natural-language-tests/e-commerce-suite.txt) - E-commerce guest checkout, search, and mobile tests
 - [`natural-language-tests/auth-flow-suite.txt`](examples/natural-language-tests/auth-flow-suite.txt) - Login, invalid credentials, and password reset flows
+- [`natural-language-tests/provider-discovery-journey.txt`](examples/natural-language-tests/provider-discovery-journey.txt) - Cognitive journey for provider discovery and registration
 - [`natural-language-tests/README.md`](examples/natural-language-tests/README.md) - NL test syntax reference and tips
 
 ### Configuration Templates
 - [`journeys/checkout-flow.json`](examples/journeys/checkout-flow.json) - Checkout journey definition
 - [`journeys/signup-flow.json`](examples/journeys/signup-flow.json) - User registration journey
+- [`journeys/cognitive-discovery-journey.json`](examples/journeys/cognitive-discovery-journey.json) - Cognitive journey with custom traits and abandonment thresholds
 - [`personas/custom-persona.json`](examples/personas/custom-persona.json) - QA tester persona template
 - [`personas/accessibility-tester.json`](examples/personas/accessibility-tester.json) - Visual impairment persona with screen magnification
+- [`personas/cognitive-curious-explorer.json`](examples/personas/cognitive-curious-explorer.json) - Full cognitive persona with traits, attention pattern, and internal voice
 
 ## Troubleshooting
 

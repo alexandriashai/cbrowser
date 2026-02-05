@@ -1,0 +1,74 @@
+# Test: Provider Discovery Journey
+# Simulates a provider who found the site organically and explores before registering
+# Uses cognitive journey concepts - tests what a real curious first-timer would do
+
+# Initial landing
+go to https://example.com
+wait 2 seconds
+verify page contains "Welcome" or "Home"
+take screenshot
+
+# Explore to understand what the site offers
+click the main navigation or menu
+wait 1 second
+verify page contains navigation links
+take screenshot
+
+# Look for provider-specific information
+click "Providers" or "For Providers" or "Become a Provider"
+wait 2 seconds
+verify url contains "provider" or page contains "provider"
+take screenshot
+
+# Read about benefits (curiosity behavior)
+scroll down 3 times
+verify page contains "benefits" or "features" or "why join"
+take screenshot
+
+# Look for pricing information
+click "Pricing" or "Plans" or scroll to pricing section
+wait 1 second
+verify page contains "$" or "pricing" or "cost" or "free"
+take screenshot
+
+# Check trust signals (reviews, testimonials)
+scroll down
+verify page contains "review" or "testimonial" or "trusted by"
+take screenshot
+
+# Make decision - proceed to registration
+click "Sign Up" or "Register" or "Get Started" or "Join"
+wait 2 seconds
+verify url contains "register" or "signup" or page contains "Create"
+take screenshot
+
+# Test: Provider Discovery - Confused Path
+# Tests abandonment behavior when value proposition is unclear
+
+go to https://example.com
+wait 1 second
+
+# Try to find provider info through unclear navigation
+click "Services" or "About" or first navigation link
+wait 2 seconds
+take screenshot
+
+# User gets confused - not finding provider-specific content
+scroll down
+verify page contains some content
+take screenshot
+
+# Back to try again (persistence behavior)
+click browser back or "Home" or logo
+wait 1 second
+take screenshot
+
+# Try a different path
+click "Contact" or "Help" or "FAQ"
+wait 1 second
+verify page loaded
+take screenshot
+
+# Note: In a real cognitive journey, the AI would evaluate
+# whether the user would abandon at this point based on
+# patience depletion and confusion level

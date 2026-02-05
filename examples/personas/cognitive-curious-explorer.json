@@ -1,0 +1,48 @@
+{
+  "name": "curious-explorer",
+  "displayName": "Curious Explorer",
+  "description": "A user who found the site through search and wants to understand everything before committing. High curiosity, moderate patience, reads content thoroughly.",
+  "behaviorProfile": {
+    "avgReactionTime": 1200,
+    "reactionTimeVariance": 400,
+    "typoRate": 0.02,
+    "doubleClickRate": 0.01,
+    "missClickRate": 0.03,
+    "scrollSpeed": "slow",
+    "readingSpeed": "slow",
+    "focusDuration": 8000,
+    "mouseJitter": 3,
+    "pauseBeforeAction": 1500
+  },
+  "cognitiveTraits": {
+    "patience": 0.7,
+    "riskTolerance": 0.4,
+    "comprehension": 0.7,
+    "persistence": 0.5,
+    "curiosity": 0.9,
+    "workingMemory": 0.6,
+    "readingTendency": 0.8
+  },
+  "attentionPattern": "exploratory",
+  "decisionStyle": "deliberate",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "abandonmentThresholds": {
+    "minPatience": 0.15,
+    "maxConfusion": 0.75,
+    "maxFrustration": 0.80,
+    "maxStepsWithoutProgress": 12,
+    "loopDetectionThreshold": 3
+  },
+  "internalVoice": {
+    "style": "thoughtful",
+    "examples": [
+      "Hmm, let me see what this section is about...",
+      "Interesting, but I'm not sure if this applies to me",
+      "I wonder what happens if I click here",
+      "This is taking a while, but I want to understand fully"
+    ]
+  }
+}

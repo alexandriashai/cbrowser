@@ -8,10 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [8.3.0](https://github.com/alexandriashai/cbrowser/compare/v8.2.4...v8.3.0) (2026-02-05)
 
-
 ### Added
+- **Cognitive User Simulation** - Autonomous, goal-driven user simulation where AI acts as a realistic persona with cognitive traits (patience, risk tolerance, comprehension, persistence, curiosity, working memory, reading tendency)
+- **`cognitive-journey` CLI command** - Run standalone cognitive journeys with Anthropic API: `npx cbrowser cognitive-journey --persona first-timer --start https://example.com --goal "sign up"`
+- **3 new MCP tools for cognitive simulation**:
+  - `cognitive_journey_init` - Initialize a journey with persona, goal, and starting URL; returns cognitive profile, state, and abandonment thresholds
+  - `cognitive_journey_update_state` - Update cognitive state after actions; returns updated state and abandonment check
+  - `list_cognitive_personas` - List personas with their cognitive traits
+- **Cognitive traits system** - 7 traits define persona behavior: patience, riskTolerance, comprehension, persistence, curiosity, workingMemory, readingTendency
+- **Attention patterns** - 7 patterns simulate how different personas scan pages: targeted, f-pattern, z-pattern, exploratory, sequential, thorough, skim
+- **Decision styles** - 6 styles define how personas make choices: efficient, cautious, quick-tap, structured, deliberate, impulsive
+- **Abandonment detection** - Automatic detection of when a simulated user would give up (patience depleted, confusion exceeded, frustration threshold, loop detection, no progress)
+- **Cognitive state tracking** - Real-time tracking of patienceRemaining, confusionLevel, frustrationLevel, goalProgress, confidenceLevel
+- **Friction point detection** - Captures moments where users struggle with detailed monologue and screenshot
+- **API key configuration** - `npx cbrowser config set-api-key`, `show-api-key`, `remove-api-key`, `set-model` for standalone CLI usage
+- **Headless auto-detection** - Cognitive journeys automatically run headless on servers without displays
 
-* **cognitive:** Add autonomous cognitive user simulation (v8.2.0) ([3dabcc6](https://github.com/alexandriashai/cbrowser/commit/3dabcc649da9517141ec1a1e3f33bc9ed81417b1))
+### Changed
+- MCP tools count increased from 33 to 36 total
+- Updated version to v8.3.0
 
 ## [8.2.4](https://github.com/alexandriashai/cbrowser/compare/v8.2.3...v8.2.4) (2026-02-04)
 
