@@ -85,7 +85,7 @@ export async function startMcpServer(): Promise<void> {
 
   const server = new McpServer({
     name: "cbrowser",
-    version: "7.9.0",
+    version: "8.4.0",
   });
 
   // =========================================================================

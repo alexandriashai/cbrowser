@@ -593,7 +593,7 @@ npx cbrowser cognitive-journey \
   --start "https://example.com" \
   --goal "sign up for an account"
 
-# With vision mode (v8.3.5) - sends screenshots to Claude for visual understanding
+# With vision mode (v8.4.0) - sends screenshots to Claude for visual understanding
 npx cbrowser cognitive-journey \
   --persona elderly-user \
   --start "https://example.com" \
@@ -613,7 +613,7 @@ npx cbrowser cognitive-journey \
   --verbose
 ```
 
-**Vision Mode (v8.3.5):** Enable `--vision` to send actual screenshots to Claude. This dramatically improves accuracy for:
+**Vision Mode (v8.4.0):** Enable `--vision` to send actual screenshots to Claude. This dramatically improves accuracy for:
 - Complex layouts with multiple similar elements
 - Dropdown menus that need hover to reveal items
 - Visual cues that aren't captured in element text
