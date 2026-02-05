@@ -70,6 +70,9 @@ import {
   listPerformanceBaselines,
 } from "./performance/index.js";
 
+// Version constant - keep in sync with package.json
+const VERSION = "8.5.1";
+
 // Shared browser instance
 let browser: CBrowser | null = null;
 
@@ -1282,7 +1285,7 @@ function configureMcpTools(server: McpServer): void {
     "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, and self-healing cache statistics",
     {},
     async () => {
-      const info = await getStatusInfo("7.4.12");
+      const info = await getStatusInfo(VERSION);
       return {
         content: [
           {

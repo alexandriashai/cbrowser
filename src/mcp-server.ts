@@ -66,6 +66,9 @@ import {
   listPerformanceBaselines,
 } from "./performance/index.js";
 
+// Version constant - keep in sync with package.json
+const VERSION = "8.5.1";
+
 // Shared browser instance
 let browser: CBrowser | null = null;
 
@@ -85,7 +88,7 @@ export async function startMcpServer(): Promise<void> {
 
   const server = new McpServer({
     name: "cbrowser",
-    version: "8.4.0",
+    version: VERSION,
   });
 
   // =========================================================================
@@ -1360,7 +1363,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
     "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, and self-healing cache statistics",
     {},
     async () => {
-      const info = await getStatusInfo("7.4.12");
+      const info = await getStatusInfo(VERSION);
       return {
         content: [
           {

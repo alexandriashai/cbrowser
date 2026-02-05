@@ -279,6 +279,7 @@ function findConfigFile(): string | null {
 
 /**
  * Check which Playwright browsers are installed.
+ * Uses executablePath() check instead of launching browsers for speed.
  */
 export async function checkBrowsers(): Promise<BrowserStatus[]> {
   const results: BrowserStatus[] = [];
@@ -286,10 +287,13 @@ export async function checkBrowsers(): Promise<BrowserStatus[]> {
 
   for (const [name, browserType] of [["chromium", chromium], ["firefox", firefox], ["webkit", webkit]] as const) {
     try {
-      const b = await (browserType as any).launch({ headless: true });
-      const version = b.version();
-      await b.close();
-      results.push({ name, installed: true, version });
+      // Use executablePath() instead of launching - much faster and won't timeout
+      const execPath = (browserType as any).executablePath();
+      const installed = existsSync(execPath);
+      // Extract version from path if possible (e.g., chromium-1148 -> 1148)
+      const versionMatch = execPath.match(/(\d+)(?:[/\\]|$)/);
+      const version = installed ? (versionMatch?.[1] || "installed") : "";
+      results.push({ name, installed, version });
     } catch {
       results.push({ name, installed: false, version: "" });
     }

@@ -943,7 +943,7 @@ async function main(): Promise<void> {
   if (command === "status") {
     const fs = await import("fs");
     const path = await import("path");
-    let version = "7.4.12";
+    let version = "8.5.1";
     // Try to read version from package.json at runtime
     try {
       const pkgPath = path.resolve(__dirname, "..", "package.json");
