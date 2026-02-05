@@ -5,7 +5,7 @@
 Built on Playwright with cognitive user simulation, constitutional safety boundaries, and the only UX testing that models how humans actually think.
 
 [![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-Remote%20%2B%20Local-blue)](https://modelcontextprotocol.io)
 
 ## Why CBrowser?
@@ -1102,7 +1102,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
+**Business Source License 1.1 (BSL-1.1)**
+
+CBrowser is source-available software. You can:
+- ✅ Use freely for **non-production** purposes (development, testing, evaluation, personal projects)
+- ✅ Read, modify, and learn from the source code
+- ✅ Contribute to the project
+
+**Production use** (commercial services, revenue-generating applications, internal business operations) requires a commercial license.
+
+On **February 5, 2030**, the license automatically converts to **Apache 2.0** (fully open source).
+
+For commercial licensing: [licensing@wyldfyre.ai](mailto:licensing@wyldfyre.ai)
+
+See [LICENSE](LICENSE) for full terms.
 
 ## Links
 
