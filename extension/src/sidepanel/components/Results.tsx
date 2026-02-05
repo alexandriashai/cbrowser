@@ -14,13 +14,15 @@ interface ResultsProps {
  * Highlight an element on the page by selector
  */
 async function highlightOnPage(selector: string): Promise<void> {
+  console.log('[CBrowser] Highlighting selector:', selector);
   try {
-    await chrome.runtime.sendMessage({
+    const result = await chrome.runtime.sendMessage({
       type: 'HIGHLIGHT_ELEMENT',
       selector,
     });
+    console.log('[CBrowser] Highlight result:', result);
   } catch (e) {
-    console.error('Failed to highlight element:', e);
+    console.error('[CBrowser] Failed to highlight element:', e);
   }
 }
 

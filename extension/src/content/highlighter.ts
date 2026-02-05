@@ -372,7 +372,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'HIGHLIGHT_ELEMENT':
+      console.log('[CBrowser Highlighter] HIGHLIGHT_ELEMENT received:', message.selector);
       const found = highlightElement(message.selector);
+      console.log('[CBrowser Highlighter] Highlight result:', found);
       sendResponse({ success: found, selector: message.selector });
       break;
 

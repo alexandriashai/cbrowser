@@ -214,11 +214,14 @@ async function handleMessage(
     // Element Inspector
     // ============================================
     case 'ENABLE_INSPECTOR':
+      console.log('[CBrowser SW] ENABLE_INSPECTOR received, tab:', tab?.id, tab?.url);
       if (!tab?.id) throw new Error('No active tab');
       try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'ENABLE_INSPECTOR' });
+        const result = await chrome.tabs.sendMessage(tab.id, { type: 'ENABLE_INSPECTOR' });
+        console.log('[CBrowser SW] ENABLE_INSPECTOR result:', result);
         return { success: true };
       } catch (e) {
+        console.error('[CBrowser SW] ENABLE_INSPECTOR error:', e);
         // Content script not loaded - try injecting it first
         const url = tab.url || '';
         if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
@@ -237,13 +240,17 @@ async function handleMessage(
       }
 
     case 'HIGHLIGHT_ELEMENT':
+      console.log('[CBrowser SW] HIGHLIGHT_ELEMENT received:', message.selector);
       if (!tab?.id) throw new Error('No active tab');
       try {
-        return await chrome.tabs.sendMessage(tab.id, {
+        const result = await chrome.tabs.sendMessage(tab.id, {
           type: 'HIGHLIGHT_ELEMENT',
           selector: message.selector,
         });
+        console.log('[CBrowser SW] HIGHLIGHT_ELEMENT result:', result);
+        return result;
       } catch (e) {
+        console.error('[CBrowser SW] HIGHLIGHT_ELEMENT error:', e);
         throw new Error('Cannot highlight - content script not loaded. Refresh the page.');
       }
 
