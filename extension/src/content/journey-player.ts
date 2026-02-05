@@ -305,7 +305,7 @@ function startPlayback(journey: JourneyRecording, speed: number = 1): void {
 
   // Create trail canvas
   playerState.trail = createTrailCanvas();
-  playerState.trailCtx = playerState.trail.getContext('2d');
+  playerState.trailCtx = playerState.trail.getContext('2d', { willReadFrequently: true });
   document.body.appendChild(playerState.trail);
 
   // Start animation
