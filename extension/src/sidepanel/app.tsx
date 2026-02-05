@@ -9,7 +9,8 @@ import { Recorder } from './components/Recorder';
 import { Inspector } from './components/Inspector';
 import { Results } from './components/Results';
 import { Settings } from './components/Settings';
-import type { RecordedStep, ElementInfo, ExtensionSettings } from '../shared/types';
+import { JourneyPlayer } from './components/JourneyPlayer';
+import type { RecordedStep, ElementInfo, ExtensionSettings, JourneyRecording } from '../shared/types';
 
 // Styles
 import './styles.css';
@@ -25,6 +26,8 @@ interface AppState {
   lastScreenshot: string | null;
   mcpConnected: boolean;
   settings: ExtensionSettings | null;
+  lastJourney: JourneyRecording | null;
+  showJourneyPlayer: boolean;
 }
 
 function App() {
@@ -37,6 +40,8 @@ function App() {
     lastScreenshot: null,
     mcpConnected: false,
     settings: null,
+    lastJourney: null,
+    showJourneyPlayer: false,
   });
 
   // Load initial state
@@ -79,9 +84,15 @@ function App() {
               steps: message.steps,
               nlTest: message.nlTest,
               typescript: message.typescript,
+              journey: message.journey,
             },
+            lastJourney: message.journey || null,
             activeTab: 'results',
           }));
+          break;
+
+        case 'JOURNEY_PLAYBACK_COMPLETE':
+          setState((s) => ({ ...s, showJourneyPlayer: false }));
           break;
 
         case 'STEP_RECORDED':
@@ -207,6 +218,27 @@ function App() {
           <span className="recording-dot" />
           Recording... ({state.steps.length} steps)
         </div>
+      )}
+
+      {/* Journey Player Overlay */}
+      {state.showJourneyPlayer && (
+        <div className="journey-overlay">
+          <JourneyPlayer
+            journey={state.lastJourney}
+            onClose={() => setState((s) => ({ ...s, showJourneyPlayer: false }))}
+          />
+        </div>
+      )}
+
+      {/* Journey Replay Button (when journey available) */}
+      {state.lastJourney && !state.showJourneyPlayer && (
+        <button
+          className="journey-fab"
+          onClick={() => setState((s) => ({ ...s, showJourneyPlayer: true }))}
+          title="Replay User Journey"
+        >
+          🎬
+        </button>
       )}
     </div>
   );

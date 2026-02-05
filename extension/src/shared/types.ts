@@ -182,3 +182,27 @@ export interface TestResult {
   error?: string;
   screenshot?: string;
 }
+
+// Journey tracking types for user session replay
+export interface JourneyEvent {
+  type: 'mouse' | 'click' | 'scroll' | 'input' | 'navigation';
+  timestamp: number;
+  x?: number;
+  y?: number;
+  scrollX?: number;
+  scrollY?: number;
+  target?: string;
+  value?: string;
+  url?: string;
+  button?: number; // 0=left, 1=middle, 2=right
+}
+
+export interface JourneyRecording {
+  id: string;
+  startUrl: string;
+  startedAt: number;
+  endedAt?: number;
+  events: JourneyEvent[];
+  viewportWidth: number;
+  viewportHeight: number;
+}

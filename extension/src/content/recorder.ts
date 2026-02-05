@@ -3,21 +3,29 @@
  * Captures user interactions and exports as NL test format
  */
 
-import type { RecordedStep } from '../shared/types';
+import type { RecordedStep, JourneyEvent, JourneyRecording } from '../shared/types';
 
 interface RecorderState {
   recording: boolean;
   steps: RecordedStep[];
   startUrl: string;
+  // Journey tracking
+  journeyEvents: JourneyEvent[];
+  journeyStartTime: number;
+  lastMouseTime: number;
 }
 
 const recorderState: RecorderState = {
   recording: false,
   steps: [],
   startUrl: '',
+  journeyEvents: [],
+  journeyStartTime: 0,
+  lastMouseTime: 0,
 };
 
 let stepCounter = 0;
+const MOUSE_THROTTLE_MS = 50; // Capture mouse position every 50ms (20fps)
 
 /**
  * Generate a unique step ID
@@ -104,6 +112,53 @@ function recordStep(step: Omit<RecordedStep, 'id' | 'timestamp'>): void {
 }
 
 /**
+ * Record a journey event (mouse, click, scroll)
+ */
+function recordJourneyEvent(event: Omit<JourneyEvent, 'timestamp'>): void {
+  if (!recorderState.recording) return;
+
+  recorderState.journeyEvents.push({
+    ...event,
+    timestamp: Date.now() - recorderState.journeyStartTime,
+  });
+}
+
+/**
+ * Handle mouse move events (throttled)
+ */
+function handleMouseMove(e: MouseEvent): void {
+  if (!recorderState.recording) return;
+
+  const now = Date.now();
+  if (now - recorderState.lastMouseTime < MOUSE_THROTTLE_MS) return;
+  recorderState.lastMouseTime = now;
+
+  recordJourneyEvent({
+    type: 'mouse',
+    x: e.clientX,
+    y: e.clientY,
+  });
+}
+
+/**
+ * Handle scroll events (throttled)
+ */
+let lastScrollTime = 0;
+function handleScroll(): void {
+  if (!recorderState.recording) return;
+
+  const now = Date.now();
+  if (now - lastScrollTime < 100) return; // Throttle to 10fps
+  lastScrollTime = now;
+
+  recordJourneyEvent({
+    type: 'scroll',
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+  });
+}
+
+/**
  * Handle click events
  */
 function handleClick(e: MouseEvent): void {
@@ -114,6 +169,15 @@ function handleClick(e: MouseEvent): void {
 
   // Skip if it's our own UI
   if (target.closest('[data-cbrowser-ignore]')) return;
+
+  // Record journey click event with coordinates
+  recordJourneyEvent({
+    type: 'click',
+    x: e.clientX,
+    y: e.clientY,
+    target: getSelector(target),
+    button: e.button,
+  });
 
   const description = describeElement(target);
 
@@ -215,6 +279,9 @@ function startRecording(): void {
   recorderState.recording = true;
   recorderState.steps = [];
   recorderState.startUrl = window.location.href;
+  recorderState.journeyEvents = [];
+  recorderState.journeyStartTime = Date.now();
+  recorderState.lastMouseTime = 0;
   stepCounter = 0;
 
   // Record initial navigation
@@ -224,18 +291,26 @@ function startRecording(): void {
     description: `Navigate to "${window.location.href}"`,
   });
 
+  // Record initial journey navigation
+  recordJourneyEvent({
+    type: 'navigation',
+    url: window.location.href,
+  });
+
   // Add event listeners
   document.addEventListener('click', handleClick, true);
   document.addEventListener('input', handleInput, true);
   document.addEventListener('change', handleSelectChange, true);
   document.addEventListener('submit', handleSubmit, true);
+  document.addEventListener('mousemove', handleMouseMove, true);
+  document.addEventListener('scroll', handleScroll, true);
   window.addEventListener('popstate', recordNavigation);
 }
 
 /**
  * Stop recording and return steps
  */
-function stopRecording(): RecordedStep[] {
+function stopRecording(): { steps: RecordedStep[]; journey: JourneyRecording } {
   recorderState.recording = false;
 
   // Remove event listeners
@@ -243,9 +318,21 @@ function stopRecording(): RecordedStep[] {
   document.removeEventListener('input', handleInput, true);
   document.removeEventListener('change', handleSelectChange, true);
   document.removeEventListener('submit', handleSubmit, true);
+  document.removeEventListener('mousemove', handleMouseMove, true);
+  document.removeEventListener('scroll', handleScroll, true);
   window.removeEventListener('popstate', recordNavigation);
 
-  return recorderState.steps;
+  const journey: JourneyRecording = {
+    id: `journey-${Date.now()}`,
+    startUrl: recorderState.startUrl,
+    startedAt: recorderState.journeyStartTime,
+    endedAt: Date.now(),
+    events: recorderState.journeyEvents,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  };
+
+  return { steps: recorderState.steps, journey };
 }
 
 /**
@@ -329,12 +416,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'STOP_RECORDING':
-      const steps = stopRecording();
+      const result = stopRecording();
       sendResponse({
         success: true,
-        steps,
-        nlTest: exportAsNLTest(steps),
-        typescript: exportAsTypeScript(steps),
+        steps: result.steps,
+        journey: result.journey,
+        nlTest: exportAsNLTest(result.steps),
+        typescript: exportAsTypeScript(result.steps),
       });
       break;
 

@@ -263,6 +263,40 @@ async function handleMessage(
         return { success: true };
       }
 
+    // ============================================
+    // Journey Playback
+    // ============================================
+    case 'JOURNEY_PLAY':
+      if (!tab?.id) throw new Error('No active tab');
+      return await chrome.tabs.sendMessage(tab.id, {
+        type: 'JOURNEY_PLAY',
+        journey: message.journey,
+        speed: message.speed,
+      });
+
+    case 'JOURNEY_PAUSE':
+      if (!tab?.id) throw new Error('No active tab');
+      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_PAUSE' });
+
+    case 'JOURNEY_RESUME':
+      if (!tab?.id) throw new Error('No active tab');
+      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_RESUME' });
+
+    case 'JOURNEY_STOP':
+      if (!tab?.id) throw new Error('No active tab');
+      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_STOP' });
+
+    case 'JOURNEY_SET_SPEED':
+      if (!tab?.id) throw new Error('No active tab');
+      return await chrome.tabs.sendMessage(tab.id, {
+        type: 'JOURNEY_SET_SPEED',
+        speed: message.speed,
+      });
+
+    case 'JOURNEY_GET_STATUS':
+      if (!tab?.id) throw new Error('No active tab');
+      return await chrome.tabs.sendMessage(tab.id, { type: 'JOURNEY_GET_STATUS' });
+
     case 'ELEMENT_SELECTED':
       // Forward from content script to sidepanel
       state.selectedElement = message.element;

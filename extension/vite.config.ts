@@ -57,6 +57,7 @@ export default defineConfig({
         'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
         'content/recorder': resolve(__dirname, 'src/content/recorder.ts'),
         'content/highlighter': resolve(__dirname, 'src/content/highlighter.ts'),
+        'content/journey-player': resolve(__dirname, 'src/content/journey-player.ts'),
       },
       output: {
         entryFileNames: '[name].js',
