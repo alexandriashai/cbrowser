@@ -57,3 +57,7 @@ api-docs/
 tmp/
 temp/
 *.tmp
+
+# Personal prep files (not part of project)
+SHOW-HN-DRAFT.md
+HN-RESPONSE-PREP.md
