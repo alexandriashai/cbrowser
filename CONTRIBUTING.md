@@ -130,10 +130,22 @@ bun test --coverage
 
 ### Writing Tests
 
-- Test files go next to source files: `browser.ts` → `browser.test.ts`
+- Test files go in `tests/` directory: `tests/browser.test.ts`
 - Use descriptive test names
 - Test both success and failure cases
 - Mock external dependencies when appropriate
+
+### Test Structure
+
+```typescript
+import { describe, test, expect } from "bun:test";
+
+describe("Feature", () => {
+  test("should do something", () => {
+    expect(result).toBe(expected);
+  });
+});
+```
 
 ## Documentation
 

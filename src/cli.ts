@@ -1222,7 +1222,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   if (daemonRunning && ["navigate", "click", "fill", "hover", "screenshot", "extract", "run"].includes(command)) {
     console.log("🔌 Connected to running daemon");
 
-    let daemonCommand = command;
+    const daemonCommand = command;
     let daemonArgs: Record<string, unknown> = {};
 
     switch (command) {
@@ -4107,7 +4107,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           await (stepBrowser as any).launch();
 
           try {
-            let totalSteps = suite.tests.reduce((sum, t) => sum + t.steps.length, 0);
+            const totalSteps = suite.tests.reduce((sum, t) => sum + t.steps.length, 0);
             let stepNum = 0;
             let stopped = false;
 

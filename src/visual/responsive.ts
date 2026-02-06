@@ -212,7 +212,7 @@ export async function runResponsiveTest(
   // Compare adjacent viewport sizes (small to large)
   const sortedScreenshots = [...screenshots].sort((a, b) => a.viewport.width - b.viewport.width);
   const comparisons: ResponsiveComparison[] = [];
-  let hasMinorIssues = false;
+  const hasMinorIssues = false;
   let hasMajorIssues = false;
   const problematicViewports = new Set<string>();
 
