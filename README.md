@@ -11,6 +11,42 @@ Built on Playwright with cognitive user simulation, constitutional safety bounda
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
 
+---
+
+## The Story Behind CBrowser
+
+I spent 16 years in international higher education marketing and UX, where I learned that the biggest accessibility and usability problems are the ones you can't see coming. A button that works perfectly for me might be invisible to a first-generation student in rural Indonesia using a slow connection on a small screen.
+
+Traditional testing tools couldn't help—they tested whether buttons clicked, not whether real humans could use them.
+
+Then came the AI agent revolution. I watched autonomous agents navigate websites, and I saw two problems:
+
+1. **They broke things.** Agents would accidentally submit forms, delete data, or get stuck in infinite loops. There were no guardrails.
+
+2. **They exposed how shallow our testing was.** If an AI couldn't figure out a UI, what chance did a confused first-timer have?
+
+I realized: **The industry needs tools that think like users, not like developers.** Tools that model patience, frustration, and the moment someone gives up. Tools that prevent autonomous agents from causing harm.
+
+So I built CBrowser.
+
+### Why These Technical Choices
+
+| Decision | Why |
+|----------|-----|
+| **TypeScript** | Type safety for a complex codebase; better IDE experience for contributors |
+| **Playwright over Puppeteer** | Cross-browser support (Chromium, Firefox, WebKit) out of the box; better auto-waiting |
+| **Constitutional AI safety** | AI agents need boundaries. Borrowed from Anthropic's constitutional AI principles to create risk zones |
+| **Cognitive simulation** | Based on UX research (Nielsen Norman Group, Baymard Institute) on how humans actually scan and interact with pages |
+| **MCP-first architecture** | Built for the Claude ecosystem. MCP is the future of AI tool integration |
+
+### What I Learned Building This
+
+- **Shipping beats perfecting.** 80+ npm versions taught me to iterate in public
+- **Real users reveal real problems.** Features I thought were clever often weren't useful; user feedback redirected the roadmap
+- **AI safety is a UX problem.** The same patterns that make sites confusing to humans make them dangerous for agents
+
+---
+
 ## Why CBrowser?
 
 Most browser automation tests if buttons click. CBrowser tests if **real humans** can use your site.
