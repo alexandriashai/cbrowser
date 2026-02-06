@@ -24,9 +24,9 @@ services:
 
     # === RESOURCE LIMITS ===
     # These protect your host from demo abuse
-    mem_limit: 2g
-    cpus: 1.0
-    pids_limit: 100
+    mem_limit: 4g
+    cpus: 2.0
+    pids_limit: 500
 
     # === SECURITY ===
     security_opt:
