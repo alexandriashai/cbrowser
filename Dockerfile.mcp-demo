@@ -1,0 +1,34 @@
+# CBrowser MCP Demo Server - Resource-Limited Container
+# For running the public demo at cbrowser-mcp-demo.wyldfyre.ai
+
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy
+
+LABEL org.opencontainers.image.source="https://github.com/alexandriashai/cbrowser"
+LABEL org.opencontainers.image.description="CBrowser MCP Demo Server - Rate Limited"
+
+WORKDIR /app
+
+# Install cbrowser from npm
+RUN npm install -g cbrowser
+
+# Create non-root user for security
+RUN groupadd -r cbrowser && useradd -r -g cbrowser cbrowser \
+    && mkdir -p /home/cbrowser/.cbrowser \
+    && chown -R cbrowser:cbrowser /home/cbrowser /app
+
+USER cbrowser
+
+# Environment for demo mode
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV CBROWSER_DATA_DIR=/home/cbrowser/.cbrowser
+# Demo rate limits are built into the server (5 req/min, burst 10)
+
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Run MCP remote server (demo mode - no auth required)
+CMD ["npx", "cbrowser", "mcp-remote"]

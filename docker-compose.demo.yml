@@ -1,0 +1,72 @@
+# CBrowser MCP Demo Server - Docker Compose with Resource Limits
+# Protects host from demo abuse
+#
+# Usage:
+#   docker-compose -f docker-compose.demo.yml up -d
+#
+# Monitor:
+#   docker stats cbrowser-mcp-demo
+
+version: '3.8'
+
+services:
+  mcp-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp-demo
+    container_name: cbrowser-mcp-demo
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+
+    # === RESOURCE LIMITS ===
+    # These protect your host from demo abuse
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'        # Max 1 CPU core
+          memory: 2G          # Max 2GB RAM (Playwright needs ~1GB)
+        reservations:
+          cpus: '0.25'       # Guaranteed 0.25 CPU
+          memory: 512M        # Guaranteed 512MB RAM
+
+    # Fallback for non-swarm mode (docker-compose up)
+    mem_limit: 2g
+    cpus: 1.0
+
+    # === SECURITY ===
+    security_opt:
+      - no-new-privileges:true
+    read_only: false          # Playwright needs to write
+
+    # === PROCESS LIMITS ===
+    pids_limit: 100           # Limit spawned processes
+
+    # === LOGGING ===
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # === HEALTH CHECK ===
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # === TMPFS for Playwright ===
+    # Faster, limited tmp storage
+    tmpfs:
+      - /tmp:size=500M,mode=1777
+
+networks:
+  default:
+    driver: bridge
