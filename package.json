@@ -42,8 +42,11 @@
     "mcp": "node dist/mcp-server.js",
     "mcp-remote": "node dist/mcp-server-remote.js",
     "test": "bun test",
+    "test:coverage": "bun test --coverage",
     "lint": "eslint src/",
     "clean": "rm -rf dist/",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch",
     "prepare": "husky || true",
     "release": "release-it",
     "release:dry": "release-it --dry-run",
@@ -114,6 +117,7 @@
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
     "release-it": "^17.0.0",
+    "typedoc": "^0.28.16",
     "typescript": "^5.3.0"
   },
   "lint-staged": {

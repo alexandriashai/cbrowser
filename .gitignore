@@ -45,6 +45,9 @@ npm-debug.log*
 coverage/
 .nyc_output/
 
+# Generated docs
+api-docs/
+
 # Environment
 .env
 .env.local
