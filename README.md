@@ -737,6 +737,127 @@ npx cbrowser compare-personas --start "..." --goal "..." --html
 
 ---
 
+## UX Analysis Suite (v9.0.0)
+
+CBrowser v9 introduces four breakthrough features for understanding and improving user experience at scale.
+
+### Agent-Ready Audit
+
+Analyze any website for AI-agent friendliness. Find out why your site is hard for AI agents to automate.
+
+```bash
+npx cbrowser agent-ready-audit "https://example.com" --html
+```
+
+**Output includes:**
+- **Findability score** — Can agents locate elements? (aria-labels, data-testid, semantic HTML)
+- **Stability score** — Will selectors break? (hidden inputs, sticky overlays, custom dropdowns)
+- **Accessibility score** — ARIA/semantic HTML quality
+- **Semantics score** — Meaningful labels and text content
+- **Letter grade (A-F)** with prioritized remediation recommendations
+- Code examples for each fix
+
+**Example output:**
+```
+🤖 AGENT-READY AUDIT: example.com
+
+   SCORE: 67/100  GRADE: D
+
+   ┌────────────────┬────────────────┬────────────────┐
+   │ Findability    │ Stability      │ Accessibility  │
+   │     72/100     │    58/100      │    71/100      │
+   └────────────────┴────────────────┴────────────────┘
+
+   TOP RECOMMENDATIONS
+
+   1. [HIGH] Add aria-label to search button
+      <button aria-label="Search">
+
+   2. [HIGH] Replace div onclick with button
+      <button onclick="..."> instead of <div onclick="...">
+```
+
+### Competitive UX Benchmark
+
+Run identical cognitive journeys across your site AND competitors. Get head-to-head UX comparison.
+
+```bash
+npx cbrowser competitive-benchmark \
+  --sites "https://yoursite.com,https://competitor.com,https://another-competitor.com" \
+  --goal "sign up for free trial" \
+  --persona "first-timer" \
+  --html
+```
+
+**Features:**
+- **Parallel site testing** — Runs journeys concurrently across all sites
+- **Abandonment risk scale (1-10)** with descriptive labels
+- **Comparative rankings** with strengths/weaknesses per site
+- **Competitive recommendations** — "Competitor A does this better"
+
+**Abandonment Risk Scale:**
+| Score | Label | Meaning |
+|-------|-------|---------|
+| 1-2 | Very Low | Users likely to complete. Smooth experience. |
+| 3-4 | Low | Minor friction. Most users persist. |
+| 5-6 | Medium | Noticeable friction. Some users may leave. |
+| 7-8 | High | Significant obstacles. Many users abandon. |
+| 9-10 | Very High | Critical barriers. Most users will leave. |
+
+### Accessibility Empathy Mode
+
+Simulate how users with disabilities *experience* your site — not just WCAG compliance checking.
+
+```bash
+npx cbrowser empathy-audit "https://example.com" \
+  --goal "complete signup" \
+  --disabilities "motor-tremor,low-vision,adhd" \
+  --html
+```
+
+**6 Disability-Focused Personas:**
+
+| Persona | Simulates |
+|---------|-----------|
+| `motor-tremor` | Essential tremor, Parkinson's — hand jitter, reduced precision |
+| `low-vision` | Macular degeneration, cataracts — needs 3x magnification, high contrast |
+| `cognitive-adhd` | ADHD — reduced attention span, high distraction rate |
+| `dyslexic` | Dyslexia — slower reading, word jumbling |
+| `deaf` | Deaf/hard of hearing — no audio cues, relies on captions |
+| `elderly` | Age-related decline — slower reactions, larger touch targets needed |
+
+**Barrier Detection:**
+- Motor precision issues (touch targets < 44x44px)
+- Visual clarity problems (contrast ratio < 4.5:1)
+- Cognitive load overload (too many options, complex forms)
+- Timing issues (timeouts, auto-advancing carousels)
+
+**WCAG Mapping:** Each barrier links to specific WCAG criteria (2.5.5 touch targets, 1.4.3 contrast, etc.)
+
+### Probabilistic Focus Hierarchies
+
+Realistic attention simulation based on eye-tracking research. Different task types focus on different page areas.
+
+**Task Types:**
+
+| Type | Prioritizes | Based on |
+|------|-------------|----------|
+| `find_information` | Headings (95%), Navigation (85%), Search (75%) | Looking for specific info |
+| `complete_action` | CTAs (95%), Forms (90%), Navigation (80%) | Trying to do something |
+| `explore` | Hero (85%), Headings (80%), Navigation (75%) | Just browsing |
+| `compare` | Content (90%), Headings (85%), Navigation (70%) | Comparing options |
+| `troubleshoot` | Search (90%), Navigation (85%), Content (80%) | Fixing a problem |
+
+**Distraction Filtering:**
+- Cookie banners: 85% ignore rate
+- Newsletter popups: 90% ignore rate
+- Chat widgets: 80% ignore rate
+- Social share buttons: 80% ignore rate
+
+Based on research from Nielsen Norman Group (F-pattern scanning), Baymard Institute (e-commerce UX), and WebAIM (accessibility patterns).
+
+---
+
 ## Performance
 
 ### Performance Metrics

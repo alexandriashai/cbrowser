@@ -8,7 +8,7 @@
 import { CBrowser } from "./browser.js";
 
 // Analysis module imports
-import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent } from "./analysis/index.js";
+import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport } from "./analysis/index.js";
 
 // Testing module imports
 import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, dryRunNLTestSuite, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
@@ -21,12 +21,14 @@ import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVi
 import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABComparisonResult, ABSuite, ABSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
+  ACCESSIBILITY_PERSONAS,
   loadCustomPersonas,
   saveCustomPersona,
   deleteCustomPersona,
   isBuiltinPersona,
   generatePersonaFromDescription,
   getPersonasDir,
+  listAccessibilityPersonas,
 } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
@@ -401,6 +403,45 @@ ACCESSIBILITY (v2.5.0)
   a11y audit                  Run WCAG accessibility audit
     --url <url>               Navigate to URL first
   a11y audit [url]            Audit a specific URL
+
+AGENT-READY AUDIT (v8.0.0)
+  agent-ready-audit <url>     Audit site for AI-agent friendliness
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+    Examples:
+      cbrowser agent-ready-audit "https://example.com"
+      cbrowser agent-ready-audit "https://example.com" --html --output report.json
+
+COMPETITIVE UX BENCHMARK (v8.0.0)
+  competitive-benchmark       Compare UX across competitor sites
+    --sites <list>            Comma-separated site URLs (required)
+    --goal <goal>             Task goal (required)
+    --persona <name>          Persona to use (default: first-timer)
+    --max-steps <n>           Max steps per site (default: 30)
+    --max-time <sec>          Max time per site in seconds (default: 180)
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+    Examples:
+      cbrowser competitive-benchmark \\
+        --sites "https://yoursite.com,https://competitor-a.com" \\
+        --goal "sign up for free trial" \\
+        --html
+
+ACCESSIBILITY EMPATHY AUDIT (v8.0.0)
+  empathy-audit <url>         Simulate disability experience on site
+    --goal <goal>             Task goal (required)
+    --disabilities <list>     Disability personas (comma-separated)
+    --wcag-level <level>      WCAG level: A, AA, AAA (default: AA)
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+    Available disability personas:
+      motor-impairment-tremor, low-vision-magnified, cognitive-adhd,
+      dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia
+    Examples:
+      cbrowser empathy-audit "https://example.com" \\
+        --goal "complete checkout" \\
+        --disabilities "motor-impairment-tremor,low-vision-magnified" \\
+        --html
 
 TEST RECORDING (v2.5.0)
   record start                Start recording interactions
@@ -4753,6 +4794,185 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(result.goalAchieved ? 0 : 1);
         } catch (error: any) {
           console.error(`\n❌ Error: ${error.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Agent-Ready Audit, Competitive Benchmark, Accessibility Empathy (v9.0.0)
+      // =========================================================================
+
+      case "agent-ready-audit": {
+        const url = args[0];
+        if (!url) {
+          console.error("Error: URL required");
+          console.error("Usage: cbrowser agent-ready-audit <url> [--html] [--output <file>]");
+          process.exit(1);
+        }
+
+        console.log(`\n🤖 Running Agent-Ready Audit on ${url}...\n`);
+
+        const result = await runAgentReadyAudit(url, {
+          headless,
+        });
+
+        // Print formatted report
+        const report = formatAgentReadyReport(result);
+        console.log(report);
+
+        // Save JSON output if requested
+        if (options.output) {
+          const fs = await import("fs");
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Generate HTML report if requested
+        if (options.html) {
+          const fs = await import("fs");
+          const htmlReport = generateAgentReadyHtmlReport(result);
+          const htmlPath = (options.output as string)?.replace(".json", ".html") || "agent-ready-report.html";
+          fs.writeFileSync(htmlPath, htmlReport);
+          console.log(`🌐 HTML report saved: ${htmlPath}`);
+        }
+
+        // Exit with error if grade is failing
+        if (result.grade === "F") {
+          process.exit(1);
+        }
+        break;
+      }
+
+      case "competitive-benchmark": {
+        const sitesArg = options.sites as string;
+        const goal = options.goal as string;
+
+        if (!sitesArg) {
+          console.error("Error: --sites required (comma-separated URLs)");
+          console.error("Usage: cbrowser competitive-benchmark --sites <urls> --goal <goal> [--persona <name>] [--html]");
+          process.exit(1);
+        }
+
+        if (!goal) {
+          console.error("Error: --goal required");
+          console.error("Usage: cbrowser competitive-benchmark --sites <urls> --goal <goal> [--persona <name>] [--html]");
+          process.exit(1);
+        }
+
+        const sites = sitesArg.split(",").map((s) => ({ url: s.trim() }));
+        const personaName = (options.persona as string) || "first-timer";
+        const maxSteps = options["max-steps"] ? parseInt(options["max-steps"] as string) : 30;
+        const maxTime = options["max-time"] ? parseInt(options["max-time"] as string) : 180;
+
+        console.log(`\n🏆 Running Competitive UX Benchmark...\n`);
+        console.log(`   Sites: ${sites.map((s) => s.url).join(", ")}`);
+        console.log(`   Goal: ${goal}`);
+        console.log(`   Persona: ${personaName}\n`);
+
+        const result = await runCompetitiveBenchmark({
+          sites,
+          goal,
+          persona: personaName,
+          maxSteps,
+          maxTime,
+          headless,
+        });
+
+        // Print formatted report
+        const report = formatCompetitiveBenchmarkReport(result);
+        console.log(report);
+
+        // Save JSON output if requested
+        if (options.output) {
+          const fs = await import("fs");
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Generate HTML report if requested
+        if (options.html) {
+          const fs = await import("fs");
+          const htmlReport = generateCompetitiveBenchmarkHtmlReport(result);
+          const htmlPath = (options.output as string)?.replace(".json", ".html") || "competitive-benchmark-report.html";
+          fs.writeFileSync(htmlPath, htmlReport);
+          console.log(`🌐 HTML report saved: ${htmlPath}`);
+        }
+        break;
+      }
+
+      case "empathy-audit": {
+        const url = args[0];
+        const goal = options.goal as string;
+        const disabilitiesArg = options.disabilities as string;
+
+        if (!url) {
+          console.error("Error: URL required");
+          console.error("Usage: cbrowser empathy-audit <url> --goal <goal> [--disabilities <list>] [--html]");
+          process.exit(1);
+        }
+
+        if (!goal) {
+          console.error("Error: --goal required");
+          console.error("Usage: cbrowser empathy-audit <url> --goal <goal> [--disabilities <list>] [--html]");
+          process.exit(1);
+        }
+
+        // Parse disabilities or use all
+        const allAccessibilityNames = listAccessibilityPersonas();
+        const disabilityNames = disabilitiesArg
+          ? disabilitiesArg.split(",").map((d) => d.trim())
+          : allAccessibilityNames;
+
+        // Validate disability names
+        const invalidNames = disabilityNames.filter((d) => !allAccessibilityNames.includes(d));
+        if (invalidNames.length > 0) {
+          console.error(`Error: Unknown disability persona(s): ${invalidNames.join(", ")}`);
+          console.error(`Available: ${allAccessibilityNames.join(", ")}`);
+          process.exit(1);
+        }
+
+        const wcagLevel = (options["wcag-level"] as string) || "AA";
+        const maxSteps = options["max-steps"] ? parseInt(options["max-steps"] as string) : 20;
+        const maxTime = options["max-time"] ? parseInt(options["max-time"] as string) : 120;
+
+        console.log(`\n♿ Running Accessibility Empathy Audit...\n`);
+        console.log(`   URL: ${url}`);
+        console.log(`   Goal: ${goal}`);
+        console.log(`   Disabilities: ${disabilityNames.join(", ")}`);
+        console.log(`   WCAG Level: ${wcagLevel}\n`);
+
+        const result = await runEmpathyAudit(url, {
+          goal,
+          disabilities: disabilityNames,
+          wcagLevel: wcagLevel as "A" | "AA" | "AAA",
+          maxSteps,
+          maxTime,
+          headless,
+        });
+
+        // Print formatted report
+        const report = formatEmpathyAuditReport(result);
+        console.log(report);
+
+        // Save JSON output if requested
+        if (options.output) {
+          const fs = await import("fs");
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Generate HTML report if requested
+        if (options.html) {
+          const fs = await import("fs");
+          const htmlReport = generateEmpathyAuditHtmlReport(result);
+          const htmlPath = (options.output as string)?.replace(".json", ".html") || "empathy-audit-report.html";
+          fs.writeFileSync(htmlPath, htmlReport);
+          console.log(`🌐 HTML report saved: ${htmlPath}`);
+        }
+
+        // Exit with error if overall score is poor
+        if (result.overallScore < 50) {
           process.exit(1);
         }
         break;

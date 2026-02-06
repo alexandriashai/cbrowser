@@ -56,6 +56,123 @@ export interface Persona {
   context?: {
     viewport?: [number, number];
   };
+  /** Focus hierarchy for task-specific attention patterns */
+  focusHierarchy?: FocusHierarchy;
+}
+
+// ============================================================================
+// Focus Hierarchy Types (v8.1.0) - Probabilistic Attention Patterns
+// ============================================================================
+
+/**
+ * Task types that affect focus patterns.
+ * Different tasks cause users to focus on different page areas.
+ */
+export type TaskType =
+  | "find_information"    // Looking for specific info (e.g., "find application deadline")
+  | "complete_action"     // Need to do something (e.g., "submit form", "register")
+  | "explore"             // Just browsing/learning (e.g., "what is this site about")
+  | "compare"             // Comparing options (e.g., "which plan is best")
+  | "troubleshoot";       // Fixing a problem (e.g., "why isn't this working")
+
+/**
+ * Page areas where users can focus attention.
+ * Based on eye-tracking research and common page layouts.
+ */
+export type FocusAreaType =
+  | "navigation"          // Nav bars, menus, breadcrumbs
+  | "headings"            // H1-H6, section titles
+  | "content"             // Main content area, paragraphs
+  | "sidebar"             // Side panels, secondary content
+  | "forms"               // Input fields, buttons, form elements
+  | "footer"              // Footer links, secondary navigation
+  | "hero"                // Hero sections, prominent banners
+  | "cta"                 // Call-to-action buttons, prominent links
+  | "images"              // Informational images, diagrams
+  | "search";             // Search boxes and results
+
+/**
+ * Focus area with probability weight and relevance boost.
+ * Probability determines likelihood of focusing here.
+ * RelevanceBoost amplifies element priority when in this area.
+ */
+export interface FocusArea {
+  /** Page area type */
+  area: FocusAreaType;
+  /** Probability 0-1: how likely to focus here during action selection */
+  probability: number;
+  /** Relevance multiplier: boosts priority of elements in this area */
+  relevanceBoost: number;
+  /** Whether this area is a primary target for the task (affects scan order) */
+  isPrimary?: boolean;
+}
+
+/**
+ * Pattern to filter out as distractions.
+ * Common UI elements that real users learn to ignore.
+ */
+export interface DistractionFilter {
+  /** Pattern to match (CSS selector, text pattern, or keyword) */
+  pattern: string;
+  /** Ignore rate 0-1: probability of skipping elements matching this pattern */
+  ignoreRate: number;
+  /** Reason for filtering (helps with debugging) */
+  reason?: string;
+}
+
+/**
+ * Visual scan pattern based on eye-tracking research.
+ * Affects order in which page areas are examined.
+ */
+export type ScanPattern =
+  | "f-pattern"           // F-shaped scan (most common for text-heavy pages)
+  | "z-pattern"           // Z-shaped scan (landing pages, simple layouts)
+  | "spotted"             // Jump to salient elements (experienced users)
+  | "exhaustive"          // Methodical top-to-bottom (elderly, careful users)
+  | "nav-first";          // Always check navigation first (task-oriented)
+
+/**
+ * Focus hierarchy configuration for realistic attention simulation.
+ * Controls how a persona allocates attention across page areas.
+ */
+export interface FocusHierarchy {
+  /** Task type this hierarchy is optimized for */
+  taskType: TaskType;
+
+  /** Ordered focus areas with probability weights */
+  focusAreas: FocusArea[];
+
+  /** Patterns to filter as distractions */
+  distractionFilters: DistractionFilter[];
+
+  /** Visual scan pattern for initial page examination */
+  scanPattern: ScanPattern;
+
+  /** Probability 0-1 of checking navigation before content */
+  navFirstProbability: number;
+
+  /** Probability 0-1 of using search if available */
+  searchUseProbability: number;
+
+  /** Max elements to consider per action (prevents exhaustive search) */
+  attentionCapacity: number;
+
+  /** Time in ms before attention wanders (triggers distraction check) */
+  focusDecayMs: number;
+}
+
+/**
+ * Preset focus hierarchies for common task types.
+ */
+export interface FocusHierarchyPreset {
+  /** Preset name */
+  name: string;
+  /** Description of when to use */
+  description: string;
+  /** Task type this preset is for */
+  taskType: TaskType;
+  /** The hierarchy configuration */
+  hierarchy: FocusHierarchy;
 }
 
 // ============================================================================
@@ -2107,4 +2224,405 @@ export interface DismissOverlayResult {
   }>;
   screenshot: string;
   suggestion?: string;
+}
+
+// ============================================================================
+// Agent-Ready Audit Types (v8.0.0)
+// ============================================================================
+
+/** Issue category for agent-ready audit */
+export type AgentReadyIssueCategory = "findability" | "stability" | "accessibility" | "semantics";
+
+/** Severity level for agent-ready issues */
+export type AgentReadyIssueSeverity = "low" | "medium" | "high" | "critical";
+
+/** Effort level for fixing issues */
+export type AgentReadyEffort = "trivial" | "easy" | "medium" | "hard";
+
+/** Impact level for fixing issues */
+export type AgentReadyImpact = "low" | "medium" | "high";
+
+/** Issue found during agent-ready audit */
+export interface AgentReadyIssue {
+  /** Issue category */
+  category: AgentReadyIssueCategory;
+  /** Severity level */
+  severity: AgentReadyIssueSeverity;
+  /** Element selector or description */
+  element: string;
+  /** Description of the issue */
+  description: string;
+  /** Which CBrowser detection method found this */
+  detectionMethod: string;
+  /** Recommended fix */
+  recommendation: string;
+  /** Code example for fix */
+  codeExample?: string;
+}
+
+/** Prioritized recommendation for agent-ready improvements */
+export interface AgentReadyRecommendation {
+  /** Priority (1-10, lower is higher priority) */
+  priority: number;
+  /** Category of improvement */
+  category: string;
+  /** Issue description */
+  issue: string;
+  /** How to fix it */
+  fix: string;
+  /** Effort to implement */
+  effort: AgentReadyEffort;
+  /** Impact of the fix */
+  impact: AgentReadyImpact;
+  /** Code snippet for the fix */
+  codeSnippet?: string;
+}
+
+/** Score breakdown for agent-ready audit */
+export interface AgentReadyScore {
+  /** Overall score 0-100 */
+  overall: number;
+  /** Can agents locate elements? */
+  findability: number;
+  /** Will selectors break? */
+  stability: number;
+  /** ARIA/semantic HTML quality */
+  accessibility: number;
+  /** Meaningful labels/text */
+  semantics: number;
+}
+
+/** Summary statistics for agent-ready audit */
+export interface AgentReadySummary {
+  /** Total elements scanned */
+  totalElements: number;
+  /** Elements with issues */
+  problematicElements: number;
+  /** Elements missing aria-label */
+  missingAriaLabels: number;
+  /** Hidden inputs found */
+  hiddenInputs: number;
+  /** Sticky overlays detected */
+  stickyOverlays: number;
+  /** Custom dropdowns found */
+  customDropdowns: number;
+  /** Elements without visible text */
+  elementsWithoutText: number;
+}
+
+/** Letter grade for agent-ready audit */
+export type AgentReadyGrade = "A" | "B" | "C" | "D" | "F";
+
+/** Result of agent-ready audit */
+export interface AgentReadyAuditResult {
+  /** URL audited */
+  url: string;
+  /** When audit was run */
+  timestamp: string;
+  /** Score breakdown */
+  score: AgentReadyScore;
+  /** Issues found */
+  issues: AgentReadyIssue[];
+  /** Prioritized recommendations */
+  recommendations: AgentReadyRecommendation[];
+  /** Summary statistics */
+  summary: AgentReadySummary;
+  /** Letter grade */
+  grade: AgentReadyGrade;
+  /** Duration of audit in ms */
+  duration: number;
+}
+
+/** Options for agent-ready audit */
+export interface AgentReadyAuditOptions {
+  /** Include verbose detection info */
+  verbose?: boolean;
+  /** Output path for JSON report */
+  output?: string;
+  /** Generate HTML report */
+  html?: boolean;
+  /** Run browser in headless mode */
+  headless?: boolean;
+}
+
+// ============================================================================
+// Competitive Benchmark Types (v8.0.0)
+// ============================================================================
+
+/** Result for a single site in competitive benchmark */
+export interface SiteBenchmarkResult {
+  /** URL tested */
+  url: string;
+  /** Site name (extracted or user-provided) */
+  siteName: string;
+  /** Whether the goal was achieved */
+  goalAchieved: boolean;
+  /** Reason for abandonment if goal not achieved */
+  abandonmentReason?: string;
+  /** Total time in ms */
+  totalTime: number;
+  /** Number of steps taken */
+  stepCount: number;
+  /** Friction points encountered */
+  frictionPoints: string[];
+  /** Confusion level 0-100 */
+  confusionLevel: number;
+  /** Frustration level 0-100 */
+  frustrationLevel: number;
+  /** Abandonment risk percentage */
+  abandonmentRisk: number;
+  /** Screenshots (start and end) */
+  screenshots?: {
+    start: string;
+    end: string;
+  };
+}
+
+/** Site ranking in competitive benchmark */
+export interface SiteRanking {
+  /** Rank position (1 = best) */
+  rank: number;
+  /** Site name */
+  site: string;
+  /** Composite UX score */
+  score: number;
+  /** Strengths compared to others */
+  strengths: string[];
+  /** Weaknesses compared to others */
+  weaknesses: string[];
+}
+
+/** Comparison statistics for competitive benchmark */
+export interface BenchmarkComparison {
+  /** Site with fastest completion */
+  fastestSite: string;
+  /** Site with slowest completion */
+  slowestSite: string;
+  /** Site with most friction */
+  mostFriction: string;
+  /** Site with least friction */
+  leastFriction: string;
+  /** Site with highest abandonment risk */
+  highestAbandonmentRisk: string;
+  /** Friction points common across sites */
+  commonFrictionAcrossSites: string[];
+}
+
+/** Recommendation for improving a site based on competitors */
+export interface CompetitiveRecommendation {
+  /** Site the recommendation is for */
+  site: string;
+  /** What to improve */
+  improvement: string;
+  /** Reference to competitor doing it better */
+  competitorReference?: string;
+}
+
+/** Result of competitive benchmark */
+export interface CompetitiveBenchmarkResult {
+  /** Goal being tested */
+  goal: string;
+  /** Persona used */
+  persona: string;
+  /** When benchmark was run */
+  timestamp: string;
+  /** Duration of entire benchmark in ms */
+  duration: number;
+  /** Results per site */
+  sites: SiteBenchmarkResult[];
+  /** Sites ranked by UX score */
+  ranking: SiteRanking[];
+  /** Comparative statistics */
+  comparison: BenchmarkComparison;
+  /** Recommendations for each site */
+  recommendations: CompetitiveRecommendation[];
+}
+
+/** Options for competitive benchmark */
+export interface CompetitiveBenchmarkOptions {
+  /** Sites to benchmark */
+  sites: Array<{ url: string; name?: string }>;
+  /** Goal to accomplish */
+  goal: string;
+  /** Persona to use */
+  persona?: string;
+  /** Max steps per site */
+  maxSteps?: number;
+  /** Max time per site in seconds */
+  maxTime?: number;
+  /** Run headless */
+  headless?: boolean;
+  /** Max concurrent browsers */
+  maxConcurrency?: number;
+  /** Output path for JSON report */
+  output?: string;
+  /** Generate HTML report */
+  html?: boolean;
+}
+
+// ============================================================================
+// Accessibility Empathy Types (v8.0.0)
+// ============================================================================
+
+/** Accessibility traits for personas */
+export interface AccessibilityTraits {
+  // Physical
+  /** Motor control level 0-1 (0=severe impairment, 1=full control) */
+  motorControl?: number;
+  /** Has hand tremor (Parkinson's, essential tremor) */
+  tremor?: boolean;
+  /** Screen area reachable 0-1 */
+  reachability?: number;
+
+  // Sensory
+  /** Vision level 0-1 (0=blind, 0.5=low vision, 1=sighted) */
+  visionLevel?: number;
+  /** Type of color blindness */
+  colorBlindness?: "red-green" | "blue-yellow" | "monochrome";
+  /** Contrast sensitivity multiplier (1-5x) */
+  contrastSensitivity?: number;
+
+  // Cognitive
+  /** Information processing speed 0-1 */
+  processingSpeed?: number;
+  /** Focus duration before fatigue 0-1 */
+  attentionSpan?: number;
+
+  // Fatigue
+  /** Performance degradation over time 0-1 */
+  fatigueSusceptibility?: number;
+}
+
+/** Type of accessibility barrier */
+export type AccessibilityBarrierType =
+  | "motor_precision"
+  | "visual_clarity"
+  | "cognitive_load"
+  | "temporal"
+  | "sensory"
+  | "contrast"
+  | "touch_target"
+  | "timing";
+
+/** Severity of accessibility barrier */
+export type AccessibilityBarrierSeverity = "minor" | "major" | "critical";
+
+/** Barrier found during accessibility empathy audit */
+export interface AccessibilityBarrier {
+  /** Type of barrier */
+  type: AccessibilityBarrierType;
+  /** Element selector or description */
+  element: string;
+  /** Description of the barrier */
+  description: string;
+  /** Personas affected by this barrier */
+  affectedPersonas: string[];
+  /** WCAG criteria violated */
+  wcagCriteria: string[];
+  /** Severity of the barrier */
+  severity: AccessibilityBarrierSeverity;
+  /** How to remediate */
+  remediation: string;
+}
+
+/** Friction point specific to accessibility */
+export interface AccessibilityFrictionPoint {
+  /** Step where friction occurred */
+  step: number;
+  /** Type of friction */
+  type: string;
+  /** Description */
+  description: string;
+  /** How much it impacted the user */
+  impact: "low" | "medium" | "high";
+  /** Accessibility-specific context */
+  accessibilityContext?: string;
+}
+
+/** Remediation item with priority */
+export interface RemediationItem {
+  /** Priority (lower = more important) */
+  priority: number;
+  /** What to fix */
+  issue: string;
+  /** How to fix it */
+  fix: string;
+  /** WCAG criteria addressed */
+  wcagCriteria: string[];
+  /** Effort level */
+  effort: AgentReadyEffort;
+}
+
+/** Result of accessibility empathy audit for a single persona */
+export interface AccessibilityEmpathyResult {
+  /** URL tested */
+  url: string;
+  /** Persona used */
+  persona: string;
+  /** Type of disability simulated */
+  disabilityType: string;
+  /** Whether the goal was achieved */
+  goalAchieved: boolean;
+  /** Barriers encountered */
+  barriers: AccessibilityBarrier[];
+  /** Friction points encountered */
+  frictionPoints: AccessibilityFrictionPoint[];
+  /** WCAG violations found */
+  wcagViolations: string[];
+  /** Prioritized remediation items */
+  remediationPriority: RemediationItem[];
+  /** Empathy score 0-100 */
+  empathyScore: number;
+  /** Duration in ms */
+  duration: number;
+}
+
+/** Combined result for multiple disability types */
+export interface EmpathyAuditResult {
+  /** URL tested */
+  url: string;
+  /** Goal attempted */
+  goal: string;
+  /** When audit was run */
+  timestamp: string;
+  /** Results per disability type */
+  results: AccessibilityEmpathyResult[];
+  /** Combined WCAG violations across all personas */
+  allWcagViolations: string[];
+  /** All barriers across personas */
+  allBarriers: AccessibilityBarrier[];
+  /** Prioritized remediation across all */
+  combinedRemediation: RemediationItem[];
+  /** Overall empathy score */
+  overallScore: number;
+  /** Duration of entire audit in ms */
+  duration: number;
+}
+
+/** Options for accessibility empathy audit */
+export interface EmpathyAuditOptions {
+  /** Goal to accomplish */
+  goal: string;
+  /** Disability types to simulate */
+  disabilities: string[];
+  /** WCAG level to check against */
+  wcagLevel?: "A" | "AA" | "AAA";
+  /** Max steps per persona */
+  maxSteps?: number;
+  /** Max time per persona in seconds */
+  maxTime?: number;
+  /** Run headless */
+  headless?: boolean;
+  /** Output path for JSON report */
+  output?: string;
+  /** Generate HTML report */
+  html?: boolean;
+}
+
+/** Accessibility-focused persona extending base persona */
+export interface AccessibilityPersona extends Omit<Persona, 'cognitiveTraits'> {
+  /** Accessibility traits */
+  accessibilityTraits: AccessibilityTraits;
+  /** Cognitive traits (optional partial override) */
+  cognitiveTraits?: Partial<CognitiveTraits>;
 }

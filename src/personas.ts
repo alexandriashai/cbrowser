@@ -956,3 +956,411 @@ export function listCustomPersonas(): string[] {
 export function getPersonasDir(): string {
   return PERSONAS_DIR;
 }
+
+// ============================================================================
+// Accessibility-Focused Personas (v8.0.0)
+// ============================================================================
+
+import type { AccessibilityPersona, AccessibilityTraits } from "./types.js";
+
+/**
+ * Built-in accessibility personas for empathy testing.
+ * These simulate how people with different disabilities experience websites.
+ */
+export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
+  "motor-impairment-tremor": {
+    name: "motor-impairment-tremor",
+    description: "User with essential tremor affecting fine motor control",
+    demographics: {
+      age_range: "40-65",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      careful_clicking: true,
+      avoids_small_targets: true,
+      prefers_large_buttons: true,
+      uses_keyboard_when_possible: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 600, max: 1500 },
+        clickDelay: { min: 400, max: 1000 },
+        typeSpeed: { min: 150, max: 300 },
+        readingSpeed: 200,
+        scrollPauseTime: { min: 500, max: 1200 },
+      },
+      errors: {
+        misClickRate: 0.35,
+        doubleClickAccidental: 0.25,
+        typoRate: 0.15,
+        backtrackRate: 0.25,
+      },
+      mouse: {
+        curvature: 0.8,
+        jitter: 20,
+        overshoot: 0.4,
+        speed: "slow",
+      },
+      attention: {
+        pattern: "thorough",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "cta", "text"],
+        distractionRate: 0.2,
+      },
+    },
+    context: {
+      viewport: [1280, 800],
+    },
+    accessibilityTraits: {
+      motorControl: 0.3,
+      tremor: true,
+      reachability: 0.7,
+      processingSpeed: 0.8, // Cognitive function is fine
+      attentionSpan: 0.7,
+      fatigueSusceptibility: 0.5,
+    },
+  },
+
+  "low-vision-magnified": {
+    name: "low-vision-magnified",
+    description: "User with low vision using 3x screen magnification",
+    demographics: {
+      age_range: "45-75",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      uses_zoom: true,
+      needs_high_contrast: true,
+      reads_slowly: true,
+      misses_peripheral_content: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 400, max: 1000 },
+        clickDelay: { min: 300, max: 700 },
+        typeSpeed: { min: 100, max: 180 },
+        readingSpeed: 100, // Slower due to magnification
+        scrollPauseTime: { min: 600, max: 1500 },
+      },
+      errors: {
+        misClickRate: 0.15,
+        doubleClickAccidental: 0.05,
+        typoRate: 0.08,
+        backtrackRate: 0.3, // Often scrolls past content
+      },
+      mouse: {
+        curvature: 0.5,
+        jitter: 5,
+        overshoot: 0.15,
+        speed: "slow",
+      },
+      attention: {
+        pattern: "thorough",
+        scrollBehavior: "jump", // Jumps around due to limited visible area
+        focusAreas: ["header", "text"],
+        distractionRate: 0.15,
+      },
+    },
+    context: {
+      viewport: [1280, 800], // But effectively sees 1/9th at a time
+    },
+    accessibilityTraits: {
+      visionLevel: 0.3,
+      contrastSensitivity: 3.0,
+      processingSpeed: 0.7,
+      attentionSpan: 0.6, // Fatigue from straining to see
+      fatigueSusceptibility: 0.6,
+    },
+  },
+
+  "cognitive-adhd": {
+    name: "cognitive-adhd",
+    description: "User with ADHD affecting focus and working memory",
+    demographics: {
+      age_range: "18-45",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      easily_distracted: true,
+      skips_around: true,
+      impatient_with_long_forms: true,
+      forgets_previous_steps: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 150, max: 600 }, // Can be fast when focused
+        clickDelay: { min: 100, max: 400 },
+        typeSpeed: { min: 50, max: 120 },
+        readingSpeed: 250,
+        scrollPauseTime: { min: 100, max: 400 },
+      },
+      errors: {
+        misClickRate: 0.12,
+        doubleClickAccidental: 0.08,
+        typoRate: 0.1,
+        backtrackRate: 0.5, // Frequently goes back
+      },
+      mouse: {
+        curvature: 0.4,
+        jitter: 8,
+        overshoot: 0.15,
+        speed: "fast",
+      },
+      attention: {
+        pattern: "skim",
+        scrollBehavior: "jump",
+        focusAreas: ["cta", "images"],
+        distractionRate: 0.7, // Very easily distracted
+      },
+    },
+    context: {
+      viewport: [1920, 1080],
+    },
+    accessibilityTraits: {
+      processingSpeed: 0.6, // Variable
+      attentionSpan: 0.3, // Short attention span
+      fatigueSusceptibility: 0.4,
+    },
+    cognitiveTraits: {
+      workingMemory: 0.3,
+      patience: 0.4,
+      curiosity: 0.8, // Easily drawn to new things
+    },
+  },
+
+  "dyslexic-user": {
+    name: "dyslexic-user",
+    description: "User with dyslexia affecting reading and text processing",
+    demographics: {
+      age_range: "18-55",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      prefers_simple_text: true,
+      avoids_text_walls: true,
+      relies_on_visuals: true,
+      rereads_often: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 400, max: 1000 },
+        clickDelay: { min: 200, max: 500 },
+        typeSpeed: { min: 80, max: 160 },
+        readingSpeed: 80, // Significantly slower reading
+        scrollPauseTime: { min: 800, max: 2000 },
+      },
+      errors: {
+        misClickRate: 0.1,
+        doubleClickAccidental: 0.05,
+        typoRate: 0.2, // Higher typo rate
+        backtrackRate: 0.4, // Re-reads sections
+      },
+      mouse: {
+        curvature: 0.4,
+        jitter: 5,
+        overshoot: 0.1,
+        speed: "normal",
+      },
+      attention: {
+        pattern: "thorough",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "images", "cta"],
+        distractionRate: 0.3,
+      },
+    },
+    context: {
+      viewport: [1280, 800],
+    },
+    accessibilityTraits: {
+      processingSpeed: 0.5, // Slower text processing
+      attentionSpan: 0.5,
+      fatigueSusceptibility: 0.6, // Reading is tiring
+    },
+    cognitiveTraits: {
+      workingMemory: 0.6,
+      patience: 0.5,
+      curiosity: 0.7,
+    },
+  },
+
+  "deaf-user": {
+    name: "deaf-user",
+    description: "Deaf user who relies on visual content and captions",
+    demographics: {
+      age_range: "18-65",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      needs_captions: true,
+      visual_learner: true,
+      misses_audio_cues: true,
+      reads_everything: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 200, max: 500 },
+        clickDelay: { min: 100, max: 300 },
+        typeSpeed: { min: 50, max: 100 },
+        readingSpeed: 250,
+        scrollPauseTime: { min: 300, max: 800 },
+      },
+      errors: {
+        misClickRate: 0.05,
+        doubleClickAccidental: 0.02,
+        typoRate: 0.05,
+        backtrackRate: 0.15,
+      },
+      mouse: {
+        curvature: 0.4,
+        jitter: 4,
+        overshoot: 0.1,
+        speed: "normal",
+      },
+      attention: {
+        pattern: "f-pattern",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "text", "images"],
+        distractionRate: 0.2,
+      },
+    },
+    context: {
+      viewport: [1920, 1080],
+    },
+    accessibilityTraits: {
+      visionLevel: 1.0, // Vision is fine
+      processingSpeed: 0.9,
+      attentionSpan: 0.8,
+    },
+  },
+
+  "elderly-low-vision": {
+    name: "elderly-low-vision",
+    description: "Elderly user (75+) with age-related vision and motor decline",
+    demographics: {
+      age_range: "75+",
+      tech_level: "beginner",
+      device: "desktop",
+    },
+    behaviors: {
+      prefers_large_text: true,
+      careful_with_technology: true,
+      needs_clear_feedback: true,
+      avoids_complexity: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 1000, max: 2500 },
+        clickDelay: { min: 600, max: 1500 },
+        typeSpeed: { min: 200, max: 400 },
+        readingSpeed: 80,
+        scrollPauseTime: { min: 1000, max: 2500 },
+      },
+      errors: {
+        misClickRate: 0.25,
+        doubleClickAccidental: 0.2,
+        typoRate: 0.15,
+        backtrackRate: 0.35,
+      },
+      mouse: {
+        curvature: 0.8,
+        jitter: 15,
+        overshoot: 0.3,
+        speed: "slow",
+      },
+      attention: {
+        pattern: "thorough",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "text", "cta"],
+        distractionRate: 0.15,
+      },
+    },
+    context: {
+      viewport: [1280, 800],
+    },
+    accessibilityTraits: {
+      motorControl: 0.5,
+      tremor: false, // Not necessarily
+      reachability: 0.6,
+      visionLevel: 0.4,
+      contrastSensitivity: 2.5,
+      processingSpeed: 0.5,
+      attentionSpan: 0.5,
+      fatigueSusceptibility: 0.7,
+    },
+    cognitiveTraits: {
+      workingMemory: 0.5,
+      patience: 0.6, // More patient than young users
+      curiosity: 0.4,
+    },
+  },
+
+  "color-blind-deuteranopia": {
+    name: "color-blind-deuteranopia",
+    description: "User with red-green color blindness (deuteranopia)",
+    demographics: {
+      age_range: "18-65",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      cant_distinguish_red_green: true,
+      relies_on_labels: true,
+      needs_patterns_not_colors: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 200, max: 500 },
+        clickDelay: { min: 100, max: 300 },
+        typeSpeed: { min: 50, max: 100 },
+        readingSpeed: 250,
+        scrollPauseTime: { min: 200, max: 500 },
+      },
+      errors: {
+        misClickRate: 0.08, // May click wrong color-coded element
+        doubleClickAccidental: 0.03,
+        typoRate: 0.05,
+        backtrackRate: 0.2,
+      },
+      mouse: {
+        curvature: 0.4,
+        jitter: 4,
+        overshoot: 0.1,
+        speed: "normal",
+      },
+      attention: {
+        pattern: "f-pattern",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "cta", "text"],
+        distractionRate: 0.2,
+      },
+    },
+    context: {
+      viewport: [1920, 1080],
+    },
+    accessibilityTraits: {
+      visionLevel: 0.9, // Acuity is fine
+      colorBlindness: "red-green",
+      processingSpeed: 0.9,
+      attentionSpan: 0.8,
+    },
+  },
+};
+
+/**
+ * Get an accessibility persona by name.
+ */
+export function getAccessibilityPersona(name: string): AccessibilityPersona | undefined {
+  return ACCESSIBILITY_PERSONAS[name];
+}
+
+/**
+ * List all accessibility persona names.
+ */
+export function listAccessibilityPersonas(): string[] {
+  return Object.keys(ACCESSIBILITY_PERSONAS);
+}

@@ -5,6 +5,81 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.0.0](https://github.com/alexandriashai/cbrowser/compare/v8.9.1...v9.0.0) (2026-02-06)
+
+### 🎉 Major Feature Release: UX Analysis Suite
+
+CBrowser v9 introduces four breakthrough features for understanding and improving user experience:
+
+### Added
+
+#### Agent-Ready Audit
+Analyze any website for AI-agent friendliness. Detects findability, stability, accessibility, and semantics issues that make sites difficult for AI agents to automate.
+
+```bash
+npx cbrowser agent-ready-audit "https://example.com" --html
+```
+
+- **Findability scoring** — Can agents locate elements? (aria-labels, data-testid, semantic HTML)
+- **Stability scoring** — Will selectors break? (hidden inputs, sticky overlays, custom dropdowns)
+- **Accessibility scoring** — ARIA/semantic HTML quality
+- **Semantics scoring** — Meaningful labels and text content
+- **Letter grade (A-F)** with prioritized remediation recommendations
+- HTML report with code examples for fixes
+
+#### Competitive UX Benchmark
+Run identical cognitive journeys across your site AND competitors. Get head-to-head UX comparison with friction analysis.
+
+```bash
+npx cbrowser competitive-benchmark \
+  --sites "https://yoursite.com,https://competitor.com" \
+  --goal "sign up for free trial" \
+  --persona "first-timer" --html
+```
+
+- **Parallel site testing** — Runs journeys concurrently across all sites
+- **Abandonment risk scale (1-10)** with descriptive labels (Very Low → Very High)
+- **Comparative rankings** with strengths/weaknesses per site
+- **Competitive recommendations** — "Competitor A does this better"
+- Research-backed heuristics (Google/SOASTA, Baymard Institute, Nielsen Norman Group)
+
+#### Accessibility Empathy Mode
+Simulate how users with disabilities *experience* your site — not just WCAG compliance checking.
+
+```bash
+npx cbrowser empathy-audit "https://example.com" \
+  --goal "complete signup" \
+  --disabilities "motor-tremor,low-vision,adhd" --html
+```
+
+- **6 disability-focused personas**: motor-tremor, low-vision, cognitive-adhd, dyslexic, deaf, elderly
+- **Barrier detection** — motor precision, visual clarity, cognitive load, timing issues
+- **WCAG violation mapping** — links barriers to specific criteria (2.5.5, 1.4.3, etc.)
+- **Remediation suggestions** with priority and effort estimates
+- **Empathy score (1-10)** — grades overall accessibility experience
+
+#### Probabilistic Focus Hierarchies (v9.0.0)
+Realistic attention simulation based on eye-tracking research. Different task types focus on different page areas.
+
+- **5 task types**: find_information, complete_action, explore, compare, troubleshoot
+- **Focus area weighting** — navigation, headings, content, forms, etc. with probability weights
+- **Distraction filtering** — cookie banners, newsletter popups, chat widgets (85-90% ignore rate)
+- **Scan patterns** — F-pattern, Z-pattern, spotted, exhaustive, nav-first
+- Based on Nielsen Norman Group, Baymard Institute, and WebAIM research
+
+### Changed
+
+- **Methodology documentation** — Added `docs/METHODOLOGY.md` with full research bibliography
+- **Competitive benchmark** — Now uses focus hierarchies for realistic action selection
+- **Score interpretation** — All scores now use 1-10 scale with descriptive labels, not percentages
+
+### Research Sources
+
+- Google/SOASTA (2017): Page load abandonment rates
+- Baymard Institute: Form complexity and checkout UX research
+- Nielsen Norman Group: F-pattern scanning, usability heuristics
+- WebAIM: Accessibility patterns and screen reader usage
+- FullStory: Rage click detection and session analytics
 
 ## [8.8.0](https://github.com/alexandriashai/cbrowser/compare/v8.7.3...v8.8.0) (2026-02-05)
 
