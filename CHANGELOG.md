@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.5.1](https://github.com/alexandriashai/cbrowser/compare/v9.5.0...v9.5.1) (2026-02-06)
+
+
+### Fixed
+
+* **docker:** increase resource limits for browser processes ([459d0e1](https://github.com/alexandriashai/cbrowser/commit/459d0e1476e55bed31f7d76c7b43c160e62c9ae7))
+
 ## [9.5.0](https://github.com/alexandriashai/cbrowser/compare/v9.4.3...v9.5.0) (2026-02-06)
 
 
