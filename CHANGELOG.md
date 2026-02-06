@@ -5,6 +5,36 @@ All notable changes to CBrowser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [9.1.0](https://github.com/alexandriashai/cbrowser/compare/v8.8.0...v9.1.0) (2026-02-06)
+
+
+### Added
+
+* **analysis:** UX Analysis Suite for v9.0.0 ([4612a06](https://github.com/alexandriashai/cbrowser/commit/4612a06e5fe5f0d8f2509815785e5184db2b774b))
+* **cognitive:** select dropdown handling and CLI improvements ([1f5ad50](https://github.com/alexandriashai/cbrowser/commit/1f5ad50809392d7a18de36ce85e2dd9c77c46825))
+* **extension:** add Chrome Extension with hybrid LOCAL + REMOTE automation ([019db98](https://github.com/alexandriashai/cbrowser/commit/019db9834566a4fdf01be9fa2c4fe1aaff7cc615)), closes [#29](https://github.com/alexandriashai/cbrowser/issues/29)
+* **extension:** add clickable element highlighting for a11y issues and bugs ([e6a72dc](https://github.com/alexandriashai/cbrowser/commit/e6a72dc2dfc5d77f48c84579becb707c7817fef8))
+* **extension:** add user journey recording and replay visualization ([60346bb](https://github.com/alexandriashai/cbrowser/commit/60346bb49fa24833efb4387469595a8df4aaa30a))
+* **extension:** improve MCP results display with human-readable formatting ([c5391d7](https://github.com/alexandriashai/cbrowser/commit/c5391d78950eef2a1d3a76e57a7219aea6f79a96))
+
+
+### Fixed
+
+* **extension:** add icons to source and copy during build ([6693068](https://github.com/alexandriashai/cbrowser/commit/6693068542b3cf0add4bff3f73b8e64360452091))
+* **extension:** auto-inject content scripts when not loaded ([4b1b0f9](https://github.com/alexandriashai/cbrowser/commit/4b1b0f9b23eef88b33b3019294412d52a6e55b40))
+* **extension:** consolidate consecutive fill actions in recorder ([2e84056](https://github.com/alexandriashai/cbrowser/commit/2e840565369b1d6febb1624fd61cdad0c9b5ec76))
+* **extension:** correct sidepanel HTML path and use relative URLs ([c0f3fa5](https://github.com/alexandriashai/cbrowser/commit/c0f3fa5d0475a2f50fa8dbda6cf9bd577931e0a0))
+* **extension:** disable minification to avoid Chrome variable conflicts ([72f816c](https://github.com/alexandriashai/cbrowser/commit/72f816c5f2d96f36b49924a513df1019069b6ee8))
+* **extension:** fix MCP headers, auth token, and error display ([8d1ecb4](https://github.com/alexandriashai/cbrowser/commit/8d1ecb4e8c78c7145fd10ff8c0e748b08c08a9a4))
+* **extension:** parse SSE response format from MCP server ([269477d](https://github.com/alexandriashai/cbrowser/commit/269477d34e4e4de52c1528def5c14dc7a096963f))
+* **extension:** rename state variables to avoid content script collision ([7b84f18](https://github.com/alexandriashai/cbrowser/commit/7b84f1838c6cd51ff5ecb755be5ba4488ed8e842))
+
+
+### Changed
+
+* **extension:** add willReadFrequently flag to canvas context ([9a2c31f](https://github.com/alexandriashai/cbrowser/commit/9a2c31f3d4396b9275979af03b5ba2dc695c1f1f))
+
 ## [9.0.0](https://github.com/alexandriashai/cbrowser/compare/v8.9.1...v9.0.0) (2026-02-06)
 
 ### 🎉 Major Feature Release: UX Analysis Suite
