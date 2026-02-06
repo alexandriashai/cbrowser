@@ -107,7 +107,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.0.0",
+    "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^19.0.0",
     "@release-it/conventional-changelog": "^8.0.0",
     "@types/node": "^20.10.0",
