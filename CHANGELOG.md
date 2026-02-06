@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.7.0](https://github.com/alexandriashai/cbrowser/compare/v9.6.0...v9.7.0) (2026-02-06)
+
+
+### Added
+
+* **cognitive:** add Claude Code session detection for API-free cognitive journeys ([1e7c786](https://github.com/alexandriashai/cbrowser/commit/1e7c78668eaec0795f2bff6db46409b1403e7321))
+
 ## [9.6.0](https://github.com/alexandriashai/cbrowser/compare/v9.5.2...v9.6.0) (2026-02-06)
 
 
