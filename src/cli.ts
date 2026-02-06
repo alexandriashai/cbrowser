@@ -570,6 +570,7 @@ API CONFIGURATION (v8.0.0)
   config set-model <model>    Set Claude model (default: claude-sonnet-4-20250514)
 
 DIAGNOSTICS
+  version, -v, --version      Show version number
   status                      Show environment status and diagnostics
                               Displays data directories, browsers, config, heal cache
 
@@ -994,6 +995,12 @@ async function main(): Promise<void> {
     if (options.stateful) process.env.MCP_SESSION_MODE = "stateful";
     await startRemoteMcpServer();
     return;
+  }
+
+  // Version command - just print version and exit
+  if (command === "version" || command === "-v" || command === "--version") {
+    console.log(VERSION);
+    process.exit(0);
   }
 
   // Status command - runs before browser instantiation
