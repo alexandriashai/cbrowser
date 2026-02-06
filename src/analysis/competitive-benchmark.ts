@@ -25,6 +25,10 @@ import {
   getDistractionIgnoreRate,
   COMMON_DISTRACTIONS,
 } from "../cognitive/focus-hierarchies.js";
+import {
+  runCognitiveJourney,
+  isApiKeyConfigured,
+} from "../cognitive/index.js";
 
 // ============================================================================
 // Scoring Methodology & Disclaimers
@@ -631,8 +635,9 @@ async function findBestAction(page: Page, goal: string, analysis: PageAnalysis):
       focusHierarchy.distractionFilters
     );
 
-    // Probabilistic filtering: randomly skip distractions
-    const skipAsDistraction = Math.random() < distractionRate;
+    // Deterministic filtering: skip high-probability distractions
+    // (Previously random, now uses threshold for consistent behavior)
+    const skipAsDistraction = distractionRate >= 0.7;
 
     // Combined score: relevance * focus priority, with distraction penalty
     const combinedScore = skipAsDistraction
@@ -674,17 +679,9 @@ async function findBestAction(page: Page, goal: string, analysis: PageAnalysis):
   // Apply attention capacity limit (humans don't consider all options)
   const consideredActions = viableActions.slice(0, focusHierarchy.attentionCapacity);
 
-  // Add slight randomness to simulate human variability
-  // (Sometimes users pick 2nd or 3rd best option)
-  const randomFactor = Math.random();
-  if (randomFactor < 0.7 && consideredActions.length > 0) {
-    return consideredActions[0].action;
-  } else if (randomFactor < 0.9 && consideredActions.length > 1) {
-    return consideredActions[1].action;
-  } else if (consideredActions.length > 2) {
-    return consideredActions[2].action;
-  }
-
+  // Select best action deterministically (no random selection)
+  // When using cognitive journeys, Claude provides intelligent decision making
+  // For heuristic mode, we use the highest-scored action consistently
   return consideredActions[0]?.action ?? null;
 }
 
@@ -1265,6 +1262,7 @@ export async function runCompetitiveBenchmark(
 
   const startTime = Date.now();
   const personaConfig = getPersona(persona) || BUILTIN_PERSONAS["first-timer"];
+  const useCognitiveJourneys = isApiKeyConfigured();
 
   // Run journeys in parallel (limited concurrency)
   const results: SiteBenchmarkResult[] = [];
@@ -1275,6 +1273,54 @@ export async function runCompetitiveBenchmark(
 
     const batchResults = await Promise.all(
       batch.map(async (site) => {
+        // Use cognitive journeys when API key is available (realistic simulation)
+        if (useCognitiveJourneys) {
+          try {
+            const journey = await runCognitiveJourney({
+              persona,
+              startUrl: site.url,
+              goal,
+              maxSteps,
+              maxTime,
+              headless,
+              vision: false,
+              verbose: false,
+            });
+
+            const siteName = site.name || new URL(site.url).hostname.replace('www.', '');
+
+            return {
+              url: site.url,
+              siteName,
+              goalAchieved: journey.goalAchieved,
+              abandonmentReason: journey.abandonmentReason,
+              totalTime: journey.totalTime * 1000, // Convert to ms
+              stepCount: journey.stepCount,
+              frictionPoints: journey.frictionPoints.map(fp =>
+                `${fp.type}: ${fp.monologue.substring(0, 80)}`
+              ),
+              confusionLevel: Math.round(journey.finalState.confusionLevel * 100),
+              frustrationLevel: Math.round(journey.finalState.frustrationLevel * 100),
+              abandonmentRisk: calculateAbandonmentRisk(
+                {
+                  patience: journey.finalState.patienceRemaining * 100,
+                  frustration: journey.finalState.frustrationLevel * 100,
+                  confusion: journey.finalState.confusionLevel * 100,
+                  steps: journey.stepCount,
+                  frictionPoints: [],
+                  startTime: Date.now(),
+                },
+                journey.goalAchieved
+              ),
+              screenshots: { start: '', end: '' },
+            } as SiteBenchmarkResult;
+          } catch (e) {
+            // Fall back to heuristic mode on error
+            console.warn(`Cognitive journey failed for ${site.url}, falling back to heuristic: ${(e as Error).message}`);
+          }
+        }
+
+        // Fallback: Heuristic simulation (when no API key or cognitive journey failed)
         let browser: Browser | null = null;
         try {
           browser = await chromium.launch({ headless });

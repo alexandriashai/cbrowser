@@ -111,6 +111,10 @@ import type {
   LoadSessionResult,
 } from "./types.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS, VIEWPORT_PRESETS } from "./types.js";
+import {
+  runCognitiveJourney,
+  isApiKeyConfigured,
+} from "./cognitive/index.js";
 
 // Browser-specific fast launch args for performance optimization
 const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
@@ -3992,9 +3996,66 @@ export class CBrowser {
 
   /**
    * Run an autonomous journey.
+   *
+   * When API key is configured, uses AI-driven cognitive journeys (Claude API)
+   * for realistic user simulation with cognitive state tracking.
+   *
+   * Without API key, falls back to heuristic exploration (simplified).
+   *
+   * @requires ANTHROPIC_API_KEY for cognitive mode (set via `npx cbrowser config set-api-key`)
    */
   async journey(options: JourneyOptions): Promise<JourneyResult> {
-    const { persona: personaName, startUrl, goal, maxSteps = 20 } = options;
+    const { persona: personaName, startUrl, goal, maxSteps = 20, maxTime = 120 } = options;
+
+    // Check if cognitive journeys are available (API key configured)
+    if (isApiKeyConfigured()) {
+      try {
+        const cognitiveResult = await runCognitiveJourney({
+          persona: personaName,
+          startUrl,
+          goal,
+          maxSteps,
+          maxTime,
+          headless: this.config.headless,
+          vision: false,
+          verbose: false,
+        });
+
+        // Map cognitive journey result to JourneyResult format
+        return {
+          persona: personaName,
+          goal,
+          steps: cognitiveResult.frictionPoints.map((fp, i) => ({
+            action: fp.type,
+            target: fp.element || 'page',
+            result: fp.monologue.substring(0, 100),
+            screenshot: fp.screenshot,
+            timestamp: new Date().toISOString(),
+          })),
+          success: cognitiveResult.goalAchieved,
+          frictionPoints: cognitiveResult.frictionPoints.map(fp =>
+            `${fp.type}: ${fp.monologue.substring(0, 80)}`
+          ),
+          totalTime: cognitiveResult.totalTime * 1000, // Convert to ms
+          consoleLogs: [],
+          cognitive: {
+            patienceRemaining: cognitiveResult.finalState.patienceRemaining,
+            frustrationLevel: cognitiveResult.finalState.frustrationLevel,
+            confusionLevel: cognitiveResult.finalState.confusionLevel,
+            abandonmentReason: cognitiveResult.abandonmentReason,
+            backtrackCount: cognitiveResult.summary.backtrackCount,
+            monologue: cognitiveResult.fullMonologue,
+          },
+        };
+      } catch (e) {
+        console.warn(`Cognitive journey failed, falling back to heuristic: ${(e as Error).message}`);
+        // Fall through to heuristic mode
+      }
+    }
+
+    // Heuristic mode (no API key or cognitive journey failed)
+    // NOTE: This is simplified exploration. For realistic user simulation,
+    // configure an API key: npx cbrowser config set-api-key YOUR_KEY
 
     const persona = getPersona(personaName) || BUILTIN_PERSONAS["first-timer"];
     this.currentPersona = persona;
@@ -4037,8 +4098,8 @@ export class CBrowser {
       timestamp: new Date().toISOString(),
     });
 
-    // Simple autonomous exploration (simplified for public version)
-    // In a full implementation, this would use AI to decide actions
+    // Heuristic exploration (simplified - no API key available)
+    // For realistic AI-driven exploration, set API key: npx cbrowser config set-api-key
     let stepCount = 0;
     let success = false;
 
@@ -4050,24 +4111,41 @@ export class CBrowser {
       await new Promise((r) => setTimeout(r, delay));
 
       // Try to find clickable elements
-      const clickable = await page.evaluate(() => {
+      const clickable = await page.evaluate((goalText) => {
         const elements = Array.from(
           document.querySelectorAll('a, button, [role="button"], input[type="submit"]')
         );
-        return elements.slice(0, 5).map((el) => ({
-          tag: el.tagName,
-          text: el.textContent?.trim().substring(0, 50),
-          href: (el as HTMLAnchorElement).href,
-        }));
-      });
+
+        // Score elements by relevance to goal (deterministic, not random)
+        const scored = elements.slice(0, 20).map((el) => {
+          const text = el.textContent?.trim().substring(0, 50) || '';
+          const href = (el as HTMLAnchorElement).href || '';
+          const textLower = text.toLowerCase();
+          const goalWords = goalText.toLowerCase().split(' ').filter(w => w.length > 2);
+
+          // Calculate relevance score
+          let score = 0;
+          for (const word of goalWords) {
+            if (textLower.includes(word)) score += 3;
+            if (href.toLowerCase().includes(word)) score += 2;
+          }
+          // Boost common action words
+          if (textLower.match(/submit|continue|next|proceed|sign|login|register/)) score += 1;
+
+          return { tag: el.tagName, text, href, score };
+        });
+
+        // Sort by score (highest first) and return top 5
+        return scored.sort((a, b) => b.score - a.score).slice(0, 5);
+      }, goal);
 
       if (clickable.length === 0) {
         frictionPoints.push("No clickable elements found");
         break;
       }
 
-      // Click a random element (simplified)
-      const target = clickable[Math.floor(Math.random() * clickable.length)];
+      // Select highest-scored element (deterministic)
+      const target = clickable[0];
       const result = await this.click(target.text || target.tag);
 
       steps.push({
@@ -4078,7 +4156,7 @@ export class CBrowser {
         timestamp: new Date().toISOString(),
       });
 
-      // Check if goal might be achieved (simplified check)
+      // Check if goal might be achieved
       const pageText = await page.evaluate(() => document.body.innerText.toLowerCase());
       if (goal.toLowerCase().split(" ").some((word) => pageText.includes(word))) {
         success = true;
@@ -4112,6 +4190,8 @@ export class CBrowser {
 
   /**
    * Get human-like delay based on persona.
+   * Uses deterministic average of min/max (no random).
+   * For realistic variable timing, use cognitive journeys with API key.
    */
   private getHumanDelay(persona: Persona): number {
     const timing = persona.humanBehavior?.timing;
@@ -4119,7 +4199,8 @@ export class CBrowser {
 
     const min = timing.reactionTime.min;
     const max = timing.reactionTime.max;
-    return Math.floor(Math.random() * (max - min) + min);
+    // Use midpoint for deterministic behavior (no random)
+    return Math.floor((min + max) / 2);
   }
 
   // =========================================================================

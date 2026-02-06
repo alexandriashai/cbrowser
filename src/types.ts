@@ -519,6 +519,15 @@ export interface JourneyResult {
   frictionPoints: string[];
   totalTime: number;
   consoleLogs: ConsoleEntry[];
+  /** Cognitive state (when using cognitive journeys with API key) */
+  cognitive?: {
+    patienceRemaining: number;
+    frustrationLevel: number;
+    confusionLevel: number;
+    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout";
+    backtrackCount: number;
+    monologue: string[];
+  };
 }
 
 // ============================================================================
@@ -907,6 +916,7 @@ export interface JourneyOptions {
   startUrl: string;
   goal: string;
   maxSteps?: number;
+  maxTime?: number;
   timeout?: number;
   recordVideo?: boolean;
 }

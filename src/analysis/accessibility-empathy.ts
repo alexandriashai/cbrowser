@@ -40,6 +40,10 @@ import type {
   AgentReadyEffort,
 } from "../types.js";
 import { getAccessibilityPersona, ACCESSIBILITY_PERSONAS } from "../personas.js";
+import {
+  runCognitiveJourney,
+  isApiKeyConfigured,
+} from "../cognitive/index.js";
 
 // ============================================================================
 // WCAG Mapping
@@ -464,9 +468,48 @@ async function simulateAccessibilityJourney(
     await detectColorOnlyInfo(ctx);
     await detectMissingAltText(ctx);
 
-    // Simulate trying to achieve the goal
-    // (Simplified - in full implementation, would simulate actual interaction)
-    ctx.stepCount = Math.floor(Math.random() * maxSteps / 2) + 3;
+    // Use cognitive journey for realistic step tracking if API key available
+    if (isApiKeyConfigured()) {
+      try {
+        const journey = await runCognitiveJourney({
+          persona: persona.name,
+          startUrl: url,
+          goal,
+          maxSteps,
+          maxTime,
+          headless: true,
+          vision: false,
+          verbose: false,
+        });
+        ctx.stepCount = journey.stepCount;
+
+        // Map cognitive friction to accessibility friction
+        for (const fp of journey.frictionPoints) {
+          // Map FrictionPoint types to AccessibilityFrictionPoint types
+          const accessibilityType =
+            fp.type === "form_error" ? "motor" :
+            fp.type === "confusing_ui" || fp.type === "unclear_button" ? "visual" :
+            fp.type === "slow_load" || fp.type === "missing_element" ? "cognitive" :
+            "cognitive";
+
+          ctx.frictionPoints.push({
+            step: ctx.stepCount,
+            type: accessibilityType,
+            description: fp.monologue.substring(0, 100),
+            impact: fp.frustrationIncrease > 0.2 ? "high" : fp.frustrationIncrease > 0.1 ? "medium" : "low",
+            accessibilityContext: `Cognitive state: patience ${Math.round(journey.finalState.patienceRemaining * 100)}%`,
+          });
+        }
+
+        goalAchieved = journey.goalAchieved;
+      } catch {
+        // Fall back to barrier-based estimation
+        ctx.stepCount = Math.max(3, ctx.barriers.length + 2);
+      }
+    } else {
+      // Estimate step count based on detected barriers (deterministic, not random)
+      ctx.stepCount = Math.max(3, ctx.barriers.length + 2);
+    }
 
     // Check if barriers would likely prevent goal achievement
     const criticalBarriers = ctx.barriers.filter(b => b.severity === "critical");

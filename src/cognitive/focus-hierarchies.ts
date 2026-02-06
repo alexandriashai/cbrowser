@@ -512,17 +512,30 @@ export function calculateFocusPriority(
 }
 
 /**
- * Apply probabilistic filtering to a list of elements.
- * Returns elements that "pass" the attention filter based on focus hierarchy.
+ * Apply deterministic filtering to a list of elements based on focus hierarchy.
+ * Returns elements that pass the attention filter using threshold-based selection.
+ *
+ * Previous versions used random filtering, but this created inconsistent results.
+ * Now uses deterministic threshold: elements with probability >= 0.5 are included.
  */
 export function filterByAttention<T extends { area?: FocusAreaType }>(
   elements: T[],
-  hierarchy: FocusHierarchy,
-  random: () => number = Math.random
+  hierarchy: FocusHierarchy
 ): T[] {
   const filtered: T[] = [];
 
-  for (const element of elements) {
+  // Sort elements by their focus area probability (descending)
+  const sortedElements = [...elements].sort((a, b) => {
+    const aProb = a.area
+      ? hierarchy.focusAreas.find(f => f.area === a.area)?.probability ?? 0.2
+      : 0.2;
+    const bProb = b.area
+      ? hierarchy.focusAreas.find(f => f.area === b.area)?.probability ?? 0.2
+      : 0.2;
+    return bProb - aProb;
+  });
+
+  for (const element of sortedElements) {
     // Get probability of focusing on this element's area
     const focusArea = element.area
       ? hierarchy.focusAreas.find(f => f.area === element.area)
@@ -530,8 +543,9 @@ export function filterByAttention<T extends { area?: FocusAreaType }>(
 
     const focusProbability = focusArea?.probability ?? 0.2;
 
-    // Probabilistic filtering
-    if (random() < focusProbability) {
+    // Deterministic filtering: include elements with probability >= 0.5
+    // or if they're in primary areas
+    if (focusProbability >= 0.5 || focusArea?.isPrimary) {
       filtered.push(element);
     }
 
