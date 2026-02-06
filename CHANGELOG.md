@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.5.0](https://github.com/alexandriashai/cbrowser/compare/v9.4.3...v9.5.0) (2026-02-06)
+
+
+### Added
+
+* **docker:** install all playwright browsers ([71f8bc2](https://github.com/alexandriashai/cbrowser/commit/71f8bc276f413d18d53c2445b28706524977a41d))
+
 ## [9.4.3](https://github.com/alexandriashai/cbrowser/compare/v9.4.2...v9.4.3) (2026-02-06)
 
 
