@@ -27,10 +27,15 @@ export interface ChaosConfig {
 
 /**
  * Apply chaos engineering conditions to browser.
+ * Returns a cleanup function that restores original state.
  */
-export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promise<void> {
+export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promise<() => Promise<void>> {
   const context = await (browser as any).context;
   const page = await (browser as any).getPage();
+
+  // Track what we modified for cleanup
+  const wasOffline = config.offline;
+  const hadRoutes = config.networkLatency || config.blockUrls || config.failApis;
 
   // Network conditions
   if (config.offline) {
@@ -38,7 +43,7 @@ export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promis
   }
 
   // Route interception for latency/failures
-  if (config.networkLatency || config.blockUrls || config.failApis) {
+  if (hadRoutes) {
     await page.route("**/*", async (route: any) => {
       const url = route.request().url();
 
@@ -71,10 +76,25 @@ export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promis
       await route.continue();
     });
   }
+
+  // Return cleanup function to restore original state
+  return async () => {
+    try {
+      if (wasOffline) {
+        await context.setOffline(false);
+      }
+      if (hadRoutes) {
+        await page.unroute("**/*");
+      }
+    } catch {
+      // Context may be closed, ignore cleanup errors
+    }
+  };
 }
 
 /**
  * Run chaos test - apply conditions and verify app resilience.
+ * Always cleans up chaos conditions after test completes (success or failure).
  */
 export async function runChaosTest(
   browser: CBrowser,
@@ -89,9 +109,11 @@ export async function runChaosTest(
 }> {
   const startTime = Date.now();
   const errors: string[] = [];
+  let cleanup: (() => Promise<void>) | null = null;
 
   try {
-    await applyChaos(browser, chaos);
+    // Apply chaos and get cleanup function
+    cleanup = await applyChaos(browser, chaos);
     await browser.navigate(url);
 
     // Execute actions
@@ -117,5 +139,10 @@ export async function runChaosTest(
       duration: Date.now() - startTime,
       screenshot: "",
     };
+  } finally {
+    // CRITICAL: Always restore network state after chaos test
+    if (cleanup) {
+      await cleanup();
+    }
   }
 }
