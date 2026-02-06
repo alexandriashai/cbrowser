@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# CBrowser PAI Skill Installer
+# CBrowser Claude Skill Installer
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
@@ -26,9 +26,7 @@ VERSION="7.4.8"
 
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║           CBrowser PAI Skill Installer v${VERSION}              ║"
-echo "║                                                               ║"
-echo "║   PAI: https://github.com/danielmiessler/Personal_AI_Infrastructure  ║"
+echo "║         CBrowser Claude Skill Installer v${VERSION}            ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -152,6 +150,5 @@ echo ""
 echo "  4. Start using CBrowser in Claude Code!"
 echo ""
 echo -e "${BLUE}Documentation:${NC} https://github.com/alexandriashai/cbrowser/wiki"
-echo -e "${BLUE}PAI Framework:${NC} https://github.com/danielmiessler/Personal_AI_Infrastructure"
 echo -e "${BLUE}Demo Server:${NC}   https://cbrowser-mcp-demo.wyldfyre.ai/mcp"
 echo ""

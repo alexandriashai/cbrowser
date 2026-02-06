@@ -556,7 +556,7 @@ Realistic attention simulation based on eye-tracking research. Different task ty
 ### Added
 - **`status` command** - `npx cbrowser status` shows environment diagnostics: data directories with file counts, installed Playwright browsers with versions, configuration, self-healing cache stats, session/baseline counts, and actionable suggestions (#11)
 - **`status` MCP tool** - Added to both stdio and remote MCP servers for AI agent diagnostics
-- **Skill CLI `status` command** - Equivalent diagnostics for the PAI skill
+- **Skill CLI `status` command** - Equivalent diagnostics for the Claude skill
 
 ## [7.4.11] - 2026-02-03
 

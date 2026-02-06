@@ -2,9 +2,9 @@
 
 ## Installation Options
 
-### Option 1: PAI Skill (Claude Code Users)
+### Option 1: Claude Skill (Claude Code Users)
 
-If you use [Claude Code](https://claude.ai/claude-code) with [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/Personal_AI_Infrastructure), install CBrowser as a skill:
+If you use [Claude Code](https://claude.ai/claude-code), install CBrowser as a skill:
 
 ```bash
 # One-line installation
@@ -27,7 +27,7 @@ npm install -g cbrowser
 npx playwright install
 ```
 
-See the [PAI Skill Installation wiki page](https://github.com/alexandriashai/cbrowser/wiki/PAI-Skill-Installation) for full details.
+See the [Claude Skill Installation wiki page](https://github.com/alexandriashai/cbrowser/wiki/Claude-Skill-Installation) for full details.
 
 ---
 

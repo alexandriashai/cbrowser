@@ -545,8 +545,8 @@ MCP SERVER (v5.0.0)
     --port <port>             Port to listen on (default: 3000)
     --host <host>             Host to bind to (default: 0.0.0.0)
 
-PAI SKILL INSTALLATION & SYNC
-  install-skill               Install CBrowser as a PAI skill to ~/.claude/skills/
+CLAUDE SKILL INSTALLATION & SYNC
+  install-skill               Install CBrowser as a Claude skill to ~/.claude/skills/
   sync-skill                  Sync local skill to match npm version (same as install-skill)
                               Downloads latest skill files from GitHub
                               Run after 'npm update -g cbrowser' to stay in sync
@@ -1081,7 +1081,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // Install/Sync PAI skill (both commands do the same thing)
+  // Install/Sync Claude skill (both commands do the same thing)
   if (command === "install-skill" || command === "sync-skill") {
     const { execSync } = await import("child_process");
     const path = await import("path");
@@ -1093,7 +1093,7 @@ async function main(): Promise<void> {
 
     console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║           CBrowser PAI Skill Sync (auto-versioned)            ║
+║         CBrowser Claude Skill Sync (auto-versioned)           ║
 ╚═══════════════════════════════════════════════════════════════╝
 `);
 
