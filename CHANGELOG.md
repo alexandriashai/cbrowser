@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.4.2](https://github.com/alexandriashai/cbrowser/compare/v9.4.1...v9.4.2) (2026-02-06)
+
+
+### Fixed
+
+* switch npm badge to shields.io for faster cache updates ([41c1c2a](https://github.com/alexandriashai/cbrowser/commit/41c1c2a242612e5ef0880152f4d9ac6a2fbd3171))
+
 ## [9.4.1](https://github.com/alexandriashai/cbrowser/compare/v9.4.0...v9.4.1) (2026-02-06)
 
 ## [9.4.0](https://github.com/alexandriashai/cbrowser/compare/v9.3.0...v9.4.0) (2026-02-06)
