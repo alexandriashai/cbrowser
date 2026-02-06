@@ -985,7 +985,7 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 }
 ```
 
-### Available MCP Tools (36 total)
+### Available MCP Tools (43 total)
 
 | Category | Tools |
 |----------|-------|
@@ -996,9 +996,23 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 | **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
 | **Personas** | `journey`, `compare_personas`, `create_persona`, `list_personas` |
 | **Cognitive** | `cognitive_journey_init`, `cognitive_journey_update_state`, `list_cognitive_personas` |
+| **Persona Comparison (Session Bridge)** | `compare_personas_init`, `compare_personas_record_result`, `compare_personas_summarize` |
 | **Sessions** | `save_session`, `load_session`, `list_sessions`, `delete_session` |
-| **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit`, `dismiss_overlay` |
+| **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit`, `dismiss_overlay`, `agent_ready_audit`, `competitive_benchmark`, `empathy_audit` |
 | **Utilities** | `heal_stats`, `list_baselines`, `status` |
+
+### API-Free Cognitive Features (v9.7.0+)
+
+When using CBrowser via MCP (Claude.ai or Claude Code), many cognitive features work **without an Anthropic API key** on the server:
+
+| Feature | via MCP | Standalone CLI |
+|---------|---------|----------------|
+| `cognitive_journey_init` / `update_state` | ❌ No API key needed | ❌ No API key needed |
+| `compare_personas_init` / `record` / `summarize` | ❌ No API key needed | N/A |
+| `compare_personas` (fire-and-forget) | ✅ API key required | ✅ API key required |
+| `cognitive-journey` CLI command | N/A | ✅ API key required |
+
+**How it works:** Session bridge tools return data/calculations, Claude provides the reasoning. The MCP server does math and browser automation; Claude IS the brain.
 
 See [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md) for full deployment instructions.
 
