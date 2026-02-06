@@ -1116,7 +1116,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: alexandriashai/cbrowser@v8
+      - uses: alexandriashai/cbrowser@v9
         with:
           test-file: tests/e2e/checkout.txt
           sensitivity: strict
