@@ -19,7 +19,7 @@
  *
  * Auth0 OAuth Environment Variables:
  *   AUTH0_DOMAIN - Your Auth0 tenant domain (e.g., 'your-tenant.auth0.com')
- *   AUTH0_AUDIENCE - API audience/identifier (e.g., 'https://cbrowser-mcp.wyldfyre.ai')
+ *   AUTH0_AUDIENCE - API audience/identifier (e.g., 'https://cbrowser-mcp.yourdomain.com')
  *   AUTH0_CLIENT_ID - Optional: Client ID for static registration
  */
 
@@ -220,7 +220,7 @@ function getProtectedResourceMetadata(): object | null {
     return null;
   }
 
-  const serverUrl = process.env.MCP_SERVER_URL || `https://cbrowser-mcp.wyldfyre.ai`;
+  const serverUrl = process.env.MCP_SERVER_URL || `https://localhost:${process.env.PORT || 3000}`;
 
   return {
     resource: serverUrl,
@@ -1959,9 +1959,9 @@ export async function startRemoteMcpServer(): Promise<void> {
       }
     }
     console.log(`\nFor claude.ai custom connector:`);
-    console.log(`  URL: https://cbrowser-mcp.wyldfyre.ai/mcp`);
+    console.log(`  URL: http://${host}:${port}/mcp`);
     if (auth0Enabled) {
-      console.log(`  OAuth metadata: https://cbrowser-mcp.wyldfyre.ai/.well-known/oauth-protected-resource`);
+      console.log(`  OAuth metadata: http://${host}:${port}/.well-known/oauth-protected-resource`);
     }
   });
 

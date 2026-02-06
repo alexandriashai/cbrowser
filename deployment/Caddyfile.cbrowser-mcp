@@ -1,7 +1,7 @@
 # CBrowser Remote MCP Server
 # Add this to your Caddyfile
 
-cbrowser-mcp.wyldfyre.ai {
+cbrowser-mcp.yourdomain.com {
     # Reverse proxy to MCP server
     reverse_proxy localhost:3100
 

@@ -72,9 +72,9 @@ Most browser automation tests if buttons click. CBrowser tests if **real humans*
 
 ## Quick Start
 
-### Option 1: PAI Skill Installation (Claude Code Users)
+### Option 1: Claude Code Skill Installation
 
-If you use [Claude Code](https://claude.ai/claude-code) with [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/Personal_AI_Infrastructure), install CBrowser as a skill:
+If you use [Claude Code](https://claude.ai/claude-code), install CBrowser as a skill for seamless AI-assisted browser automation:
 
 ```bash
 # One-line installation
@@ -87,7 +87,7 @@ npx cbrowser install-skill
 This installs CBrowser to `~/.claude/skills/CBrowser/` with full skill structure:
 - `SKILL.md` - Main skill file with workflow routing
 - `Workflows/` - Navigate, Interact, Extract, Test, Journey workflows
-- `Tools/CBrowser.ts` - CLI wrapper for PAI
+- `Tools/CBrowser.ts` - CLI wrapper
 - `.memory/` - Session, selector, and persona storage
 
 After installation, add to your `~/.claude/skills/skill-index.json`:
@@ -958,17 +958,11 @@ Connect claude.ai directly to a remote CBrowser server:
 1. Deploy CBrowser on your server ([full guide](docs/REMOTE-MCP-SERVER.md))
 2. In claude.ai: Settings > Connectors > Add Custom Connector
 3. Add URL: `https://your-cbrowser-domain.com/mcp`
-4. Configure OAuth with Auth0 ([setup guide](docs/AUTH0-SETUP.md))
 
 **Public Demo (rate-limited):** `https://cbrowser-mcp-demo.wyldfyre.ai/mcp`
 - No authentication required
 - Rate limit: 5 requests/minute, burst of 10
 - For evaluation purposes only
-
-**Authenticated Server:** `https://cbrowser-mcp.wyldfyre.ai/mcp`
-- **OAuth 2.1 via Auth0** - For claude.ai web interface ([setup guide](docs/AUTH0-SETUP.md))
-- **API Key** - For Claude Code CLI and programmatic access
-- No rate limits for authenticated users
 
 ### Local MCP (Claude Desktop)
 
@@ -1200,7 +1194,7 @@ See the [`examples/`](examples/) directory:
 - [`basic-usage.ts`](examples/basic-usage.ts) - Navigation, extraction, sessions
 - [`smart-automation.ts`](examples/smart-automation.ts) - Smart click, assertions, test generation
 - [`visual-testing.ts`](examples/visual-testing.ts) - AI visual regression, cross-browser, responsive, A/B comparison
-- [`remote-mcp.ts`](examples/remote-mcp.ts) - Remote MCP server, Auth0 OAuth, demo server setup
+- [`remote-mcp.ts`](examples/remote-mcp.ts) - Remote MCP server setup and demo server connection
 - [`cognitive-journey.ts`](examples/cognitive-journey.ts) - Cognitive user simulation with personas, abandonment, and friction detection
 
 ### Workflow Recipes

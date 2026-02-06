@@ -15,7 +15,7 @@ This guide walks you through setting up Auth0 authentication for the CBrowser Re
 2. Click **+ Create API**
 3. Configure:
    - **Name:** `CBrowser MCP API`
-   - **Identifier:** `https://cbrowser-mcp.wyldfyre.ai` (your server URL)
+   - **Identifier:** `https://cbrowser-mcp.yourdomain.com` (your server URL)
    - **Signing Algorithm:** RS256
 4. Click **Create**
 
@@ -54,7 +54,7 @@ Add under `[Service]`:
 
 ```ini
 Environment=AUTH0_DOMAIN=your-tenant.auth0.com
-Environment=AUTH0_AUDIENCE=https://cbrowser-mcp.wyldfyre.ai
+Environment=AUTH0_AUDIENCE=https://cbrowser-mcp.yourdomain.com
 Environment=AUTH0_CLIENT_ID=your-client-id
 ```
 
@@ -69,11 +69,11 @@ sudo systemctl restart cbrowser-mcp
 
 ```bash
 # Check protected resource metadata
-curl https://cbrowser-mcp.wyldfyre.ai/.well-known/oauth-protected-resource
+curl https://cbrowser-mcp.yourdomain.com/.well-known/oauth-protected-resource
 
 # Should return:
 {
-  "resource": "https://cbrowser-mcp.wyldfyre.ai",
+  "resource": "https://cbrowser-mcp.yourdomain.com",
   "authorization_servers": ["https://your-tenant.auth0.com"],
   "bearer_methods_supported": ["header"],
   "scopes_supported": ["openid", "profile", "cbrowser:read", "cbrowser:write"]
@@ -85,7 +85,7 @@ curl https://cbrowser-mcp.wyldfyre.ai/.well-known/oauth-protected-resource
 1. Go to [claude.ai](https://claude.ai)
 2. Open **Settings → Connectors**
 3. Click **Add custom connector**
-4. Enter: `https://cbrowser-mcp.wyldfyre.ai/mcp`
+4. Enter: `https://cbrowser-mcp.yourdomain.com/mcp`
 5. Claude will:
    - Fetch the OAuth metadata from `/.well-known/oauth-protected-resource`
    - Redirect you to Auth0 for authentication

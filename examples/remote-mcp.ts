@@ -1,5 +1,5 @@
 /**
- * CBrowser v7.4.6 Remote MCP Server Examples
+ * CBrowser Remote MCP Server Examples
  *
  * Demonstrates:
  * - Starting a remote MCP server
@@ -48,22 +48,21 @@ async function startRemoteMCPServer() {
 function claudeAISetup() {
   console.log("=== claude.ai Custom Connector Setup ===\n");
 
-  console.log("Demo Server (rate-limited, no auth):");
+  console.log("Public Demo Server (rate-limited, no auth):");
   console.log("  URL: https://cbrowser-mcp-demo.wyldfyre.ai/mcp");
   console.log("  Rate limit: 5 requests/minute, burst of 10");
   console.log("  Purpose: Evaluation only\n");
 
-  console.log("Authenticated Server (full access):");
-  console.log("  URL: https://cbrowser-mcp.wyldfyre.ai/mcp");
-  console.log("  Auth: Auth0 OAuth 2.1");
-  console.log("  Rate limit: None\n");
+  console.log("Self-hosted Server (with auth):");
+  console.log("  URL: https://your-server.com/mcp");
+  console.log("  Auth: Auth0 OAuth 2.1 or API key\n");
 
   console.log("Setup Steps:");
   console.log("  1. Go to claude.ai");
   console.log("  2. Open Settings -> Integrations -> Custom MCP Servers");
   console.log("  3. Add the server URL");
-  console.log("  4. Complete OAuth login when prompted (for authenticated server)");
-  console.log("  5. You now have 31 browser automation tools!\n");
+  console.log("  4. Complete OAuth login when prompted (if auth configured)");
+  console.log("  5. You now have 40 browser automation tools!\n");
 }
 
 /**
@@ -76,32 +75,13 @@ function apiKeyAuth() {
   console.log("  MCP_API_KEY=your-secret-key npx cbrowser mcp-remote\n");
 
   console.log("Client usage (Bearer token - recommended):");
-  console.log('  curl -H "Authorization: Bearer your-api-key" https://server/mcp\n');
+  console.log('  curl -H "Authorization: Bearer your-api-key" https://your-server/mcp\n');
 
   console.log("Client usage (X-API-Key header):");
-  console.log('  curl -H "X-API-Key: your-api-key" https://server/mcp\n');
+  console.log('  curl -H "X-API-Key: your-api-key" https://your-server/mcp\n');
 
   console.log("Generate a secure key:");
   console.log("  openssl rand -hex 32\n");
-}
-
-/**
- * Example: OAuth Protected Resource Metadata
- */
-function oauthMetadata() {
-  console.log("=== OAuth Protected Resource Metadata ===\n");
-
-  console.log("Endpoint: /.well-known/oauth-protected-resource\n");
-
-  console.log("Response example:");
-  const metadata = {
-    resource: "https://cbrowser-mcp.wyldfyre.ai",
-    authorization_servers: ["https://your-tenant.auth0.com"],
-    bearer_methods_supported: ["header"],
-    scopes_supported: ["openid", "profile", "cbrowser:read", "cbrowser:write"],
-  };
-  console.log(JSON.stringify(metadata, null, 2));
-  console.log();
 }
 
 /**
@@ -115,12 +95,7 @@ function healthCheck() {
   console.log("Response example:");
   const health = {
     status: "ok",
-    version: "7.4.6",
-    auth: true,
-    auth_methods: {
-      api_key: true,
-      oauth: true,
-    },
+    version: "9.3.0",
   };
   console.log(JSON.stringify(health, null, 2));
   console.log();
@@ -130,7 +105,6 @@ async function main() {
   await startRemoteMCPServer();
   claudeAISetup();
   apiKeyAuth();
-  oauthMetadata();
   healthCheck();
 }
 

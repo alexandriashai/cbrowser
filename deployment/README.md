@@ -30,21 +30,21 @@ sudo systemctl reload caddy
 
 ### 3. Set up DNS
 
-Point `cbrowser-mcp.wyldfyre.ai` to your server's IP address.
+Point `cbrowser-mcp-demo.wyldfyre.ai` to your server's IP address.
 
 ## Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
-| `https://cbrowser-mcp.wyldfyre.ai/mcp` | MCP endpoint for claude.ai |
-| `https://cbrowser-mcp.wyldfyre.ai/health` | Health check |
-| `https://cbrowser-mcp.wyldfyre.ai/info` | Server info |
+| `https://cbrowser-mcp-demo.wyldfyre.ai/mcp` | MCP endpoint for claude.ai |
+| `https://cbrowser-mcp-demo.wyldfyre.ai/health` | Health check |
+| `https://cbrowser-mcp-demo.wyldfyre.ai/info` | Server info |
 
 ## Claude.ai Custom Connector Setup
 
 1. Go to claude.ai Settings > Integrations > Custom Connectors
 2. Click "Add Connector"
-3. Enter URL: `https://cbrowser-mcp.wyldfyre.ai/mcp`
+3. Enter URL: `https://cbrowser-mcp-demo.wyldfyre.ai/mcp`
 4. Authentication: None (authless)
 5. Save and enable
 
@@ -77,13 +77,13 @@ curl http://localhost:3100/health
 ### Check if external access works
 
 ```bash
-curl https://cbrowser-mcp.wyldfyre.ai/health
+curl https://cbrowser-mcp-demo.wyldfyre.ai/health
 ```
 
 ### Test MCP connection
 
 ```bash
-curl -X POST https://cbrowser-mcp.wyldfyre.ai/mcp \
+curl -X POST https://cbrowser-mcp-demo.wyldfyre.ai/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}'
 ```

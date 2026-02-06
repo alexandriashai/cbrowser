@@ -239,7 +239,7 @@ import { capturePerformanceBaseline } from 'cbrowser/performance';
 - **Assertions**: Natural language condition checking
 - **Test Generation**: AI-powered test scenario creation
 - **MCP Server**: Claude Desktop integration via MCP protocol
-- **Remote MCP**: claude.ai integration with Auth0 OAuth (v7.4.6)
+- **Remote MCP**: claude.ai integration (v7.4.6)
 - **Visual Testing**: AI-powered visual regression, cross-browser, responsive (v7.x)
 - **Test Automation**: NL test suites, AI repair, flaky detection (v6.x)
 

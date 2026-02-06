@@ -282,18 +282,13 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-**Remote MCP Server (v7.4.6 - for claude.ai custom connectors):**
+**Remote MCP Server (for claude.ai custom connectors):**
 
 **Public Demo Server (rate-limited, no auth required):**
 ```
 URL: https://cbrowser-mcp-demo.wyldfyre.ai/mcp
 Rate limit: 5 requests/minute, burst of 10
 For evaluation purposes only
-```
-
-**Authenticated Server (production, requires Auth0 or API key):**
-```
-URL: https://cbrowser-mcp.wyldfyre.ai/mcp
 ```
 
 Start your own remote HTTP server:
@@ -314,7 +309,7 @@ AUTH0_DOMAIN=your-tenant.auth0.com AUTH0_AUDIENCE=https://your-server/ npx cbrow
 PORT=8080 npx cbrowser mcp-remote
 ```
 
-**Authentication Methods (v7.4.6):**
+**Authentication Methods:**
 
 *Auth0 OAuth (for claude.ai web interface):*
 - Supports OAuth 2.1 with PKCE
@@ -335,9 +330,8 @@ curl -H "X-API-Key: your-api-key" https://your-server/mcp
 
 For claude.ai custom connector setup:
 1. Go to claude.ai Settings > Integrations > Custom Connectors
-2. Add connector URL: `https://cbrowser-mcp.wyldfyre.ai/mcp`
-3. Complete the Auth0 OAuth login flow when prompted
-4. The connector will be enabled after successful authentication
+2. Add your server URL: `https://your-server.com/mcp`
+3. Complete the Auth0 OAuth login flow when prompted (if configured)
 
 See `docs/AUTH0-SETUP.md` in the npm package for full Auth0 configuration.
 
@@ -346,7 +340,6 @@ Endpoints:
 - `/health` - Health check (always open)
 - `/info` - Server info (always open)
 - `/.well-known/oauth-protected-resource` - OAuth metadata (if Auth0 configured)
-```
 
 | Category | MCP Tools |
 |----------|-----------|

@@ -317,7 +317,7 @@ curl -X POST https://cbrowser-mcp.yourdomain.com/mcp \
 
 ## Step 6: Connect to Claude.ai
 
-### Option A: With Auth0 OAuth (Recommended)
+### Option A: With Auth0 OAuth (Recommended for production)
 
 For secure authentication with claude.ai, set up Auth0 OAuth:
 
@@ -344,7 +344,7 @@ For a public demo server without authentication:
 4. Go to [claude.ai](https://claude.ai) → **Settings → Connectors**
 5. Add URL: `https://cbrowser-mcp.yourdomain.com/mcp`
 
-You should see 31+ CBrowser tools become available in Claude.
+You should see 40 CBrowser tools become available in Claude.
 
 ---
 
@@ -421,11 +421,6 @@ Both methods can be enabled simultaneously:
 
 **Protected Endpoints:**
 - `/mcp` - MCP endpoint (requires valid auth)
-
-**Additional security layers:**
-1. Rate limiting in nginx
-2. Cloudflare WAF rules
-3. IP whitelisting
 
 ### Rate Limiting
 
