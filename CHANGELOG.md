@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.6.0](https://github.com/alexandriashai/cbrowser/compare/v9.5.2...v9.6.0) (2026-02-06)
+
+
+### Added
+
+* replace random behavior with cognitive journeys and deterministic logic ([325226a](https://github.com/alexandriashai/cbrowser/commit/325226a3dc10830ae68e0c87f73df49540128dfd))
+
+
+### Fixed
+
+* **compare-personas:** replace random clicking with cognitive journeys ([3e3ff35](https://github.com/alexandriashai/cbrowser/commit/3e3ff35ac3be268b86ab36baf9ff7e6736c60344))
+
 ## [9.5.2](https://github.com/alexandriashai/cbrowser/compare/v9.5.1...v9.5.2) (2026-02-06)
 
 
