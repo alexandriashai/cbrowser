@@ -40,6 +40,7 @@ module.exports = {
   ignorePatterns: [
     "dist/",
     "node_modules/",
+    "tests/",
     "*.js",
     "*.cjs",
     "*.mjs",
