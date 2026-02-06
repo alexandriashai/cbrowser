@@ -8,9 +8,9 @@ LABEL org.opencontainers.image.description="CBrowser MCP Demo Server - Rate Limi
 
 WORKDIR /app
 
-# Install cbrowser from npm and matching Playwright browsers
+# Install cbrowser from npm and all Playwright browsers
 RUN npm install -g cbrowser \
-    && npx playwright install chromium
+    && npx playwright install chromium firefox webkit
 
 # Create non-root user for security
 RUN groupadd -r cbrowser && useradd -r -g cbrowser cbrowser \
