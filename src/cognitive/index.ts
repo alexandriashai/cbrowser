@@ -1,8 +1,18 @@
 /**
  * Cognitive Journey API Module
  *
- * Provides autonomous cognitive user simulation using Claude API directly.
- * This allows CBrowser to run cognitive journeys standalone without Claude Code.
+ * Provides cognitive user simulation with two modes:
+ *
+ * ## Mode 1: Claude Code Session (Recommended when inside Claude Code)
+ * When running via MCP inside Claude Code, use the step-by-step tools:
+ * - `cognitive_journey_init` - Initialize journey with persona
+ * - `cognitive_journey_update_state` - Track cognitive state after each action
+ * No API key needed - Claude Code itself is the reasoning engine.
+ *
+ * ## Mode 2: Standalone (API Key Required)
+ * When running standalone (CLI, CI/CD, scripts), uses Anthropic API directly:
+ * - `npx cbrowser cognitive-journey --persona X --start URL --goal "..."
+ * Requires: `npx cbrowser config set-api-key YOUR_KEY`
  *
  * @module cognitive
  */
@@ -104,6 +114,27 @@ export function isApiKeyConfigured(): boolean {
   return !!key && key.startsWith("sk-ant-");
 }
 
+/**
+ * Check if running inside Claude Code session (via MCP).
+ * In this mode, cognitive journeys can be driven by Claude Code itself
+ * without needing a separate API key.
+ */
+export function isClaudeCodeSession(): boolean {
+  // Check for MCP environment markers
+  return !!(
+    process.env.CLAUDE_CODE_SESSION ||
+    process.env.MCP_SERVER_NAME ||
+    process.env.CLAUDE_CODE
+  );
+}
+
+/**
+ * Check if cognitive features are available (either via API key or Claude Code session).
+ */
+export function isCognitiveAvailable(): boolean {
+  return isApiKeyConfigured() || isClaudeCodeSession();
+}
+
 // ============================================================================
 // Cognitive Journey Runner
 // ============================================================================
@@ -158,7 +189,10 @@ export async function runCognitiveJourney(
   const apiKey = getAnthropicApiKey();
   if (!apiKey) {
     throw new Error(
-      "Anthropic API key not configured. Run: npx cbrowser config set-api-key YOUR_KEY"
+      "Anthropic API key not configured.\n\n" +
+      "TWO OPTIONS:\n" +
+      "1. Inside Claude Code: Use MCP tools (cognitive_journey_init, cognitive_journey_update_state) - no API key needed\n" +
+      "2. Standalone/CLI: Run: npx cbrowser config set-api-key YOUR_KEY"
     );
   }
 

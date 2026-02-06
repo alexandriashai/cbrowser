@@ -43,6 +43,7 @@ import { getAccessibilityPersona, ACCESSIBILITY_PERSONAS } from "../personas.js"
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
+  isCognitiveAvailable,
 } from "../cognitive/index.js";
 
 // ============================================================================

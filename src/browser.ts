@@ -114,6 +114,8 @@ import { DEVICE_PRESETS, LOCATION_PRESETS, VIEWPORT_PRESETS } from "./types.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
+  isClaudeCodeSession,
+  isCognitiveAvailable,
 } from "./cognitive/index.js";
 
 // Browser-specific fast launch args for performance optimization

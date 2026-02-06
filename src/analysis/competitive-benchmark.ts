@@ -28,6 +28,7 @@ import {
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
+  isCognitiveAvailable,
 } from "../cognitive/index.js";
 
 // ============================================================================
