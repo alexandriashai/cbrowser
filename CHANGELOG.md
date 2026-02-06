@@ -6,6 +6,163 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [8.8.0](https://github.com/alexandriashai/cbrowser/compare/v8.7.3...v8.8.0) (2026-02-05)
+
+
+### Added
+
+* **browser:** custom dropdown/input handling for hidden elements ([5ff65fd](https://github.com/alexandriashai/cbrowser/commit/5ff65fdc9a43976ec7d9c348483dcf50b3e56a93))
+
+## [Unreleased]
+
+## [8.9.1](https://github.com/alexandriashai/cbrowser/compare/v8.9.0...v8.9.1) (2026-02-05)
+
+### Fixed
+
+* **browser:** `fill()` now correctly handles `<select>` elements using Playwright's `selectOption()` instead of `fill()`
+* **cognitive-journey:** AI now uses `fill` for dropdown/select elements instead of trying to click them
+* **cognitive-journey:** select element options are now shown in the prompt so AI knows available values
+
+### Added
+
+* **browser:** `getAvailableInputs()` now returns `options` array for select elements
+* **cognitive-journey:** improved prompt explicitly instructs AI to use `fill:FieldName:OptionValue` for dropdowns
+
+## [8.9.0](https://github.com/alexandriashai/cbrowser/compare/v8.8.0...v8.9.0) (2026-02-05)
+
+### Changed
+
+* **cli:** `journey` command renamed to `explore` (heuristic-based, free)
+* **cli:** `journey` remains as deprecated alias with warning
+* **cli:** improved help text clarifies `explore` vs `cognitive-journey` distinction
+* **version:** single source of truth - version now read from package.json at runtime
+* **package:** added `"type": "module"` for proper ESM support
+
+### Added
+
+* **browser:** click priority scoring prefers exact matches over fuzzy matches
+* **browser:** click avoids sticky nav elements when better candidates exist
+* **browser:** custom dropdown/input handling for hidden elements (Alpine.js, React Select, etc.)
+* **browser:** `isElementHidden()` - detects visually hidden elements (display:none, visibility:hidden, opacity:0, off-screen)
+* **browser:** `findCustomDropdownTrigger()` - finds visible UI trigger for hidden select elements
+* **browser:** `selectCustomDropdownOption()` - clicks trigger, waits for options, selects target
+* **browser:** `handleCustomDropdown()` - orchestrates custom dropdown interaction
+* **browser:** `handleCustomInput()` - handles hidden inputs with custom UI (datepickers, autocomplete)
+* **browser:** `fill()` now auto-detects hidden elements and uses custom handling strategies
+* **browser:** `findBestClickCandidate()` - scores click candidates by exact match, position, interactivity
+
+### Improved
+
+* **fill:** automatically detects Alpine.js/React Select/Vue Select style dropdowns and interacts with visible UI
+* **fill:** handles datepickers and other custom input components with hidden inputs
+* **click:** avoids clicking sticky nav when exact match exists in content area
+
+## [8.7.3](https://github.com/alexandriashai/cbrowser/compare/v8.7.2...v8.7.3) (2026-02-05)
+
+## [8.7.2](https://github.com/alexandriashai/cbrowser/compare/v8.7.1...v8.7.2) (2026-02-05)
+
+## [8.7.1](https://github.com/alexandriashai/cbrowser/compare/v8.7.0...v8.7.1) (2026-02-05)
+
+## [8.7.0](https://github.com/alexandriashai/cbrowser/compare/v8.6.1...v8.7.0) (2026-02-05)
+
+
+### Added
+
+* **browser:** automatic sticky element handling for reliable clicks ([c7cc2e8](https://github.com/alexandriashai/cbrowser/commit/c7cc2e8cfee5dc1fd842d25719311d1980ef9ebd))
+
+## [8.6.1](https://github.com/alexandriashai/cbrowser/compare/v8.6.0...v8.6.1) (2026-02-05)
+
+
+### Fixed
+
+* **mcp:** use VERSION constant for all version strings in remote MCP ([5e253d2](https://github.com/alexandriashai/cbrowser/commit/5e253d22d65453f053fc3f219e508072bf6e3d52))
+
+## [8.6.0](https://github.com/alexandriashai/cbrowser/compare/v8.5.3...v8.6.0) (2026-02-05)
+
+
+### Added
+
+* **mcp:** add cognitive journey tools to remote MCP server ([79bdbbe](https://github.com/alexandriashai/cbrowser/commit/79bdbbe1a213f7334adc460f6ef54d5f51fa7155))
+* **browser:** automatic sticky element handling - clicks work through sticky headers, navs, and floating elements
+* **browser:** `checkForInterception()` - detects if click would be intercepted by fixed/sticky element
+* **browser:** `handleStickyInterception()` - tries 3 strategies: scroll-to-safe-zone, hide-interceptor, force-js-click
+* **browser:** `findStickyElements()` - lists all position:fixed and position:sticky elements on page
+
+## [8.5.3](https://github.com/alexandriashai/cbrowser/compare/v8.5.2...v8.5.3) (2026-02-05)
+
+
+### Fixed
+
+* **status:** use executablePath instead of browser launch for speed ([2658c0d](https://github.com/alexandriashai/cbrowser/commit/2658c0d4b9aba8c6ae4989a86b08dc8ff7f8d5a4))
+
+## [8.5.2](https://github.com/alexandriashai/cbrowser/compare/v8.5.1...v8.5.2) (2026-02-05)
+
+## [8.5.1](https://github.com/alexandriashai/cbrowser/compare/v8.5.0...v8.5.1) (2026-02-05)
+
+## [8.5.0](https://github.com/alexandriashai/cbrowser/compare/v8.4.0...v8.5.0) (2026-02-05)
+
+
+### Added
+
+* **daemon:** add hover command for persistent session workflows ([5089870](https://github.com/alexandriashai/cbrowser/commit/50898704e775e6a9390b787c4b2661a4c0bb1976))
+
+## [8.4.0](https://github.com/alexandriashai/cbrowser/compare/v8.3.4...v8.4.0) (2026-02-05)
+
+
+### Added
+
+* **cognitive:** vision mode and hover-before-click for better accuracy ([b4be85d](https://github.com/alexandriashai/cbrowser/commit/b4be85d7078ff8dcfd9a2ed79c67c481748ff169))
+
+## [8.3.5](https://github.com/alexandriashai/cbrowser/compare/v8.3.4...v8.3.5) (2026-02-05)
+
+### Added
+
+* **cognitive:** Vision mode (`--vision`) - Send screenshots to Claude for visual understanding of pages
+* **cognitive:** Page content extraction - Claude now sees headings, paragraphs, and visible text, not just clickable elements
+* **cognitive:** Available elements display - Claude sees actual clickable elements on the page for better decision making
+* **browser:** `hover()` method - Hover over elements to reveal dropdown menus
+* **browser:** `hoverClick()` method - Smart hover-before-click that auto-detects and hovers parent menu triggers
+* **cognitive:** `hover:selector` action type - Explicit hover action for dropdown menus
+
+### Improved
+
+* **cognitive:** All clicks now use hover-first logic for better dropdown menu interaction
+* **cognitive:** System prompt includes action documentation and dropdown menu guidance
+* **browser:** `getAvailableClickables()` now public for cognitive journey element visibility
+
+## [8.3.4](https://github.com/alexandriashai/cbrowser/compare/v8.3.3...v8.3.4) (2026-02-05)
+
+
+### Fixed
+
+* **cognitive:** check click/fill results instead of always returning success ([9bd15ad](https://github.com/alexandriashai/cbrowser/commit/9bd15ad787f555657e597f1d24ebfad05ed6a87a))
+
+## [8.3.3](https://github.com/alexandriashai/cbrowser/compare/v8.3.2...v8.3.3) (2026-02-05)
+
+## [8.3.2](https://github.com/alexandriashai/cbrowser/compare/v8.3.0...v8.3.2) (2026-02-05)
+
+## [8.3.0](https://github.com/alexandriashai/cbrowser/compare/v8.2.4...v8.3.0) (2026-02-05)
+
+### Added
+- **Cognitive User Simulation** - Autonomous, goal-driven user simulation where AI acts as a realistic persona with cognitive traits (patience, risk tolerance, comprehension, persistence, curiosity, working memory, reading tendency)
+- **`cognitive-journey` CLI command** - Run standalone cognitive journeys with Anthropic API: `npx cbrowser cognitive-journey --persona first-timer --start https://example.com --goal "sign up"`
+- **3 new MCP tools for cognitive simulation**:
+  - `cognitive_journey_init` - Initialize a journey with persona, goal, and starting URL; returns cognitive profile, state, and abandonment thresholds
+  - `cognitive_journey_update_state` - Update cognitive state after actions; returns updated state and abandonment check
+  - `list_cognitive_personas` - List personas with their cognitive traits
+- **Cognitive traits system** - 7 traits define persona behavior: patience, riskTolerance, comprehension, persistence, curiosity, workingMemory, readingTendency
+- **Attention patterns** - 7 patterns simulate how different personas scan pages: targeted, f-pattern, z-pattern, exploratory, sequential, thorough, skim
+- **Decision styles** - 6 styles define how personas make choices: efficient, cautious, quick-tap, structured, deliberate, impulsive
+- **Abandonment detection** - Automatic detection of when a simulated user would give up (patience depleted, confusion exceeded, frustration threshold, loop detection, no progress)
+- **Cognitive state tracking** - Real-time tracking of patienceRemaining, confusionLevel, frustrationLevel, goalProgress, confidenceLevel
+- **Friction point detection** - Captures moments where users struggle with detailed monologue and screenshot
+- **API key configuration** - `npx cbrowser config set-api-key`, `show-api-key`, `remove-api-key`, `set-model` for standalone CLI usage
+- **Headless auto-detection** - Cognitive journeys automatically run headless on servers without displays
+
+### Changed
+- MCP tools count increased from 33 to 36 total
+- Updated version to v8.3.0
+
 ## [8.2.4](https://github.com/alexandriashai/cbrowser/compare/v8.2.3...v8.2.4) (2026-02-04)
 
 ## [8.2.3](https://github.com/alexandriashai/cbrowser/compare/v8.2.2...v8.2.3) (2026-02-04)

@@ -4,7 +4,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator, type ElementHandle } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 
@@ -1029,7 +1029,36 @@ export class CBrowser {
         return result;
       }
 
-      await element.click();
+      // Check for sticky element interception before clicking
+      const interception = await this.checkForInterception(element);
+
+      if (interception.intercepted && interception.interceptorSelector) {
+        if (options.verbose) {
+          console.log(`Sticky element detected: ${interception.interceptorInfo}`);
+        }
+
+        // Try to handle the interception
+        const handled = await this.handleStickyInterception(
+          element,
+          interception.interceptorSelector,
+          { verbose: options.verbose }
+        );
+
+        if (!handled.success) {
+          return {
+            success: false,
+            screenshot: await this.screenshot(),
+            message: `Click intercepted by sticky element (${interception.interceptorInfo}). ${handled.error || 'All mitigation strategies failed.'}`,
+          };
+        }
+
+        if (options.verbose) {
+          console.log(`Successfully clicked using strategy: ${handled.strategy}`);
+        }
+      } else {
+        // No interception, normal click
+        await element.click();
+      }
 
       // Wait for any navigation or network activity
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
@@ -1066,6 +1095,763 @@ export class CBrowser {
   }
 
   /**
+   * Hover over an element using AI-powered selector.
+   */
+  async hover(selector: string): Promise<ClickResult> {
+    const page = await this.getPage();
+
+    try {
+      const element = await this.findElement(selector);
+
+      if (!element) {
+        return {
+          success: false,
+          screenshot: await this.screenshot(),
+          message: `Element not found for hover: ${selector}`,
+        };
+      }
+
+      await element.hover();
+      // Wait a bit for any hover-triggered animations/menus
+      await page.waitForTimeout(300);
+
+      this.audit("hover", selector, "green", "success");
+
+      return {
+        success: true,
+        screenshot: await this.screenshot(),
+        message: `Hovered: ${selector}`,
+      };
+    } catch (error) {
+      this.audit("hover", selector, "green", "failure");
+
+      return {
+        success: false,
+        screenshot: await this.screenshot(),
+        message: `Failed to hover: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Check if a click on an element would be intercepted by a sticky/fixed element.
+   * Returns the intercepting element locator if found, null otherwise.
+   */
+  async checkForInterception(element: Locator): Promise<{ intercepted: boolean; interceptorSelector: string | null; interceptorInfo?: string }> {
+    const page = await this.getPage();
+
+    try {
+      const box = await element.boundingBox();
+      if (!box) {
+        return { intercepted: false, interceptorSelector: null };
+      }
+
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      // Get info about element at the click point using coordinates only
+      const result = await page.evaluate(([x, y]) => {
+        const topElement = document.elementFromPoint(x, y);
+        if (!topElement) return { intercepted: false, interceptorInfo: null, interceptorSelector: null };
+
+        // Build a selector for the top element
+        let selector = topElement.tagName.toLowerCase();
+        if (topElement.id) {
+          selector = `#${topElement.id}`;
+        } else if (topElement.className && typeof topElement.className === 'string') {
+          selector += `.${topElement.className.split(' ')[0]}`;
+        }
+
+        // Check if it's a sticky/fixed element (those are the problematic ones)
+        const style = getComputedStyle(topElement);
+        const isSticky = style.position === 'fixed' || style.position === 'sticky';
+
+        if (!isSticky) {
+          // Not a sticky element, let normal click handle it
+          return { intercepted: false, interceptorInfo: null, interceptorSelector: null };
+        }
+
+        // It's a sticky element - gather info
+        const info = {
+          tag: topElement.tagName.toLowerCase(),
+          id: topElement.id,
+          classes: topElement.className,
+          position: style.position,
+          zIndex: style.zIndex,
+          text: topElement.textContent?.slice(0, 50) || '',
+        };
+
+        return {
+          intercepted: true,
+          interceptorSelector: selector,
+          interceptorInfo: `${info.tag}${info.id ? '#' + info.id : ''}${info.classes && typeof info.classes === 'string' ? '.' + info.classes.split(' ')[0] : ''} (position: ${info.position}, z-index: ${info.zIndex})`
+        };
+      }, [centerX, centerY]);
+
+      return {
+        intercepted: result.intercepted,
+        interceptorSelector: result.interceptorSelector,
+        interceptorInfo: result.interceptorInfo || undefined
+      };
+    } catch {
+      // If check fails, assume not intercepted and let normal click try
+      return { intercepted: false, interceptorSelector: null };
+    }
+  }
+
+  /**
+   * Find all sticky/fixed positioned elements that could intercept clicks.
+   */
+  async findStickyElements(): Promise<Array<{ selector: string; position: string; rect: DOMRect }>> {
+    const page = await this.getPage();
+
+    return page.evaluate(() => {
+      const results: Array<{ selector: string; position: string; rect: DOMRect }> = [];
+      const allElements = Array.from(document.querySelectorAll('*'));
+
+      for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i];
+        const style = getComputedStyle(el);
+        if (style.position === 'fixed' || style.position === 'sticky') {
+          const rect = el.getBoundingClientRect();
+          // Only include elements that are visible and have size
+          if (rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none') {
+            let selector = el.tagName.toLowerCase();
+            if (el.id) selector += `#${el.id}`;
+            else if (el.className && typeof el.className === 'string') selector += `.${el.className.split(' ')[0]}`;
+
+            results.push({
+              selector,
+              position: style.position,
+              rect: rect.toJSON() as DOMRect,
+            });
+          }
+        }
+      }
+
+      return results;
+    });
+  }
+
+  /**
+   * Handle a sticky element intercepting a click by trying multiple strategies.
+   */
+  async handleStickyInterception(
+    element: Locator,
+    interceptorSelector: string,
+    options: { verbose?: boolean } = {}
+  ): Promise<{ success: boolean; strategy?: string; error?: string }> {
+    const page = await this.getPage();
+
+    // Strategy 1: Scroll element to viewport center (away from sticky headers/footers)
+    try {
+      if (options.verbose) console.log('  Trying strategy: scroll to safe zone');
+
+      await element.evaluate((el: Element) => {
+        const rect = el.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const targetY = rect.top + window.scrollY - (viewportHeight / 2) + (rect.height / 2);
+        window.scrollTo({ top: targetY, behavior: 'instant' });
+      });
+
+      await page.waitForTimeout(100);
+
+      // Check if still intercepted
+      const recheck = await this.checkForInterception(element);
+      if (!recheck.intercepted) {
+        await element.click();
+        return { success: true, strategy: 'scroll-to-safe-zone' };
+      }
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 2: Temporarily hide the interceptor
+    try {
+      if (options.verbose) console.log('  Trying strategy: hide interceptor');
+
+      const interceptor = page.locator(interceptorSelector).first();
+
+      // Store original display value and hide
+      const originalDisplay = await interceptor.evaluate((el: Element) => {
+        const style = (el as HTMLElement).style;
+        const original = style.display;
+        style.setProperty('display', 'none', 'important');
+        return original;
+      });
+
+      await page.waitForTimeout(50);
+
+      // Click the element
+      await element.click();
+
+      // Restore the interceptor
+      await interceptor.evaluate((el: Element, original: string) => {
+        (el as HTMLElement).style.display = original;
+      }, originalDisplay);
+
+      return { success: true, strategy: 'hide-interceptor' };
+    } catch (e) {
+      // Try to restore even on failure
+      const interceptor = page.locator(interceptorSelector).first();
+      await interceptor.evaluate((el: Element) => {
+        (el as HTMLElement).style.removeProperty('display');
+      }).catch(() => {});
+    }
+
+    // Strategy 3: Force JavaScript click (bypasses coordinate-based clicking)
+    try {
+      if (options.verbose) console.log('  Trying strategy: force JS click');
+
+      await element.evaluate((el: Element) => {
+        (el as HTMLElement).click();
+      });
+
+      return { success: true, strategy: 'force-js-click' };
+    } catch (e) {
+      return {
+        success: false,
+        error: `All strategies failed: ${e instanceof Error ? e.message : String(e)}`
+      };
+    }
+  }
+
+  // =========================================================================
+  // Custom Dropdown Handling (v8.8.0)
+  // Handles hidden <select> elements with custom dropdown UIs (Alpine.js, React Select, etc.)
+  // =========================================================================
+
+  /**
+   * Check if an element is visually hidden (but exists in DOM).
+   * Common patterns: display:none, visibility:hidden, opacity:0, zero dimensions,
+   * or positioned off-screen.
+   */
+  async isElementHidden(element: Locator): Promise<boolean> {
+    try {
+      const isHidden = await element.evaluate((el: Element) => {
+        const style = getComputedStyle(el);
+
+        // Check common hiding methods
+        if (style.display === 'none') return true;
+        if (style.visibility === 'hidden') return true;
+        if (style.opacity === '0') return true;
+
+        // Check for zero dimensions
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return true;
+
+        // Check for off-screen positioning
+        if (rect.right < 0 || rect.bottom < 0) return true;
+        if (rect.left > window.innerWidth || rect.top > window.innerHeight) return true;
+
+        // Check for clip-path hiding
+        if (style.clipPath === 'inset(100%)' || style.clip === 'rect(0, 0, 0, 0)') return true;
+
+        // Check for sr-only / screen-reader-only patterns
+        if (style.position === 'absolute' &&
+            (parseInt(style.width) === 1 || parseInt(style.height) === 1) &&
+            style.overflow === 'hidden') return true;
+
+        return false;
+      });
+
+      return isHidden;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Find the visible custom dropdown trigger associated with a hidden select.
+   * Uses multiple heuristics to locate the clickable UI element.
+   */
+  async findCustomDropdownTrigger(hiddenSelect: Locator): Promise<Locator | null> {
+    const page = await this.getPage();
+
+    try {
+      // Get info about the hidden select to help find its trigger
+      const selectInfo = await hiddenSelect.evaluate((el: Element) => {
+        const select = el as HTMLSelectElement;
+        return {
+          id: select.id,
+          name: select.name,
+          parentId: select.parentElement?.id,
+          parentClasses: select.parentElement?.className,
+          // Check for Alpine.js x-model binding
+          xModel: select.getAttribute('x-model'),
+          // Check for aria associations
+          ariaLabelledBy: select.getAttribute('aria-labelledby'),
+        };
+      });
+
+      // Strategy 1: Look for adjacent sibling that's visible (common Alpine pattern)
+      const adjacentTrigger = await page.evaluate((selectInfo) => {
+        let select: Element | null = null;
+
+        // Find the select by various methods
+        if (selectInfo.id) {
+          select = document.getElementById(selectInfo.id);
+        }
+        if (!select && selectInfo.name) {
+          select = document.querySelector(`select[name="${selectInfo.name}"]`);
+        }
+
+        if (!select) return null;
+
+        // Check next sibling
+        let sibling = select.nextElementSibling;
+        while (sibling) {
+          const style = getComputedStyle(sibling);
+          if (style.display !== 'none' && style.visibility !== 'hidden') {
+            // Check if it looks like a dropdown trigger
+            const hasClickIndicator = sibling.querySelector('[class*="chevron"], [class*="arrow"], [class*="caret"], svg') !== null;
+            const hasRole = sibling.getAttribute('role') === 'button' || sibling.getAttribute('role') === 'combobox';
+            const isButton = sibling.tagName === 'BUTTON';
+            const hasDropdownClass = /dropdown|select|trigger|toggle/i.test(sibling.className);
+
+            if (hasClickIndicator || hasRole || isButton || hasDropdownClass) {
+              // Return a selector for this element
+              if (sibling.id) return `#${sibling.id}`;
+              if (sibling.className) return `.${sibling.className.split(' ')[0]}`;
+              return null;
+            }
+          }
+          sibling = sibling.nextElementSibling;
+        }
+
+        return null;
+      }, selectInfo);
+
+      if (adjacentTrigger) {
+        const trigger = page.locator(adjacentTrigger).first();
+        if (await trigger.isVisible()) {
+          return trigger;
+        }
+      }
+
+      // Strategy 2: Look for parent container with click handler/dropdown classes
+      const parentTrigger = await page.evaluate((selectInfo) => {
+        let select: Element | null = null;
+
+        if (selectInfo.id) {
+          select = document.getElementById(selectInfo.id);
+        }
+        if (!select && selectInfo.name) {
+          select = document.querySelector(`select[name="${selectInfo.name}"]`);
+        }
+
+        if (!select) return null;
+
+        // Walk up to find a clickable parent container
+        let parent = select.parentElement;
+        let depth = 0;
+        while (parent && depth < 5) {
+          const style = getComputedStyle(parent);
+          if (style.display !== 'none' && style.visibility !== 'hidden') {
+            // Check for Alpine x-data (indicates interactive component)
+            const hasAlpineData = parent.hasAttribute('x-data');
+            const hasDropdownClass = /dropdown|select|combobox|listbox/i.test(parent.className);
+            const hasRole = parent.getAttribute('role') === 'combobox' || parent.getAttribute('role') === 'listbox';
+
+            if (hasAlpineData || hasDropdownClass || hasRole) {
+              // Look for a visible clickable child
+              const clickable = parent.querySelector('button, [role="button"], [tabindex="0"], div[class*="trigger"], div[class*="selected"]');
+              if (clickable) {
+                const clickableStyle = getComputedStyle(clickable);
+                if (clickableStyle.display !== 'none') {
+                  if ((clickable as HTMLElement).id) return `#${(clickable as HTMLElement).id}`;
+                  if (clickable.className) return `.${clickable.className.split(' ')[0]}`;
+                }
+              }
+
+              // If parent itself looks clickable
+              if (parent.id) return `#${parent.id}`;
+              if (parent.className) return `.${parent.className.split(' ')[0]}`;
+            }
+          }
+          parent = parent.parentElement;
+          depth++;
+        }
+
+        return null;
+      }, selectInfo);
+
+      if (parentTrigger) {
+        const trigger = page.locator(parentTrigger).first();
+        if (await trigger.isVisible()) {
+          return trigger;
+        }
+      }
+
+      // Strategy 3: Look for aria-controls or aria-labelledby relationships
+      if (selectInfo.ariaLabelledBy) {
+        const trigger = page.locator(`#${selectInfo.ariaLabelledBy}`).first();
+        if (await trigger.isVisible()) {
+          return trigger;
+        }
+      }
+
+      // Strategy 4: Find any visible element with matching x-model (Alpine.js)
+      if (selectInfo.xModel) {
+        const alpineTrigger = await page.evaluate((xModel) => {
+          // Look for visible elements with same x-model that aren't the select
+          const elements = Array.from(document.querySelectorAll(`[x-model="${xModel}"], [\\@click*="${xModel}"]`));
+          for (let i = 0; i < elements.length; i++) {
+            const el = elements[i];
+            if (el.tagName !== 'SELECT') {
+              const style = getComputedStyle(el);
+              if (style.display !== 'none' && style.visibility !== 'hidden') {
+                if (el.id) return `#${el.id}`;
+                if (el.className) return `.${el.className.split(' ')[0]}`;
+              }
+            }
+          }
+          return null;
+        }, selectInfo.xModel);
+
+        if (alpineTrigger) {
+          const trigger = page.locator(alpineTrigger).first();
+          if (await trigger.isVisible()) {
+            return trigger;
+          }
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Find and select an option in a custom dropdown.
+   * Opens the dropdown, waits for options, and clicks the target option.
+   */
+  async selectCustomDropdownOption(
+    trigger: Locator,
+    optionValue: string,
+    options: { timeout?: number; verbose?: boolean } = {}
+  ): Promise<{ success: boolean; strategy?: string; error?: string }> {
+    const page = await this.getPage();
+    const timeout = options.timeout ?? 5000;
+
+    try {
+      // Click the trigger to open the dropdown
+      if (options.verbose) console.log(`  Opening dropdown by clicking trigger`);
+      await trigger.click();
+
+      // Wait for dropdown options to appear
+      // Try multiple common patterns for option containers
+      const optionSelectors = [
+        // Alpine.js / Headless UI patterns
+        '[x-show]:not([x-show="false"])',
+        '[role="listbox"]',
+        '[role="menu"]',
+        '[role="option"]',
+        // Common class patterns
+        '[class*="dropdown-menu"]:not([class*="hidden"])',
+        '[class*="select-options"]',
+        '[class*="listbox-options"]',
+        '[class*="menu-items"]',
+        // Generic visible dropdown
+        '.dropdown-content:visible',
+        '.dropdown-options',
+        // React Select patterns
+        '[class*="menu"]',
+        '[class*="MenuList"]',
+      ];
+
+      await page.waitForTimeout(200); // Brief wait for animation
+
+      // Find the option with matching text
+      if (options.verbose) console.log(`  Looking for option: "${optionValue}"`);
+
+      // Strategy 1: Find by exact text match
+      const optionByText = page.getByRole('option', { name: optionValue });
+      if (await optionByText.isVisible({ timeout: 500 }).catch(() => false)) {
+        await optionByText.click();
+        return { success: true, strategy: 'role-option-exact' };
+      }
+
+      // Strategy 2: Find by partial text match in role=option
+      const optionByPartial = page.locator('[role="option"]').filter({ hasText: optionValue }).first();
+      if (await optionByPartial.isVisible({ timeout: 500 }).catch(() => false)) {
+        await optionByPartial.click();
+        return { success: true, strategy: 'role-option-partial' };
+      }
+
+      // Strategy 3: Find by li elements (common dropdown pattern)
+      const liOption = page.locator('li').filter({ hasText: optionValue }).first();
+      if (await liOption.isVisible({ timeout: 500 }).catch(() => false)) {
+        await liOption.click();
+        return { success: true, strategy: 'li-element' };
+      }
+
+      // Strategy 4: Find any clickable element with the text
+      const anyOption = page.locator(`text="${optionValue}"`).first();
+      if (await anyOption.isVisible({ timeout: 500 }).catch(() => false)) {
+        await anyOption.click();
+        return { success: true, strategy: 'text-match' };
+      }
+
+      // Strategy 5: Find by data-value attribute
+      const dataValueOption = page.locator(`[data-value="${optionValue}"], [value="${optionValue}"]`).first();
+      if (await dataValueOption.isVisible({ timeout: 500 }).catch(() => false)) {
+        await dataValueOption.click();
+        return { success: true, strategy: 'data-value' };
+      }
+
+      // If we couldn't find the option, close dropdown and report
+      await page.keyboard.press('Escape');
+
+      return {
+        success: false,
+        error: `Could not find option "${optionValue}" in dropdown`
+      };
+
+    } catch (e) {
+      // Try to close any open dropdown
+      await page.keyboard.press('Escape').catch(() => {});
+
+      return {
+        success: false,
+        error: `Custom dropdown selection failed: ${e instanceof Error ? e.message : String(e)}`
+      };
+    }
+  }
+
+  /**
+   * Handle filling a custom dropdown (hidden select with custom UI).
+   * Automatically detects and interacts with the visible dropdown component.
+   */
+  async handleCustomDropdown(
+    hiddenSelect: Locator,
+    value: string,
+    options: { verbose?: boolean } = {}
+  ): Promise<{ success: boolean; strategy?: string; error?: string }> {
+    if (options.verbose) console.log(`  Detected hidden select, looking for custom dropdown trigger`);
+
+    // Find the visible trigger element
+    const trigger = await this.findCustomDropdownTrigger(hiddenSelect);
+
+    if (!trigger) {
+      return {
+        success: false,
+        error: 'Could not find custom dropdown trigger for hidden select'
+      };
+    }
+
+    if (options.verbose) console.log(`  Found dropdown trigger`);
+
+    // Try to select the option
+    const result = await this.selectCustomDropdownOption(trigger, value, options);
+
+    return result;
+  }
+
+  /**
+   * Find the best click candidate from multiple matches.
+   * Prioritizes: exact text match > non-sticky elements > shorter text (closer match)
+   */
+  private async findBestClickCandidate(locator: Locator, searchText: string): Promise<Locator | null> {
+    const page = await this.getPage();
+    const count = await locator.count();
+
+    if (count === 0) return null;
+    if (count === 1) return locator.first();
+
+    // Score each candidate
+    const candidates: Array<{ index: number; score: number }> = [];
+    const searchLower = searchText.toLowerCase();
+
+    for (let i = 0; i < count; i++) {
+      const el = locator.nth(i);
+      let score = 0;
+
+      try {
+        const info = await el.evaluate((element: Element, search: string) => {
+          const text = element.textContent?.trim() || '';
+          const style = getComputedStyle(element);
+
+          // Check if element is in a sticky/fixed container
+          let inStickyContainer = false;
+          let parent: Element | null = element;
+          while (parent) {
+            const parentStyle = getComputedStyle(parent);
+            if (parentStyle.position === 'fixed' || parentStyle.position === 'sticky') {
+              inStickyContainer = true;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          // Check for exact text match vs partial
+          const textLower = text.toLowerCase();
+          const isExactMatch = textLower === search.toLowerCase();
+          const isPartialMatch = textLower.includes(search.toLowerCase());
+
+          // Get element role/type info
+          const tagName = element.tagName.toLowerCase();
+          const role = element.getAttribute('role');
+          const isInteractive = ['button', 'a', 'input', 'select'].includes(tagName) ||
+                               ['button', 'link', 'option'].includes(role || '');
+
+          return {
+            text,
+            textLength: text.length,
+            inStickyContainer,
+            isExactMatch,
+            isPartialMatch,
+            isInteractive,
+          };
+        }, searchLower);
+
+        // Scoring:
+        // +100: exact text match
+        // +50: not in sticky container
+        // +20: is interactive element
+        // -1 per extra character (prefer shorter matches)
+
+        if (info.isExactMatch) score += 100;
+        if (!info.inStickyContainer) score += 50;
+        if (info.isInteractive) score += 20;
+        score -= Math.abs(info.textLength - searchText.length);
+
+        candidates.push({ index: i, score });
+      } catch {
+        // If evaluation fails, give low score
+        candidates.push({ index: i, score: -1000 });
+      }
+    }
+
+    // Sort by score descending and return the best match
+    candidates.sort((a, b) => b.score - a.score);
+
+    if (candidates.length > 0 && candidates[0].score > -1000) {
+      return locator.nth(candidates[0].index);
+    }
+
+    return locator.first();
+  }
+
+  /**
+   * Hover then click - useful for dropdown menus that need hover to reveal items.
+   * ALWAYS hovers the parent menu and keeps it hovered while clicking the submenu item.
+   */
+  async hoverClick(
+    selector: string,
+    options: { force?: boolean; hoverParent?: string } = {}
+  ): Promise<ClickResult> {
+    const page = await this.getPage();
+
+    try {
+      // STEP 1: Detect the likely parent menu from selector text
+      // e.g., "International Admissions" → parent is likely "Admissions"
+      const selectorWords = selector.split(/\s+/);
+      const possibleParents = [
+        // Last word is often the parent menu name
+        selectorWords[selectorWords.length - 1],
+        // Common menu words
+        ...selectorWords.filter(w =>
+          ['Admissions', 'Academics', 'About', 'Resources', 'Campus', 'Student', 'Apply'].includes(w)
+        ),
+      ];
+
+      // STEP 2: Find and hover the parent menu trigger
+      let parentHovered = false;
+
+      if (options.hoverParent) {
+        await this.hover(options.hoverParent);
+        await page.waitForTimeout(400);
+        parentHovered = true;
+      } else {
+        for (const parentName of possibleParents) {
+          if (!parentName || parentName.length < 3) continue;
+
+          // Find the parent menu trigger
+          const parentSelectors = [
+            `nav a:text-is("${parentName}")`,
+            `header a:text-is("${parentName}")`,
+            `[role="menubar"] a:text-is("${parentName}")`,
+            `nav button:text-is("${parentName}")`,
+            `.nav-link:text-is("${parentName}")`,
+          ];
+
+          for (const ps of parentSelectors) {
+            try {
+              const parentEl = await page.$(ps);
+              if (parentEl) {
+                await parentEl.hover();
+                await page.waitForTimeout(500); // Wait for dropdown animation
+                parentHovered = true;
+                break;
+              }
+            } catch {
+              // Continue
+            }
+          }
+          if (parentHovered) break;
+        }
+      }
+
+      // STEP 3: While parent is hovered, find the target element
+      const element = await this.findElement(selector);
+
+      if (!element) {
+        // If not found, try generic nav hovering
+        if (!parentHovered) {
+          const navItems = await page.$$('nav > ul > li > a, [role="menubar"] > li > a');
+          for (const item of navItems.slice(0, 8)) {
+            try {
+              await item.hover();
+              await page.waitForTimeout(400);
+              const found = await this.findElement(selector);
+              if (found) {
+                await found.click();
+                await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+                this.audit("hoverClick", selector, "yellow", "success");
+                return {
+                  success: true,
+                  screenshot: await this.screenshot(),
+                  message: `Hover-clicked (nav scan): ${selector}`,
+                };
+              }
+            } catch {
+              // Continue
+            }
+          }
+        }
+
+        return {
+          success: false,
+          screenshot: await this.screenshot(),
+          message: `Element not found after hover attempts: ${selector}`,
+        };
+      }
+
+      // STEP 4: Click the element (parent should still be hovered)
+      await element.click();
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+
+      this.audit("hoverClick", selector, "yellow", "success");
+
+      return {
+        success: true,
+        screenshot: await this.screenshot(),
+        message: `Hover-clicked: ${selector}`,
+      };
+    } catch (error) {
+      this.audit("hoverClick", selector, "yellow", "failure");
+
+      return {
+        success: false,
+        screenshot: await this.screenshot(),
+        message: `Failed to hover-click: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
    * Fill a form field.
    */
   async fill(selector: string, value: string, options: { verbose?: boolean; debugDir?: string } = {}): Promise<ClickResult> {
@@ -1096,6 +1882,90 @@ export class CBrowser {
         return result;
       }
 
+      // Check if the element is hidden (custom dropdown/input pattern)
+      const isHidden = await this.isElementHidden(element);
+
+      if (isHidden) {
+        if (options.verbose) console.log(`  Element "${selector}" is hidden, checking for custom UI component`);
+
+        // Get the tag name to determine handling strategy
+        const tagName = await element.evaluate((el: Element) => el.tagName.toLowerCase());
+
+        if (tagName === 'select') {
+          // Hidden select with custom dropdown UI
+          const customResult = await this.handleCustomDropdown(element, value, options);
+
+          if (customResult.success) {
+            this.audit("fill", `${selector} (custom-dropdown:${customResult.strategy})`, "yellow", "success");
+            return {
+              success: true,
+              screenshot: await this.screenshot(),
+              message: `Filled custom dropdown: ${selector} (strategy: ${customResult.strategy})`,
+            };
+          } else {
+            // Fall through to try standard fill anyway
+            if (options.verbose) console.log(`  Custom dropdown handling failed: ${customResult.error}`);
+          }
+        } else if (tagName === 'input') {
+          // Hidden input - might be part of autocomplete, datepicker, etc.
+          const customResult = await this.handleCustomInput(element, value, options);
+
+          if (customResult.success) {
+            this.audit("fill", `${selector} (custom-input:${customResult.strategy})`, "yellow", "success");
+            return {
+              success: true,
+              screenshot: await this.screenshot(),
+              message: `Filled custom input: ${selector} (strategy: ${customResult.strategy})`,
+            };
+          }
+        }
+      }
+
+      // Check if this is a select element - requires selectOption instead of fill
+      const tagName = await element.evaluate((el: Element) => el.tagName.toLowerCase());
+
+      if (tagName === 'select') {
+        // For select elements, use selectOption
+        // Try to match by label text first, then by value
+        try {
+          await element.selectOption({ label: value });
+        } catch {
+          // If label match fails, try value match
+          try {
+            await element.selectOption({ value: value });
+          } catch {
+            // Try partial/case-insensitive label match
+            const options = await element.evaluate((el: Element) => {
+              const select = el as HTMLSelectElement;
+              return Array.from(select.options).map(o => ({
+                value: o.value,
+                text: o.text,
+              }));
+            });
+
+            const match = options.find(o =>
+              o.text.toLowerCase().includes(value.toLowerCase()) ||
+              o.value.toLowerCase().includes(value.toLowerCase())
+            );
+
+            if (match) {
+              await element.selectOption({ value: match.value });
+            } else {
+              throw new Error(`No option matching "${value}" in select. Available: ${options.map(o => o.text).join(', ')}`);
+            }
+          }
+        }
+
+        this.audit("fill", `${selector} (select)`, "yellow", "success");
+
+        return {
+          success: true,
+          screenshot: await this.screenshot(),
+          message: `Selected: ${value} in ${selector}`,
+        };
+      }
+
+      // Standard fill - works for visible inputs and textareas
       await element.fill(value);
 
       this.audit("fill", selector, "yellow", "success");
@@ -1126,6 +1996,118 @@ export class CBrowser {
       }
 
       return result;
+    }
+  }
+
+  /**
+   * Handle filling a custom input (hidden input with custom UI).
+   * Handles autocomplete, datepickers, custom text inputs, etc.
+   */
+  async handleCustomInput(
+    hiddenInput: Locator,
+    value: string,
+    options: { verbose?: boolean } = {}
+  ): Promise<{ success: boolean; strategy?: string; error?: string }> {
+    const page = await this.getPage();
+
+    try {
+      // Get input info to help find its visible counterpart
+      const inputInfo = await hiddenInput.evaluate((el: Element) => {
+        const input = el as HTMLInputElement;
+        return {
+          id: input.id,
+          name: input.name,
+          type: input.type,
+          ariaLabelledBy: input.getAttribute('aria-labelledby'),
+          xModel: input.getAttribute('x-model'),
+        };
+      });
+
+      // Strategy 1: Look for visible sibling input or wrapper
+      const adjacentVisible = await page.evaluate((inputInfo) => {
+        let input: Element | null = null;
+
+        if (inputInfo.id) input = document.getElementById(inputInfo.id);
+        if (!input && inputInfo.name) input = document.querySelector(`input[name="${inputInfo.name}"]`);
+
+        if (!input) return null;
+
+        // Check parent container for visible input
+        const parent = input.closest('[x-data], .form-group, .input-wrapper, .field-container');
+        if (parent) {
+          const visibleInputs = Array.from(parent.querySelectorAll('input:not([type="hidden"])'));
+          for (let i = 0; i < visibleInputs.length; i++) {
+            const vi = visibleInputs[i] as HTMLInputElement;
+            const style = getComputedStyle(vi);
+            if (style.display !== 'none' && style.visibility !== 'hidden') {
+              if (vi.id) return { selector: `#${vi.id}`, type: 'visible-input' };
+              if (vi.name) return { selector: `input[name="${vi.name}"]`, type: 'visible-input' };
+            }
+          }
+
+          // Check for text display element that might be the "face" of a custom input
+          const textDisplay = parent.querySelector('[contenteditable="true"], .editable, .input-display');
+          if (textDisplay) {
+            const style = getComputedStyle(textDisplay);
+            if (style.display !== 'none') {
+              if (textDisplay.id) return { selector: `#${textDisplay.id}`, type: 'contenteditable' };
+            }
+          }
+        }
+
+        return null;
+      }, inputInfo);
+
+      if (adjacentVisible) {
+        if (adjacentVisible.type === 'visible-input') {
+          const visibleInput = page.locator(adjacentVisible.selector).first();
+          await visibleInput.fill(value);
+          return { success: true, strategy: 'visible-sibling-input' };
+        } else if (adjacentVisible.type === 'contenteditable') {
+          const editableEl = page.locator(adjacentVisible.selector).first();
+          await editableEl.click();
+          await editableEl.fill(value);
+          return { success: true, strategy: 'contenteditable' };
+        }
+      }
+
+      // Strategy 2: For datepickers, try clicking the wrapper and typing
+      if (inputInfo.type === 'date' || inputInfo.type === 'datetime-local' || inputInfo.type === 'time') {
+        const wrapper = await page.evaluate((inputInfo) => {
+          let input: Element | null = null;
+          if (inputInfo.id) input = document.getElementById(inputInfo.id);
+          if (!input && inputInfo.name) input = document.querySelector(`input[name="${inputInfo.name}"]`);
+          if (!input) return null;
+
+          const parent = input.closest('.datepicker, .date-input, [class*="picker"]');
+          if (parent) {
+            if ((parent as HTMLElement).id) return `#${(parent as HTMLElement).id}`;
+          }
+          return null;
+        }, inputInfo);
+
+        if (wrapper) {
+          const wrapperEl = page.locator(wrapper).first();
+          await wrapperEl.click();
+          await page.keyboard.type(value);
+          return { success: true, strategy: 'datepicker-type' };
+        }
+      }
+
+      // Strategy 3: Set value directly via JavaScript (last resort)
+      await hiddenInput.evaluate((el: Element, val: string) => {
+        (el as HTMLInputElement).value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, value);
+
+      return { success: true, strategy: 'js-value-set' };
+
+    } catch (e) {
+      return {
+        success: false,
+        error: `Custom input handling failed: ${e instanceof Error ? e.message : String(e)}`
+      };
     }
   }
 
@@ -2165,10 +3147,12 @@ export class CBrowser {
 
   /**
    * Get all clickable elements on the page for verbose output.
+   * Public so cognitive journey can use it to show Claude what's clickable.
    */
-  private async getAvailableClickables(page: Page): Promise<Array<{ tag: string; text: string; selector: string; role?: string }>> {
+  async getAvailableClickables(page?: Page): Promise<Array<{ tag: string; text: string; selector: string; role?: string }>> {
+    const targetPage = page || await this.getPage();
     try {
-      return await page.$$eval('button, a, [role="button"], input[type="submit"], input[type="button"]', els =>
+      return await targetPage.$$eval('button, a, [role="button"], input[type="submit"], input[type="button"]', els =>
         els.slice(0, 15).map((el, i) => ({
           tag: el.tagName.toLowerCase(),
           text: (el as HTMLElement).innerText?.trim().substring(0, 60) || el.getAttribute("aria-label") || "",
@@ -2184,11 +3168,26 @@ export class CBrowser {
   /**
    * Get all input fields on the page for verbose output.
    */
-  private async getAvailableInputs(page: Page): Promise<Array<{ selector: string; type: string; name: string; placeholder: string; label: string }>> {
+  /**
+   * Get available form inputs on the page, including hidden ones with custom UI triggers.
+   * Public so cognitive journey can use it.
+   */
+  async getAvailableInputs(page?: Page): Promise<Array<{ selector: string; type: string; name: string; placeholder: string; label: string; isHidden?: boolean; triggerText?: string; options?: string[] }>> {
+    const activePage = page || await this.getPage();
     try {
-      return await page.$$eval('input, textarea, select', els =>
-        els.slice(0, 15).map(el => {
+      return await activePage.$$eval('input, textarea, select', els =>
+        els.slice(0, 20).map(el => {
           const input = el as HTMLInputElement;
+          const htmlEl = el as HTMLElement;
+
+          // Check if element is hidden (common with custom dropdowns)
+          const style = window.getComputedStyle(el);
+          const isHidden = style.display === 'none' ||
+                          style.visibility === 'hidden' ||
+                          parseFloat(style.opacity) === 0 ||
+                          htmlEl.offsetWidth === 0 ||
+                          htmlEl.offsetHeight === 0;
+
           // Find associated label
           let label = "";
           if (input.id) {
@@ -2198,12 +3197,48 @@ export class CBrowser {
           if (!label && input.closest("label")) {
             label = (input.closest("label") as HTMLElement).innerText?.trim().substring(0, 50) || "";
           }
+
+          // For hidden elements, try to find the visible trigger
+          let triggerText = "";
+          if (isHidden) {
+            // Look for sibling or parent with visible text (custom dropdown trigger)
+            const parent = el.parentElement;
+            if (parent) {
+              const siblings = Array.from(parent.children).filter(c => c !== el);
+              for (const sib of siblings) {
+                const sibStyle = window.getComputedStyle(sib);
+                if (sibStyle.display !== 'none' && (sib as HTMLElement).innerText?.trim()) {
+                  triggerText = (sib as HTMLElement).innerText.trim().substring(0, 50);
+                  break;
+                }
+              }
+            }
+            // Also check for aria-labelledby or data attributes
+            if (!triggerText) {
+              const ariaLabel = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby');
+              if (ariaLabel) triggerText = ariaLabel.substring(0, 50);
+            }
+          }
+
+          // For select elements, get available options
+          let options: string[] | undefined;
+          if (el.tagName.toLowerCase() === 'select') {
+            const selectEl = el as HTMLSelectElement;
+            options = Array.from(selectEl.options)
+              .filter(opt => opt.value && opt.text.trim()) // Skip empty/placeholder options
+              .slice(0, 10) // Limit to first 10 options
+              .map(opt => opt.text.trim());
+          }
+
           return {
             selector: input.id ? `#${input.id}` : input.name ? `[name="${input.name}"]` : input.placeholder ? `[placeholder="${input.placeholder}"]` : `${el.tagName.toLowerCase()}`,
             type: input.type || el.tagName.toLowerCase(),
             name: input.name || "",
             placeholder: input.placeholder || "",
             label,
+            isHidden,
+            triggerText,
+            options,
           };
         })
       );
@@ -2475,10 +3510,29 @@ export class CBrowser {
       return page.getByRole(role as any, { name }).first();
     }
 
-    // Strategy 3: Text content
-    const byText = page.getByText(selector, { exact: false }).first();
-    if (await byText.count() > 0) {
-      return byText;
+    // Strategy 3: Text content - prefer exact matches over fuzzy, non-sticky over sticky
+    // First, try exact text match
+    const byTextExact = page.getByText(selector, { exact: true });
+    const exactCount = await byTextExact.count();
+    if (exactCount > 0) {
+      // If multiple exact matches, prefer non-sticky elements
+      if (exactCount > 1) {
+        const bestMatch = await this.findBestClickCandidate(byTextExact, selector);
+        if (bestMatch) return bestMatch;
+      }
+      return byTextExact.first();
+    }
+
+    // Then try partial/fuzzy text match (but with sticky deprioritization)
+    const byTextFuzzy = page.getByText(selector, { exact: false });
+    const fuzzyCount = await byTextFuzzy.count();
+    if (fuzzyCount > 0) {
+      // If multiple fuzzy matches, prefer non-sticky elements and shorter/exact matches
+      if (fuzzyCount > 1) {
+        const bestMatch = await this.findBestClickCandidate(byTextFuzzy, selector);
+        if (bestMatch) return bestMatch;
+      }
+      return byTextFuzzy.first();
     }
 
     // Strategy 4: Placeholder

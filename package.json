@@ -1,7 +1,8 @@
 {
   "name": "cbrowser",
-  "version": "8.2.4",
-  "description": "AI-powered browser automation with constitutional safety, AI visual regression, persona testing, and natural language test suites. Modular architecture for visual, testing, analysis, and performance modules.",
+  "version": "8.9.1",
+  "type": "module",
+  "description": "Cognitive browser automation that thinks like your users. Simulate real user cognition with abandonment detection, constitutional safety, chaos engineering, and UX friction discovery.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -83,7 +84,7 @@
     "semantic-versioning"
   ],
   "author": "WF Media",
-  "license": "MIT",
+  "license": "BSL-1.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alexandriashai/cbrowser.git"
@@ -96,6 +97,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "jose": "^5.2.0",
     "playwright": "^1.40.0",

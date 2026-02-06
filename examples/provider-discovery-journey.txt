@@ -1,0 +1,58 @@
+# Test: Provider Discovery Journey
+# Persona: Curious first-timer exploring as potential provider
+# Goal: Understand platform and reach registration
+# Site: dev.blackbook.reviews
+
+# Step 1: Navigate and pass age verification
+go to https://dev.blackbook.reviews
+wait for "Adult Content" appears
+verify page contains "18+"
+click "I am 18 or older - Enter"
+wait 2 seconds
+
+# Step 2: Select provider role
+wait for "Welcome!" appears
+verify page contains "I'm a Provider"
+verify page contains "I'm a Client"
+verify page contains "Just Browsing"
+click "Get started"
+wait 3 seconds
+
+# Step 3: Explore homepage
+verify page contains "Grow your business"
+verify page contains "privacy built in"
+click "Accept All"
+wait 1 second
+
+# Step 4: Navigate to Providers directory
+click "Providers"
+wait for "Showing" appears
+verify page contains "providers"
+verify page contains "Filters"
+verify page contains "LOCATION"
+verify page contains "VERIFICATION"
+
+# Step 5: View a provider profile
+click "Wyld Fyre"
+wait for "Seductive" appears
+verify page contains "Send Message"
+verify page contains "Write a Review"
+verify page contains "About"
+verify page contains "Rates"
+verify page contains "Availability"
+verify page contains "Reviews"
+
+# Step 6: Navigate to registration
+click "Join"
+wait for "Registration Progress" appears
+verify page contains "Step 1 of 7"
+verify page contains "Account"
+verify page contains "Verify Email"
+verify page contains "Identity"
+verify page contains "Profile"
+verify page contains "Security"
+verify page contains "Provider"
+verify url contains "register"
+
+# Journey complete - provider can now start registration
+take screenshot

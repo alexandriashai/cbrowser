@@ -1,0 +1,40 @@
+{
+  "name": "Provider Discovery Journey",
+  "description": "Simulates a provider who found the site organically and explores with curiosity before potentially registering",
+  "persona": "first-timer",
+  "startUrl": "https://example.com",
+  "goal": "explore the site and decide whether to register as a provider",
+  "customTraits": {
+    "patience": 0.7,
+    "riskTolerance": 0.5,
+    "comprehension": 0.6,
+    "persistence": 0.6,
+    "curiosity": 0.8,
+    "workingMemory": 0.7,
+    "readingTendency": 0.6
+  },
+  "options": {
+    "maxSteps": 50,
+    "maxTime": 300000,
+    "verbose": true
+  },
+  "expectedBehaviors": [
+    "Explores homepage to understand what the site offers",
+    "Looks for provider-specific information",
+    "Reads about benefits and pricing",
+    "Investigates trust signals (reviews, testimonials)",
+    "May abandon if value proposition is unclear",
+    "May proceed to registration if convinced"
+  ],
+  "successCriteria": [
+    "Reaches provider registration page",
+    "OR makes informed decision to not register (legitimate abandonment)"
+  ],
+  "frictionPointsToWatch": [
+    "Unclear provider vs customer distinction",
+    "Hidden pricing information",
+    "Confusing navigation",
+    "Aggressive signup prompts",
+    "Missing social proof"
+  ]
+}

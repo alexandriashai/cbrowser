@@ -52,8 +52,197 @@ export interface Persona {
   };
   behaviors: Record<string, unknown>;
   humanBehavior?: HumanBehaviorParams;
+  cognitiveTraits?: CognitiveTraits;
   context?: {
     viewport?: [number, number];
+  };
+}
+
+// ============================================================================
+// Cognitive Simulation Types (v8.3.0)
+// ============================================================================
+
+/**
+ * Cognitive traits that define how a persona thinks and makes decisions.
+ * All values are 0.0 to 1.0.
+ */
+export interface CognitiveTraits {
+  /** How long before giving up (0 = abandons quickly, 1 = very patient) */
+  patience: number;
+  /** Willingness to click unfamiliar elements (0 = only obvious CTAs, 1 = explores freely) */
+  riskTolerance: number;
+  /** Ability to understand UI conventions (0 = struggles, 1 = instant comprehension) */
+  comprehension: number;
+  /** Tendency to retry vs try something else (0 = gives up, 1 = keeps trying same approach) */
+  persistence: number;
+  /** Tendency to explore vs stay focused (0 = tunnel vision, 1 = easily distracted) */
+  curiosity: number;
+  /** Remembers what they've tried (0 = forgets and repeats, 1 = tracks all attempts) */
+  workingMemory: number;
+  /** Reads content vs scans for CTAs (0 = visual scanner, 1 = reads everything) */
+  readingTendency: number;
+}
+
+/**
+ * Attention patterns that define how a persona visually scans pages.
+ */
+export type AttentionPatternType =
+  | "targeted"      // Goes directly to expected location
+  | "f-pattern"     // Horizontal top, then down left side
+  | "z-pattern"     // Top left → top right → bottom left → bottom right
+  | "exploratory"   // Random exploration, notices everything
+  | "sequential"    // Tab order, screen reader navigation
+  | "thorough"      // Everything, slowly
+  | "skim";         // Big elements only, minimal reading
+
+/**
+ * Decision styles that define how a persona makes click decisions.
+ */
+export type DecisionStyleType =
+  | "efficient"     // Takes optimal path, no hesitation (200-500ms)
+  | "cautious"      // Hovers first, reads, then decides (2-5s)
+  | "quick-tap"     // Taps what looks relevant quickly (300-800ms)
+  | "structured"    // Follows logical navigation order (1-3s)
+  | "deliberate"    // Reads everything, decides slowly (5-15s)
+  | "impulsive";    // Clicks first thing that seems right (100-300ms)
+
+/**
+ * Extended cognitive profile for a persona.
+ */
+export interface CognitiveProfile {
+  traits: CognitiveTraits;
+  attentionPattern: AttentionPatternType;
+  decisionStyle: DecisionStyleType;
+  /** Template for generating inner monologue */
+  innerVoiceTemplate?: string;
+}
+
+/**
+ * Runtime cognitive state during a journey simulation.
+ */
+export interface CognitiveState {
+  /** Remaining patience (starts at 1.0, depletes over time) */
+  patienceRemaining: number;
+  /** Current confusion level (0 = clear, 1 = completely lost) */
+  confusionLevel: number;
+  /** Current frustration level (0 = calm, 1 = very frustrated) */
+  frustrationLevel: number;
+  /** Goal progress (0 = not started, 1 = achieved) */
+  goalProgress: number;
+  /** Confidence in being on the right path */
+  confidenceLevel: number;
+  /** Current emotional state */
+  currentMood: "neutral" | "hopeful" | "confused" | "frustrated" | "defeated" | "relieved";
+  /** Memory of actions taken */
+  memory: CognitiveMemory;
+  /** Time elapsed in seconds */
+  timeElapsed: number;
+  /** Number of steps taken */
+  stepCount: number;
+}
+
+/**
+ * Memory tracking during cognitive simulation.
+ */
+export interface CognitiveMemory {
+  /** URLs visited */
+  pagesVisited: string[];
+  /** Actions attempted */
+  actionsAttempted: Array<{ action: string; target?: string; success: boolean }>;
+  /** Errors encountered */
+  errorsEncountered: Array<{ error: string; context: string }>;
+  /** Number of times user went "back" */
+  backtrackCount: number;
+}
+
+/**
+ * Abandonment thresholds for cognitive simulation.
+ */
+export interface AbandonmentThresholds {
+  /** Abandon if patience drops below this (default: 0.1) */
+  patienceMin: number;
+  /** Abandon if confusion exceeds this for 30+ seconds (default: 0.8) */
+  confusionMax: number;
+  /** Abandon if frustration exceeds this (default: 0.85) */
+  frustrationMax: number;
+  /** Abandon if no progress after this many steps (default: 10) */
+  maxStepsWithoutProgress: number;
+  /** Abandon if same page visited this many times (default: 3) */
+  loopDetectionThreshold: number;
+  /** Maximum time in seconds (default: 120) */
+  timeLimit: number;
+}
+
+/**
+ * A single decision made during cognitive simulation.
+ */
+export interface CognitiveDecision {
+  /** Action type */
+  action: "click" | "scroll" | "type" | "wait" | "back" | "abandon";
+  /** Target element (if applicable) */
+  target?: string;
+  /** Reasoning for this decision */
+  reasoning: string;
+  /** Confidence in this decision (0-1) */
+  confidence: number;
+  /** Alternatives considered */
+  alternatives: Array<{ action: string; rejectionReason: string }>;
+  /** Inner monologue for this step */
+  monologue: string;
+}
+
+/**
+ * Friction point identified during cognitive simulation.
+ */
+export interface FrictionPoint {
+  /** Step number where friction occurred */
+  step: number;
+  /** URL where friction occurred */
+  url: string;
+  /** Element that caused friction */
+  element?: string;
+  /** Type of friction */
+  type: "unclear_button" | "confusing_ui" | "form_error" | "slow_load" | "missing_element" | "other";
+  /** Frustration increase caused */
+  frustrationIncrease: number;
+  /** Inner monologue at this point */
+  monologue: string;
+  /** Screenshot path (if captured) */
+  screenshot?: string;
+}
+
+/**
+ * Result of a cognitive journey simulation.
+ */
+export interface CognitiveJourneyResult {
+  /** Persona used */
+  persona: string;
+  /** Goal attempted */
+  goal: string;
+  /** Whether goal was achieved */
+  goalAchieved: boolean;
+  /** If abandoned, why */
+  abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout";
+  /** Final abandonment message */
+  abandonmentMessage?: string;
+  /** Total time in seconds */
+  totalTime: number;
+  /** Number of steps taken */
+  stepCount: number;
+  /** Path efficiency (optimal steps / actual steps, if known) */
+  pathEfficiency?: number;
+  /** Friction points encountered */
+  frictionPoints: FrictionPoint[];
+  /** Full inner monologue */
+  fullMonologue: string[];
+  /** Final cognitive state */
+  finalState: CognitiveState;
+  /** Summary metrics */
+  summary: {
+    avgConfusionLevel: number;
+    maxFrustrationLevel: number;
+    backtrackCount: number;
+    timeInConfusion: number;
   };
 }
 
@@ -870,6 +1059,10 @@ export interface CBrowserConfigFile {
   recordVideo?: boolean;
   networkMocks?: NetworkMock[];
   performanceBudget?: PerformanceBudget;
+  /** Anthropic API key for autonomous cognitive journeys */
+  anthropicApiKey?: string;
+  /** Default Claude model for cognitive journeys (default: claude-sonnet-4-20250514) */
+  anthropicModel?: string;
 }
 
 // ============================================================================

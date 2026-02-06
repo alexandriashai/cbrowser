@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import type { Persona } from "./types.js";
+import type { Persona, CognitiveTraits, CognitiveProfile, AttentionPatternType, DecisionStyleType } from "./types.js";
 
 // ============================================================================
 // Custom Personas Storage
@@ -319,6 +319,9 @@ export function generatePersonaFromDescription(
     behaviors.short_sessions = true;
   }
 
+  // Generate cognitive traits based on analysis
+  const cognitiveTraits: CognitiveTraits = generateCognitiveTraitsFromDescription(descLower, techLevel, isImpatient, isSlow, hasVisionIssues, ageRange);
+
   return {
     name,
     description,
@@ -355,9 +358,226 @@ export function generatePersonaFromDescription(
         distractionRate,
       },
     },
+    cognitiveTraits,
     context: {
       viewport,
     },
+  };
+}
+
+// ============================================================================
+// Cognitive Traits Generation (v8.3.0)
+// ============================================================================
+
+/**
+ * Generate cognitive traits from a description analysis.
+ */
+function generateCognitiveTraitsFromDescription(
+  descLower: string,
+  techLevel: "beginner" | "intermediate" | "expert",
+  isImpatient: RegExpMatchArray | null,
+  isSlow: RegExpMatchArray | null,
+  hasVisionIssues: RegExpMatchArray | null,
+  ageRange: string
+): CognitiveTraits {
+  // Base traits by tech level
+  let patience = 0.5;
+  let riskTolerance = 0.5;
+  let comprehension = 0.5;
+  let persistence = 0.5;
+  let curiosity = 0.5;
+  let workingMemory = 0.5;
+  let readingTendency = 0.5;
+
+  // Adjust by tech level
+  if (techLevel === "expert") {
+    patience = 0.3;
+    riskTolerance = 0.9;
+    comprehension = 0.95;
+    persistence = 0.4;
+    curiosity = 0.2;
+    workingMemory = 0.9;
+    readingTendency = 0.1;
+  } else if (techLevel === "beginner") {
+    patience = 0.6;
+    riskTolerance = 0.3;
+    comprehension = 0.3;
+    persistence = 0.5;
+    curiosity = 0.7;
+    workingMemory = 0.4;
+    readingTendency = 0.8;
+  }
+
+  // Adjust for impatience
+  if (isImpatient) {
+    patience = Math.min(patience, 0.2);
+    persistence = Math.min(persistence, 0.2);
+    readingTendency = Math.min(readingTendency, 0.1);
+    riskTolerance = Math.max(riskTolerance, 0.7);
+  }
+
+  // Adjust for slow/careful users
+  if (isSlow) {
+    patience = Math.max(patience, 0.8);
+    riskTolerance = Math.min(riskTolerance, 0.2);
+    readingTendency = Math.max(readingTendency, 0.9);
+  }
+
+  // Adjust for elderly
+  if (ageRange === "65+") {
+    patience = Math.max(patience, 0.9);
+    riskTolerance = Math.min(riskTolerance, 0.15);
+    comprehension = Math.min(comprehension, 0.25);
+    workingMemory = Math.min(workingMemory, 0.35);
+    readingTendency = Math.max(readingTendency, 0.85);
+  }
+
+  // Adjust for vision issues (screen reader users)
+  if (hasVisionIssues) {
+    patience = Math.max(patience, 0.8);
+    comprehension = Math.max(comprehension, 0.7);  // They're experienced with a11y
+    workingMemory = Math.max(workingMemory, 0.9);
+    readingTendency = 1.0;  // Everything is read aloud
+    persistence = Math.max(persistence, 0.85);
+  }
+
+  // Check for specific traits in description
+  if (descLower.match(/curious|explor/)) {
+    curiosity = Math.max(curiosity, 0.8);
+  }
+  if (descLower.match(/nervous|anxious|worried|afraid/)) {
+    riskTolerance = Math.min(riskTolerance, 0.15);
+    patience = Math.max(patience, 0.7);
+  }
+  if (descLower.match(/confident|bold|experienced/)) {
+    riskTolerance = Math.max(riskTolerance, 0.8);
+    comprehension = Math.max(comprehension, 0.7);
+  }
+  if (descLower.match(/forgetful|distract|adhd/)) {
+    workingMemory = Math.min(workingMemory, 0.3);
+    curiosity = Math.max(curiosity, 0.7);
+  }
+
+  return {
+    patience,
+    riskTolerance,
+    comprehension,
+    persistence,
+    curiosity,
+    workingMemory,
+    readingTendency,
+  };
+}
+
+/**
+ * Create a cognitive persona with explicit trait values.
+ * Use this when you want fine-grained control over cognitive traits.
+ */
+export function createCognitivePersona(
+  name: string,
+  description: string,
+  traits: Partial<CognitiveTraits>,
+  options: {
+    techLevel?: "beginner" | "intermediate" | "expert";
+    device?: "desktop" | "mobile" | "tablet";
+    ageRange?: string;
+    attentionPattern?: AttentionPatternType;
+    decisionStyle?: DecisionStyleType;
+    innerVoiceTemplate?: string;
+  } = {}
+): Persona {
+  // Start with a base persona from description
+  const basePersona = generatePersonaFromDescription(name, description);
+
+  // Merge provided traits with defaults
+  const cognitiveTraits: CognitiveTraits = {
+    patience: traits.patience ?? basePersona.cognitiveTraits?.patience ?? 0.5,
+    riskTolerance: traits.riskTolerance ?? basePersona.cognitiveTraits?.riskTolerance ?? 0.5,
+    comprehension: traits.comprehension ?? basePersona.cognitiveTraits?.comprehension ?? 0.5,
+    persistence: traits.persistence ?? basePersona.cognitiveTraits?.persistence ?? 0.5,
+    curiosity: traits.curiosity ?? basePersona.cognitiveTraits?.curiosity ?? 0.5,
+    workingMemory: traits.workingMemory ?? basePersona.cognitiveTraits?.workingMemory ?? 0.5,
+    readingTendency: traits.readingTendency ?? basePersona.cognitiveTraits?.readingTendency ?? 0.5,
+  };
+
+  // Update demographics if provided
+  if (options.techLevel) {
+    basePersona.demographics.tech_level = options.techLevel;
+  }
+  if (options.device) {
+    basePersona.demographics.device = options.device;
+  }
+  if (options.ageRange) {
+    basePersona.demographics.age_range = options.ageRange;
+  }
+
+  // Store attention pattern and decision style in behaviors
+  if (options.attentionPattern) {
+    basePersona.behaviors.attentionPattern = options.attentionPattern;
+  }
+  if (options.decisionStyle) {
+    basePersona.behaviors.decisionStyle = options.decisionStyle;
+  }
+  if (options.innerVoiceTemplate) {
+    basePersona.behaviors.innerVoiceTemplate = options.innerVoiceTemplate;
+  }
+
+  basePersona.cognitiveTraits = cognitiveTraits;
+
+  return basePersona;
+}
+
+/**
+ * Get the cognitive profile for a persona.
+ * Returns cognitive traits plus attention pattern and decision style.
+ */
+export function getCognitiveProfile(persona: Persona): CognitiveProfile {
+  // Derive attention pattern from humanBehavior.attention.pattern or behaviors
+  let attentionPattern: AttentionPatternType = "f-pattern";
+  if (persona.humanBehavior?.attention?.pattern) {
+    const pattern = persona.humanBehavior.attention.pattern;
+    if (pattern === "skim") attentionPattern = "skim";
+    else if (pattern === "thorough") attentionPattern = "thorough";
+    else if (pattern === "f-pattern") attentionPattern = "f-pattern";
+    else if (pattern === "z-pattern") attentionPattern = "z-pattern";
+  }
+  if (persona.behaviors.attentionPattern) {
+    attentionPattern = persona.behaviors.attentionPattern as AttentionPatternType;
+  }
+
+  // Derive decision style from traits
+  let decisionStyle: DecisionStyleType = "cautious";
+  const traits = persona.cognitiveTraits;
+  if (traits) {
+    if (traits.patience < 0.3 && traits.riskTolerance > 0.6) {
+      decisionStyle = "impulsive";
+    } else if (traits.comprehension > 0.8 && traits.patience < 0.4) {
+      decisionStyle = "efficient";
+    } else if (traits.riskTolerance < 0.3) {
+      decisionStyle = "cautious";
+    } else if (traits.readingTendency > 0.8 && traits.patience > 0.7) {
+      decisionStyle = "deliberate";
+    } else if (persona.demographics.device === "mobile") {
+      decisionStyle = "quick-tap";
+    }
+  }
+  if (persona.behaviors.decisionStyle) {
+    decisionStyle = persona.behaviors.decisionStyle as DecisionStyleType;
+  }
+
+  return {
+    traits: traits || {
+      patience: 0.5,
+      riskTolerance: 0.5,
+      comprehension: 0.5,
+      persistence: 0.5,
+      curiosity: 0.5,
+      workingMemory: 0.5,
+      readingTendency: 0.5,
+    },
+    attentionPattern,
+    decisionStyle,
+    innerVoiceTemplate: persona.behaviors.innerVoiceTemplate as string | undefined,
   };
 }
 
@@ -407,6 +627,15 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         distractionRate: 0.1,
       },
     },
+    cognitiveTraits: {
+      patience: 0.3,          // Low - expects things to work
+      riskTolerance: 0.9,     // High - clicks confidently
+      comprehension: 0.95,    // Expert - knows all conventions
+      persistence: 0.4,       // Low - switches approaches quickly
+      curiosity: 0.2,         // Low - stays focused on goal
+      workingMemory: 0.9,     // High - never repeats attempts
+      readingTendency: 0.1,   // Low - scans for shortcuts
+    },
     context: {
       viewport: [1920, 1080],
     },
@@ -452,6 +681,15 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         focusAreas: ["header", "text", "images"],
         distractionRate: 0.3,
       },
+    },
+    cognitiveTraits: {
+      patience: 0.6,          // Medium - willing to learn
+      riskTolerance: 0.3,     // Low - hesitates before clicking
+      comprehension: 0.3,     // Low - doesn't know conventions
+      persistence: 0.5,       // Medium - tries a few times
+      curiosity: 0.7,         // High - explores the interface
+      workingMemory: 0.4,     // Medium - might repeat mistakes
+      readingTendency: 0.8,   // High - reads tooltips and help
     },
     context: {
       viewport: [1280, 800],
@@ -499,6 +737,15 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         distractionRate: 0.4,
       },
     },
+    cognitiveTraits: {
+      patience: 0.4,          // Low - mobile = quick tasks
+      riskTolerance: 0.6,     // Medium - taps somewhat freely
+      comprehension: 0.6,     // Medium - knows mobile patterns
+      persistence: 0.3,       // Low - gives up if fiddly
+      curiosity: 0.3,         // Low - wants to complete and go
+      workingMemory: 0.5,     // Medium
+      readingTendency: 0.3,   // Low - minimal reading on mobile
+    },
     context: {
       viewport: [375, 812], // iPhone X dimensions
     },
@@ -544,6 +791,15 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         focusAreas: ["header", "text"],
         distractionRate: 0.15,
       },
+    },
+    cognitiveTraits: {
+      patience: 0.8,          // High - used to slow navigation
+      riskTolerance: 0.5,     // Medium - careful but experienced
+      comprehension: 0.8,     // High - expert at a11y patterns
+      persistence: 0.9,       // High - determination required
+      curiosity: 0.2,         // Low - structured navigation
+      workingMemory: 0.9,     // High - mental model essential
+      readingTendency: 1.0,   // Full - ALL content is read aloud
     },
     context: {
       viewport: [1280, 800],
@@ -591,6 +847,15 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         distractionRate: 0.2,
       },
     },
+    cognitiveTraits: {
+      patience: 0.9,          // High - not in a rush
+      riskTolerance: 0.1,     // Very low - afraid of mistakes
+      comprehension: 0.2,     // Low - unfamiliar with modern UI
+      persistence: 0.7,       // High - determined but confused
+      curiosity: 0.1,         // Very low - just wants to finish
+      workingMemory: 0.3,     // Low - may forget steps
+      readingTendency: 0.9,   // High - reads everything carefully
+    },
     context: {
       viewport: [1280, 800],
     },
@@ -636,6 +901,15 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         focusAreas: ["cta", "prices"],
         distractionRate: 0.5,
       },
+    },
+    cognitiveTraits: {
+      patience: 0.1,          // Very low - abandons instantly
+      riskTolerance: 0.8,     // High - clicks first thing
+      comprehension: 0.5,     // Medium
+      persistence: 0.1,       // Very low - one strike and out
+      curiosity: 0.1,         // Very low - no time to explore
+      workingMemory: 0.6,     // Medium
+      readingTendency: 0.05,  // Almost none - scanning only
     },
     context: {
       viewport: [1280, 800],

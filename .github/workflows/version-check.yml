@@ -1,0 +1,77 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'CHANGELOG.md'
+
+jobs:
+  version-check:
+    name: Check Version Consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get local version
+        id: local
+        run: |
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          echo "Local version: $LOCAL_VERSION"
+
+      - name: Get npm published version
+        id: npm
+        run: |
+          NPM_VERSION=$(npm view cbrowser version 2>/dev/null || echo "0.0.0")
+          echo "version=$NPM_VERSION" >> $GITHUB_OUTPUT
+          echo "npm published version: $NPM_VERSION"
+
+      - name: Compare versions
+        run: |
+          LOCAL="${{ steps.local.outputs.version }}"
+          NPM="${{ steps.npm.outputs.version }}"
+
+          echo "📦 Local package.json: $LOCAL"
+          echo "📦 npm published:      $NPM"
+
+          # Version should be >= npm version (can be higher for pending release)
+          if [ "$LOCAL" = "$NPM" ]; then
+            echo "✅ Versions match"
+          else
+            # Check if local is higher (valid for pending release)
+            LOCAL_MAJOR=$(echo $LOCAL | cut -d. -f1)
+            LOCAL_MINOR=$(echo $LOCAL | cut -d. -f2)
+            LOCAL_PATCH=$(echo $LOCAL | cut -d. -f3)
+            NPM_MAJOR=$(echo $NPM | cut -d. -f1)
+            NPM_MINOR=$(echo $NPM | cut -d. -f2)
+            NPM_PATCH=$(echo $NPM | cut -d. -f3)
+
+            if [ "$LOCAL_MAJOR" -gt "$NPM_MAJOR" ] || \
+               ([ "$LOCAL_MAJOR" -eq "$NPM_MAJOR" ] && [ "$LOCAL_MINOR" -gt "$NPM_MINOR" ]) || \
+               ([ "$LOCAL_MAJOR" -eq "$NPM_MAJOR" ] && [ "$LOCAL_MINOR" -eq "$NPM_MINOR" ] && [ "$LOCAL_PATCH" -gt "$NPM_PATCH" ]); then
+              echo "⚠️ Local version ($LOCAL) is ahead of npm ($NPM) - OK for pending release"
+            else
+              echo "❌ ERROR: Local version ($LOCAL) is behind npm ($NPM)"
+              echo "Run 'git pull origin main' to sync with remote"
+              exit 1
+            fi
+          fi
+
+      - name: Check CHANGELOG has entry
+        run: |
+          VERSION="${{ steps.local.outputs.version }}"
+          if grep -q "## \[$VERSION\]" CHANGELOG.md || grep -q "## \[v$VERSION\]" CHANGELOG.md; then
+            echo "✅ CHANGELOG.md has entry for v$VERSION"
+          else
+            echo "⚠️ WARNING: CHANGELOG.md missing entry for v$VERSION"
+            echo "Consider adding release notes"
+          fi

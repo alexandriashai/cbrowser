@@ -1,26 +1,34 @@
-# Journey Workflow
+# Explore Workflow (formerly "Journey")
 
-Run complete user journeys with personas pursuing goals autonomously.
+Quick, heuristic-based site exploration. **Free, no API needed.**
+
+> **Looking for realistic user simulation?** Use [CognitiveJourney.md](./CognitiveJourney.md) instead — it tracks patience, frustration, and can realistically abandon.
 
 ---
 
 ## Trigger
 
-- "journey", "user journey", "flow"
-- "run as persona", "simulate user"
-- `bun run Tools/CBrowser.ts journey <persona> --goal <goal>`
+- "explore", "quick explore", "heuristic exploration"
+- "run as persona", "simulate user" (simple mode)
+- `cbrowser explore <persona> --start <url> --goal <goal>`
 
 ---
 
-## What is a Journey?
+## What is Explore?
 
-A journey is an **autonomous, goal-driven exploration** where:
-- A persona with specific characteristics
-- Tries to accomplish a goal
-- Makes decisions as that persona would
-- Reports on friction, confusion, and success
+Explore is a **fast, rule-based exploration** where:
+- A persona with specific timing characteristics
+- Tries to accomplish a goal using heuristics
+- Makes decisions based on built-in rules
+- Reports on friction points discovered
 
-Unlike test scenarios (scripted steps), journeys are **AI-driven** and discover the path themselves.
+**Key difference from cognitive-journey:**
+| Aspect | explore | cognitive-journey |
+|--------|---------|-------------------|
+| Intelligence | Rule-based heuristics | Claude API reasoning |
+| Cost | Free | API tokens |
+| Abandonment | Timer/step limit only | Realistic frustration-based |
+| Cognitive state | None | Patience, confusion, mood |
 
 ---
 

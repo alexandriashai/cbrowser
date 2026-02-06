@@ -32,12 +32,27 @@ import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
-import { getStatusInfo, formatStatus } from "./config.js";
+import { getStatusInfo, formatStatus, getDataDir } from "./config.js";
+import {
+  runCognitiveJourney,
+  getAnthropicApiKey,
+  setAnthropicApiKey,
+  removeAnthropicApiKey,
+  isApiKeyConfigured,
+} from "./cognitive/index.js";
+
+// Version from package.json - single source of truth
+import { VERSION } from "./version.js";
 
 function showHelp(): void {
+  // Pad version string to maintain banner alignment
+  const versionStr = `CBrowser CLI v${VERSION}`;
+  const padding = ' '.repeat(Math.max(0, (80 - 2 - versionStr.length) / 2));
+  const rightPadding = ' '.repeat(Math.max(0, 80 - 2 - padding.length - versionStr.length));
+
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                           CBrowser CLI                                       ║
+║${padding}${versionStr}${rightPadding}║
 ║    AI-powered browser automation with cross-browser visual testing          ║
 ║    Semantic Versioning: https://semver.org/                                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -59,11 +74,38 @@ INTERACTION
 EXTRACTION
   extract <what>              Extract data (links, images, headings, forms)
 
-AUTONOMOUS JOURNEYS
-  journey <persona>           Run autonomous exploration
+SITE EXPLORATION (Free, heuristic-based)
+  explore <persona>           Quick autonomous exploration using built-in heuristics
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish
-    --record-video            Record journey as video
+    --record-video            Record exploration as video
+    Note: No API key needed. Uses rule-based navigation - fast but not "smart".
+
+COGNITIVE JOURNEY (API-powered, realistic user simulation)
+  cognitive-journey           Simulate a real user with emotions, patience, and abandonment
+    --persona <name>          Persona name or description (default: first-timer)
+    --start <url>             Starting URL (required)
+    --goal <goal>             Goal statement (required)
+    --max-steps <n>           Maximum steps before timeout (default: 50)
+    --max-time <s>            Maximum time in seconds (default: 120)
+    --verbose                 Show step-by-step narration and internal monologue
+    --vision                  Enable vision mode - send screenshots to Claude (more accurate)
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+
+    Why use this over 'explore'?
+      • Tracks cognitive state: patience, frustration, confusion
+      • Can realistically abandon: "This is too confusing, I give up"
+      • Makes human-like mistakes based on persona traits
+      • Costs API tokens but provides genuine UX insights
+
+    Examples:
+      cbrowser cognitive-journey --start "https://example.com" \\
+        --goal "Sign up for an account" --persona first-timer
+      cbrowser cognitive-journey --start "https://shop.example.com" \\
+        --goal "Find and purchase a blue shirt" --persona elderly-user --verbose
+
+    Note: Requires Anthropic API key. Set with: cbrowser config set-api-key <key>
 
 MULTI-PERSONA COMPARISON (v6.0.0)
   compare-personas            Compare multiple personas on the same journey
@@ -480,6 +522,12 @@ DAEMON MODE (v6.4.0)
     Note: When daemon is running, all commands automatically connect to it
           instead of launching a new browser - much faster for iteration!
 
+API CONFIGURATION (v8.0.0)
+  config set-api-key <key>    Set Anthropic API key for cognitive journeys
+  config show-api-key         Show configured API key (masked)
+  config remove-api-key       Remove stored API key
+  config set-model <model>    Set Claude model (default: claude-sonnet-4-20250514)
+
 DIAGNOSTICS
   status                      Show environment status and diagnostics
                               Displays data directories, browsers, config, heal cache
@@ -540,7 +588,7 @@ EXAMPLES
   npx cbrowser navigate "https://example.com" --device iphone-15
   npx cbrowser navigate "https://example.com" --geo san-francisco
   npx cbrowser perf audit "https://example.com" --budget-lcp 2000
-  npx cbrowser journey first-timer --start "https://example.com" --record-video
+  npx cbrowser explore first-timer --start "https://example.com" --record-video
   npx cbrowser cookie list --url "https://example.com"
 `);
 }
@@ -909,19 +957,80 @@ async function main(): Promise<void> {
 
   // Status command - runs before browser instantiation
   if (command === "status") {
-    const fs = await import("fs");
-    const path = await import("path");
-    let version = "7.4.12";
-    // Try to read version from package.json at runtime
-    try {
-      const pkgPath = path.resolve(__dirname, "..", "package.json");
-      if (fs.existsSync(pkgPath)) {
-        version = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version;
-      }
-    } catch {}
-    const info = await getStatusInfo(version);
+    // VERSION is imported from version.ts which reads from package.json
+    const info = await getStatusInfo(VERSION);
     console.log(formatStatus(info));
     process.exit(0);
+  }
+
+  // Config command - runs before browser instantiation
+  if (command === "config") {
+    const subCommand = args[0];
+    const fs = await import("fs");
+    const path = await import("path");
+
+    switch (subCommand) {
+      case "set-api-key": {
+        const apiKey = args[1];
+        if (!apiKey) {
+          console.error("Usage: cbrowser config set-api-key <api-key>");
+          process.exit(1);
+        }
+        if (!apiKey.startsWith("sk-ant-")) {
+          console.error("❌ Invalid API key format. Anthropic keys start with 'sk-ant-'");
+          process.exit(1);
+        }
+        setAnthropicApiKey(apiKey);
+        console.log("✅ Anthropic API key saved to ~/.cbrowser/config.json");
+        process.exit(0);
+      }
+
+      case "show-api-key": {
+        const key = getAnthropicApiKey();
+        if (key) {
+          const masked = key.slice(0, 7) + "..." + key.slice(-4);
+          console.log(`Anthropic API key: ${masked}`);
+          console.log(`Source: ${process.env.ANTHROPIC_API_KEY ? "environment" : "config file"}`);
+        } else {
+          console.log("No Anthropic API key configured.");
+          console.log("Set with: cbrowser config set-api-key <key>");
+        }
+        process.exit(0);
+      }
+
+      case "remove-api-key": {
+        removeAnthropicApiKey();
+        console.log("✅ Anthropic API key removed from config.");
+        if (process.env.ANTHROPIC_API_KEY) {
+          console.log("⚠️  Note: ANTHROPIC_API_KEY environment variable is still set.");
+        }
+        process.exit(0);
+      }
+
+      case "set-model": {
+        const model = args[1];
+        if (!model) {
+          console.error("Usage: cbrowser config set-model <model>");
+          console.error("Examples: claude-sonnet-4-20250514, claude-3-5-sonnet-20241022");
+          process.exit(1);
+        }
+        const configPath = path.join(getDataDir(), "config.json");
+        let config: Record<string, unknown> = {};
+        if (fs.existsSync(configPath)) {
+          try {
+            config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+          } catch {}
+        }
+        config.anthropicModel = model;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        console.log(`✅ Claude model set to: ${model}`);
+        process.exit(0);
+      }
+
+      default:
+        console.error("Usage: cbrowser config [set-api-key|show-api-key|remove-api-key|set-model]");
+        process.exit(1);
+    }
   }
 
   // Install/Sync PAI skill (both commands do the same thing)
@@ -1062,7 +1171,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
   // Check if daemon is running and use it for supported commands
   const daemonRunning = await isDaemonRunning();
-  if (daemonRunning && ["navigate", "click", "fill", "screenshot", "extract", "run"].includes(command)) {
+  if (daemonRunning && ["navigate", "click", "fill", "hover", "screenshot", "extract", "run"].includes(command)) {
     console.log("🔌 Connected to running daemon");
 
     let daemonCommand = command;
@@ -1073,6 +1182,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         daemonArgs = { url: args[0] || options.url };
         break;
       case "click":
+        daemonArgs = { selector: args[0] };
+        break;
+      case "hover":
         daemonArgs = { selector: args[0] };
         break;
       case "fill":
@@ -1208,6 +1320,25 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           if (verbose && result.debugScreenshot) {
             console.error(`\n📸 Debug screenshot: ${result.debugScreenshot}`);
           }
+          process.exit(1);
+        }
+        break;
+      }
+
+      case "hover": {
+        const selector = args[0];
+        if (!selector) {
+          console.error("Error: Selector required");
+          process.exit(1);
+        }
+        if (options.url) {
+          await browser.navigate(options.url as string);
+        }
+        const result = await browser.hover(selector);
+        if (result.success) {
+          console.log(`✓ ${result.message}`);
+        } else {
+          console.error(`✗ ${result.message}`);
           process.exit(1);
         }
         break;
@@ -1602,7 +1733,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         break;
       }
 
-      case "journey": {
+      case "journey": // Deprecated alias for 'explore'
+      case "explore": {
+        if (command === "journey") {
+          console.warn("⚠️  'journey' is deprecated. Use 'explore' instead.\n");
+        }
         const persona = args[0] || "first-timer";
         const startUrl = options.start as string;
         const goal = (options.goal as string) || "Explore the site";
@@ -1612,8 +1747,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
-        console.log(`🚀 Starting journey as "${persona}"...`);
+        console.log(`🔍 Starting exploration as "${persona}"...`);
         console.log(`   Goal: ${goal}`);
+        console.log(`   Mode: Heuristic (free, no API)`);
         console.log("");
 
         const result = await browser.journey({ persona, startUrl, goal });
@@ -4516,6 +4652,107 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         // Exit with error if coverage too low
         if (result.analysis.coveragePercent < (coverageOptions.minCoverage || 50)) {
           console.log(`\n⚠️  Coverage (${result.analysis.coveragePercent}%) is below threshold (${coverageOptions.minCoverage}%)`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Cognitive Journey (v8.0.0) - API-powered autonomous user simulation
+      // =========================================================================
+
+      case "cognitive-journey": {
+        // Check API key first
+        if (!isApiKeyConfigured()) {
+          console.error("❌ Anthropic API key not configured.");
+          console.error("");
+          console.error("Set your API key with:");
+          console.error("  cbrowser config set-api-key sk-ant-...");
+          console.error("");
+          console.error("Or set the ANTHROPIC_API_KEY environment variable.");
+          process.exit(1);
+        }
+
+        const startUrl = options.start as string;
+        const goal = options.goal as string;
+
+        if (!startUrl) {
+          console.error("Error: --start <url> is required");
+          process.exit(1);
+        }
+        if (!goal) {
+          console.error("Error: --goal <goal> is required");
+          process.exit(1);
+        }
+
+        const personaName = (options.persona as string) || "first-timer";
+        const maxSteps = options["max-steps"] ? parseInt(options["max-steps"] as string) : 50;
+        const maxTime = options["max-time"] ? parseInt(options["max-time"] as string) : 120;
+        const verbose = options.verbose === true;
+        const headless = options.headless === true;
+        const vision = options.vision === true;
+
+        console.log(`\n🧠 COGNITIVE JOURNEY`);
+        console.log(`   Persona: ${personaName}`);
+        console.log(`   Goal: "${goal}"`);
+        console.log(`   URL: ${startUrl}`);
+        console.log(`   Max steps: ${maxSteps} | Max time: ${maxTime}s`);
+        if (vision) console.log(`   Vision: enabled (screenshots sent to Claude)`);
+        console.log("");
+
+        try {
+          const result = await runCognitiveJourney({
+            persona: personaName,
+            goal,
+            startUrl,
+            maxSteps,
+            maxTime,
+            verbose,
+            headless,
+            vision,
+            onStep: verbose ? undefined : (step) => {
+              process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
+            },
+          });
+
+          console.log("\n");
+
+          if (result.goalAchieved) {
+            console.log(`✅ GOAL ACHIEVED in ${result.stepCount} steps (${result.totalTime.toFixed(1)}s)`);
+          } else {
+            console.log(`❌ ABANDONED: ${result.abandonmentReason}`);
+            if (result.abandonmentMessage) {
+              console.log(`   💭 "${result.abandonmentMessage}"`);
+            }
+          }
+
+          console.log(`\n📊 Summary:`);
+          console.log(`   Steps: ${result.stepCount}`);
+          console.log(`   Time: ${result.totalTime.toFixed(1)}s`);
+          console.log(`   Friction points: ${result.frictionPoints.length}`);
+          console.log(`   Max frustration: ${(result.summary.maxFrustrationLevel * 100).toFixed(0)}%`);
+
+          if (result.frictionPoints.length > 0) {
+            console.log(`\n⚠️  Friction Points:`);
+            for (const fp of result.frictionPoints) {
+              console.log(`   Step ${fp.step}: ${fp.type} - ${fp.monologue}`);
+              if (fp.element) {
+                console.log(`      Element: ${fp.element}`);
+              }
+            }
+          }
+
+          // Save report
+          if (options.output) {
+            const fs = await import("fs");
+            fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+            console.log(`\n📄 Report saved: ${options.output}`);
+          }
+
+          // Exit with appropriate code
+          process.exit(result.goalAchieved ? 0 : 1);
+        } catch (error: any) {
+          console.error(`\n❌ Error: ${error.message}`);
           process.exit(1);
         }
         break;

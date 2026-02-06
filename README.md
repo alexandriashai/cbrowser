@@ -1,20 +1,33 @@
 # CBrowser (Cognitive Browser)
 
-AI-powered browser automation designed for MCP-based AI agents. Built on Playwright with session persistence, self-healing selectors, constitutional safety boundaries, and natural language as the primary interface.
+**The browser automation that thinks like your users.** Simulate real user cognition with patience thresholds, frustration tracking, and abandonment detection — know when users give up before they do.
+
+Built on Playwright with cognitive user simulation, constitutional safety boundaries, and the only UX testing that models how humans actually think.
 
 [![npm version](https://badge.fury.io/js/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-Remote%20%2B%20Local-blue)](https://modelcontextprotocol.io)
 
 ## Why CBrowser?
 
-Most browser automation libraries assume a human developer is writing and maintaining test scripts. When an AI agent needs to operate a browser autonomously across multiple calls, several problems arise:
+Most browser automation tests if buttons click. CBrowser tests if **real humans** can use your site.
 
-- **State is lost between calls.** Standard Playwright/Puppeteer sessions are ephemeral. An agent that logs in during one call loses that session on the next call. CBrowser persists cookies, localStorage, and session state across invocations.
-- **Selectors break silently.** When a site updates its DOM, CSS selectors stop working. CBrowser maintains a self-healing selector cache and generates alternative selectors automatically, so agents don't stall on stale selectors.
-- **There's no safety boundary.** An autonomous agent with unrestricted browser access can submit forms, make purchases, or delete data. CBrowser classifies actions by risk level and enforces verification requirements for destructive operations.
-- **Test maintenance is manual.** When tests break, someone has to figure out what changed and fix them. CBrowser can analyze failures, suggest repairs, and apply fixes automatically.
-- **Natural language is bolted on.** Most tools accept CSS selectors natively and treat natural language as a convenience layer. CBrowser treats natural language as the primary input, which is what AI agents actually produce.
+### What Makes CBrowser Different
+
+| Problem | Traditional Tools | CBrowser |
+|---------|-------------------|----------|
+| **User behavior** | Simulates clicks and typing | **Simulates how users THINK** — patience, frustration, confusion |
+| **UX friction** | Fails when buttons don't work | **Detects when users would give up** before they do |
+| **AI safety** | No guardrails for autonomous agents | **Constitutional safety** — risk zones prevent destructive actions |
+| **Resilience** | Tests happy paths | **Chaos engineering** — inject failures to test error handling |
+| **Bug discovery** | Tests what you specify | **Autonomous bug hunting** — finds issues you didn't know to look for |
+
+### Also Includes (Table Stakes)
+
+- **Session persistence** — State persists across calls (cookies, localStorage)
+- **Self-healing selectors** — Automatically adapts when DOM changes
+- **Natural language interface** — Describe elements instead of CSS selectors
+- **MCP server** — Works with Claude Desktop, claude.ai, and any MCP client
 
 ---
 
@@ -544,10 +557,17 @@ Page Analysis:
 Test your site from different user perspectives. Each persona has realistic timing, error rates, and attention patterns that simulate how different types of users actually interact with interfaces.
 
 ```bash
-# Run an autonomous journey as a persona
-cbrowser journey "first-timer" \
+# Quick exploration (free, heuristic-based)
+cbrowser explore "first-timer" \
   --start "https://mysite.com" \
   --goal "Complete signup"
+
+# Cognitive journey (API-powered, realistic user simulation)
+cbrowser cognitive-journey \
+  --persona "first-timer" \
+  --start "https://mysite.com" \
+  --goal "Complete signup" \
+  --verbose
 
 # Compare how different user types experience the same flow
 npx cbrowser compare-personas \
@@ -578,6 +598,113 @@ mobile-user      | pass    | 28.1s   | 1        | Scroll issue
 ```
 
 This helps identify which user groups struggle with your interface and where the friction points are, so you can prioritize UX improvements based on data rather than assumptions.
+
+### Cognitive User Simulation (v8.3.1)
+
+Go beyond timing and click patterns—simulate how users actually **think**. Cognitive journeys model realistic decision-making with abandonment detection, frustration tracking, and genuine cognitive traits.
+
+**Why it matters:** Traditional persona testing simulates motor behavior (slow clicks, typos). Cognitive simulation models mental behavior: "Would a confused first-timer give up here? Would they even notice that button?"
+
+```bash
+# Run a cognitive journey (requires Anthropic API key)
+npx cbrowser config set-api-key
+npx cbrowser cognitive-journey \
+  --persona first-timer \
+  --start "https://example.com" \
+  --goal "sign up for an account"
+
+# With vision mode (v8.4.0) - sends screenshots to Claude for visual understanding
+npx cbrowser cognitive-journey \
+  --persona elderly-user \
+  --start "https://example.com" \
+  --goal "find the help page" \
+  --vision \
+  --verbose
+
+# With all options
+npx cbrowser cognitive-journey \
+  --persona elderly-user \
+  --start "https://example.com" \
+  --goal "find the help page" \
+  --max-steps 50 \
+  --max-time 180 \
+  --vision \
+  --headless \
+  --verbose
+```
+
+**Vision Mode (v8.4.0):** Enable `--vision` to send actual screenshots to Claude. This dramatically improves accuracy for:
+- Complex layouts with multiple similar elements
+- Dropdown menus that need hover to reveal items
+- Visual cues that aren't captured in element text
+- Pages with dynamic content
+
+**Cognitive Traits (7 dimensions):**
+
+| Trait | What it measures | Example impact |
+|-------|------------------|----------------|
+| `patience` | How quickly they give up | Low patience → abandons after 3 failed attempts |
+| `riskTolerance` | Willingness to click unfamiliar elements | Low risk → avoids buttons without clear labels |
+| `comprehension` | Ability to understand UI conventions | Low comprehension → misreads icons |
+| `persistence` | Tendency to retry vs. try something else | High persistence → keeps trying same approach |
+| `curiosity` | Tendency to explore vs. stay focused | High curiosity → clicks interesting sidebars |
+| `workingMemory` | Remembers what they've tried | Low memory → repeats failed actions |
+| `readingTendency` | Reads content vs. scans for CTAs | High reading → notices inline instructions |
+
+**Attention Patterns:**
+
+- `targeted` — Direct path to goal (power users)
+- `f-pattern` — Scans top, then left side (web convention)
+- `z-pattern` — Diagonal scanning (marketing pages)
+- `exploratory` — Random exploration (curious users)
+- `sequential` — Top-to-bottom reading (thorough users)
+- `thorough` — Reads everything carefully (careful users)
+- `skim` — Rapid scanning for keywords (impatient users)
+
+**Abandonment Detection:**
+
+The simulation automatically stops when a realistic user would give up:
+
+| Trigger | Threshold | Monologue |
+|---------|-----------|-----------|
+| Patience depleted | `< 0.1` | "This is taking too long..." |
+| Too confused | `> 0.8` for 30s | "I have no idea what to do..." |
+| Too frustrated | `> 0.85` | "This is so frustrating..." |
+| No progress | 10+ steps, `< 0.1` progress | "I'm not getting anywhere..." |
+| Stuck in loop | Same pages 3x | "I keep ending up here..." |
+
+**Output includes:**
+- Goal achievement status
+- Abandonment reason (if applicable)
+- Step-by-step decision trace with reasoning
+- Friction points with screenshots
+- Cognitive state over time (patience, confusion, frustration)
+- Full internal monologue
+
+**MCP Integration (Claude Desktop/Code):**
+
+For Claude Desktop or Claude Code users, use the MCP tools instead:
+
+```typescript
+// Initialize cognitive journey
+const profile = await mcp.cognitive_journey_init({
+  persona: "first-timer",
+  goal: "sign up as a provider",
+  startUrl: "https://example.com"
+});
+
+// After each action, update state
+const state = await mcp.cognitive_journey_update_state({
+  sessionId: profile.sessionId,
+  patienceChange: -0.05,
+  confusionChange: 0.1,
+  currentUrl: "https://example.com/register"
+});
+
+if (state.shouldAbandon) {
+  console.log(`User gave up: ${state.abandonmentReason}`);
+}
+```
 
 **Custom persona creation:**
 
@@ -704,7 +831,7 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 }
 ```
 
-### Available MCP Tools (33 total)
+### Available MCP Tools (36 total)
 
 | Category | Tools |
 |----------|-------|
@@ -714,6 +841,7 @@ Add to Claude Desktop config (`~/.config/claude-desktop/config.json`):
 | **Testing** | `generate_tests`, `test_suite`, `repair_tests`, `flaky_check` |
 | **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
 | **Personas** | `journey`, `compare_personas`, `create_persona`, `list_personas` |
+| **Cognitive** | `cognitive_journey_init`, `cognitive_journey_update_state`, `list_cognitive_personas` |
 | **Sessions** | `save_session`, `load_session`, `list_sessions`, `delete_session` |
 | **Analysis** | `hunt_bugs`, `chaos_test`, `performance_audit`, `dismiss_overlay` |
 | **Utilities** | `heal_stats`, `list_baselines`, `status` |
@@ -783,6 +911,26 @@ Create `.cbrowserrc.json`:
   }
 }
 ```
+
+### API Key Configuration (for Cognitive Journeys)
+
+Cognitive journeys require an Anthropic API key for standalone CLI usage:
+
+```bash
+# Set your API key (stored in ~/.cbrowserrc.json)
+npx cbrowser config set-api-key
+
+# View configured key (masked)
+npx cbrowser config show-api-key
+
+# Remove API key
+npx cbrowser config remove-api-key
+
+# Set custom model (default: claude-sonnet-4-20250514)
+npx cbrowser config set-model claude-opus-4-20250514
+```
+
+**Note:** MCP users (Claude Desktop/Code) don't need API key configuration—cognitive journeys use the existing Claude session.
 
 ---
 
@@ -893,6 +1041,7 @@ See the [`examples/`](examples/) directory:
 - [`smart-automation.ts`](examples/smart-automation.ts) - Smart click, assertions, test generation
 - [`visual-testing.ts`](examples/visual-testing.ts) - AI visual regression, cross-browser, responsive, A/B comparison
 - [`remote-mcp.ts`](examples/remote-mcp.ts) - Remote MCP server, Auth0 OAuth, demo server setup
+- [`cognitive-journey.ts`](examples/cognitive-journey.ts) - Cognitive user simulation with personas, abandonment, and friction detection
 
 ### Workflow Recipes
 - [`workflows/e2e-login-checkout.md`](examples/workflows/e2e-login-checkout.md) - End-to-end login and checkout flow with session persistence
@@ -900,6 +1049,7 @@ See the [`examples/`](examples/) directory:
 - [`workflows/accessibility-audit.md`](examples/workflows/accessibility-audit.md) - Accessibility bug hunting with persona-based a11y testing
 - [`workflows/chaos-resilience-testing.md`](examples/workflows/chaos-resilience-testing.md) - Chaos engineering: network failures, slow responses, element removal
 - [`workflows/persona-comparison-report.md`](examples/workflows/persona-comparison-report.md) - Multi-persona comparison with heatmaps and prioritized recommendations
+- [`workflows/cognitive-journey-testing.md`](examples/workflows/cognitive-journey-testing.md) - Cognitive user simulation with abandonment detection and friction analysis
 
 ### CI/CD Integration
 - [`ci-cd/github-actions.yml`](examples/ci-cd/github-actions.yml) - GitHub Actions workflow for NL tests, visual and perf regression
@@ -909,13 +1059,16 @@ See the [`examples/`](examples/) directory:
 ### Natural Language Tests
 - [`natural-language-tests/e-commerce-suite.txt`](examples/natural-language-tests/e-commerce-suite.txt) - E-commerce guest checkout, search, and mobile tests
 - [`natural-language-tests/auth-flow-suite.txt`](examples/natural-language-tests/auth-flow-suite.txt) - Login, invalid credentials, and password reset flows
+- [`natural-language-tests/provider-discovery-journey.txt`](examples/natural-language-tests/provider-discovery-journey.txt) - Cognitive journey for provider discovery and registration
 - [`natural-language-tests/README.md`](examples/natural-language-tests/README.md) - NL test syntax reference and tips
 
 ### Configuration Templates
 - [`journeys/checkout-flow.json`](examples/journeys/checkout-flow.json) - Checkout journey definition
 - [`journeys/signup-flow.json`](examples/journeys/signup-flow.json) - User registration journey
+- [`journeys/cognitive-discovery-journey.json`](examples/journeys/cognitive-discovery-journey.json) - Cognitive journey with custom traits and abandonment thresholds
 - [`personas/custom-persona.json`](examples/personas/custom-persona.json) - QA tester persona template
 - [`personas/accessibility-tester.json`](examples/personas/accessibility-tester.json) - Visual impairment persona with screen magnification
+- [`personas/cognitive-curious-explorer.json`](examples/personas/cognitive-curious-explorer.json) - Full cognitive persona with traits, attention pattern, and internal voice
 
 ## Troubleshooting
 
@@ -956,7 +1109,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
+**Business Source License 1.1 (BSL-1.1)**
+
+CBrowser is source-available software. You can:
+- ✅ Use freely for **non-production** purposes (development, testing, evaluation, personal projects)
+- ✅ Read, modify, and learn from the source code
+- ✅ Contribute to the project
+
+**Production use** (commercial services, revenue-generating applications, internal business operations) requires a commercial license.
+
+On **February 5, 2030**, the license automatically converts to **Apache 2.0** (fully open source).
+
+For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.shai.eden@gmail.com)
+
+See [LICENSE](LICENSE) for full terms.
 
 ## Links
 
