@@ -1,15 +1,16 @@
 # CBrowser MCP Demo Server - Resource-Limited Container
 # For running the public demo at cbrowser-mcp-demo.wyldfyre.ai
 
-FROM mcr.microsoft.com/playwright:v1.40.0-jammy
+FROM mcr.microsoft.com/playwright:v1.50.0-jammy
 
 LABEL org.opencontainers.image.source="https://github.com/alexandriashai/cbrowser"
 LABEL org.opencontainers.image.description="CBrowser MCP Demo Server - Rate Limited"
 
 WORKDIR /app
 
-# Install cbrowser from npm
-RUN npm install -g cbrowser
+# Install cbrowser from npm and matching Playwright browsers
+RUN npm install -g cbrowser \
+    && npx playwright install chromium
 
 # Create non-root user for security
 RUN groupadd -r cbrowser && useradd -r -g cbrowser cbrowser \
