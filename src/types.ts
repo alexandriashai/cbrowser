@@ -541,6 +541,21 @@ export interface PersonaJourneyResult {
     start: string;
     end: string;
   };
+  /** Cognitive state (when using cognitive journeys) */
+  cognitive?: {
+    /** Final patience level (0-1) */
+    patienceRemaining: number;
+    /** Final frustration level (0-1) */
+    frustrationLevel: number;
+    /** Final confusion level (0-1) */
+    confusionLevel: number;
+    /** Abandonment reason if failed */
+    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout";
+    /** Number of backtracks */
+    backtrackCount: number;
+    /** Full inner monologue */
+    monologue: string[];
+  };
 }
 
 export interface PersonaComparisonResult {
