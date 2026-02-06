@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.3.0](https://github.com/alexandriashai/cbrowser/compare/v9.2.0...v9.3.0) (2026-02-06)
+
+
+### Added
+
+* **mcp:** add v9 tools to remote MCP server ([f1e24dc](https://github.com/alexandriashai/cbrowser/commit/f1e24dc9838161f09bbac65e56b1f4f6311fae45))
+
 ## [9.2.0](https://github.com/alexandriashai/cbrowser/compare/v9.1.1...v9.2.0) (2026-02-06)
 
 
