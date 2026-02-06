@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.2.0](https://github.com/alexandriashai/cbrowser/compare/v9.1.1...v9.2.0) (2026-02-06)
+
+
+### Added
+
+* **cli:** add version command (-v, --version) ([ec2dbb7](https://github.com/alexandriashai/cbrowser/commit/ec2dbb765bed7183efa98c20cd0889fdcb8cddd8))
+
 ## [9.1.1](https://github.com/alexandriashai/cbrowser/compare/v9.1.0...v9.1.1) (2026-02-06)
 
 ## [9.1.0](https://github.com/alexandriashai/cbrowser/compare/v8.8.0...v9.1.0) (2026-02-06)
