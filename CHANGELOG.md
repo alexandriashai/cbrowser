@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.4.3](https://github.com/alexandriashai/cbrowser/compare/v10.4.2...v10.4.3) (2026-02-07)
+
+
+### Fixed
+
+* **personas:** research-grounded behavioral patterns for accessibility ([fc590d9](https://github.com/alexandriashai/cbrowser/commit/fc590d96fd1e0ec022b87976cebf8109a41a8502))
+
 ## [10.4.2](https://github.com/alexandriashai/cbrowser/compare/v10.4.1...v10.4.2) (2026-02-07)
 
 
