@@ -6,12 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [9.10.0](https://github.com/alexandriashai/cbrowser/compare/v9.9.1...v9.10.0) (2026-02-07)
+## [10.0.0](https://github.com/alexandriashai/cbrowser/compare/v9.9.1...v10.0.0) (2026-02-07)
 
 
 ### Added
 
-* **cognitive:** add Dual-Process Theory and GOMS/KLM timing ([af8657f](https://github.com/alexandriashai/cbrowser/commit/af8657f87f3f93f012cb3ca414bc0bb853739992)), closes [#47](https://github.com/alexandriashai/cbrowser/issues/47) [#53](https://github.com/alexandriashai/cbrowser/issues/53)
+* **cognitive:** Dual-Process Theory (Kahneman System 1/System 2 switching)
+  - Experts start in System 1 (automatic, fast), novices in System 2 (deliberate, slow)
+  - Automatic switch to System 2 when confusion exceeds threshold or 3+ errors
+  - Return to System 1 when confusion drops and recent actions succeed
+  - Track time spent in each cognitive mode for analysis
+  - Closes [#47](https://github.com/alexandriashai/cbrowser/issues/47)
+
+* **cognitive:** GOMS/KLM Timing Constants (empirical HCI research)
+  - K_keystroke: 280ms average (120ms expert, 500ms novice)
+  - P_pointing: 1100ms standard mouse movement
+  - H_homing: 400ms hand movement between keyboard and mouse
+  - M_mental: 1350ms mental preparation (600ms for familiar tasks)
+  - `calculateTypingTime()` applies expertise-adjusted delays to fill actions
+  - Closes [#53](https://github.com/alexandriashai/cbrowser/issues/53)
 
 ## [9.9.1](https://github.com/alexandriashai/cbrowser/compare/v9.9.0...v9.9.1) (2026-02-07)
 
