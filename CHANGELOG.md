@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.7.1](https://github.com/alexandriashai/cbrowser/compare/v10.7.0...v10.7.1) (2026-02-07)
+
+### Fixed
+
+* **ci:** pin conventional-changelog-conventionalcommits to 8.0.0 ([425ab24](https://github.com/alexandriashai/cbrowser/commit/425ab244291bcaabb9714acce6ce4d52d10b876c))
+* **ci:** update release-it to v19.2.4 ([78f0cad](https://github.com/alexandriashai/cbrowser/commit/78f0cade767c37ba399a29cc6000101710a9ee5d)), closes [release-it/release-it#1237](https://github.com/release-it/release-it/issues/1237)
+
 ## [10.7.0](https://github.com/alexandriashai/cbrowser/compare/v10.6.0...v10.7.0) (2026-02-07)
 
 
