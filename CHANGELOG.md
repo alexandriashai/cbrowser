@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.2.0](https://github.com/alexandriashai/cbrowser/compare/v10.1.0...v10.2.0) (2026-02-07)
+
+
+### Added
+
+* **cognitive:** WebGazer Saliency-Based Attention (v10.2.0)
+  - `SaliencyFactors` interface: size, contrast, position, motion, semantic
+  - `calculateSaliency()` weighted combination for visual attention priority
+  - `calculateGazeMouseLag()` age-based eye-to-mouse lag (200-500ms)
+  - Gaze-mouse lag applied to movement timing in cognitive journeys
+  - Closes [#48](https://github.com/alexandriashai/cbrowser/issues/48)
+
+* **cognitive:** Stress-Induced Tunnel Vision (Yerkes-Dodson Law, v10.2.0)
+  - `PeripheralVision` interface with width/height factors
+  - `calculatePeripheralVision()` reduces visual field under stress
+  - High frustration/confusion causes progressive peripheral vision loss
+  - Arousal level 0.8+ = severe tunnel vision (30% width, 40% height)
+  - Closes [#54](https://github.com/alexandriashai/cbrowser/issues/54)
+
+* **cognitive:** Habituation & Banner Blindness (v10.2.0)
+  - `UIPattern` type: cookie-banner, newsletter-popup, consent-dialog, etc.
+  - `HabituationState` tracks exposure count and blind patterns
+  - `classifyUIPattern()` detects common UI patterns from text
+  - `calculateHabituationVisibility()` returns visibility multiplier (0-1)
+  - Low comprehension users develop blindness faster
+  - Automatically tracks pattern exposure during cognitive journeys
+  - Closes [#55](https://github.com/alexandriashai/cbrowser/issues/55)
+
 ## [10.1.0](https://github.com/alexandriashai/cbrowser/compare/v10.0.3...v10.1.0) (2026-02-07)
 
 

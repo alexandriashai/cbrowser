@@ -47,6 +47,12 @@ import {
   calculateScanWidthMultiplier,
   detectProspectFrame,
   calculateProspectClickModifier,
+  calculateGazeMouseLag,
+  calculatePeripheralVision,
+  createHabituationState,
+  updateHabituationState,
+  classifyUIPattern,
+  calculateHabituationVisibility,
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 
@@ -301,6 +307,19 @@ export async function runCognitiveJourney(
       effectiveWidth: 100,
     },
     missedDueToTunnelVision: 0,
+    // Peripheral vision affected by stress (v10.1.0) - Yerkes-Dodson Law
+    peripheralVision: {
+      widthFactor: 1.0,
+      heightFactor: 1.0,
+      arousalLevel: 0,
+    },
+    // Habituation/banner blindness state (v10.1.0)
+    habituation: createHabituationState(
+      // Low comprehension = faster blindness (lower threshold)
+      traits.comprehension > 0.7 ? 5 : traits.comprehension < 0.4 ? 2 : 3
+    ),
+    // Gaze-to-mouse lag based on age (v10.1.0) - WebGazer.js research
+    gazeMouseLag: calculateGazeMouseLag(personaObj.demographics?.age_range),
   };
 
   // Calculate Fitts' Law params from persona (v9.9.0)
@@ -398,6 +417,22 @@ export async function runCognitiveJourney(
       });
       return content.slice(0, 10).join('\n');
     }).catch(() => '');
+
+    // Habituation/Banner Blindness tracking (v10.1.0)
+    // Detect UI patterns in available elements and update habituation state
+    if (state.habituation) {
+      for (const element of availableElements) {
+        const pattern = classifyUIPattern(element.text);
+        if (pattern !== "other") {
+          state.habituation = updateHabituationState(state.habituation, pattern);
+
+          // Check if this pattern is now blind and log
+          if (options.verbose && state.habituation.blindPatterns.includes(pattern)) {
+            console.log(`👁️ Banner blindness: now ignoring "${pattern}" patterns`);
+          }
+        }
+      }
+    }
 
     // Build step prompt with available elements so Claude knows what's clickable and fillable
     const stepPrompt = buildStepPrompt(state, currentUrl, pageTitle, step, availableElements, availableInputs, pageContent);
@@ -497,6 +532,22 @@ export async function runCognitiveJourney(
       }
     }
 
+    // Stress-Induced Peripheral Vision (v10.1.0) - Yerkes-Dodson Law
+    if (state.peripheralVision) {
+      const prevArousal = state.peripheralVision.arousalLevel;
+      state.peripheralVision = calculatePeripheralVision(
+        state.frustrationLevel,
+        state.confusionLevel
+      );
+
+      // Log significant arousal changes
+      if (options.verbose && Math.abs(state.peripheralVision.arousalLevel - prevArousal) > 0.2) {
+        if (state.peripheralVision.widthFactor < 0.5) {
+          console.log(`😰 Stress tunnel vision: peripheral field reduced to ${(state.peripheralVision.widthFactor * 100).toFixed(0)}%`);
+        }
+      }
+    }
+
     // Record monologue
     if (parsed.monologue) {
       fullMonologue.push(parsed.monologue);
@@ -554,7 +605,7 @@ export async function runCognitiveJourney(
     // Execute action if provided
     if (parsed.action) {
       try {
-        const result = await executeAction(browser, parsed.action, fittsParams);
+        const result = await executeAction(browser, parsed.action, fittsParams, state.gazeMouseLag);
         state.memory.actionsAttempted.push({
           action: parsed.action,
           target: parsed.actionTarget,
@@ -903,7 +954,8 @@ interface ActionResult {
 async function executeAction(
   browser: CBrowser,
   action: string,
-  fittsParams?: Partial<FittsLawParams>
+  fittsParams?: Partial<FittsLawParams>,
+  gazeMouseLag?: number
 ): Promise<ActionResult> {
   const [type, ...args] = action.split(":");
 
@@ -920,6 +972,12 @@ async function executeAction(
       estimatedTargetWidth,
       fittsParams
     );
+
+    // Add gaze-to-mouse lag (v10.1.0) - WebGazer.js research
+    // Eye movements precede mouse movements by 200-500ms
+    if (gazeMouseLag) {
+      movementTimeMs += gazeMouseLag;
+    }
 
     // Add realistic delay before the click
     await sleep(movementTimeMs);

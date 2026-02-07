@@ -264,6 +264,12 @@ export interface CognitiveState {
   scanPattern?: ScanPatternState;
   /** Elements missed due to tunnel vision (v10.1.0) */
   missedDueToTunnelVision?: number;
+  /** Peripheral vision affected by stress (v10.1.0) */
+  peripheralVision?: PeripheralVision;
+  /** Habituation state for banner blindness (v10.1.0) */
+  habituation?: HabituationState;
+  /** Gaze-to-mouse lag in milliseconds (v10.1.0) */
+  gazeMouseLag?: number;
 }
 
 // ============================================================================
@@ -616,6 +622,259 @@ export function calculateProspectClickModifier(
     default:
       return 1.0;
   }
+}
+
+// ============================================================================
+// Saliency-Based Attention (v10.1.0) - WebGazer.js Inspired
+// ============================================================================
+
+/**
+ * Saliency factors that determine visual attention priority.
+ * Based on visual attention research and eye-tracking data.
+ */
+export interface SaliencyFactors {
+  /** Size relative to viewport (0-1) */
+  size: number;
+  /** Color contrast with background (0-1) */
+  contrast: number;
+  /** Position (center = 1, edges = 0.5) */
+  position: number;
+  /** Motion/animation (0 = static, 1 = animated) */
+  motion: number;
+  /** Semantic relevance to goal (0-1) */
+  semantic: number;
+}
+
+/**
+ * Calculate overall saliency score from factors.
+ * Higher saliency = more likely to draw attention.
+ *
+ * @param factors - Individual saliency factors
+ * @returns Combined saliency score (0-1)
+ */
+export function calculateSaliency(factors: SaliencyFactors): number {
+  // Weighted combination: semantic > position > contrast > size > motion
+  const weights = { size: 0.1, contrast: 0.2, position: 0.25, motion: 0.05, semantic: 0.4 };
+  return (
+    factors.size * weights.size +
+    factors.contrast * weights.contrast +
+    factors.position * weights.position +
+    factors.motion * weights.motion +
+    factors.semantic * weights.semantic
+  );
+}
+
+/**
+ * Calculate gaze-to-mouse lag based on age (WebGazer.js research).
+ * Eye movements precede mouse movements by 200-500ms depending on age.
+ *
+ * @param ageRange - Age range string (e.g., "18-25", "65+")
+ * @returns Gaze-to-mouse lag in milliseconds
+ */
+export function calculateGazeMouseLag(ageRange?: string): number {
+  if (!ageRange) return 300; // Default
+
+  const ageMatch = ageRange.match(/(\d+)/);
+  if (!ageMatch) return 300;
+
+  const age = parseInt(ageMatch[1], 10);
+  // Young adults: 200ms, elderly: 500ms
+  return Math.min(500, Math.max(200, 200 + (age - 20) * 5));
+}
+
+// ============================================================================
+// Stress-Induced Tunnel Vision (v10.1.0) - Yerkes-Dodson Law
+// ============================================================================
+
+/**
+ * Peripheral vision state affected by stress/arousal.
+ * Based on Yerkes-Dodson Law: moderate arousal = optimal performance.
+ */
+export interface PeripheralVision {
+  /** Horizontal visual field reduction (0.3 = 70% reduction) */
+  widthFactor: number;
+  /** Vertical visual field reduction */
+  heightFactor: number;
+  /** Current arousal/stress level (0-1) */
+  arousalLevel: number;
+}
+
+/**
+ * Calculate peripheral vision reduction based on frustration and confusion.
+ * High frustration/confusion = tunnel vision (narrowed attention).
+ *
+ * @param frustration - Frustration level (0-1)
+ * @param confusion - Confusion level (0-1)
+ * @returns PeripheralVision with width/height factors
+ */
+export function calculatePeripheralVision(
+  frustration: number,
+  confusion: number
+): PeripheralVision {
+  // Arousal is combination of frustration and confusion
+  const arousalLevel = Math.max(frustration, confusion);
+
+  // Yerkes-Dodson: moderate arousal (0.3-0.5) is optimal
+  // High arousal (>0.7) causes tunnel vision
+  let widthFactor = 1.0;
+  let heightFactor = 1.0;
+
+  if (arousalLevel > 0.8) {
+    // Severe tunnel vision
+    widthFactor = 0.3;
+    heightFactor = 0.4;
+  } else if (arousalLevel > 0.6) {
+    // Moderate tunnel vision
+    widthFactor = 0.5;
+    heightFactor = 0.6;
+  } else if (arousalLevel > 0.4) {
+    // Slightly narrowed
+    widthFactor = 0.75;
+    heightFactor = 0.8;
+  }
+
+  return { widthFactor, heightFactor, arousalLevel };
+}
+
+// ============================================================================
+// Habituation & Banner Blindness (v10.1.0)
+// ============================================================================
+
+/**
+ * Common UI patterns that users develop blindness to.
+ */
+export type UIPattern =
+  | "cookie-banner"
+  | "newsletter-popup"
+  | "consent-dialog"
+  | "promotional-banner"
+  | "social-share"
+  | "chat-widget"
+  | "notification-badge"
+  | "sidebar-ad"
+  | "interstitial"
+  | "discount-popup"
+  | "other";
+
+/**
+ * Habituation state tracking pattern exposure and blindness.
+ */
+export interface HabituationState {
+  /** Exposure count per UI pattern */
+  exposureCount: Record<UIPattern, number>;
+  /** Threshold for developing blindness */
+  blindnessThreshold: number;
+  /** Patterns user is now blind to */
+  blindPatterns: UIPattern[];
+}
+
+/**
+ * Keywords that indicate specific UI patterns.
+ */
+const UI_PATTERN_KEYWORDS: Record<UIPattern, string[]> = {
+  "cookie-banner": ["cookie", "cookies", "privacy", "consent", "gdpr", "accept all"],
+  "newsletter-popup": ["newsletter", "subscribe", "email", "updates", "sign up for", "join our"],
+  "consent-dialog": ["consent", "agree", "terms", "accept", "continue", "i understand"],
+  "promotional-banner": ["sale", "discount", "off", "deal", "limited time", "offer"],
+  "social-share": ["share", "facebook", "twitter", "linkedin", "social", "follow"],
+  "chat-widget": ["chat", "help", "support", "live chat", "message us"],
+  "notification-badge": ["notification", "bell", "alert"],
+  "sidebar-ad": ["ad", "sponsored", "advertisement", "partner"],
+  "interstitial": ["continue", "skip", "wait", "loading"],
+  "discount-popup": ["save", "coupon", "promo", "code", "% off"],
+  "other": [],
+};
+
+/**
+ * Classify UI element text into a pattern type.
+ *
+ * @param text - Element text content
+ * @returns UIPattern classification
+ */
+export function classifyUIPattern(text: string): UIPattern {
+  const lowerText = text.toLowerCase();
+
+  for (const [pattern, keywords] of Object.entries(UI_PATTERN_KEYWORDS)) {
+    if (pattern === "other") continue;
+    if (keywords.some((kw) => lowerText.includes(kw))) {
+      return pattern as UIPattern;
+    }
+  }
+
+  return "other";
+}
+
+/**
+ * Calculate visibility multiplier based on habituation.
+ * Low comprehension users develop blindness faster.
+ *
+ * @param pattern - UI pattern type
+ * @param habituation - Current habituation state
+ * @param comprehension - User's comprehension level (0-1)
+ * @returns Visibility multiplier (0 = invisible, 1 = fully visible)
+ */
+export function calculateHabituationVisibility(
+  pattern: UIPattern,
+  habituation: HabituationState,
+  comprehension: number
+): number {
+  if (habituation.blindPatterns.includes(pattern)) {
+    return 0; // Completely blind to this pattern
+  }
+
+  const exposure = habituation.exposureCount[pattern] || 0;
+  // Adjust threshold by comprehension (low comprehension = faster blindness)
+  const adjustedThreshold = habituation.blindnessThreshold * (0.5 + comprehension * 0.5);
+
+  if (exposure >= adjustedThreshold) {
+    return 0.1; // Nearly blind
+  }
+
+  // Linear decay toward blindness
+  return 1 - (exposure / adjustedThreshold) * 0.9;
+}
+
+/**
+ * Create initial habituation state.
+ *
+ * @param blindnessThreshold - Exposures before blindness (default: 3)
+ * @returns Initial HabituationState
+ */
+export function createHabituationState(blindnessThreshold = 3): HabituationState {
+  return {
+    exposureCount: {} as Record<UIPattern, number>,
+    blindnessThreshold,
+    blindPatterns: [],
+  };
+}
+
+/**
+ * Update habituation state after seeing a UI pattern.
+ *
+ * @param habituation - Current habituation state
+ * @param pattern - UI pattern seen
+ * @returns Updated habituation state
+ */
+export function updateHabituationState(
+  habituation: HabituationState,
+  pattern: UIPattern
+): HabituationState {
+  const newExposureCount = { ...habituation.exposureCount };
+  newExposureCount[pattern] = (newExposureCount[pattern] || 0) + 1;
+
+  const newBlindPatterns = [...habituation.blindPatterns];
+  if (
+    newExposureCount[pattern] >= habituation.blindnessThreshold &&
+    !newBlindPatterns.includes(pattern)
+  ) {
+    newBlindPatterns.push(pattern);
+  }
+
+  return {
+    ...habituation,
+    exposureCount: newExposureCount,
+    blindPatterns: newBlindPatterns,
+  };
 }
 
 /**
