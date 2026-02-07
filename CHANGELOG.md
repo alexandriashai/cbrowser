@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [10.4.1](https://github.com/alexandriashai/cbrowser/compare/v10.4.0...v10.4.1) (2026-02-07)
 
+
+### Fixed
+
+* **personas:** Research-grounded behavioral patterns for accessibility personas
+  - ADHD: workingMemory 0.25, persistence 0.2 (PMC7483636: 75-81% WM impairment)
+  - Dyslexia: readingSpeed 120 WPM (Scientific Reports 2021: 72% of typical)
+  - Elderly: workingMemory 0.35 (Nature Communications 2026)
+  - Color-blind: backtrackRate 0.3 for color confusion recovery
+  - All personas now include inline research citations
+
 ## [10.4.0](https://github.com/alexandriashai/cbrowser/compare/v10.3.1...v10.4.0) (2026-02-07)
 
 
