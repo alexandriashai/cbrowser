@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.7.0](https://github.com/alexandriashai/cbrowser/compare/v10.6.0...v10.7.0) (2026-02-07)
+
+
+### Added
+
+* **cognitive:** add resilience trait for emotional recovery modeling ([799521c](https://github.com/alexandriashai/cbrowser/commit/799521c025211c6db833425e62fa4ab5c0aa14c7))
+
 ## [10.6.0](https://github.com/alexandriashai/cbrowser/compare/v10.5.2...v10.6.0) (2026-02-07)
 
 ### Added
