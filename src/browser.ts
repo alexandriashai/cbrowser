@@ -1976,7 +1976,7 @@ export class CBrowser {
   async handleCustomInput(
     hiddenInput: Locator,
     value: string,
-    options: { verbose?: boolean } = {}
+    _options: { verbose?: boolean } = {}
   ): Promise<{ success: boolean; strategy?: string; error?: string }> {
     const page = await this.getPage();
 
@@ -2206,9 +2206,9 @@ export class CBrowser {
       for (const el of elements.slice(0, 10)) {
         const text = await el.textContent().catch(() => "");
         const ariaLabel = await el.getAttribute("aria-label").catch(() => "");
-        const title = await el.getAttribute("title").catch(() => "");
+        const _title = await el.getAttribute("title").catch(() => "");
         const id = await el.getAttribute("id").catch(() => "");
-        const className = await el.getAttribute("class").catch(() => "");
+        const _className = await el.getAttribute("class").catch(() => "");
 
         // Check if text matches original selector
         if (text && originalSelector.toLowerCase().includes(text.toLowerCase().trim().substring(0, 20))) {
@@ -2617,7 +2617,7 @@ export class CBrowser {
     code += `import { test, expect } from '@playwright/test';\n\n`;
 
     for (const testDef of tests) {
-      const testName = testDef.name.toLowerCase().replace(/\s+/g, "-");
+      const _testName = testDef.name.toLowerCase().replace(/\s+/g, "-");
       code += `test('${testDef.name}', async ({ page }) => {\n`;
       code += `  // ${testDef.description}\n\n`;
 

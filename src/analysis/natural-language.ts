@@ -243,7 +243,7 @@ const SELECTOR_PRIORITY: Array<{
   },
 ];
 
-const SEMANTIC_ELEMENTS = new Set(["button", "nav", "main", "header", "footer", "article", "aside", "section", "form", "dialog"]);
+const _SEMANTIC_ELEMENTS = new Set(["button", "nav", "main", "header", "footer", "article", "aside", "section", "form", "dialog"]);
 
 /**
  * Generate priority-ordered selectors for an element.

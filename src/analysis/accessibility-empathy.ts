@@ -78,7 +78,7 @@ const WCAG_CRITERIA: Record<string, { level: "A" | "AA" | "AAA"; description: st
   "4.1.2": { level: "A", description: "Name, Role, Value" },
 };
 
-function getWcagCriteriaForBarrier(barrierType: AccessibilityBarrierType): string[] {
+function _getWcagCriteriaForBarrier(barrierType: AccessibilityBarrierType): string[] {
   switch (barrierType) {
     case "motor_precision":
       return ["2.5.5", "2.5.8"];
