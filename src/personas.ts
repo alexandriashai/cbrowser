@@ -55,12 +55,12 @@ export function loadCustomPersonas(): Record<string, Persona> {
           } as Persona;
         }
         personas[persona.name] = persona;
-      } catch {
-        // Skip invalid files
+      } catch (e) {
+        console.debug(`[CBrowser] Skipping invalid persona file ${file}: ${(e as Error).message}`);
       }
     }
-  } catch {
-    // Directory doesn't exist or can't be read
+  } catch (e) {
+    console.debug(`[CBrowser] Custom personas directory not readable: ${(e as Error).message}`);
   }
 
   return personas;

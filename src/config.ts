@@ -91,8 +91,8 @@ export function loadConfigFile(dir?: string): CBrowserConfigFile | null {
       try {
         const content = readFileSync(path, "utf-8");
         return JSON.parse(content) as CBrowserConfigFile;
-      } catch {
-        // Invalid JSON, skip
+      } catch (e) {
+        console.debug(`[CBrowser] Invalid config file ${path}: ${(e as Error).message}`);
       }
     }
   }
@@ -349,7 +349,9 @@ export async function getStatusInfo(version: string): Promise<StatusInfo> {
         totalHeals,
         topDomain: topDomain ? `${topDomain[0]} (${topDomain[1]} entries)` : null,
       };
-    } catch { /* corrupted cache */ }
+    } catch (e) {
+      console.debug(`[CBrowser] Corrupted selector cache: ${(e as Error).message}`);
+    }
   }
 
   // Browser detection

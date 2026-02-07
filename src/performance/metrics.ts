@@ -211,8 +211,8 @@ export function listPerformanceBaselines(): PerformanceBaseline[] {
     try {
       const content = readFileSync(join(baselinesDir, file), "utf-8");
       baselines.push(JSON.parse(content));
-    } catch {
-      // Skip invalid files
+    } catch (e) {
+      console.debug(`[CBrowser] Skipping invalid performance baseline ${file}: ${(e as Error).message}`);
     }
   }
 

@@ -1083,7 +1083,6 @@ async function main(): Promise<void> {
 
   // Install/Sync Claude skill (both commands do the same thing)
   if (command === "install-skill" || command === "sync-skill") {
-    const { execSync } = await import("child_process");
     const path = await import("path");
     const fs = await import("fs");
     const os = await import("os");
@@ -1116,7 +1115,7 @@ async function main(): Promise<void> {
     fs.mkdirSync(path.join(skillDir, "Tools"), { recursive: true });
     fs.mkdirSync(path.join(skillDir, ".memory", "sessions"), { recursive: true });
 
-    // Download files
+    // Download files using native fetch (cross-platform, better error handling)
     console.log("Downloading skill files...");
     const files = [
       "SKILL.md",
@@ -1139,9 +1138,14 @@ async function main(): Promise<void> {
         const url = `${repoUrl}/skill/${file}`;
         const dest = path.join(skillDir, file);
         console.log(`  - ${file}`);
-        execSync(`curl -fsSL "${url}" -o "${dest}"`, { stdio: "pipe" });
-      } catch {
-        console.log(`  Warning: Could not download ${file}`);
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const content = await response.text();
+        fs.writeFileSync(dest, content, "utf-8");
+      } catch (e) {
+        console.log(`  Warning: Could not download ${file} (${(e as Error).message})`);
       }
     }
 

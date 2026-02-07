@@ -1820,7 +1820,12 @@ export async function startRemoteMcpServer(): Promise<void> {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
     // CORS headers for all responses
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    // Use request origin for CORS to avoid wildcard security issues
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id, X-API-Key");
     res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");

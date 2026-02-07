@@ -104,7 +104,8 @@ async function findAlternatives(
     }, originalTarget);
 
     return alternatives;
-  } catch {
+  } catch (e) {
+    console.debug(`[CBrowser] Failed to find element alternatives: ${(e as Error).message}`);
     return [];
   }
 }

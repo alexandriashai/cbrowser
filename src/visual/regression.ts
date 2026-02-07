@@ -57,7 +57,8 @@ export function loadVisualBaselines(): VisualBaseline[] {
   try {
     const data = JSON.parse(readFileSync(indexPath, "utf-8"));
     return data.baselines || [];
-  } catch {
+  } catch (e) {
+    console.debug(`[CBrowser] Failed to load visual baselines: ${(e as Error).message}`);
     return [];
   }
 }
@@ -282,8 +283,8 @@ Respond ONLY with the JSON, no other text.`;
 
       return analysis;
     }
-  } catch {
-    // Fall back to heuristic analysis
+  } catch (e) {
+    console.debug(`[CBrowser] AI visual analysis failed, using heuristics: ${(e as Error).message}`);
   }
 
   // Fallback: Heuristic analysis based on file comparison

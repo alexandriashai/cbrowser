@@ -68,7 +68,8 @@ export function getDaemonState(): DaemonState | null {
   try {
     const data = readFileSync(statePath, "utf-8");
     return JSON.parse(data) as DaemonState;
-  } catch {
+  } catch (e) {
+    console.debug(`[CBrowser] Daemon state file corrupted: ${(e as Error).message}`);
     return null;
   }
 }
@@ -107,8 +108,8 @@ export async function isDaemonRunning(): Promise<boolean> {
       signal: AbortSignal.timeout(1000),
     });
     return response.ok;
-  } catch {
-    // Daemon not responding, clean up stale state
+  } catch (e) {
+    console.debug(`[CBrowser] Daemon not responding, cleaning up stale state: ${(e as Error).message}`);
     clearDaemonState();
     return false;
   }
@@ -352,8 +353,12 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
   };
 
   const server: Server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-    // CORS headers
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    // CORS headers - use request origin instead of wildcard
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 

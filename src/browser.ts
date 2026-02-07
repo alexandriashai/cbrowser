@@ -402,6 +402,11 @@ export class CBrowser {
       }
     }
 
+    // Remove all listeners to prevent memory leaks
+    if (this.page && !this.page.isClosed()) {
+      this.page.removeAllListeners();
+    }
+
     if (this.context) {
       await this.context.close().catch(() => {});
       this.context = null;
@@ -2632,8 +2637,10 @@ export class CBrowser {
         const data = readFileSync(cachePath, "utf-8");
         this.selectorCache = JSON.parse(data);
         return this.selectorCache!;
-      } catch {
-        // Corrupted cache, start fresh
+      } catch (e) {
+        if (this.config.verbose) {
+          console.debug(`[CBrowser] Corrupted selector cache, starting fresh: ${(e as Error).message}`);
+        }
       }
     }
 
@@ -3902,8 +3909,10 @@ export class CBrowser {
           sessionStorageKeys: Object.keys(data.sessionStorage || {}).length,
           sizeBytes: stats.size,
         });
-      } catch {
-        // Skip malformed session files
+      } catch (e) {
+        if (this.config.verbose) {
+          console.debug(`[CBrowser] Skipping malformed session file ${file}: ${(e as Error).message}`);
+        }
       }
     }
 
@@ -3918,7 +3927,10 @@ export class CBrowser {
     if (!existsSync(sessionPath)) return null;
     try {
       return JSON.parse(readFileSync(sessionPath, "utf-8"));
-    } catch {
+    } catch (e) {
+      if (this.config.verbose) {
+        console.debug(`[CBrowser] Failed to load session ${name}: ${(e as Error).message}`);
+      }
       return null;
     }
   }

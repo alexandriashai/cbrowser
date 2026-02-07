@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.4.4](https://github.com/alexandriashai/cbrowser/compare/v10.4.3...v10.4.4) (2026-02-07)
+
+
+### Security
+
+* **cors:** Replace wildcard Access-Control-Allow-Origin with request origin
+  - mcp-server-remote.ts: Use origin header with credentials support
+  - daemon.ts: Same fix for daemon HTTP server
+  - Prevents credential leakage in cross-origin requests
+
+### Fixed
+
+* **memory:** Add page.removeAllListeners() before close() to prevent memory leaks
+* **cli:** Replace execSync(curl) with native fetch() for cross-platform compatibility
+  - Better error messages with HTTP status codes
+  - Works on Windows without curl installed
+* **debugging:** Add console.debug() logging to 20+ silent catch blocks
+  - personas.ts: Custom persona loading errors
+  - cognitive/index.ts: API key config errors
+  - daemon.ts: Connection/state errors
+  - config.ts: Config file parsing errors
+  - browser.ts: Session/cache loading (verbose mode)
+  - visual/regression.ts: Baseline loading, AI fallback
+  - testing/test-repair.ts: Element alternatives
+  - performance/metrics.ts: Baseline parsing
+
+
 ## [10.4.3](https://github.com/alexandriashai/cbrowser/compare/v10.4.2...v10.4.3) (2026-02-07)
 
 

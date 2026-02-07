@@ -100,8 +100,8 @@ export function setAnthropicApiKey(apiKey: string): void {
   if (existsSync(configPath)) {
     try {
       config = JSON.parse(readFileSync(configPath, "utf-8"));
-    } catch {
-      // Start fresh if corrupted
+    } catch (e) {
+      console.debug(`[CBrowser] Config file corrupted, starting fresh: ${(e as Error).message}`);
     }
   }
 
@@ -120,8 +120,8 @@ export function removeAnthropicApiKey(): void {
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
     delete config.anthropicApiKey;
     writeFileSync(configPath, JSON.stringify(config, null, 2));
-  } catch {
-    // Ignore errors
+  } catch (e) {
+    console.debug(`[CBrowser] Failed to remove API key from config: ${(e as Error).message}`);
   }
 }
 
