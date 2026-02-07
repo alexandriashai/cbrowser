@@ -678,7 +678,7 @@ npx cbrowser cognitive-journey \
 - Visual cues that aren't captured in element text
 - Pages with dynamic content
 
-**Cognitive Traits (8 dimensions):**
+**Cognitive Traits (12 dimensions):**
 
 | Trait | What it measures | Example impact |
 |-------|------------------|----------------|
@@ -690,6 +690,10 @@ npx cbrowser cognitive-journey \
 | `workingMemory` | Remembers what they've tried | Low memory → repeats failed actions |
 | `readingTendency` | Reads content vs. scans for CTAs | High reading → notices inline instructions |
 | `resilience` | Ability to recover emotionally from setbacks | High resilience → frustration drops after success |
+| `selfEfficacy` | Belief in ability to solve problems | Low efficacy → gives up on first error |
+| `satisficing` | Accept "good enough" vs. seek optimal | High satisficing → picks first reasonable option |
+| `trustCalibration` | Baseline trust toward websites | Low trust → scrutinizes security indicators |
+| `interruptRecovery` | Ability to resume after interruption | Low recovery → restarts from beginning |
 
 **Attention Patterns:**
 
@@ -731,6 +735,10 @@ CBrowser's simulation is grounded in established cognitive science research:
 | **Tunnel Vision** (v10.2.0) | Yerkes-Dodson Law | High stress/arousal reduces peripheral vision to 30% |
 | **Banner Blindness** (v10.2.0) | Habituation research | Repeated exposure → patterns become invisible (cookie banners, popups) |
 | **Resilience** (v10.6.0) | [Brief Resilience Scale](https://pubmed.ncbi.nlm.nih.gov/18696313/) (Smith et al., 2008) | Frustration decay rate + success recovery; high resilience = rapid emotional bounce-back |
+| **Self-Efficacy** (v11.5.0) | [Bandura (1977)](https://psycnet.apa.org/record/1977-25733-001) - Self-efficacy theory | Belief in problem-solving ability; low efficacy → 40% faster abandonment on first error |
+| **Satisficing** (v11.5.0) | [Simon (1956)](https://doi.org/10.2307/1884852) - Bounded rationality | Accept "good enough" vs. maximize; satisficers decide 50% faster with similar outcomes |
+| **Trust Calibration** (v11.5.0) | [Fogg (2003)](https://www.amazon.com/dp/1558606432) - Stanford Persuasive Tech Lab | Baseline trust affects CTA click-through by 40%; 8 trust signal types evaluated |
+| **Interrupt Recovery** (v11.5.0) | [Mark et al. (2005)](https://dl.acm.org/doi/10.1145/1054972.1055017) - Fragmented work | Average recovery time 23min; models context preservation and resumption outcomes |
 
 ```bash
 # v10.2.0+ output now includes cognitive science metrics:

@@ -6,7 +6,7 @@ Cognitive trait definitions for realistic user simulation. These traits extend t
 
 ## Cognitive Trait Definitions
 
-Every persona has these 7 cognitive traits (0.0 to 1.0 scale):
+Every persona has these 12 cognitive traits (0.0 to 1.0 scale):
 
 | Trait | Description | Low (0.0) | High (1.0) |
 |-------|-------------|-----------|------------|
@@ -17,6 +17,21 @@ Every persona has these 7 cognitive traits (0.0 to 1.0 scale):
 | **curiosity** | Tendency to explore vs. stay focused | Tunnel vision on goal | Gets distracted by features |
 | **workingMemory** | Remembers what they've already tried | Forgets and repeats | Tracks all attempts |
 | **readingTendency** | Reads content vs. scans for CTAs | Visual scanner only | Reads everything thoroughly |
+| **resilience** | Recover emotionally from setbacks | Frustration lingers | Rapid bounce-back |
+| **selfEfficacy** | Belief in ability to solve problems | "I can't do this" | "I can figure anything out" |
+| **satisficing** | Accept "good enough" vs. optimize | Maximizer (seeks best) | Satisficer (picks first OK option) |
+| **trustCalibration** | Baseline trust toward websites | Highly skeptical | Clicks without reading |
+| **interruptRecovery** | Resume after interruption | Restarts from beginning | Seamless recovery |
+
+### Research Foundations (v11.5.0)
+
+| Trait | Research Basis | Key Finding |
+|-------|---------------|-------------|
+| **resilience** | [Smith et al. (2008)](https://pubmed.ncbi.nlm.nih.gov/18696313/) - Brief Resilience Scale | Measures bounce-back from stress |
+| **selfEfficacy** | [Bandura (1977)](https://psycnet.apa.org/record/1977-25733-001) - Self-efficacy theory | Low efficacy → 40% faster abandonment |
+| **satisficing** | [Simon (1956)](https://doi.org/10.2307/1884852) - Bounded rationality | Satisficers decide 50% faster |
+| **trustCalibration** | [Fogg (2003)](https://www.amazon.com/dp/1558606432) - Stanford Persuasive Tech | Trust affects CTAs by 40% |
+| **interruptRecovery** | [Mark et al. (2005)](https://dl.acm.org/doi/10.1145/1054972.1055017) | Average recovery: 23 minutes |
 
 ---
 
@@ -258,3 +273,54 @@ The `innerVoice` template plus current state generates realistic inner monologue
 - **Personas.md** — Basic persona definitions (demographics, goals, behaviors)
 
 Cognitive personas EXTEND basic personas with psychological realism.
+
+---
+
+## Trait Mappings by Persona (v11.5.0)
+
+Complete trait values for all built-in personas:
+
+### Built-in Personas
+
+| Persona | selfEfficacy | satisficing | trustCalibration | interruptRecovery |
+|---------|-------------|-------------|------------------|-------------------|
+| power-user | 0.90 | 0.30 | 0.70 | 0.85 |
+| first-timer | 0.40 | 0.50 | 0.40 | 0.35 |
+| mobile-user | 0.60 | 0.80 | 0.60 | 0.45 |
+| screen-reader-user | 0.50 | 0.60 | 0.50 | 0.75 |
+| elderly-user | 0.30 | 0.70 | 0.25 | 0.30 |
+| impatient-user | 0.50 | 0.90 | 0.70 | 0.20 |
+
+### Accessibility Personas
+
+| Persona | selfEfficacy | satisficing | trustCalibration | interruptRecovery |
+|---------|-------------|-------------|------------------|-------------------|
+| motor-impairment-tremor | 0.50 | 0.70 | 0.50 | 0.40 |
+| low-vision-magnified | 0.45 | 0.65 | 0.40 | 0.35 |
+| cognitive-adhd | 0.40 | 0.85 | 0.65 | 0.20 |
+| dyslexic-user | 0.50 | 0.60 | 0.50 | 0.55 |
+| deaf-user | 0.60 | 0.55 | 0.55 | 0.65 |
+| elderly-low-vision | 0.25 | 0.75 | 0.20 | 0.25 |
+| color-blind-deuteranopia | 0.70 | 0.50 | 0.55 | 0.60 |
+
+### Trait Interpretation Guide
+
+**selfEfficacy** (Bandura 1977):
+- Low (< 0.4): Gives up on first error, blames self for tech issues
+- Medium (0.4-0.7): Tries a few solutions, moderate confidence
+- High (> 0.7): Persists through errors, tries multiple approaches
+
+**satisficing** (Simon 1956):
+- Low (< 0.4): Maximizer - examines all options, slower decisions
+- Medium (0.4-0.7): Balanced - evaluates key options
+- High (> 0.7): Satisficer - picks first "good enough" option, faster
+
+**trustCalibration** (Fogg 2003):
+- Low (< 0.4): Skeptical - scrutinizes security, reads policies
+- Medium (0.4-0.7): Evaluates trust signals normally
+- High (> 0.7): Trusting - clicks through without reading
+
+**interruptRecovery** (Mark 2005):
+- Low (< 0.4): Restarts from beginning, loses context
+- Medium (0.4-0.7): Resumes with some lost progress
+- High (> 0.7): Seamless recovery using environmental cues

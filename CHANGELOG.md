@@ -6,11 +6,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [11.5.0](https://github.com/alexandriashai/cbrowser/compare/v11.3.0...v11.5.0) (2026-02-07)
+## [11.5.0](https://github.com/alexandriashai/cbrowser/compare/v11.4.1...v11.5.0) (2026-02-07)
 
 ### Added
 
-* address appraisal feedback - spatial matching, responsive specifics, SPA wait strategy ([7015f16](https://github.com/alexandriashai/cbrowser/commit/7015f168a6be99ad1423547f1d7420ddd3cbb1cb))
+* **cognitive:** 4 new research-backed cognitive traits for realistic user simulation
+  - `selfEfficacy` - Belief in problem-solving ability (Bandura 1977)
+  - `satisficing` - Accept "good enough" vs. seek optimal (Simon 1956)
+  - `trustCalibration` - Baseline trust toward websites (Fogg 2003)
+  - `interruptRecovery` - Ability to resume after interruption (Mark 2005)
+
+* **cognitive:** SelfEfficacyState system with domain-specific confidence tracking
+  - `handleChallenge()` - Models response to interface challenges
+  - `updateSelfEfficacy()` - Adjusts efficacy after success/failure
+  - Low efficacy users abandon 40% faster on first error
+
+* **cognitive:** SatisficingState system with aspiration level adaptation
+  - `evaluateOption()` - Determines if option meets "good enough" threshold
+  - Satisficers decide 50% faster with similar outcome quality
+  - Choice overload affects maximizers more severely
+
+* **cognitive:** TrustState system with 8 trust signal types
+  - Signals: https, security_badge, brand_recognition, professional_design, reviews_visible, contact_info, privacy_policy, social_proof
+  - `evaluateTrustDecision()` - Models trust-based action decisions
+  - `recordTrustBetrayal()` - Tracks trust violations
+  - Trust calibration affects CTA click-through by up to 40%
+
+* **cognitive:** InterruptRecoveryState system with context preservation
+  - Interruption types: external, system, self_initiated, timeout
+  - Resumption outcomes: resume_exact, resume_approximate, restart, abandon
+  - `handleInterruption()` - Models recovery based on Mark's 23-minute finding
+
+* **personas:** All 13 personas updated with new trait mappings
+  - 6 built-in personas: power-user, first-timer, mobile-user, screen-reader-user, elderly-user, impatient-user
+  - 7 accessibility personas: motor-impairment-tremor, low-vision-magnified, cognitive-adhd, dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia
+
+* **docs:** Updated README, CognitiveState.md, CognitivePersonas.md with new traits
+* **examples:** Added selfEfficacy, satisficing, interruptRecovery examples to cognitive-journey.ts
+
+### Research Citations
+
+| Trait | Primary Research |
+|-------|-----------------|
+| selfEfficacy | Bandura (1977) "Self-efficacy: Toward a unifying theory of behavioral change" |
+| satisficing | Simon (1956) "Rational Choice and the Structure of the Environment" |
+| trustCalibration | Fogg (2003) "Persuasive Technology" (Stanford Persuasive Tech Lab) |
+| interruptRecovery | Mark et al. (2005) "No Task Left Behind?" |
 
 ## [11.4.1](https://github.com/alexandriashai/cbrowser/compare/v11.4.0...v11.4.1) (2026-02-07)
 

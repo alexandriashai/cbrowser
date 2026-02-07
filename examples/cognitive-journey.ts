@@ -201,16 +201,123 @@ async function comparePersonas() {
   }
 }
 
+// Example 8: Self-Efficacy and Trust (v11.5.0)
+async function selfEfficacyTrustExample() {
+  console.log('\n=== Self-Efficacy & Trust Calibration (v11.5.0) ===\n');
+
+  // First-timer with low self-efficacy encountering a complex form
+  const result = await runCognitiveJourney({
+    persona: 'first-timer',
+    startUrl: 'https://example.com/signup',
+    goal: 'complete account registration',
+    customTraits: {
+      selfEfficacy: 0.3,      // "I probably can't figure this out"
+      trustCalibration: 0.35, // Skeptical - scrutinizes security indicators
+    },
+    verbose: true,
+  });
+
+  console.log('Self-Efficacy Analysis:');
+  console.log(`  Base efficacy: ${result.summary?.selfEfficacy?.base || 'N/A'}`);
+  console.log(`  Final efficacy: ${result.summary?.selfEfficacy?.final || 'N/A'}`);
+
+  if (result.summary?.trustDecisions) {
+    console.log('\nTrust Decisions:');
+    console.log(`  Accepted CTAs: ${result.summary.trustDecisions.accepted}`);
+    console.log(`  Rejected CTAs: ${result.summary.trustDecisions.rejected}`);
+    console.log(`  Avg evaluation time: ${result.summary.trustDecisions.avgEvaluationMs}ms`);
+  }
+
+  // Low self-efficacy users abandon 40% faster
+  if (!result.goalAchieved) {
+    console.log('\n⚠️ Low self-efficacy led to early abandonment');
+    console.log('Recommendation: Add encouragement, progress indicators, help tooltips');
+  }
+}
+
+// Example 9: Satisficing Behavior (v11.5.0)
+async function satisficingExample() {
+  console.log('\n=== Satisficing Behavior (v11.5.0) ===\n');
+
+  // High satisficing user - picks first "good enough" option
+  const satisficerResult = await runCognitiveJourney({
+    persona: 'mobile-user',
+    startUrl: 'https://example.com/products',
+    goal: 'find a suitable product',
+    customTraits: {
+      satisficing: 0.85, // High - accepts first reasonable option
+    },
+    verbose: true,
+  });
+
+  // Low satisficing user - maximizer who evaluates all options
+  const maximizerResult = await runCognitiveJourney({
+    persona: 'power-user',
+    startUrl: 'https://example.com/products',
+    goal: 'find the best product',
+    customTraits: {
+      satisficing: 0.2, // Low - maximizer, seeks optimal
+    },
+    verbose: true,
+  });
+
+  console.log('Satisficer vs Maximizer Comparison:');
+  console.log(`  Satisficer steps: ${satisficerResult.steps.length}`);
+  console.log(`  Maximizer steps: ${maximizerResult.steps.length}`);
+  console.log(`  Satisficer goal achieved: ${satisficerResult.goalAchieved}`);
+  console.log(`  Maximizer goal achieved: ${maximizerResult.goalAchieved}`);
+
+  // Satisficers decide 50% faster
+  console.log('\nInsight: Satisficers typically decide faster but may miss optimal options');
+  console.log('Recommendation: Highlight "Most Popular" or "Best Value" for satisficers');
+}
+
+// Example 10: Interrupt Recovery (v11.5.0)
+async function interruptRecoveryExample() {
+  console.log('\n=== Interrupt Recovery (v11.5.0) ===\n');
+
+  // ADHD user with low interrupt recovery in multi-step form
+  const result = await runCognitiveJourney({
+    persona: 'cognitive-adhd',
+    startUrl: 'https://example.com/application',
+    goal: 'complete the 5-step application form',
+    customTraits: {
+      interruptRecovery: 0.2, // Very low - struggles to resume
+    },
+    simulateInterruptions: true, // Enable random interruptions
+    verbose: true,
+  });
+
+  if (result.interruptions) {
+    console.log('Interruption Analysis:');
+    console.log(`  Total interruptions: ${result.interruptions.count}`);
+    console.log(`  Successful recoveries: ${result.interruptions.successfulRecoveries}`);
+    console.log(`  Progress lost: ${(result.interruptions.progressLost * 100).toFixed(0)}%`);
+
+    for (const int of result.interruptions.events) {
+      console.log(`\n  Interruption at step ${int.step}:`);
+      console.log(`    Type: ${int.type}`);
+      console.log(`    Outcome: ${int.outcome}`);
+      console.log(`    Frustration added: ${(int.frustrationAdded * 100).toFixed(0)}%`);
+    }
+  }
+
+  console.log('\nRecommendation: Add form autosave, breadcrumbs, and session persistence');
+}
+
 // Run examples
 async function main() {
   try {
     await basicJourney();
     // await customTraitsJourney();
     // await journeyWithCallbacks();
-    // await decisionFatigueExample();  // v9.9.0
-    // await dualProcessExample();       // v10.0.0
-    // await fittsLawExample();          // v9.9.0
+    // await decisionFatigueExample();     // v9.9.0
+    // await dualProcessExample();          // v10.0.0
+    // await fittsLawExample();             // v9.9.0
     // await comparePersonas();
+    // await selfEfficacyTrustExample();    // v11.5.0
+    // await satisficingExample();          // v11.5.0
+    // await interruptRecoveryExample();    // v11.5.0
   } catch (error) {
     console.error('Error:', error);
     process.exit(1);

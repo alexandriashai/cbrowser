@@ -259,3 +259,127 @@ This state template is used by:
 3. **Report generation** — Final metrics from state history
 
 The cognitive state is the "working memory" of the simulation.
+
+---
+
+## Advanced State Systems (v11.5.0)
+
+### Self-Efficacy State
+
+Tracks belief in ability to solve problems. Based on Bandura (1977).
+
+```typescript
+interface SelfEfficacyState {
+  baseEfficacy: number;           // From persona trait (0-1)
+  currentEfficacy: number;        // After success/failure adjustments
+  recentSuccesses: number;        // Count of recent wins
+  recentFailures: number;         // Count of recent failures
+  domainConfidence: Record<string, number>;  // Per-domain confidence
+}
+
+// Effects:
+// - Low efficacy users abandon 40% faster on first error
+// - High efficacy users try 3x more solution paths
+// - Mastery experiences boost efficacy more than verbal encouragement
+```
+
+### Satisficing State
+
+Tracks decision style (maximizer vs. satisficer). Based on Simon (1956).
+
+```typescript
+interface SatisficingState {
+  tendency: number;               // From persona trait (0=maximizer, 1=satisficer)
+  aspirationLevel: number;        // Current "good enough" threshold
+  optionsExamined: number;        // How many options reviewed
+  bestOptionSeen: { value: number; position: number } | null;
+  searchFatigue: number;          // Accumulates during option review
+}
+
+// Effects:
+// - Satisficers decide 50% faster
+// - Maximizers suffer more from choice overload
+// - Aspiration level adapts based on options seen
+```
+
+### Trust State
+
+Tracks trust calibration toward websites. Based on Fogg (2003).
+
+```typescript
+interface TrustState {
+  baselineTrust: number;          // From persona trait (0-1)
+  currentTrust: number;           // After signal/betrayal adjustments
+  signalsDetected: TrustSignal[]; // Security indicators found
+  betrayalHistory: TrustBetrayalEvent[];  // Trust violations
+}
+
+// Trust signals (8 types):
+// - https, security_badge, brand_recognition, professional_design
+// - reviews_visible, contact_info, privacy_policy, social_proof
+
+// Effects:
+// - Low-trust users take 3-10x longer evaluating security
+// - Trust calibration affects CTA click-through by 40%
+// - Trust destroyed faster than built (asymmetric)
+```
+
+### Interrupt Recovery State
+
+Tracks ability to resume after interruption. Based on Mark et al. (2005).
+
+```typescript
+interface InterruptRecoveryState {
+  recoveryAbility: number;        // From persona trait (0-1)
+  currentTaskContext: TaskContext | null;  // What they were doing
+  interruptionLog: InterruptionEvent[];    // Interruption history
+  environmentalCues: string[];    // Breadcrumbs, autosave, etc.
+}
+
+// Interruption types:
+// - external (phone, person) - most disruptive
+// - system (popup, alert)
+// - self_initiated (checking email)
+// - timeout (session expired) - most disruptive
+
+// Resumption outcomes:
+// - resume_exact: Back to exact spot
+// - resume_approximate: Lose 10-30% progress
+// - restart: Start from beginning
+// - abandon: Give up entirely
+```
+
+---
+
+## State Integration
+
+All state systems integrate with the core cognitive state:
+
+```yaml
+cognitiveState:
+  # Core state (existing)
+  patienceRemaining: 0.62
+  confusionLevel: 0.35
+  frustrationLevel: 0.28
+
+  # Advanced states (v11.5.0)
+  selfEfficacy:
+    current: 0.55
+    recentSuccesses: 2
+    recentFailures: 1
+
+  satisficing:
+    aspirationLevel: 0.7
+    optionsExamined: 4
+    searchFatigue: 0.3
+
+  trust:
+    current: 0.65
+    signalsDetected: ["https", "brand_recognition"]
+    recentBetrayal: null
+
+  interruptRecovery:
+    contextPreserved: true
+    lastInterruption: null
+    environmentalCues: ["breadcrumbs", "form_autosave"]
+```

@@ -790,6 +790,7 @@ User: "Simulate a confused first-timer trying to register as a provider"
 
 | Version | Features |
 |---------|----------|
+| v11.5.0 | **4 new research-backed cognitive traits:** selfEfficacy (Bandura 1977), satisficing (Simon 1956), trustCalibration (Fogg 2003), interruptRecovery (Mark 2005). Full state management systems for each trait. All 13 personas updated with trait mappings. Low efficacy users abandon 40% faster. Trust calibration affects CTAs by 40%. |
 | v8.9.0 | **`journey` renamed to `explore`** (heuristic-based, free). Improved help text clarifies `explore` vs `cognitive-journey`. Click priority scoring prefers exact matches over fuzzy. Click avoids sticky nav when better candidate exists. Custom dropdown/input handling for Alpine.js, React Select. Version single source of truth from package.json. ESM support via `"type": "module"`. |
 | v8.4.0 | Vision mode (`--vision`) for cognitive journeys - sends screenshots to Claude. Hover-before-click for dropdown menus. Page content extraction. `hover()` and `hoverClick()` browser methods. `hover:selector` action type. Daemon mode hover support for persistent CLI sessions. |
 | v8.3.4 | Fix: cognitive journey click/fill results now properly checked instead of always returning success |
