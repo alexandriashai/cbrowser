@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.3.0](https://github.com/alexandriashai/cbrowser/compare/v11.1.1...v11.3.0) (2026-02-07)
+
+### Added
+
+* **find_element_by_intent:** context-aware matching and last ordinal ([95de77c](https://github.com/alexandriashai/cbrowser/commit/95de77cf246ee7521bf702307a590172c0961492))
+
 ## [11.2.0](https://github.com/alexandriashai/cbrowser/compare/v11.1.1...v11.2.0) (2026-02-07)
 
 ### Added
