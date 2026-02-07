@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `src/browser/overlay-handler.ts` - OverlayHandler class for overlay dismissal
   - All modules exported from `src/browser/index.ts` and main package
 
+* **chore:** Eliminate all ESLint warnings (132 → 0)
+  - Remove unused imports across codebase
+  - Prefix unused variables with `_` for intentional ignoring
+  - Clean up type imports in CLI and analysis modules
+
 ## [10.4.5](https://github.com/alexandriashai/cbrowser/compare/v10.4.3...v10.4.5) (2026-02-07)
 
 
