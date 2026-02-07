@@ -91,7 +91,78 @@ async function journeyWithCallbacks() {
   console.log('\nJourney finished');
 }
 
-// Example 4: Compare cognitive traits across personas
+// Example 4: Decision Fatigue Metrics (v9.9.0)
+async function decisionFatigueExample() {
+  console.log('\n=== Decision Fatigue Metrics (v9.9.0) ===\n');
+
+  const result = await runCognitiveJourney({
+    persona: 'first-timer',
+    startUrl: 'https://example.com/signup',
+    goal: 'complete registration with all options',
+    verbose: true,
+  });
+
+  // v9.9.0 decision fatigue metrics
+  console.log('Decision Fatigue Analysis:');
+  console.log(`  Decisions made: ${result.summary.decisionsMade}`);
+  console.log(`  Final fatigue: ${(result.summary.finalDecisionFatigue * 100).toFixed(0)}%`);
+
+  if (result.summary.wasChoosingDefaults) {
+    console.log('  ⚠️ User started choosing defaults due to fatigue');
+    console.log('  Recommendation: Reduce number of choices or use smart defaults');
+  }
+}
+
+// Example 5: Dual-Process Theory (v10.0.0)
+async function dualProcessExample() {
+  console.log('\n=== Dual-Process Theory (v10.0.0) ===\n');
+
+  // Power users start in System 1 (automatic, fast)
+  // They switch to System 2 (deliberate) when confused
+  const result = await runCognitiveJourney({
+    persona: 'power-user',
+    startUrl: 'https://example.com/settings',
+    goal: 'configure advanced notification preferences',
+    verbose: true,
+  });
+
+  if (result.cognitiveMode) {
+    console.log('Cognitive Mode Analysis:');
+    console.log(`  Started in: System ${result.cognitiveMode.system === 1 ? '1 (Automatic)' : '2 (Deliberate)'}`);
+    console.log(`  Time in System 1: ${result.cognitiveMode.timeInSystem1}ms`);
+    console.log(`  Time in System 2: ${result.cognitiveMode.timeInSystem2}ms`);
+    console.log(`  System 1 errors: ${result.cognitiveMode.system1Errors}`);
+
+    const pctSystem1 = (result.cognitiveMode.timeInSystem1 /
+      (result.cognitiveMode.timeInSystem1 + result.cognitiveMode.timeInSystem2) * 100).toFixed(0);
+    console.log(`  Efficiency: ${pctSystem1}% automatic thinking`);
+  }
+}
+
+// Example 6: Fitts' Law Motor Timing (v9.9.0)
+async function fittsLawExample() {
+  console.log('\n=== Fitts\' Law Motor Timing (v9.9.0) ===\n');
+
+  // Elderly users have age modifier affecting mouse movement
+  const result = await runCognitiveJourney({
+    persona: 'elderly-user',
+    startUrl: 'https://example.com',
+    goal: 'click the small help icon in the corner',
+    verbose: true,
+  });
+
+  // Find steps with click actions to see Fitts' Law in action
+  const clickSteps = result.steps.filter(s => s.action?.startsWith('click'));
+  for (const step of clickSteps) {
+    console.log(`Step ${step.stepNumber}: ${step.action}`);
+    if (step.mouseMovementTime) {
+      console.log(`  Mouse movement time: ${step.mouseMovementTime}ms`);
+      console.log(`  (Includes age modifier for elderly persona)`);
+    }
+  }
+}
+
+// Example 7: Compare cognitive traits across personas
 async function comparePersonas() {
   console.log('\n=== Comparing Personas ===\n');
 
@@ -136,6 +207,9 @@ async function main() {
     await basicJourney();
     // await customTraitsJourney();
     // await journeyWithCallbacks();
+    // await decisionFatigueExample();  // v9.9.0
+    // await dualProcessExample();       // v10.0.0
+    // await fittsLawExample();          // v9.9.0
     // await comparePersonas();
   } catch (error) {
     console.error('Error:', error);
