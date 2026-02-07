@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.1.1](https://github.com/alexandriashai/cbrowser/compare/v10.9.1...v11.1.1) (2026-02-07)
+
+### Fixed
+
+* **constitutional-ai:** context-aware classification reduces false positives ([8617535](https://github.com/alexandriashai/cbrowser/commit/86175350f89db7e7a7faf7868190a53a648d9354)), closes [#82](https://github.com/alexandriashai/cbrowser/issues/82)
+
 ## [11.1.0](https://github.com/alexandriashai/cbrowser/compare/v11.0.0...v11.1.0) (2026-02-07)
 
 ### Fixed
