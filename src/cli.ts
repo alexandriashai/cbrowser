@@ -4935,8 +4935,35 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         // Parse disabilities or use all
         const allAccessibilityNames = listAccessibilityPersonas();
+
+        // Short alias mapping for convenience
+        const aliasMap: Record<string, string> = {
+          "motor-tremor": "motor-impairment-tremor",
+          "motor": "motor-impairment-tremor",
+          "tremor": "motor-impairment-tremor",
+          "low-vision": "low-vision-magnified",
+          "vision": "low-vision-magnified",
+          "magnified": "low-vision-magnified",
+          "adhd": "cognitive-adhd",
+          "cognitive": "cognitive-adhd",
+          "attention": "cognitive-adhd",
+          "dyslexia": "dyslexic-user",
+          "dyslexic": "dyslexic-user",
+          "reading": "dyslexic-user",
+          "deaf": "deaf-user",
+          "hearing": "deaf-user",
+          "elderly": "elderly-low-vision",
+          "senior": "elderly-low-vision",
+          "color-blind": "color-blind-deuteranopia",
+          "colorblind": "color-blind-deuteranopia",
+          "deuteranopia": "color-blind-deuteranopia",
+        };
+
         const disabilityNames = disabilitiesArg
-          ? disabilitiesArg.split(",").map((d) => d.trim())
+          ? disabilitiesArg.split(",").map((d) => {
+              const trimmed = d.trim().toLowerCase();
+              return aliasMap[trimmed] || trimmed;
+            })
           : allAccessibilityNames;
 
         // Validate disability names
@@ -4944,6 +4971,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (invalidNames.length > 0) {
           console.error(`Error: Unknown disability persona(s): ${invalidNames.join(", ")}`);
           console.error(`Available: ${allAccessibilityNames.join(", ")}`);
+          console.error(`Aliases: motor-tremor, low-vision, adhd, dyslexia, deaf, elderly, color-blind`);
           process.exit(1);
         }
 
