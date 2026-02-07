@@ -561,7 +561,7 @@ export function filterByAttention<T extends { area?: FocusAreaType }>(
  * Determine the order to scan page areas based on hierarchy and scan pattern.
  */
 export function getScanOrder(hierarchy: FocusHierarchy): FocusAreaType[] {
-  const { scanPattern, focusAreas, navFirstProbability } = hierarchy;
+  const { scanPattern, focusAreas, navFirstProbability: _navFirstProbability } = hierarchy;
 
   // Start with primary areas sorted by probability
   const primaryAreas = focusAreas

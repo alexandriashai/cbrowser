@@ -5,7 +5,7 @@
  * Output: head-to-head comparison with friction analysis.
  */
 
-import { chromium, type Browser, type Page, type BrowserContext } from "playwright";
+import { chromium, type Browser, type Page } from "playwright";
 import type {
   CompetitiveBenchmarkResult,
   CompetitiveBenchmarkOptions,
@@ -14,7 +14,6 @@ import type {
   BenchmarkComparison,
   CompetitiveRecommendation,
   Persona,
-  FocusHierarchy,
   FocusAreaType,
 } from "../types.js";
 import { getPersona, BUILTIN_PERSONAS } from "../personas.js";
@@ -23,12 +22,10 @@ import {
   inferTaskTypeFromGoal,
   calculateFocusPriority,
   getDistractionIgnoreRate,
-  COMMON_DISTRACTIONS,
 } from "../cognitive/focus-hierarchies.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
-  isCognitiveAvailable,
 } from "../cognitive/index.js";
 
 // ============================================================================
@@ -429,7 +426,7 @@ async function analyzePageForGoal(page: Page, goal: string): Promise<PageAnalysi
     // If we have subject keywords, check for their presence and density
     if (subjectKeywords.length > 0) {
       // Count how many expanded keywords (including synonyms) appear in the page
-      const keywordsFound = expandedKeywords.filter(kw => pageText.includes(kw));
+      const _keywordsFound = expandedKeywords.filter(kw => pageText.includes(kw));
 
       // For ratio, compare against original subject count (finding ANY synonym counts)
       // If we find synonyms for a concept, that concept is "found"

@@ -11,14 +11,14 @@ import { CBrowser } from "./browser.js";
 import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport } from "./analysis/index.js";
 
 // Testing module imports
-import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, dryRunNLTestSuite, repairTest, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, parseTestFilesForCoverage, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
+import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, dryRunNLTestSuite, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
 
 // Performance module imports
 import { capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./performance/index.js";
 
 // Visual module imports
-import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff, type BrowserDiffResult } from "./visual/index.js";
-import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABComparisonResult, ABSuite, ABSuiteResult } from "./types.js";
+import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff } from "./visual/index.js";
+import type { NLTestCase, NLTestSuiteResult, PerformanceRegressionThresholds, CoverageMapOptions, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABSuite, ABSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
   loadCustomPersonas,
@@ -3642,7 +3642,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
             const results = await CBrowser.parallelDevices(
               deviceList,
-              async (b, device) => {
+              async (b, _device) => {
                 const nav = await b.navigate(url);
                 const screenshot = await b.screenshot();
                 return { title: nav.title, loadTime: nav.loadTime, screenshot };
@@ -4367,7 +4367,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "perf-baseline": {
         const subcommand = args[0];
-        const fs = await import("fs");
+        const _fs = await import("fs");
 
         switch (subcommand) {
           case "save": {

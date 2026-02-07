@@ -313,7 +313,7 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
  * Detect timing-based barriers
  */
 async function detectTimingIssues(ctx: BarrierContext): Promise<void> {
-  const { page, persona, barriers } = ctx;
+  const { page, persona: _persona, barriers } = ctx;
 
   // Check for elements that might have timing constraints
   const timingElements = await page.$$eval(

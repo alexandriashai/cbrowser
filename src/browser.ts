@@ -4,7 +4,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator, type ElementHandle } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 
@@ -2877,7 +2877,7 @@ export class CBrowser {
    * Assert a condition using natural language.
    */
   async assert(assertion: string): Promise<AssertionResult> {
-    const page = await this.getPage();
+    await this.getPage(); // Ensure page exists
 
     try {
       // Parse the assertion
@@ -3359,7 +3359,7 @@ export class CBrowser {
         return {
           persona: personaName,
           goal,
-          steps: cognitiveResult.frictionPoints.map((fp, i) => ({
+          steps: cognitiveResult.frictionPoints.map((fp, _i) => ({
             action: fp.type,
             target: fp.element || 'page',
             result: fp.monologue.substring(0, 100),

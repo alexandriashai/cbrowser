@@ -501,7 +501,7 @@ function generateRecommendations(issues: AgentReadyIssue[]): AgentReadyRecommend
           issueTypes.get(type)!.push(issue);
         }
 
-        for (const [type, typeIssues] of issueTypes) {
+        for (const [_type, typeIssues] of issueTypes) {
           const representative = typeIssues[0];
           const count = typeIssues.length;
 
@@ -951,7 +951,7 @@ export function generateAgentReadyHtmlReport(result: AgentReadyAuditResult): str
 
 export async function runAgentReadyAudit(
   url: string,
-  options: AgentReadyAuditOptions = {}
+  _options: AgentReadyAuditOptions = {}
 ): Promise<AgentReadyAuditResult> {
   const startTime = Date.now();
   let browser: Browser | null = null;
