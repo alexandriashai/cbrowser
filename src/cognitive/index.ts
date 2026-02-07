@@ -34,7 +34,9 @@ import type {
   FrictionPoint,
   Persona,
   CognitiveTraits,
+  DecisionFatigueState,
 } from "../types.js";
+import { calculateFatigueIncrement, calculateFittsMovementTime, FittsLawParams } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 
 // ============================================================================
@@ -244,6 +246,9 @@ export async function runCognitiveJourney(
     timeLimit:
       options.maxTime ||
       (traits.patience > 0.7 ? 180 : traits.patience < 0.3 ? 60 : 120),
+    // Decision fatigue threshold based on persistence (v9.9.0)
+    // High persistence = can handle more decisions before giving up
+    decisionFatigueMax: traits.persistence > 0.7 ? 0.95 : traits.persistence < 0.3 ? 0.7 : 0.85,
   };
 
   // Initialize state
@@ -262,6 +267,42 @@ export async function runCognitiveJourney(
     },
     timeElapsed: 0,
     stepCount: 0,
+    // Decision fatigue tracking (v9.9.0)
+    decisionFatigue: {
+      decisionsMade: 0,
+      fatigueLevel: 0,
+      lastDecisionComplexity: 0,
+      choosingDefaults: false,
+    },
+  };
+
+  // Calculate Fitts' Law params from persona (v9.9.0)
+  // Higher jitter/overshoot = more tremor-like movement
+  // Demographics age affects motor control
+  const mouseParams = personaObj.humanBehavior?.mouse;
+  const ageRange = personaObj.demographics?.age_range;
+
+  // Derive age modifier from age_range (e.g., "18-25", "65+")
+  let ageModifier = 1.0;
+  if (ageRange) {
+    const ageMatch = ageRange.match(/(\d+)/);
+    if (ageMatch) {
+      const age = parseInt(ageMatch[1], 10);
+      // Motor control degrades with age: 1.0 at 25, 1.5 at 65, 2.0 at 85
+      ageModifier = age > 40 ? 1 + (age - 40) / 50 : 1.0;
+    }
+  }
+
+  // Derive tremor modifier from mouse params or motor traits
+  let tremorModifier = 0;
+  if (mouseParams) {
+    // Higher jitter = more tremor effect
+    tremorModifier = (mouseParams.jitter || 0) / 10;
+  }
+
+  const fittsParams: Partial<FittsLawParams> = {
+    ageModifier,
+    tremorModifier,
   };
 
   // Initialize browser (auto-detect headless for servers without display)
@@ -440,7 +481,7 @@ export async function runCognitiveJourney(
     // Execute action if provided
     if (parsed.action) {
       try {
-        const result = await executeAction(browser, parsed.action);
+        const result = await executeAction(browser, parsed.action, fittsParams);
         state.memory.actionsAttempted.push({
           action: parsed.action,
           target: parsed.actionTarget,
@@ -458,6 +499,33 @@ export async function runCognitiveJourney(
           context: `Step ${step}: ${parsed.action}`,
         });
         state.frustrationLevel = Math.min(1, state.frustrationLevel + 0.15);
+      }
+
+      // Update decision fatigue (v9.9.0)
+      // Every action is a decision - fatigue accumulates
+      if (state.decisionFatigue) {
+        state.decisionFatigue.decisionsMade++;
+        // Estimate decision complexity: clicks on links = easy (2 options),
+        // form fills = medium (5), navigation choices = hard (8+)
+        const estimatedOptions = parsed.action.toLowerCase().includes("fill")
+          ? 5
+          : parsed.action.toLowerCase().includes("navigate") || parsed.action.toLowerCase().includes("search")
+            ? 8
+            : 3;
+        const fatigueIncrement = calculateFatigueIncrement(estimatedOptions);
+        state.decisionFatigue.fatigueLevel = Math.min(1, state.decisionFatigue.fatigueLevel + fatigueIncrement);
+        state.decisionFatigue.lastDecisionComplexity = estimatedOptions;
+
+        // High fatigue triggers default-seeking behavior
+        if (state.decisionFatigue.fatigueLevel > 0.7) {
+          state.decisionFatigue.choosingDefaults = true;
+        }
+
+        if (options.verbose) {
+          console.log(
+            `🧠 Decision Fatigue: ${(state.decisionFatigue.fatigueLevel * 100).toFixed(0)}% (${state.decisionFatigue.decisionsMade} decisions)`
+          );
+        }
       }
     }
 
@@ -490,6 +558,10 @@ export async function runCognitiveJourney(
       maxFrustrationLevel: state.frustrationLevel,
       backtrackCount: state.memory.backtrackCount,
       timeInConfusion: frictionPoints.length * 2, // Estimate
+      // Decision fatigue metrics (v9.9.0)
+      decisionsMade: state.decisionFatigue?.decisionsMade ?? 0,
+      finalDecisionFatigue: state.decisionFatigue?.fatigueLevel ?? 0,
+      wasChoosingDefaults: state.decisionFatigue?.choosingDefaults ?? false,
     },
   };
 }
@@ -697,6 +769,18 @@ function checkAbandonmentTriggers(
     };
   }
 
+  // Decision fatigue check (v9.9.0)
+  if (
+    state.decisionFatigue &&
+    thresholds.decisionFatigueMax &&
+    state.decisionFatigue.fatigueLevel > thresholds.decisionFatigueMax
+  ) {
+    return {
+      reason: "decision_fatigue" as CognitiveJourneyResult["abandonmentReason"],
+      message: "Too many choices... I can't think straight anymore. Maybe later.",
+    };
+  }
+
   // Loop detection
   const recentPages = state.memory.pagesVisited.slice(-5);
   const uniqueRecent = new Set(recentPages).size;
@@ -727,10 +811,45 @@ function checkAbandonmentTriggers(
 interface ActionResult {
   success: boolean;
   newUrl?: string;
+  movementTimeMs?: number;
 }
 
-async function executeAction(browser: CBrowser, action: string): Promise<ActionResult> {
+/**
+ * Execute an action with optional Fitts' Law mouse timing (v9.9.0)
+ *
+ * Fitts' Law: MT = a + b × log₂(D/W + 1)
+ * - MT: Movement time in ms
+ * - D: Distance to target
+ * - W: Target width
+ * - a, b: Empirical constants (50ms, 150ms)
+ *
+ * For cognitive simulation, we estimate distance as 300px (average screen movement)
+ * and target width as 80px (average button size). Persona traits modify timing.
+ */
+async function executeAction(
+  browser: CBrowser,
+  action: string,
+  fittsParams?: Partial<FittsLawParams>
+): Promise<ActionResult> {
   const [type, ...args] = action.split(":");
+
+  // Apply Fitts' Law timing for mouse actions (v9.9.0)
+  let movementTimeMs = 0;
+  if (["click", "hover", "hoverclick"].includes(type) && fittsParams) {
+    // Estimate target size and distance
+    // Average button width ~80px, average screen movement distance ~300px
+    const estimatedDistance = 300;
+    const estimatedTargetWidth = 80;
+
+    movementTimeMs = calculateFittsMovementTime(
+      estimatedDistance,
+      estimatedTargetWidth,
+      fittsParams
+    );
+
+    // Add realistic delay before the click
+    await sleep(movementTimeMs);
+  }
 
   switch (type) {
     case "click": {
@@ -738,18 +857,18 @@ async function executeAction(browser: CBrowser, action: string): Promise<ActionR
       // Use hoverClick for potentially dropdown menu items
       // This will try hovering parent menus if the element isn't immediately found
       const result = await browser.hoverClick(selector);
-      return { success: result.success };
+      return { success: result.success, movementTimeMs };
     }
     case "hover": {
       const selector = args.join(":");
       const result = await browser.hover(selector);
-      return { success: result.success };
+      return { success: result.success, movementTimeMs };
     }
     case "hoverclick": {
       // Explicit hover-click with optional parent: hoverclick:target:parent
       const [selector, parent] = args;
       const result = await browser.hoverClick(selector, { hoverParent: parent });
-      return { success: result.success };
+      return { success: result.success, movementTimeMs };
     }
     case "fill": {
       const [selector, ...valueParts] = args;

@@ -256,6 +256,93 @@ export interface CognitiveState {
   timeElapsed: number;
   /** Number of steps taken */
   stepCount: number;
+  /** Decision fatigue state (v9.9.0) */
+  decisionFatigue?: DecisionFatigueState;
+}
+
+// ============================================================================
+// Decision Fatigue Types (v9.9.0) - Behavioral Economics Integration
+// ============================================================================
+
+/**
+ * Decision fatigue state - models cognitive resource depletion from decisions.
+ * Based on behavioral economics research showing each decision depletes
+ * a shared cognitive resource, causing users to default or abandon.
+ *
+ * @see https://www.behavioraleconomics.com/resources/mini-encyclopedia-of-be/decision-fatigue/
+ */
+export interface DecisionFatigueState {
+  /** Total decisions made this session */
+  decisionsMade: number;
+  /** Current fatigue level (0 = fresh, 1 = depleted) */
+  fatigueLevel: number;
+  /** Complexity of last decision (options considered) */
+  lastDecisionComplexity: number;
+  /** Whether user has started choosing defaults due to fatigue */
+  choosingDefaults: boolean;
+}
+
+/**
+ * Calculate decision fatigue increment based on decision complexity.
+ * More options = more depletion. Based on Baumeister's ego depletion research.
+ */
+export function calculateFatigueIncrement(optionsConsidered: number): number {
+  // Logarithmic: first few options costly, diminishing returns
+  return 0.05 * Math.log(optionsConsidered + 1);
+}
+
+// ============================================================================
+// Fitts' Law Types (v9.9.0) - Motor Movement Modeling
+// ============================================================================
+
+/**
+ * Fitts' Law coefficients for realistic mouse movement timing.
+ * MT = a + b × log₂(D/W + 1)
+ *
+ * Standard coefficients from Card, Moran & Newell (1983).
+ * @see https://www.interaction-design.org/literature/topics/fitts-law
+ */
+export interface FittsLawParams {
+  /** Base movement time in ms (intercept) */
+  a: number;
+  /** Movement time coefficient (slope) */
+  b: number;
+  /** Age-based modifier (1.0 = young adult, 1.5 = elderly) */
+  ageModifier: number;
+  /** Tremor-based modifier from persona */
+  tremorModifier: number;
+}
+
+/**
+ * Default Fitts' Law parameters based on empirical research.
+ */
+export const DEFAULT_FITTS_PARAMS: FittsLawParams = {
+  a: 50,      // Base time in ms
+  b: 150,     // Movement coefficient
+  ageModifier: 1.0,
+  tremorModifier: 0,
+};
+
+/**
+ * Calculate movement time using Fitts' Law.
+ * @param distance - Distance to target in pixels
+ * @param targetWidth - Width of target in pixels
+ * @param params - Fitts' Law parameters (optional, uses defaults)
+ * @returns Movement time in milliseconds
+ */
+export function calculateFittsMovementTime(
+  distance: number,
+  targetWidth: number,
+  params: Partial<FittsLawParams> = {}
+): number {
+  const { a, b, ageModifier, tremorModifier } = { ...DEFAULT_FITTS_PARAMS, ...params };
+
+  // Fitts' Law: MT = a + b × log₂(D/W + 1)
+  const indexOfDifficulty = Math.log2(distance / Math.max(targetWidth, 1) + 1);
+  const baseMT = a + b * indexOfDifficulty;
+
+  // Apply persona modifiers
+  return baseMT * ageModifier * (1 + tremorModifier * 0.1);
 }
 
 /**
@@ -288,6 +375,8 @@ export interface AbandonmentThresholds {
   loopDetectionThreshold: number;
   /** Maximum time in seconds (default: 120) */
   timeLimit: number;
+  /** Abandon if decision fatigue exceeds this (default: 0.85, v9.9.0) */
+  decisionFatigueMax?: number;
 }
 
 /**
@@ -339,7 +428,7 @@ export interface CognitiveJourneyResult {
   /** Whether goal was achieved */
   goalAchieved: boolean;
   /** If abandoned, why */
-  abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout";
+  abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue";
   /** Final abandonment message */
   abandonmentMessage?: string;
   /** Total time in seconds */
@@ -360,6 +449,12 @@ export interface CognitiveJourneyResult {
     maxFrustrationLevel: number;
     backtrackCount: number;
     timeInConfusion: number;
+    /** Number of decisions made during journey (v9.9.0) */
+    decisionsMade?: number;
+    /** Final decision fatigue level 0-1 (v9.9.0) */
+    finalDecisionFatigue?: number;
+    /** Whether persona was choosing defaults due to fatigue (v9.9.0) */
+    wasChoosingDefaults?: boolean;
   };
 }
 
@@ -524,7 +619,7 @@ export interface JourneyResult {
     patienceRemaining: number;
     frustrationLevel: number;
     confusionLevel: number;
-    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout";
+    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue";
     backtrackCount: number;
     monologue: string[];
   };
@@ -559,7 +654,7 @@ export interface PersonaJourneyResult {
     /** Final confusion level (0-1) */
     confusionLevel: number;
     /** Abandonment reason if failed */
-    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout";
+    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue";
     /** Number of backtracks */
     backtrackCount: number;
     /** Full inner monologue */
