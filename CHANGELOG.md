@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.3.0](https://github.com/alexandriashai/cbrowser/compare/v10.1.0...v10.3.0) (2026-02-07)
+
+
+### Added
+
+* **cognitive:** add WebGazer Saliency, Stress Tunnel Vision, Banner Blindness ([7d46106](https://github.com/alexandriashai/cbrowser/commit/7d46106cc1699d32aafc56daee2ceaa81cc3161b)), closes [#48](https://github.com/alexandriashai/cbrowser/issues/48) [#54](https://github.com/alexandriashai/cbrowser/issues/54) [#55](https://github.com/alexandriashai/cbrowser/issues/55) [#48](https://github.com/alexandriashai/cbrowser/issues/48) [#54](https://github.com/alexandriashai/cbrowser/issues/54) [#55](https://github.com/alexandriashai/cbrowser/issues/55)
+
 ## [10.2.0](https://github.com/alexandriashai/cbrowser/compare/v10.1.0...v10.2.0) (2026-02-07)
 
 
