@@ -452,6 +452,7 @@ export async function findElementByIntent(
 
   // Calculate word overlap score between intent and element text
   // v11.2.0: Enhanced with container context awareness
+  // v11.3.0: Added semantic role matching for spatial/structural intents
   const calculateWordScore = (el: EnrichedPageElement & { container?: string }): number => {
     // If we require a specific container and element is not in it, heavily penalize
     if (requiredContainer && el.container !== requiredContainer) {
@@ -464,10 +465,37 @@ export async function findElementByIntent(
     let matchCount = 0;
     let totalWeight = 0;
 
+    // v11.3.0: Semantic role synonyms - map intent words to element structural properties
+    // This enables "main navigation menu" to match <nav aria-label="Main"> with high confidence
+    const semanticRoleMatches: Record<string, (el: EnrichedPageElement) => boolean> = {
+      navigation: (e) => e.tag === "nav" || e.role === "navigation" || e.ariaLabel.toLowerCase().includes("nav"),
+      nav: (e) => e.tag === "nav" || e.role === "navigation",
+      menu: (e) => e.role === "menu" || e.role === "menubar" || e.role === "navigation" || e.tag === "nav",
+      header: (e) => e.tag === "header" || e.role === "banner" || e.container === "header",
+      footer: (e) => e.tag === "footer" || e.role === "contentinfo" || e.container === "footer",
+      sidebar: (e) => e.tag === "aside" || e.role === "complementary",
+      main: (e) => e.tag === "main" || e.role === "main" || e.ariaLabel.toLowerCase().includes("main") || e.container === "main",
+      form: (e) => e.tag === "form" || e.role === "form",
+      search: (e) => e.role === "search" || e.type === "search" || e.ariaLabel.toLowerCase().includes("search"),
+      banner: (e) => e.role === "banner" || e.tag === "header",
+    };
+
+    // Count semantic matches and add them as weighted matches
+    let semanticMatches = 0;
     for (const intentWord of intentWords) {
-      // Skip stop words, ordinals, and container context words
+      const checker = semanticRoleMatches[intentWord];
+      if (checker && checker(el)) {
+        semanticMatches += 1;
+        totalWeight += 1;
+        matchCount += 1; // Full match for semantic role
+      }
+    }
+
+    for (const intentWord of intentWords) {
+      // Skip stop words, ordinals
       if (stopWords.has(intentWord) || ordinalMap[intentWord] !== undefined) continue;
-      if (containerContextMap[intentWord]) continue; // Skip "navigation", "header", etc.
+      // Skip words already handled by semantic matching
+      if (semanticRoleMatches[intentWord]) continue;
       totalWeight += 1;
 
       // Exact match
@@ -490,12 +518,15 @@ export async function findElementByIntent(
     if (intentWords.includes("input") && ["input", "textarea", "select"].includes(el.tag)) matchCount += 0.5;
     if (intentWords.includes("headline") && /^h[1-6]$/.test(el.tag)) matchCount += 0.5;
     if (intentWords.includes("story") && el.tag === "a" && el.text.length > 10) matchCount += 0.3;
-    if (intentWords.includes("nav") && (el.tag === "nav" || el.role === "navigation")) matchCount += 0.5;
-    if (intentWords.includes("menu") && (el.role === "menu" || el.role === "menubar")) matchCount += 0.5;
 
     // v11.2.0: Boost elements that ARE in the requested container
     if (requiredContainer && el.container === requiredContainer) {
       matchCount += 0.3;
+    }
+
+    // v11.3.0: Bonus for multiple semantic matches (e.g., "main navigation menu" matching nav with aria-label="Main")
+    if (semanticMatches >= 2) {
+      matchCount += 0.2 * (semanticMatches - 1);
     }
 
     return totalWeight > 0 ? matchCount / totalWeight : 0;
@@ -550,12 +581,29 @@ export async function findElementByIntent(
   }
 
   // Navigation intent
+  // v11.3.0: Enhanced to prioritize qualifiers like "main" in aria-labels
   if (intentLower.includes("navigation") || intentLower.includes("nav") || intentLower.includes("menu")) {
-    const navEl = pageData.find(el =>
-      el.tag === "nav" || el.role === "navigation" || el.role === "menu" || el.ariaLabel.toLowerCase().includes("nav")
+    const navElements = pageData.filter(el =>
+      el.tag === "nav" || el.role === "navigation" || el.role === "menu" || el.role === "menubar" || el.ariaLabel.toLowerCase().includes("nav")
     );
-    if (navEl) {
-      return buildElementResult(navEl, "Navigation", 0.9);
+
+    if (navElements.length > 0) {
+      // Check for qualifiers like "main", "primary", "global", "site"
+      const qualifiers = ["main", "primary", "global", "site", "top", "header"];
+      const qualifierMatch = qualifiers.find(q => intentLower.includes(q));
+
+      if (qualifierMatch) {
+        // Prefer nav element with matching qualifier in aria-label
+        const qualified = navElements.find(el =>
+          el.ariaLabel.toLowerCase().includes(qualifierMatch)
+        );
+        if (qualified) {
+          return buildElementResult(qualified, `Navigation (${qualifierMatch})`, 0.9);
+        }
+      }
+
+      // Fall back to first nav element
+      return buildElementResult(navElements[0], "Navigation", 0.85);
     }
   }
 

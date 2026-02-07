@@ -1056,6 +1056,33 @@ export interface LoadSessionResult {
 // Result Types
 // ============================================================================
 
+/** v11.3.0: Options for navigation wait strategy */
+export interface NavigateOptions {
+  /**
+   * Wait strategy for page load:
+   * - "networkidle" (default): Wait for network to be idle. May timeout on SPAs.
+   * - "domcontentloaded": Wait only for DOM content loaded. Fast but page may not be fully rendered.
+   * - "load": Wait for load event. Middle ground.
+   * - "commit": Don't wait at all after navigation commits.
+   * - "auto": Try networkidle with short timeout, fall back to domcontentloaded (default behavior).
+   */
+  waitStrategy?: "networkidle" | "domcontentloaded" | "load" | "commit" | "auto";
+
+  /**
+   * Timeout for initial wait strategy before fallback (ms).
+   * Only applies when waitStrategy is "auto" or "networkidle".
+   * Default: 10000 (10 seconds)
+   */
+  waitTimeout?: number;
+
+  /**
+   * Whether to wait for page stability after load (no DOM mutations for 500ms).
+   * Useful for SPAs that continue rendering after DOM is loaded.
+   * Default: true when waitStrategy is "auto" or "domcontentloaded"
+   */
+  waitForStability?: boolean;
+}
+
 export interface NavigationResult {
   url: string;
   title: string;
@@ -2698,6 +2725,20 @@ export interface ResponsiveScreenshot {
   timestamp: string;
   /** Time to capture (ms) */
   captureTime: number;
+  /** v11.3.0: Viewport-specific detected issues */
+  detectedIssues?: ViewportIssue[];
+}
+
+/** v11.3.0: Issue detected at a specific viewport via JavaScript analysis */
+export interface ViewportIssue {
+  /** Issue type */
+  type: "overflow" | "truncation" | "hidden" | "small_text" | "small_touch_target";
+  /** Element selector or description */
+  element: string;
+  /** Issue description */
+  description: string;
+  /** Severity */
+  severity: "critical" | "major" | "minor";
 }
 
 /** Comparison between two viewport sizes */

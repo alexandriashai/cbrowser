@@ -11,6 +11,7 @@ import { homedir } from "os";
 import { CBrowser } from "../browser.js";
 import type {
   ViewportPreset,
+  ViewportIssue,
   ResponsiveScreenshot,
   ResponsiveComparison,
   ResponsiveIssue,
@@ -58,6 +59,121 @@ function getResponsiveScreenshotsPath(): string {
 }
 
 /**
+ * v11.3.0: Detect responsive issues at a specific viewport via JavaScript
+ */
+async function detectViewportIssues(page: import("playwright").Page, viewport: ViewportPreset): Promise<ViewportIssue[]> {
+  const issues: ViewportIssue[] = [];
+
+  try {
+    const detected = await page.evaluate((viewportWidth) => {
+      const findings: Array<{ type: string; element: string; description: string; severity: string }> = [];
+
+      // Detect horizontal overflow
+      const overflowingElements = Array.from(document.querySelectorAll("*")).filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.right > viewportWidth && rect.width > 10;
+      });
+      overflowingElements.slice(0, 3).forEach(el => {
+        const tag = el.tagName.toLowerCase();
+        const id = el.id ? `#${el.id}` : "";
+        const cls = el.className?.toString().split(" ")[0] || "";
+        findings.push({
+          type: "overflow",
+          element: `${tag}${id}${cls ? `.${cls}` : ""}`,
+          description: `Element extends ${Math.round(el.getBoundingClientRect().right - viewportWidth)}px beyond viewport`,
+          severity: "major",
+        });
+      });
+
+      // Detect small text (< 12px)
+      const smallTextElements = Array.from(document.querySelectorAll("p, span, li, a, td, th")).filter(el => {
+        const style = getComputedStyle(el);
+        const fontSize = parseFloat(style.fontSize);
+        const isVisible = style.display !== "none" && style.visibility !== "hidden";
+        return isVisible && fontSize < 12 && el.textContent && el.textContent.trim().length > 0;
+      });
+      if (smallTextElements.length > 0) {
+        findings.push({
+          type: "small_text",
+          element: `${smallTextElements.length} elements`,
+          description: `${smallTextElements.length} text elements with font-size < 12px (hard to read on mobile)`,
+          severity: smallTextElements.length > 10 ? "major" : "minor",
+        });
+      }
+
+      // Detect small touch targets (< 44x44px on touch devices)
+      const interactiveElements = Array.from(document.querySelectorAll("button, a, input, select, [role='button'], [onclick]"));
+      const smallTargets = interactiveElements.filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && (rect.width < 44 || rect.height < 44);
+      });
+      if (smallTargets.length > 0) {
+        const sample = smallTargets[0];
+        const rect = sample.getBoundingClientRect();
+        findings.push({
+          type: "small_touch_target",
+          element: `${smallTargets.length} interactive elements`,
+          description: `${smallTargets.length} touch targets smaller than 44x44px (e.g., ${Math.round(rect.width)}x${Math.round(rect.height)}px)`,
+          severity: smallTargets.length > 5 ? "major" : "minor",
+        });
+      }
+
+      // Detect text truncation (text-overflow: ellipsis with content cut off)
+      const truncatedElements = Array.from(document.querySelectorAll("*")).filter(el => {
+        const style = getComputedStyle(el);
+        const isVisible = style.display !== "none" && style.visibility !== "hidden";
+        if (!isVisible) return false;
+
+        // Check for CSS ellipsis
+        if (style.textOverflow === "ellipsis" && style.overflow === "hidden") {
+          const htmlEl = el as HTMLElement;
+          return htmlEl.scrollWidth > htmlEl.clientWidth;
+        }
+        return false;
+      });
+      if (truncatedElements.length > 0) {
+        findings.push({
+          type: "truncation",
+          element: `${truncatedElements.length} elements`,
+          description: `${truncatedElements.length} elements with truncated text (ellipsis)`,
+          severity: truncatedElements.length > 5 ? "major" : "minor",
+        });
+      }
+
+      // Detect important hidden content (main, nav, header content that's display:none)
+      const potentiallyHidden = Array.from(document.querySelectorAll("nav, header, main, .nav, .header, .main-content")).filter(el => {
+        const style = getComputedStyle(el);
+        return style.display === "none" || style.visibility === "hidden";
+      });
+      potentiallyHidden.forEach(el => {
+        const tag = el.tagName.toLowerCase();
+        findings.push({
+          type: "hidden",
+          element: tag,
+          description: `${tag} element is hidden at this viewport (intentional or bug?)`,
+          severity: tag === "main" ? "critical" : "minor",
+        });
+      });
+
+      return findings;
+    }, viewport.width);
+
+    for (const finding of detected) {
+      issues.push({
+        type: finding.type as ViewportIssue["type"],
+        element: finding.element,
+        description: finding.description,
+        severity: finding.severity as ViewportIssue["severity"],
+      });
+    }
+  } catch (e) {
+    // Detection failed, return empty array
+  }
+
+  return issues;
+}
+
+/**
  * Capture screenshot at a specific viewport
  */
 async function captureAtViewport(
@@ -93,6 +209,9 @@ async function captureAtViewport(
       await new Promise(resolve => setTimeout(resolve, options.waitBeforeCapture));
     }
 
+    // v11.3.0: Detect responsive issues at this viewport
+    const detectedIssues = await detectViewportIssues(page, viewport);
+
     // Take screenshot
     const screenshotsPath = getResponsiveScreenshotsPath();
     const filename = `${viewport.name}-${Date.now()}.png`;
@@ -105,6 +224,7 @@ async function captureAtViewport(
       screenshotPath,
       timestamp: new Date().toISOString(),
       captureTime: Date.now() - startTime,
+      detectedIssues: detectedIssues.length > 0 ? detectedIssues : undefined,
     };
   } finally {
     await browser.close();
@@ -270,20 +390,73 @@ export async function runResponsiveTest(
     }
   }
 
-  // Analyze issues
+  // Analyze issues from visual comparisons
   const issues = analyzeResponsiveIssues(comparisons, screenshots);
 
-  const overallStatus = hasMajorIssues
+  // v11.3.0: Aggregate viewport-specific detected issues
+  let hasMinorFromDetection = false;
+  let hasMajorFromDetection = false;
+
+  for (const screenshot of screenshots) {
+    if (screenshot.detectedIssues && screenshot.detectedIssues.length > 0) {
+      for (const issue of screenshot.detectedIssues) {
+        // Convert ViewportIssue to ResponsiveIssue
+        const typeMap: Record<string, ResponsiveIssue["type"]> = {
+          overflow: "overflow",
+          truncation: "truncation",
+          hidden: "hidden_content",
+          small_text: "unreadable_text",
+          small_touch_target: "touch_target",
+        };
+
+        issues.push({
+          type: typeMap[issue.type] || "other",
+          severity: issue.severity,
+          description: `${issue.description} (${issue.element})`,
+          affectedViewports: [screenshot.viewport.name],
+        });
+
+        if (issue.severity === "major" || issue.severity === "critical") {
+          hasMajorFromDetection = true;
+          problematicViewports.add(screenshot.viewport.name);
+        } else {
+          hasMinorFromDetection = true;
+        }
+      }
+
+      console.log(`   🔎 ${screenshot.viewport.name}: ${screenshot.detectedIssues.length} issue(s) detected`);
+    }
+  }
+
+  const finalHasMajorIssues = hasMajorIssues || hasMajorFromDetection;
+  const finalHasMinorIssues = hasMinorFromDetection;
+
+  const overallStatus = finalHasMajorIssues
     ? "major_issues"
-    : hasMinorIssues
+    : finalHasMinorIssues
       ? "minor_issues"
       : "responsive";
 
-  const summary = overallStatus === "responsive"
-    ? "Page is fully responsive across all tested viewports"
-    : overallStatus === "minor_issues"
+  // v11.3.0: Generate detailed summary with specific findings
+  let summary: string;
+  if (overallStatus === "responsive" && issues.length === 0) {
+    summary = "Page is fully responsive across all tested viewports";
+  } else if (issues.length > 0) {
+    const issueCounts = issues.reduce((acc, issue) => {
+      acc[issue.type] = (acc[issue.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const issueDetails = Object.entries(issueCounts)
+      .map(([type, count]) => `${count} ${type.replace("_", " ")}`)
+      .join(", ");
+
+    summary = `Found ${issues.length} issue(s): ${issueDetails}`;
+  } else {
+    summary = overallStatus === "minor_issues"
       ? "Minor responsive issues detected"
       : "Significant responsive issues detected";
+  }
 
   return {
     url,
@@ -368,11 +541,21 @@ export function formatResponsiveReport(result: ResponsiveTestResult): string {
 
   for (const screenshot of result.screenshots) {
     const v = screenshot.viewport;
-    lines.push(`   ${v.name.toUpperCase()} (${v.deviceType})`);
+    const issueCount = screenshot.detectedIssues?.length || 0;
+    const issueIndicator = issueCount > 0 ? ` ⚠️ ${issueCount} issue(s)` : " ✅";
+
+    lines.push(`   ${v.name.toUpperCase()} (${v.deviceType})${issueIndicator}`);
     lines.push(`      Dimensions: ${v.width}x${v.height}`);
     if (v.deviceName) lines.push(`      Device: ${v.deviceName}`);
     lines.push(`      Capture time: ${screenshot.captureTime}ms`);
-    lines.push(`      Path: ${screenshot.screenshotPath}`);
+
+    // v11.3.0: Show viewport-specific issues inline
+    if (screenshot.detectedIssues && screenshot.detectedIssues.length > 0) {
+      for (const issue of screenshot.detectedIssues) {
+        const severityIcon = issue.severity === "critical" ? "🔴" : issue.severity === "major" ? "🟠" : "🟡";
+        lines.push(`      ${severityIcon} ${issue.type}: ${issue.description}`);
+      }
+    }
     lines.push("");
   }
 

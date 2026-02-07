@@ -6,11 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [11.3.0](https://github.com/alexandriashai/cbrowser/compare/v11.1.1...v11.3.0) (2026-02-07)
+## [11.3.0](https://github.com/alexandriashai/cbrowser/compare/v11.2.0...v11.3.0) (2026-02-07)
 
 ### Added
 
-* **find_element_by_intent:** context-aware matching and last ordinal ([95de77c](https://github.com/alexandriashai/cbrowser/commit/95de77cf246ee7521bf702307a590172c0961492))
+* **find_element_by_intent:** Semantic role matching - "main navigation menu" now matches `<nav aria-label="Main">` with 0.9 confidence
+* **find_element_by_intent:** Navigation intent qualifiers - "main", "primary", "global" boost matching aria-labels
+* **responsive_test:** Viewport-specific issue detection via JavaScript analysis
+* **responsive_test:** Detects overflow, small text, small touch targets, truncation, hidden content
+* **responsive_test:** Detailed summary shows specific issue counts by type
+* **navigate:** Configurable `waitStrategy` option: "networkidle" | "domcontentloaded" | "load" | "commit" | "auto"
+* **navigate:** Configurable `waitTimeout` option for SPA handling
+* **navigate:** `waitForStability` option for post-load DOM stability checks
+
+### Fixed
+
+* **find_element_by_intent:** Spatial/structural matching improved from 0.15 to 0.9 for structural queries
+* **responsive_test:** Now returns specific findings instead of just "major_issues"
 
 ## [11.2.0](https://github.com/alexandriashai/cbrowser/compare/v11.1.1...v11.2.0) (2026-02-07)
 

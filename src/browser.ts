@@ -12,6 +12,7 @@ import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBr
 import { BUILTIN_PERSONAS, getPersona } from "./personas.js";
 import type {
   SavedSession,
+  NavigateOptions,
   NavigationResult,
   ClickResult,
   ExtractResult,
@@ -923,8 +924,12 @@ export class CBrowser {
    * 1. Try networkidle with short timeout (10s)
    * 2. Fall back to domcontentloaded + stability check
    * 3. Always succeeds if page loads at all
+   *
+   * v11.3.0: Added configurable wait strategy via options parameter
+   * @param url - URL to navigate to
+   * @param options - Navigation options (waitStrategy, waitTimeout, waitForStability)
    */
-  async navigate(url: string): Promise<NavigationResult> {
+  async navigate(url: string, options: NavigateOptions = {}): Promise<NavigationResult> {
     // Skip session restore since we're explicitly navigating to a new URL
     this.skipSessionRestore = true;
     const page = await this.getPage();
@@ -943,35 +948,59 @@ export class CBrowser {
       }
     });
 
-    // Progressive loading strategy (v10.10.0)
-    // Many SPAs (GitHub, NYT, etc.) never reach networkidle
-    const networkIdleTimeout = Math.min(10000, this.config.timeout || 30000);
+    // v11.3.0: Configurable wait strategy
+    const waitStrategy = options.waitStrategy || "auto";
+    const waitTimeout = options.waitTimeout ?? 10000;
+    const waitForStability = options.waitForStability ?? (waitStrategy === "auto" || waitStrategy === "domcontentloaded");
 
-    try {
-      // Try networkidle first with short timeout
-      await page.goto(url, {
-        waitUntil: "networkidle",
-        timeout: networkIdleTimeout,
-      });
-    } catch (e) {
-      const error = e as Error;
-      if (error.message?.includes("Timeout") || error.message?.includes("timeout")) {
-        // Fallback: Use domcontentloaded + manual stability check
-        if (this.config.verbose) {
-          console.log(`⚠️ networkidle timeout, falling back to domcontentloaded...`);
-        }
-
-        // v10.10.0: Fallback to domcontentloaded (rethrows on failure)
-        await page.goto(url, {
-          waitUntil: "domcontentloaded",
-          timeout: this.config.timeout || 30000,
-        });
-
-        // Wait for page to stabilize (no major DOM changes for 500ms)
+    if (waitStrategy === "commit") {
+      // Fastest: don't wait at all after navigation commits
+      await page.goto(url, { waitUntil: "commit", timeout: this.config.timeout || 30000 });
+    } else if (waitStrategy === "load") {
+      // Standard: wait for load event
+      await page.goto(url, { waitUntil: "load", timeout: this.config.timeout || 30000 });
+    } else if (waitStrategy === "domcontentloaded") {
+      // Fast: wait only for DOM
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: this.config.timeout || 30000 });
+      if (waitForStability) {
         await this.waitForStability(page, 2000);
-      } else {
-        // Non-timeout error, rethrow
-        throw e;
+      }
+    } else if (waitStrategy === "networkidle") {
+      // Strict: wait for network idle, may fail on SPAs
+      await page.goto(url, { waitUntil: "networkidle", timeout: this.config.timeout || 30000 });
+    } else {
+      // "auto" (default): Progressive loading strategy
+      // Many SPAs (GitHub, NYT, BBC, etc.) never reach networkidle
+      const networkIdleTimeout = Math.min(waitTimeout, this.config.timeout || 30000);
+
+      try {
+        // Try networkidle first with short timeout
+        await page.goto(url, {
+          waitUntil: "networkidle",
+          timeout: networkIdleTimeout,
+        });
+      } catch (e) {
+        const error = e as Error;
+        if (error.message?.includes("Timeout") || error.message?.includes("timeout")) {
+          // Fallback: Use domcontentloaded + manual stability check
+          if (this.config.verbose) {
+            console.log(`⚠️ networkidle timeout after ${waitTimeout}ms, falling back to domcontentloaded...`);
+          }
+
+          // Fallback to domcontentloaded (rethrows on failure)
+          await page.goto(url, {
+            waitUntil: "domcontentloaded",
+            timeout: this.config.timeout || 30000,
+          });
+
+          // Wait for page to stabilize (no major DOM changes for 500ms)
+          if (waitForStability) {
+            await this.waitForStability(page, 2000);
+          }
+        } else {
+          // Non-timeout error, rethrow
+          throw e;
+        }
       }
     }
 
