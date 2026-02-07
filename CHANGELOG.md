@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.1.0](https://github.com/alexandriashai/cbrowser/compare/v11.0.0...v11.1.0) (2026-02-07)
+
+### Fixed
+
+* **constitutional-ai:** Context-aware action classification to reduce false positives
+  - Benign "submit" actions now allowed: submit search, submit review, submit feedback, submit form
+  - Benign "remove" actions now allowed: remove filter, remove from cart, remove item
+  - Benign "delete" actions now allowed: delete filter, delete draft, delete message
+  - Benign "confirm" actions now allowed: confirm email, confirm selection, confirm password
+  - Financial transactions still require `--force`: buy, purchase, pay, checkout, place order
+  - Destructive actions still require `--force`: delete account, close account, remove permanently
+  - Security violations still blocked: bypass, inject, hack, exploit, SQL injection, XSS
+
 ## [11.0.0](https://github.com/alexandriashai/cbrowser/compare/v10.9.1...v11.0.0) (2026-02-07)
 
 ### Fixed

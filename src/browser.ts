@@ -3662,39 +3662,135 @@ export class CBrowser {
 
   /**
    * Classify an action into a safety zone.
+   *
+   * v11.1.0: Context-aware classification to reduce false positives.
+   * Uses semantic patterns instead of naive keyword matching.
+   *
+   * Zones:
+   * - BLACK: Security violations (bypass, inject, hack) - NEVER execute
+   * - RED: Financial or destructive actions - requires --force
+   * - YELLOW: Interactive actions (click, fill) - log and proceed
+   * - GREEN: Read-only actions - auto-execute
    */
   private classifyAction(action: string, target: string): ActionZone {
     const lowerTarget = target.toLowerCase();
 
-    // Black zone - never execute
-    if (
-      lowerTarget.includes("bypass") ||
-      lowerTarget.includes("inject") ||
-      lowerTarget.includes("hack")
-    ) {
+    // =========================================================================
+    // BLACK ZONE - Security violations, never execute
+    // =========================================================================
+    const blackPatterns = [
+      /bypass/i,
+      /inject/i,
+      /\bhack\b/i,
+      /exploit/i,
+      /sql\s*injection/i,
+      /xss/i,
+    ];
+
+    if (blackPatterns.some(p => p.test(lowerTarget))) {
       return "black";
     }
 
-    // Red zone - requires force
-    if (
-      action === "click" &&
-      (lowerTarget.includes("delete") ||
-        lowerTarget.includes("remove") ||
-        lowerTarget.includes("submit") ||
-        lowerTarget.includes("purchase") ||
-        lowerTarget.includes("pay") ||
-        lowerTarget.includes("confirm"))
-    ) {
+    // =========================================================================
+    // For non-click actions, use simple classification
+    // =========================================================================
+    if (action !== "click") {
+      if (action === "fill") return "yellow";
+      return "green";
+    }
+
+    // =========================================================================
+    // RED ZONE - Truly dangerous actions requiring --force
+    // These patterns indicate financial commitment or irreversible destruction
+    // =========================================================================
+
+    // Financial transactions - always Red
+    const financialPatterns = [
+      /\b(buy|purchase)\s*(now|this|item)?/i,
+      /\bpay\s*(\$|€|£|\d)/i,           // "Pay $50", "Pay 50"
+      /\bpay\s*(now|with)/i,             // "Pay now", "Pay with card"
+      /\bcheckout\b/i,
+      /\bplace\s*order/i,
+      /\bcomplete\s*(order|purchase|payment)/i,
+      /\bsubmit\s*(order|payment)/i,
+      /\bproceed\s*to\s*(checkout|payment)/i,
+    ];
+
+    if (financialPatterns.some(p => p.test(lowerTarget))) {
       return "red";
     }
 
-    // Yellow zone - log and proceed
-    if (action === "click" || action === "fill") {
+    // Destructive actions - context matters
+    const destructivePatterns = [
+      /\bdelete\s*(my\s*)?(account|profile|data|all)/i,
+      /\bremove\s*(my\s*)?(account|profile|permanently)/i,
+      /\bpermanently\s*(delete|remove)/i,
+      /\bclose\s*(my\s*)?account/i,
+      /\bdeactivate\s*(my\s*)?account/i,
+      /\berase\s*(all|my\s*data)/i,
+    ];
+
+    if (destructivePatterns.some(p => p.test(lowerTarget))) {
+      return "red";
+    }
+
+    // Confirmation of dangerous actions
+    const dangerousConfirmPatterns = [
+      /\bconfirm\s*(purchase|order|payment|deletion|removal)/i,
+      /\byes,?\s*(delete|remove|pay|purchase|buy)/i,
+      /\bi\s*agree.*(purchase|payment|terms)/i,
+    ];
+
+    if (dangerousConfirmPatterns.some(p => p.test(lowerTarget))) {
+      return "red";
+    }
+
+    // =========================================================================
+    // YELLOW ZONE - Safe interactive actions (explicit benign patterns)
+    // These are common actions that sound dangerous but are actually safe
+    // =========================================================================
+
+    // Benign "submit" actions
+    const benignSubmitPatterns = [
+      /\bsubmit\s*(search|review|feedback|form|comment|email|message|query)/i,
+      /\bsubmit\b(?!.*(?:order|payment|purchase))/i,  // "submit" without financial
+    ];
+
+    // Benign "remove" actions
+    const benignRemovePatterns = [
+      /\bremove\s*(filter|item|from\s*cart|selection|tag|label)/i,
+      /\bremove\b(?!.*(?:account|profile|permanently|all))/i,
+    ];
+
+    // Benign "delete" actions
+    const benignDeletePatterns = [
+      /\bdelete\s*(filter|item|from\s*cart|selection|draft|message)/i,
+      /\bdelete\b(?!.*(?:account|profile|permanently|all|my))/i,
+    ];
+
+    // Benign "confirm" actions
+    const benignConfirmPatterns = [
+      /\bconfirm\s*(email|selection|password|choice|age|identity)/i,
+      /\bconfirm\b(?!.*(?:purchase|order|payment|deletion|removal))/i,
+    ];
+
+    // Check all benign patterns - if matched, safe to proceed as Yellow
+    const allBenignPatterns = [
+      ...benignSubmitPatterns,
+      ...benignRemovePatterns,
+      ...benignDeletePatterns,
+      ...benignConfirmPatterns,
+    ];
+
+    if (allBenignPatterns.some(p => p.test(lowerTarget))) {
       return "yellow";
     }
 
-    // Green zone - auto-execute
-    return "green";
+    // =========================================================================
+    // FALLBACK - Default to Yellow for any click action
+    // This ensures we don't over-block; clicks are logged but proceed
+    // =========================================================================
+    return "yellow";
   }
 
   /**
