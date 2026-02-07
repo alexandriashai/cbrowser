@@ -970,6 +970,9 @@ import type { AccessibilityPersona, AccessibilityTraits } from "./types.js";
 export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
   "motor-impairment-tremor": {
     name: "motor-impairment-tremor",
+    // Research: Essential tremor prevalence 0.4-5.6% (npj Digital Medicine 2019)
+    // SteadyMouse/anti-tremor tools filter 1-15Hz tremor frequencies
+    // Cursor jitter and misclicks are primary computer use barriers
     description: "User with essential tremor affecting fine motor control",
     demographics: {
       age_range: "40-65",
@@ -1024,6 +1027,9 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
 
   "low-vision-magnified": {
     name: "low-vision-magnified",
+    // ~2.2 billion people have vision impairment globally (WHO)
+    // 3x magnification = effectively sees 1/9th of screen at once
+    // Causes "tunnel vision" effect and frequent scrolling/panning
     description: "User with low vision using 3x screen magnification",
     demographics: {
       age_range: "45-75",
@@ -1077,6 +1083,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
 
   "cognitive-adhd": {
     name: "cognitive-adhd",
+    // Research: 75-81% of ADHD cases show central executive WM impairment (PMC7483636)
+    // Impulsivity affects persistence and patience significantly
     description: "User with ADHD affecting focus and working memory",
     demographics: {
       age_range: "18-45",
@@ -1091,7 +1099,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     },
     humanBehavior: {
       timing: {
-        reactionTime: { min: 150, max: 600 }, // Can be fast when focused
+        reactionTime: { min: 150, max: 600 }, // Can be fast when hyperfocused
         clickDelay: { min: 100, max: 400 },
         typeSpeed: { min: 50, max: 120 },
         readingSpeed: 250,
@@ -1101,7 +1109,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         misClickRate: 0.12,
         doubleClickAccidental: 0.08,
         typoRate: 0.1,
-        backtrackRate: 0.5, // Frequently goes back
+        backtrackRate: 0.5, // Frequently goes back due to WM deficits
       },
       mouse: {
         curvature: 0.4,
@@ -1120,19 +1128,24 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       viewport: [1920, 1080],
     },
     accessibilityTraits: {
-      processingSpeed: 0.6, // Variable
-      attentionSpan: 0.3, // Short attention span
+      processingSpeed: 0.6, // Variable - can be fast when interested
+      attentionSpan: 0.3, // Short sustained attention
       fatigueSusceptibility: 0.4,
     },
     cognitiveTraits: {
-      workingMemory: 0.3,
-      patience: 0.4,
-      curiosity: 0.8, // Easily drawn to new things
+      workingMemory: 0.25, // Research: large magnitude impairment (d=1.63-2.03)
+      patience: 0.25, // Impulsivity: low tolerance for waiting
+      persistence: 0.2, // Low task persistence before switching
+      curiosity: 0.8, // High novelty-seeking
+      riskTolerance: 0.7, // Impulsive clicking
+      readingTendency: 0.2, // Skims rather than reads
     },
   },
 
   "dyslexic-user": {
     name: "dyslexic-user",
+    // Research: Dyslexic adults read ~178 WPM vs 248 WPM controls (Scientific Reports 2021)
+    // About 72% of typical speed, with more fixations and regressions
     description: "User with dyslexia affecting reading and text processing",
     demographics: {
       age_range: "18-55",
@@ -1150,14 +1163,14 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 400, max: 1000 },
         clickDelay: { min: 200, max: 500 },
         typeSpeed: { min: 80, max: 160 },
-        readingSpeed: 80, // Significantly slower reading
+        readingSpeed: 120, // Research: ~70% of normal (178/248 WPM)
         scrollPauseTime: { min: 800, max: 2000 },
       },
       errors: {
         misClickRate: 0.1,
         doubleClickAccidental: 0.05,
-        typoRate: 0.2, // Higher typo rate
-        backtrackRate: 0.4, // Re-reads sections
+        typoRate: 0.15, // Spelling difficulties but not extreme
+        backtrackRate: 0.4, // More regressions during reading
       },
       mouse: {
         curvature: 0.4,
@@ -1168,7 +1181,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       attention: {
         pattern: "thorough",
         scrollBehavior: "chunked",
-        focusAreas: ["header", "images", "cta"],
+        focusAreas: ["header", "images", "cta"], // Relies more on visuals
         distractionRate: 0.3,
       },
     },
@@ -1178,12 +1191,13 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     accessibilityTraits: {
       processingSpeed: 0.5, // Slower text processing
       attentionSpan: 0.5,
-      fatigueSusceptibility: 0.6, // Reading is tiring
+      fatigueSusceptibility: 0.6, // Reading requires more effort
     },
     cognitiveTraits: {
-      workingMemory: 0.6,
+      workingMemory: 0.6, // WM typically unaffected
       patience: 0.5,
       curiosity: 0.7,
+      readingTendency: 0.4, // Avoids heavy text, prefers visuals
     },
   },
 
@@ -1240,6 +1254,9 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
 
   "elderly-low-vision": {
     name: "elderly-low-vision",
+    // Research: Memory loss affects >1/3 of people over 70 (ScienceDaily 2025)
+    // Cognitive decline accelerates after age 70 (Nature Communications 2026)
+    // Working memory declines due to inhibitory control changes (PMC review)
     description: "Elderly user (75+) with age-related vision and motor decline",
     demographics: {
       age_range: "75+",
@@ -1264,7 +1281,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         misClickRate: 0.25,
         doubleClickAccidental: 0.2,
         typoRate: 0.15,
-        backtrackRate: 0.35,
+        backtrackRate: 0.4, // Increased: WM decline causes step repetition
       },
       mouse: {
         curvature: 0.8,
@@ -1284,23 +1301,28 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     },
     accessibilityTraits: {
       motorControl: 0.5,
-      tremor: false, // Not necessarily
+      tremor: false, // Not necessarily present
       reachability: 0.6,
       visionLevel: 0.4,
       contrastSensitivity: 2.5,
-      processingSpeed: 0.5,
+      processingSpeed: 0.4, // Significant slowing after 70
       attentionSpan: 0.5,
       fatigueSusceptibility: 0.7,
     },
     cognitiveTraits: {
-      workingMemory: 0.5,
-      patience: 0.6, // More patient than young users
-      curiosity: 0.4,
+      workingMemory: 0.35, // Research: inhibitory control decline limits WM
+      patience: 0.7, // High: more methodical than young users
+      persistence: 0.6, // Determined but confused
+      curiosity: 0.3, // Low: prefers familiar patterns
+      riskTolerance: 0.15, // Very cautious with unfamiliar interfaces
+      comprehension: 0.3, // Unfamiliar with modern UI conventions
     },
   },
 
   "color-blind-deuteranopia": {
     name: "color-blind-deuteranopia",
+    // Affects ~8% of males, ~0.5% of females
+    // Cannot distinguish red-green (e.g., error/success states)
     description: "User with red-green color blindness (deuteranopia)",
     demographics: {
       age_range: "18-65",
@@ -1311,20 +1333,21 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       cant_distinguish_red_green: true,
       relies_on_labels: true,
       needs_patterns_not_colors: true,
+      hesitates_on_color_only_indicators: true,
     },
     humanBehavior: {
       timing: {
-        reactionTime: { min: 200, max: 500 },
-        clickDelay: { min: 100, max: 300 },
+        reactionTime: { min: 200, max: 600 }, // Slight delay on color-coded UI
+        clickDelay: { min: 100, max: 400 },
         typeSpeed: { min: 50, max: 100 },
         readingSpeed: 250,
         scrollPauseTime: { min: 200, max: 500 },
       },
       errors: {
-        misClickRate: 0.08, // May click wrong color-coded element
+        misClickRate: 0.12, // Higher: may select wrong color-coded option
         doubleClickAccidental: 0.03,
         typoRate: 0.05,
-        backtrackRate: 0.2,
+        backtrackRate: 0.3, // Higher: realizes mistake after action fails
       },
       mouse: {
         curvature: 0.4,
@@ -1335,7 +1358,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       attention: {
         pattern: "f-pattern",
         scrollBehavior: "chunked",
-        focusAreas: ["header", "cta", "text"],
+        focusAreas: ["header", "cta", "text"], // Avoids color-only cues
         distractionRate: 0.2,
       },
     },
@@ -1345,8 +1368,13 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     accessibilityTraits: {
       visionLevel: 0.9, // Acuity is fine
       colorBlindness: "red-green",
-      processingSpeed: 0.9,
+      processingSpeed: 0.85, // Slight delay interpreting color-coded info
       attentionSpan: 0.8,
+    },
+    cognitiveTraits: {
+      patience: 0.6, // Accustomed to extra verification
+      persistence: 0.7, // Used to working around color issues
+      riskTolerance: 0.5, // Cautious with color-only indicators
     },
   },
 };
