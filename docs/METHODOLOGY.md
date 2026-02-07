@@ -216,10 +216,35 @@ For comprehensive validation, combine CBrowser analysis with:
 
 ---
 
+## Cognitive Trait Research (v11.5.0)
+
+Four research-backed cognitive traits for realistic user simulation:
+
+| Trait | Research Basis | Key Finding |
+|-------|---------------|-------------|
+| **selfEfficacy** | Bandura (1977) | Low efficacy users abandon 40% faster on first error |
+| **satisficing** | Simon (1956) | Satisficers decide 50% faster with similar outcomes |
+| **trustCalibration** | Fogg (2003) | Trust affects CTA click-through by up to 40% |
+| **interruptRecovery** | Mark et al. (2005) | Average recovery time is 23 minutes |
+
+### Research Citations
+
+¹⁴ *Bandura, A. "Self-efficacy: Toward a unifying theory of behavioral change." Psychological Review, 84(2), 191-215. 1977.*
+
+¹⁵ *Simon, H. A. "Rational Choice and the Structure of the Environment." Psychological Review, 63(2), 129-138. 1956.*
+
+¹⁶ *Fogg, B. J. "Persuasive Technology: Using Computers to Change What We Think and Do." Morgan Kaufmann Publishers. 2003.*
+
+¹⁷ *Mark, G., Gonzalez, V. M., & Harris, J. "No Task Left Behind? Examining the Nature of Fragmented Work." CHI 2005.*
+
+---
+
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 11.5.0 | 2026-02-07 | Added 4 cognitive trait research citations |
+| | | Added selfEfficacy, satisficing, trustCalibration, interruptRecovery |
 | 9.0.0 | 2026-02-06 | Added Focus Hierarchies research section |
 | | | Added distraction ignore rate heuristics |
 | | | Added focus area priorities by task type |
