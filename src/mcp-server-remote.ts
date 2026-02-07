@@ -75,6 +75,9 @@ import {
   getCognitiveProfile,
   createCognitivePersona,
 } from "./personas.js";
+
+// Import API key check for bridge workflow detection
+import { isApiKeyConfigured } from "./cognitive/index.js";
 import type {
   CognitiveState,
   AbandonmentThresholds,
@@ -1171,14 +1174,11 @@ function configureMcpTools(server: McpServer): void {
       personas: z.array(z.string()).describe("Persona names to compare"),
     },
     async ({ url, goal, personas }) => {
-      // Check if we're in a Claude Code session (no API key available)
-      const isClaudeCodeSession = !!(
-        process.env.CLAUDE_CODE_SESSION ||
-        process.env.MCP_SERVER_NAME ||
-        process.env.CLAUDE_CODE
-      );
+      // v10.10.0: Check if API key is configured (not just env vars)
+      // The env var check didn't work on remote servers
+      const hasApiKey = isApiKeyConfigured();
 
-      if (isClaudeCodeSession) {
+      if (!hasApiKey) {
         // Return instructions for Claude Code to use the bridge workflow
         return {
           content: [

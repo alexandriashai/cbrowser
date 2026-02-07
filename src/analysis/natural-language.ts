@@ -381,6 +381,68 @@ export async function findElementByIntent(
 
   const intentLower = intent.toLowerCase();
 
+  // =========================================================================
+  // Word-level fuzzy matching utilities (v10.10.0)
+  // =========================================================================
+
+  // Tokenize intent into meaningful words (remove stop words)
+  const stopWords = new Set(["the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "are", "that", "this", "it"]);
+  const intentWords = intentLower
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !stopWords.has(w));
+
+  // Extract ordinal position if present ("first", "second", etc.)
+  const ordinalMap: Record<string, number> = {
+    first: 0, second: 1, third: 2, fourth: 3, fifth: 4,
+    "1st": 0, "2nd": 1, "3rd": 2, "4th": 3, "5th": 4,
+  };
+  let targetIndex: number | null = null;
+  for (const word of intentWords) {
+    if (ordinalMap[word] !== undefined) {
+      targetIndex = ordinalMap[word];
+      break;
+    }
+  }
+
+  // Calculate word overlap score between intent and element text
+  const calculateWordScore = (el: EnrichedPageElement): number => {
+    const elementText = `${el.text} ${el.ariaLabel} ${el.title} ${el.placeholder} ${el.name}`.toLowerCase();
+    const elementWords = elementText.split(/\s+/).filter(w => w.length > 1);
+
+    let matchCount = 0;
+    let totalWeight = 0;
+
+    for (const intentWord of intentWords) {
+      if (stopWords.has(intentWord) || ordinalMap[intentWord] !== undefined) continue;
+      totalWeight += 1;
+
+      // Exact match
+      if (elementWords.some(ew => ew === intentWord)) {
+        matchCount += 1;
+      }
+      // Partial match (word contains intent word or vice versa)
+      else if (elementWords.some(ew => ew.includes(intentWord) || intentWord.includes(ew))) {
+        matchCount += 0.7;
+      }
+      // Check if element text contains the word directly
+      else if (elementText.includes(intentWord)) {
+        matchCount += 0.5;
+      }
+    }
+
+    // Boost for tag/role matches
+    if (intentWords.includes("link") && el.tag === "a") matchCount += 0.5;
+    if (intentWords.includes("button") && (el.tag === "button" || el.role === "button")) matchCount += 0.5;
+    if (intentWords.includes("input") && ["input", "textarea", "select"].includes(el.tag)) matchCount += 0.5;
+    if (intentWords.includes("headline") && /^h[1-6]$/.test(el.tag)) matchCount += 0.5;
+    if (intentWords.includes("story") && el.tag === "a" && el.text.length > 10) matchCount += 0.3;
+    if (intentWords.includes("nav") && (el.tag === "nav" || el.role === "navigation")) matchCount += 0.5;
+    if (intentWords.includes("menu") && (el.role === "menu" || el.role === "menubar")) matchCount += 0.5;
+
+    return totalWeight > 0 ? matchCount / totalWeight : 0;
+  };
+
   // Price-based intents
   if (intentLower.includes("cheapest") || intentLower.includes("lowest price")) {
     const withPrices = pageData.filter(el => el.price);
@@ -447,13 +509,45 @@ export async function findElementByIntent(
     return buildElementResult(ariaMatch, `ARIA match: ${ariaMatch.ariaLabel.slice(0, 50)}`, 0.85);
   }
 
-  // Text-based matching
+  // =========================================================================
+  // Word-level fuzzy matching (v10.10.0)
+  // =========================================================================
+
+  // Score all elements and find best matches
+  const scoredElements = pageData
+    .map(el => ({ el, score: calculateWordScore(el) }))
+    .filter(({ score }) => score > 0.3) // Minimum threshold
+    .sort((a, b) => b.score - a.score);
+
+  // Handle ordinal positions ("first headline link", "second story")
+  if (targetIndex !== null && scoredElements.length > targetIndex) {
+    const match = scoredElements[targetIndex];
+    const confidence = Math.min(0.95, 0.6 + match.score * 0.35);
+    return buildElementResult(
+      match.el,
+      `Ordinal match #${targetIndex + 1}: ${match.el.text.slice(0, 50)}`,
+      confidence
+    );
+  }
+
+  // Return best match if score is high enough
+  if (scoredElements.length > 0 && scoredElements[0].score > 0.4) {
+    const best = scoredElements[0];
+    const confidence = Math.min(0.95, 0.5 + best.score * 0.45);
+    return buildElementResult(
+      best.el,
+      `Word match (${Math.round(best.score * 100)}%): ${best.el.text.slice(0, 50)}`,
+      confidence
+    );
+  }
+
+  // Legacy text-based matching as fallback
   const textMatch = pageData.find(el =>
     el.text.toLowerCase().includes(intentLower) ||
     el.classes.toLowerCase().includes(intentLower)
   );
   if (textMatch) {
-    return buildElementResult(textMatch, `Matched: ${textMatch.text.slice(0, 50)}`, 0.7);
+    return buildElementResult(textMatch, `Text match: ${textMatch.text.slice(0, 50)}`, 0.6);
   }
 
   // No match found — return verbose data if requested

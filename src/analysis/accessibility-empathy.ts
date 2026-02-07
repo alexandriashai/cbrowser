@@ -116,14 +116,15 @@ interface BarrierContext {
 
 /**
  * Detect small touch targets that are hard for motor-impaired users
+ * v10.10.0: Always detect touch target issues regardless of persona
+ * (issues exist on the page whether or not this persona would encounter them)
  */
 async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
   const { page, persona, barriers } = ctx;
 
-  // Skip if persona has full motor control
-  if (persona.accessibilityTraits.motorControl && persona.accessibilityTraits.motorControl > 0.8) {
-    return;
-  }
+  // v10.10.0: Removed trait-based skipping - always detect issues
+  // The severity is still adjusted based on persona traits
+  const _motorControl = persona.accessibilityTraits.motorControl ?? 0.5;
 
   const smallTargets = await page.$$eval(
     'button, a, input[type="checkbox"], input[type="radio"], [role="button"], [onclick]',
@@ -159,15 +160,14 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
 
 /**
  * Detect low contrast elements that are hard for low-vision users
+ * v10.10.0: Always detect contrast issues regardless of persona
+ * (issues exist on the page whether or not this persona would encounter them)
  */
 async function detectLowContrast(ctx: BarrierContext): Promise<void> {
   const { page, persona, barriers } = ctx;
 
-  // Skip if persona has full vision
-  if (persona.accessibilityTraits.visionLevel && persona.accessibilityTraits.visionLevel > 0.8) {
-    return;
-  }
-
+  // v10.10.0: Removed trait-based skipping - always detect issues
+  // The severity is still adjusted based on persona traits
   const contrastSensitivity = persona.accessibilityTraits.contrastSensitivity || 1;
 
   // Check text elements for contrast (simplified check - real check needs computed colors)
@@ -226,17 +226,13 @@ async function detectLowContrast(ctx: BarrierContext): Promise<void> {
 
 /**
  * Detect cognitive load issues
+ * v10.10.0: Always detect cognitive load issues regardless of persona
+ * (issues exist on the page whether or not this persona would encounter them)
  */
 async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
-  const { page, persona, barriers } = ctx;
+  const { page, persona: _persona, barriers } = ctx;
 
-  // Check if persona has cognitive traits
-  const hasLowAttention = persona.accessibilityTraits.attentionSpan &&
-                          persona.accessibilityTraits.attentionSpan < 0.5;
-  const hasLowProcessing = persona.accessibilityTraits.processingSpeed &&
-                           persona.accessibilityTraits.processingSpeed < 0.6;
-
-  if (!hasLowAttention && !hasLowProcessing) return;
+  // v10.10.0: Removed trait-based skipping - always detect issues
 
   const cognitiveIssues = await page.evaluate(() => {
     const issues: Array<{ type: string; description: string; count?: number }> = [];
@@ -342,12 +338,13 @@ async function detectTimingIssues(ctx: BarrierContext): Promise<void> {
 
 /**
  * Detect color-only information
+ * v10.10.0: Always detect color-only issues regardless of persona
+ * (issues exist on the page whether or not this persona would encounter them)
  */
 async function detectColorOnlyInfo(ctx: BarrierContext): Promise<void> {
-  const { page, persona, barriers } = ctx;
+  const { page, persona: _persona, barriers } = ctx;
 
-  // Only check for color-blind personas
-  if (!persona.accessibilityTraits.colorBlindness) return;
+  // v10.10.0: Removed trait-based skipping - always detect issues
 
   const colorOnlyElements = await page.$$eval(
     '[class*="red"], [class*="green"], [class*="error"], [class*="success"], [class*="warning"]',
@@ -381,17 +378,42 @@ async function detectColorOnlyInfo(ctx: BarrierContext): Promise<void> {
 
 /**
  * Detect missing alt text and captions
+ * v10.10.0: Also detect empty alt text on non-decorative images
  */
 async function detectMissingAltText(ctx: BarrierContext): Promise<void> {
-  const { page, persona, barriers } = ctx;
+  const { page, persona: _persona, barriers } = ctx;
 
-  // Check images
+  // Check images without alt attribute
   const imagesWithoutAlt = await page.$$eval('img:not([alt])', (elements) =>
     elements.map(el => {
       const imgEl = el as HTMLImageElement;
       return {
         selector: `img[src="${imgEl.src.slice(0, 50)}..."]`,
         isDecorative: imgEl.width < 20 || imgEl.height < 20,
+        issue: "missing",
+      };
+    }).filter(el => !el.isDecorative).slice(0, 10)
+  );
+
+  // v10.10.0: Also check images with empty alt text that appear non-decorative
+  const imagesWithEmptyAlt = await page.$$eval('img[alt=""]', (elements) =>
+    elements.map(el => {
+      const imgEl = el as HTMLImageElement;
+      const rect = imgEl.getBoundingClientRect();
+      // Non-decorative heuristics: large enough to be content, in main content area, etc.
+      const isLikelyDecorative =
+        imgEl.width < 20 || imgEl.height < 20 ||
+        rect.width < 50 || rect.height < 50 ||
+        imgEl.className.includes('icon') ||
+        imgEl.className.includes('decoration') ||
+        imgEl.className.includes('separator') ||
+        imgEl.getAttribute('role') === 'presentation';
+      return {
+        selector: `img[src="${imgEl.src.slice(0, 50)}..."]`,
+        isDecorative: isLikelyDecorative,
+        issue: "empty",
+        width: rect.width,
+        height: rect.height,
       };
     }).filter(el => !el.isDecorative).slice(0, 10)
   );
@@ -409,7 +431,22 @@ async function detectMissingAltText(ctx: BarrierContext): Promise<void> {
     ctx.wcagViolations.add("1.1.1");
   }
 
+  // v10.10.0: Flag potentially meaningful images marked as decorative
+  for (const img of imagesWithEmptyAlt) {
+    barriers.push({
+      type: "sensory",
+      element: img.selector,
+      description: `Large image (${Math.round(img.width)}x${Math.round(img.height)}px) has empty alt text - may be incorrectly marked as decorative`,
+      affectedPersonas: ["deaf-user", "low-vision-magnified"],
+      wcagCriteria: ["1.1.1"],
+      severity: "minor",
+      remediation: "Verify this image is purely decorative. If it conveys meaning, add descriptive alt text",
+    });
+    ctx.wcagViolations.add("1.1.1");
+  }
+
   // Check for videos without captions indicator
+  // v10.10.0: Always detect, not just for deaf-user persona
   const videos = await page.$$eval('video, iframe[src*="youtube"], iframe[src*="vimeo"]', (elements) =>
     elements.map(el => ({
       selector: el.tagName.toLowerCase(),
@@ -417,17 +454,75 @@ async function detectMissingAltText(ctx: BarrierContext): Promise<void> {
     })).filter(el => !el.hasCaptions)
   );
 
-  if (videos.length > 0 && persona.name === "deaf-user") {
+  if (videos.length > 0) {
     barriers.push({
       type: "sensory",
       element: "video",
-      description: "Video content may not have captions - deaf users cannot access audio content",
+      description: `${videos.length} video(s) may not have captions - deaf users cannot access audio content`,
       affectedPersonas: ["deaf-user"],
       wcagCriteria: ["1.2.2"],
       severity: "critical",
       remediation: "Add captions to all video content",
     });
     ctx.wcagViolations.add("1.2.2");
+  }
+}
+
+/**
+ * Detect missing form labels
+ * v10.10.0: New detector for unlabeled form inputs
+ */
+async function detectMissingFormLabels(ctx: BarrierContext): Promise<void> {
+  const { page, barriers } = ctx;
+
+  const unlabeledInputs = await page.$$eval(
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]), textarea, select',
+    (elements) => {
+      const results: Array<{ selector: string; type: string; hasLabel: boolean; hasAriaLabel: boolean; hasPlaceholder: boolean }> = [];
+
+      for (const el of elements.slice(0, 50)) {
+        const input = el as HTMLInputElement;
+        const id = input.id;
+
+        // Check for associated label
+        const hasLabel = id ? document.querySelector(`label[for="${id}"]`) !== null : false;
+
+        // Check for aria-label or aria-labelledby
+        const hasAriaLabel = input.hasAttribute('aria-label') || input.hasAttribute('aria-labelledby');
+
+        // Check for placeholder (not a valid label, but informative)
+        const hasPlaceholder = input.hasAttribute('placeholder');
+
+        if (!hasLabel && !hasAriaLabel) {
+          results.push({
+            selector: input.tagName.toLowerCase() + (id ? `#${id}` : '') + (input.name ? `[name="${input.name}"]` : ''),
+            type: input.type || 'text',
+            hasLabel,
+            hasAriaLabel,
+            hasPlaceholder,
+          });
+        }
+      }
+
+      return results;
+    }
+  );
+
+  for (const input of unlabeledInputs.slice(0, 10)) {
+    const placeholderNote = input.hasPlaceholder
+      ? ' (has placeholder, but placeholders are not valid labels)'
+      : '';
+    barriers.push({
+      type: "cognitive_load",
+      element: input.selector,
+      description: `Form input (${input.type}) has no accessible label${placeholderNote}`,
+      affectedPersonas: ["low-vision-magnified", "cognitive-adhd", "dyslexic-user"],
+      wcagCriteria: ["1.3.1", "3.3.2", "4.1.2"],
+      severity: "major",
+      remediation: "Add a <label for=\"id\"> element or aria-label attribute to identify the input's purpose",
+    });
+    ctx.wcagViolations.add("3.3.2");
+    ctx.wcagViolations.add("4.1.2");
   }
 }
 
@@ -461,12 +556,14 @@ async function simulateAccessibilityJourney(
     await page.waitForTimeout(2000);
 
     // Run barrier detection
+    // v10.10.0: All detectors now run unconditionally regardless of persona
     await detectSmallTouchTargets(ctx);
     await detectLowContrast(ctx);
     await detectCognitiveLoad(ctx);
     await detectTimingIssues(ctx);
     await detectColorOnlyInfo(ctx);
     await detectMissingAltText(ctx);
+    await detectMissingFormLabels(ctx);
 
     // Use cognitive journey for realistic step tracking if API key available
     if (isApiKeyConfigured()) {

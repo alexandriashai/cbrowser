@@ -399,11 +399,61 @@ export async function repairTest(
               await browser.screenshot();
               stepPassed = true;
               break;
+            case "select":
+              // v10.10.0: Handle select action
+              if (step.target && step.value) {
+                await browser.fill(step.target, step.value);
+                stepPassed = true;
+              } else {
+                lastError = `Select requires target and value: ${step.instruction}`;
+              }
+              break;
+            case "unknown":
             default:
-              // Try as click
-              const unknownResult = await browser.smartClick(step.target || step.instruction);
-              stepPassed = unknownResult.success;
-              if (!stepPassed) lastError = `Could not interpret: ${step.instruction}`;
+              // v10.10.0: For unknown actions, try multiple strategies
+              // Strategy 1: If it looks like navigation (contains URL), try navigate
+              if (step.instruction.includes("http://") || step.instruction.includes("https://")) {
+                const urlMatch = step.instruction.match(/(https?:\/\/[^\s]+)/i);
+                if (urlMatch) {
+                  await browser.navigate(urlMatch[1]);
+                  stepPassed = true;
+                  break;
+                }
+              }
+
+              // Strategy 2: If it contains "click" or looks like an action, try smartClick
+              const lowerInstruction = step.instruction.toLowerCase();
+              if (lowerInstruction.includes("click") || lowerInstruction.includes("press") || lowerInstruction.includes("tap")) {
+                const target = step.target || step.instruction.replace(/^(click|press|tap)\s+(on\s+)?(the\s+)?/i, "");
+                const unknownResult = await browser.smartClick(target);
+                stepPassed = unknownResult.success;
+                if (!stepPassed) lastError = `Failed to click: ${target}`;
+                break;
+              }
+
+              // Strategy 3: If it looks like assertion, try assert
+              if (lowerInstruction.includes("verify") || lowerInstruction.includes("assert") || lowerInstruction.includes("check")) {
+                const assertResult = await browser.assert(step.instruction);
+                stepPassed = assertResult.passed;
+                if (!stepPassed) lastError = assertResult.message;
+                break;
+              }
+
+              // Strategy 4: If it looks like fill, try fill
+              if (lowerInstruction.includes("type") || lowerInstruction.includes("enter") || lowerInstruction.includes("fill")) {
+                // Try to extract value and target from the instruction
+                const typeMatch = lowerInstruction.match(/(?:type|enter|fill)\s+['"]?(.+?)['"]?\s+(?:in|into|with)\s+(?:the\s+)?(.+)/i);
+                if (typeMatch) {
+                  await browser.fill(typeMatch[2].trim(), typeMatch[1].trim());
+                  stepPassed = true;
+                  break;
+                }
+              }
+
+              // Strategy 5: Last resort - try as click on the full instruction
+              const fallbackResult = await browser.smartClick(step.target || step.instruction);
+              stepPassed = fallbackResult.success;
+              if (!stepPassed) lastError = `Could not interpret action: ${step.instruction}`;
           }
         } catch (e: any) {
           lastError = e.message;
