@@ -16,12 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [10.4.4](https://github.com/alexandriashai/cbrowser/compare/v10.4.3...v10.4.4) (2026-02-07)
 
 
+### Added
+
+* **types:** `BaseOptions` interface for shared headless/timeout/verbose options
+* **types:** `CBrowserErrorCode` enum with 20+ standardized error codes
+* **types:** `CBrowserError` class for typed programmatic error handling
+* **utils:** `validateFilePath()` to prevent path traversal attacks
+* **utils:** `sanitizeFilename()` and `safePath()` utilities
+
 ### Security
 
 * **cors:** Replace wildcard Access-Control-Allow-Origin with request origin
   - mcp-server-remote.ts: Use origin header with credentials support
   - daemon.ts: Same fix for daemon HTTP server
   - Prevents credential leakage in cross-origin requests
+* **utils:** Path traversal prevention for all file operations
 
 ### Fixed
 

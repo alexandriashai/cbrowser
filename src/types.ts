@@ -1528,13 +1528,93 @@ export interface CleanupResult {
 }
 
 // ============================================================================
+// Base Options (shared across many interfaces)
+// ============================================================================
+
+/**
+ * Common options shared across multiple CBrowser operations.
+ * Reduces duplication and ensures consistent option naming.
+ */
+export interface BaseOptions {
+  /** Run browser in headless mode (no visible window) */
+  headless?: boolean;
+  /** Operation timeout in milliseconds */
+  timeout?: number;
+  /** Enable verbose debug logging */
+  verbose?: boolean;
+}
+
+// ============================================================================
+// Error Codes (v10.4.4)
+// ============================================================================
+
+/**
+ * Standardized error codes for programmatic error handling.
+ * Use with CBrowserError class for typed error handling.
+ */
+export enum CBrowserErrorCode {
+  // Navigation errors (1xx)
+  NAVIGATION_FAILED = "E101",
+  NAVIGATION_TIMEOUT = "E102",
+  PAGE_NOT_FOUND = "E103",
+
+  // Element errors (2xx)
+  ELEMENT_NOT_FOUND = "E201",
+  ELEMENT_NOT_VISIBLE = "E202",
+  ELEMENT_NOT_CLICKABLE = "E203",
+  ELEMENT_INTERCEPTED = "E204",
+
+  // Session errors (3xx)
+  SESSION_NOT_FOUND = "E301",
+  SESSION_CORRUPTED = "E302",
+  SESSION_EXPIRED = "E303",
+
+  // Authentication errors (4xx)
+  AUTH_REQUIRED = "E401",
+  AUTH_FAILED = "E402",
+  API_KEY_MISSING = "E403",
+  API_KEY_INVALID = "E404",
+
+  // Configuration errors (5xx)
+  CONFIG_INVALID = "E501",
+  CONFIG_NOT_FOUND = "E502",
+  BROWSER_NOT_INSTALLED = "E503",
+
+  // File system errors (6xx)
+  FILE_NOT_FOUND = "E601",
+  FILE_PERMISSION_DENIED = "E602",
+  PATH_TRAVERSAL_BLOCKED = "E603",
+
+  // Test errors (7xx)
+  TEST_FAILED = "E701",
+  ASSERTION_FAILED = "E702",
+  TEST_TIMEOUT = "E703",
+
+  // Unknown
+  UNKNOWN = "E999",
+}
+
+/**
+ * Structured error with code for programmatic handling.
+ */
+export class CBrowserError extends Error {
+  code: CBrowserErrorCode;
+  details?: Record<string, unknown>;
+
+  constructor(code: CBrowserErrorCode, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = "CBrowserError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
+// ============================================================================
 // Browser Options
 // ============================================================================
 
-export interface BrowserOptions {
-  headless?: boolean;
+export interface BrowserOptions extends BaseOptions {
   viewport?: { width: number; height: number };
-  timeout?: number;
   userAgent?: string;
 }
 
