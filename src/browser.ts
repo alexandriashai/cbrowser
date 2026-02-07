@@ -36,7 +36,6 @@ import type {
   AssertionResult,
   SelectorAlternative,
   SelectorCacheEntry,
-  SelectorCache,
   SelectorCacheStats,
   PageElement,
   PageAnalysis,
@@ -117,6 +116,8 @@ import {
   isClaudeCodeSession,
   isCognitiveAvailable,
 } from "./cognitive/index.js";
+import { SessionManager } from "./browser/session-manager.js";
+import { SelectorCacheManager } from "./browser/selector-cache.js";
 
 // Browser-specific fast launch args for performance optimization
 const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
@@ -172,9 +173,26 @@ export class CBrowser {
   private isRecordingHar = false;
   private skipSessionRestore = false;
 
+  // Modular components (extracted for maintainability)
+  private sessionManager: SessionManager;
+  private selectorCacheManager: SelectorCacheManager;
+
   constructor(userConfig: Partial<CBrowserConfig> = {}) {
     this.config = mergeConfig(userConfig);
     this.paths = ensureDirectories(getPaths(this.config.dataDir));
+
+    // Initialize modular components
+    this.sessionManager = new SessionManager({
+      sessionsDir: this.paths.sessionsDir,
+      viewportWidth: this.config.viewportWidth,
+      viewportHeight: this.config.viewportHeight,
+      verbose: this.config.verbose,
+    });
+
+    this.selectorCacheManager = new SelectorCacheManager({
+      dataDir: this.paths.dataDir,
+      verbose: this.config.verbose,
+    });
   }
 
   // =========================================================================
@@ -2614,59 +2632,11 @@ export class CBrowser {
 
   // =========================================================================
   // Tier 5: Self-Healing Selector Cache (v5.0.0)
+  // Delegated to SelectorCache module for maintainability
   // =========================================================================
 
-  private selectorCache: SelectorCache | null = null;
-
   /**
-   * Get the selector cache file path.
-   */
-  private getSelectorCachePath(): string {
-    return join(this.paths.dataDir, "selector-cache.json");
-  }
-
-  /**
-   * Load the selector cache from disk.
-   */
-  private loadSelectorCache(): SelectorCache {
-    if (this.selectorCache) return this.selectorCache;
-
-    const cachePath = this.getSelectorCachePath();
-    if (existsSync(cachePath)) {
-      try {
-        const data = readFileSync(cachePath, "utf-8");
-        this.selectorCache = JSON.parse(data);
-        return this.selectorCache!;
-      } catch (e) {
-        if (this.config.verbose) {
-          console.debug(`[CBrowser] Corrupted selector cache, starting fresh: ${(e as Error).message}`);
-        }
-      }
-    }
-
-    this.selectorCache = { version: 1, entries: {} };
-    return this.selectorCache;
-  }
-
-  /**
-   * Save the selector cache to disk.
-   */
-  private saveSelectorCache(): void {
-    if (!this.selectorCache) return;
-    const cachePath = this.getSelectorCachePath();
-    writeFileSync(cachePath, JSON.stringify(this.selectorCache, null, 2));
-  }
-
-  /**
-   * Get cache key for a selector (includes domain for context).
-   */
-  private getSelectorCacheKey(selector: string, domain?: string): string {
-    const d = domain || this.getCurrentDomain();
-    return `${d}::${selector.toLowerCase()}`;
-  }
-
-  /**
-   * Get current page domain.
+   * Get current page domain for cache key generation.
    */
   private getCurrentDomain(): string {
     try {
@@ -2681,136 +2651,55 @@ export class CBrowser {
   }
 
   /**
+   * Sync the current domain to the selector cache manager.
+   */
+  private syncCacheDomain(): void {
+    this.selectorCacheManager.setCurrentDomain(this.getCurrentDomain());
+  }
+
+  /**
    * Cache a working alternative selector for future use.
    */
   private cacheAlternativeSelector(original: string, working: string, reason: string = "Alternative found"): void {
-    // Reject empty or meaningless selectors
-    if (!working || working.trim() === "" || working === 'text=""' || working === "text=''") {
-        if (this.config.verbose) {
-            console.log(`⚠️ Rejected invalid selector for caching: "${working}"`);
-        }
-        return;
-    }
-
-    const cache = this.loadSelectorCache();
-    const key = this.getSelectorCacheKey(original);
-    const domain = this.getCurrentDomain();
-
-    cache.entries[key] = {
-      originalSelector: original,
-      workingSelector: working,
-      domain,
-      successCount: 1,
-      failCount: 0,
-      lastUsed: new Date().toISOString(),
-      reason,
-    };
-
-    this.saveSelectorCache();
-
-    if (this.config.verbose) {
-      console.log(`📦 Cached healed selector: "${original}" → "${working}"`);
-    }
+    this.syncCacheDomain();
+    this.selectorCacheManager.cacheAlternative(original, working, reason);
   }
 
   /**
    * Get a cached alternative selector if available.
    */
   private getCachedSelector(original: string): SelectorCacheEntry | null {
-    const cache = this.loadSelectorCache();
-    const key = this.getSelectorCacheKey(original);
-    const entry = cache.entries[key] || null;
-    if (entry && (entry.workingSelector === 'text=""' || entry.workingSelector === "text=''" || entry.workingSelector.trim() === "")) {
-      return null; // Reject invalid cached selectors
-    }
-    return entry;
+    this.syncCacheDomain();
+    return this.selectorCacheManager.getCached(original);
   }
 
   /**
    * Update cache entry statistics.
    */
   private updateCacheStats(original: string, success: boolean): void {
-    const cache = this.loadSelectorCache();
-    const key = this.getSelectorCacheKey(original);
-    const entry = cache.entries[key];
-
-    if (entry) {
-      if (success) {
-        entry.successCount++;
-      } else {
-        entry.failCount++;
-      }
-      entry.lastUsed = new Date().toISOString();
-      this.saveSelectorCache();
-    }
+    this.syncCacheDomain();
+    this.selectorCacheManager.updateStats(original, success);
   }
 
   /**
    * Get selector cache statistics.
    */
   getSelectorCacheStats(): SelectorCacheStats {
-    const cache = this.loadSelectorCache();
-    const entries = Object.values(cache.entries);
-
-    const byDomain: Record<string, number> = {};
-    for (const entry of entries) {
-      byDomain[entry.domain] = (byDomain[entry.domain] || 0) + 1;
-    }
-
-    const topHealedSelectors = entries
-      .sort((a, b) => b.successCount - a.successCount)
-      .slice(0, 10)
-      .map(e => ({
-        original: e.originalSelector,
-        working: e.workingSelector,
-        heals: e.successCount,
-      }));
-
-    return {
-      totalEntries: entries.length,
-      totalHeals: entries.reduce((sum, e) => sum + e.successCount, 0),
-      byDomain,
-      topHealedSelectors,
-    };
+    return this.selectorCacheManager.getStats();
   }
 
   /**
    * Clear the selector cache.
    */
   clearSelectorCache(domain?: string): number {
-    const cache = this.loadSelectorCache();
-    let cleared = 0;
-
-    if (domain) {
-      // Clear only for specific domain
-      for (const [key, entry] of Object.entries(cache.entries)) {
-        if (entry.domain === domain) {
-          delete cache.entries[key];
-          cleared++;
-        }
-      }
-    } else {
-      // Clear all
-      cleared = Object.keys(cache.entries).length;
-      cache.entries = {};
-    }
-
-    this.saveSelectorCache();
-    return cleared;
+    return this.selectorCacheManager.clear(domain);
   }
 
   /**
    * List all cached selectors.
    */
   listCachedSelectors(domain?: string): SelectorCacheEntry[] {
-    const cache = this.loadSelectorCache();
-    let entries = Object.values(cache.entries);
-
-    if (domain) {
-      entries = entries.filter(e => e.domain === domain);
-    }
-
-    return entries.sort((a, b) => b.successCount - a.successCount);
+    return this.selectorCacheManager.list(domain);
   }
 
   // =========================================================================
@@ -3757,251 +3646,64 @@ export class CBrowser {
    */
   async saveSession(name: string): Promise<void> {
     const page = await this.getPage();
-    const context = this.context!;
-
-    const cookies = await context.cookies();
-    let localStorage: Record<string, string> = {};
-    try {
-      localStorage = await page.evaluate(() => {
-        const data: Record<string, string> = {};
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const key = window.localStorage.key(i);
-          if (key) data[key] = window.localStorage.getItem(key) || "";
-        }
-        return data;
-      });
-    } catch {
-      // localStorage may be inaccessible on about:blank or restricted pages
-    }
-
-    let sessionStorage: Record<string, string> = {};
-    try {
-      sessionStorage = await page.evaluate(() => {
-        const data: Record<string, string> = {};
-        for (let i = 0; i < window.sessionStorage.length; i++) {
-          const key = window.sessionStorage.key(i);
-          if (key) data[key] = window.sessionStorage.getItem(key) || "";
-        }
-        return data;
-      });
-    } catch {
-      // sessionStorage may be inaccessible on about:blank or restricted pages
-    }
-
-    const url = page.url();
-    const domain = new URL(url).hostname;
-
-    const session: SavedSession = {
-      name,
-      created: new Date().toISOString(),
-      lastUsed: new Date().toISOString(),
-      domain,
-      url,
-      viewport: {
-        width: this.config.viewportWidth,
-        height: this.config.viewportHeight,
-      },
-      cookies: cookies as SavedSession["cookies"],
-      localStorage,
-      sessionStorage,
-    };
-
-    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
-    writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+    await this.sessionManager.save(name, page, this.context!);
   }
 
   /**
    * Load a saved session.
    */
   async loadSession(name: string): Promise<LoadSessionResult> {
-    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
-
-    if (!existsSync(sessionPath)) {
-      return { success: false, name, cookiesRestored: 0, localStorageKeysRestored: 0, sessionStorageKeysRestored: 0 };
-    }
-
-    const session: SavedSession = JSON.parse(readFileSync(sessionPath, "utf-8"));
     const page = await this.getPage();
-    const context = this.context!;
-
-    const result: LoadSessionResult = {
-      success: true,
-      name,
-      cookiesRestored: session.cookies.length,
-      localStorageKeysRestored: Object.keys(session.localStorage).length,
-      sessionStorageKeysRestored: Object.keys(session.sessionStorage).length,
-    };
-
-    // Cross-domain warning
-    const currentUrl = page.url();
-    if (currentUrl && currentUrl !== "about:blank") {
-      try {
-        const currentDomain = new URL(currentUrl).hostname;
-        if (session.domain && currentDomain !== session.domain) {
-          result.warning = `Session '${name}' was saved for ${session.domain} but current page is ${currentDomain}. Some cookies may not apply.`;
-        }
-      } catch {
-        // URL parsing failed, skip warning
-      }
-    }
-
-    // Restore cookies
-    if (session.cookies.length > 0) {
-      await context.addCookies(session.cookies);
-    }
-
-    // Navigate to saved URL
-    await page.goto(session.url, { waitUntil: "networkidle" });
-
-    // Restore localStorage
-    await page.evaluate((data) => {
-      for (const [key, value] of Object.entries(data)) {
-        window.localStorage.setItem(key, value);
-      }
-    }, session.localStorage);
-
-    // Restore sessionStorage
-    await page.evaluate((data) => {
-      for (const [key, value] of Object.entries(data)) {
-        window.sessionStorage.setItem(key, value);
-      }
-    }, session.sessionStorage);
-
-    // Refresh to apply storage
-    await page.reload({ waitUntil: "networkidle" });
-
-    // Update lastUsed
-    session.lastUsed = new Date().toISOString();
-    writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-
-    return result;
+    return this.sessionManager.load(name, page, this.context!);
   }
 
   /**
    * List all saved session names.
    */
   listSessions(): string[] {
-    const files = readdirSync(this.paths.sessionsDir);
-    return files.filter((f) => f.endsWith(".json") && f !== "last-session.json").map((f) => f.replace(".json", ""));
+    return this.sessionManager.list();
   }
 
   /**
    * List all saved sessions with rich metadata.
    */
   listSessionsDetailed(): SessionMetadata[] {
-    const files = readdirSync(this.paths.sessionsDir);
-    const sessions: SessionMetadata[] = [];
-
-    for (const file of files) {
-      if (!file.endsWith(".json") || file === "last-session.json") continue;
-      const filePath = join(this.paths.sessionsDir, file);
-      try {
-        const data: SavedSession = JSON.parse(readFileSync(filePath, "utf-8"));
-        const stats = statSync(filePath);
-        sessions.push({
-          name: data.name || file.replace(".json", ""),
-          created: data.created,
-          lastUsed: data.lastUsed,
-          domain: data.domain,
-          url: data.url,
-          cookies: data.cookies?.length || 0,
-          localStorageKeys: Object.keys(data.localStorage || {}).length,
-          sessionStorageKeys: Object.keys(data.sessionStorage || {}).length,
-          sizeBytes: stats.size,
-        });
-      } catch (e) {
-        if (this.config.verbose) {
-          console.debug(`[CBrowser] Skipping malformed session file ${file}: ${(e as Error).message}`);
-        }
-      }
-    }
-
-    return sessions.sort((a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime());
+    return this.sessionManager.listDetailed();
   }
 
   /**
    * Get detailed info for a single session.
    */
   getSessionDetails(name: string): SavedSession | null {
-    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
-    if (!existsSync(sessionPath)) return null;
-    try {
-      return JSON.parse(readFileSync(sessionPath, "utf-8"));
-    } catch (e) {
-      if (this.config.verbose) {
-        console.debug(`[CBrowser] Failed to load session ${name}: ${(e as Error).message}`);
-      }
-      return null;
-    }
+    return this.sessionManager.getDetails(name);
   }
 
   /**
    * Delete a saved session.
    */
   deleteSession(name: string): boolean {
-    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
-    if (existsSync(sessionPath)) {
-      unlinkSync(sessionPath);
-      return true;
-    }
-    return false;
+    return this.sessionManager.delete(name);
   }
 
   /**
    * Delete sessions older than a given number of days.
    */
   cleanupSessions(olderThanDays: number): { deleted: string[]; kept: string[] } {
-    const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
-    const deleted: string[] = [];
-    const kept: string[] = [];
-
-    const files = readdirSync(this.paths.sessionsDir);
-    for (const file of files) {
-      if (!file.endsWith(".json") || file === "last-session.json") continue;
-      const filePath = join(this.paths.sessionsDir, file);
-      const name = file.replace(".json", "");
-      try {
-        const data: SavedSession = JSON.parse(readFileSync(filePath, "utf-8"));
-        const lastUsed = new Date(data.lastUsed).getTime();
-        if (lastUsed < cutoff) {
-          unlinkSync(filePath);
-          deleted.push(name);
-        } else {
-          kept.push(name);
-        }
-      } catch {
-        kept.push(name);
-      }
-    }
-
-    return { deleted, kept };
+    return this.sessionManager.cleanup(olderThanDays);
   }
 
   /**
    * Export a session to a portable JSON file.
    */
   exportSession(name: string, outputPath: string): boolean {
-    const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
-    if (!existsSync(sessionPath)) return false;
-    const data = readFileSync(sessionPath, "utf-8");
-    writeFileSync(outputPath, data);
-    return true;
+    return this.sessionManager.export(name, outputPath);
   }
 
   /**
    * Import a session from a JSON file.
    */
   importSession(inputPath: string, name: string): boolean {
-    if (!existsSync(inputPath)) return false;
-    try {
-      const data: SavedSession = JSON.parse(readFileSync(inputPath, "utf-8"));
-      data.name = name;
-      const sessionPath = join(this.paths.sessionsDir, `${name}.json`);
-      writeFileSync(sessionPath, JSON.stringify(data, null, 2));
-      return true;
-    } catch {
-      return false;
-    }
+    return this.sessionManager.import(inputPath, name);
   }
 
   // =========================================================================

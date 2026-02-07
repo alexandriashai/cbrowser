@@ -35,3 +35,6 @@ export * from "./performance/index.js";
 
 // Utilities module (v10.4.4)
 export { validateFilePath, sanitizeFilename, safePath } from "./utils.js";
+
+// Browser module (v10.4.5)
+export * from "./browser/index.js";
