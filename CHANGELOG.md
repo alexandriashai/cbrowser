@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.4.5](https://github.com/alexandriashai/cbrowser/compare/v10.4.3...v10.4.5) (2026-02-07)
+
+
+### Fixed
+
+* **security:** cors and code quality improvements ([0a94fe4](https://github.com/alexandriashai/cbrowser/commit/0a94fe45ec798538f1dafd998333ddbb2e261f65))
+
 ## [10.4.4](https://github.com/alexandriashai/cbrowser/compare/v10.4.3...v10.4.4) (2026-02-07)
 
 
