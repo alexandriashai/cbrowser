@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.10.0](https://github.com/alexandriashai/cbrowser/compare/v9.9.1...v9.10.0) (2026-02-07)
+
+
+### Added
+
+* **cognitive:** add Dual-Process Theory and GOMS/KLM timing ([af8657f](https://github.com/alexandriashai/cbrowser/commit/af8657f87f3f93f012cb3ca414bc0bb853739992)), closes [#47](https://github.com/alexandriashai/cbrowser/issues/47) [#53](https://github.com/alexandriashai/cbrowser/issues/53)
+
 ## [9.9.1](https://github.com/alexandriashai/cbrowser/compare/v9.9.0...v9.9.1) (2026-02-07)
 
 
