@@ -638,9 +638,9 @@ mobile-user      | pass    | 28.1s   | 1        | Scroll issue
 
 This helps identify which user groups struggle with your interface and where the friction points are, so you can prioritize UX improvements based on data rather than assumptions.
 
-### Cognitive User Simulation (v8.3.1)
+### Cognitive User Simulation (v10.0.0)
 
-Go beyond timing and click patterns—simulate how users actually **think**. Cognitive journeys model realistic decision-making with abandonment detection, frustration tracking, and genuine cognitive traits.
+Go beyond timing and click patterns—simulate how users actually **think**. Cognitive journeys model realistic decision-making with abandonment detection, frustration tracking, and genuine cognitive traits—now grounded in **peer-reviewed cognitive science research**.
 
 **Why it matters:** Traditional persona testing simulates motor behavior (slow clicks, typos). Cognitive simulation models mental behavior: "Would a confused first-timer give up here? Would they even notice that button?"
 
@@ -711,6 +711,27 @@ The simulation automatically stops when a realistic user would give up:
 | Too frustrated | `> 0.85` | "This is so frustrating..." |
 | No progress | 10+ steps, `< 0.1` progress | "I'm not getting anywhere..." |
 | Stuck in loop | Same pages 3x | "I keep ending up here..." |
+| Decision fatigue (v9.9.0) | Fatigue > threshold | "I'll just pick the first option..." |
+
+**Cognitive Science Foundations (v9.9.0-v10.0.0):**
+
+CBrowser's simulation is grounded in established cognitive science research:
+
+| Feature | Research Basis | What It Models |
+|---------|---------------|----------------|
+| **Decision Fatigue** (v9.9.0) | Baumeister's ego depletion | Fatigue accumulates logarithmically per decision; users start choosing defaults |
+| **Fitts' Law** (v9.9.0) | Motor control research | Mouse timing: `MT = a + b × log₂(D/W + 1)` with age/tremor modifiers |
+| **Dual-Process Theory** (v10.0.0) | Kahneman (Nobel Prize) | System 1 (automatic/fast) vs System 2 (deliberate/slow) switching |
+| **GOMS/KLM Timing** (v10.0.0) | Card, Moran & Newell | Keystroke timing: 120ms (expert) to 500ms (novice) per key |
+
+```bash
+# v9.9.0+ output now includes cognitive science metrics:
+#   Decisions made: 12
+#   Decision fatigue: 67%
+#   ⚠️ Was choosing defaults (high fatigue)
+#   Time in System 1: 45.2s (automatic)
+#   Time in System 2: 12.8s (deliberate)
+```
 
 **Output includes:**
 - Goal achievement status
