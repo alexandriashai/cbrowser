@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.9.0](https://github.com/alexandriashai/cbrowser/compare/v10.7.1...v10.9.0) (2026-02-07)
+
+### Added
+
+* **mcp:** add API-free bridge workflow for compare_personas ([1b83a14](https://github.com/alexandriashai/cbrowser/commit/1b83a14754b2103dbe1d5e6759fe277cfe55f3e8))
+
 ## [10.8.0](https://github.com/alexandriashai/cbrowser/compare/v10.7.1...v10.8.0) (2026-02-07)
 
 
