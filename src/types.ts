@@ -258,6 +258,8 @@ export interface CognitiveState {
   stepCount: number;
   /** Decision fatigue state (v9.9.0) */
   decisionFatigue?: DecisionFatigueState;
+  /** Dual-process cognitive mode (v9.10.0) */
+  cognitiveMode?: CognitiveMode;
 }
 
 // ============================================================================
@@ -343,6 +345,110 @@ export function calculateFittsMovementTime(
 
   // Apply persona modifiers
   return baseMT * ageModifier * (1 + tremorModifier * 0.1);
+}
+
+// ============================================================================
+// Dual-Process Theory Types (v9.10.0) - Kahneman System 1/System 2
+// ============================================================================
+
+/**
+ * Cognitive processing mode based on Kahneman's Dual-Process Theory.
+ * System 1: Fast, automatic, intuitive (default for experts)
+ * System 2: Slow, deliberate, analytical (triggered by confusion/errors)
+ *
+ * @see Kahneman, D. (2011). Thinking, Fast and Slow
+ */
+export interface CognitiveMode {
+  /** Current system (1 = fast/intuitive, 2 = slow/deliberate) */
+  system: 1 | 2;
+  /** Confusion level that forces switch to System 2 (0-1) */
+  switchThreshold: number;
+  /** Accumulated System 1 errors that trigger switch */
+  system1Errors: number;
+  /** Time spent in each system (ms) */
+  timeInSystem1: number;
+  timeInSystem2: number;
+}
+
+/**
+ * Check if cognitive state should switch to System 2.
+ * Triggers: high confusion OR repeated failures in System 1.
+ */
+export function shouldSwitchToSystem2(
+  confusionLevel: number,
+  mode: CognitiveMode
+): boolean {
+  return confusionLevel > mode.switchThreshold || mode.system1Errors >= 3;
+}
+
+/**
+ * Check if cognitive state can return to System 1.
+ * Triggers: low confusion AND recent success.
+ */
+export function canReturnToSystem1(
+  confusionLevel: number,
+  recentSuccess: boolean
+): boolean {
+  return confusionLevel < 0.2 && recentSuccess;
+}
+
+// ============================================================================
+// GOMS/KLM Timing Constants (v9.10.0) - Validated HCI Research
+// ============================================================================
+
+/**
+ * Keystroke-Level Model (KLM) timing constants.
+ * Empirically derived from Card, Moran & Newell (1983).
+ *
+ * @see Card, S. K., Moran, T. P., & Newell, A. (1983). The Psychology of Human-Computer Interaction
+ * @see https://github.com/Cogulator/Cogulator
+ */
+export const KLM_OPERATORS = {
+  /** Keystroke timing - average typist (ms) */
+  K_keystroke: 280,
+  /** Expert typist keystroke (ms) */
+  K_expert: 120,
+  /** Hunt-and-peck typist keystroke (ms) */
+  K_novice: 500,
+  /** Mouse pointing to target (ms) - replaced by Fitts' Law */
+  P_pointing: 1100,
+  /** Hand movement between keyboard and mouse (ms) */
+  H_homing: 400,
+  /** Mental preparation before action (ms) */
+  M_mental: 1350,
+  /** Mental prep for familiar task (ms) */
+  M_familiar: 600,
+  /** Button click time (ms) */
+  B_button: 100,
+  /** System response - variable, depends on application */
+  R_system: 0,
+} as const;
+
+/**
+ * Calculate typing time for a string using KLM constants.
+ * @param text - Text to type
+ * @param expertise - Typing expertise level (0-1, where 1 = expert)
+ * @param includesMentalPrep - Whether to include M operator
+ * @returns Typing time in milliseconds
+ */
+export function calculateTypingTime(
+  text: string,
+  expertise: number = 0.5,
+  includesMentalPrep: boolean = true
+): number {
+  // Interpolate between novice and expert keystroke time
+  const keystrokeTime =
+    KLM_OPERATORS.K_novice - (KLM_OPERATORS.K_novice - KLM_OPERATORS.K_expert) * expertise;
+
+  // Calculate total keystroke time
+  const keystrokes = text.length * keystrokeTime;
+
+  // Add mental preparation if needed
+  const mentalPrep = includesMentalPrep
+    ? KLM_OPERATORS.M_familiar + (KLM_OPERATORS.M_mental - KLM_OPERATORS.M_familiar) * (1 - expertise)
+    : 0;
+
+  return keystrokes + mentalPrep;
 }
 
 /**

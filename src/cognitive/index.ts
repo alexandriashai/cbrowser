@@ -35,8 +35,16 @@ import type {
   Persona,
   CognitiveTraits,
   DecisionFatigueState,
+  CognitiveMode,
 } from "../types.js";
-import { calculateFatigueIncrement, calculateFittsMovementTime, FittsLawParams } from "../types.js";
+import {
+  calculateFatigueIncrement,
+  calculateFittsMovementTime,
+  FittsLawParams,
+  shouldSwitchToSystem2,
+  canReturnToSystem1,
+  calculateTypingTime,
+} from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 
 // ============================================================================
@@ -274,6 +282,15 @@ export async function runCognitiveJourney(
       lastDecisionComplexity: 0,
       choosingDefaults: false,
     },
+    // Dual-process cognitive mode (v9.10.0)
+    // Experts start in System 1 (fast), novices in System 2 (slow)
+    cognitiveMode: {
+      system: traits.comprehension > 0.7 ? 1 : 2,
+      switchThreshold: traits.comprehension < 0.4 ? 0.4 : 0.6,
+      system1Errors: 0,
+      timeInSystem1: 0,
+      timeInSystem2: 0,
+    },
   };
 
   // Calculate Fitts' Law params from persona (v9.9.0)
@@ -423,6 +440,34 @@ export async function runCognitiveJourney(
 
     // Deplete patience
     state.patienceRemaining -= 0.02 + state.frustrationLevel * 0.05;
+
+    // Dual-Process Theory: System 1/2 switching (v9.10.0)
+    if (state.cognitiveMode) {
+      const stepStartTime = Date.now();
+
+      if (state.cognitiveMode.system === 1) {
+        // In System 1 (fast mode) - check if should switch to System 2
+        if (shouldSwitchToSystem2(state.confusionLevel, state.cognitiveMode)) {
+          state.cognitiveMode.system = 2;
+          if (options.verbose) {
+            console.log(`🧠 Switching to System 2 (deliberate thinking) - confusion: ${(state.confusionLevel * 100).toFixed(0)}%`);
+          }
+        }
+        state.cognitiveMode.timeInSystem1 += Date.now() - stepStartTime;
+      } else {
+        // In System 2 (slow mode) - check if can return to System 1
+        const recentSuccess = state.memory.actionsAttempted.length > 0 &&
+          state.memory.actionsAttempted[state.memory.actionsAttempted.length - 1]?.success;
+        if (canReturnToSystem1(state.confusionLevel, recentSuccess)) {
+          state.cognitiveMode.system = 1;
+          state.cognitiveMode.system1Errors = 0; // Reset error count
+          if (options.verbose) {
+            console.log(`🧠 Returning to System 1 (intuitive thinking) - task familiar`);
+          }
+        }
+        state.cognitiveMode.timeInSystem2 += Date.now() - stepStartTime;
+      }
+    }
 
     // Record monologue
     if (parsed.monologue) {
@@ -812,6 +857,7 @@ interface ActionResult {
   success: boolean;
   newUrl?: string;
   movementTimeMs?: number;
+  typingTimeMs?: number;
 }
 
 /**
@@ -872,8 +918,20 @@ async function executeAction(
     }
     case "fill": {
       const [selector, ...valueParts] = args;
-      const result = await browser.fill(selector, valueParts.join(":"));
-      return { success: result.success };
+      const value = valueParts.join(":");
+
+      // Apply KLM timing for typing (v9.10.0)
+      // Use age modifier as proxy for typing expertise (younger = faster)
+      const expertise = fittsParams?.ageModifier
+        ? Math.max(0, 1 - (fittsParams.ageModifier - 1))
+        : 0.5;
+      const typingTimeMs = calculateTypingTime(value, expertise, true);
+
+      // Add realistic typing delay
+      await sleep(typingTimeMs);
+
+      const result = await browser.fill(selector, value);
+      return { success: result.success, typingTimeMs };
     }
     case "navigate": {
       const url = args.join(":");
