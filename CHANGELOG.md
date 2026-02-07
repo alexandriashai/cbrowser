@@ -8,10 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [10.6.0](https://github.com/alexandriashai/cbrowser/compare/v10.5.2...v10.6.0) (2026-02-07)
 
-
 ### Added
 
+* **cognitive:** Resilience trait for emotional recovery modeling
+  - New `resilience` field (0-1) in `CognitiveTraits` interface
+  - Time-based frustration decay: `frustrationLevel -= resilience * 0.04` per step
+  - Success-triggered recovery: major recovery on progress, minor on any success
+  - "Second wind" effect: patience partially restored when making progress
+
+* **personas:** Resilience values for all 13 personas
+  - Built-in personas: power-user (0.85), first-timer (0.4), mobile-user (0.5), screen-reader-user (0.8), elderly-user (0.3), impatient-user (0.2)
+  - Accessibility personas: motor-tremor, low-vision, ADHD, dyslexic, deaf, elderly-low-vision, color-blind with research-based values
+
+* **docs:** Academic citations for resilience modeling
+  - [Brief Resilience Scale (BRS)](https://pubmed.ncbi.nlm.nih.gov/18696313/) - Smith et al., 2008
+  - [Connor-Davidson Resilience Scale (CD-RISC)](https://pubmed.ncbi.nlm.nih.gov/12964174/)
+  - [MIT Frustration Recovery Research](https://www.sciencedirect.com/science/article/abs/pii/S0953543801000534)
+
 * add API-free session bridge for empathy_audit ([e21c967](https://github.com/alexandriashai/cbrowser/commit/e21c96724173f5ab6e5805e6d241c6626171456b))
+
+### Research Basis
+
+The resilience trait is grounded in peer-reviewed cognitive science:
+
+> "A valid index of resilience would be the efficiency with which an individual recovers psychologically and physiologically following a stressful event. Resilience can be operationalized as the rate of decrease of a particular stress-marker in the period following a stress induction."
+> — Brief Resilience Scale (Smith et al., 2008)
+
+This directly maps to CBrowser's implementation: frustration decay rate + success recovery boost.
 
 ## [10.5.2](https://github.com/alexandriashai/cbrowser/compare/v10.5.1...v10.5.2) (2026-02-07)
 

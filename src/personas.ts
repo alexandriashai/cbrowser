@@ -388,6 +388,7 @@ function generateCognitiveTraitsFromDescription(
   let curiosity = 0.5;
   let workingMemory = 0.5;
   let readingTendency = 0.5;
+  let resilience = 0.5; // Research: Brief Resilience Scale (Smith et al., 2008)
 
   // Adjust by tech level
   if (techLevel === "expert") {
@@ -398,6 +399,7 @@ function generateCognitiveTraitsFromDescription(
     curiosity = 0.2;
     workingMemory = 0.9;
     readingTendency = 0.1;
+    resilience = 0.85; // High - experts shrug off errors quickly
   } else if (techLevel === "beginner") {
     patience = 0.6;
     riskTolerance = 0.3;
@@ -406,6 +408,7 @@ function generateCognitiveTraitsFromDescription(
     curiosity = 0.7;
     workingMemory = 0.4;
     readingTendency = 0.8;
+    resilience = 0.4; // Low-medium - beginners get discouraged
   }
 
   // Adjust for impatience
@@ -414,6 +417,7 @@ function generateCognitiveTraitsFromDescription(
     persistence = Math.min(persistence, 0.2);
     readingTendency = Math.min(readingTendency, 0.1);
     riskTolerance = Math.max(riskTolerance, 0.7);
+    resilience = Math.min(resilience, 0.2); // Low - no recovery, abandons
   }
 
   // Adjust for slow/careful users
@@ -421,6 +425,7 @@ function generateCognitiveTraitsFromDescription(
     patience = Math.max(patience, 0.8);
     riskTolerance = Math.min(riskTolerance, 0.2);
     readingTendency = Math.max(readingTendency, 0.9);
+    // Careful users often have moderate resilience - methodical recovery
   }
 
   // Adjust for elderly
@@ -430,6 +435,7 @@ function generateCognitiveTraitsFromDescription(
     comprehension = Math.min(comprehension, 0.25);
     workingMemory = Math.min(workingMemory, 0.35);
     readingTendency = Math.max(readingTendency, 0.85);
+    resilience = Math.min(resilience, 0.3); // Low - frustration lingers with age
   }
 
   // Adjust for vision issues (screen reader users)
@@ -439,6 +445,7 @@ function generateCognitiveTraitsFromDescription(
     workingMemory = Math.max(workingMemory, 0.9);
     readingTendency = 1.0;  // Everything is read aloud
     persistence = Math.max(persistence, 0.85);
+    resilience = Math.max(resilience, 0.8); // High - adapted to challenges (CD-RISC)
   }
 
   // Check for specific traits in description
@@ -466,6 +473,7 @@ function generateCognitiveTraitsFromDescription(
     curiosity,
     workingMemory,
     readingTendency,
+    resilience, // v10.6.0: Brief Resilience Scale (Smith et al., 2008)
   };
 }
 
@@ -498,6 +506,7 @@ export function createCognitivePersona(
     curiosity: traits.curiosity ?? basePersona.cognitiveTraits?.curiosity ?? 0.5,
     workingMemory: traits.workingMemory ?? basePersona.cognitiveTraits?.workingMemory ?? 0.5,
     readingTendency: traits.readingTendency ?? basePersona.cognitiveTraits?.readingTendency ?? 0.5,
+    resilience: traits.resilience ?? basePersona.cognitiveTraits?.resilience ?? 0.5,
   };
 
   // Update demographics if provided
@@ -574,6 +583,7 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
       curiosity: 0.5,
       workingMemory: 0.5,
       readingTendency: 0.5,
+      resilience: 0.5, // v10.6.0: Brief Resilience Scale (Smith et al., 2008)
     },
     attentionPattern,
     decisionStyle,
@@ -635,6 +645,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       curiosity: 0.2,         // Low - stays focused on goal
       workingMemory: 0.9,     // High - never repeats attempts
       readingTendency: 0.1,   // Low - scans for shortcuts
+      resilience: 0.85,       // High - shrugs off errors quickly (BRS)
     },
     context: {
       viewport: [1920, 1080],
@@ -690,6 +701,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       curiosity: 0.7,         // High - explores the interface
       workingMemory: 0.4,     // Medium - might repeat mistakes
       readingTendency: 0.8,   // High - reads tooltips and help
+      resilience: 0.4,        // Low-medium - new users get discouraged (BRS)
     },
     context: {
       viewport: [1280, 800],
@@ -745,6 +757,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       curiosity: 0.3,         // Low - wants to complete and go
       workingMemory: 0.5,     // Medium
       readingTendency: 0.3,   // Low - minimal reading on mobile
+      resilience: 0.5,        // Medium - recovers if next try works (BRS)
     },
     context: {
       viewport: [375, 812], // iPhone X dimensions
@@ -800,6 +813,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       curiosity: 0.2,         // Low - structured navigation
       workingMemory: 0.9,     // High - mental model essential
       readingTendency: 1.0,   // Full - ALL content is read aloud
+      resilience: 0.8,        // High - experienced with setbacks (CD-RISC)
     },
     context: {
       viewport: [1280, 800],
@@ -855,6 +869,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       curiosity: 0.1,         // Very low - just wants to finish
       workingMemory: 0.3,     // Low - may forget steps
       readingTendency: 0.9,   // High - reads everything carefully
+      resilience: 0.3,        // Low - frustration lingers longer (BRS age-related)
     },
     context: {
       viewport: [1280, 800],
@@ -910,6 +925,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       curiosity: 0.1,         // Very low - no time to explore
       workingMemory: 0.6,     // Medium
       readingTendency: 0.05,  // Almost none - scanning only
+      resilience: 0.2,        // Very low - no recovery, abandons (BRS)
     },
     context: {
       viewport: [1280, 800],
@@ -1139,6 +1155,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.8, // High novelty-seeking
       riskTolerance: 0.7, // Impulsive clicking
       readingTendency: 0.2, // Skims rather than reads
+      resilience: 0.55, // Medium - recovers emotionally but not focus (BRS)
     },
   },
 
@@ -1198,6 +1215,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       patience: 0.5,
       curiosity: 0.7,
       readingTendency: 0.4, // Avoids heavy text, prefers visuals
+      resilience: 0.6, // Medium-high - adapted to text challenges (BRS)
     },
   },
 
@@ -1316,6 +1334,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.3, // Low: prefers familiar patterns
       riskTolerance: 0.15, // Very cautious with unfamiliar interfaces
       comprehension: 0.3, // Unfamiliar with modern UI conventions
+      resilience: 0.25, // Low - frustration compounds with physical challenges (BRS)
     },
   },
 
@@ -1375,6 +1394,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       patience: 0.6, // Accustomed to extra verification
       persistence: 0.7, // Used to working around color issues
       riskTolerance: 0.5, // Cautious with color-only indicators
+      resilience: 0.7, // High - adapted to workarounds, recovers quickly (BRS)
     },
   },
 };

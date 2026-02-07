@@ -678,7 +678,7 @@ npx cbrowser cognitive-journey \
 - Visual cues that aren't captured in element text
 - Pages with dynamic content
 
-**Cognitive Traits (7 dimensions):**
+**Cognitive Traits (8 dimensions):**
 
 | Trait | What it measures | Example impact |
 |-------|------------------|----------------|
@@ -689,6 +689,7 @@ npx cbrowser cognitive-journey \
 | `curiosity` | Tendency to explore vs. stay focused | High curiosity → clicks interesting sidebars |
 | `workingMemory` | Remembers what they've tried | Low memory → repeats failed actions |
 | `readingTendency` | Reads content vs. scans for CTAs | High reading → notices inline instructions |
+| `resilience` | Ability to recover emotionally from setbacks | High resilience → frustration drops after success |
 
 **Attention Patterns:**
 
@@ -729,6 +730,7 @@ CBrowser's simulation is grounded in established cognitive science research:
 | **Gaze-Mouse Lag** (v10.2.0) | Eye-tracking research | Eyes lead mouse by 200-500ms depending on age |
 | **Tunnel Vision** (v10.2.0) | Yerkes-Dodson Law | High stress/arousal reduces peripheral vision to 30% |
 | **Banner Blindness** (v10.2.0) | Habituation research | Repeated exposure → patterns become invisible (cookie banners, popups) |
+| **Resilience** (v10.6.0) | [Brief Resilience Scale](https://pubmed.ncbi.nlm.nih.gov/18696313/) (Smith et al., 2008) | Frustration decay rate + success recovery; high resilience = rapid emotional bounce-back |
 
 ```bash
 # v10.2.0+ output now includes cognitive science metrics:

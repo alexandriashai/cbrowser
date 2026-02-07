@@ -481,6 +481,15 @@ export async function runCognitiveJourney(
     // Deplete patience
     state.patienceRemaining -= 0.02 + state.frustrationLevel * 0.05;
 
+    // Resilience: Time-based frustration decay (v10.6.0)
+    // Research: Brief Resilience Scale operationalizes resilience as
+    // "rate of decrease in stress markers" (Smith et al., 2008)
+    // Higher resilience = faster emotional recovery each step
+    const resilience = traits.resilience ?? 0.3; // Default to moderate resilience
+    if (state.frustrationLevel > 0) {
+      state.frustrationLevel = Math.max(0, state.frustrationLevel - resilience * 0.04);
+    }
+
     // Dual-Process Theory: System 1/2 switching (v10.0.0)
     if (state.cognitiveMode) {
       const stepStartTime = Date.now();
@@ -611,6 +620,22 @@ export async function runCognitiveJourney(
         if (result.newUrl && !state.memory.pagesVisited.includes(result.newUrl)) {
           state.memory.pagesVisited.push(result.newUrl);
           currentUrl = result.newUrl;
+        }
+
+        // Resilience: Success-triggered recovery (v10.6.0)
+        // Research: Cognitive reappraisal meta-analysis shows positive outcomes
+        // enhance personal resilience (PMC 2024). Success = positive reframe.
+        // Progress made = significant recovery; simple success = minor recovery
+        if (result.success) {
+          const progressMade = result.newUrl || state.goalProgress > 0.1;
+          const recoveryAmount = progressMade
+            ? resilience * 0.20  // Major recovery on progress
+            : resilience * 0.08; // Minor recovery on any success
+          state.frustrationLevel = Math.max(0, state.frustrationLevel - recoveryAmount);
+          // "Second wind" effect: patience partially restored on progress
+          if (progressMade) {
+            state.patienceRemaining = Math.min(1, state.patienceRemaining + resilience * 0.08);
+          }
         }
       } catch (error) {
         state.memory.errorsEncountered.push({

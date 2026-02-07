@@ -198,6 +198,17 @@ export interface CognitiveTraits {
   workingMemory: number;
   /** Reads content vs scans for CTAs (0 = visual scanner, 1 = reads everything) */
   readingTendency: number;
+  /**
+   * Ability to recover emotionally from setbacks (0 = stays frustrated, 1 = rapid bounce-back)
+   *
+   * Research basis: Brief Resilience Scale (Smith et al., 2008)
+   * "The ability to bounce back or recover from stress"
+   * Operationalized as rate of decrease in stress markers post-event.
+   *
+   * @see https://pubmed.ncbi.nlm.nih.gov/18696313/
+   * @see https://pubmed.ncbi.nlm.nih.gov/12964174/ (Connor-Davidson Resilience Scale)
+   */
+  resilience?: number;
 }
 
 /**
