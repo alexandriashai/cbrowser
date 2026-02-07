@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Changed
+
+* **refactor:** Extract modular components from browser.ts (4816 → 4201 lines, ~13% reduction)
+  - `src/browser/session-manager.ts` - SessionManager class for session persistence
+  - `src/browser/selector-cache.ts` - SelectorCacheManager class for self-healing selectors
+  - `src/browser/overlay-handler.ts` - OverlayHandler class for overlay dismissal
+  - All modules exported from `src/browser/index.ts` and main package
+
 ## [10.4.5](https://github.com/alexandriashai/cbrowser/compare/v10.4.3...v10.4.5) (2026-02-07)
 
 
