@@ -15,7 +15,6 @@ import type {
   FocusHierarchy,
   FocusHierarchyPreset,
   DistractionFilter,
-  FocusArea,
   FocusAreaType,
 } from "../types.js";
 

@@ -39,11 +39,10 @@ import type {
   AccessibilityPersona,
   AgentReadyEffort,
 } from "../types.js";
-import { getAccessibilityPersona, ACCESSIBILITY_PERSONAS } from "../personas.js";
+import { getAccessibilityPersona } from "../personas.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
-  isCognitiveAvailable,
 } from "../cognitive/index.js";
 
 // ============================================================================

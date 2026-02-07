@@ -36,8 +36,8 @@ export async function huntBugs(
   const startTime = Date.now();
   const bugs: BugReport[] = [];
   const visited = new Set<string>();
-  const maxPages = options.maxPages || 10;
-  const timeout = options.timeout || 60000;
+  const _maxPages = options.maxPages || 10;
+  const _timeout = options.timeout || 60000;
 
   const page = await (browser as any).getPage();
   const consoleErrors: string[] = [];

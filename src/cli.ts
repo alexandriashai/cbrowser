@@ -21,13 +21,11 @@ import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVi
 import type { NLTestCase, NLTestSuiteResult, TestRepairSuiteResult, FlakyTestSuiteResult, PerformanceBaseline, PerformanceRegressionResult, PerformanceRegressionThresholds, CoverageMapResult, CoverageMapOptions, VisualBaseline, VisualRegressionResult, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserResult, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveTestResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABComparisonResult, ABSuite, ABSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
-  ACCESSIBILITY_PERSONAS,
   loadCustomPersonas,
   saveCustomPersona,
   deleteCustomPersona,
   isBuiltinPersona,
   generatePersonaFromDescription,
-  getPersonasDir,
   listAccessibilityPersonas,
 } from "./personas.js";
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
