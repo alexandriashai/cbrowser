@@ -44,6 +44,9 @@ import {
   shouldSwitchToSystem2,
   canReturnToSystem1,
   calculateTypingTime,
+  calculateScanWidthMultiplier,
+  detectProspectFrame,
+  calculateProspectClickModifier,
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 
@@ -282,7 +285,7 @@ export async function runCognitiveJourney(
       lastDecisionComplexity: 0,
       choosingDefaults: false,
     },
-    // Dual-process cognitive mode (v9.10.0)
+    // Dual-process cognitive mode (v10.0.0)
     // Experts start in System 1 (fast), novices in System 2 (slow)
     cognitiveMode: {
       system: traits.comprehension > 0.7 ? 1 : 2,
@@ -291,6 +294,13 @@ export async function runCognitiveJourney(
       timeInSystem1: 0,
       timeInSystem2: 0,
     },
+    // F-Pattern degradation under cognitive load (v10.1.0)
+    scanPattern: {
+      basePattern: personaObj.humanBehavior?.attention?.pattern || "f-pattern",
+      widthMultiplier: 1.0,
+      effectiveWidth: 100,
+    },
+    missedDueToTunnelVision: 0,
   };
 
   // Calculate Fitts' Law params from persona (v9.9.0)
@@ -441,7 +451,7 @@ export async function runCognitiveJourney(
     // Deplete patience
     state.patienceRemaining -= 0.02 + state.frustrationLevel * 0.05;
 
-    // Dual-Process Theory: System 1/2 switching (v9.10.0)
+    // Dual-Process Theory: System 1/2 switching (v10.0.0)
     if (state.cognitiveMode) {
       const stepStartTime = Date.now();
 
@@ -466,6 +476,24 @@ export async function runCognitiveJourney(
           }
         }
         state.cognitiveMode.timeInSystem2 += Date.now() - stepStartTime;
+      }
+    }
+
+    // F-Pattern Degradation under cognitive load (v10.1.0)
+    // High cognitive load (confusion + frustration) causes tunnel vision
+    if (state.scanPattern) {
+      const cognitiveLoad = (state.confusionLevel + state.frustrationLevel) / 2;
+      const prevWidth = state.scanPattern.widthMultiplier;
+      state.scanPattern.widthMultiplier = calculateScanWidthMultiplier(cognitiveLoad);
+      state.scanPattern.effectiveWidth = state.scanPattern.widthMultiplier * 100;
+
+      // Log if pattern narrowed significantly
+      if (options.verbose && prevWidth !== state.scanPattern.widthMultiplier) {
+        if (state.scanPattern.widthMultiplier < 0.5) {
+          console.log(`👁️ Tunnel vision: scanning only left ${state.scanPattern.effectiveWidth.toFixed(0)}% of viewport`);
+        } else if (prevWidth < state.scanPattern.widthMultiplier) {
+          console.log(`👁️ Vision widening: now scanning ${state.scanPattern.effectiveWidth.toFixed(0)}% of viewport`);
+        }
       }
     }
 

@@ -258,8 +258,12 @@ export interface CognitiveState {
   stepCount: number;
   /** Decision fatigue state (v9.9.0) */
   decisionFatigue?: DecisionFatigueState;
-  /** Dual-process cognitive mode (v9.10.0) */
+  /** Dual-process cognitive mode (v10.0.0) */
   cognitiveMode?: CognitiveMode;
+  /** Current scan pattern state with cognitive load effects (v10.1.0) */
+  scanPattern?: ScanPatternState;
+  /** Elements missed due to tunnel vision (v10.1.0) */
+  missedDueToTunnelVision?: number;
 }
 
 // ============================================================================
@@ -449,6 +453,169 @@ export function calculateTypingTime(
     : 0;
 
   return keystrokes + mentalPrep;
+}
+
+// ============================================================================
+// F-Pattern Degradation Under Cognitive Load (v10.1.0)
+// ============================================================================
+
+/**
+ * Scan pattern with width modifier for cognitive load effects.
+ * Under high cognitive load, F-pattern narrows to tunnel vision.
+ */
+export interface ScanPatternState {
+  /** Base pattern from persona attention params */
+  basePattern: "f-pattern" | "z-pattern" | "skim" | "thorough";
+  /** Width multiplier (1.0 = full width, 0.3 = tunnel vision) */
+  widthMultiplier: number;
+  /** Effective viewport percentage being scanned */
+  effectiveWidth: number;
+}
+
+/**
+ * Calculate effective scan width based on cognitive load.
+ * Research: Under high cognitive load, attention tunnels to left 30% of viewport.
+ *
+ * @param cognitiveLoad - Current cognitive load (0-1)
+ * @returns Width multiplier for scan pattern
+ */
+export function calculateScanWidthMultiplier(cognitiveLoad: number): number {
+  if (cognitiveLoad > 0.8) {
+    // Severe tunnel vision: only left 20%
+    return 0.2;
+  } else if (cognitiveLoad > 0.7) {
+    // Tunnel vision: only left 30%
+    return 0.3;
+  } else if (cognitiveLoad > 0.5) {
+    // Narrowed: left 60%
+    return 0.6;
+  }
+  // Normal: full width
+  return 1.0;
+}
+
+/**
+ * Check if an element would be missed due to tunnel vision.
+ *
+ * @param elementXPosition - Element's X position as percentage (0-1)
+ * @param scanWidth - Current effective scan width (0-1)
+ * @returns true if element is outside the current scan area
+ */
+export function isElementInTunnelVision(
+  elementXPosition: number,
+  scanWidth: number
+): boolean {
+  return elementXPosition <= scanWidth;
+}
+
+// ============================================================================
+// Prospect Theory Loss Aversion (v10.1.0)
+// ============================================================================
+
+/**
+ * Frame type for Prospect Theory analysis.
+ * Gain frames emphasize what you get; loss frames emphasize what you lose.
+ */
+export type FrameType = "gain" | "loss" | "neutral";
+
+/**
+ * Prospect frame detected from UI element.
+ */
+export interface ProspectFrame {
+  /** Whether element is framed as gain or loss */
+  type: FrameType;
+  /** Perceived magnitude of stakes (0-1) */
+  magnitude: number;
+  /** Keywords that triggered this classification */
+  triggers: string[];
+}
+
+/**
+ * Loss-framing keywords that increase urgency.
+ */
+export const LOSS_FRAME_TRIGGERS = [
+  "don't miss",
+  "limited time",
+  "expires",
+  "last chance",
+  "running out",
+  "miss out",
+  "before it's gone",
+  "only",
+  "hurry",
+  "ending soon",
+  "final",
+  "lose",
+  "avoid",
+] as const;
+
+/**
+ * Gain-framing keywords (less urgent).
+ */
+export const GAIN_FRAME_TRIGGERS = [
+  "get",
+  "save",
+  "earn",
+  "free",
+  "bonus",
+  "win",
+  "unlock",
+  "discover",
+  "join",
+  "start",
+] as const;
+
+/**
+ * Detect prospect frame from element text content.
+ *
+ * @param text - Element text content
+ * @returns ProspectFrame with type, magnitude, and triggers
+ */
+export function detectProspectFrame(text: string): ProspectFrame {
+  const lowerText = text.toLowerCase();
+  const lossMatches = LOSS_FRAME_TRIGGERS.filter((t) => lowerText.includes(t));
+  const gainMatches = GAIN_FRAME_TRIGGERS.filter((t) => lowerText.includes(t));
+
+  if (lossMatches.length > gainMatches.length) {
+    return {
+      type: "loss",
+      magnitude: Math.min(0.5 + lossMatches.length * 0.15, 1.0),
+      triggers: lossMatches,
+    };
+  } else if (gainMatches.length > 0) {
+    return {
+      type: "gain",
+      magnitude: Math.min(0.3 + gainMatches.length * 0.1, 0.8),
+      triggers: gainMatches,
+    };
+  }
+
+  return { type: "neutral", magnitude: 0.5, triggers: [] };
+}
+
+/**
+ * Calculate click probability modifier based on Prospect Theory.
+ * Users are risk-seeking to avoid losses, risk-averse with gains.
+ *
+ * @param baseRiskTolerance - Persona's base risk tolerance (0-1)
+ * @param frame - Detected prospect frame
+ * @returns Modified click probability multiplier
+ */
+export function calculateProspectClickModifier(
+  baseRiskTolerance: number,
+  frame: ProspectFrame
+): number {
+  switch (frame.type) {
+    case "loss":
+      // Risk-seeking when avoiding loss: boost click probability
+      // Higher magnitude = stronger loss aversion effect
+      return 1.0 + frame.magnitude * 0.5;
+    case "gain":
+      // Risk-averse with gains: reduce click probability
+      return 0.7 + baseRiskTolerance * 0.3;
+    default:
+      return 1.0;
+  }
 }
 
 /**
