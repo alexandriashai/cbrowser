@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [9.9.0](https://github.com/alexandriashai/cbrowser/compare/v9.8.2...v9.9.0) (2026-02-07)
+
+
+### Added
+
+* **cognitive:** implement Decision Fatigue and Fitts' Law (v9.9.0) ([ebf293d](https://github.com/alexandriashai/cbrowser/commit/ebf293d05de9f7abefe24b68f12216c449939568)), closes [#46](https://github.com/alexandriashai/cbrowser/issues/46) [#47](https://github.com/alexandriashai/cbrowser/issues/47)
+
 ## [9.8.2](https://github.com/alexandriashai/cbrowser/compare/v9.8.1...v9.8.2) (2026-02-06)
 
 ## [9.8.1](https://github.com/alexandriashai/cbrowser/compare/v9.8.0...v9.8.1) (2026-02-06)
