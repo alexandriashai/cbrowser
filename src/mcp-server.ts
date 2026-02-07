@@ -45,7 +45,7 @@ import {
   runCompetitiveBenchmark,
   runEmpathyAudit,
 } from "./analysis/index.js";
-import { listAccessibilityPersonas } from "./personas.js";
+import { listAccessibilityPersonas, getAccessibilityPersona } from "./personas.js";
 
 // Persona imports for cognitive journey
 import {
@@ -60,6 +60,10 @@ import type {
   CognitiveProfile,
   CognitiveTraits,
   Persona,
+  AccessibilityPersona,
+  AccessibilityBarrier,
+  AccessibilityBarrierType,
+  AccessibilityBarrierSeverity,
 } from "./types.js";
 
 // Performance module imports
@@ -115,6 +119,86 @@ interface ComparisonSession {
 // Session storage (in-memory, cleared when server restarts)
 const comparisonSessions = new Map<string, ComparisonSession>();
 
+// =========================================================================
+// Empathy Audit Session Bridge (for API-free accessibility testing via Claude)
+// =========================================================================
+
+interface EmpathyAuditSession {
+  id: string;
+  url: string;
+  goal: string;
+  wcagLevel: "A" | "AA" | "AAA";
+  personas: Array<{
+    name: string;
+    disabilityType: string;
+    description: string;
+    accessibilityTraits: AccessibilityPersona["accessibilityTraits"];
+    cognitiveTraits?: AccessibilityPersona["cognitiveTraits"];
+  }>;
+  currentPersonaIndex: number;
+  barriers: AccessibilityBarrier[];
+  wcagViolations: Set<string>;
+  personaResults: Array<{
+    persona: string;
+    disabilityType: string;
+    goalAchieved: boolean;
+    barriers: AccessibilityBarrier[];
+    wcagViolations: string[];
+    stepCount: number;
+    empathyScore: number;
+  }>;
+  createdAt: number;
+}
+
+// WCAG criteria reference for barrier mapping
+const WCAG_CRITERIA: Record<string, { level: "A" | "AA" | "AAA"; description: string }> = {
+  "1.1.1": { level: "A", description: "Non-text Content" },
+  "1.3.1": { level: "A", description: "Info and Relationships" },
+  "1.4.1": { level: "A", description: "Use of Color" },
+  "1.4.3": { level: "AA", description: "Contrast (Minimum)" },
+  "1.4.4": { level: "AA", description: "Resize Text" },
+  "1.4.6": { level: "AAA", description: "Contrast (Enhanced)" },
+  "1.4.10": { level: "AA", description: "Reflow" },
+  "2.1.1": { level: "A", description: "Keyboard" },
+  "2.1.2": { level: "A", description: "No Keyboard Trap" },
+  "2.2.1": { level: "A", description: "Timing Adjustable" },
+  "2.2.2": { level: "A", description: "Pause, Stop, Hide" },
+  "2.4.1": { level: "A", description: "Bypass Blocks" },
+  "2.4.3": { level: "A", description: "Focus Order" },
+  "2.4.6": { level: "AA", description: "Headings and Labels" },
+  "2.4.7": { level: "AA", description: "Focus Visible" },
+  "2.5.5": { level: "AAA", description: "Target Size" },
+  "2.5.8": { level: "AA", description: "Target Size (Minimum)" },
+  "3.3.1": { level: "A", description: "Error Identification" },
+  "3.3.2": { level: "A", description: "Labels or Instructions" },
+  "4.1.2": { level: "A", description: "Name, Role, Value" },
+};
+
+function getWcagCriteriaForBarrier(barrierType: AccessibilityBarrierType): string[] {
+  switch (barrierType) {
+    case "motor_precision":
+      return ["2.5.5", "2.5.8"];
+    case "visual_clarity":
+      return ["1.4.3", "1.4.6", "1.4.4"];
+    case "cognitive_load":
+      return ["2.4.6", "3.3.2"];
+    case "temporal":
+      return ["2.2.1", "2.2.2"];
+    case "sensory":
+      return ["1.1.1", "1.4.1"];
+    case "contrast":
+      return ["1.4.3", "1.4.6"];
+    case "touch_target":
+      return ["2.5.5", "2.5.8"];
+    case "timing":
+      return ["2.2.1", "2.2.2"];
+    default:
+      return [];
+  }
+}
+
+const empathyAuditSessions = new Map<string, EmpathyAuditSession>();
+
 // Cleanup old sessions (older than 1 hour)
 function cleanupOldSessions(): void {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
@@ -123,6 +207,118 @@ function cleanupOldSessions(): void {
       comparisonSessions.delete(id);
     }
   }
+  for (const [id, session] of empathyAuditSessions) {
+    if (session.createdAt < oneHourAgo) {
+      empathyAuditSessions.delete(id);
+    }
+  }
+}
+
+// Helper: Get barrier hints based on persona traits
+function getBarrierHintsForPersona(persona: EmpathyAuditSession["personas"][0]): string[] {
+  const hints: string[] = [];
+  const traits = persona.accessibilityTraits;
+
+  if (traits?.motorControl !== undefined && traits.motorControl < 0.5) {
+    hints.push("Watch for small click targets (<44px), precise hover requirements, drag-and-drop interactions");
+  }
+  if (traits?.tremor) {
+    hints.push("Test for accidental double-clicks, cursor jitter tolerance, need for 'undo' options");
+  }
+  if (traits?.visionLevel !== undefined && traits.visionLevel < 0.5) {
+    hints.push("Check contrast ratios, text scaling support, zoom behavior at 200-300%");
+  }
+  if (traits?.colorBlindness) {
+    hints.push(`Check for color-only information (${traits.colorBlindness} colorblindness), ensure status indicators have non-color cues`);
+  }
+  if (traits?.processingSpeed !== undefined && traits.processingSpeed < 0.5) {
+    hints.push("Watch for time limits, auto-advancing content, complex multi-step processes");
+  }
+  if (traits?.attentionSpan !== undefined && traits.attentionSpan < 0.5) {
+    hints.push("Note distracting animations, long forms, lack of progress indicators");
+  }
+  // Check for hearing-related disability
+  const disabilityType = persona.disabilityType || "";
+  const personaName = persona.name || "";
+  if (disabilityType.includes("hearing") || disabilityType.includes("deaf") || personaName.includes("deaf") || personaName.includes("hearing")) {
+    hints.push("Check for audio-only content, video captions, visual alerts for audio notifications");
+  }
+
+  if (hints.length === 0) {
+    hints.push("Observe general usability and any unexpected difficulties");
+  }
+
+  return hints;
+}
+
+// Helper: Get remediation suggestion for barrier type
+function getRemediationForBarrier(barrierType: AccessibilityBarrierType, element: string): string {
+  const remediations: Record<AccessibilityBarrierType, string> = {
+    motor_precision: `Increase target size to at least 44x44px for "${element}". Add generous padding and spacing.`,
+    visual_clarity: `Improve contrast ratio to at least 4.5:1 for "${element}". Ensure text scales properly.`,
+    cognitive_load: `Simplify "${element}" - reduce options, add clear labels, provide inline help.`,
+    temporal: `Remove or extend time limits on "${element}". Allow users to pause/extend deadlines.`,
+    sensory: `Add text alternative for "${element}". Don't rely on color alone to convey information.`,
+    contrast: `Increase contrast ratio for "${element}" to at least 4.5:1 (3:1 for large text).`,
+    touch_target: `Increase touch target size for "${element}" to minimum 44x44px (WCAG 2.5.8).`,
+    timing: `Extend or remove timing constraints on "${element}". Provide pause/stop controls.`,
+  };
+  return remediations[barrierType] || `Review "${element}" for accessibility improvements.`;
+}
+
+// Helper: Derive disability type from persona traits
+function getDisabilityTypeFromPersona(persona: EmpathyAuditSession["personas"][0]): string {
+  const traits = persona.accessibilityTraits;
+  if (traits?.tremor) return "Motor impairment (tremor)";
+  if (traits?.visionLevel !== undefined && traits.visionLevel < 0.5) return "Low vision";
+  if (traits?.colorBlindness) return `Color blindness (${traits.colorBlindness})`;
+  if (persona.cognitiveTraits?.workingMemory !== undefined && persona.cognitiveTraits.workingMemory < 0.5) return "Cognitive (ADHD/Memory)";
+  if (traits?.processingSpeed !== undefined && traits.processingSpeed < 0.6) return "Cognitive (Processing)";
+  // Fallback to name-based detection
+  if (persona.name.includes("deaf") || persona.name.includes("hearing")) return "Hearing impairment";
+  if (persona.name.includes("motor")) return "Motor impairment";
+  if (persona.name.includes("vision") || persona.name.includes("blind")) return "Vision impairment";
+  if (persona.name.includes("cognitive") || persona.name.includes("adhd")) return "Cognitive";
+  if (persona.name.includes("elderly")) return "Age-related impairments";
+  if (persona.name.includes("dyslexic")) return "Dyslexia";
+  return "General accessibility";
+}
+
+// Helper: Generate recommendations from empathy audit
+function generateEmpathyRecommendations(session: EmpathyAuditSession): string[] {
+  const recommendations: string[] = [];
+
+  // Check success rate
+  const successRate = session.personaResults.filter(r => r.goalAchieved).length / session.personaResults.length;
+  if (successRate < 0.5) {
+    recommendations.push("CRITICAL: Less than 50% of disability personas could complete the goal. Fundamental accessibility improvements needed.");
+  } else if (successRate < 0.8) {
+    recommendations.push("Several disability personas struggled to complete the goal. Review barriers by persona type.");
+  }
+
+  // Check for critical barriers
+  const criticalBarriers = session.barriers.filter(b => b.severity === "critical");
+  if (criticalBarriers.length > 0) {
+    recommendations.push(`${criticalBarriers.length} critical barriers found. Address these first as they prevent task completion.`);
+  }
+
+  // Check WCAG violations by level
+  const levelAViolations = Array.from(session.wcagViolations).filter(c => WCAG_CRITERIA[c]?.level === "A");
+  if (levelAViolations.length > 0) {
+    recommendations.push(`${levelAViolations.length} WCAG Level A violations (minimum compliance). These are legally required in most jurisdictions.`);
+  }
+
+  // Persona-specific recommendations
+  const worstPersona = session.personaResults.sort((a, b) => a.empathyScore - b.empathyScore)[0];
+  if (worstPersona && worstPersona.empathyScore < 50) {
+    recommendations.push(`"${worstPersona.persona}" (${worstPersona.disabilityType}) had the worst experience (score: ${worstPersona.empathyScore}). Prioritize improvements for this user group.`);
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push("Good accessibility foundation. Continue testing with real users with disabilities for deeper insights.");
+  }
+
+  return recommendations;
 }
 
 export async function startMcpServer(): Promise<void> {
@@ -956,31 +1152,57 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "compare_personas",
-    "Compare how different user personas experience a journey",
+    "Compare how different user personas experience a journey. REQUIRES API KEY for internal simulation. For API-free usage over remote MCP, use compare_personas_init + browser tools + compare_personas_record_result + compare_personas_summarize instead.",
     {
       url: z.string().url().describe("Starting URL"),
       goal: z.string().describe("Goal to accomplish"),
       personas: z.array(z.string()).describe("Persona names to compare"),
     },
     async ({ url, goal, personas }) => {
-      const result = await comparePersonas({
-        startUrl: url,
-        goal,
-        personas,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              url: result.url,
-              goal: result.goal,
-              personasCompared: result.personas.length,
-              summary: result.summary,
-            }, null, 2),
-          },
-        ],
-      };
+      try {
+        const result = await comparePersonas({
+          startUrl: url,
+          goal,
+          personas,
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                url: result.url,
+                goal: result.goal,
+                personasCompared: result.personas.length,
+                summary: result.summary,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("API key")) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  error: "API key required for all-in-one compare_personas",
+                  solution: "Use the API-free session bridge pattern instead:",
+                  steps: [
+                    "1. Call compare_personas_init with url, goal, personas",
+                    "2. For each persona, use browser tools (navigate, click, fill) to attempt the goal",
+                    "3. Call cognitive_journey_update_state after each action to track cognitive state",
+                    "4. Call compare_personas_record_result when each persona completes (success or abandon)",
+                    "5. Call compare_personas_summarize to get the comparison report",
+                  ],
+                  note: "Claude orchestrates the simulation - no API key needed when YOU are the brain!",
+                }, null, 2),
+              },
+            ],
+          };
+        }
+        throw error;
+      }
     }
   );
 
@@ -1605,6 +1827,321 @@ Begin the simulation now. Narrate your thoughts as this persona.
   );
 
   // =========================================================================
+  // Empathy Audit Session Bridge (API-free via Claude orchestration)
+  // =========================================================================
+
+  server.tool(
+    "empathy_audit_init",
+    "Initialize an accessibility empathy audit session. Returns disability persona profiles with traits, barrier detection hints, and WCAG criteria. Claude orchestrates the audit using browser tools, then records barriers. NO API KEY NEEDED - Claude is the brain.",
+    {
+      url: z.string().url().describe("URL to audit"),
+      goal: z.string().describe("Task goal (e.g., 'complete checkout')"),
+      disabilities: z.array(z.string()).optional().describe("Disability personas to test. Available: motor-impairment-tremor, low-vision-magnified, cognitive-adhd, dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia"),
+      wcagLevel: z.enum(["A", "AA", "AAA"]).optional().default("AA").describe("WCAG conformance level to check against"),
+    },
+    async ({ url, goal, disabilities, wcagLevel }) => {
+      // Cleanup old sessions
+      cleanupOldSessions();
+
+      // Generate session ID
+      const sessionId = `empathy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      // Get disability personas
+      const disabilityList = disabilities || listAccessibilityPersonas();
+      const personas = disabilityList.map(name => {
+        const persona = getAccessibilityPersona(name);
+        if (!persona) {
+          const customPersona = {
+            name,
+            disabilityType: "unknown",
+            description: `Custom disability persona: ${name}`,
+            accessibilityTraits: {},
+          };
+          return customPersona;
+        }
+        // Build the session persona object first, then compute disabilityType
+        const sessionPersona = {
+          name: persona.name,
+          disabilityType: "", // Will be computed below
+          description: persona.description,
+          accessibilityTraits: persona.accessibilityTraits,
+          cognitiveTraits: persona.cognitiveTraits,
+        };
+        // Compute disability type from traits
+        sessionPersona.disabilityType = getDisabilityTypeFromPersona(sessionPersona);
+        return sessionPersona;
+      });
+
+      // Store session
+      const session: EmpathyAuditSession = {
+        id: sessionId,
+        url,
+        goal,
+        wcagLevel: wcagLevel || "AA",
+        personas,
+        currentPersonaIndex: 0,
+        barriers: [],
+        wcagViolations: new Set(),
+        personaResults: [],
+        createdAt: Date.now(),
+      };
+      empathyAuditSessions.set(sessionId, session);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              sessionId,
+              url,
+              goal,
+              wcagLevel: session.wcagLevel,
+              personaCount: personas.length,
+              personas: personas.map(p => ({
+                name: p.name,
+                disabilityType: p.disabilityType,
+                description: p.description,
+                accessibilityTraits: p.accessibilityTraits,
+                barrierHints: getBarrierHintsForPersona(p),
+              })),
+              wcagCriteria: Object.entries(WCAG_CRITERIA)
+                .filter(([_, v]) => {
+                  if (session.wcagLevel === "A") return v.level === "A";
+                  if (session.wcagLevel === "AA") return v.level === "A" || v.level === "AA";
+                  return true; // AAA includes all
+                })
+                .map(([code, v]) => ({ code, ...v })),
+              instructions: "For each persona: 1) Use browser tools to attempt the goal while noting difficulties. 2) Call empathy_audit_record_barrier for each barrier encountered. 3) Call empathy_audit_complete_persona when done. 4) After all personas, call empathy_audit_summarize.",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "empathy_audit_record_barrier",
+    "Record an accessibility barrier found during the empathy audit. Call this when you observe something that would be difficult for the current disability persona.",
+    {
+      sessionId: z.string().describe("Session ID from empathy_audit_init"),
+      persona: z.string().describe("Persona name experiencing this barrier"),
+      barrierType: z.enum(["motor_precision", "visual_clarity", "cognitive_load", "temporal", "sensory", "contrast", "touch_target", "timing"]).describe("Type of accessibility barrier"),
+      element: z.string().describe("CSS selector or description of the problematic element"),
+      description: z.string().describe("Description of the barrier and its impact"),
+      severity: z.enum(["minor", "major", "critical"]).describe("How severely this impacts the user"),
+    },
+    async ({ sessionId, persona, barrierType, element, description, severity }) => {
+      const session = empathyAuditSessions.get(sessionId);
+      if (!session) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Session not found. Call empathy_audit_init first." }) }],
+        };
+      }
+
+      // Get WCAG criteria for this barrier type
+      const wcagCriteria = getWcagCriteriaForBarrier(barrierType as AccessibilityBarrierType);
+      wcagCriteria.forEach(c => session.wcagViolations.add(c));
+
+      const barrier: AccessibilityBarrier = {
+        type: barrierType as AccessibilityBarrierType,
+        element,
+        description,
+        affectedPersonas: [persona],
+        wcagCriteria,
+        severity: severity as AccessibilityBarrierSeverity,
+        remediation: getRemediationForBarrier(barrierType as AccessibilityBarrierType, element),
+      };
+
+      session.barriers.push(barrier);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              recorded: true,
+              sessionId,
+              totalBarriers: session.barriers.length,
+              wcagViolations: Array.from(session.wcagViolations),
+              barrier: {
+                type: barrier.type,
+                severity: barrier.severity,
+                wcagCriteria: barrier.wcagCriteria.map(c => ({
+                  code: c,
+                  description: WCAG_CRITERIA[c]?.description || "Unknown",
+                })),
+                remediation: barrier.remediation,
+              },
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "empathy_audit_complete_persona",
+    "Mark a persona's journey as complete. Call this after finishing the audit for one disability persona.",
+    {
+      sessionId: z.string().describe("Session ID from empathy_audit_init"),
+      persona: z.string().describe("Persona name that completed"),
+      goalAchieved: z.boolean().describe("Whether the goal was accomplished"),
+      stepCount: z.number().describe("Number of steps/actions taken"),
+      notes: z.string().optional().describe("Additional observations about this persona's experience"),
+    },
+    async ({ sessionId, persona, goalAchieved, stepCount, notes }) => {
+      const session = empathyAuditSessions.get(sessionId);
+      if (!session) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Session not found." }) }],
+        };
+      }
+
+      // Get barriers for this persona
+      const personaBarriers = session.barriers.filter(b => b.affectedPersonas.includes(persona));
+      const personaWcag = new Set<string>();
+      personaBarriers.forEach(b => b.wcagCriteria.forEach(c => personaWcag.add(c)));
+
+      // Calculate empathy score (heuristic)
+      const barrierPenalty = personaBarriers.reduce((sum, b) => {
+        const severityWeight = { minor: 5, major: 15, critical: 30 };
+        return sum + (severityWeight[b.severity] || 10);
+      }, 0);
+      const empathyScore = Math.max(0, Math.min(100, 100 - barrierPenalty - (goalAchieved ? 0 : 20)));
+
+      const result = {
+        persona,
+        disabilityType: session.personas.find(p => p.name === persona)?.disabilityType || "unknown",
+        goalAchieved,
+        barriers: personaBarriers,
+        wcagViolations: Array.from(personaWcag),
+        stepCount,
+        empathyScore,
+        notes,
+      };
+
+      session.personaResults.push(result);
+      session.currentPersonaIndex++;
+
+      const remaining = session.personas.length - session.personaResults.length;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              recorded: true,
+              sessionId,
+              persona,
+              empathyScore,
+              barriersFound: personaBarriers.length,
+              wcagViolations: result.wcagViolations,
+              completedPersonas: session.personaResults.length,
+              totalPersonas: session.personas.length,
+              remaining,
+              nextStep: remaining > 0
+                ? `Audit ${remaining} more persona(s), then call empathy_audit_summarize`
+                : "All personas complete. Call empathy_audit_summarize for the final report.",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "empathy_audit_summarize",
+    "Generate the final empathy audit summary after all personas have completed. Returns scores, barriers, WCAG violations, and remediation priorities.",
+    {
+      sessionId: z.string().describe("Session ID from empathy_audit_init"),
+    },
+    async ({ sessionId }) => {
+      const session = empathyAuditSessions.get(sessionId);
+      if (!session) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Session not found." }) }],
+        };
+      }
+
+      if (session.personaResults.length === 0) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "No persona results recorded. Complete at least one persona journey first." }) }],
+        };
+      }
+
+      // Calculate overall score
+      const overallScore = Math.round(
+        session.personaResults.reduce((sum, r) => sum + r.empathyScore, 0) / session.personaResults.length
+      );
+
+      // Determine grade
+      const grade = overallScore >= 90 ? "A" : overallScore >= 80 ? "B" : overallScore >= 70 ? "C" : overallScore >= 60 ? "D" : "F";
+
+      // Aggregate barriers by type
+      const barriersByType: Record<string, number> = {};
+      session.barriers.forEach(b => {
+        barriersByType[b.type] = (barriersByType[b.type] || 0) + 1;
+      });
+
+      // Prioritize remediation
+      const remediationPriority = session.barriers
+        .sort((a, b) => {
+          const severityOrder = { critical: 0, major: 1, minor: 2 };
+          return (severityOrder[a.severity] || 2) - (severityOrder[b.severity] || 2);
+        })
+        .slice(0, 10)
+        .map((b, i) => ({
+          priority: i + 1,
+          type: b.type,
+          element: b.element,
+          severity: b.severity,
+          remediation: b.remediation,
+          wcagCriteria: b.wcagCriteria,
+        }));
+
+      const summary = {
+        sessionId,
+        url: session.url,
+        goal: session.goal,
+        wcagLevel: session.wcagLevel,
+        timestamp: new Date().toISOString(),
+        overallScore,
+        grade,
+        totalBarriers: session.barriers.length,
+        totalWcagViolations: session.wcagViolations.size,
+        wcagViolations: Array.from(session.wcagViolations).map(c => ({
+          code: c,
+          level: WCAG_CRITERIA[c]?.level || "?",
+          description: WCAG_CRITERIA[c]?.description || "Unknown",
+        })),
+        barriersByType,
+        personaResults: session.personaResults.map(r => ({
+          persona: r.persona,
+          disabilityType: r.disabilityType,
+          goalAchieved: r.goalAchieved,
+          empathyScore: r.empathyScore,
+          barriersFound: r.barriers.length,
+          wcagViolationCount: r.wcagViolations.length,
+        })),
+        remediationPriority,
+        recommendations: generateEmpathyRecommendations(session),
+      };
+
+      // Clean up session
+      empathyAuditSessions.delete(sessionId);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(summary, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
   // Performance Tools (v6.4.0+)
   // =========================================================================
 
@@ -1759,7 +2296,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "empathy_audit",
-    "Simulate how people with disabilities experience a site. Tests motor impairments, cognitive differences, and sensory limitations. Returns barriers, WCAG violations, and remediation suggestions.",
+    "Simulate how people with disabilities experience a site. REQUIRES API KEY for internal simulation. For API-free usage over remote MCP, use empathy_audit_init + browser tools + empathy_audit_record_barrier + empathy_audit_complete_persona + empathy_audit_summarize instead.",
     {
       url: z.string().url().describe("URL to audit"),
       goal: z.string().describe("Task goal (e.g., 'complete checkout')"),
@@ -1769,40 +2306,67 @@ Begin the simulation now. Narrate your thoughts as this persona.
       maxTime: z.number().optional().default(120).describe("Max time per persona in seconds"),
     },
     async ({ url, goal, disabilities, wcagLevel, maxSteps, maxTime }) => {
-      // Default to all if not specified
-      const disabilityList = disabilities || listAccessibilityPersonas();
-      const result = await runEmpathyAudit(url, {
-        goal,
-        disabilities: disabilityList,
-        wcagLevel,
-        maxSteps,
-        maxTime,
-        headless: true,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              url: result.url,
-              goal: result.goal,
-              overallScore: result.overallScore,
-              resultsSummary: result.results.map((r) => ({
-                persona: r.persona,
-                disabilityType: r.disabilityType,
-                goalAchieved: r.goalAchieved,
-                empathyScore: r.empathyScore,
-                barrierCount: r.barriers.length,
-                wcagViolationCount: r.wcagViolations.length,
-              })),
-              allWcagViolations: result.allWcagViolations,
-              topBarriers: result.allBarriers.slice(0, 5),
-              topRemediation: result.combinedRemediation.slice(0, 5),
-              duration: result.duration,
-            }, null, 2),
-          },
-        ],
-      };
+      try {
+        // Default to all if not specified
+        const disabilityList = disabilities || listAccessibilityPersonas();
+        const result = await runEmpathyAudit(url, {
+          goal,
+          disabilities: disabilityList,
+          wcagLevel,
+          maxSteps,
+          maxTime,
+          headless: true,
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                url: result.url,
+                goal: result.goal,
+                overallScore: result.overallScore,
+                resultsSummary: result.results.map((r) => ({
+                  persona: r.persona,
+                  disabilityType: r.disabilityType,
+                  goalAchieved: r.goalAchieved,
+                  empathyScore: r.empathyScore,
+                  barrierCount: r.barriers.length,
+                  wcagViolationCount: r.wcagViolations.length,
+                })),
+                allWcagViolations: result.allWcagViolations,
+                topBarriers: result.allBarriers.slice(0, 5),
+                topRemediation: result.combinedRemediation.slice(0, 5),
+                duration: result.duration,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("API key")) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  error: "API key required for all-in-one empathy_audit",
+                  solution: "Use the API-free session bridge pattern instead:",
+                  steps: [
+                    "1. Call empathy_audit_init with url, goal, disabilities, wcagLevel",
+                    "2. For each disability persona, use browser tools to attempt the goal",
+                    "3. Call empathy_audit_record_barrier when you observe accessibility barriers",
+                    "4. Call empathy_audit_complete_persona when each persona finishes",
+                    "5. Call empathy_audit_summarize to get the final audit report",
+                  ],
+                  note: "Claude orchestrates the audit - no API key needed when YOU are the brain!",
+                  availablePersonas: listAccessibilityPersonas(),
+                }, null, 2),
+              },
+            ],
+          };
+        }
+        throw error;
+      }
     }
   );
 
