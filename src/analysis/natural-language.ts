@@ -168,6 +168,7 @@ type EnrichedPageElement = {
   placeholder: string;
   price?: string;
   isSemanticElement: boolean;
+  container?: string;  // v11.2.0: Parent container (nav, header, footer, etc.)
 };
 
 /** A selector candidate with strategy info */
@@ -339,14 +340,35 @@ export async function findElementByIntent(
 } | null> {
   const page = await (browser as any).getPage();
 
-  // Extract enriched page structure with ARIA attributes
+  // Extract enriched page structure with ARIA attributes and container context
+  // v11.2.0: Added container tracking for contextual matching ("in the navigation")
   const pageData: EnrichedPageElement[] = await page.evaluate(() => {
     const semanticSet = new Set(["BUTTON", "NAV", "MAIN", "HEADER", "FOOTER", "ARTICLE", "ASIDE", "SECTION", "FORM", "DIALOG"]);
+    const containerTags = new Set(["NAV", "HEADER", "FOOTER", "MAIN", "ASIDE", "SECTION", "FORM"]);
     const elements: Array<{
       tag: string; text: string; classes: string; id: string; role: string; type: string;
       ariaLabel: string; ariaLabelledby: string; name: string; title: string;
       dataTestId: string; placeholder: string; price?: string; isSemanticElement: boolean;
+      container: string;
     }> = [];
+
+    // Find the nearest semantic container for an element
+    const getContainer = (el: Element): string => {
+      let parent = el.parentElement;
+      while (parent) {
+        if (containerTags.has(parent.tagName)) {
+          return parent.tagName.toLowerCase();
+        }
+        const role = parent.getAttribute("role");
+        if (role === "navigation") return "nav";
+        if (role === "banner") return "header";
+        if (role === "contentinfo") return "footer";
+        if (role === "main") return "main";
+        if (role === "complementary") return "aside";
+        parent = parent.parentElement;
+      }
+      return "";
+    };
 
     const interactives = document.querySelectorAll(
       "button, a, input, select, textarea, [role='button'], [role='link'], [role='tab'], [role='menuitem'], [onclick], nav, main, header, footer, article, aside, section, form, .btn, .card, .product, [data-price], .price"
@@ -373,6 +395,7 @@ export async function findElementByIntent(
         placeholder: inputEl.placeholder || "",
         price: priceMatch ? priceMatch[0] : undefined,
         isSemanticElement: semanticSet.has(el.tagName),
+        container: getContainer(el),
       });
     });
 
@@ -392,10 +415,14 @@ export async function findElementByIntent(
     .split(/\s+/)
     .filter(w => w.length > 1 && !stopWords.has(w));
 
-  // Extract ordinal position if present ("first", "second", etc.)
+  // Extract ordinal position if present ("first", "second", "last", etc.)
+  // v11.2.0: Added "last" ordinal support (-1 means last element)
   const ordinalMap: Record<string, number> = {
     first: 0, second: 1, third: 2, fourth: 3, fifth: 4,
+    sixth: 5, seventh: 6, eighth: 7, ninth: 8, tenth: 9,
     "1st": 0, "2nd": 1, "3rd": 2, "4th": 3, "5th": 4,
+    "6th": 5, "7th": 6, "8th": 7, "9th": 8, "10th": 9,
+    last: -1, final: -1,
   };
   let targetIndex: number | null = null;
   for (const word of intentWords) {
@@ -405,8 +432,32 @@ export async function findElementByIntent(
     }
   }
 
+  // v11.2.0: Extract container context from intent ("in the navigation", "in the header")
+  const containerContextMap: Record<string, string> = {
+    navigation: "nav", nav: "nav", navbar: "nav", menu: "nav",
+    header: "header", banner: "header", top: "header",
+    footer: "footer", bottom: "footer",
+    sidebar: "aside", aside: "aside",
+    main: "main", content: "main",
+    form: "form",
+  };
+  let requiredContainer: string | null = null;
+  const inMatch = intentLower.match(/\b(?:in|inside|within)\s+(?:the\s+)?(\w+)/);
+  if (inMatch) {
+    const containerWord = inMatch[1];
+    if (containerContextMap[containerWord]) {
+      requiredContainer = containerContextMap[containerWord];
+    }
+  }
+
   // Calculate word overlap score between intent and element text
-  const calculateWordScore = (el: EnrichedPageElement): number => {
+  // v11.2.0: Enhanced with container context awareness
+  const calculateWordScore = (el: EnrichedPageElement & { container?: string }): number => {
+    // If we require a specific container and element is not in it, heavily penalize
+    if (requiredContainer && el.container !== requiredContainer) {
+      return 0.05; // Very low score but not zero (for debugging)
+    }
+
     const elementText = `${el.text} ${el.ariaLabel} ${el.title} ${el.placeholder} ${el.name}`.toLowerCase();
     const elementWords = elementText.split(/\s+/).filter(w => w.length > 1);
 
@@ -414,7 +465,9 @@ export async function findElementByIntent(
     let totalWeight = 0;
 
     for (const intentWord of intentWords) {
+      // Skip stop words, ordinals, and container context words
       if (stopWords.has(intentWord) || ordinalMap[intentWord] !== undefined) continue;
+      if (containerContextMap[intentWord]) continue; // Skip "navigation", "header", etc.
       totalWeight += 1;
 
       // Exact match
@@ -439,6 +492,11 @@ export async function findElementByIntent(
     if (intentWords.includes("story") && el.tag === "a" && el.text.length > 10) matchCount += 0.3;
     if (intentWords.includes("nav") && (el.tag === "nav" || el.role === "navigation")) matchCount += 0.5;
     if (intentWords.includes("menu") && (el.role === "menu" || el.role === "menubar")) matchCount += 0.5;
+
+    // v11.2.0: Boost elements that ARE in the requested container
+    if (requiredContainer && el.container === requiredContainer) {
+      matchCount += 0.3;
+    }
 
     return totalWeight > 0 ? matchCount / totalWeight : 0;
   };
@@ -519,15 +577,34 @@ export async function findElementByIntent(
     .filter(({ score }) => score > 0.3) // Minimum threshold
     .sort((a, b) => b.score - a.score);
 
-  // Handle ordinal positions ("first headline link", "second story")
-  if (targetIndex !== null && scoredElements.length > targetIndex) {
-    const match = scoredElements[targetIndex];
-    const confidence = Math.min(0.95, 0.6 + match.score * 0.35);
-    return buildElementResult(
-      match.el,
-      `Ordinal match #${targetIndex + 1}: ${match.el.text.slice(0, 50)}`,
-      confidence
-    );
+  // Handle ordinal positions ("first headline link", "second story", "last link")
+  // v11.2.0: Added "last" support (-1 means last element)
+  if (targetIndex !== null && scoredElements.length > 0) {
+    let actualIndex: number;
+    let ordinalLabel: string;
+
+    if (targetIndex === -1) {
+      // "last" - get the final matching element
+      actualIndex = scoredElements.length - 1;
+      ordinalLabel = "last";
+    } else if (targetIndex < scoredElements.length) {
+      actualIndex = targetIndex;
+      ordinalLabel = `#${targetIndex + 1}`;
+    } else {
+      // Requested index out of bounds, fall through to regular matching
+      actualIndex = -1;
+      ordinalLabel = "";
+    }
+
+    if (actualIndex >= 0) {
+      const match = scoredElements[actualIndex];
+      const confidence = Math.min(0.95, 0.6 + match.score * 0.35);
+      return buildElementResult(
+        match.el,
+        `Ordinal match ${ordinalLabel}: ${match.el.text.slice(0, 50)}`,
+        confidence
+      );
+    }
   }
 
   // Return best match if score is high enough

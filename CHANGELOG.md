@@ -6,7 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [11.1.1](https://github.com/alexandriashai/cbrowser/compare/v10.9.1...v11.1.1) (2026-02-07)
+## [11.2.0](https://github.com/alexandriashai/cbrowser/compare/v11.1.1...v11.2.0) (2026-02-07)
+
+### Added
+
+* **find_element_by_intent:** "last" ordinal support - `"last link"`, `"final button"` now work
+* **find_element_by_intent:** Ordinals extended to 10th (sixth, seventh, eighth, ninth, tenth)
+* **find_element_by_intent:** Container context matching - `"submit link in the navigation"` now boosts elements inside nav containers
+* **repair_test:** Smart alternative suggestions based on page-scanned elements when target not found
+* **repair_test:** Shows available clickable elements when no similar alternatives exist
+
+### Fixed
+
+* **find_element_by_intent:** Descriptive phrases with location context now match properly
+* **repair_test:** "Add a wait" suggestion now has lower confidence; real alternatives preferred
+
+## [11.1.1](https://github.com/alexandriashai/cbrowser/compare/v11.1.0...v11.1.1) (2026-02-07)
 
 ### Fixed
 

@@ -159,7 +159,7 @@ async function generateRepairSuggestions(
 
   switch (failureType) {
     case "selector_not_found": {
-      // Suggest alternative selectors
+      // Suggest alternative selectors if found
       for (const alt of alternatives.slice(0, 3)) {
         const _newInstruction = step.instruction.replace(
           step.target || "",
@@ -176,15 +176,61 @@ async function generateRepairSuggestions(
         });
       }
 
-      // Suggest adding a wait
+      // v11.2.0: If no similar elements found, show what IS available on the page
+      if (suggestions.length === 0 && pageContext.visibleText.length > 0) {
+        // Find the most relevant available element based on the intended action
+        const targetWords = (step.target || "").toLowerCase().split(/\s+/);
+
+        // Score visible elements by relevance
+        const scoredElements = pageContext.visibleText
+          .map(text => {
+            const textLower = text.toLowerCase();
+            let score = 0;
+            for (const word of targetWords) {
+              if (word.length > 2 && textLower.includes(word)) score += 1;
+            }
+            return { text, score };
+          })
+          .filter(({ score }) => score > 0)
+          .sort((a, b) => b.score - a.score);
+
+        // Suggest the most relevant available elements
+        if (scoredElements.length > 0) {
+          for (const { text } of scoredElements.slice(0, 2)) {
+            suggestions.push({
+              type: "selector_update",
+              confidence: 0.5,
+              description: `Try clicking "${text}" instead`,
+              originalInstruction: step.instruction,
+              suggestedInstruction: `click "${text}"`,
+              reasoning: `Element "${step.target}" not found, but "${text}" is available on page`,
+            });
+          }
+        }
+
+        // If still no suggestions, show what's actually clickable
+        if (suggestions.length === 0) {
+          const availableList = pageContext.visibleText.slice(0, 5).join('", "');
+          suggestions.push({
+            type: "selector_update",
+            confidence: 0.3,
+            description: "Element not found - see available options",
+            originalInstruction: step.instruction,
+            suggestedInstruction: `// Available clickable elements: "${availableList}"`,
+            reasoning: `"${step.target}" does not exist. Available: ${pageContext.visibleText.slice(0, 5).join(", ")}`,
+          });
+        }
+      }
+
+      // Only suggest "add wait" as last resort with lower confidence
       if (suggestions.length === 0) {
         suggestions.push({
           type: "add_wait",
-          confidence: 0.5,
-          description: "Add wait before this step",
+          confidence: 0.3,
+          description: "Add wait before this step (low confidence)",
           originalInstruction: step.instruction,
           suggestedInstruction: `wait 2 seconds\n${step.instruction}`,
-          reasoning: "Element might not be loaded yet - adding wait may help",
+          reasoning: "Element not found and no alternatives detected - wait may help if page is still loading",
         });
       }
       break;
