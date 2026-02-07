@@ -48,11 +48,10 @@ import type {
   SessionMetadata,
   LoadSessionResult,
 } from "./types.js";
-import { DEVICE_PRESETS, LOCATION_PRESETS, VIEWPORT_PRESETS } from "./types.js";
+import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
-  isClaudeCodeSession,
 } from "./cognitive/index.js";
 import { SessionManager } from "./browser/session-manager.js";
 import { SelectorCacheManager } from "./browser/selector-cache.js";
@@ -90,7 +89,7 @@ const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
 };
 
 // Legacy alias for backward compatibility
-const FAST_LAUNCH_ARGS = BROWSER_LAUNCH_ARGS.chromium;
+const _FAST_LAUNCH_ARGS = BROWSER_LAUNCH_ARGS.chromium;
 
 // Session state persistence - saves current URL between CLI invocations
 interface SessionState {
@@ -492,7 +491,7 @@ export class CBrowser {
    * Add a network mock at runtime.
    */
   async addNetworkMock(mock: NetworkMock): Promise<void> {
-    const page = await this.getPage();
+    await this.getPage(); // Ensure page exists
     await this.setupNetworkMocks([mock]);
   }
 
@@ -545,7 +544,7 @@ export class CBrowser {
 
     this.page.on("response", async (response) => {
       const key = response.url() + response.request().method();
-      const networkResponse: NetworkResponse = {
+      const _networkResponse: NetworkResponse = {
         url: response.url(),
         status: response.status(),
         statusText: response.statusText(),
@@ -1506,7 +1505,7 @@ export class CBrowser {
     options: { timeout?: number; verbose?: boolean } = {}
   ): Promise<{ success: boolean; strategy?: string; error?: string }> {
     const page = await this.getPage();
-    const timeout = options.timeout ?? 5000;
+    const _timeout = options.timeout ?? 5000;
 
     try {
       // Click the trigger to open the dropdown
@@ -1515,7 +1514,7 @@ export class CBrowser {
 
       // Wait for dropdown options to appear
       // Try multiple common patterns for option containers
-      const optionSelectors = [
+      const _optionSelectors = [
         // Alpine.js / Headless UI patterns
         '[x-show]:not([x-show="false"])',
         '[role="listbox"]',
@@ -1627,7 +1626,6 @@ export class CBrowser {
    * Prioritizes: exact text match > non-sticky elements > shorter text (closer match)
    */
   private async findBestClickCandidate(locator: Locator, searchText: string): Promise<Locator | null> {
-    const page = await this.getPage();
     const count = await locator.count();
 
     if (count === 0) return null;
@@ -1644,7 +1642,6 @@ export class CBrowser {
       try {
         const info = await el.evaluate((element: Element, search: string) => {
           const text = element.textContent?.trim() || '';
-          const style = getComputedStyle(element);
 
           // Check if element is in a sticky/fixed container
           let inStickyContainer = false;
