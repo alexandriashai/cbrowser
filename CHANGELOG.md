@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [10.1.0](https://github.com/alexandriashai/cbrowser/compare/v10.0.3...v10.1.0) (2026-02-07)
+
+
+### Added
+
+* **cognitive:** add F-Pattern Degradation and Prospect Theory ([aa2ee2b](https://github.com/alexandriashai/cbrowser/commit/aa2ee2ba773801f4aca777575b1ad832c6af6f0d)), closes [#49](https://github.com/alexandriashai/cbrowser/issues/49) [#50](https://github.com/alexandriashai/cbrowser/issues/50)
+
 ## [10.0.3](https://github.com/alexandriashai/cbrowser/compare/v10.0.2...v10.0.3) (2026-02-07)
 
 ## [10.0.2](https://github.com/alexandriashai/cbrowser/compare/v10.0.1...v10.0.2) (2026-02-07)
