@@ -15,7 +15,7 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "http";
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { join } from "path";
-import { spawn, type ChildProcess } from "child_process";
+import { spawn } from "child_process";
 import { CBrowser } from "./browser.js";
 import { executeNaturalLanguage } from "./analysis/index.js";
 import { getPaths, mergeConfig, type CBrowserConfig } from "./config.js";

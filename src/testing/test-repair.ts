@@ -21,7 +21,7 @@ import { parseNLInstruction } from "./nl-test-suite.js";
 /**
  * Classify the type of failure from an error message.
  */
-function classifyFailure(error: string, step: NLTestStep): FailureType {
+function classifyFailure(error: string, _step: NLTestStep): FailureType {
   const lowerError = error.toLowerCase();
 
   if (lowerError.includes("not found") || lowerError.includes("no element") || lowerError.includes("failed to click")) {
@@ -161,7 +161,7 @@ async function generateRepairSuggestions(
     case "selector_not_found": {
       // Suggest alternative selectors
       for (const alt of alternatives.slice(0, 3)) {
-        const newInstruction = step.instruction.replace(
+        const _newInstruction = step.instruction.replace(
           step.target || "",
           alt.replace(/^(button|link|input|aria):\s*/, "").replace(/"/g, "'")
         );

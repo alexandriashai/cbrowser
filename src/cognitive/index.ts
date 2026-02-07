@@ -34,8 +34,6 @@ import type {
   FrictionPoint,
   Persona,
   CognitiveTraits,
-  DecisionFatigueState,
-  CognitiveMode,
 } from "../types.js";
 import {
   calculateFatigueIncrement,
@@ -45,14 +43,11 @@ import {
   canReturnToSystem1,
   calculateTypingTime,
   calculateScanWidthMultiplier,
-  detectProspectFrame,
-  calculateProspectClickModifier,
   calculateGazeMouseLag,
   calculatePeripheralVision,
   createHabituationState,
   updateHabituationState,
   classifyUIPattern,
-  calculateHabituationVisibility,
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 
@@ -662,7 +657,7 @@ export async function runCognitiveJourney(
 
   // Calculate summary stats
   const avgConfusion = frictionPoints.length > 0
-    ? frictionPoints.reduce((sum, fp) => sum + (state.confusionLevel), 0) / frictionPoints.length
+    ? frictionPoints.reduce((sum, _fp) => sum + (state.confusionLevel), 0) / frictionPoints.length
     : state.confusionLevel;
 
   // Build result

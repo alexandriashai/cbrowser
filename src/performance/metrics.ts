@@ -23,7 +23,7 @@ import type {
 // Constants
 // ============================================================================
 
-const DEFAULT_REGRESSION_THRESHOLDS: PerformanceRegressionThresholds = {
+const _DEFAULT_REGRESSION_THRESHOLDS: PerformanceRegressionThresholds = {
   lcp: 20,      // 20% increase
   fid: 50,      // 50% increase
   cls: 0.1,     // Absolute increase of 0.1

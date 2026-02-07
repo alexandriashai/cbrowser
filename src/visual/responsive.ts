@@ -116,7 +116,7 @@ async function captureAtViewport(
  */
 function analyzeResponsiveIssues(
   comparisons: ResponsiveComparison[],
-  screenshots: ResponsiveScreenshot[]
+  _screenshots: ResponsiveScreenshot[]
 ): ResponsiveIssue[] {
   const issues: ResponsiveIssue[] = [];
 

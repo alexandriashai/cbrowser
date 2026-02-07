@@ -9,7 +9,6 @@ import { existsSync, readFileSync } from "fs";
 import { CBrowser } from "../browser.js";
 import type {
   TestedPage,
-  TestedAction,
   SitePage,
   CoverageGap,
   TestCoverageAnalysis,
@@ -287,7 +286,7 @@ export function identifyCoverageGaps(
   minCoverage: number = 50
 ): CoverageGap[] {
   const gaps: CoverageGap[] = [];
-  const testedPaths = new Set(testedPages.map(p => p.path));
+  const _testedPaths = new Set(testedPages.map(p => p.path));
 
   for (const sitePage of sitePages) {
     const testedPage = testedPages.find(p => p.path === sitePage.path);

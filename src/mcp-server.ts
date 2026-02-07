@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { CBrowser } from "./browser.js";
-import { ensureDirectories, getStatusInfo, formatStatus } from "./config.js";
+import { ensureDirectories, getStatusInfo } from "./config.js";
 
 // Visual module imports
 import {
@@ -27,7 +27,6 @@ import {
 // Testing module imports
 import {
   runNLTestSuite,
-  runNLTestFile,
   parseNLTestSuite,
   dryRunNLTestSuite,
   repairTest,

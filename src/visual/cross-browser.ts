@@ -478,7 +478,7 @@ export function generateCrossBrowserHtmlReport(suiteResult: CrossBrowserSuiteRes
 
     <div class="results">
       ${results.map(result => {
-        const statusClass = result.overallStatus === "consistent" ? "consistent" : result.overallStatus === "minor_differences" ? "minor" : "major";
+        const _statusClass = result.overallStatus === "consistent" ? "consistent" : result.overallStatus === "minor_differences" ? "minor" : "major";
         const badgeClass = result.overallStatus === "consistent" ? "badge-consistent" : result.overallStatus === "minor_differences" ? "badge-minor" : "badge-major";
         const statusText = result.overallStatus === "consistent" ? "Consistent" : result.overallStatus === "minor_differences" ? "Minor Differences" : "Major Differences";
 

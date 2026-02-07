@@ -46,7 +46,6 @@ import {
 // Testing module imports
 import {
   runNLTestSuite,
-  runNLTestFile,
   parseNLTestSuite,
   dryRunNLTestSuite,
   repairTest,
@@ -79,7 +78,6 @@ import {
 import type {
   CognitiveState,
   AbandonmentThresholds,
-  CognitiveProfile,
   CognitiveTraits,
   Persona,
 } from "./types.js";

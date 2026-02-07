@@ -253,7 +253,7 @@ Respond ONLY with the JSON, no other text.`;
 
   try {
     // Try to use the inference tool if available
-    const { execSync } = await import("child_process");
+    const { execSync: _execSync } = await import("child_process");
     const inferenceScript = join(process.env.HOME || "", ".claude/skills/Tools/Inference.ts");
 
     if (existsSync(inferenceScript)) {

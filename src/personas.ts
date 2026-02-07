@@ -961,7 +961,7 @@ export function getPersonasDir(): string {
 // Accessibility-Focused Personas (v8.0.0)
 // ============================================================================
 
-import type { AccessibilityPersona, AccessibilityTraits } from "./types.js";
+import type { AccessibilityPersona } from "./types.js";
 
 /**
  * Built-in accessibility personas for empathy testing.
