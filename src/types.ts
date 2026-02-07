@@ -209,6 +209,52 @@ export interface CognitiveTraits {
    * @see https://pubmed.ncbi.nlm.nih.gov/12964174/ (Connor-Davidson Resilience Scale)
    */
   resilience?: number;
+
+  /**
+   * Belief in ability to solve interface problems (0 = "I can't figure this out", 1 = "I can solve anything")
+   *
+   * Research basis: Bandura, A. (1977) - Self-efficacy theory
+   * Low self-efficacy users abandon 40% faster on first error.
+   * High self-efficacy users try 3x more solution paths before abandoning.
+   *
+   * @see Compeau & Higgins (1995) - Computer Self-Efficacy
+   */
+  selfEfficacy?: number;
+
+  /**
+   * Decision style: accept "good enough" vs. seek optimal (0 = maximizer, 1 = satisficer)
+   *
+   * Research basis: Simon, H. (1956) - "Rational Choice and the Structure of the Environment"
+   * Satisficers decide 50% faster with similar outcome quality.
+   * Choice overload affects maximizers more severely.
+   *
+   * @see Schwartz et al. (2002) - "Maximizing Versus Satisficing"
+   */
+  satisficing?: number;
+
+  /**
+   * Baseline trust toward websites and requests (0 = highly skeptical, 1 = highly trusting)
+   *
+   * Research basis: Fogg, B.J. (2003) - "Persuasive Technology" (Stanford Persuasive Tech Lab)
+   * Trust calibration affects CTA click-through by up to 40%.
+   * Low-trust users scrutinize security indicators; high-trust users click without reading.
+   *
+   * @see Riegelsberger et al. (2005) - "The mechanics of trust"
+   * @see Sillence et al. (2007) - Trust evaluation in online health contexts
+   */
+  trustCalibration?: number;
+
+  /**
+   * Ability to resume tasks after interruption (0 = easily derailed, 1 = seamless recovery)
+   *
+   * Research basis: Mark, G. et al. (2005) - "No Task Left Behind?"
+   * Average recovery time after interruption: 23 minutes.
+   * High-recovery users use environmental cues; low-recovery users restart from beginning.
+   *
+   * @see Altmann & Trafton (2002) - "Memory for goals: An activation-based model"
+   * @see Monk et al. (2008) - "Effect of interruption duration on resuming suspended goals"
+   */
+  interruptRecovery?: number;
 }
 
 /**
@@ -625,8 +671,9 @@ export function calculateProspectClickModifier(
   switch (frame.type) {
     case "loss":
       // Risk-seeking when avoiding loss: boost click probability
-      // Higher magnitude = stronger loss aversion effect
-      return 1.0 + frame.magnitude * 0.5;
+      // Kahneman & Tversky (1979): λ ≈ 2.25 loss aversion coefficient
+      // Max effect: 1.0 + 1.25 = 2.25x click probability for high-magnitude loss frames
+      return 1.0 + frame.magnitude * 1.25;
     case "gain":
       // Risk-averse with gains: reduce click probability
       return 0.7 + baseRiskTolerance * 0.3;
@@ -885,6 +932,692 @@ export function updateHabituationState(
     ...habituation,
     exposureCount: newExposureCount,
     blindPatterns: newBlindPatterns,
+  };
+}
+
+// ============================================================================
+// Self-Efficacy Types (v11.5.0) - Bandura's Social Cognitive Theory
+// ============================================================================
+
+/**
+ * Self-efficacy state tracking confidence in ability to solve interface problems.
+ * Based on Bandura (1977): Self-efficacy predicts persistence with r=0.4.
+ *
+ * @see Compeau & Higgins (1995) - Computer Self-Efficacy
+ */
+export interface SelfEfficacyState {
+  /** Base efficacy from persona trait (0-1) */
+  baseEfficacy: number;
+  /** Current effective efficacy after success/failure adjustments */
+  currentEfficacy: number;
+  /** Recent successful task completions */
+  recentSuccesses: number;
+  /** Recent failures */
+  recentFailures: number;
+  /** Per-domain efficacy adjustments */
+  domainConfidence: Record<string, number>;
+}
+
+/**
+ * Challenge event for self-efficacy evaluation.
+ */
+export interface ChallengeEvent {
+  /** Domain of the challenge (e.g., "form", "navigation", "search") */
+  domain: string;
+  /** Objective difficulty of the challenge (0-1) */
+  objectiveDifficulty: number;
+  /** Description of the challenge */
+  description: string;
+}
+
+/**
+ * Response to a challenge based on self-efficacy.
+ */
+export interface ChallengeResponse {
+  /** How the user responds: attempt_solve, seek_help, or abandon */
+  response: "attempt_solve" | "seek_help" | "abandon";
+  /** Number of attempts before giving up */
+  persistenceAttempts: number;
+  /** Rate of frustration accumulation (0-1) */
+  frustrationRate: number;
+  /** Risk of abandonment (0-1) */
+  abandonmentRisk: number;
+  /** Delay before seeking help (ms) */
+  helpSeekingDelay: number;
+  /** Breadth of exploration (0-1) */
+  explorationBreadth: number;
+  /** Whether user will try creative solutions */
+  creativeSolutions: boolean;
+}
+
+/**
+ * Handle a challenge based on self-efficacy state.
+ * High efficacy users persist longer; low efficacy users seek help or abandon.
+ *
+ * @param challenge - The challenge event
+ * @param state - Current self-efficacy state
+ * @returns Challenge response with behavior predictions
+ */
+export function handleChallenge(
+  challenge: ChallengeEvent,
+  state: SelfEfficacyState
+): ChallengeResponse {
+  // Adjust efficacy based on domain experience
+  const domainModifier = state.domainConfidence[challenge.domain] || 0;
+  const effectiveEfficacy = Math.min(
+    1,
+    Math.max(
+      0,
+      state.currentEfficacy +
+        domainModifier +
+        (state.recentSuccesses - state.recentFailures) * 0.05
+    )
+  );
+
+  // Determine response based on challenge difficulty and efficacy
+  const perceivedDifficulty =
+    challenge.objectiveDifficulty * (1 - effectiveEfficacy * 0.3);
+
+  if (perceivedDifficulty > effectiveEfficacy) {
+    // Challenge seems too hard
+    return {
+      response: effectiveEfficacy < 0.3 ? "abandon" : "seek_help",
+      persistenceAttempts: Math.ceil(effectiveEfficacy * 2),
+      frustrationRate: (1 - effectiveEfficacy) * 0.4,
+      abandonmentRisk: (perceivedDifficulty - effectiveEfficacy) * 0.5,
+      helpSeekingDelay: effectiveEfficacy * 10000, // ms before seeking help
+      explorationBreadth: effectiveEfficacy * 0.3,
+      creativeSolutions: false,
+    };
+  }
+
+  // Challenge seems manageable
+  return {
+    response: "attempt_solve",
+    persistenceAttempts: 3 + Math.ceil(effectiveEfficacy * 4),
+    frustrationRate: (1 - effectiveEfficacy) * 0.2,
+    abandonmentRisk: 0.1,
+    helpSeekingDelay: effectiveEfficacy * 20000,
+    explorationBreadth: effectiveEfficacy * 0.7,
+    creativeSolutions: effectiveEfficacy > 0.7,
+  };
+}
+
+/**
+ * Update self-efficacy state based on task outcome.
+ * Success builds efficacy; failure erodes it.
+ *
+ * @param state - Current self-efficacy state
+ * @param success - Whether the task was successful
+ * @param domain - Domain of the task (optional)
+ * @returns Updated self-efficacy state
+ */
+export function updateSelfEfficacy(
+  state: SelfEfficacyState,
+  success: boolean,
+  domain?: string
+): SelfEfficacyState {
+  // Success builds efficacy; failure erodes it
+  const efficacyChange = success
+    ? 0.05 * (1 - state.currentEfficacy) // Diminishing returns for success
+    : -0.08 * state.currentEfficacy; // Failures hurt more when starting high
+
+  const newDomainConfidence = { ...state.domainConfidence };
+  if (domain) {
+    const currentDomainConf = newDomainConfidence[domain] || 0;
+    newDomainConfidence[domain] = success
+      ? Math.min(0.3, currentDomainConf + 0.05)
+      : Math.max(-0.3, currentDomainConf - 0.08);
+  }
+
+  return {
+    ...state,
+    currentEfficacy: Math.min(1, Math.max(0, state.currentEfficacy + efficacyChange)),
+    recentSuccesses: success ? state.recentSuccesses + 1 : state.recentSuccesses,
+    recentFailures: success ? state.recentFailures : state.recentFailures + 1,
+    domainConfidence: newDomainConfidence,
+  };
+}
+
+/**
+ * Create initial self-efficacy state from persona trait.
+ *
+ * @param baseEfficacy - Base efficacy from persona (0-1)
+ * @returns Initial SelfEfficacyState
+ */
+export function createSelfEfficacyState(baseEfficacy: number): SelfEfficacyState {
+  return {
+    baseEfficacy,
+    currentEfficacy: baseEfficacy,
+    recentSuccesses: 0,
+    recentFailures: 0,
+    domainConfidence: {},
+  };
+}
+
+// ============================================================================
+// Satisficing Types (v11.5.0) - Simon's Bounded Rationality
+// ============================================================================
+
+/**
+ * Satisficing state for decision-making behavior.
+ * Based on Simon (1956): Satisficers accept "good enough" rather than seeking optimal.
+ *
+ * @see Schwartz et al. (2002) - "Maximizing Versus Satisficing"
+ */
+export interface SatisficingState {
+  /** Satisficing tendency from persona trait (0 = maximizer, 1 = satisficer) */
+  tendency: number;
+  /** Current "good enough" threshold (0-1) */
+  aspirationLevel: number;
+  /** Options examined so far */
+  optionsExamined: number;
+  /** Best option seen */
+  bestOptionSeen: { value: number; position: number } | null;
+  /** Search fatigue (accumulates with each option examined) */
+  searchFatigue: number;
+}
+
+/**
+ * Decision about whether to accept an option or continue searching.
+ */
+export interface OptionDecision {
+  /** accept = take this option, continue = keep searching, accept_best = take best seen */
+  decision: "accept" | "continue" | "accept_best";
+  /** Confidence in the decision (0-1) */
+  confidence: number;
+  /** Risk of regret after decision (0-1) */
+  regretRisk: number;
+  /** Whether to continue searching */
+  continueSearch: boolean;
+}
+
+/**
+ * Evaluate an option and decide whether to accept or continue searching.
+ * Satisficers accept when option meets aspiration level.
+ * Maximizers continue until they've seen most options.
+ *
+ * @param optionValue - Value of the current option (0-1)
+ * @param state - Current satisficing state
+ * @param totalOptions - Total number of options available
+ * @returns Decision about whether to accept
+ */
+export function evaluateOption(
+  optionValue: number,
+  state: SatisficingState,
+  totalOptions: number
+): OptionDecision {
+  // Update best seen
+  if (!state.bestOptionSeen || optionValue > state.bestOptionSeen.value) {
+    state.bestOptionSeen = { value: optionValue, position: state.optionsExamined };
+  }
+
+  // Satisficers: accept if meets aspiration level
+  if (state.tendency > 0.6) {
+    const meetsAspiration = optionValue >= state.aspirationLevel;
+    if (meetsAspiration) {
+      return {
+        decision: "accept",
+        confidence: state.tendency * 0.8,
+        regretRisk: 0.1,
+        continueSearch: false,
+      };
+    }
+
+    // Adjust aspiration if not finding anything (after seeing 30% of options)
+    if (state.optionsExamined > totalOptions * 0.3) {
+      state.aspirationLevel *= 0.95; // Lower standards
+    }
+  }
+
+  // Maximizers: always want to see more
+  if (state.tendency < 0.4) {
+    const mustSeeMore = state.optionsExamined < totalOptions * 0.7;
+    return {
+      decision: mustSeeMore ? "continue" : "accept_best",
+      confidence: 1 - state.tendency,
+      regretRisk: 0.4, // Maximizers always wonder if better existed
+      continueSearch: mustSeeMore,
+    };
+  }
+
+  // Middle ground: probabilistic
+  const searchProgress = state.optionsExamined / totalOptions;
+  const shouldStop = searchProgress > (1 - state.tendency) * 0.5;
+
+  return {
+    decision: shouldStop ? "accept_best" : "continue",
+    confidence: 0.5,
+    regretRisk: 0.25,
+    continueSearch: !shouldStop,
+  };
+}
+
+/**
+ * Create initial satisficing state from persona trait.
+ *
+ * @param tendency - Satisficing tendency from persona (0-1)
+ * @param initialAspiration - Initial aspiration level (default: 0.7)
+ * @returns Initial SatisficingState
+ */
+export function createSatisficingState(
+  tendency: number,
+  initialAspiration = 0.7
+): SatisficingState {
+  return {
+    tendency,
+    aspirationLevel: initialAspiration,
+    optionsExamined: 0,
+    bestOptionSeen: null,
+    searchFatigue: 0,
+  };
+}
+
+/**
+ * Update satisficing state after examining an option.
+ *
+ * @param state - Current satisficing state
+ * @returns Updated satisficing state
+ */
+export function updateSatisficingState(state: SatisficingState): SatisficingState {
+  return {
+    ...state,
+    optionsExamined: state.optionsExamined + 1,
+    searchFatigue: state.searchFatigue + 0.05 * (1 - state.tendency), // Maximizers fatigue faster
+  };
+}
+
+// ============================================================================
+// Trust Calibration State System (Fogg 2003, Riegelsberger 2005)
+// ============================================================================
+
+/**
+ * Types of trust signals that users detect on web pages.
+ * Research: Fogg (2003) identified visual design, brand, and security as key trust factors.
+ */
+export type TrustSignalType =
+  | "https"                  // HTTPS padlock indicator
+  | "security_badge"         // Trust seals (Norton, McAfee, BBB)
+  | "brand_recognition"      // Known brand presence
+  | "professional_design"    // High-quality visual design
+  | "reviews_visible"        // User reviews/testimonials present
+  | "contact_info"           // Physical address, phone number visible
+  | "privacy_policy"         // Privacy policy link visible
+  | "social_proof";          // Number of users, downloads, etc.
+
+/**
+ * A trust signal detected on a page.
+ */
+export interface TrustSignal {
+  type: TrustSignalType;
+  /** Weight of this signal (0-1), research-derived */
+  weight: number;
+  /** Whether the signal was detected on current page */
+  detected: boolean;
+}
+
+/**
+ * A trust betrayal event that reduces trust.
+ */
+export interface TrustBetrayalEvent {
+  type: "popup_spam" | "redirect_unexpected" | "form_error" | "slow_load" | "dark_pattern";
+  severity: number; // 0-1, how much this damages trust
+  timestamp: number;
+}
+
+/**
+ * Runtime trust state for cognitive simulation.
+ *
+ * Research basis: Riegelsberger et al. (2005) - Trust is dynamic,
+ * built through signals and destroyed through betrayals.
+ */
+export interface TrustState {
+  /** Base trust from persona trait (0-1) */
+  baselineTrust: number;
+  /** Current effective trust after signal/betrayal adjustments */
+  currentTrust: number;
+  /** Trust signals detected on current page */
+  signalsDetected: TrustSignal[];
+  /** History of trust betrayals */
+  betrayalHistory: TrustBetrayalEvent[];
+}
+
+/**
+ * Decision result from trust evaluation.
+ */
+export interface TrustDecision {
+  /** Whether the action should proceed */
+  proceed: boolean;
+  /** Confidence in the decision (0-1) */
+  confidence: number;
+  /** Time spent evaluating (ms) - skeptical users take longer */
+  evaluationTime: number;
+  /** Reason for the decision */
+  reason: string;
+}
+
+/**
+ * Evaluate whether to proceed with a trust-requiring action.
+ *
+ * Research: Fogg (2003) found trust decisions follow threshold model.
+ * High-trust users accept with minimal evaluation; low-trust users scrutinize.
+ *
+ * @param actionRisk - How risky is this action (0-1)? Payment=0.9, newsletter=0.3
+ * @param state - Current trust state
+ * @returns Decision on whether to proceed
+ */
+export function evaluateTrustDecision(
+  actionRisk: number,
+  state: TrustState
+): TrustDecision {
+  // Calculate environmental trust from detected signals
+  const detectedSignals = state.signalsDetected.filter((s) => s.detected);
+  const environmentalTrust =
+    detectedSignals.length > 0
+      ? detectedSignals.reduce((sum, s) => sum + s.weight, 0) / detectedSignals.length
+      : 0.3; // Low default if no signals
+
+  // Apply betrayal penalty - recent betrayals have more impact
+  const betrayalPenalty = state.betrayalHistory.reduce((penalty, event) => {
+    const recency = Math.max(0, 1 - (Date.now() - event.timestamp) / 60000); // Decay over 1 minute
+    return penalty + event.severity * recency * 0.5;
+  }, 0);
+
+  // Combine baseline with environment (skeptical users discount signals)
+  // Research: Sillence et al. (2007) found 60/40 split between personal and environmental factors
+  const effectiveTrust = Math.max(
+    0,
+    state.baselineTrust * 0.6 + environmentalTrust * 0.4 - betrayalPenalty
+  );
+
+  // Determine if action proceeds based on risk vs trust threshold
+  // Higher risk actions require higher trust
+  const threshold = 0.3 + actionRisk * 0.5; // Newsletter (0.3): 0.45 threshold; Payment (0.9): 0.75 threshold
+  const proceed = effectiveTrust >= threshold;
+
+  // Evaluation time: skeptical users take longer (inverse relationship)
+  // Research: Sillence et al. found 3-10x longer evaluation for low-trust users
+  const baseEvaluationTime = 500; // ms
+  const trustFactor = Math.max(0.1, state.baselineTrust);
+  const evaluationTime = Math.round(baseEvaluationTime / trustFactor);
+
+  return {
+    proceed,
+    confidence: Math.abs(effectiveTrust - threshold),
+    evaluationTime,
+    reason: proceed
+      ? effectiveTrust > 0.7
+        ? "High trust - proceeding without hesitation"
+        : "Trust signals adequate for this action"
+      : effectiveTrust < 0.3
+        ? "Insufficient trust - refusing action"
+        : "Risk too high for current trust level",
+  };
+}
+
+/**
+ * Update trust state after a betrayal event.
+ */
+export function recordTrustBetrayal(
+  state: TrustState,
+  event: Omit<TrustBetrayalEvent, "timestamp">
+): TrustState {
+  const betrayalEvent: TrustBetrayalEvent = {
+    ...event,
+    timestamp: Date.now(),
+  };
+
+  // Research: Trust destroyed faster than built (asymmetric)
+  const trustReduction = event.severity * 0.3 * (1 + (1 - state.baselineTrust));
+
+  return {
+    ...state,
+    currentTrust: Math.max(0, state.currentTrust - trustReduction),
+    betrayalHistory: [...state.betrayalHistory, betrayalEvent],
+  };
+}
+
+/**
+ * Create initial trust state from persona trait.
+ */
+export function createTrustState(baselineTrust: number): TrustState {
+  // Default trust signals with research-derived weights
+  // Fogg (2003): Design quality and security indicators are strongest
+  const defaultSignals: TrustSignal[] = [
+    { type: "https", weight: 0.7, detected: false },
+    { type: "security_badge", weight: 0.5, detected: false },
+    { type: "brand_recognition", weight: 0.8, detected: false },
+    { type: "professional_design", weight: 0.6, detected: false },
+    { type: "reviews_visible", weight: 0.4, detected: false },
+    { type: "contact_info", weight: 0.5, detected: false },
+    { type: "privacy_policy", weight: 0.3, detected: false },
+    { type: "social_proof", weight: 0.4, detected: false },
+  ];
+
+  return {
+    baselineTrust,
+    currentTrust: baselineTrust,
+    signalsDetected: defaultSignals,
+    betrayalHistory: [],
+  };
+}
+
+// ============================================================================
+// Interrupt Recovery State System (Mark 2005, Altmann & Trafton 2002)
+// ============================================================================
+
+/**
+ * Types of interruptions that can occur during web tasks.
+ */
+export type InterruptionType =
+  | "external"        // Phone call, person, notification from outside
+  | "self_initiated"  // User chose to check something else
+  | "system"          // Popup, alert, error message
+  | "timeout";        // Session timeout, page reload
+
+/**
+ * Context preserved when an interruption occurs.
+ */
+export interface TaskContext {
+  /** Identifier for the current task */
+  taskId: string;
+  /** Current step in multi-step process (1-indexed) */
+  step: number;
+  /** Total steps in the process */
+  totalSteps: number;
+  /** Form data entered so far */
+  formData: Record<string, unknown>;
+  /** Current scroll position (pixels from top) */
+  scrollPosition: number;
+  /** Currently focused element selector */
+  focusedElement: string;
+  /** Time spent on current task (ms) */
+  timeInTask: number;
+  /** URL of the page */
+  pageUrl: string;
+}
+
+/**
+ * An interruption event during task execution.
+ */
+export interface InterruptionEvent {
+  type: InterruptionType;
+  /** Duration of the interruption (ms) */
+  duration: number;
+  /** Whether context was preserved by the system (e.g., form data saved) */
+  systemPreserved: boolean;
+  timestamp: number;
+}
+
+/**
+ * Result of attempting to resume after interruption.
+ */
+export interface ResumptionResult {
+  /** Whether the user successfully resumes */
+  successful: boolean;
+  /** Time to resume the task (ms) */
+  resumptionTime: number;
+  /** What the user does */
+  action: "resume_exact" | "resume_approximate" | "restart" | "abandon";
+  /** Amount of progress lost (0-1, where 1 = complete restart) */
+  progressLost: number;
+  /** Frustration added by the interruption */
+  frustrationAdded: number;
+}
+
+/**
+ * Runtime interrupt recovery state for cognitive simulation.
+ *
+ * Research basis: Mark et al. (2005) found average recovery time of 23 minutes.
+ * Altmann & Trafton (2002) proposed memory-for-goals activation model.
+ */
+export interface InterruptRecoveryState {
+  /** Base recovery ability from persona trait (0-1) */
+  recoveryAbility: number;
+  /** Currently active task context, if any */
+  currentTaskContext: TaskContext | null;
+  /** History of interruptions in this session */
+  interruptionLog: InterruptionEvent[];
+  /** Environmental cues available (forms with autosave, breadcrumbs, etc.) */
+  environmentalCues: string[];
+}
+
+/**
+ * Handle an interruption and determine resumption outcome.
+ *
+ * Research: Mark (2005) - External interruptions more disruptive than self-initiated.
+ * Monk (2008) - Interruption duration affects recovery non-linearly.
+ *
+ * @param interruption - The interruption event
+ * @param state - Current interrupt recovery state
+ * @returns Result of the resumption attempt
+ */
+export function handleInterruption(
+  interruption: InterruptionEvent,
+  state: InterruptRecoveryState
+): ResumptionResult {
+  if (!state.currentTaskContext) {
+    return {
+      successful: true,
+      resumptionTime: 0,
+      action: "resume_exact",
+      progressLost: 0,
+      frustrationAdded: 0,
+    };
+  }
+
+  const ctx = state.currentTaskContext;
+
+  // Base resumption difficulty factors
+  // Research: External > System > Self-initiated in disruption severity
+  const typeMultiplier = {
+    external: 1.5,
+    system: 1.2,
+    self_initiated: 0.7,
+    timeout: 2.0, // Session timeouts are most disruptive
+  }[interruption.type];
+
+  // Duration effect (non-linear - short interruptions much easier to recover from)
+  // Research: Monk (2008) found exponential decay in memory after ~15 seconds
+  const durationEffect = Math.min(
+    1,
+    Math.log(1 + interruption.duration / 15000) / 3 // 15s threshold, log decay
+  );
+
+  // Step complexity - later steps harder to recover (more context accumulated)
+  const stepComplexity = ctx.step / ctx.totalSteps;
+
+  // Calculate base recovery difficulty
+  const difficulty = typeMultiplier * durationEffect * (0.5 + stepComplexity * 0.5);
+
+  // Apply persona's recovery ability (high ability reduces difficulty)
+  const effectiveDifficulty = difficulty * (1 - state.recoveryAbility * 0.7);
+
+  // Environmental cues help recovery
+  const cueBonus = Math.min(0.3, state.environmentalCues.length * 0.1);
+  const systemPreservationBonus = interruption.systemPreserved ? 0.3 : 0;
+
+  // Final recovery probability
+  const recoveryProbability = Math.max(
+    0.1,
+    Math.min(0.95, 1 - effectiveDifficulty + cueBonus + systemPreservationBonus)
+  );
+
+  // Determine outcome based on recovery probability
+  const roll = Math.random();
+  let action: ResumptionResult["action"];
+  let progressLost: number;
+
+  if (roll < recoveryProbability * 0.6) {
+    action = "resume_exact";
+    progressLost = 0;
+  } else if (roll < recoveryProbability) {
+    action = "resume_approximate";
+    progressLost = 0.1 + Math.random() * 0.2; // Lose 10-30% of current step
+  } else if (roll < recoveryProbability + (1 - recoveryProbability) * 0.5) {
+    action = "restart";
+    progressLost = ctx.step / ctx.totalSteps; // Lose all progress
+  } else {
+    action = "abandon";
+    progressLost = 1;
+  }
+
+  // Calculate resumption time (Mark's 23-minute average is for complex office tasks)
+  // Web tasks: scale down to 5-60 seconds for typical recovery
+  // Research: Iqbal & Horvitz (2007) - Web task recovery typically under 2 minutes
+  const baseResumptionMs = 5000; // 5 seconds base
+  const resumptionTime = Math.round(
+    baseResumptionMs * (1 + effectiveDifficulty * 10) * (1 - state.recoveryAbility * 0.5)
+  );
+
+  // Frustration from interruption
+  // Research: Interruptions increase negative affect, especially when progress is lost
+  const frustrationAdded = progressLost * 0.3 + effectiveDifficulty * 0.1;
+
+  return {
+    successful: action !== "abandon",
+    resumptionTime,
+    action,
+    progressLost,
+    frustrationAdded: Math.min(0.5, frustrationAdded),
+  };
+}
+
+/**
+ * Create initial interrupt recovery state from persona trait.
+ */
+export function createInterruptRecoveryState(recoveryAbility: number): InterruptRecoveryState {
+  return {
+    recoveryAbility,
+    currentTaskContext: null,
+    interruptionLog: [],
+    environmentalCues: [],
+  };
+}
+
+/**
+ * Set current task context for tracking.
+ */
+export function setTaskContext(
+  state: InterruptRecoveryState,
+  context: TaskContext
+): InterruptRecoveryState {
+  return {
+    ...state,
+    currentTaskContext: context,
+  };
+}
+
+/**
+ * Update environmental cues that help with recovery.
+ */
+export function updateEnvironmentalCues(
+  state: InterruptRecoveryState,
+  cues: string[]
+): InterruptRecoveryState {
+  return {
+    ...state,
+    environmentalCues: cues,
   };
 }
 

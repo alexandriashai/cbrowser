@@ -646,6 +646,10 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       workingMemory: 0.9,     // High - never repeats attempts
       readingTendency: 0.1,   // Low - scans for shortcuts
       resilience: 0.85,       // High - shrugs off errors quickly (BRS)
+      selfEfficacy: 0.9,      // High - trusts own expertise (Bandura)
+      satisficing: 0.3,       // Low - knows quality, seeks optimal (Simon)
+      trustCalibration: 0.7,  // High - trusts tech but verifies (Fogg)
+      interruptRecovery: 0.85, // High - uses env cues, resumes fast (Mark)
     },
     context: {
       viewport: [1920, 1080],
@@ -702,6 +706,10 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       workingMemory: 0.4,     // Medium - might repeat mistakes
       readingTendency: 0.8,   // High - reads tooltips and help
       resilience: 0.4,        // Low-medium - new users get discouraged (BRS)
+      selfEfficacy: 0.4,      // Low - uncertain of abilities (Bandura)
+      satisficing: 0.5,       // Medium - unsure what's "good enough" (Simon)
+      trustCalibration: 0.4,  // Low - skeptical, unsure what to trust (Fogg)
+      interruptRecovery: 0.35, // Low - easily loses place, restarts (Mark)
     },
     context: {
       viewport: [1280, 800],
@@ -758,6 +766,10 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       workingMemory: 0.5,     // Medium
       readingTendency: 0.3,   // Low - minimal reading on mobile
       resilience: 0.5,        // Medium - recovers if next try works (BRS)
+      selfEfficacy: 0.6,      // Medium - comfortable in mobile context (Bandura)
+      satisficing: 0.8,       // High - mobile context demands quick decisions (Simon)
+      trustCalibration: 0.6,  // Medium - quick decisions, moderate trust (Fogg)
+      interruptRecovery: 0.45, // Low-Med - constant phone interruptions (Mark)
     },
     context: {
       viewport: [375, 812], // iPhone X dimensions
@@ -814,6 +826,10 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       workingMemory: 0.9,     // High - mental model essential
       readingTendency: 1.0,   // Full - ALL content is read aloud
       resilience: 0.8,        // High - experienced with setbacks (CD-RISC)
+      selfEfficacy: 0.5,      // Medium - high in accessible sites, low otherwise (Bandura)
+      satisficing: 0.6,       // Medium - relies on structured review content (Simon)
+      trustCalibration: 0.5,  // Medium - cautious from past a11y failures (Fogg)
+      interruptRecovery: 0.75, // High - strong mental model aids recovery (Mark)
     },
     context: {
       viewport: [1280, 800],
@@ -870,6 +886,10 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       workingMemory: 0.3,     // Low - may forget steps
       readingTendency: 0.9,   // High - reads everything carefully
       resilience: 0.3,        // Low - frustration lingers longer (BRS age-related)
+      selfEfficacy: 0.3,      // Low - often blame themselves for tech issues (Bandura)
+      satisficing: 0.7,       // High - values simplicity over optimization (Simon)
+      trustCalibration: 0.25, // Very low - skeptical of online requests (Fogg)
+      interruptRecovery: 0.3,  // Low - difficulty resuming, forgets context (Mark)
     },
     context: {
       viewport: [1280, 800],
@@ -926,6 +946,10 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       workingMemory: 0.6,     // Medium
       readingTendency: 0.05,  // Almost none - scanning only
       resilience: 0.2,        // Very low - no recovery, abandons (BRS)
+      selfEfficacy: 0.5,      // Medium - impatient doesn't mean incapable (Bandura)
+      satisficing: 0.9,       // Very high - definition of satisficing (Simon)
+      trustCalibration: 0.7,  // High - clicks through without reading (Fogg)
+      interruptRecovery: 0.2,  // Very low - abandons rather than resumes (Mark)
     },
     context: {
       viewport: [1280, 800],
@@ -1039,6 +1063,18 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       attentionSpan: 0.7,
       fatigueSusceptibility: 0.5,
     },
+    cognitiveTraits: {
+      // Research: Motor impairment + self-efficacy (Lorig et al., 2001 - Chronic Disease Self-Management)
+      // Adapted users maintain moderate efficacy despite physical challenges
+      selfEfficacy: 0.5,
+      // Research: Physical effort increases satisficing (Kool et al., 2010 - Effort discounting)
+      // Motor strain leads to accepting "good enough" to minimize fatigue
+      satisficing: 0.7,
+      // Research: Chronic condition users develop moderate trust (Lorig 2001)
+      trustCalibration: 0.5,
+      // Research: Motor issues make resumption harder but adaptation helps (Mark)
+      interruptRecovery: 0.4,
+    },
   },
 
   "low-vision-magnified": {
@@ -1094,6 +1130,18 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       processingSpeed: 0.7,
       attentionSpan: 0.6, // Fatigue from straining to see
       fatigueSusceptibility: 0.6,
+    },
+    cognitiveTraits: {
+      // Research: Visual impairment + self-efficacy (Brody et al., 2002 - AMD and depression)
+      // Reduced vision correlates with lower confidence in task completion
+      selfEfficacy: 0.45,
+      // Research: Limited information access increases satisficing (Pachur & Hertwig, 2006)
+      // Seeing only 1/9th of screen at a time → accept accessible options
+      satisficing: 0.65,
+      // Research: Vision impairment increases caution (Brody 2002)
+      trustCalibration: 0.4,
+      // Research: Limited visible area makes context recovery harder (Mark)
+      interruptRecovery: 0.35,
     },
   },
 
@@ -1156,6 +1204,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       riskTolerance: 0.7, // Impulsive clicking
       readingTendency: 0.2, // Skims rather than reads
       resilience: 0.55, // Medium - recovers emotionally but not focus (BRS)
+      selfEfficacy: 0.4, // Variable - can feel capable when engaged (Bandura)
+      satisficing: 0.85, // High - ADHD drives "good enough" decisions (Simon)
+      trustCalibration: 0.65, // Medium-high - impulsive clicks without reading (Fogg)
+      interruptRecovery: 0.2, // Very low - WM deficits make recovery difficult (Mark)
     },
   },
 
@@ -1216,6 +1268,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.7,
       readingTendency: 0.4, // Avoids heavy text, prefers visuals
       resilience: 0.6, // Medium-high - adapted to text challenges (BRS)
+      selfEfficacy: 0.5, // Medium - effective with accommodations (Bandura)
+      satisficing: 0.6, // Medium - avoids text-heavy paths (Simon)
+      trustCalibration: 0.5, // Medium - standard trust evaluation (Fogg)
+      interruptRecovery: 0.55, // Medium - visual cues help, text harder (Mark)
     },
   },
 
@@ -1267,6 +1323,16 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       visionLevel: 1.0, // Vision is fine
       processingSpeed: 0.9,
       attentionSpan: 0.8,
+    },
+    cognitiveTraits: {
+      patience: 0.7, // Accustomed to finding captions/text alternatives
+      riskTolerance: 0.5, // Standard caution
+      readingTendency: 0.9, // High - reads all text since can't hear audio
+      resilience: 0.75, // High - adapted to audio-free experience (BRS)
+      selfEfficacy: 0.6, // Medium-high - confident in visual navigation (Bandura)
+      satisficing: 0.55, // Medium - seeks captioned/text content (Simon)
+      trustCalibration: 0.55, // Medium - standard visual trust evaluation (Fogg)
+      interruptRecovery: 0.65, // Medium-high - visual cues assist recovery (Mark)
     },
   },
 
@@ -1335,6 +1401,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       riskTolerance: 0.15, // Very cautious with unfamiliar interfaces
       comprehension: 0.3, // Unfamiliar with modern UI conventions
       resilience: 0.25, // Low - frustration compounds with physical challenges (BRS)
+      selfEfficacy: 0.25, // Very low - often blame selves for tech issues (Bandura)
+      satisficing: 0.75, // High - avoids complex decision trees (Simon)
+      trustCalibration: 0.2, // Very low - very skeptical of online requests (Fogg)
+      interruptRecovery: 0.25, // Very low - WM + vision decline makes recovery hard (Mark)
     },
   },
 
@@ -1395,6 +1465,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       persistence: 0.7, // Used to working around color issues
       riskTolerance: 0.5, // Cautious with color-only indicators
       resilience: 0.7, // High - adapted to workarounds, recovers quickly (BRS)
+      selfEfficacy: 0.7, // High - adapted strategies work well (Bandura)
+      satisficing: 0.5, // Medium - needs extra verification (Simon)
+      trustCalibration: 0.55, // Medium - cautious with color-coded security indicators (Fogg)
+      interruptRecovery: 0.6, // Medium-high - good adaptation, unaffected cognition (Mark)
     },
   },
 };
