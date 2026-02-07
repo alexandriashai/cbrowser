@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.6.0](https://github.com/alexandriashai/cbrowser/compare/v11.5.0...v11.6.0) (2026-02-07)
+
+### Added
+
+* **cognitive:** add trustCalibration and interruptRecovery traits ([4c0a602](https://github.com/alexandriashai/cbrowser/commit/4c0a602393257f8ad8d6f0fe4da06ee1007bac37)), closes [#60](https://github.com/alexandriashai/cbrowser/issues/60) [#73](https://github.com/alexandriashai/cbrowser/issues/73)
+
 ## [11.5.0](https://github.com/alexandriashai/cbrowser/compare/v11.4.1...v11.5.0) (2026-02-07)
 
 ### Added
