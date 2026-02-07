@@ -713,7 +713,7 @@ The simulation automatically stops when a realistic user would give up:
 | Stuck in loop | Same pages 3x | "I keep ending up here..." |
 | Decision fatigue (v9.9.0) | Fatigue > threshold | "I'll just pick the first option..." |
 
-**Cognitive Science Foundations (v9.9.0-v10.0.0):**
+**Cognitive Science Foundations (v9.9.0-v10.2.0):**
 
 CBrowser's simulation is grounded in established cognitive science research:
 
@@ -723,14 +723,22 @@ CBrowser's simulation is grounded in established cognitive science research:
 | **Fitts' Law** (v9.9.0) | Motor control research | Mouse timing: `MT = a + b × log₂(D/W + 1)` with age/tremor modifiers |
 | **Dual-Process Theory** (v10.0.0) | Kahneman (Nobel Prize) | System 1 (automatic/fast) vs System 2 (deliberate/slow) switching |
 | **GOMS/KLM Timing** (v10.0.0) | Card, Moran & Newell | Keystroke timing: 120ms (expert) to 500ms (novice) per key |
+| **F-Pattern Degradation** (v10.1.0) | Eye-tracking research | Scan pattern narrows under cognitive load → tunnel vision |
+| **Prospect Theory** (v10.1.0) | Kahneman & Tversky (Nobel) | Loss-framed CTAs ("Don't miss out!") boost clicks; gain-framed reduce |
+| **Saliency Attention** (v10.2.0) | WebGazer.js visual attention | Size, contrast, position, motion → what grabs attention first |
+| **Gaze-Mouse Lag** (v10.2.0) | Eye-tracking research | Eyes lead mouse by 200-500ms depending on age |
+| **Tunnel Vision** (v10.2.0) | Yerkes-Dodson Law | High stress/arousal reduces peripheral vision to 30% |
+| **Banner Blindness** (v10.2.0) | Habituation research | Repeated exposure → patterns become invisible (cookie banners, popups) |
 
 ```bash
-# v9.9.0+ output now includes cognitive science metrics:
+# v10.2.0+ output now includes cognitive science metrics:
 #   Decisions made: 12
 #   Decision fatigue: 67%
 #   ⚠️ Was choosing defaults (high fatigue)
 #   Time in System 1: 45.2s (automatic)
 #   Time in System 2: 12.8s (deliberate)
+#   👁️ Tunnel vision: scanning only left 30% of viewport
+#   👁️ Banner blindness: now ignoring "cookie-banner" patterns
 ```
 
 **Output includes:**
