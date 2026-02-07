@@ -4779,6 +4779,14 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log(`   Time: ${result.totalTime.toFixed(1)}s`);
           console.log(`   Friction points: ${result.frictionPoints.length}`);
           console.log(`   Max frustration: ${(result.summary.maxFrustrationLevel * 100).toFixed(0)}%`);
+          // Decision fatigue metrics (v9.9.0)
+          if (result.summary.decisionsMade !== undefined) {
+            console.log(`   Decisions made: ${result.summary.decisionsMade}`);
+            console.log(`   Decision fatigue: ${((result.summary.finalDecisionFatigue ?? 0) * 100).toFixed(0)}%`);
+            if (result.summary.wasChoosingDefaults) {
+              console.log(`   ⚠️  Was choosing defaults (high fatigue)`);
+            }
+          }
 
           if (result.frictionPoints.length > 0) {
             console.log(`\n⚠️  Friction Points:`);
