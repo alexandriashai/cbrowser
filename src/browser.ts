@@ -2925,7 +2925,11 @@ export class CBrowser {
           };
         })
       );
-    } catch {
+    } catch (error) {
+      // v11.7.1: Log errors instead of silently swallowing them
+      if (process.env.DEBUG || process.env.CBROWSER_DEBUG) {
+        console.error(`[getAvailableInputs] Error:`, error instanceof Error ? error.message : String(error));
+      }
       return [];
     }
   }
@@ -3105,8 +3109,10 @@ export class CBrowser {
       const expected = match?.[1] || "";
       const content = await page.textContent("body") || "";
       const passed = content.toLowerCase().includes(expected.toLowerCase());
+      // v11.7.1: Include actual content snippet for debugging (truncated to 200 chars)
+      const actualSnippet = content.length > 200 ? content.substring(0, 200) + "..." : content;
 
-      return { passed, assertion, expected, message: passed ? `Page contains "${expected}"` : `Page does not contain "${expected}"` };
+      return { passed, assertion, actual: actualSnippet, expected, message: passed ? `Page contains "${expected}"` : `Page does not contain "${expected}"` };
     }
 
     // Element existence assertions
@@ -3373,8 +3379,9 @@ export class CBrowser {
         );
         break;
 
+      case "text":
       default:
-        // Generic text extraction with fallbacks for SPAs
+        // v11.7.1: Explicit text case (was falling through to default which caused issues)
         data = await page.evaluate(() => {
           let text = document.body.innerText;
           // Fallback: if innerText is empty (SPA hydration), try textContent

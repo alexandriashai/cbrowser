@@ -465,7 +465,8 @@ export async function runNLTestSuite(
               } else {
                 const assertResult = await browser.assert(step.instruction);
                 stepPassed = assertResult.passed;
-                actualValue = String(assertResult.actual);
+                // v11.7.1: Don't stringify undefined to "undefined"
+                actualValue = assertResult.actual !== undefined ? String(assertResult.actual) : undefined;
                 if (!assertResult.passed) {
                   // Enrich the error with partial matches
                   let partialMatches: string[] | undefined;
