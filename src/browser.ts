@@ -1336,15 +1336,57 @@ export class CBrowser {
     }
 
     const loadTime = Date.now() - startTime;
+
+    // v11.9.0: Post-navigation verification to detect context desync (issue #84)
+    const actualUrl = page.url();
+    const actualTitle = await page.title();
+
+    // Extract domains for comparison
+    const getHostname = (urlStr: string): string => {
+      try {
+        return new URL(urlStr).hostname.toLowerCase();
+      } catch {
+        return urlStr.toLowerCase();
+      }
+    };
+
+    const expectedHost = getHostname(url);
+    const actualHost = getHostname(actualUrl);
+
+    // Check for domain mismatch (indicates desync)
+    const hostMismatch = expectedHost !== actualHost &&
+      !actualHost.endsWith(`.${expectedHost}`) && // Allow subdomains
+      !expectedHost.endsWith(`.${actualHost}`);   // Allow parent domains
+
+    if (hostMismatch) {
+      // Page context is desynced - return error with details
+      const screenshot = await this.screenshot();
+      if (this.config.verbose) {
+        console.log(`⚠️ Page context desync detected: expected ${expectedHost}, got ${actualHost}`);
+      }
+      return {
+        url: actualUrl,
+        title: actualTitle,
+        screenshot,
+        errors: [...errors, `Page context desync: navigated to ${url} but landed on ${actualUrl}`],
+        warnings: [...warnings, `Expected domain: ${expectedHost}, Actual domain: ${actualHost}`],
+        loadTime,
+        success: false,
+        desyncDetected: true,
+        expectedUrl: url,
+      } as NavigationResult;
+    }
+
     const screenshot = await this.screenshot();
 
     return {
-      url: page.url(),
-      title: await page.title(),
+      url: actualUrl,
+      title: actualTitle,
       screenshot,
       errors,
       warnings,
       loadTime,
+      success: true,
     };
   }
 
@@ -2872,17 +2914,28 @@ export class CBrowser {
           text: submitBtn.textContent?.trim(),
         } : undefined;
 
-        // Determine form purpose
+        // v11.9.0: Enhanced form purpose detection (issue #89)
         let purpose: FormAnalysis["purpose"] = "unknown";
         const formHtml = form.innerHTML.toLowerCase();
-        if (formHtml.includes("password") && formHtml.includes("email")) {
+        const hasPasswordField = !!form.querySelector('input[type="password"]');
+        const hasEmailField = !!form.querySelector('input[type="email"]');
+        const hasUsernameField = !!form.querySelector('[name*="user" i], [name*="login" i], [placeholder*="user" i], [placeholder*="login" i]');
+        const hasSearchField = !!form.querySelector('input[type="search"], [name*="search" i], [placeholder*="search" i], [role="search"]');
+
+        // Login: has password field + (email OR username field) + few fields
+        if (hasPasswordField && (hasEmailField || hasUsernameField || formHtml.includes("sign in") || formHtml.includes("log in"))) {
+          purpose = fields.length <= 4 ? "login" : "signup";
+        } else if (hasPasswordField && formHtml.includes("password") && !formHtml.includes("confirm")) {
+          // Single password field with no confirm = likely login
           purpose = fields.length <= 3 ? "login" : "signup";
-        } else if (formHtml.includes("search")) {
+        } else if (hasSearchField || formHtml.includes("search")) {
           purpose = "search";
-        } else if (formHtml.includes("contact") || formHtml.includes("message")) {
+        } else if (formHtml.includes("contact") || formHtml.includes("message") || formHtml.includes("feedback")) {
           purpose = "contact";
-        } else if (formHtml.includes("card") || formHtml.includes("payment")) {
+        } else if (formHtml.includes("card") || formHtml.includes("payment") || formHtml.includes("checkout")) {
           purpose = "checkout";
+        } else if (formHtml.includes("register") || formHtml.includes("sign up") || formHtml.includes("create account")) {
+          purpose = "signup";
         }
 
         return {

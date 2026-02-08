@@ -1823,6 +1823,12 @@ export interface NavigationResult {
   errors: string[];
   warnings: string[];
   loadTime: number;
+  /** v11.9.0: Whether navigation completed successfully to the expected domain */
+  success?: boolean;
+  /** v11.9.0: Whether a page context desync was detected */
+  desyncDetected?: boolean;
+  /** v11.9.0: The originally requested URL (when desync detected) */
+  expectedUrl?: string;
 }
 
 export interface ClickResult {
