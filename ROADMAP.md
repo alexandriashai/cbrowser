@@ -25,7 +25,8 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | v8.0.0 | 2026-02-03 | 9 bug fixes from stress testing: byte-level A/B comparison, CLI arg routing, self-healing cache validation, responsive test scoring |
 | v9.0.0 | 2026-02-04 | UX Analysis Suite: Agent-Ready Audit, Competitive Benchmark, Accessibility Empathy Mode |
 | v10.0.0-10.2.0 | 2026-02-05 | Cognitive science foundations: Dual-Process Theory, GOMS timing, F-Pattern degradation, Prospect Theory |
-| v11.0.0-11.10.3 | 2026-02-07 | 12 cognitive traits (selfEfficacy, satisficing, trustCalibration, interruptRecovery), ARIA-first selectors, browser crash recovery, enhanced confidence gating |
+| v11.0.0-11.10.6 | 2026-02-07 | 12 cognitive traits (selfEfficacy, satisficing, trustCalibration, interruptRecovery), ARIA-first selectors, browser crash recovery, enhanced confidence gating |
+| v12.0.0 | 2026-02-08 | **Grade A milestone release.** License update with Additional Use Grant, copyright headers, empathy audit dedup fix, goalAchieved calibration. 17 issues tracked, 17 fixed. |
 
 ---
 
