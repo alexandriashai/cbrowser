@@ -269,6 +269,166 @@ export interface CognitiveTraits {
    * @see Monk et al. (2008) - "Effect of interruption duration on resuming suspended goals"
    */
   interruptRecovery?: number;
+
+  // ============================================================================
+  // New Cognitive Traits (v15.0.0)
+  // ============================================================================
+
+  /**
+   * Strategy for finding information on pages (0 = exhaustive search, 1 = scent-following)
+   *
+   * Research basis: Pirolli & Card (1999) - "Information Foraging Theory"
+   * Users follow "information scent" - cues that suggest relevance.
+   * High foragers efficiently abandon low-scent paths; low foragers search exhaustively.
+   *
+   * @see https://www.nngroup.com/articles/information-scent/
+   * @see Chi et al. (2001) - "Using information scent to model user information needs"
+   */
+  informationForaging?: number;
+
+  /**
+   * Tendency to miss UI changes outside focus area (0 = notices everything, 1 = tunnel vision)
+   *
+   * Research basis: Simons & Chabris (1999) - "Gorillas in Our Midst"
+   * Inattentional blindness affects 46% of observers in focused tasks.
+   * Users miss notifications, loading states, and error messages outside focal area.
+   *
+   * @see Rensink et al. (1997) - "To See or Not to See"
+   * @see Varakin et al. (2004) - "Change blindness and visual memory"
+   */
+  changeBlindness?: number;
+
+  /**
+   * Tendency to over-weight initial information (0 = adjusts freely, 1 = anchored to first data)
+   *
+   * Research basis: Tversky & Kahneman (1974) - "Judgment under Uncertainty"
+   * Initial prices, ratings, or expectations bias subsequent judgments.
+   * High anchoring users compare all options to first seen.
+   *
+   * @see Furnham & Boo (2011) - "A literature review of the anchoring effect"
+   * @see Ariely et al. (2003) - "Coherent arbitrariness"
+   */
+  anchoringBias?: number;
+
+  /**
+   * Focus on immediate vs. future consequences (0 = long-term focused, 1 = immediate gratification)
+   *
+   * Research basis: Frederick et al. (2002) - "Time Discounting and Time Preference"
+   * Short time horizon users skip tutorials, ignore warnings, prefer quick wins.
+   * Long time horizon users invest in learning, read docs, plan ahead.
+   *
+   * @see Mischel et al. (1989) - Delay of gratification studies
+   * @see Weber et al. (2007) - "Asymmetric discounting in intertemporal choice"
+   */
+  timeHorizon?: number;
+
+  /**
+   * Where blame is assigned for errors (0 = blames system, 1 = blames self)
+   *
+   * Research basis: Weiner (1985) - "An Attributional Theory of Motivation"
+   * Self-blamers give up faster on complex UIs ("I'm not smart enough").
+   * System-blamers persist and seek workarounds ("this design is broken").
+   *
+   * @see Peterson et al. (1982) - "The Attributional Style Questionnaire"
+   * @see Abramson et al. (1978) - "Learned helplessness in humans"
+   */
+  attributionStyle?: number;
+
+  /**
+   * Tendency to plan before acting (0 = impulsive trial-and-error, 1 = careful planning)
+   *
+   * Research basis: Flavell (1979) - "Metacognition and Cognitive Monitoring"
+   * High metacognition users preview forms, read requirements, plan sequences.
+   * Low metacognition users click immediately, backtrack often.
+   *
+   * @see Schraw & Dennison (1994) - "Assessing Metacognitive Awareness"
+   * @see Brown (1987) - "Metacognition, executive control, self-regulation"
+   */
+  metacognitivePlanning?: number;
+
+  /**
+   * Ease of following step-by-step instructions (0 = struggles with sequences, 1 = follows precisely)
+   *
+   * Research basis: Sweller (1988) - "Cognitive Load Theory"
+   * Procedural fluency reduces cognitive load for multi-step tasks.
+   * Low fluency users skip steps, confuse order, need more scaffolding.
+   *
+   * @see Kirschner (2002) - "Cognitive load theory: implications for design"
+   * @see Mayer & Moreno (2003) - "Nine ways to reduce cognitive load"
+   */
+  proceduralFluency?: number;
+
+  /**
+   * Ability to apply knowledge from familiar UIs to new ones (0 = struggles with new UIs, 1 = transfers easily)
+   *
+   * Research basis: Barnett & Ceci (2002) - "When and Where Do We Apply What We Learn?"
+   * High transfer users recognize patterns (hamburger menu, search icon, cart).
+   * Low transfer users treat each interface as completely novel.
+   *
+   * @see Singley & Anderson (1989) - "The Transfer of Cognitive Skill"
+   * @see Perkins & Salomon (1992) - "Transfer of learning"
+   */
+  transferLearning?: number;
+
+  /**
+   * Compliance with perceived authority figures/cues (0 = questions authority, 1 = follows authority)
+   *
+   * Research basis: Milgram (1963) - "Behavioral Study of Obedience"
+   * High sensitivity users trust official badges, admin messages, formal language.
+   * Low sensitivity users verify claims, question unusual requests.
+   *
+   * @see Cialdini (2001) - "Influence: Science and Practice" (Authority principle)
+   * @see Fogg (2003) - "Prominence-Interpretation Theory"
+   */
+  authoritySensitivity?: number;
+
+  /**
+   * Susceptibility to mood influence from UI tone/feedback (0 = mood-stable, 1 = highly influenced)
+   *
+   * Research basis: Hatfield et al. (1993) - "Emotional Contagion"
+   * UI emotional tone (friendly vs. stern) affects user emotional state.
+   * High contagion users adopt interface mood; low contagion users remain stable.
+   *
+   * @see Brave & Nass (2003) - "Emotion in human-computer interaction"
+   * @see Hancock et al. (2008) - "Expressing emotion in text-based communication"
+   */
+  emotionalContagion?: number;
+
+  /**
+   * Tendency toward FOMO-driven decisions (0 = unaffected by scarcity, 1 = highly FOMO-driven)
+   *
+   * Research basis: Przybylski et al. (2013) - "Motivational, emotional, and behavioral correlates of FoMO"
+   * FOMO users click urgency cues (limited time, low stock, flash sales).
+   * Low FOMO users evaluate offers independently of artificial scarcity.
+   *
+   * @see Cialdini (2001) - "Influence" (Scarcity principle)
+   * @see Worchel et al. (1975) - "Effects of supply and demand on ratings of object value"
+   */
+  fearOfMissingOut?: number;
+
+  /**
+   * Influence of social proof on decisions (0 = ignores others, 1 = heavily influenced by reviews)
+   *
+   * Research basis: Cialdini (2001) - "Influence" (Social proof principle)
+   * High sensitivity users prioritize star ratings, testimonials, user counts.
+   * Low sensitivity users evaluate products on features alone.
+   *
+   * @see Sperling & Moran (2020) - "The effects of social proof on decision making"
+   * @see Chen et al. (2008) - "Online social interactions: A natural experiment"
+   */
+  socialProofSensitivity?: number;
+
+  /**
+   * Flexibility in adapting mental models to unexpected UI patterns (0 = rigid, 1 = highly adaptive)
+   *
+   * Research basis: Johnson-Laird (1983) - "Mental Models"
+   * Rigid users struggle when conventions are broken (unusual navigation, novel patterns).
+   * Adaptive users quickly form new mental models for unfamiliar interfaces.
+   *
+   * @see Norman (1988) - "The Design of Everyday Things"
+   * @see Gentner & Stevens (1983) - "Mental Models"
+   */
+  mentalModelRigidity?: number;
 }
 
 /**

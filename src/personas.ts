@@ -479,6 +479,89 @@ function generateCognitiveTraitsFromDescription(
     curiosity = Math.max(curiosity, 0.7);
   }
 
+  // New cognitive traits (v15.0.0) - derive from existing analysis
+  let informationForaging = 0.5;
+  let changeBlindness = 0.3;
+  let anchoringBias = 0.5;
+  let timeHorizon = 0.5;
+  let attributionStyle = 0.5;
+  let metacognitivePlanning = 0.5;
+  let proceduralFluency = 0.5;
+  let transferLearning = 0.5;
+  let authoritySensitivity = 0.5;
+  let emotionalContagion = 0.5;
+  let fearOfMissingOut = 0.5;
+  let socialProofSensitivity = 0.5;
+  let mentalModelRigidity = 0.5;
+
+  // Adjust new traits by tech level
+  if (techLevel === "expert") {
+    informationForaging = 0.9;   // Experts follow scent efficiently
+    changeBlindness = 0.2;       // Notice UI changes
+    anchoringBias = 0.3;         // Less anchored, compare options
+    timeHorizon = 0.3;           // Plan for long-term
+    attributionStyle = 0.2;      // Blame system, not self
+    metacognitivePlanning = 0.8; // Plan before acting
+    proceduralFluency = 0.9;     // Follow procedures easily
+    transferLearning = 0.95;     // Apply knowledge across UIs
+    authoritySensitivity = 0.3;  // Question authority, verify
+    emotionalContagion = 0.2;    // Mood-stable
+    fearOfMissingOut = 0.2;      // Not swayed by urgency
+    socialProofSensitivity = 0.3; // Evaluate on merits
+    mentalModelRigidity = 0.8;   // Adapt to new patterns
+  } else if (techLevel === "beginner") {
+    informationForaging = 0.3;   // Exhaustive search
+    changeBlindness = 0.6;       // Miss peripheral changes
+    anchoringBias = 0.7;         // Anchored to first info
+    timeHorizon = 0.7;           // Want immediate results
+    attributionStyle = 0.8;      // Blame self for errors
+    metacognitivePlanning = 0.3; // Impulsive trial-and-error
+    proceduralFluency = 0.3;     // Struggle with sequences
+    transferLearning = 0.2;      // Each UI is novel
+    authoritySensitivity = 0.8;  // Follow authority cues
+    emotionalContagion = 0.7;    // Mood influenced by UI
+    fearOfMissingOut = 0.7;      // Susceptible to urgency
+    socialProofSensitivity = 0.8; // Rely on reviews
+    mentalModelRigidity = 0.3;   // Struggle with new patterns
+  }
+
+  // Adjust for impatience
+  if (isImpatient) {
+    informationForaging = Math.max(informationForaging, 0.8); // Quick scent-following
+    timeHorizon = Math.max(timeHorizon, 0.9);                 // Want results NOW
+    metacognitivePlanning = Math.min(metacognitivePlanning, 0.2); // No planning
+    fearOfMissingOut = Math.max(fearOfMissingOut, 0.8);       // Respond to urgency
+  }
+
+  // Adjust for slow/careful users
+  if (isSlow) {
+    changeBlindness = Math.min(changeBlindness, 0.2);         // Notice changes
+    timeHorizon = Math.min(timeHorizon, 0.3);                 // Long-term focused
+    metacognitivePlanning = Math.max(metacognitivePlanning, 0.8); // Plan carefully
+    fearOfMissingOut = Math.min(fearOfMissingOut, 0.2);       // Not swayed by urgency
+  }
+
+  // Adjust for elderly
+  if (ageRange === "65+") {
+    informationForaging = Math.min(informationForaging, 0.3); // Exhaustive search
+    changeBlindness = Math.max(changeBlindness, 0.7);         // Miss changes
+    anchoringBias = Math.max(anchoringBias, 0.7);             // Anchored to first info
+    attributionStyle = Math.max(attributionStyle, 0.8);       // Blame self
+    proceduralFluency = Math.min(proceduralFluency, 0.35);    // Struggle with sequences
+    transferLearning = Math.min(transferLearning, 0.25);      // Each UI novel
+    authoritySensitivity = Math.max(authoritySensitivity, 0.7); // Trust authority
+    mentalModelRigidity = Math.min(mentalModelRigidity, 0.2); // Rigid mental models
+  }
+
+  // Adjust for vision issues (screen reader users)
+  if (hasVisionIssues) {
+    informationForaging = Math.max(informationForaging, 0.7); // Sequential but efficient
+    changeBlindness = Math.min(changeBlindness, 0.3);         // ARIA live regions help
+    metacognitivePlanning = Math.max(metacognitivePlanning, 0.8); // Plan navigation
+    proceduralFluency = Math.max(proceduralFluency, 0.8);     // Follow structures
+    transferLearning = Math.max(transferLearning, 0.7);       // Know a11y patterns
+  }
+
   return {
     patience,
     riskTolerance,
@@ -488,6 +571,20 @@ function generateCognitiveTraitsFromDescription(
     workingMemory,
     readingTendency,
     resilience, // v10.6.0: Brief Resilience Scale (Smith et al., 2008)
+    // New traits (v15.0.0)
+    informationForaging,
+    changeBlindness,
+    anchoringBias,
+    timeHorizon,
+    attributionStyle,
+    metacognitivePlanning,
+    proceduralFluency,
+    transferLearning,
+    authoritySensitivity,
+    emotionalContagion,
+    fearOfMissingOut,
+    socialProofSensitivity,
+    mentalModelRigidity,
   };
 }
 
@@ -521,6 +618,20 @@ export function createCognitivePersona(
     workingMemory: traits.workingMemory ?? basePersona.cognitiveTraits?.workingMemory ?? 0.5,
     readingTendency: traits.readingTendency ?? basePersona.cognitiveTraits?.readingTendency ?? 0.5,
     resilience: traits.resilience ?? basePersona.cognitiveTraits?.resilience ?? 0.5,
+    // New traits (v15.0.0)
+    informationForaging: traits.informationForaging ?? basePersona.cognitiveTraits?.informationForaging ?? 0.5,
+    changeBlindness: traits.changeBlindness ?? basePersona.cognitiveTraits?.changeBlindness ?? 0.3,
+    anchoringBias: traits.anchoringBias ?? basePersona.cognitiveTraits?.anchoringBias ?? 0.5,
+    timeHorizon: traits.timeHorizon ?? basePersona.cognitiveTraits?.timeHorizon ?? 0.5,
+    attributionStyle: traits.attributionStyle ?? basePersona.cognitiveTraits?.attributionStyle ?? 0.5,
+    metacognitivePlanning: traits.metacognitivePlanning ?? basePersona.cognitiveTraits?.metacognitivePlanning ?? 0.5,
+    proceduralFluency: traits.proceduralFluency ?? basePersona.cognitiveTraits?.proceduralFluency ?? 0.5,
+    transferLearning: traits.transferLearning ?? basePersona.cognitiveTraits?.transferLearning ?? 0.5,
+    authoritySensitivity: traits.authoritySensitivity ?? basePersona.cognitiveTraits?.authoritySensitivity ?? 0.5,
+    emotionalContagion: traits.emotionalContagion ?? basePersona.cognitiveTraits?.emotionalContagion ?? 0.5,
+    fearOfMissingOut: traits.fearOfMissingOut ?? basePersona.cognitiveTraits?.fearOfMissingOut ?? 0.5,
+    socialProofSensitivity: traits.socialProofSensitivity ?? basePersona.cognitiveTraits?.socialProofSensitivity ?? 0.5,
+    mentalModelRigidity: traits.mentalModelRigidity ?? basePersona.cognitiveTraits?.mentalModelRigidity ?? 0.5,
   };
 
   // Update demographics if provided
@@ -598,6 +709,20 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
       workingMemory: 0.5,
       readingTendency: 0.5,
       resilience: 0.5, // v10.6.0: Brief Resilience Scale (Smith et al., 2008)
+      // New traits (v15.0.0)
+      informationForaging: 0.5,
+      changeBlindness: 0.3,
+      anchoringBias: 0.5,
+      timeHorizon: 0.5,
+      attributionStyle: 0.5,
+      metacognitivePlanning: 0.5,
+      proceduralFluency: 0.5,
+      transferLearning: 0.5,
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.5,
+      fearOfMissingOut: 0.5,
+      socialProofSensitivity: 0.5,
+      mentalModelRigidity: 0.5,
     },
     attentionPattern,
     decisionStyle,
@@ -664,6 +789,20 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       satisficing: 0.3,       // Low - knows quality, seeks optimal (Simon)
       trustCalibration: 0.7,  // High - trusts tech but verifies (Fogg)
       interruptRecovery: 0.85, // High - uses env cues, resumes fast (Mark)
+      // New traits (v15.0.0)
+      informationForaging: 0.9,   // High - follows scent efficiently
+      changeBlindness: 0.2,       // Low - notices UI changes
+      anchoringBias: 0.3,         // Low - compares options freely
+      timeHorizon: 0.3,           // Long-term - invests in learning
+      attributionStyle: 0.2,      // Blames system - "this is broken"
+      metacognitivePlanning: 0.8, // High - plans before acting
+      proceduralFluency: 0.9,     // High - follows procedures easily
+      transferLearning: 0.95,     // High - applies knowledge across UIs
+      authoritySensitivity: 0.3,  // Low - questions authority, verifies
+      emotionalContagion: 0.2,    // Low - mood-stable
+      fearOfMissingOut: 0.2,      // Low - not swayed by urgency
+      socialProofSensitivity: 0.3, // Low - evaluates on merits
+      mentalModelRigidity: 0.8,   // High - adapts to new patterns
     },
     context: {
       viewport: [1920, 1080],
@@ -724,6 +863,20 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       satisficing: 0.5,       // Medium - unsure what's "good enough" (Simon)
       trustCalibration: 0.4,  // Low - skeptical, unsure what to trust (Fogg)
       interruptRecovery: 0.35, // Low - easily loses place, restarts (Mark)
+      // New traits (v15.0.0)
+      informationForaging: 0.3,   // Low - exhaustive search, clicks everything
+      changeBlindness: 0.6,       // High - misses peripheral changes
+      anchoringBias: 0.7,         // High - anchored to first information
+      timeHorizon: 0.7,           // Short-term - wants quick results
+      attributionStyle: 0.7,      // Self-blaming - "I must be doing it wrong"
+      metacognitivePlanning: 0.3, // Low - trial-and-error approach
+      proceduralFluency: 0.35,    // Low - struggles with multi-step flows
+      transferLearning: 0.2,      // Low - each interface feels new
+      authoritySensitivity: 0.8,  // High - trusts official-looking cues
+      emotionalContagion: 0.7,    // High - influenced by UI tone
+      fearOfMissingOut: 0.6,      // Medium-high - susceptible to urgency
+      socialProofSensitivity: 0.8, // High - relies heavily on reviews
+      mentalModelRigidity: 0.3,   // Low - struggles when patterns break
     },
     context: {
       viewport: [1280, 800],
@@ -784,6 +937,20 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       satisficing: 0.8,       // High - mobile context demands quick decisions (Simon)
       trustCalibration: 0.6,  // Medium - quick decisions, moderate trust (Fogg)
       interruptRecovery: 0.45, // Low-Med - constant phone interruptions (Mark)
+      // New traits (v15.0.0)
+      informationForaging: 0.7,   // High - efficient mobile navigation
+      changeBlindness: 0.5,       // Medium - small screen limits peripheral
+      anchoringBias: 0.5,         // Medium
+      timeHorizon: 0.8,           // Very short-term - mobile is quick tasks
+      attributionStyle: 0.4,      // Medium - blames small screen/touch
+      metacognitivePlanning: 0.4, // Low-medium - quick decisions
+      proceduralFluency: 0.6,     // Medium - knows mobile patterns
+      transferLearning: 0.7,      // High - mobile UI conventions
+      authoritySensitivity: 0.5,  // Medium
+      emotionalContagion: 0.5,    // Medium
+      fearOfMissingOut: 0.7,      // High - push notifications, urgency
+      socialProofSensitivity: 0.6, // Medium-high - app store ratings
+      mentalModelRigidity: 0.6,   // Medium - adapts to mobile patterns
     },
     context: {
       viewport: [375, 812], // iPhone X dimensions
@@ -844,6 +1011,20 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       satisficing: 0.6,       // Medium - relies on structured review content (Simon)
       trustCalibration: 0.5,  // Medium - cautious from past a11y failures (Fogg)
       interruptRecovery: 0.75, // High - strong mental model aids recovery (Mark)
+      // New traits (v15.0.0)
+      informationForaging: 0.7,   // High - sequential but efficient with landmarks
+      changeBlindness: 0.3,       // Low - ARIA live regions announce changes
+      anchoringBias: 0.4,         // Medium - sequential exposure to info
+      timeHorizon: 0.3,           // Long-term - patient, thorough
+      attributionStyle: 0.4,      // Medium - blames inaccessible design
+      metacognitivePlanning: 0.85, // Very high - plans navigation carefully
+      proceduralFluency: 0.8,     // High - follows heading structure
+      transferLearning: 0.75,     // High - knows a11y patterns across sites
+      authoritySensitivity: 0.5,  // Medium - verifies with screen reader
+      emotionalContagion: 0.3,    // Low - focused on structure, not tone
+      fearOfMissingOut: 0.2,      // Low - methodical, not impulsive
+      socialProofSensitivity: 0.5, // Medium - reviews are accessible info
+      mentalModelRigidity: 0.6,   // Medium - adapts but needs time
     },
     context: {
       viewport: [1280, 800],
@@ -904,6 +1085,20 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       satisficing: 0.7,       // High - values simplicity over optimization (Simon)
       trustCalibration: 0.25, // Very low - skeptical of online requests (Fogg)
       interruptRecovery: 0.3,  // Low - difficulty resuming, forgets context (Mark)
+      // New traits (v15.0.0)
+      informationForaging: 0.25,  // Very low - exhaustive, uncertain search
+      changeBlindness: 0.7,       // High - misses UI updates and changes
+      anchoringBias: 0.8,         // High - sticks to first information
+      timeHorizon: 0.4,           // Medium - patient but unsure of value
+      attributionStyle: 0.85,     // Very high - blames self for all errors
+      metacognitivePlanning: 0.25, // Low - doesn't know what to plan for
+      proceduralFluency: 0.3,     // Low - struggles with multi-step processes
+      transferLearning: 0.2,      // Low - each new site is confusing
+      authoritySensitivity: 0.85, // Very high - trusts official-looking things
+      emotionalContagion: 0.6,    // Medium-high - affected by stern warnings
+      fearOfMissingOut: 0.3,      // Low - not driven by urgency, confused by it
+      socialProofSensitivity: 0.7, // High - relies on grandchildren's recommendations
+      mentalModelRigidity: 0.2,   // Very low - rigid, struggles with novel UIs
     },
     context: {
       viewport: [1280, 800],
@@ -964,6 +1159,20 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       satisficing: 0.9,       // Very high - definition of satisficing (Simon)
       trustCalibration: 0.7,  // High - clicks through without reading (Fogg)
       interruptRecovery: 0.2,  // Very low - abandons rather than resumes (Mark)
+      // New traits (v15.0.0)
+      informationForaging: 0.9,   // Very high - follows first scent, moves on
+      changeBlindness: 0.5,       // Medium - focused on task
+      anchoringBias: 0.6,         // Medium-high - goes with first option
+      timeHorizon: 0.95,          // Maximum short-term - no time for later
+      attributionStyle: 0.3,      // Low - blames slow site
+      metacognitivePlanning: 0.1, // Very low - no planning, just clicking
+      proceduralFluency: 0.5,     // Medium - can follow if fast
+      transferLearning: 0.7,      // High - recognizes patterns quickly
+      authoritySensitivity: 0.4,  // Medium - only if it speeds things up
+      emotionalContagion: 0.4,    // Medium - focused on goal, not tone
+      fearOfMissingOut: 0.9,      // Very high - urgency works on them
+      socialProofSensitivity: 0.5, // Medium - if it's quick to evaluate
+      mentalModelRigidity: 0.7,   // High - adapts quickly, expects conventions
     },
     context: {
       viewport: [1280, 800],
@@ -1088,6 +1297,28 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       trustCalibration: 0.5,
       // Research: Motor issues make resumption harder but adaptation helps (Mark)
       interruptRecovery: 0.4,
+      // New traits (v15.0.0)
+      patience: 0.6,
+      riskTolerance: 0.4,
+      comprehension: 0.7,
+      persistence: 0.7,
+      curiosity: 0.4,
+      workingMemory: 0.7,
+      readingTendency: 0.6,
+      resilience: 0.6,
+      informationForaging: 0.5,
+      changeBlindness: 0.4,
+      anchoringBias: 0.5,
+      timeHorizon: 0.4,           // Patient due to motor constraints
+      attributionStyle: 0.4,      // Blames physical constraints, not self
+      metacognitivePlanning: 0.7, // Plans to avoid difficult interactions
+      proceduralFluency: 0.6,
+      transferLearning: 0.6,
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.4,
+      fearOfMissingOut: 0.3,      // Not swayed, focused on completing
+      socialProofSensitivity: 0.5,
+      mentalModelRigidity: 0.5,
     },
   },
 
@@ -1156,6 +1387,28 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       trustCalibration: 0.4,
       // Research: Limited visible area makes context recovery harder (Mark)
       interruptRecovery: 0.35,
+      // New traits (v15.0.0)
+      patience: 0.7,
+      riskTolerance: 0.3,
+      comprehension: 0.6,
+      persistence: 0.7,
+      curiosity: 0.3,
+      workingMemory: 0.6,
+      readingTendency: 0.8,       // Reads carefully when visible
+      resilience: 0.5,
+      informationForaging: 0.4,   // Limited by zoom - systematic search
+      changeBlindness: 0.8,       // Very high - can't see peripheral
+      anchoringBias: 0.6,         // Anchored due to limited comparison
+      timeHorizon: 0.4,           // Patient, knows it takes time
+      attributionStyle: 0.5,      // Balanced - knows about limitations
+      metacognitivePlanning: 0.7, // Plans navigation with zoom
+      proceduralFluency: 0.5,     // Harder with limited view
+      transferLearning: 0.5,      // Standard
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.4,
+      fearOfMissingOut: 0.3,      // Not swayed - focused
+      socialProofSensitivity: 0.5,
+      mentalModelRigidity: 0.4,   // Adapts but needs time
     },
   },
 
@@ -1222,6 +1475,21 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       satisficing: 0.85, // High - ADHD drives "good enough" decisions (Simon)
       trustCalibration: 0.65, // Medium-high - impulsive clicks without reading (Fogg)
       interruptRecovery: 0.2, // Very low - WM deficits make recovery difficult (Mark)
+      // New traits (v15.0.0)
+      comprehension: 0.5,
+      informationForaging: 0.6,   // Follows interesting scents, not systematic
+      changeBlindness: 0.7,       // High - focus elsewhere when changes happen
+      anchoringBias: 0.4,         // Lower - novelty-seeking overrides anchoring
+      timeHorizon: 0.9,           // Very short-term - immediate gratification
+      attributionStyle: 0.6,      // Slightly self-blaming
+      metacognitivePlanning: 0.15, // Very low - impulsive, no planning
+      proceduralFluency: 0.3,     // Low - struggles with sequences
+      transferLearning: 0.6,      // Medium - recognizes patterns when focused
+      authoritySensitivity: 0.4,  // Low - impulsive, ignores authority
+      emotionalContagion: 0.6,    // Medium-high - emotional variability
+      fearOfMissingOut: 0.85,     // Very high - ADHD correlates with FOMO
+      socialProofSensitivity: 0.5, // Medium - if interesting
+      mentalModelRigidity: 0.7,   // High - adapts easily, novelty-seeking
     },
   },
 
@@ -1286,6 +1554,23 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       satisficing: 0.6, // Medium - avoids text-heavy paths (Simon)
       trustCalibration: 0.5, // Medium - standard trust evaluation (Fogg)
       interruptRecovery: 0.55, // Medium - visual cues help, text harder (Mark)
+      // New traits (v15.0.0)
+      riskTolerance: 0.5,
+      comprehension: 0.5,      // Comprehension fine for visuals
+      persistence: 0.6,
+      informationForaging: 0.5, // Standard - prefers visual cues
+      changeBlindness: 0.4,     // Lower - visual learner
+      anchoringBias: 0.5,
+      timeHorizon: 0.5,
+      attributionStyle: 0.5,
+      metacognitivePlanning: 0.5,
+      proceduralFluency: 0.5,   // Fine with visual instructions
+      transferLearning: 0.6,    // Recognizes visual patterns
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.5,
+      fearOfMissingOut: 0.5,
+      socialProofSensitivity: 0.6, // Relies on visual reviews
+      mentalModelRigidity: 0.6,   // Good adaptation
     },
   },
 
@@ -1347,6 +1632,24 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       satisficing: 0.55, // Medium - seeks captioned/text content (Simon)
       trustCalibration: 0.55, // Medium - standard visual trust evaluation (Fogg)
       interruptRecovery: 0.65, // Medium-high - visual cues assist recovery (Mark)
+      // New traits (v15.0.0)
+      comprehension: 0.7,
+      persistence: 0.7,
+      curiosity: 0.5,
+      workingMemory: 0.7,
+      informationForaging: 0.6, // Good visual navigation
+      changeBlindness: 0.2,     // Very low - visually attentive
+      anchoringBias: 0.5,
+      timeHorizon: 0.5,
+      attributionStyle: 0.4,    // Blames lack of captions
+      metacognitivePlanning: 0.6, // Plans for captioned content
+      proceduralFluency: 0.7,   // Good with visual instructions
+      transferLearning: 0.7,    // Recognizes visual patterns
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.4,  // Less affected by audio tone
+      fearOfMissingOut: 0.4,
+      socialProofSensitivity: 0.6, // Visual reviews/ratings
+      mentalModelRigidity: 0.65,  // Good visual adaptation
     },
   },
 
@@ -1419,6 +1722,21 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       satisficing: 0.75, // High - avoids complex decision trees (Simon)
       trustCalibration: 0.2, // Very low - very skeptical of online requests (Fogg)
       interruptRecovery: 0.25, // Very low - WM + vision decline makes recovery hard (Mark)
+      // New traits (v15.0.0)
+      readingTendency: 0.85,
+      informationForaging: 0.2,   // Very low - exhaustive, uncertain
+      changeBlindness: 0.75,      // High - vision issues
+      anchoringBias: 0.8,         // High - sticks to first info
+      timeHorizon: 0.4,           // Medium - patient but unsure
+      attributionStyle: 0.9,      // Very high - blames self
+      metacognitivePlanning: 0.2, // Low - doesn't know what to plan
+      proceduralFluency: 0.25,    // Low - struggles with sequences
+      transferLearning: 0.15,     // Very low - each UI is confusing
+      authoritySensitivity: 0.85, // Very high - trusts official things
+      emotionalContagion: 0.6,    // Medium-high
+      fearOfMissingOut: 0.25,     // Low - not driven by urgency
+      socialProofSensitivity: 0.7, // High - relies on family advice
+      mentalModelRigidity: 0.15,  // Very low - rigid, struggles
     },
   },
 
@@ -1483,6 +1801,24 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       satisficing: 0.5, // Medium - needs extra verification (Simon)
       trustCalibration: 0.55, // Medium - cautious with color-coded security indicators (Fogg)
       interruptRecovery: 0.6, // Medium-high - good adaptation, unaffected cognition (Mark)
+      // New traits (v15.0.0)
+      comprehension: 0.7,
+      curiosity: 0.5,
+      workingMemory: 0.7,
+      readingTendency: 0.7,     // Relies on text labels
+      informationForaging: 0.6, // Good - unaffected cognition
+      changeBlindness: 0.45,    // Medium - misses color-only changes
+      anchoringBias: 0.5,
+      timeHorizon: 0.5,
+      attributionStyle: 0.3,    // Blames poor design, not self
+      metacognitivePlanning: 0.6, // Plans for color verification
+      proceduralFluency: 0.7,   // Good with non-color cues
+      transferLearning: 0.7,    // Recognizes non-color patterns
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.5,
+      fearOfMissingOut: 0.4,
+      socialProofSensitivity: 0.5,
+      mentalModelRigidity: 0.65,  // Adapts with workarounds
     },
   },
 };
@@ -1574,6 +1910,20 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       satisficing: 0.4,       // Low-medium - wants certainty
       trustCalibration: 0.3,  // Low - skeptical and worried
       interruptRecovery: 0.3, // Low - anxiety compounds on interruption
+      // New traits (v15.0.0)
+      informationForaging: 0.4,   // Low - overthinks each path
+      changeBlindness: 0.3,       // Low - hypervigilant, notices changes
+      anchoringBias: 0.7,         // High - sticks to first safe option
+      timeHorizon: 0.3,           // Long-term - worries about consequences
+      attributionStyle: 0.8,      // Very high - blames self for everything
+      metacognitivePlanning: 0.6, // Medium-high - plans to avoid anxiety
+      proceduralFluency: 0.5,     // Medium - follows carefully
+      transferLearning: 0.5,      // Medium
+      authoritySensitivity: 0.7,  // High - seeks reassurance from authority
+      emotionalContagion: 0.8,    // Very high - absorbs UI emotional tone
+      fearOfMissingOut: 0.6,      // Medium-high - anxiety about missing out
+      socialProofSensitivity: 0.7, // High - seeks validation from others
+      mentalModelRigidity: 0.4,   // Low-medium - struggles with unexpected
     },
     context: {
       viewport: [1280, 800],
@@ -1638,6 +1988,20 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       satisficing: 0.5,       // Medium - balances speed and quality
       trustCalibration: 0.7,  // High - appropriate trust
       interruptRecovery: 0.8, // High - resumes easily
+      // New traits (v15.0.0)
+      informationForaging: 0.8,   // High - efficient scent-following
+      changeBlindness: 0.3,       // Low - notices changes
+      anchoringBias: 0.3,         // Low - evaluates options freely
+      timeHorizon: 0.4,           // Medium-long - thinks ahead
+      attributionStyle: 0.2,      // Low - blames system issues
+      metacognitivePlanning: 0.7, // High - plans efficiently
+      proceduralFluency: 0.8,     // High - follows procedures well
+      transferLearning: 0.85,     // High - applies knowledge
+      authoritySensitivity: 0.4,  // Low-medium - independent judgment
+      emotionalContagion: 0.2,    // Low - emotionally stable
+      fearOfMissingOut: 0.3,      // Low - not swayed by urgency
+      socialProofSensitivity: 0.4, // Low-medium - evaluates on merits
+      mentalModelRigidity: 0.8,   // High - adapts easily
     },
     context: {
       viewport: [1920, 1080],
@@ -1702,6 +2066,20 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       satisficing: 0.6,       // Medium-high - wants quick resolution
       trustCalibration: 0.5,  // Medium - emotional judgment
       interruptRecovery: 0.35, // Low - emotional state persists
+      // New traits (v15.0.0)
+      informationForaging: 0.5,   // Medium - mood dependent
+      changeBlindness: 0.5,       // Medium - emotions distract
+      anchoringBias: 0.6,         // Medium-high - first impressions stick
+      timeHorizon: 0.7,           // Short-term - emotional decisions
+      attributionStyle: 0.5,      // Medium - variable based on mood
+      metacognitivePlanning: 0.3, // Low - emotional impulsivity
+      proceduralFluency: 0.45,    // Medium - emotions interfere
+      transferLearning: 0.5,      // Medium
+      authoritySensitivity: 0.5,  // Medium - mood dependent
+      emotionalContagion: 0.9,    // Maximum - highly influenced by UI tone
+      fearOfMissingOut: 0.75,     // High - emotional FOMO
+      socialProofSensitivity: 0.7, // High - seeks emotional validation
+      mentalModelRigidity: 0.5,   // Medium
     },
     context: {
       viewport: [1280, 800],
@@ -1766,6 +2144,20 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       satisficing: 0.4,       // Low - willing to be thorough
       trustCalibration: 0.6,  // Medium-high - rational evaluation
       interruptRecovery: 0.8, // High - returns to task easily
+      // New traits (v15.0.0)
+      informationForaging: 0.6,   // Medium-high - methodical
+      changeBlindness: 0.3,       // Low - attentive, focused
+      anchoringBias: 0.3,         // Low - evaluates all options
+      timeHorizon: 0.2,           // Very long-term - patient deliberation
+      attributionStyle: 0.4,      // Medium - balanced evaluation
+      metacognitivePlanning: 0.8, // High - plans carefully
+      proceduralFluency: 0.8,     // High - follows procedures precisely
+      transferLearning: 0.7,      // High - applies experience
+      authoritySensitivity: 0.4,  // Low-medium - independent judgment
+      emotionalContagion: 0.1,    // Minimum - emotionally unaffected
+      fearOfMissingOut: 0.1,      // Minimum - not driven by urgency
+      socialProofSensitivity: 0.3, // Low - evaluates independently
+      mentalModelRigidity: 0.7,   // High - adapts methodically
     },
     context: {
       viewport: [1280, 800],

@@ -6,6 +6,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [15.0.0](https://github.com/alexandriashai/cbrowser/compare/v14.6.0...v15.0.0) (2026-02-08)
+
+### Added
+
+* **cognitive:** 13 new research-backed cognitive traits for enhanced persona simulation
+  - `informationForaging` - Pirolli & Card (1999) - Information scent following
+  - `changeBlindness` - Simons & Chabris (1999) - Inattentional blindness
+  - `anchoringBias` - Tversky & Kahneman (1974) - First-information weighting
+  - `timeHorizon` - Frederick et al. (2002) - Immediate vs. delayed gratification
+  - `attributionStyle` - Weiner (1985) - Self vs. system blame for errors
+  - `metacognitivePlanning` - Flavell (1979) - Planning before acting
+  - `proceduralFluency` - Sweller (1988) - Following step-by-step instructions
+  - `transferLearning` - Barnett & Ceci (2002) - Applying knowledge across UIs
+  - `authoritySensitivity` - Milgram (1963), Cialdini (2001) - Authority compliance
+  - `emotionalContagion` - Hatfield et al. (1993) - Mood influence from UI
+  - `fearOfMissingOut` - Przybylski et al. (2013) - FOMO-driven decisions
+  - `socialProofSensitivity` - Cialdini (2001) - Review/rating influence
+  - `mentalModelRigidity` - Johnson-Laird (1983), Norman (1988) - UI pattern adaptation
+
+* **personas:** All 19 built-in personas updated with complete trait coverage
+  - 6 BUILTIN_PERSONAS (power-user, first-timer, mobile-user, screen-reader-user, elderly-user, impatient-user)
+  - 7 ACCESSIBILITY_PERSONAS (motor-tremor, low-vision, adhd, dyslexic, deaf, elderly-low-vision, color-blind)
+  - 4 EMOTIONAL_PERSONAS (anxious-user, confident-user, emotional-user, stoic-user)
+  - Dynamic persona generation from descriptions includes all 25 traits
+
+### Changed
+
+* **BREAKING:** CognitiveTraits interface expanded from 12 to 25 optional traits
+  - Existing code continues to work (all new traits are optional)
+  - Upgrade path: Add new trait values to custom personas for full simulation fidelity
+
+### Closed
+
+* Closes #59 (mentalModelRigidity)
+* Closes #61 (socialProofSensitivity)
+* Closes #62 (fearOfMissingOut)
+* Closes #64 (emotionalContagion)
+* Closes #65 (authoritySensitivity)
+* Closes #66 (transferLearning)
+* Closes #68 (proceduralFluency)
+* Closes #69 (metacognitivePlanning)
+* Closes #70 (attributionStyle)
+* Closes #72 (timeHorizon)
+* Closes #74 (anchoringBias)
+* Closes #76 (changeBlindness)
+* Closes #80 (informationForaging)
+
 ## [14.6.0](https://github.com/alexandriashai/cbrowser/compare/v14.4.1...v14.6.0) (2026-02-08)
 
 ### Added
