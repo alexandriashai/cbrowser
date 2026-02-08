@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [13.0.1](https://github.com/alexandriashai/cbrowser/compare/v13.0.0...v13.0.1) (2026-02-08)
+
+### Fixed
+
+* **license:** reference v8.6.0 when BSL-1.1 was first adopted ([662a949](https://github.com/alexandriashai/cbrowser/commit/662a94992c89ea0fb1320350b003dc6cfd9190fa))
+
 ## [13.0.0](https://github.com/alexandriashai/cbrowser/compare/v11.10.7...v13.0.0) (2026-02-08)
 
 ### ⚠ BREAKING CHANGES
