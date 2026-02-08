@@ -108,8 +108,21 @@ import {
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
 
+// Stealth/Enterprise loader (v16.2.0)
+import {
+  getEnforcer,
+  isEnterpriseAvailable,
+  getEnterpriseVersion,
+  type IConstitutionalEnforcer,
+  type StealthConfig,
+} from "./stealth/index.js";
+
 // Shared browser instance
 let browser: CBrowser | null = null;
+
+// Stealth state (enterprise integration)
+let stealthEnforcer: IConstitutionalEnforcer | null = null;
+let stealthConfig: Partial<StealthConfig> | null = null;
 
 async function getBrowser(): Promise<CBrowser> {
   if (!browser) {
@@ -117,6 +130,14 @@ async function getBrowser(): Promise<CBrowser> {
       headless: true,
       persistent: true,
     });
+
+    // If stealth is enabled and we have an enforcer, apply to new pages
+    if (stealthEnforcer && stealthConfig?.enabled) {
+      const page = await browser.getPage();
+      if (page) {
+        await stealthEnforcer.applyStealthMeasures(page);
+      }
+    }
   }
   return browser;
 }
@@ -2104,6 +2125,192 @@ Begin the simulation now. Narrate your thoughts as this persona.
             text: JSON.stringify({
               success: true,
               message: "Browser reset to clean state and relaunched",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // ============================================================================
+  // STEALTH/ENTERPRISE TOOLS (v16.2.0)
+  // These tools interface with cbrowser-enterprise when installed
+  // ============================================================================
+
+  server.tool(
+    "stealth_status",
+    "Check if CBrowser Enterprise is installed and show stealth capabilities. Enterprise provides constitutional stealth mode for authorized testing.",
+    {},
+    async () => {
+      const available = await isEnterpriseAvailable();
+      const version = getEnterpriseVersion();
+      const enabled = stealthConfig?.enabled ?? false;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              enterprise_available: available,
+              enterprise_version: version,
+              stealth_enabled: enabled,
+              stealth_config: enabled ? {
+                authorized_domains: stealthConfig?.authorization?.authorizedDomains ?? [],
+                blocked_domains: stealthConfig?.authorization?.blockedDomains ?? [],
+              } : null,
+              message: available
+                ? `Enterprise v${version} available. Stealth ${enabled ? "enabled" : "disabled"}.`
+                : "Enterprise not installed. Install cbrowser-enterprise for stealth capabilities.",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "stealth_enable",
+    "Enable constitutional stealth mode for authorized domains. Requires cbrowser-enterprise. You must have authorization to test on the specified domains.",
+    {
+      authorized_domains: z.array(z.string()).describe("Domains you are authorized to test (e.g., ['*.mycompany.com', 'staging.example.com'])"),
+      signed_by: z.string().describe("Your email or identifier confirming authorization"),
+    },
+    async ({ authorized_domains, signed_by }) => {
+      const available = await isEnterpriseAvailable();
+
+      if (!available) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: false,
+                error: "Enterprise not installed",
+                message: "Stealth mode requires cbrowser-enterprise. Contact alexandria.shai.eden@gmail.com for access.",
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      // Create stealth config with acknowledgment
+      stealthConfig = {
+        enabled: true,
+        authorization: {
+          authorizedDomains: authorized_domains,
+          blockedDomains: [],
+          requireExplicitAuth: true,
+        },
+        acknowledgment: {
+          ownershipConfirmed: true,
+          authorizedTestingOnly: true,
+          acceptsResponsibility: true,
+          signedBy: signed_by,
+          signedAt: new Date().toISOString(),
+        },
+        rateLimits: {
+          requestsPerMinute: 30,
+          formsPerMinute: 5,
+          authAttemptsPerMinute: 3,
+        },
+      };
+
+      // Get enforcer with config
+      stealthEnforcer = await getEnforcer(stealthConfig);
+
+      // Reset browser to apply stealth to new pages
+      if (browser) {
+        await browser.close();
+        browser = null;
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              message: "Stealth mode enabled",
+              authorized_domains,
+              signed_by,
+              signed_at: stealthConfig.acknowledgment?.signedAt,
+              rate_limits: stealthConfig.rateLimits,
+              note: "Stealth measures will be applied to all new pages on authorized domains.",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "stealth_check",
+    "Check if a stealth action is allowed on a specific URL. Returns whether the action can proceed and any restrictions.",
+    {
+      action: z.string().describe("Action to check (e.g., 'navigate', 'click', 'fill', 'submit')"),
+      url: z.string().url().describe("URL where the action would occur"),
+    },
+    async ({ action, url }) => {
+      if (!stealthEnforcer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                allowed: false,
+                reason: "Stealth not enabled",
+                suggestion: "Use stealth_enable to configure authorized domains first.",
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      const check = await stealthEnforcer.canExecuteWithStealth(action, url);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              allowed: check.allowed,
+              zone: check.zone,
+              reason: check.reason,
+              suggestion: check.suggestion,
+              requires_confirmation: check.requiresConfirmation ?? false,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "stealth_disable",
+    "Disable stealth mode and clear the enforcer. Browser will revert to normal operation.",
+    {},
+    async () => {
+      const wasEnabled = stealthConfig?.enabled ?? false;
+
+      stealthEnforcer = null;
+      stealthConfig = null;
+
+      // Reset browser
+      if (browser) {
+        await browser.close();
+        browser = null;
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              was_enabled: wasEnabled,
+              message: wasEnabled
+                ? "Stealth mode disabled. Browser reset to normal operation."
+                : "Stealth was not enabled.",
             }, null, 2),
           },
         ],

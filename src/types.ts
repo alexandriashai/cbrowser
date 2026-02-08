@@ -4735,4 +4735,6 @@ export interface IConstitutionalEnforcer {
   getRateLimitStatus(): { remaining: number; resetsAt: Date };
   /** Validate acknowledgment */
   validateAcknowledgment(ack: StealthAcknowledgment): boolean;
+  /** Apply stealth measures to a page (implemented by enterprise) */
+  applyStealthMeasures(page: unknown): Promise<void>;
 }
