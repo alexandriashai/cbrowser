@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.7.0](https://github.com/alexandriashai/cbrowser/compare/v11.6.3...v11.7.0) (2026-02-08)
+
+### Added
+
+* **mcp:** add step-level statistics to NL test responses ([2cb2f3c](https://github.com/alexandriashai/cbrowser/commit/2cb2f3c3ead4c3edb04d47f039fc5b2145ea4d07))
+
 ## [11.6.3](https://github.com/alexandriashai/cbrowser/compare/v11.6.2...v11.6.3) (2026-02-08)
 
 ### Fixed
