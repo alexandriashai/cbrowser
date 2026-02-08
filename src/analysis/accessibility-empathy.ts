@@ -693,6 +693,19 @@ function getDisabilityType(persona: AccessibilityPersona): string {
   return "General accessibility";
 }
 
+/**
+ * v11.10.0: Improved scoring with deduplication and capped deductions (issue #86)
+ *
+ * Previous issues:
+ * - 10 small touch targets = -30 to -200 points (too harsh)
+ * - Same barrier type detected per-element caused score collapse
+ * - goalAchieved=false added -20 even when navigation was possible
+ *
+ * New approach:
+ * - Group barriers by type, cap deduction per type
+ * - Scale by unique issues, not total element count
+ * - Base score on accessibility, not just barrier count
+ */
 function calculateEmpathyScore(
   barriers: AccessibilityBarrier[],
   frictionPoints: AccessibilityFrictionPoint[],
@@ -700,26 +713,50 @@ function calculateEmpathyScore(
 ): number {
   let score = 100;
 
-  // Deduct for barriers
+  // v11.10.0: Group barriers by type to avoid over-penalizing repeated issues
+  const barriersByType = new Map<AccessibilityBarrierType, AccessibilityBarrier[]>();
   for (const barrier of barriers) {
-    switch (barrier.severity) {
-      case "critical": score -= 20; break;
-      case "major": score -= 10; break;
-      case "minor": score -= 3; break;
-    }
+    const existing = barriersByType.get(barrier.type) || [];
+    existing.push(barrier);
+    barriersByType.set(barrier.type, existing);
   }
 
-  // Deduct for friction points
+  // Deduct per barrier TYPE with caps
+  // Max deduction per type: critical=25, major=15, minor=8
+  for (const [type, typeBarriers] of barriersByType) {
+    const criticalCount = typeBarriers.filter(b => b.severity === "critical").length;
+    const majorCount = typeBarriers.filter(b => b.severity === "major").length;
+    const minorCount = typeBarriers.filter(b => b.severity === "minor").length;
+
+    // Diminishing returns: first instance costs most, subsequent less
+    const criticalDeduct = Math.min(25, criticalCount > 0 ? 15 + Math.min(criticalCount - 1, 2) * 5 : 0);
+    const majorDeduct = Math.min(15, majorCount > 0 ? 8 + Math.min(majorCount - 1, 2) * 3 : 0);
+    const minorDeduct = Math.min(8, minorCount > 0 ? 3 + Math.min(minorCount - 1, 3) * 1.5 : 0);
+
+    score -= criticalDeduct + majorDeduct + minorDeduct;
+  }
+
+  // Deduct for friction points (capped at 25 total)
+  let frictionDeduct = 0;
   for (const fp of frictionPoints) {
     switch (fp.impact) {
-      case "high": score -= 15; break;
-      case "medium": score -= 8; break;
-      case "low": score -= 3; break;
+      case "high": frictionDeduct += 8; break;
+      case "medium": frictionDeduct += 4; break;
+      case "low": frictionDeduct += 2; break;
     }
   }
+  score -= Math.min(25, frictionDeduct);
 
-  // Bonus for goal achievement
-  if (!goalAchieved) score -= 20;
+  // Goal achievement affects score but doesn't zero it
+  // v11.10.0: Reduced penalty, page can still be partially accessible
+  if (!goalAchieved) score -= 15;
+
+  // Ensure minimum score of 10 if there are any working elements
+  // A page with issues is still more accessible than a blank/broken page
+  const hasWorkingElements = barriers.some(b => b.severity === "minor");
+  if (hasWorkingElements && score < 10) {
+    score = 10;
+  }
 
   return Math.max(0, Math.round(score));
 }
@@ -1174,6 +1211,63 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
 }
 
 // ============================================================================
+// Barrier Deduplication
+// ============================================================================
+
+/**
+ * v11.10.0: Deduplicate barriers by element+type, combine affected personas (issue #86)
+ *
+ * When multiple personas encounter the same barrier (e.g., small touch target),
+ * we want ONE barrier entry with all affected personas listed, not N duplicate entries.
+ */
+function deduplicateBarriers(
+  allBarriers: AccessibilityBarrier[],
+  results: AccessibilityEmpathyResult[]
+): AccessibilityBarrier[] {
+  // Create a map keyed by element+type+description
+  const barrierMap = new Map<string, AccessibilityBarrier>();
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const personaName = result.persona;
+
+    for (const barrier of result.barriers) {
+      // Create unique key for this barrier type on this element
+      const key = `${barrier.type}|${barrier.element}|${barrier.description.slice(0, 50)}`;
+
+      if (barrierMap.has(key)) {
+        // Add persona to existing barrier if not already included
+        const existing = barrierMap.get(key)!;
+        if (!existing.affectedPersonas.includes(personaName)) {
+          existing.affectedPersonas.push(personaName);
+        }
+        // Keep the highest severity
+        const severityOrder = { critical: 3, major: 2, minor: 1 };
+        if (severityOrder[barrier.severity] > severityOrder[existing.severity]) {
+          existing.severity = barrier.severity;
+        }
+      } else {
+        // New barrier - clone it with this persona
+        barrierMap.set(key, {
+          ...barrier,
+          affectedPersonas: [personaName],
+        });
+      }
+    }
+  }
+
+  // Also process barriers from allBarriers that may not have persona context
+  for (const barrier of allBarriers) {
+    const key = `${barrier.type}|${barrier.element}|${barrier.description.slice(0, 50)}`;
+    if (!barrierMap.has(key)) {
+      barrierMap.set(key, { ...barrier });
+    }
+  }
+
+  return Array.from(barrierMap.values());
+}
+
+// ============================================================================
 // Main Empathy Audit Function
 // ============================================================================
 
@@ -1269,8 +1363,11 @@ export async function runEmpathyAudit(
     return !criteria || levelOrder[criteria.level] <= maxLevel;
   });
 
-  // Generate combined remediation
-  const combinedRemediation = generateRemediationPriority(allBarriers);
+  // v11.10.0: Deduplicate barriers by element+type, list affected personas (issue #86)
+  const deduplicatedBarriers = deduplicateBarriers(allBarriers, results);
+
+  // Generate combined remediation from deduplicated barriers
+  const combinedRemediation = generateRemediationPriority(deduplicatedBarriers);
 
   // Calculate overall score
   const overallScore = results.length > 0
