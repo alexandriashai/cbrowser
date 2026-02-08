@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.1.0](https://github.com/alexandriashai/cbrowser/compare/v16.0.0...v16.1.0) (2026-02-08)
+
+### Added
+
+* **personas:** add comprehensive trait reference matrix (v15.0.0) ([ce58f58](https://github.com/alexandriashai/cbrowser/commit/ce58f5867a39e847a74a5d1fe62b9cc261068dbf))
+
 ## [16.0.0](https://github.com/alexandriashai/cbrowser/compare/v14.6.0...v16.0.0) (2026-02-08)
 
 ### ⚠ BREAKING CHANGES
