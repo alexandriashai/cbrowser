@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.0.0](https://github.com/alexandriashai/cbrowser/compare/v14.6.0...v16.0.0) (2026-02-08)
+
+### ⚠ BREAKING CHANGES
+
+* **cognitive:** CognitiveTraits interface expanded from 12 to 25 traits
+
+New traits with research basis:
+- informationForaging (Pirolli & Card 1999)
+- changeBlindness (Simons & Chabris 1999)
+- anchoringBias (Tversky & Kahneman 1974)
+- timeHorizon (Frederick et al. 2002)
+- attributionStyle (Weiner 1985)
+- metacognitivePlanning (Flavell 1979)
+- proceduralFluency (Sweller 1988)
+- transferLearning (Barnett & Ceci 2002)
+- authoritySensitivity (Milgram 1963, Cialdini 2001)
+- emotionalContagion (Hatfield et al. 1993)
+- fearOfMissingOut (Przybylski et al. 2013)
+- socialProofSensitivity (Cialdini 2001)
+- mentalModelRigidity (Johnson-Laird 1983, Norman 1988)
+
+All 19 personas updated with complete 25-trait coverage.
+
+### Added
+
+* **cognitive:** add 13 new research-backed cognitive traits (v15.0.0) ([8e6c64f](https://github.com/alexandriashai/cbrowser/commit/8e6c64f750715e2e12017d55fa3ac2be29847d39)), closes [#59](https://github.com/alexandriashai/cbrowser/issues/59) [#61](https://github.com/alexandriashai/cbrowser/issues/61) [#62](https://github.com/alexandriashai/cbrowser/issues/62) [#64](https://github.com/alexandriashai/cbrowser/issues/64) [#65](https://github.com/alexandriashai/cbrowser/issues/65) [#66](https://github.com/alexandriashai/cbrowser/issues/66) [#68](https://github.com/alexandriashai/cbrowser/issues/68) [#69](https://github.com/alexandriashai/cbrowser/issues/69) [#70](https://github.com/alexandriashai/cbrowser/issues/70) [#72](https://github.com/alexandriashai/cbrowser/issues/72) [#74](https://github.com/alexandriashai/cbrowser/issues/74) [#76](https://github.com/alexandriashai/cbrowser/issues/76) [#80](https://github.com/alexandriashai/cbrowser/issues/80)
+
 ## [15.0.0](https://github.com/alexandriashai/cbrowser/compare/v14.6.0...v15.0.0) (2026-02-08)
 
 ### Added
