@@ -48,8 +48,10 @@ import type {
   DismissOverlayResult,
   SessionMetadata,
   LoadSessionResult,
+  BrowserHealthResult,
+  BrowserRecoveryResult,
 } from "./types.js";
-import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
+import { DEVICE_PRESETS, LOCATION_PRESETS, CBrowserErrorCode } from "./types.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
@@ -437,6 +439,335 @@ export class CBrowser {
     }
 
     return this.page!;
+  }
+
+  // =========================================================================
+  // Browser Crash Recovery (v11.8.0)
+  // =========================================================================
+
+  /** Maximum attempts for crash recovery */
+  private static readonly MAX_RECOVERY_ATTEMPTS = 3;
+  /** Default timeout for health check in ms */
+  private static readonly HEALTH_CHECK_TIMEOUT = 5000;
+  /** Base retry delay in ms (exponential backoff) */
+  private static readonly BASE_RETRY_DELAY = 1000;
+
+  /**
+   * Check if the browser is healthy and responsive.
+   * This performs a lightweight operation to verify the browser process is alive.
+   */
+  async isBrowserHealthy(): Promise<BrowserHealthResult> {
+    const startTime = Date.now();
+
+    // No page or context means browser needs launch, not recovery
+    if (!this.page || !this.context) {
+      return {
+        healthy: false,
+        error: CBrowserErrorCode.BROWSER_DISCONNECTED,
+        message: "Browser not launched",
+        checkDurationMs: Date.now() - startTime,
+      };
+    }
+
+    try {
+      // Check if page is closed
+      if (this.page.isClosed()) {
+        return {
+          healthy: false,
+          error: CBrowserErrorCode.BROWSER_CRASHED,
+          message: "Page is closed unexpectedly",
+          checkDurationMs: Date.now() - startTime,
+        };
+      }
+
+      // Try a simple evaluate to verify browser is responsive
+      const healthCheck = await Promise.race([
+        this.page.evaluate(() => ({
+          url: window.location.href,
+          readyState: document.readyState,
+          timestamp: Date.now(),
+        })),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error("Health check timeout")), CBrowser.HEALTH_CHECK_TIMEOUT)
+        ),
+      ]);
+
+      if (!healthCheck) {
+        return {
+          healthy: false,
+          error: CBrowserErrorCode.BROWSER_UNRESPONSIVE,
+          message: "Browser failed to respond within timeout",
+          checkDurationMs: Date.now() - startTime,
+        };
+      }
+
+      return {
+        healthy: true,
+        message: `Browser healthy, page at ${(healthCheck as { url: string }).url}`,
+        checkDurationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Detect specific crash patterns
+      if (errorMessage.includes("Target closed") || errorMessage.includes("Browser closed")) {
+        return {
+          healthy: false,
+          error: CBrowserErrorCode.BROWSER_CRASHED,
+          message: `Browser process crashed: ${errorMessage}`,
+          checkDurationMs: Date.now() - startTime,
+        };
+      }
+
+      if (errorMessage.includes("disconnected") || errorMessage.includes("Connection refused")) {
+        return {
+          healthy: false,
+          error: CBrowserErrorCode.BROWSER_DISCONNECTED,
+          message: `Browser disconnected: ${errorMessage}`,
+          checkDurationMs: Date.now() - startTime,
+        };
+      }
+
+      if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+        return {
+          healthy: false,
+          error: CBrowserErrorCode.BROWSER_UNRESPONSIVE,
+          message: `Browser unresponsive: ${errorMessage}`,
+          checkDurationMs: Date.now() - startTime,
+        };
+      }
+
+      return {
+        healthy: false,
+        error: CBrowserErrorCode.BROWSER_CRASHED,
+        message: `Browser health check failed: ${errorMessage}`,
+        checkDurationMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Attempt to recover from a browser crash by restarting the browser.
+   * Uses exponential backoff for retry attempts.
+   */
+  async recoverBrowser(options?: {
+    maxAttempts?: number;
+    restoreUrl?: string;
+  }): Promise<BrowserRecoveryResult> {
+    const startTime = Date.now();
+    const maxAttempts = options?.maxAttempts ?? CBrowser.MAX_RECOVERY_ATTEMPTS;
+
+    // First check if recovery is actually needed
+    const healthResult = await this.isBrowserHealthy();
+    if (healthResult.healthy) {
+      return {
+        success: true,
+        recoveryNeeded: false,
+        message: "Browser is already healthy, no recovery needed",
+        attempts: 0,
+        recoveryDurationMs: Date.now() - startTime,
+      };
+    }
+
+    if (this.config.verbose) {
+      console.log(`🔄 Browser crash detected: ${healthResult.message}`);
+      console.log(`🔄 Attempting recovery (max ${maxAttempts} attempts)...`);
+    }
+
+    // Get the last known URL before crash for restoration
+    const savedSession = this.loadSessionState();
+    const restoreUrl = options?.restoreUrl ?? savedSession?.url;
+
+    let lastError: string | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (this.config.verbose) {
+          console.log(`🔄 Recovery attempt ${attempt}/${maxAttempts}...`);
+        }
+
+        // Force close any zombie processes
+        await this.forceClose();
+
+        // Wait with exponential backoff before retry
+        const delay = CBrowser.BASE_RETRY_DELAY * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
+
+        // Relaunch browser
+        await this.launch();
+
+        // Restore previous URL if available
+        if (restoreUrl && restoreUrl !== "about:blank" && this.page) {
+          try {
+            await this.page.goto(restoreUrl, {
+              waitUntil: "domcontentloaded",
+              timeout: 15000,
+            });
+          } catch (e) {
+            // URL restoration is best-effort, don't fail recovery
+            if (this.config.verbose) {
+              console.log(`⚠️ Could not restore URL: ${restoreUrl}`);
+            }
+          }
+        }
+
+        // Verify recovery was successful
+        const postRecoveryHealth = await this.isBrowserHealthy();
+        if (postRecoveryHealth.healthy) {
+          if (this.config.verbose) {
+            console.log(`✅ Browser recovered successfully on attempt ${attempt}`);
+          }
+          return {
+            success: true,
+            recoveryNeeded: true,
+            message: `Browser recovered after ${attempt} attempt(s)`,
+            attempts: attempt,
+            recoveryDurationMs: Date.now() - startTime,
+          };
+        }
+
+        lastError = postRecoveryHealth.message;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        if (this.config.verbose) {
+          console.log(`❌ Recovery attempt ${attempt} failed: ${lastError}`);
+        }
+      }
+    }
+
+    // All attempts failed
+    return {
+      success: false,
+      recoveryNeeded: true,
+      error: CBrowserErrorCode.BROWSER_RECOVERY_FAILED,
+      message: `Failed to recover browser after ${maxAttempts} attempts: ${lastError}`,
+      attempts: maxAttempts,
+      recoveryDurationMs: Date.now() - startTime,
+      retryAfterMs: CBrowser.BASE_RETRY_DELAY * Math.pow(2, maxAttempts),
+    };
+  }
+
+  /**
+   * Force close browser processes without normal cleanup.
+   * Used when browser is unresponsive and normal close() would hang.
+   */
+  private async forceClose(): Promise<void> {
+    // Remove listeners to prevent memory leaks
+    if (this.page) {
+      try {
+        this.page.removeAllListeners();
+      } catch {
+        // Ignore - page may be destroyed
+      }
+    }
+
+    // Force close context
+    if (this.context) {
+      try {
+        await Promise.race([
+          this.context.close(),
+          new Promise((r) => setTimeout(r, 2000)), // 2s timeout for close
+        ]);
+      } catch {
+        // Ignore - may already be closed
+      }
+      this.context = null;
+      this.page = null;
+    }
+
+    // Force close browser
+    if (this.browser) {
+      try {
+        await Promise.race([
+          this.browser.close(),
+          new Promise((r) => setTimeout(r, 2000)), // 2s timeout for close
+        ]);
+      } catch {
+        // Ignore - may already be closed
+      }
+      this.browser = null;
+    }
+  }
+
+  /**
+   * Execute an operation with automatic crash recovery.
+   * If the browser crashes during the operation, it will be restarted and the operation retried.
+   *
+   * @param operation - The async operation to execute
+   * @param operationName - Name of the operation for error messages
+   * @returns Result of the operation or throws if recovery fails
+   */
+  async withCrashRecovery<T>(
+    operation: () => Promise<T>,
+    operationName: string = "operation"
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Check if this looks like a browser crash
+      const crashIndicators = [
+        "Target closed",
+        "Browser closed",
+        "disconnected",
+        "Connection refused",
+        "Protocol error",
+        "browser has been closed",
+        "Execution context was destroyed",
+      ];
+
+      const isCrash = crashIndicators.some((indicator) =>
+        errorMessage.toLowerCase().includes(indicator.toLowerCase())
+      );
+
+      if (!isCrash) {
+        // Not a crash, re-throw original error
+        throw error;
+      }
+
+      if (this.config.verbose) {
+        console.log(`🔄 Browser crash detected during ${operationName}, attempting recovery...`);
+      }
+
+      // Attempt recovery
+      const recovery = await this.recoverBrowser();
+
+      if (!recovery.success) {
+        // Recovery failed, throw structured error
+        throw new Error(
+          JSON.stringify({
+            error: "browser_crash",
+            errorCode: CBrowserErrorCode.BROWSER_RECOVERY_FAILED,
+            message: recovery.message,
+            recovering: false,
+            retryAfterMs: recovery.retryAfterMs ?? 5000,
+            operation: operationName,
+          })
+        );
+      }
+
+      // Recovery succeeded, retry the operation once
+      if (this.config.verbose) {
+        console.log(`🔄 Retrying ${operationName} after recovery...`);
+      }
+
+      try {
+        return await operation();
+      } catch (retryError) {
+        // Second failure after recovery
+        throw new Error(
+          JSON.stringify({
+            error: "browser_crash",
+            errorCode: CBrowserErrorCode.BROWSER_CRASHED,
+            message: `Operation failed after recovery: ${retryError instanceof Error ? retryError.message : String(retryError)}`,
+            recovering: false,
+            retryAfterMs: 5000,
+            operation: operationName,
+          })
+        );
+      }
+    }
   }
 
   // =========================================================================

@@ -2366,6 +2366,12 @@ export enum CBrowserErrorCode {
   ASSERTION_FAILED = "E702",
   TEST_TIMEOUT = "E703",
 
+  // Browser lifecycle errors (8xx) - v11.8.0
+  BROWSER_CRASHED = "E801",
+  BROWSER_DISCONNECTED = "E802",
+  BROWSER_UNRESPONSIVE = "E803",
+  BROWSER_RECOVERY_FAILED = "E804",
+
   // Unknown
   UNKNOWN = "E999",
 }
@@ -2383,6 +2389,60 @@ export class CBrowserError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+// ============================================================================
+// Browser Crash Recovery (v11.8.0)
+// ============================================================================
+
+/**
+ * Result from browser health check or crash recovery attempt.
+ */
+export interface BrowserHealthResult {
+  /** Whether the browser is currently healthy and responsive */
+  healthy: boolean;
+  /** Error code if unhealthy */
+  error?: CBrowserErrorCode;
+  /** Human-readable status message */
+  message: string;
+  /** Time taken for health check in milliseconds */
+  checkDurationMs: number;
+}
+
+/**
+ * Result from browser crash recovery attempt.
+ */
+export interface BrowserRecoveryResult {
+  /** Whether recovery was successful */
+  success: boolean;
+  /** Whether a recovery was actually needed (browser was crashed) */
+  recoveryNeeded: boolean;
+  /** Error code if recovery failed */
+  error?: CBrowserErrorCode;
+  /** Human-readable status message */
+  message: string;
+  /** Number of recovery attempts made */
+  attempts: number;
+  /** Time to recover in milliseconds */
+  recoveryDurationMs: number;
+  /** Suggested retry delay if the caller should wait before retrying operations */
+  retryAfterMs?: number;
+}
+
+/**
+ * Structured error response for MCP tools when browser crashes.
+ * Agents can use this to decide whether to wait and retry.
+ */
+export interface BrowserCrashResponse {
+  error: "browser_crash";
+  errorCode: CBrowserErrorCode;
+  message: string;
+  /** Whether recovery is being attempted */
+  recovering: boolean;
+  /** Milliseconds to wait before retrying */
+  retryAfterMs: number;
+  /** The operation that was being attempted when crash occurred */
+  operation?: string;
 }
 
 // ============================================================================
