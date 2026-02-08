@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.10.3](https://github.com/alexandriashai/cbrowser/compare/v11.10.2...v11.10.3) (2026-02-08)
+
+### Fixed
+
+* **empathy-audit:** deduplicate barriers and fix 0/100 scoring ([#86](https://github.com/alexandriashai/cbrowser/issues/86)) ([265ac22](https://github.com/alexandriashai/cbrowser/commit/265ac2215f5f5dbbb4dc9de1caf2acbad20c7574))
+
 ## [11.10.2](https://github.com/alexandriashai/cbrowser/compare/v11.10.1...v11.10.2) (2026-02-08)
 
 ### Fixed
