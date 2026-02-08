@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.6.0](https://github.com/alexandriashai/cbrowser/compare/v14.4.1...v14.6.0) (2026-02-08)
+
+### Added
+
+* v14.5.0 - Constitutional Stealth Framework ([7ad1945](https://github.com/alexandriashai/cbrowser/commit/7ad19452f55a4589e79c63c79636058738eac09d))
+
 ## [14.5.0](https://github.com/alexandriashai/cbrowser/compare/v14.4.0...v14.5.0) (2026-02-08)
 
 ### Added
