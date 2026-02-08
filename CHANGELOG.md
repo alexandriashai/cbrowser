@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.2.3](https://github.com/alexandriashai/cbrowser/compare/v14.2.2...v14.2.3) (2026-02-08)
+
+### Fixed
+
+* address page desync and transient tool errors ([2d772fa](https://github.com/alexandriashai/cbrowser/commit/2d772fa9afdcd5e2b90d88eed9cc6c06b5792491)), closes [#181](https://github.com/alexandriashai/cbrowser/issues/181) [#182](https://github.com/alexandriashai/cbrowser/issues/182)
+
 ## [14.2.2](https://github.com/alexandriashai/cbrowser/compare/v14.2.0...v14.2.2) (2026-02-08)
 
 ### Fixed
