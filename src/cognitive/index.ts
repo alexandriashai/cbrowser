@@ -48,7 +48,19 @@ import type {
   FrictionPoint,
   Persona,
   CognitiveTraits,
+  EmotionalState,
+  EmotionalEvent,
+  EmotionalConfig,
 } from "../types.js";
+import {
+  createInitialEmotionalState,
+  createEmotionalConfig,
+  applyEmotionalTrigger,
+  decayEmotions,
+  calculateAbandonmentModifier,
+  describeEmotionalState,
+  shouldConsiderAbandonment,
+} from "./emotions.js";
 import {
   calculateFatigueIncrement,
   calculateFittsMovementTime,
@@ -329,7 +341,13 @@ export async function runCognitiveJourney(
     ),
     // Gaze-to-mouse lag based on age (v10.1.0) - WebGazer.js research
     gazeMouseLag: calculateGazeMouseLag(personaObj.demographics?.age_range),
+    // Emotional state based on appraisal theory (v13.1.0) - Scherer 2001
+    emotionalState: createInitialEmotionalState(traits),
+    emotionalJourney: [],
   };
+
+  // Create emotional configuration for this persona (v13.1.0)
+  const emotionalConfig = createEmotionalConfig(traits);
 
   // Calculate Fitts' Law params from persona (v9.9.0)
   // Higher jitter/overshoot = more tremor-like movement
@@ -502,6 +520,72 @@ export async function runCognitiveJourney(
     const resilience = traits.resilience ?? 0.3; // Default to moderate resilience
     if (state.frustrationLevel > 0) {
       state.frustrationLevel = Math.max(0, state.frustrationLevel - resilience * 0.04);
+    }
+
+    // Emotional State Updates (v13.1.0) - Scherer's Appraisal Theory
+    if (state.emotionalState) {
+      // Determine emotional trigger based on action outcome
+      const actionSuccess = parsed.actionSuccess !== false;
+      const progressMade = (parsed.goalProgress ?? 0) > state.goalProgress;
+      const confusionIncreased = (parsed.newConfusion ?? 0) > state.confusionLevel;
+      const frustrationIncreased = (parsed.newFrustration ?? 0) > state.frustrationLevel;
+
+      let emotionalTrigger: import("../types.js").EmotionalTrigger | null = null;
+      let triggerSeverity = 1.0;
+      let triggerDescription = "";
+
+      if (!actionSuccess && parsed.errorMessage) {
+        emotionalTrigger = "error";
+        triggerDescription = parsed.errorMessage;
+        triggerSeverity = 1.2;
+      } else if (!actionSuccess) {
+        emotionalTrigger = "failure";
+        triggerDescription = "Action did not succeed";
+      } else if (progressMade) {
+        emotionalTrigger = "progress";
+        triggerDescription = "Made progress toward goal";
+      } else if (confusionIncreased) {
+        emotionalTrigger = "confusion_onset";
+        triggerDescription = parsed.frictionDescription || "UI became confusing";
+      } else if (frustrationIncreased) {
+        emotionalTrigger = "setback";
+        triggerDescription = "Encountered obstacle";
+      } else if (state.patienceRemaining < 0.3) {
+        emotionalTrigger = "time_pressure";
+        triggerDescription = "Running out of patience";
+        triggerSeverity = 0.8;
+      } else if (actionSuccess && !confusionIncreased) {
+        emotionalTrigger = "success";
+        triggerDescription = parsed.action || "Action completed";
+        triggerSeverity = 0.8;
+      }
+
+      // Apply emotional trigger if detected
+      if (emotionalTrigger) {
+        const { state: newEmotionalState, event } = applyEmotionalTrigger(
+          state.emotionalState,
+          emotionalTrigger,
+          emotionalConfig,
+          state.stepCount,
+          { severity: triggerSeverity, description: triggerDescription }
+        );
+        state.emotionalState = newEmotionalState;
+        state.emotionalJourney?.push(event);
+      }
+
+      // Decay emotions toward baseline each step
+      state.emotionalState = decayEmotions(state.emotionalState, emotionalConfig);
+
+      // Log emotional state changes in verbose mode
+      if (options.verbose && state.emotionalState.dominant !== "neutral") {
+        console.log(`💭 ${describeEmotionalState(state.emotionalState)}`);
+      }
+
+      // Check if emotions suggest abandonment
+      const abandonmentCheck = shouldConsiderAbandonment(state.emotionalState);
+      if (abandonmentCheck.shouldConsider && options.verbose) {
+        console.log(`⚠️ Emotional abandonment signal: ${abandonmentCheck.reason}`);
+      }
     }
 
     // Dual-Process Theory: System 1/2 switching (v10.0.0)
@@ -720,7 +804,14 @@ export async function runCognitiveJourney(
       decisionsMade: state.decisionFatigue?.decisionsMade ?? 0,
       finalDecisionFatigue: state.decisionFatigue?.fatigueLevel ?? 0,
       wasChoosingDefaults: state.decisionFatigue?.choosingDefaults ?? false,
+      // Emotional metrics (v13.1.0)
+      emotionalValenceTrend: state.emotionalState?.valence ?? 0,
+      dominantEmotion: state.emotionalState?.dominant ?? "neutral",
+      emotionalEventCount: state.emotionalJourney?.length ?? 0,
     },
+    // Emotional journey data (v13.1.0)
+    emotionalJourney: state.emotionalJourney,
+    finalEmotionalState: state.emotionalState,
   };
 }
 
@@ -892,6 +983,10 @@ interface ParsedCognitiveResponse {
     | "relieved";
   frictionDescription?: string;
   frictionElement?: string;
+  /** Whether the action was successful (v13.1.0) */
+  actionSuccess?: boolean;
+  /** Error message if action failed (v13.1.0) */
+  errorMessage?: string;
 }
 
 function parseCognitiveResponse(response: string): ParsedCognitiveResponse {
@@ -961,6 +1056,45 @@ function checkAbandonmentTriggers(
       reason: "no_progress",
       message: "I'm not making any progress. This isn't working.",
     };
+  }
+
+  // Emotional state-based abandonment (v13.1.0)
+  if (state.emotionalState) {
+    const emotional = state.emotionalState;
+
+    // High anxiety + high frustration combination
+    if (emotional.anxiety > 0.7 && emotional.frustration > 0.6) {
+      return {
+        reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
+        message: "This is too stressful. I need to take a break.",
+      };
+    }
+
+    // Extreme boredom
+    if (emotional.boredom > 0.8 && emotional.excitement < 0.2) {
+      return {
+        reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
+        message: "This is so boring... I'll do this later.",
+      };
+    }
+
+    // Overwhelming negative valence with high arousal
+    if (emotional.valence < -0.7 && emotional.arousal > 0.7) {
+      return {
+        reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
+        message: "I can't deal with this right now.",
+      };
+    }
+
+    // Apply emotional abandonment modifier to patience threshold
+    const emotionalModifier = calculateAbandonmentModifier(emotional);
+    const adjustedPatienceThreshold = thresholds.patienceMin * emotionalModifier;
+    if (state.patienceRemaining < adjustedPatienceThreshold && emotionalModifier > 1.3) {
+      return {
+        reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
+        message: "I don't have the energy for this anymore.",
+      };
+    }
   }
 
   return null;
@@ -1067,3 +1201,19 @@ async function executeAction(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// ============================================================================
+// Re-export Emotional State Functions (v13.1.0)
+// ============================================================================
+
+export {
+  createInitialEmotionalState,
+  createEmotionalConfig,
+  applyEmotionalTrigger,
+  decayEmotions,
+  calculateAbandonmentModifier,
+  calculateExplorationTendency,
+  calculateDecisionSpeedModifier,
+  describeEmotionalState,
+  shouldConsiderAbandonment,
+} from "./emotions.js";

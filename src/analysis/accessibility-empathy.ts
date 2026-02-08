@@ -58,6 +58,10 @@ import {
   runCognitiveJourney,
   isApiKeyConfigured,
 } from "../cognitive/index.js";
+import {
+  getEmotionVisualizationStyles,
+  generateEmotionVisualizationSection,
+} from "../utils.js";
 
 // ============================================================================
 // WCAG Mapping
@@ -564,6 +568,10 @@ async function simulateAccessibilityJourney(
 
   let goalAchieved = false;
 
+  // Emotional state captured from cognitive journey (v13.1.0)
+  let finalEmotionalState: import("../types.js").EmotionalState | undefined;
+  let emotionalEvents: import("../types.js").EmotionalEvent[] | undefined;
+
   try {
     // Navigate to URL
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
@@ -593,6 +601,10 @@ async function simulateAccessibilityJourney(
           verbose: false,
         });
         ctx.stepCount = journey.stepCount;
+
+        // Capture emotional state (v13.1.0)
+        finalEmotionalState = journey.finalState.emotionalState;
+        emotionalEvents = journey.finalState.emotionalJourney;
 
         // Map cognitive friction to accessibility friction
         for (const fp of journey.frictionPoints) {
@@ -712,6 +724,8 @@ async function simulateAccessibilityJourney(
     remediationPriority,
     empathyScore,
     duration: Date.now() - startTime,
+    finalEmotionalState,
+    emotionalEvents,
   };
 }
 
@@ -979,6 +993,7 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
           </ul>
         </div>
       ` : ''}
+      ${pr.finalEmotionalState ? generateEmotionVisualizationSection(pr.finalEmotionalState, pr.emotionalEvents, "Emotional State") : ''}
     </div>
   `;
   }).join('');
@@ -1175,6 +1190,8 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
       text-align: center;
       margin-top: 1rem;
     }
+    /* Emotion visualization styles (v13.1.0) */
+    ${getEmotionVisualizationStyles()}
   </style>
 </head>
 <body>

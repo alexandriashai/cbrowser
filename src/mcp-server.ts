@@ -66,7 +66,21 @@ import {
   listPersonas,
   getCognitiveProfile,
   createCognitivePersona,
+  listEmotionalPersonas,
+  getEmotionalPersona,
 } from "./personas.js";
+
+// Emotional state functions (v13.1.0)
+import {
+  createInitialEmotionalState,
+  createEmotionalConfig,
+  applyEmotionalTrigger,
+  describeEmotionalState,
+  shouldConsiderAbandonment,
+  calculateAbandonmentModifier,
+  calculateExplorationTendency,
+  calculateDecisionSpeedModifier,
+} from "./cognitive/emotions.js";
 import type {
   CognitiveState,
   AbandonmentThresholds,
@@ -2502,6 +2516,127 @@ Begin the simulation now. Narrate your thoughts as this persona.
             text: JSON.stringify({
               success: true,
               message: "Browser reset to clean state and relaunched",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Emotional State Manipulation Tools (v13.1.0)
+  // =========================================================================
+
+  server.tool(
+    "get_emotional_state",
+    "Get the current emotional state of a cognitive journey. Returns the dominant emotion, valence, arousal, and all emotion intensities.",
+    {
+      persona: z.string().describe("The persona name to get emotional state for"),
+    },
+    async ({ persona }) => {
+      // Create initial emotional state based on persona traits
+      const personaData = getPersona(persona);
+      if (!personaData) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Persona not found: ${persona}` }) }],
+        };
+      }
+      const emotionalState = createInitialEmotionalState(personaData.cognitiveTraits);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              persona,
+              emotionalState,
+              description: describeEmotionalState(emotionalState),
+              abandonmentRisk: calculateAbandonmentModifier(emotionalState),
+              explorationTendency: calculateExplorationTendency(emotionalState),
+              decisionSpeedModifier: calculateDecisionSpeedModifier(emotionalState),
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "trigger_emotional_event",
+    "Simulate an emotional trigger event on a persona's state. Returns the updated emotional state after the trigger.",
+    {
+      persona: z.string().describe("The persona name"),
+      trigger: z.enum([
+        "success", "failure", "error", "progress", "setback",
+        "waiting", "discovery", "completion", "confusion_onset",
+        "clarity", "time_pressure", "recovery"
+      ]).describe("The emotional trigger to apply"),
+      severity: z.number().min(0).max(2).optional().default(1).describe("Severity multiplier (0-2, default 1)"),
+      description: z.string().optional().describe("Custom description for the event"),
+    },
+    async ({ persona, trigger, severity, description }) => {
+      const personaData = getPersona(persona);
+      if (!personaData) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Persona not found: ${persona}` }) }],
+        };
+      }
+      const initialState = createInitialEmotionalState(personaData.cognitiveTraits);
+      const config = createEmotionalConfig(personaData.cognitiveTraits);
+      const { state, event } = applyEmotionalTrigger(
+        initialState,
+        trigger,
+        config,
+        1,
+        { severity, description }
+      );
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              trigger,
+              event,
+              previousState: {
+                dominant: initialState.dominant,
+                valence: initialState.valence.toFixed(2),
+                arousal: initialState.arousal.toFixed(2),
+              },
+              newState: state,
+              description: describeEmotionalState(state),
+              shouldConsiderAbandonment: shouldConsiderAbandonment(state),
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "list_emotional_personas",
+    "List all available emotional personas designed for testing emotional response patterns.",
+    {},
+    async () => {
+      const emotionalPersonas = listEmotionalPersonas();
+      const personaDetails = emotionalPersonas.map(name => {
+        const p = getEmotionalPersona(name);
+        return {
+          name,
+          description: p?.description || "",
+          keyTraits: p?.cognitiveTraits ? {
+            resilience: p.cognitiveTraits.resilience,
+            patience: p.cognitiveTraits.patience,
+            selfEfficacy: p.cognitiveTraits.selfEfficacy,
+          } : undefined,
+        };
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              count: emotionalPersonas.length,
+              personas: personaDetails,
+              note: "Use these personas with cognitive_journey_init for emotion-sensitive testing",
             }, null, 2),
           },
         ],

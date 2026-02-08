@@ -1500,3 +1500,289 @@ export function getAccessibilityPersona(name: string): AccessibilityPersona | un
 export function listAccessibilityPersonas(): string[] {
   return Object.keys(ACCESSIBILITY_PERSONAS);
 }
+
+// ============================================================================
+// Emotion-Focused Personas (v13.1.0)
+// ============================================================================
+
+/**
+ * Built-in emotional personas for testing emotional response patterns.
+ * These simulate how users with different emotional baselines and sensitivities
+ * experience websites, triggering different abandonment patterns.
+ *
+ * Works with the Emotional State Engine (src/cognitive/emotions.ts):
+ * - Baseline emotions are influenced by traits (patience, selfEfficacy, curiosity)
+ * - Emotional sensitivity is influenced by patience and resilience
+ * - Emotional recovery (decay) is influenced by resilience
+ */
+export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
+  "anxious-user": {
+    name: "anxious-user",
+    // Research: State-Trait Anxiety Inventory (Spielberger, 1983)
+    // High trait anxiety leads to elevated baseline anxiety in novel situations
+    // Anxiety increases with uncertainty and ambiguity (Grupe & Nitschke, 2013)
+    description: "User with high baseline anxiety who worries about mistakes and consequences",
+    demographics: {
+      age_range: "25-55",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      hesitant_to_click: true,
+      double_checks_everything: true,
+      avoids_irreversible_actions: true,
+      reads_warnings_carefully: true,
+      abandons_on_confusion: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 400, max: 1200 }, // Slower due to deliberation
+        clickDelay: { min: 300, max: 800 }, // Hesitates before clicking
+        typeSpeed: { min: 80, max: 150 },
+        readingSpeed: 150, // Reads carefully
+        scrollPauseTime: { min: 400, max: 1000 },
+      },
+      errors: {
+        misClickRate: 0.08,
+        doubleClickAccidental: 0.04,
+        typoRate: 0.07,
+        backtrackRate: 0.35, // High - second-guesses decisions
+      },
+      mouse: {
+        curvature: 0.5,
+        jitter: 6, // Slight nervousness in movement
+        overshoot: 0.12,
+        speed: "slow",
+      },
+      attention: {
+        pattern: "thorough",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "text", "cta"],
+        distractionRate: 0.25,
+      },
+    },
+    cognitiveTraits: {
+      patience: 0.3,          // Low - anxiety makes waiting feel worse
+      riskTolerance: 0.15,    // Very low - avoids uncertain outcomes
+      comprehension: 0.6,     // Medium - understands but worries
+      persistence: 0.4,       // Low-medium - gives up when anxious
+      curiosity: 0.3,         // Low - prefers safe known paths
+      workingMemory: 0.5,     // Medium - anxiety can impair WM
+      readingTendency: 0.8,   // High - reads everything for reassurance
+      resilience: 0.2,        // Very low - slow emotional recovery
+      selfEfficacy: 0.25,     // Very low - doubts own abilities
+      satisficing: 0.4,       // Low-medium - wants certainty
+      trustCalibration: 0.3,  // Low - skeptical and worried
+      interruptRecovery: 0.3, // Low - anxiety compounds on interruption
+    },
+    context: {
+      viewport: [1280, 800],
+    },
+  },
+
+  "confident-user": {
+    name: "confident-user",
+    // Research: Self-Efficacy Theory (Bandura, 1977)
+    // High self-efficacy leads to persistence and quick recovery from setbacks
+    // Confidence enables efficient decision-making under uncertainty
+    description: "User with high self-efficacy who trusts their judgment and recovers quickly from errors",
+    demographics: {
+      age_range: "25-50",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      clicks_decisively: true,
+      expects_to_succeed: true,
+      recovers_from_errors: true,
+      explores_confidently: true,
+      tolerates_ambiguity: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 150, max: 400 },
+        clickDelay: { min: 80, max: 200 },
+        typeSpeed: { min: 40, max: 100 },
+        readingSpeed: 300,
+        scrollPauseTime: { min: 150, max: 400 },
+      },
+      errors: {
+        misClickRate: 0.05,
+        doubleClickAccidental: 0.02,
+        typoRate: 0.04,
+        backtrackRate: 0.1, // Low - trusts first decision
+      },
+      mouse: {
+        curvature: 0.3,
+        jitter: 3,
+        overshoot: 0.08,
+        speed: "fast",
+      },
+      attention: {
+        pattern: "f-pattern",
+        scrollBehavior: "jump",
+        focusAreas: ["cta", "header"],
+        distractionRate: 0.15,
+      },
+    },
+    cognitiveTraits: {
+      patience: 0.5,          // Medium - not impatient but efficient
+      riskTolerance: 0.8,     // High - willing to try things
+      comprehension: 0.7,     // High - understands quickly
+      persistence: 0.8,       // High - doesn't give up easily
+      curiosity: 0.6,         // Medium-high - willing to explore
+      workingMemory: 0.7,     // High - focused and clear
+      readingTendency: 0.3,   // Low - scans efficiently
+      resilience: 0.9,        // Very high - bounces back immediately
+      selfEfficacy: 0.9,      // Very high - trusts own abilities
+      satisficing: 0.5,       // Medium - balances speed and quality
+      trustCalibration: 0.7,  // High - appropriate trust
+      interruptRecovery: 0.8, // High - resumes easily
+    },
+    context: {
+      viewport: [1920, 1080],
+    },
+  },
+
+  "emotional-user": {
+    name: "emotional-user",
+    // Research: Affect Intensity Measure (Larsen & Diener, 1987)
+    // High affect intensity = stronger emotional reactions to events
+    // Both positive and negative emotions are amplified
+    description: "User with high emotional sensitivity who experiences strong reactions to successes and failures",
+    demographics: {
+      age_range: "18-45",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      expressive_reactions: true,
+      mood_dependent: true,
+      celebration_on_success: true,
+      frustration_on_failure: true,
+      seeks_feedback: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 150, max: 600 }, // Variable based on mood
+        clickDelay: { min: 100, max: 400 },
+        typeSpeed: { min: 50, max: 130 },
+        readingSpeed: 220,
+        scrollPauseTime: { min: 200, max: 600 },
+      },
+      errors: {
+        misClickRate: 0.1, // Higher when frustrated
+        doubleClickAccidental: 0.06,
+        typoRate: 0.08,
+        backtrackRate: 0.25,
+      },
+      mouse: {
+        curvature: 0.45,
+        jitter: 7, // More movement when emotional
+        overshoot: 0.15,
+        speed: "normal",
+      },
+      attention: {
+        pattern: "f-pattern",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "cta", "images"],
+        distractionRate: 0.35, // Higher when emotional
+      },
+    },
+    cognitiveTraits: {
+      patience: 0.25,         // Low - emotions amplify impatience
+      riskTolerance: 0.5,     // Medium - mood dependent
+      comprehension: 0.5,     // Medium
+      persistence: 0.4,       // Low-medium - gives up when frustrated
+      curiosity: 0.6,         // Medium-high - excitement drives exploration
+      workingMemory: 0.45,    // Medium - emotions can interfere
+      readingTendency: 0.4,   // Medium
+      resilience: 0.15,       // Very low - emotions linger long
+      selfEfficacy: 0.5,      // Medium - mood dependent
+      satisficing: 0.6,       // Medium-high - wants quick resolution
+      trustCalibration: 0.5,  // Medium - emotional judgment
+      interruptRecovery: 0.35, // Low - emotional state persists
+    },
+    context: {
+      viewport: [1280, 800],
+    },
+  },
+
+  "stoic-user": {
+    name: "stoic-user",
+    // Research: Emotion Regulation (Gross, 2002)
+    // High cognitive reappraisal = emotions don't escalate
+    // Stoicism involves accepting setbacks without frustration (Pigliucci, 2017)
+    description: "User with high emotional stability who remains calm regardless of successes or failures",
+    demographics: {
+      age_range: "30-65",
+      tech_level: "intermediate",
+      device: "desktop",
+    },
+    behaviors: {
+      calm_under_pressure: true,
+      methodical_approach: true,
+      accepts_errors_gracefully: true,
+      steady_persistence: true,
+      rational_decisions: true,
+    },
+    humanBehavior: {
+      timing: {
+        reactionTime: { min: 250, max: 600 },
+        clickDelay: { min: 150, max: 350 },
+        typeSpeed: { min: 60, max: 120 },
+        readingSpeed: 220,
+        scrollPauseTime: { min: 250, max: 600 },
+      },
+      errors: {
+        misClickRate: 0.05,
+        doubleClickAccidental: 0.02,
+        typoRate: 0.04,
+        backtrackRate: 0.15,
+      },
+      mouse: {
+        curvature: 0.35,
+        jitter: 3, // Steady movement
+        overshoot: 0.08,
+        speed: "normal",
+      },
+      attention: {
+        pattern: "thorough",
+        scrollBehavior: "chunked",
+        focusAreas: ["header", "text", "cta"],
+        distractionRate: 0.1, // Very low - focused
+      },
+    },
+    cognitiveTraits: {
+      patience: 0.9,          // Very high - doesn't rush
+      riskTolerance: 0.5,     // Medium - balanced judgment
+      comprehension: 0.7,     // High - clear thinking
+      persistence: 0.9,       // Very high - never gives up
+      curiosity: 0.4,         // Medium - methodical exploration
+      workingMemory: 0.8,     // High - unaffected by emotion
+      readingTendency: 0.6,   // Medium-high - thorough
+      resilience: 0.95,       // Maximum - emotions barely register
+      selfEfficacy: 0.7,      // High - quiet confidence
+      satisficing: 0.4,       // Low - willing to be thorough
+      trustCalibration: 0.6,  // Medium-high - rational evaluation
+      interruptRecovery: 0.8, // High - returns to task easily
+    },
+    context: {
+      viewport: [1280, 800],
+    },
+  },
+};
+
+/**
+ * Get an emotional persona by name.
+ */
+export function getEmotionalPersona(name: string): Persona | undefined {
+  return EMOTIONAL_PERSONAS[name];
+}
+
+/**
+ * List all emotional persona names.
+ */
+export function listEmotionalPersonas(): string[] {
+  return Object.keys(EMOTIONAL_PERSONAS);
+}

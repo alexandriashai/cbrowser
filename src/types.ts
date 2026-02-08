@@ -294,6 +294,140 @@ export type DecisionStyleType =
   | "deliberate"    // Reads everything, decides slowly (5-15s)
   | "impulsive";    // Clicks first thing that seems right (100-300ms)
 
+// ============================================================================
+// Emotional State Types (v13.1.0) - Appraisal Theory Integration
+// ============================================================================
+
+/**
+ * Emotional state based on Scherer's Component Process Model of Emotion (2001)
+ * and Russell's Circumplex Model (1980).
+ *
+ * Each emotion is 0.0 to 1.0 intensity. Multiple emotions can coexist.
+ * Emotions influence decision-making, exploration, and abandonment.
+ *
+ * @see Scherer, K.R. (2001) - Appraisal Considered as a Process of Multilevel Sequential Checking
+ * @see Russell, J.A. (1980) - A Circumplex Model of Affect
+ */
+export interface EmotionalState {
+  /**
+   * Anxiety: Anticipation of negative outcome (Valence: -, Arousal: High)
+   * Triggers: Uncertainty, errors, time pressure, unfamiliar UI
+   * Effect: Hesitation, reduced exploration, tunnel vision
+   */
+  anxiety: number;
+
+  /**
+   * Frustration: Blocked goal progress (Valence: -, Arousal: High)
+   * Triggers: Repeated failures, confusing UI, slow response
+   * Effect: Persistence (if resilient) or abandonment (if not)
+   */
+  frustration: number;
+
+  /**
+   * Boredom: Insufficient stimulation (Valence: -, Arousal: Low)
+   * Triggers: Repetitive tasks, no progress, waiting
+   * Effect: Distraction, careless clicks, abandonment
+   */
+  boredom: number;
+
+  /**
+   * Confusion: Unclear situation (Valence: -, Arousal: Medium)
+   * Triggers: Unexpected behavior, unclear labels, complex forms
+   * Effect: Backtracking, help-seeking, re-reading
+   */
+  confusion: number;
+
+  /**
+   * Satisfaction: Goal progress/achievement (Valence: +, Arousal: Medium)
+   * Triggers: Successful actions, clear progress, positive feedback
+   * Effect: Continued engagement, willingness to explore
+   */
+  satisfaction: number;
+
+  /**
+   * Excitement: Anticipation of positive outcome (Valence: +, Arousal: High)
+   * Triggers: Discovery, anticipation, engaging content
+   * Effect: Increased exploration, sustained attention
+   */
+  excitement: number;
+
+  /**
+   * Relief: Problem resolved (Valence: +, Arousal: Low)
+   * Triggers: Error recovery, task completion, found what looking for
+   * Effect: Relaxed exploration, continued engagement
+   */
+  relief: number;
+
+  /** The currently dominant emotion (highest intensity) */
+  dominant: EmotionType;
+
+  /** Overall valence: -1 (negative) to +1 (positive) */
+  valence: number;
+
+  /** Overall arousal: 0 (deactivated) to 1 (activated) */
+  arousal: number;
+}
+
+/**
+ * Types of emotions tracked in the system.
+ */
+export type EmotionType =
+  | "anxiety"
+  | "frustration"
+  | "boredom"
+  | "confusion"
+  | "satisfaction"
+  | "excitement"
+  | "relief"
+  | "neutral";
+
+/**
+ * An emotional event that occurred during a journey.
+ */
+export interface EmotionalEvent {
+  /** Timestamp when the event occurred */
+  timestamp: number;
+  /** What triggered the emotional change */
+  trigger: EmotionalTrigger;
+  /** Emotion changes (delta values) */
+  changes: Partial<Record<EmotionType, number>>;
+  /** Description of what happened */
+  description: string;
+  /** Step number when this occurred */
+  stepNumber: number;
+}
+
+/**
+ * Types of triggers that cause emotional changes.
+ */
+export type EmotionalTrigger =
+  | "success"           // Action succeeded
+  | "failure"           // Action failed
+  | "error"             // System error occurred
+  | "progress"          // Made progress toward goal
+  | "setback"           // Lost progress or went wrong way
+  | "waiting"           // Had to wait for something
+  | "discovery"         // Found something interesting
+  | "completion"        // Completed a sub-goal
+  | "confusion_onset"   // UI became confusing
+  | "clarity"           // UI became clear
+  | "time_pressure"     // Running out of patience
+  | "recovery";         // Recovered from error/setback
+
+/**
+ * Configuration for emotional baseline and decay rates.
+ */
+export interface EmotionalConfig {
+  /** Base emotional intensities (persona-specific) */
+  baseline: Partial<EmotionalState>;
+  /** How quickly emotions decay toward baseline (0-1, higher = faster) */
+  decayRate: number;
+  /** How strongly events affect emotions (multiplier) */
+  sensitivity: number;
+  /** Minimum change threshold to register an event */
+  changeThreshold: number;
+}
+
 /**
  * Extended cognitive profile for a persona.
  */
@@ -341,6 +475,10 @@ export interface CognitiveState {
   habituation?: HabituationState;
   /** Gaze-to-mouse lag in milliseconds (v10.1.0) */
   gazeMouseLag?: number;
+  /** Full emotional state with multiple emotions (v13.1.0) */
+  emotionalState?: EmotionalState;
+  /** History of emotional events during journey (v13.1.0) */
+  emotionalJourney?: EmotionalEvent[];
 }
 
 // ============================================================================
@@ -1718,7 +1856,7 @@ export interface CognitiveJourneyResult {
   /** Whether goal was achieved */
   goalAchieved: boolean;
   /** If abandoned, why */
-  abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue";
+  abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue" | "emotional";
   /** Final abandonment message */
   abandonmentMessage?: string;
   /** Total time in seconds */
@@ -1745,7 +1883,17 @@ export interface CognitiveJourneyResult {
     finalDecisionFatigue?: number;
     /** Whether persona was choosing defaults due to fatigue (v9.9.0) */
     wasChoosingDefaults?: boolean;
+    /** Emotional valence trend during journey (v13.1.0) */
+    emotionalValenceTrend?: number;
+    /** Dominant emotion during journey (v13.1.0) */
+    dominantEmotion?: EmotionType;
+    /** Number of emotional events (v13.1.0) */
+    emotionalEventCount?: number;
   };
+  /** History of emotional events during journey (v13.1.0) */
+  emotionalJourney?: EmotionalEvent[];
+  /** Final emotional state (v13.1.0) */
+  finalEmotionalState?: EmotionalState;
 }
 
 // ============================================================================
@@ -1942,7 +2090,7 @@ export interface JourneyResult {
     patienceRemaining: number;
     frustrationLevel: number;
     confusionLevel: number;
-    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue";
+    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue" | "emotional";
     backtrackCount: number;
     monologue: string[];
   };
@@ -1977,7 +2125,7 @@ export interface PersonaJourneyResult {
     /** Final confusion level (0-1) */
     confusionLevel: number;
     /** Abandonment reason if failed */
-    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue";
+    abandonmentReason?: "patience" | "confusion" | "frustration" | "no_progress" | "loop" | "timeout" | "decision_fatigue" | "emotional";
     /** Number of backtracks */
     backtrackCount: number;
     /** Full inner monologue */
@@ -4183,6 +4331,10 @@ export interface AccessibilityEmpathyResult {
   empathyScore: number;
   /** Duration in ms */
   duration: number;
+  /** Final emotional state (v13.1.0) */
+  finalEmotionalState?: EmotionalState;
+  /** Emotional journey events (v13.1.0) */
+  emotionalEvents?: EmotionalEvent[];
 }
 
 /** Combined result for multiple disability types */

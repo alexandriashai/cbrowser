@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.1.0](https://github.com/alexandriashai/cbrowser/compare/v14.0.0...v14.1.0) (2026-02-08)
+
+### Added
+
+* **cognitive:** Emotional State Engine based on Scherer's Component Process Model (2001)
+  - 7 emotions: anxiety, frustration, boredom, confusion, satisfaction, excitement, relief
+  - Valence-arousal dimensional model (Russell's Circumplex Model, 1980)
+  - 12 emotional triggers: success, failure, error, progress, setback, waiting, discovery, completion, confusion_onset, clarity, time_pressure, recovery
+  - Emotional decay toward baseline based on resilience trait
+  - Abandonment risk modifiers based on emotional state
+
+* **personas:** 4 emotion-specific personas for testing emotional response patterns
+  - `anxious-user` - High baseline anxiety, low self-efficacy (Spielberger STAI, 1983)
+  - `confident-user` - High self-efficacy, quick recovery (Bandura, 1977)
+  - `emotional-user` - High affect intensity, strong reactions (Larsen & Diener, 1987)
+  - `stoic-user` - High emotional regulation, calm under pressure (Gross, 2002)
+
+* **reports:** Emotion visualization in HTML reports
+  - Emotion bar showing relative intensities
+  - Summary grid with dominant emotion, valence, arousal
+  - Collapsible emotional journey timeline
+  - Styled with Russell's Circumplex color mapping
+
+* **mcp:** 3 new emotion manipulation tools
+  - `get_emotional_state` - Get current emotional state for a persona
+  - `trigger_emotional_event` - Simulate emotional trigger and see state changes
+  - `list_emotional_personas` - List available emotion-focused personas
+
 ## [14.0.0](https://github.com/alexandriashai/cbrowser/compare/v11.10.7...v14.0.0) (2026-02-08)
 
 ### ⚠ BREAKING CHANGES
