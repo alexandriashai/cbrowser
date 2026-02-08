@@ -130,7 +130,8 @@
     "examples/",
     "docs/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "THIRD_PARTY_LICENSES.md"
   ],
   "overrides": {
     "conventional-changelog-conventionalcommits": "8.0.0"
