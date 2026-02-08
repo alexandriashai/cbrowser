@@ -519,6 +519,19 @@ export async function findElementByIntent(
     if (intentWords.includes("headline") && /^h[1-6]$/.test(el.tag)) matchCount += 0.5;
     if (intentWords.includes("story") && el.tag === "a" && el.text.length > 10) matchCount += 0.3;
 
+    // v11.8.0: Boost inputs when intent implies typing/entering (issue #87)
+    const typingKeywords = ["type", "enter", "fill", "input", "field", "textbox", "text"];
+    const impliesTyping = typingKeywords.some(kw => intentWords.includes(kw));
+    if (impliesTyping && ["input", "textarea"].includes(el.tag)) {
+      matchCount += 0.6; // Strong boost for form inputs when typing is implied
+    }
+    // Also boost if intent has "where" + action verb (e.g., "where I type my username")
+    if (intentLower.includes("where") && (intentLower.includes("type") || intentLower.includes("enter") || intentLower.includes("put"))) {
+      if (["input", "textarea"].includes(el.tag)) {
+        matchCount += 0.7;
+      }
+    }
+
     // v11.2.0: Boost elements that ARE in the requested container
     if (requiredContainer && el.container === requiredContainer) {
       matchCount += 0.3;

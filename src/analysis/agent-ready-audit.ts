@@ -505,12 +505,18 @@ function generateRecommendations(issues: AgentReadyIssue[]): AgentReadyRecommend
           const representative = typeIssues[0];
           const count = typeIssues.length;
 
+          // v11.8.0: Fix pluralization - pluralize "Element" not append "s" to end
+          let issueText = representative.description;
+          if (count > 1) {
+            // Replace "Element " with "Elements " for proper pluralization
+            issueText = representative.description.replace(/^Element /, "Elements ");
+            issueText = `${count} ${issueText}`;
+          }
+
           recommendations.push({
             priority: priority++,
             category: representative.category,
-            issue: count > 1
-              ? `${count} ${representative.description}s found`
-              : representative.description,
+            issue: issueText,
             fix: representative.recommendation,
             effort: severity === 'critical' || severity === 'high' ? 'easy' : 'trivial',
             impact: severity === 'critical' ? 'high' : severity === 'high' ? 'high' : 'medium',

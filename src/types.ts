@@ -2815,6 +2815,12 @@ export interface SmartRetryResult {
   message: string;
   screenshot: string;
   aiSuggestion?: string;
+  /** v11.8.0: Confidence score of the final selector (0-1). Only present when healed. */
+  confidence?: number;
+  /** v11.8.0: True if an alternative selector was used instead of the original. */
+  healed?: boolean;
+  /** v11.8.0: The reason the alternative was chosen (e.g., "Text match: Submit"). */
+  healReason?: string;
 }
 
 export interface AssertionResult {

@@ -2189,13 +2189,15 @@ export class CBrowser {
 
   /**
    * Click with smart retry - automatically retries with alternative selectors on failure.
+   * v11.8.0: Added confidence gating - only reports success if confidence >= minConfidence
    */
   async smartClick(
     selector: string,
-    options: { force?: boolean; maxRetries?: number; retryDelay?: number; dismissOverlays?: boolean } = {}
+    options: { force?: boolean; maxRetries?: number; retryDelay?: number; dismissOverlays?: boolean; minConfidence?: number } = {}
   ): Promise<SmartRetryResult> {
     const maxRetries = options.maxRetries ?? 3;
     const retryDelay = options.retryDelay ?? 1000;
+    const minConfidence = options.minConfidence ?? 0.6; // v11.8.0: Confidence threshold for success
     const attempts: RetryAttempt[] = [];
 
     // Dismiss overlays first if requested
@@ -2242,15 +2244,25 @@ export class CBrowser {
       });
 
       if (result.success) {
-        // Cache the working alternative for future use
-        this.cacheAlternativeSelector(selector, alt.selector);
+        // v11.8.0: Gate success on confidence threshold
+        const meetsConfidence = alt.confidence >= minConfidence;
+
+        if (meetsConfidence) {
+          // Cache the working alternative for future use
+          this.cacheAlternativeSelector(selector, alt.selector);
+        }
 
         return {
-          success: true,
+          success: meetsConfidence, // v11.8.0: Only success if confidence meets threshold
           attempts,
           finalSelector: alt.selector,
-          message: `Clicked using alternative: ${alt.reason}`,
+          message: meetsConfidence
+            ? `Clicked using alternative: ${alt.reason}`
+            : `Clicked element with low confidence (${(alt.confidence * 100).toFixed(0)}%) - may not be the intended target`,
           screenshot: result.screenshot,
+          confidence: alt.confidence,
+          healed: true,
+          healReason: alt.reason,
         };
       }
     }

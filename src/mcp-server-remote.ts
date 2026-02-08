@@ -408,7 +408,7 @@ function configureMcpTools(server: McpServer): void {
 
   server.tool(
     "smart_click",
-    "Click with auto-retry and self-healing selectors",
+    "Click with auto-retry and self-healing selectors. v11.8.0: Added confidence gating - only reports success if healed selector has >= 60% confidence.",
     {
       selector: z.string().describe("Element to click"),
       maxRetries: z.number().optional().default(3).describe("Maximum retry attempts"),
@@ -427,6 +427,10 @@ function configureMcpTools(server: McpServer): void {
               finalSelector: result.finalSelector,
               message: result.message,
               aiSuggestion: result.aiSuggestion,
+              // v11.8.0: Confidence gating fields
+              confidence: result.confidence,
+              healed: result.healed,
+              healReason: result.healReason,
             }, null, 2),
           },
         ],
@@ -649,12 +653,13 @@ function configureMcpTools(server: McpServer): void {
     },
     async ({ name }) => {
       const b = await getBrowser();
-      const loaded = await b.loadSession(name);
+      const result = await b.loadSession(name);
+      // v11.8.0: Return flat structure, not nested
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ success: loaded, sessionName: name }, null, 2),
+            text: JSON.stringify(result, null, 2),
           },
         ],
       };
