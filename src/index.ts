@@ -52,3 +52,7 @@ export { validateFilePath, sanitizeFilename, safePath } from "./utils.js";
 
 // Browser module (v10.4.5)
 export * from "./browser/index.js";
+
+// Constitutional Stealth Framework (v15.0.0)
+// Full implementation available in cbrowser-enterprise
+export * from "./stealth/index.js";

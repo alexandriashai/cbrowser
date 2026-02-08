@@ -4410,3 +4410,169 @@ export interface AccessibilityPersona extends Omit<Persona, 'cognitiveTraits'> {
   /** Cognitive traits (optional partial override) */
   cognitiveTraits?: Partial<CognitiveTraits>;
 }
+
+// ============================================================================
+// Constitutional Stealth Framework (v15.0.0)
+// Public interface - implementation in cbrowser-enterprise
+// ============================================================================
+
+/**
+ * Domain authorization for stealth mode
+ * Users must explicitly declare which domains they're authorized to test
+ */
+export interface StealthAuthorization {
+  /** Domains user owns or has explicit permission to test (supports wildcards) */
+  authorizedDomains: string[];
+  /** Domains explicitly blocked even if matched by wildcard */
+  blockedDomains: string[];
+  /** Require explicit authorization for stealth mode */
+  requireExplicitAuth: boolean;
+  /** How authorization was provided */
+  authorizationSource?: "config" | "cli-flag" | "environment" | "api";
+}
+
+/**
+ * Constitutional stealth configuration
+ */
+export interface StealthConfig {
+  /** Whether stealth mode is enabled */
+  enabled: boolean;
+  /** Domain authorization settings */
+  authorization: StealthAuthorization;
+  /** User acknowledgment of ethical use terms */
+  acknowledgment?: StealthAcknowledgment;
+  /** Rate limits (cannot be disabled) */
+  rateLimits: StealthRateLimits;
+  /** Stealth features to enable */
+  features?: StealthFeatures;
+}
+
+/**
+ * User acknowledgment of ethical use terms
+ */
+export interface StealthAcknowledgment {
+  /** User confirms ownership/authorization for listed domains */
+  ownershipConfirmed: boolean;
+  /** User confirms authorized testing only */
+  authorizedTestingOnly: boolean;
+  /** User accepts legal responsibility */
+  acceptsResponsibility: boolean;
+  /** Email or identifier of person signing */
+  signedBy: string;
+  /** Timestamp of signing */
+  signedAt: string;
+}
+
+/**
+ * Rate limits for stealth mode (cannot be disabled)
+ */
+export interface StealthRateLimits {
+  /** Max requests per minute */
+  requestsPerMinute: number;
+  /** Max form submissions per minute */
+  formsPerMinute: number;
+  /** Max auth attempts per minute */
+  authAttemptsPerMinute: number;
+}
+
+/**
+ * Stealth features that can be enabled
+ */
+export interface StealthFeatures {
+  /** Remove webdriver flag */
+  hideWebdriver?: boolean;
+  /** Use headed mode (less detectable) */
+  headedMode?: boolean;
+  /** Randomize fingerprints */
+  fingerprintRandomization?: boolean;
+  /** Use stealth plugin */
+  stealthPlugin?: boolean;
+  /** Emulate human-like timing (CBrowser default) */
+  humanTiming?: boolean;
+}
+
+/**
+ * Audit entry for stealth actions (immutable, 90-day retention)
+ */
+export interface StealthAuditEntry {
+  /** Timestamp of action */
+  timestamp: string;
+  /** Action performed */
+  action: string;
+  /** Target URL */
+  url: string;
+  /** Whether stealth was enabled */
+  stealthEnabled: boolean;
+  /** How authorization was provided */
+  authorizationSource: string;
+  /** Which authorized domain matched */
+  authorizedDomain: string;
+  /** Constitutional zone classification */
+  zone: ActionZone;
+  /** Whether force override was used */
+  forceOverride?: boolean;
+  /** Reason for force override */
+  forceReason?: string;
+  /** Requests in last minute (rate limit context) */
+  requestsInLastMinute: number;
+  /** Forms submitted in last minute */
+  formsInLastMinute: number;
+}
+
+/**
+ * Result of constitutional check before stealth action
+ */
+export interface StealthCheckResult {
+  /** Whether action is allowed */
+  allowed: boolean;
+  /** Constitutional zone */
+  zone: ActionZone;
+  /** Reason if blocked */
+  reason?: string;
+  /** Whether user confirmation is required */
+  requiresConfirmation?: boolean;
+  /** Suggested alternative if blocked */
+  suggestion?: string;
+}
+
+/**
+ * Actions that are NEVER allowed with stealth mode (Black Zone)
+ */
+export const STEALTH_PROHIBITED_ACTIONS = [
+  "bypass_captcha",
+  "inject_cookies",
+  "spoof_identity",
+  "mass_account_creation",
+  "credential_stuffing",
+  "rate_limit_bypass",
+] as const;
+
+export type StealthProhibitedAction = typeof STEALTH_PROHIBITED_ACTIONS[number];
+
+/**
+ * Domain patterns that are NEVER allowed with stealth mode
+ */
+export const STEALTH_PROHIBITED_DOMAINS = [
+  "*.gov",
+  "*.mil",
+  "*.edu",
+] as const;
+
+export type StealthProhibitedDomain = typeof STEALTH_PROHIBITED_DOMAINS[number];
+
+/**
+ * Abstract interface for constitutional enforcer
+ * Implementation provided by cbrowser-enterprise
+ */
+export interface IConstitutionalEnforcer {
+  /** Check if stealth action is allowed */
+  canExecuteWithStealth(action: string, url: string): Promise<StealthCheckResult>;
+  /** Log audit entry (immutable) */
+  logAudit(entry: Omit<StealthAuditEntry, "timestamp">): Promise<void>;
+  /** Check if domain is authorized */
+  isDomainAuthorized(url: string): boolean;
+  /** Get current rate limit status */
+  getRateLimitStatus(): { remaining: number; resetsAt: Date };
+  /** Validate acknowledgment */
+  validateAcknowledgment(ack: StealthAcknowledgment): boolean;
+}

@@ -6,7 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [14.4.1](https://github.com/alexandriashai/cbrowser/compare/v14.4.0...v14.4.1) (2026-02-08)
+## [14.5.0](https://github.com/alexandriashai/cbrowser/compare/v14.4.0...v14.5.0) (2026-02-08)
+
+### Added
+
+* **stealth:** Constitutional Stealth Framework (#200)
+  - Public framework for ethical stealth mode
+  - Domain authorization model (allowlist only)
+  - Action blacklist (CAPTCHA bypass, credential stuffing = BLOCKED)
+  - Rate limiting (cannot be disabled)
+  - Immutable audit trail interface
+  - Terms of Service acceptance required
+  - Full implementation available in cbrowser-enterprise
+
+* **types:** New stealth-related interfaces
+  - `StealthConfig`, `StealthAuthorization`, `StealthAcknowledgment`
+  - `StealthRateLimits`, `StealthAuditEntry`, `StealthCheckResult`
+  - `IConstitutionalEnforcer` abstract interface
+  - `STEALTH_PROHIBITED_ACTIONS`, `STEALTH_PROHIBITED_DOMAINS`
+
+* **stealth/framework.ts:** Base constitutional enforcer
+  - `BaseConstitutionalEnforcer` abstract class
+  - `NoOpConstitutionalEnforcer` for public repo (warns about enterprise)
+  - Domain pattern matching utilities
+  - Acknowledgment validation
 
 ## [14.4.0](https://github.com/alexandriashai/cbrowser/compare/v14.2.3...v14.4.0) (2026-02-08)
 
