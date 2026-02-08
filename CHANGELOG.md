@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.2.0](https://github.com/alexandriashai/cbrowser/compare/v14.0.0...v14.2.0) (2026-02-08)
+
+### Added
+
+* **cognitive:** add Emotional State Engine with Scherer's Component Process Model ([292b0e6](https://github.com/alexandriashai/cbrowser/commit/292b0e6ed95775151553111986f73e2615df7f7f))
+
 ## [14.1.0](https://github.com/alexandriashai/cbrowser/compare/v14.0.0...v14.1.0) (2026-02-08)
 
 ### Added
