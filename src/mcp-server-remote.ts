@@ -922,6 +922,11 @@ function configureMcpTools(server: McpServer): void {
               passed: result.summary.passed,
               failed: result.summary.failed,
               passRate: `${result.summary.passRate.toFixed(1)}%`,
+              // v11.6.0: Step-level statistics for better granularity
+              totalSteps: result.summary.totalSteps,
+              passedSteps: result.summary.passedSteps,
+              failedSteps: result.summary.failedSteps,
+              stepPassRate: result.summary.stepPassRate ? `${result.summary.stepPassRate.toFixed(1)}%` : undefined,
               duration: result.duration,
               recommendations: result.recommendations,
               testResults: result.testResults.map(t => ({
@@ -973,6 +978,11 @@ function configureMcpTools(server: McpServer): void {
               passed: result.summary.passed,
               failed: result.summary.failed,
               passRate: `${result.summary.passRate.toFixed(1)}%`,
+              // v11.6.0: Step-level statistics for better granularity
+              totalSteps: result.summary.totalSteps,
+              passedSteps: result.summary.passedSteps,
+              failedSteps: result.summary.failedSteps,
+              stepPassRate: result.summary.stepPassRate ? `${result.summary.stepPassRate.toFixed(1)}%` : undefined,
               duration: result.duration,
               recommendations: result.recommendations,
               testResults: result.testResults.map(t => ({
