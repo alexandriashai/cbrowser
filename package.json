@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "13.0.3",
+  "version": "14.0.0",
   "type": "module",
   "description": "Cognitive browser automation that thinks like your users. Simulate real user cognition with abandonment detection, constitutional safety, chaos engineering, and UX friction discovery.",
   "main": "dist/index.js",

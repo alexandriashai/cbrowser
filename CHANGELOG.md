@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.0.0](https://github.com/alexandriashai/cbrowser/compare/v11.10.7...v14.0.0) (2026-02-08)
+
+### ⚠ BREAKING CHANGES
+
+* v12.0.0 - Grade A milestone release with license clarification
+
+### Added
+
+* v12.0.0 - Grade A milestone release with license clarification ([b089b12](https://github.com/alexandriashai/cbrowser/commit/b089b121162e3f1cac53686e8a30e22f1d003364))
+
+### Fixed
+
+* **license:** update Licensor and protect all immutable fields in CI ([356443f](https://github.com/alexandriashai/cbrowser/commit/356443fa542b968ef4d612a4387617ffbff98888))
+
 ## [13.0.3](https://github.com/alexandriashai/cbrowser/compare/v13.0.2...v13.0.3) (2026-02-08)
 
 ## [13.0.2](https://github.com/alexandriashai/cbrowser/compare/v13.0.1...v13.0.2) (2026-02-08)
