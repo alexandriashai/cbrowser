@@ -52,13 +52,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify LICENSE version unchanged
+      - name: Verify LICENSE immutable fields unchanged
         run: |
-          # The BSL-1.1 license was adopted at v8.6.0 - this line must never change
+          # These fields were set when BSL-1.1 was adopted and must NEVER change
+
           if ! grep -q "Licensed Work: CBrowser 8.6.0 and later" LICENSE; then
-            echo "❌ ERROR: LICENSE file has been modified incorrectly!"
-            echo "The 'Licensed Work' line must remain: 'CBrowser 8.6.0 and later'"
-            echo "This is when BSL-1.1 was first adopted and must not be changed."
+            echo "❌ ERROR: 'Licensed Work' line has been modified!"
+            echo "Must remain: 'CBrowser 8.6.0 and later' (when BSL-1.1 was adopted)"
             exit 1
           fi
-          echo "✅ LICENSE version reference is correct (v8.6.0)"
+
+          if ! grep -q "Change Date: February 5, 2030" LICENSE; then
+            echo "❌ ERROR: 'Change Date' line has been modified!"
+            echo "Must remain: 'February 5, 2030' (4 years from BSL-1.1 adoption)"
+            exit 1
+          fi
+
+          echo "✅ LICENSE immutable fields are correct"
+          echo "   - Licensed Work: CBrowser 8.6.0 and later"
+          echo "   - Change Date: February 5, 2030"
