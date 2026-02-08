@@ -46,6 +46,7 @@ import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { getStatusInfo, formatStatus, getDataDir } from "./config.js";
+import { printEnterpriseStatus } from "./stealth/index.js";
 import {
   runCognitiveJourney,
   getAnthropicApiKey,
@@ -1019,6 +1020,8 @@ async function main(): Promise<void> {
     // VERSION is imported from version.ts which reads from package.json
     const info = await getStatusInfo(VERSION);
     console.log(formatStatus(info));
+    console.log(""); // Blank line
+    await printEnterpriseStatus();
     process.exit(0);
   }
 

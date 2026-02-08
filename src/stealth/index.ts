@@ -39,3 +39,12 @@ export type {
   StealthCheckResult,
   IConstitutionalEnforcer,
 } from "./framework.js";
+
+// Enterprise loader (v15.0.0)
+export {
+  getEnforcer,
+  getEnforcerSync,
+  isEnterpriseAvailable,
+  getEnterpriseVersion,
+  printEnterpriseStatus,
+} from "./loader.js";
