@@ -31,6 +31,9 @@ export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./co
 export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export * from "./types.js";
 export { BUILTIN_PERSONAS } from "./personas.js";
+
+// Trait Reference (v15.0.0) - Cognitive trait definitions and guidelines
+export * from "./trait-reference.js";
 export { startMcpServer } from "./mcp-server.js";
 export { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 
