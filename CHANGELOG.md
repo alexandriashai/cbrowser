@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [13.0.0](https://github.com/alexandriashai/cbrowser/compare/v11.10.7...v13.0.0) (2026-02-08)
+
+### ⚠ BREAKING CHANGES
+
+* v12.0.0 - Grade A milestone release with license clarification
+
+### Added
+
+* v12.0.0 - Grade A milestone release with license clarification ([054c261](https://github.com/alexandriashai/cbrowser/commit/054c261eb407cdd85210e7de82985df344385a1c))
+
 ## [12.0.0](https://github.com/alexandriashai/cbrowser/compare/v11.10.7...v12.0.0) (2026-02-08)
 
 ### BREAKING CHANGES
