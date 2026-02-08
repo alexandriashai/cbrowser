@@ -2004,7 +2004,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
                 wcagViolationCount: r.wcagViolations.length,
               })),
               allWcagViolations: result.allWcagViolations,
-              topBarriers: result.allBarriers.slice(0, 5),
+              topBarriers: result.topBarriers.slice(0, 5), // v11.11.0: Deduplicated by type
               topRemediation: result.combinedRemediation.slice(0, 5),
               duration: result.duration,
             }, null, 2),

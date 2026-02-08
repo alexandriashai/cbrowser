@@ -4183,8 +4183,10 @@ export interface EmpathyAuditResult {
   results: AccessibilityEmpathyResult[];
   /** Combined WCAG violations across all personas */
   allWcagViolations: string[];
-  /** All barriers across personas */
+  /** All barriers across personas (raw, for debugging) */
   allBarriers: AccessibilityBarrier[];
+  /** Deduplicated barriers grouped by type with element counts */
+  topBarriers: AccessibilityBarrier[];
   /** Prioritized remediation across all */
   combinedRemediation: RemediationItem[];
   /** Overall empathy score */

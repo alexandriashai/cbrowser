@@ -608,9 +608,25 @@ async function simulateAccessibilityJourney(
       ctx.stepCount = Math.max(3, ctx.barriers.length + 2);
     }
 
-    // Check if barriers would likely prevent goal achievement
+    // v11.11.0: Improved goalAchieved calibration (stress test fix)
+    // Distinguish FRICTION (difficult but achievable) from BLOCKER (impossible)
+    //
+    // BLOCKERS (goalAchieved = false):
+    // - Element completely invisible/missing
+    // - Element trapped behind non-dismissible overlay
+    // - Critical timing issue that expires before action possible
+    //
+    // FRICTION (goalAchieved = true, with reduced score):
+    // - Small touch targets (can still be clicked, just harder)
+    // - Low contrast (can still be read, just slower)
+    // - Cognitive load (can still complete, just more confusing)
+    // - Minor/major severity barriers that slow but don't block
     const criticalBarriers = ctx.barriers.filter(b => b.severity === "critical");
-    const majorBarriers = ctx.barriers.filter(b => b.severity === "major");
+
+    // Only truly blocking barriers should prevent goal achievement
+    // Touch targets, contrast, cognitive load are friction, not blockers
+    const blockingBarrierTypes: AccessibilityBarrierType[] = ["timing"]; // Timeout = can't complete
+    const blockingBarriers = criticalBarriers.filter(b => blockingBarrierTypes.includes(b.type));
 
     // Simulate friction based on persona traits
     if (persona.accessibilityTraits.motorControl && persona.accessibilityTraits.motorControl < 0.5) {
@@ -652,8 +668,9 @@ async function simulateAccessibilityJourney(
       }
     }
 
-    // Determine if goal would be achieved
-    goalAchieved = criticalBarriers.length === 0 && majorBarriers.length < 3;
+    // v11.11.0: Goal is achievable unless there are truly blocking barriers
+    // Friction (small targets, contrast, cognitive load) reduces score but doesn't block
+    goalAchieved = blockingBarriers.length === 0;
 
   } catch (e) {
     ctx.frictionPoints.push({
@@ -1404,6 +1421,7 @@ export async function runEmpathyAudit(
     results,
     allWcagViolations: filteredViolations,
     allBarriers,
+    topBarriers: deduplicatedBarriers, // v11.11.0: Deduplicated barriers grouped by type
     combinedRemediation,
     overallScore,
     duration: Date.now() - startTime,
