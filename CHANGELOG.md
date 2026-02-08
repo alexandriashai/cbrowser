@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.3.0](https://github.com/alexandriashai/cbrowser/compare/v16.2.0...v16.3.0) (2026-02-08)
+
+### Added
+
+* **exports:** add stealth module to package exports ([b80f96a](https://github.com/alexandriashai/cbrowser/commit/b80f96ae803efc598423cba64727b95b0a6362be))
+
 ## [16.2.0](https://github.com/alexandriashai/cbrowser/compare/v16.1.0...v16.2.0) (2026-02-08)
 
 ### Added
