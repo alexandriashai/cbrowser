@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.10.6](https://github.com/alexandriashai/cbrowser/compare/v11.10.5...v11.10.6) (2026-02-08)
+
+### Fixed
+
+* **empathy-audit:** barrier dedup by type + goalAchieved calibration ([fd3380a](https://github.com/alexandriashai/cbrowser/commit/fd3380a0490ec5991574315d7eb6fc5e8102b156))
+
 ## [11.10.5](https://github.com/alexandriashai/cbrowser/compare/v11.10.4...v11.10.5) (2026-02-08)
 
 ## [11.10.4](https://github.com/alexandriashai/cbrowser/compare/v11.10.3...v11.10.4) (2026-02-08)
