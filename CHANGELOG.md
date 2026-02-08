@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.2.2](https://github.com/alexandriashai/cbrowser/compare/v14.2.0...v14.2.2) (2026-02-08)
+
+### Fixed
+
+* address v14.2.0 stress test regressions ([74725f4](https://github.com/alexandriashai/cbrowser/commit/74725f4c0f2b1edc8bdd4a690611eecc5e86c61b)), closes [#177](https://github.com/alexandriashai/cbrowser/issues/177) [#178](https://github.com/alexandriashai/cbrowser/issues/178) [#179](https://github.com/alexandriashai/cbrowser/issues/179) [#180](https://github.com/alexandriashai/cbrowser/issues/180)
+
 ## [14.2.1](https://github.com/alexandriashai/cbrowser/compare/v14.2.0...v14.2.1) (2026-02-08)
 
 ### Fixed
