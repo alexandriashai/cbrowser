@@ -203,12 +203,17 @@ export async function huntBugs(
     });
   }
 
-  // Add console errors
+  // Add console errors (deduplicated with count)
+  const errorCounts = new Map<string, number>();
   for (const error of consoleErrors) {
+    const key = error.slice(0, 200);
+    errorCounts.set(key, (errorCounts.get(key) || 0) + 1);
+  }
+  for (const [error, count] of errorCounts) {
     bugs.push({
       type: "console-error",
       severity: "high",
-      description: error.slice(0, 200),
+      description: count > 1 ? `${error} (×${count})` : error,
       url,
     });
   }

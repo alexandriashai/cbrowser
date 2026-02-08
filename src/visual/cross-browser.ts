@@ -609,12 +609,13 @@ export async function crossBrowserDiff(
 
   for (const browserName of available) {
     const launcher = browserLaunchers[browserName];
+    let browser: any = null;
     try {
-      const browser = await launcher.launch({ headless: true });
+      browser = await launcher.launch({ headless: true });
       const page = await browser.newPage();
 
       const startTime = Date.now();
-      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
       const loadTime = Date.now() - startTime;
 
       // Capture metrics
@@ -628,14 +629,21 @@ export async function crossBrowserDiff(
 
       // Capture content hash
       contents[browserName] = await page.evaluate(() => document.body.innerText.slice(0, 1000));
-
-      await browser.close();
     } catch (error) {
       differences.push({
         type: "error",
         description: `${browserName}: ${error instanceof Error ? error.message : "Unknown error"}`,
         browsers: [browserName],
       });
+    } finally {
+      // v14.2.1: Always close browser even if error occurred (fix Firefox crash)
+      if (browser) {
+        try {
+          await browser.close();
+        } catch {
+          // Browser already closed or crashed, ignore
+        }
+      }
     }
   }
 

@@ -61,8 +61,16 @@ export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promis
     await page.route("**/*", async (route: any) => {
       const url = route.request().url();
 
-      // Block URLs
-      if (config.blockUrls?.some(pattern => url.includes(pattern))) {
+      // Block URLs - support both literal patterns and glob patterns (*.css, *.js)
+      if (config.blockUrls?.some(pattern => {
+        // Convert glob pattern to regex: *.css -> \.css$
+        if (pattern.startsWith('*.')) {
+          const ext = pattern.slice(1); // .css
+          const regex = new RegExp(ext.replace('.', '\\.') + '$', 'i');
+          return regex.test(url);
+        }
+        return url.includes(pattern);
+      })) {
         await route.abort();
         return;
       }
@@ -194,8 +202,16 @@ export async function runChaosTest(
         const reqUrl = route.request().url();
         const resourceType = route.request().resourceType();
 
-        // Block URLs
-        if (chaos.blockUrls?.some(pattern => reqUrl.includes(pattern))) {
+        // Block URLs - support both literal patterns and glob patterns (*.css, *.js)
+        if (chaos.blockUrls?.some(pattern => {
+          // Convert glob pattern to regex: *.css -> \.css$
+          if (pattern.startsWith('*.')) {
+            const ext = pattern.slice(1); // .css
+            const regex = new RegExp(ext.replace('.', '\\.') + '$', 'i');
+            return regex.test(reqUrl);
+          }
+          return reqUrl.includes(pattern);
+        })) {
           blockedResources.push(`${resourceType}: ${new URL(reqUrl).pathname}`);
           await route.abort();
           return;

@@ -6,7 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [14.2.0](https://github.com/alexandriashai/cbrowser/compare/v14.0.0...v14.2.0) (2026-02-08)
+## [14.2.1](https://github.com/alexandriashai/cbrowser/compare/v14.2.0...v14.2.1) (2026-02-08)
+
+### Fixed
+
+* **chaos-test:** CSS glob patterns (*.css, *.js) now work correctly in blockUrls
+  - Regressed in v14.0.0, originally fixed in v11.10.6
+  - Converts glob patterns like `*.css` to regex `\.css$` for proper matching
+
+* **cross-browser:** Firefox crash fix in cross_browser_diff
+  - Added proper browser cleanup in finally block
+  - Prevents "Target page, context or browser has been closed" errors
+
+* **hunt-bugs:** Console error deduplication
+  - Identical errors now grouped with count (×N)
+  - Reduces noise in bug reports
+
+* **click verbose:** Increased element limit from 20 to 50
+  - Better debugging output for pages with many clickable elements
+
+## [14.2.0](https://github.com/alexandriashai/cbrowser/compare/v14.1.0...v14.2.0) (2026-02-08)
 
 ### Added
 

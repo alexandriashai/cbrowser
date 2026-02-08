@@ -3250,7 +3250,7 @@ export class CBrowser {
               const style = window.getComputedStyle(el);
               return style.display !== 'none' && style.visibility !== 'hidden';
             })
-            .slice(0, 20)
+            .slice(0, 50) // v14.2.1: Increased from 20 to 50 for better verbose output
             .map((el, i) => ({
               tag: el.tagName.toLowerCase(),
               text: (el as HTMLElement).innerText?.trim().substring(0, 60) || el.getAttribute("aria-label") || el.getAttribute("value") || "",
