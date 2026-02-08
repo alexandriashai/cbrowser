@@ -2062,6 +2062,11 @@ export interface NLTestSuiteResult {
     failed: number;
     skipped: number;
     passRate: number;
+    /** v11.6.0: Step-level statistics for better granularity */
+    totalSteps?: number;
+    passedSteps?: number;
+    failedSteps?: number;
+    stepPassRate?: number;
   };
   /** AI-generated recommendations for fixing failures */
   recommendations?: string[];

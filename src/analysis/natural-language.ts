@@ -568,6 +568,23 @@ export async function findElementByIntent(
   }
 
   if (intentLower.includes("search")) {
+    // v11.6.0: Prioritize actual input elements over containers (forms, divs)
+    // First try to find an actual input/textarea with search attributes
+    const inputTags = new Set(["input", "textarea"]);
+    const searchInput = pageData.find(el =>
+      inputTags.has(el.tag) && (
+        el.type === "search" ||
+        el.ariaLabel.toLowerCase().includes("search") ||
+        el.placeholder.toLowerCase().includes("search") ||
+        el.name.toLowerCase().includes("search") ||
+        el.id.toLowerCase().includes("search")
+      )
+    );
+    if (searchInput) {
+      return buildElementResult(searchInput, "Search input", 0.95);
+    }
+
+    // Fall back to any element with search in class/id (for custom search components)
     const searchEl = pageData.find(el =>
       el.type === "search" ||
       el.ariaLabel.toLowerCase().includes("search") ||
@@ -576,7 +593,7 @@ export async function findElementByIntent(
       el.placeholder.toLowerCase().includes("search")
     );
     if (searchEl) {
-      return buildElementResult(searchEl, "Search input", 0.9);
+      return buildElementResult(searchEl, "Search element", 0.85);
     }
   }
 

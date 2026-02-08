@@ -199,6 +199,92 @@ export async function huntBugs(
     });
   }
 
+  // v11.6.0: Actually implement link-following crawler for maxPages > 1
+  if (_maxPages > 1) {
+    const baseUrl = new URL(url);
+    const baseDomain = baseUrl.hostname;
+
+    // Extract links from current page
+    const extractLinks = async (): Promise<string[]> => {
+      return await page.evaluate((domain: string) => {
+        const links: string[] = [];
+        document.querySelectorAll("a[href]").forEach((a) => {
+          try {
+            const href = (a as HTMLAnchorElement).href;
+            const linkUrl = new URL(href);
+            // Only follow same-domain links, skip anchors and javascript
+            if (linkUrl.hostname === domain && !href.includes("#") && !href.startsWith("javascript:")) {
+              links.push(href);
+            }
+          } catch {
+            // Invalid URL, skip
+          }
+        });
+        return [...new Set(links)]; // Deduplicate
+      }, baseDomain);
+    };
+
+    const toVisit = await extractLinks();
+
+    // Visit additional pages up to maxPages
+    while (visited.size < _maxPages && toVisit.length > 0 && (Date.now() - startTime) < _timeout) {
+      const nextUrl = toVisit.shift();
+      if (!nextUrl || visited.has(nextUrl)) continue;
+
+      try {
+        await browser.navigate(nextUrl);
+        visited.add(nextUrl);
+
+        // Check for issues on this page
+        const pageIssues2 = await page.evaluate(() => {
+          const issues: Array<{ type: string; description: string; selector?: string; recommendation?: string }> = [];
+
+          // Abbreviated checks for crawled pages (same as above but condensed)
+          document.querySelectorAll("img").forEach((img, i) => {
+            if (!img.complete || img.naturalWidth === 0) {
+              issues.push({ type: "missing-image", description: `Broken image: ${img.src || "unknown"}`, selector: `img:nth-of-type(${i + 1})` });
+            }
+            if (!img.getAttribute("alt") && img.complete && img.naturalWidth > 0) {
+              issues.push({ type: "a11y-violation", description: "Image missing alt attribute", selector: `img:nth-of-type(${i + 1})`, recommendation: "Add alt attribute" });
+            }
+          });
+          document.querySelectorAll("a").forEach((a, i) => {
+            if (!a.href || a.href === "#") {
+              issues.push({ type: "broken-link", description: `Empty link: ${a.textContent?.slice(0, 30) || "no text"}`, selector: `a:nth-of-type(${i + 1})` });
+            }
+          });
+          document.querySelectorAll("button").forEach((btn, i) => {
+            if (!btn.textContent?.trim() && !btn.getAttribute("aria-label")) {
+              issues.push({ type: "a11y-violation", description: "Button without accessible text", selector: `button:nth-of-type(${i + 1})` });
+            }
+          });
+          return issues;
+        });
+
+        for (const issue of pageIssues2) {
+          bugs.push({
+            type: issue.type as BugReport["type"],
+            severity: issue.type === "a11y-violation" ? "high" : "medium",
+            description: issue.description,
+            url: nextUrl,
+            selector: issue.selector,
+            recommendation: issue.recommendation,
+          });
+        }
+
+        // Extract more links from this page
+        const newLinks = await extractLinks();
+        for (const link of newLinks) {
+          if (!visited.has(link) && !toVisit.includes(link)) {
+            toVisit.push(link);
+          }
+        }
+      } catch {
+        // Navigation failed, skip this URL
+      }
+    }
+  }
+
   return {
     bugs,
     pagesVisited: visited.size,

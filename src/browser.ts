@@ -2820,13 +2820,28 @@ export class CBrowser {
   async getAvailableClickables(page?: Page): Promise<Array<{ tag: string; text: string; selector: string; role?: string }>> {
     const targetPage = page || await this.getPage();
     try {
-      return await targetPage.$$eval('button, a, [role="button"], input[type="submit"], input[type="button"]', els =>
-        els.slice(0, 15).map((el, i) => ({
-          tag: el.tagName.toLowerCase(),
-          text: (el as HTMLElement).innerText?.trim().substring(0, 60) || el.getAttribute("aria-label") || "",
-          selector: el.id ? `#${el.id}` : el.getAttribute("data-testid") ? `[data-testid="${el.getAttribute("data-testid")}"]` : `${el.tagName.toLowerCase()}:nth-of-type(${i + 1})`,
-          role: el.getAttribute("role") || undefined,
-        }))
+      // v11.6.0: Expanded selector to include all button types, form submits, and onclick handlers
+      // Fixed: Was missing button[type="submit"], form buttons, and onclick handlers
+      return await targetPage.$$eval(
+        'button, a, [role="button"], [role="link"], input[type="submit"], input[type="button"], [onclick], [type="submit"]',
+        els => {
+          // Deduplicate and filter to visible elements only
+          const seen = new Set<Element>();
+          return els
+            .filter(el => {
+              if (seen.has(el)) return false;
+              seen.add(el);
+              const style = window.getComputedStyle(el);
+              return style.display !== 'none' && style.visibility !== 'hidden';
+            })
+            .slice(0, 20)
+            .map((el, i) => ({
+              tag: el.tagName.toLowerCase(),
+              text: (el as HTMLElement).innerText?.trim().substring(0, 60) || el.getAttribute("aria-label") || el.getAttribute("value") || "",
+              selector: el.id ? `#${el.id}` : el.getAttribute("data-testid") ? `[data-testid="${el.getAttribute("data-testid")}"]` : `${el.tagName.toLowerCase()}:nth-of-type(${i + 1})`,
+              role: el.getAttribute("role") || undefined,
+            }));
+        }
       );
     } catch {
       return [];

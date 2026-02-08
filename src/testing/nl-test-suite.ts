@@ -31,57 +31,66 @@ import type {
  * - "take screenshot"
  */
 export function parseNLInstruction(instruction: string): NLTestStep {
-  const lower = instruction.toLowerCase().trim();
+  const trimmed = instruction.trim();
+  // Use lowercase for pattern detection, but extract from original to preserve case
+  const lower = trimmed.toLowerCase();
 
   // Navigate patterns
   const navigateMatch = lower.match(/^(?:go to|navigate to|open|visit)\s+(.+)$/i);
   if (navigateMatch) {
+    // Extract from original instruction to preserve URL case
+    const originalMatch = trimmed.match(/^(?:go to|navigate to|open|visit)\s+(.+)$/i);
     return {
       instruction,
       action: "navigate",
-      target: navigateMatch[1].trim(),
+      target: originalMatch ? originalMatch[1].trim() : navigateMatch[1].trim(),
     };
   }
 
-  // Click patterns
+  // Click patterns - preserve original case for target
   const clickMatch = lower.match(/^(?:click|tap|press)\s+(?:on\s+)?(?:the\s+)?(.+)$/i);
   if (clickMatch) {
+    const originalMatch = trimmed.match(/^(?:click|tap|press)\s+(?:on\s+)?(?:the\s+)?(.+)$/i);
     return {
       instruction,
       action: "click",
-      target: clickMatch[1].trim(),
+      target: originalMatch ? originalMatch[1].trim() : clickMatch[1].trim(),
     };
   }
 
   // Fill patterns: "type 'value' in target" or "fill target with 'value'"
+  // CRITICAL: Preserve case for both value and target
   const typeMatch = lower.match(/^(?:type|enter)\s+['"](.+?)['"]\s+(?:in|into)\s+(?:the\s+)?(.+)$/i);
   if (typeMatch) {
+    const originalMatch = trimmed.match(/^(?:type|enter)\s+['"](.+?)['"]\s+(?:in|into)\s+(?:the\s+)?(.+)$/i);
     return {
       instruction,
       action: "fill",
-      value: typeMatch[1],
-      target: typeMatch[2].trim(),
+      value: originalMatch ? originalMatch[1] : typeMatch[1],
+      target: originalMatch ? originalMatch[2].trim() : typeMatch[2].trim(),
     };
   }
 
   const fillMatch = lower.match(/^fill\s+(?:the\s+)?(.+?)\s+with\s+['"](.+?)['"]$/i);
   if (fillMatch) {
+    const originalMatch = trimmed.match(/^fill\s+(?:the\s+)?(.+?)\s+with\s+['"](.+?)['"]$/i);
     return {
       instruction,
       action: "fill",
-      target: fillMatch[1].trim(),
-      value: fillMatch[2],
+      target: originalMatch ? originalMatch[1].trim() : fillMatch[1].trim(),
+      value: originalMatch ? originalMatch[2] : fillMatch[2],
     };
   }
 
-  // Select patterns
+  // Select patterns - preserve case for option value
   const selectMatch = lower.match(/^select\s+['"](.+?)['"]\s+(?:from|in)\s+(?:the\s+)?(.+)$/i);
   if (selectMatch) {
+    const originalMatch = trimmed.match(/^select\s+['"](.+?)['"]\s+(?:from|in)\s+(?:the\s+)?(.+)$/i);
     return {
       instruction,
       action: "select",
-      value: selectMatch[1],
-      target: selectMatch[2].trim(),
+      value: originalMatch ? originalMatch[1] : selectMatch[1],
+      target: originalMatch ? originalMatch[2].trim() : selectMatch[2].trim(),
     };
   }
 
@@ -559,6 +568,19 @@ export async function runNLTestSuite(
   const failed = testResults.filter(t => !t.passed).length;
   const recommendations = generateRecommendations(testResults);
 
+  // v11.6.0: Calculate step-level statistics for better granularity
+  let totalSteps = 0;
+  let passedSteps = 0;
+  let failedSteps = 0;
+  for (const test of testResults) {
+    if (test.stepResults) {
+      totalSteps += test.stepResults.length;
+      passedSteps += test.stepResults.filter(s => s.passed).length;
+      failedSteps += test.stepResults.filter(s => !s.passed).length;
+    }
+  }
+  const stepPassRate = totalSteps > 0 ? (passedSteps / totalSteps) * 100 : 0;
+
   const result: NLTestSuiteResult = {
     name: suite.name,
     timestamp: new Date().toISOString(),
@@ -570,6 +592,10 @@ export async function runNLTestSuite(
       failed,
       skipped: 0,
       passRate: suite.tests.length > 0 ? (passed / suite.tests.length) * 100 : 0,
+      totalSteps,
+      passedSteps,
+      failedSteps,
+      stepPassRate,
     },
     recommendations: recommendations.length > 0 ? recommendations : undefined,
   };
@@ -595,7 +621,12 @@ export function formatNLTestReport(result: NLTestSuiteResult): string {
 
   // Summary stats
   const passEmoji = result.summary.passRate === 100 ? "🎉" : result.summary.passRate >= 80 ? "✅" : "⚠️";
-  lines.push(`${passEmoji} Pass Rate: ${result.summary.passed}/${result.summary.total} (${result.summary.passRate.toFixed(0)}%)`);
+  lines.push(`${passEmoji} Test Pass Rate: ${result.summary.passed}/${result.summary.total} tests (${result.summary.passRate.toFixed(0)}%)`);
+  // v11.6.0: Show step-level pass rate for better granularity
+  if (result.summary.totalSteps && result.summary.totalSteps > 0) {
+    const stepEmoji = result.summary.stepPassRate === 100 ? "🎉" : (result.summary.stepPassRate ?? 0) >= 80 ? "✅" : "⚠️";
+    lines.push(`${stepEmoji} Step Pass Rate: ${result.summary.passedSteps}/${result.summary.totalSteps} steps (${result.summary.stepPassRate?.toFixed(0)}%)`);
+  }
   lines.push("");
 
   // Results table
