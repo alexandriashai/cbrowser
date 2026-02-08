@@ -116,6 +116,54 @@ async function getBrowser(): Promise<CBrowser> {
   return browser;
 }
 
+/**
+ * v14.2.1: Retry wrapper for transient browser errors.
+ * Retries operations that fail with common transient error patterns.
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: { maxRetries?: number; retryDelay?: number } = {}
+): Promise<T> {
+  const maxRetries = options.maxRetries ?? 2;
+  const retryDelay = options.retryDelay ?? 500;
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (e) {
+      lastError = e as Error;
+      const errorMessage = lastError.message || "";
+
+      // Check if this is a transient error worth retrying
+      const isTransient =
+        errorMessage.includes("Target closed") ||
+        errorMessage.includes("Execution context") ||
+        errorMessage.includes("Session closed") ||
+        errorMessage.includes("Connection refused") ||
+        errorMessage.includes("Browser disconnected");
+
+      if (!isTransient || attempt === maxRetries) {
+        throw lastError;
+      }
+
+      // Wait before retry with exponential backoff
+      await new Promise((r) => setTimeout(r, retryDelay * (attempt + 1)));
+
+      // Try to recover the browser before retrying
+      try {
+        const b = await getBrowser();
+        await b.recoverBrowser();
+      } catch {
+        // Recovery failed, will retry operation anyway
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // =========================================================================
 // Comparison Session Bridge (for API-free persona comparisons via Claude)
 // =========================================================================
@@ -368,22 +416,25 @@ export async function startMcpServer(): Promise<void> {
       url: z.string().url().describe("The URL to navigate to"),
     },
     async ({ url }) => {
-      const b = await getBrowser();
-      const result = await b.navigate(url);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              url: result.url,
-              title: result.title,
-              loadTime: result.loadTime,
-              screenshot: result.screenshot,
-            }, null, 2),
-          },
-        ],
-      };
+      // v14.2.1: Wrap with retry for transient errors
+      return await withRetry(async () => {
+        const b = await getBrowser();
+        const result = await b.navigate(url);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: true,
+                url: result.url,
+                title: result.title,
+                loadTime: result.loadTime,
+                screenshot: result.screenshot,
+              }, null, 2),
+            },
+          ],
+        };
+      });
     }
   );
 
@@ -400,21 +451,24 @@ export async function startMcpServer(): Promise<void> {
       verbose: z.boolean().optional().describe("Return available elements and AI suggestions on failure"),
     },
     async ({ selector, force, verbose }) => {
-      const b = await getBrowser();
-      const result = await b.click(selector, { force, verbose });
-      const response: Record<string, unknown> = {
-        success: result.success,
-        message: result.message,
-        screenshot: result.screenshot,
-      };
-      if (verbose && !result.success) {
-        if (result.availableElements) response.availableElements = result.availableElements;
-        if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
-        if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
-      }
-      return {
-        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
-      };
+      // v14.2.1: Wrap with retry for transient errors
+      return await withRetry(async () => {
+        const b = await getBrowser();
+        const result = await b.click(selector, { force, verbose });
+        const response: Record<string, unknown> = {
+          success: result.success,
+          message: result.message,
+          screenshot: result.screenshot,
+        };
+        if (verbose && !result.success) {
+          if (result.availableElements) response.availableElements = result.availableElements;
+          if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
+          if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+        };
+      });
     }
   );
 
@@ -486,20 +540,23 @@ export async function startMcpServer(): Promise<void> {
       verbose: z.boolean().optional().describe("Return available inputs and AI suggestions on failure"),
     },
     async ({ selector, value, verbose }) => {
-      const b = await getBrowser();
-      const result = await b.fill(selector, value, { verbose });
-      const response: Record<string, unknown> = {
-        success: result.success,
-        message: result.message,
-      };
-      if (verbose && !result.success) {
-        if (result.availableInputs) response.availableInputs = result.availableInputs;
-        if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
-        if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
-      }
-      return {
-        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
-      };
+      // v14.2.1: Wrap with retry for transient errors
+      return await withRetry(async () => {
+        const b = await getBrowser();
+        const result = await b.fill(selector, value, { verbose });
+        const response: Record<string, unknown> = {
+          success: result.success,
+          message: result.message,
+        };
+        if (verbose && !result.success) {
+          if (result.availableInputs) response.availableInputs = result.availableInputs;
+          if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
+          if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+        };
+      });
     }
   );
 
@@ -514,16 +571,19 @@ export async function startMcpServer(): Promise<void> {
       path: z.string().optional().describe("Optional path to save the screenshot"),
     },
     async ({ path }) => {
-      const b = await getBrowser();
-      const file = await b.screenshot(path);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ screenshot: file }, null, 2),
-          },
-        ],
-      };
+      // v14.2.1: Wrap with retry for transient errors
+      return await withRetry(async () => {
+        const b = await getBrowser();
+        const file = await b.screenshot(path);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ screenshot: file }, null, 2),
+            },
+          ],
+        };
+      });
     }
   );
 
@@ -534,16 +594,19 @@ export async function startMcpServer(): Promise<void> {
       what: z.enum(["links", "headings", "forms", "images", "text"]).describe("What to extract"),
     },
     async ({ what }) => {
-      const b = await getBrowser();
-      const result = await b.extract(what);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result.data, null, 2),
-          },
-        ],
-      };
+      // v14.2.1: Wrap with retry for transient errors
+      return await withRetry(async () => {
+        const b = await getBrowser();
+        const result = await b.extract(what);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result.data, null, 2),
+            },
+          ],
+        };
+      });
     }
   );
 
@@ -725,16 +788,19 @@ export async function startMcpServer(): Promise<void> {
     "Get self-healing selector cache statistics",
     {},
     async () => {
-      const b = await getBrowser();
-      const stats = b.getSelectorCacheStats();
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(stats, null, 2),
-          },
-        ],
-      };
+      // v14.2.1: Wrap with retry for transient errors
+      return await withRetry(async () => {
+        const b = await getBrowser();
+        const stats = b.getSelectorCacheStats();
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(stats, null, 2),
+            },
+          ],
+        };
+      });
     }
   );
 

@@ -417,10 +417,42 @@ export class CBrowser {
   /**
    * Get the current page, launching if needed.
    * If the page exists but is at about:blank, restores the previous session.
+   * v14.2.1: Added health check to prevent page desync issues.
    */
   async getPage(): Promise<Page> {
     if (!this.page) {
       await this.launch();
+    }
+
+    // v14.2.1: Verify page is healthy before returning (fixes page desync)
+    if (this.page) {
+      try {
+        // Quick health check - verify page is responsive
+        if (this.page.isClosed()) {
+          if (this.config.verbose) {
+            console.log(`⚠️ Page was closed, recovering...`);
+          }
+          await this.recoverBrowser();
+        } else {
+          // Verify page context is valid with a lightweight check
+          await Promise.race([
+            this.page.evaluate(() => document.readyState),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Health check timeout")), 2000)),
+          ]);
+        }
+      } catch (e) {
+        // Page is unresponsive, attempt recovery
+        if (this.config.verbose) {
+          console.log(`⚠️ Page unresponsive, recovering: ${(e as Error).message}`);
+        }
+        try {
+          await this.recoverBrowser();
+        } catch {
+          // Recovery failed, relaunch
+          await this.close();
+          await this.launch();
+        }
+      }
     }
 
     // Check if page is at about:blank and needs session restoration

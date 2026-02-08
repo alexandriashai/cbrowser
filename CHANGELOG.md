@@ -31,6 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **click verbose:** Increased element limit from 20 to 50
   - Better debugging output for pages with many clickable elements
 
+* **browser:** Page health check before operations (fixes page desync)
+  - `getPage()` now verifies page is responsive before returning
+  - Auto-recovers from stale page references
+
+* **mcp:** Retry wrapper for transient tool execution errors
+  - navigate, click, fill, extract, screenshot, heal_stats now retry on transient failures
+  - Auto-recovery on "Target closed", "Execution context", "Session closed" errors
+  - Exponential backoff with browser recovery between attempts
+
 ## [14.2.0](https://github.com/alexandriashai/cbrowser/compare/v14.1.0...v14.2.0) (2026-02-08)
 
 ### Added
