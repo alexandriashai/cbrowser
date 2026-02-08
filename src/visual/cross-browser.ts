@@ -207,10 +207,11 @@ export async function runCrossBrowserTest(
       console.log(`      ${a.browser} vs ${b.browser}...`);
 
       // Use the existing AI visual analysis
+      // v11.10.0: Pass crossBrowser flag for more lenient thresholds (issue #93)
       const analysis = await analyzeVisualDifferences(
         a.screenshotPath,
         b.screenshotPath,
-        { sensitivity: options.sensitivity || "medium" }
+        { sensitivity: options.sensitivity || "medium", crossBrowser: true } as any
       );
 
       comparisons.push({
@@ -243,11 +244,12 @@ export async function runCrossBrowserTest(
       ? "minor_differences"
       : "consistent";
 
+  // v11.10.0: Improved messaging for cross-browser expected differences (issue #93)
   const summary = overallStatus === "consistent"
     ? "Page renders consistently across all tested browsers"
     : overallStatus === "minor_differences"
-      ? "Minor rendering differences detected between browsers"
-      : "Significant rendering differences detected between browsers";
+      ? "Minor rendering differences detected (font/anti-aliasing variations are expected between browser engines)"
+      : "Significant layout or content differences detected between browsers (review recommended)";
 
   return {
     url,

@@ -387,6 +387,31 @@ function performHeuristicAnalysis(
     similarityScore = Math.min(similarityScore, 0.95);
   }
 
+  // v11.10.0: Cross-browser mode for expected font/rendering differences (issue #93)
+  // Cross-browser comparisons naturally have font rendering differences
+  if ((options as any).crossBrowser) {
+    // Relax thresholds for cross-browser - font differences are expected
+    if (overallStatus === "fail" && similarityScore >= 0.60) {
+      // Bump fail → warning if similarity is reasonable
+      overallStatus = "warning";
+      if (changes.length > 0) {
+        changes[0].severity = "warning";
+        changes[0].description = `Cross-browser rendering differences detected (${(diffRatio * 100).toFixed(1)}% bytes differ)`;
+        changes[0].reasoning = "Font rendering and anti-aliasing naturally differ between browser engines";
+        changes[0].suggestion = "These differences are typically expected in cross-browser testing";
+      }
+    }
+    if (overallStatus === "warning" && similarityScore >= 0.80) {
+      // Bump warning → pass for high similarity cross-browser
+      overallStatus = "pass";
+      if (changes.length > 0) {
+        changes[0].severity = "acceptable";
+        changes[0].description = `Minor cross-browser rendering differences (${(diffRatio * 100).toFixed(1)}% bytes differ)`;
+        changes[0].reasoning = "Expected font and anti-aliasing differences between browser engines";
+      }
+    }
+  }
+
   return {
     overallStatus,
     summary: changes.length === 0

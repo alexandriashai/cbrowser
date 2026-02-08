@@ -32,6 +32,18 @@ function getABScreenshotsPath(): string {
   return screenshotsPath;
 }
 
+/** v11.10.0: Page structure for detailed comparison (issue #88) */
+interface PageStructure {
+  headings: Array<{ level: number; text: string }>;
+  links: Array<{ text: string; href: string }>;
+  images: Array<{ src: string; alt: string }>;
+  forms: number;
+  buttons: Array<{ text: string }>;
+  inputFields: number;
+  textLength: number;
+  colors: string[];
+}
+
 /**
  * Capture screenshot for A/B comparison
  */
@@ -39,7 +51,7 @@ async function captureForAB(
   url: string,
   label: "A" | "B",
   options: ABComparisonOptions = {}
-): Promise<ABScreenshot> {
+): Promise<ABScreenshot & { structure?: PageStructure }> {
   const startTime = Date.now();
 
   const browser = new CBrowser({
@@ -65,6 +77,51 @@ async function captureForAB(
     // Get page title
     const title = await page.title();
 
+    // v11.10.0: Extract page structure for detailed comparison (issue #88)
+    const structure = await page.evaluate(() => {
+      const headings = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6")).slice(0, 20).map(h => ({
+        level: parseInt(h.tagName[1]),
+        text: h.textContent?.trim().slice(0, 100) || "",
+      }));
+
+      const links = Array.from(document.querySelectorAll("a[href]")).slice(0, 30).map(a => ({
+        text: a.textContent?.trim().slice(0, 50) || "",
+        href: (a as HTMLAnchorElement).href,
+      }));
+
+      const images = Array.from(document.querySelectorAll("img")).slice(0, 20).map(img => ({
+        src: img.src,
+        alt: img.alt || "",
+      }));
+
+      const buttons = Array.from(document.querySelectorAll("button, [role='button'], input[type='button'], input[type='submit']"))
+        .slice(0, 15).map(b => ({ text: b.textContent?.trim().slice(0, 50) || "" }));
+
+      // Extract prominent colors from computed styles
+      const colors: string[] = [];
+      const sampleElements = document.querySelectorAll("header, nav, main, footer, h1, button, a");
+      sampleElements.forEach(el => {
+        const style = getComputedStyle(el);
+        if (style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          colors.push(style.backgroundColor);
+        }
+        if (style.color) {
+          colors.push(style.color);
+        }
+      });
+
+      return {
+        headings,
+        links,
+        images,
+        forms: document.querySelectorAll("form").length,
+        buttons,
+        inputFields: document.querySelectorAll("input, textarea, select").length,
+        textLength: document.body.innerText.length,
+        colors: [...new Set(colors)].slice(0, 10),
+      };
+    });
+
     // Take screenshot
     const screenshotsPath = getABScreenshotsPath();
     const filename = `${label.toLowerCase()}-${Date.now()}.png`;
@@ -81,6 +138,7 @@ async function captureForAB(
       viewport,
       timestamp: new Date().toISOString(),
       captureTime: Date.now() - startTime,
+      structure,
     };
   } finally {
     await browser.close();
@@ -117,6 +175,121 @@ function analyzeABDifferences(analysis: AIVisualAnalysis): ABDifference[] {
       description: change.description,
       affectedSide: "both", // AI analysis doesn't specify which side
       region: change.region,
+    });
+  }
+
+  return differences;
+}
+
+/**
+ * v11.10.0: Compare page structures for detailed A/B differences (issue #88)
+ */
+function comparePageStructures(
+  structA: PageStructure | undefined,
+  structB: PageStructure | undefined
+): ABDifference[] {
+  if (!structA || !structB) return [];
+
+  const differences: ABDifference[] = [];
+
+  // Compare headings
+  const headingsA = structA.headings.map(h => h.text);
+  const headingsB = structB.headings.map(h => h.text);
+  const addedHeadings = headingsB.filter(h => !headingsA.includes(h));
+  const removedHeadings = headingsA.filter(h => !headingsB.includes(h));
+
+  if (addedHeadings.length > 0) {
+    differences.push({
+      type: "added",
+      severity: "major",
+      description: `Headings added in B: ${addedHeadings.slice(0, 3).join(", ")}${addedHeadings.length > 3 ? ` (+${addedHeadings.length - 3} more)` : ""}`,
+      affectedSide: "B",
+    });
+  }
+  if (removedHeadings.length > 0) {
+    differences.push({
+      type: "missing",
+      severity: "major",
+      description: `Headings removed from B: ${removedHeadings.slice(0, 3).join(", ")}${removedHeadings.length > 3 ? ` (+${removedHeadings.length - 3} more)` : ""}`,
+      affectedSide: "A",
+    });
+  }
+
+  // Compare links count
+  const linkDiff = structB.links.length - structA.links.length;
+  if (Math.abs(linkDiff) > 3) {
+    differences.push({
+      type: "structure",
+      severity: "minor",
+      description: `Link count difference: A has ${structA.links.length}, B has ${structB.links.length} (${linkDiff > 0 ? "+" : ""}${linkDiff})`,
+      affectedSide: "both",
+    });
+  }
+
+  // Compare images
+  const imagesA = new Set(structA.images.map(i => i.src));
+  const imagesB = new Set(structB.images.map(i => i.src));
+  const addedImages = [...imagesB].filter(i => !imagesA.has(i));
+  const removedImages = [...imagesA].filter(i => !imagesB.has(i));
+
+  if (addedImages.length > 0) {
+    differences.push({
+      type: "added",
+      severity: "minor",
+      description: `${addedImages.length} image(s) added in B`,
+      affectedSide: "B",
+    });
+  }
+  if (removedImages.length > 0) {
+    differences.push({
+      type: "missing",
+      severity: "minor",
+      description: `${removedImages.length} image(s) removed from B`,
+      affectedSide: "A",
+    });
+  }
+
+  // Compare forms/buttons
+  if (structA.forms !== structB.forms) {
+    differences.push({
+      type: "structure",
+      severity: "major",
+      description: `Form count differs: A has ${structA.forms}, B has ${structB.forms}`,
+      affectedSide: "both",
+    });
+  }
+
+  const buttonDiff = structB.buttons.length - structA.buttons.length;
+  if (Math.abs(buttonDiff) > 2) {
+    differences.push({
+      type: "structure",
+      severity: "minor",
+      description: `Button count difference: A has ${structA.buttons.length}, B has ${structB.buttons.length}`,
+      affectedSide: "both",
+    });
+  }
+
+  // Compare text length (significant changes)
+  const textLengthRatio = structB.textLength / (structA.textLength || 1);
+  if (textLengthRatio < 0.7 || textLengthRatio > 1.3) {
+    differences.push({
+      type: "content",
+      severity: textLengthRatio < 0.5 || textLengthRatio > 2 ? "major" : "minor",
+      description: `Text content ${textLengthRatio < 1 ? "reduced" : "increased"} by ${Math.abs(Math.round((textLengthRatio - 1) * 100))}%`,
+      affectedSide: "both",
+    });
+  }
+
+  // Compare colors (style changes)
+  const colorsA = new Set(structA.colors);
+  const colorsB = new Set(structB.colors);
+  const colorChanges = [...colorsB].filter(c => !colorsA.has(c)).length;
+  if (colorChanges > 2) {
+    differences.push({
+      type: "style",
+      severity: "minor",
+      description: `Color scheme changes detected (${colorChanges} new colors in B)`,
+      affectedSide: "both",
     });
   }
 
@@ -171,8 +344,17 @@ export async function runABComparison(
     console.log(`      ❌ Very Different (${(analysis.similarityScore * 100).toFixed(1)}%)`);
   }
 
-  // Analyze differences
-  const differences = analyzeABDifferences(analysis);
+  // Analyze differences from visual analysis
+  const visualDifferences = analyzeABDifferences(analysis);
+
+  // v11.10.0: Add structural differences for detailed reporting (issue #88)
+  const structuralDifferences = comparePageStructures(
+    (screenshotA as any).structure,
+    (screenshotB as any).structure
+  );
+
+  // Merge differences, structural first for context
+  const differences = [...structuralDifferences, ...visualDifferences];
 
   // Generate summary
   const summaryMap = {
