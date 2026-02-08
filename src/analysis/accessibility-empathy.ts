@@ -1361,6 +1361,7 @@ export async function runEmpathyAudit(
   const allBarriers: AccessibilityBarrier[] = [];
 
   // Map disability names to personas
+  // v14.2.5: Added elderly-user mapping (issue #190 - persona dropout)
   const personaMap: Record<string, string> = {
     "motor-tremor": "motor-impairment-tremor",
     "motor": "motor-impairment-tremor",
@@ -1377,8 +1378,10 @@ export async function runEmpathyAudit(
     "deaf": "deaf-user",
     "hearing": "deaf-user",
     "elderly": "elderly-low-vision",
+    "elderly-user": "elderly-low-vision",  // v14.2.5: Added missing mapping
     "elderly-low-vision": "elderly-low-vision",
     "senior": "elderly-low-vision",
+    "old": "elderly-low-vision",  // v14.2.5: Additional synonym
     "color-blind": "color-blind-deuteranopia",
     "colorblind": "color-blind-deuteranopia",
     "deuteranopia": "color-blind-deuteranopia",

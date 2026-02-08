@@ -189,6 +189,25 @@ export async function runChaosTest(
       // Baseline measurement failed, continue without it
     }
 
+    // v14.2.4: Clear browser cache before offline test to prevent false positives
+    // Cached resources would load even in offline mode, contaminating results
+    if (chaos.offline) {
+      try {
+        const context = await (browser as any).context;
+        if (context && typeof context.clearCookies === "function") {
+          await context.clearCookies();
+        }
+        // Clear service workers that might serve cached content
+        await page.evaluate(() => {
+          if ("caches" in window) {
+            caches.keys().then(names => names.forEach(name => caches.delete(name)));
+          }
+        });
+      } catch {
+        // Ignore cache clearing errors
+      }
+    }
+
     // Apply chaos with enhanced tracking
     const context = await (browser as any).context;
     const hadRoutes = chaos.networkLatency || chaos.blockUrls || chaos.failApis;

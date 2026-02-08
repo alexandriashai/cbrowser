@@ -519,11 +519,13 @@ function generateRecommendations(issues: AgentReadyIssue[]): AgentReadyRecommend
           const representative = typeIssues[0];
           const count = typeIssues.length;
 
-          // v11.8.0: Fix pluralization - pluralize "Element" not append "s" to end
+          // v14.2.4: Fix grammar - "10 elements lack" not "10 Elements lacks"
           let issueText = representative.description;
           if (count > 1) {
-            // Replace "Element " with "Elements " for proper pluralization
-            issueText = representative.description.replace(/^Element /, "Elements ");
+            // Replace "Element lacks" with "elements lack" for proper grammar
+            issueText = representative.description
+              .replace(/^Element /, "elements ")
+              .replace(/ lacks /, " lack ");
             issueText = `${count} ${issueText}`;
           }
 

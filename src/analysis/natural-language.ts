@@ -315,9 +315,13 @@ function buildElementResult(
   const candidates = generatePrioritySelectors(el);
   const best = candidates[0] || { selector: el.tag, type: "nth-of-type" as SelectorStrategyType, confidence: 0.3 };
 
+  // v14.2.4: Clamp confidence to [0, 1] range to avoid invalid values
+  const rawConfidence = Math.max(best.confidence, baseConfidence);
+  const clampedConfidence = Math.max(0, Math.min(1, rawConfidence));
+
   return {
     selector: best.selector,
-    confidence: Math.max(best.confidence, baseConfidence),
+    confidence: clampedConfidence,
     description,
     selectorType: best.type,
     accessibilityScore: calculateAccessibilityScore(el),
@@ -326,7 +330,7 @@ function buildElementResult(
       text: el.text.slice(0, 60),
       tag: el.tag,
       type: c.type,
-      confidence: c.confidence,
+      confidence: Math.max(0, Math.min(1, c.confidence)), // v14.2.4: Clamp alternatives too
     })),
   };
 }
@@ -416,11 +420,35 @@ export async function findElementByIntent(
     return elements;
   });
 
-  const intentLower = intent.toLowerCase();
+  let intentLower = intent.toLowerCase();
 
   // =========================================================================
   // Word-level fuzzy matching utilities (v10.10.0)
+  // v14.2.4: Added synonym normalization for common variations
   // =========================================================================
+
+  // Synonym mappings for common variations
+  const synonymMap: Record<string, string> = {
+    // Login variations
+    "sign in": "login", "signin": "login", "log in": "login", "log-in": "login",
+    // Signup variations
+    "sign up": "signup", "sign-up": "signup", "register": "signup", "create account": "signup",
+    // Submit variations
+    "send": "submit", "confirm": "submit", "go": "submit",
+    // Search variations
+    "find": "search", "look for": "search", "look up": "search",
+    // Close variations
+    "dismiss": "close", "cancel": "close", "exit": "close",
+    // Navigation variations
+    "nav": "navigation", "navbar": "navigation", "menu bar": "navigation",
+  };
+
+  // Apply synonym normalization
+  for (const [synonym, normalized] of Object.entries(synonymMap)) {
+    if (intentLower.includes(synonym)) {
+      intentLower = intentLower.replace(synonym, normalized);
+    }
+  }
 
   // Tokenize intent into meaningful words (remove stop words)
   const stopWords = new Set(["the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "are", "that", "this", "it"]);

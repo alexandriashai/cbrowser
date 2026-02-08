@@ -2586,9 +2586,34 @@ export class CBrowser {
       }
 
       // Strategy 3: Set value directly via JavaScript (last resort)
+      // v14.3.0: Use native setter + InputEvent for React compatibility
       await hiddenInput.evaluate((el: Element, val: string) => {
-        (el as HTMLInputElement).value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
+        const input = el as HTMLInputElement;
+
+        // Get the native value setter to bypass React's synthetic property
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype, 'value'
+        )?.set;
+        const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype, 'value'
+        )?.set;
+
+        // Use native setter if available (required for React state sync)
+        if (input.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
+          nativeTextAreaValueSetter.call(input, val);
+        } else if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(input, val);
+        } else {
+          input.value = val;
+        }
+
+        // Dispatch InputEvent (more specific than Event, better React compatibility)
+        el.dispatchEvent(new InputEvent('input', {
+          bubbles: true,
+          cancelable: true,
+          inputType: 'insertText',
+          data: val
+        }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }, value);
 
@@ -2967,8 +2992,11 @@ export class CBrowser {
         } : undefined;
 
         // v11.9.0: Enhanced form purpose detection (issue #89)
+        // v14.2.4: Added newsletter, subscription, booking, comment form detection
         let purpose: FormAnalysis["purpose"] = "unknown";
         const formHtml = form.innerHTML.toLowerCase();
+        const formClass = (form.className || '').toLowerCase();
+        const formId = (form.id || '').toLowerCase();
         const hasPasswordField = !!form.querySelector('input[type="password"]');
         const hasEmailField = !!form.querySelector('input[type="email"]');
         const hasUsernameField = !!form.querySelector('[name*="user" i], [name*="login" i], [placeholder*="user" i], [placeholder*="login" i]');
@@ -2982,12 +3010,42 @@ export class CBrowser {
           purpose = fields.length <= 3 ? "login" : "signup";
         } else if (hasSearchField || formHtml.includes("search")) {
           purpose = "search";
-        } else if (formHtml.includes("contact") || formHtml.includes("message") || formHtml.includes("feedback")) {
+        } else if (formHtml.includes("contact") || formHtml.includes("message") || formHtml.includes("feedback") || formHtml.includes("inquiry")) {
           purpose = "contact";
-        } else if (formHtml.includes("card") || formHtml.includes("payment") || formHtml.includes("checkout")) {
+        } else if (formHtml.includes("card") || formHtml.includes("payment") || formHtml.includes("checkout") || formHtml.includes("billing")) {
           purpose = "checkout";
         } else if (formHtml.includes("register") || formHtml.includes("sign up") || formHtml.includes("create account")) {
           purpose = "signup";
+        } else if (
+          // v14.2.4: Newsletter/subscription detection
+          formHtml.includes("newsletter") || formHtml.includes("subscribe") || formHtml.includes("subscription") ||
+          formHtml.includes("mailing list") || formHtml.includes("email updates") || formHtml.includes("stay updated") ||
+          formClass.includes("newsletter") || formClass.includes("subscribe") ||
+          formId.includes("newsletter") || formId.includes("subscribe")
+        ) {
+          purpose = "newsletter" as FormAnalysis["purpose"];
+        } else if (
+          // v14.2.4: Comment form detection
+          formHtml.includes("comment") || formHtml.includes("reply") || formHtml.includes("leave a comment") ||
+          formClass.includes("comment") || formId.includes("comment")
+        ) {
+          purpose = "comment" as FormAnalysis["purpose"];
+        } else if (
+          // v14.2.4: Booking/reservation detection
+          formHtml.includes("book") || formHtml.includes("reservation") || formHtml.includes("schedule") ||
+          formHtml.includes("appointment") || formHtml.includes("check-in") || formHtml.includes("check-out") ||
+          form.querySelector('input[type="date"]')
+        ) {
+          purpose = "booking" as FormAnalysis["purpose"];
+        } else if (
+          // v14.2.4: Profile/settings form detection
+          formHtml.includes("profile") || formHtml.includes("settings") || formHtml.includes("preferences") ||
+          formHtml.includes("update your") || formHtml.includes("edit your")
+        ) {
+          purpose = "profile" as FormAnalysis["purpose"];
+        } else if (hasEmailField && fields.length <= 2) {
+          // Single email field form is likely newsletter
+          purpose = "newsletter" as FormAnalysis["purpose"];
         }
 
         return {
@@ -3552,10 +3610,16 @@ export class CBrowser {
     }
 
     // Text presence assertions
+    // v14.3.0: Filter script/style content to avoid ad injection false negatives
     if (lowerAssertion.includes("page") && (lowerAssertion.includes("contains") || lowerAssertion.includes("has") || lowerAssertion.includes("shows"))) {
       const match = assertion.match(/["']([^"']+)["']/);
       const expected = match?.[1] || "";
-      const content = await page.textContent("body") || "";
+      // v14.3.0: Use filtered text extraction (excludes script/style content)
+      const content = await page.evaluate(() => {
+        const clone = document.body.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+        return clone.innerText || clone.textContent || "";
+      }) || "";
       const passed = content.toLowerCase().includes(expected.toLowerCase());
       // v11.7.1: Include actual content snippet for debugging (truncated to 200 chars)
       const actualSnippet = content.length > 200 ? content.substring(0, 200) + "..." : content;
@@ -3770,6 +3834,46 @@ export class CBrowser {
       }
     } catch {}
 
+    // Strategy 14: Search within iframes (v14.3.0)
+    // For embedded apps like TodoMVC, search inside iframes
+    try {
+      const frames = page.frames();
+      for (const frame of frames) {
+        if (frame === page.mainFrame()) continue; // Skip main frame, already searched
+
+        // Try common selectors in iframe
+        try {
+          // Text match in iframe
+          const byText = frame.getByText(selector, { exact: false });
+          if (await byText.count() > 0) {
+            // Store which iframe has the element for later operations
+            (this as any)._activeFrame = frame;
+            return byText.first();
+          }
+
+          // Placeholder match in iframe
+          const byPlaceholder = frame.getByPlaceholder(selector, { exact: false });
+          if (await byPlaceholder.count() > 0) {
+            (this as any)._activeFrame = frame;
+            return byPlaceholder.first();
+          }
+
+          // Role match in iframe
+          const roles = ["button", "link", "textbox", "checkbox", "radio", "combobox"] as const;
+          for (const role of roles) {
+            const byRole = frame.getByRole(role, { name: selector });
+            if (await byRole.count() > 0) {
+              (this as any)._activeFrame = frame;
+              return byRole.first();
+            }
+          }
+        } catch {
+          // Frame may be cross-origin, skip it
+          continue;
+        }
+      }
+    } catch {}
+
     return null;
   }
 
@@ -3830,15 +3934,24 @@ export class CBrowser {
       case "text":
       default:
         // v11.7.1: Explicit text case (was falling through to default which caused issues)
+        // v14.3.0: Filter script/style content to avoid ad injection pollution
         data = await page.evaluate(() => {
-          let text = document.body.innerText;
+          // Clone body to avoid modifying the DOM
+          const clone = document.body.cloneNode(true) as HTMLElement;
+
+          // v14.3.0: Remove script and style elements before text extraction
+          // This prevents Google Ads and other injected scripts from polluting assertions
+          const scriptsAndStyles = clone.querySelectorAll('script, style, noscript');
+          scriptsAndStyles.forEach(el => el.remove());
+
+          let text = clone.innerText;
           // Fallback: if innerText is empty (SPA hydration), try textContent
           if (!text || text.trim() === "") {
-            text = document.body.textContent || "";
+            text = clone.textContent || "";
           }
           // Second fallback: extract from visible elements
           if (!text || text.trim() === "") {
-            const elements = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6, p, span, li, td, th, a, label, div"));
+            const elements = Array.from(clone.querySelectorAll("h1, h2, h3, h4, h5, h6, p, span, li, td, th, a, label, div"));
             const texts: string[] = [];
             for (const el of elements) {
               const t = (el as HTMLElement).innerText?.trim();

@@ -402,11 +402,14 @@ function performHeuristicAnalysis(
   }
 
   // v11.10.0: Cross-browser mode for expected font/rendering differences (issue #93)
+  // v14.2.4: Relaxed thresholds - font/anti-aliasing differences are expected between browser engines
+  // v14.2.5: Further relaxed for extreme font differences (WebKit vs Chromium can differ 40%+)
   // Cross-browser comparisons naturally have font rendering differences
   if ((options as any).crossBrowser) {
     // Relax thresholds for cross-browser - font differences are expected
-    if (overallStatus === "fail" && similarityScore >= 0.60) {
-      // Bump fail → warning if similarity is reasonable
+    // WebKit and Chromium use different font rendering engines with different anti-aliasing
+    if (overallStatus === "fail" && similarityScore >= 0.40) {
+      // Bump fail → warning if similarity is reasonable (lowered from 0.55)
       overallStatus = "warning";
       if (changes.length > 0) {
         changes[0].severity = "warning";
@@ -415,8 +418,8 @@ function performHeuristicAnalysis(
         changes[0].suggestion = "These differences are typically expected in cross-browser testing";
       }
     }
-    if (overallStatus === "warning" && similarityScore >= 0.80) {
-      // Bump warning → pass for high similarity cross-browser
+    if (overallStatus === "warning" && similarityScore >= 0.55) {
+      // Bump warning → pass for reasonable similarity cross-browser (lowered from 0.70)
       overallStatus = "pass";
       if (changes.length > 0) {
         changes[0].severity = "acceptable";

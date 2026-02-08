@@ -6,11 +6,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [14.2.3](https://github.com/alexandriashai/cbrowser/compare/v14.2.2...v14.2.3) (2026-02-08)
+## [14.3.0](https://github.com/alexandriashai/cbrowser/compare/v14.2.5...v14.3.0) (2026-02-08)
+
+### Added
+
+* **browser:** React synthetic event dispatch after js-value-set (#193)
+  - Uses native value setter + InputEvent for React-controlled inputs
+  - Fixes fill operations on React Select, MUI, and other React components
+* **browser:** Iframe traversal for element finding (Strategy 14) (#195)
+  - Searches inside iframes when element not found in main frame
+  - Tracks active frame for subsequent operations
+* **cross-browser:** Content-aware layout comparison (#196)
+  - Captures DOM structure and element positions
+  - Distinguishes layout bugs from font rendering differences
+  - If layouts match (>85%) but pixels differ, downgrades from fail to warning
 
 ### Fixed
 
-* address page desync and transient tool errors ([2d772fa](https://github.com/alexandriashai/cbrowser/commit/2d772fa9afdcd5e2b90d88eed9cc6c06b5792491)), closes [#181](https://github.com/alexandriashai/cbrowser/issues/181) [#182](https://github.com/alexandriashai/cbrowser/issues/182)
+* **browser:** Script tag filtering in text extraction (#194)
+  - Clones DOM and removes script/style/noscript before extracting text
+  - Prevents injected ad scripts from contaminating assertions
+
+## [14.2.5](https://github.com/alexandriashai/cbrowser/compare/v14.2.4...v14.2.5) (2026-02-08)
+
+### Fixed
+
+* **retry-wrapper:** verify page URL after error recovery to prevent context desync (#189)
+  - Captures expected URL before operation, restores after browser recovery
+  - Prevents stale session state from loading wrong page on retry
+* **empathy-audit:** add elderly-user persona mapping (#190)
+  - "elderly-user" now correctly maps to "elderly-low-vision" accessibility persona
+  - Added additional synonyms: "old"
+* **cross-browser:** further relax thresholds for font rendering differences (#191)
+  - fail→warning: 0.55→0.40 (WebKit vs Chromium can differ 40%+)
+  - warning→pass: 0.70→0.55
+* **empathy-audit:** barrierCount now shows unique barrier types, not element count (#192)
+  - `barrierCount`: unique barrier types (was: total elements)
+  - `totalBarrierElements`: new field for raw element count
+
+## [14.2.4](https://github.com/alexandriashai/cbrowser/compare/v14.2.2...v14.2.4) (2026-02-08)
+
+### Fixed
+
+* **agent-audit:** fix grammar "Elements lacks" → "elements lack" (#183)
+* **cross-browser:** relax visual diff thresholds for expected font/anti-aliasing differences (#184)
+  - fail→warning threshold lowered from 0.60 to 0.55
+  - warning→pass threshold lowered from 0.80 to 0.70
+* **chaos-test:** clear browser cache before offline tests to prevent false positives (#185)
+  - Cached resources would load even in offline mode, contaminating results
+  - Now clears cookies and service worker caches before offline navigation
+* **empathy-audit:** show unique barrier types count, not just total barriers (#186)
+  - resultsSummary now includes `uniqueBarrierTypes` and `barrierTypes` array
+* **find-element:** add synonym normalization for common variations (#187)
+  - Maps "sign in"→"login", "register"→"signup", "send"→"submit", etc.
+  - Clamps confidence to [0, 1] range to avoid invalid values
+* **generate-tests:** detect newsletter, comment, booking, profile form types (#188)
+  - Expanded form purpose detection beyond login/signup/search/contact/checkout
 
 ## [14.2.2](https://github.com/alexandriashai/cbrowser/compare/v14.2.0...v14.2.2) (2026-02-08)
 

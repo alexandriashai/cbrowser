@@ -31,6 +31,7 @@ import type {
   CrossBrowserOptions,
   CrossBrowserSuite,
   CrossBrowserSuiteResult,
+  LayoutElement,
 } from "../types.js";
 import { analyzeVisualDifferences } from "./regression.js";
 
@@ -120,6 +121,9 @@ async function captureWithBrowser(
     const userAgent = await page.evaluate(() => navigator.userAgent);
     const viewport = page.viewportSize() || { width: 1920, height: 1080 };
 
+    // v14.3.0: Capture layout structure for content-aware comparison
+    const layoutStructure = await captureLayoutStructure(page);
+
     return {
       browser: browserType,
       screenshotPath,
@@ -127,10 +131,113 @@ async function captureWithBrowser(
       userAgent,
       timestamp: new Date().toISOString(),
       captureTime: Date.now() - startTime,
+      layoutStructure, // v14.3.0
     };
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * v14.3.0: Content-aware layout comparison
+ * Compare DOM structure and element positions instead of pixels
+ * This avoids false positives from font rendering differences
+ */
+async function captureLayoutStructure(page: any): Promise<LayoutElement[]> {
+  return page.evaluate(() => {
+    const elements: Array<{
+      tag: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      children: number;
+    }> = [];
+
+    // Get major layout elements
+    const selectors = [
+      "header", "nav", "main", "footer", "aside", "section", "article",
+      "div[class]", "form", "table", "ul", "ol"
+    ];
+
+    for (const selector of selectors) {
+      const els = document.querySelectorAll(selector);
+      for (const el of Array.from(els).slice(0, 10)) { // Limit per selector
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 50 && rect.height > 20) { // Skip tiny elements
+          elements.push({
+            tag: el.tagName.toLowerCase(),
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            children: el.children.length
+          });
+        }
+      }
+    }
+
+    return elements.slice(0, 50); // Limit total elements
+  });
+}
+
+function compareLayouts(layoutA: LayoutElement[], layoutB: LayoutElement[]): {
+  similarity: number;
+  differences: string[];
+} {
+  const differences: string[] = [];
+
+  // Compare element counts by tag
+  const tagCountA: Record<string, number> = {};
+  const tagCountB: Record<string, number> = {};
+
+  for (const el of layoutA) tagCountA[el.tag] = (tagCountA[el.tag] || 0) + 1;
+  for (const el of layoutB) tagCountB[el.tag] = (tagCountB[el.tag] || 0) + 1;
+
+  const allTags = new Set([...Object.keys(tagCountA), ...Object.keys(tagCountB)]);
+  let matchingTags = 0;
+
+  for (const tag of allTags) {
+    const countA = tagCountA[tag] || 0;
+    const countB = tagCountB[tag] || 0;
+    if (countA === countB) {
+      matchingTags++;
+    } else {
+      differences.push(`${tag}: ${countA} vs ${countB}`);
+    }
+  }
+
+  // Compare element positions (with tolerance for font-induced shifts)
+  const tolerance = 20; // Allow 20px variance for font differences
+  let positionMatches = 0;
+  const checkedA = new Set<number>();
+
+  for (let i = 0; i < layoutB.length; i++) {
+    const elB = layoutB[i];
+    for (let j = 0; j < layoutA.length; j++) {
+      if (checkedA.has(j)) continue;
+      const elA = layoutA[j];
+      if (
+        elA.tag === elB.tag &&
+        Math.abs(elA.x - elB.x) < tolerance &&
+        Math.abs(elA.y - elB.y) < tolerance &&
+        Math.abs(elA.width - elB.width) < tolerance
+      ) {
+        positionMatches++;
+        checkedA.add(j);
+        break;
+      }
+    }
+  }
+
+  const maxElements = Math.max(layoutA.length, layoutB.length);
+  const tagSimilarity = allTags.size > 0 ? matchingTags / allTags.size : 1;
+  const positionSimilarity = maxElements > 0 ? positionMatches / maxElements : 1;
+
+  // Weight: 40% tag structure, 60% position matching
+  const similarity = tagSimilarity * 0.4 + positionSimilarity * 0.6;
+
+  return { similarity, differences };
 }
 
 /**
@@ -238,12 +345,28 @@ export async function runCrossBrowserTest(
         },
       });
 
-      if (analysis.overallStatus === "fail") {
+      // v14.3.0: Content-aware layout comparison
+      // If AI pixel analysis says "fail" but layouts match, downgrade to "warning"
+      // This handles font rendering differences that don't affect layout
+      let effectiveStatus = analysis.overallStatus;
+
+      if (analysis.overallStatus === "fail" && a.layoutStructure && b.layoutStructure) {
+        const layoutComparison = compareLayouts(a.layoutStructure, b.layoutStructure);
+        if (layoutComparison.similarity >= 0.85) {
+          // Layouts are structurally similar - pixel differences are likely font rendering
+          effectiveStatus = "warning";
+          console.log(`         📐 Layout match (${(layoutComparison.similarity * 100).toFixed(0)}%) - pixel diff likely font rendering`);
+        } else if (layoutComparison.differences.length > 0) {
+          console.log(`         📐 Layout differences: ${layoutComparison.differences.slice(0, 3).join(", ")}`);
+        }
+      }
+
+      if (effectiveStatus === "fail") {
         hasMajorDifferences = true;
         problematicBrowsers.add(a.browser);
         problematicBrowsers.add(b.browser);
         console.log(`         ❌ Major differences (${(analysis.similarityScore * 100).toFixed(1)}%)`);
-      } else if (analysis.overallStatus === "warning") {
+      } else if (effectiveStatus === "warning") {
         hasMinorDifferences = true;
         console.log(`         ⚠️  Minor differences (${(analysis.similarityScore * 100).toFixed(1)}%)`);
       } else {

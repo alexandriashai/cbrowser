@@ -3130,7 +3130,8 @@ export interface FormAnalysis {
   method?: string;
   fields: PageElement[];
   submitButton?: PageElement;
-  purpose: "login" | "signup" | "search" | "contact" | "checkout" | "unknown";
+  /** v14.2.4: Added newsletter, comment, booking, profile form types */
+  purpose: "login" | "signup" | "search" | "contact" | "checkout" | "newsletter" | "comment" | "booking" | "profile" | "unknown";
 }
 
 export interface GeneratedTest {
@@ -3550,6 +3551,25 @@ export interface VisualTestSuiteResult {
 
 export type SupportedBrowser = "chromium" | "firefox" | "webkit";
 
+/**
+ * Layout element for content-aware cross-browser comparison (v14.3.0)
+ * Captures structural elements to distinguish layout bugs from font rendering
+ */
+export interface LayoutElement {
+  /** HTML tag name */
+  tag: string;
+  /** X position relative to viewport */
+  x: number;
+  /** Y position relative to viewport */
+  y: number;
+  /** Element width in pixels */
+  width: number;
+  /** Element height in pixels */
+  height: number;
+  /** Number of child elements */
+  children: number;
+}
+
 export interface BrowserScreenshot {
   /** Browser used */
   browser: SupportedBrowser;
@@ -3563,6 +3583,8 @@ export interface BrowserScreenshot {
   timestamp: string;
   /** Time to capture (ms) */
   captureTime: number;
+  /** Layout structure for content-aware comparison (v14.3.0) */
+  layoutStructure?: LayoutElement[];
 }
 
 export interface BrowserComparison {

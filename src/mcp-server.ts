@@ -118,6 +118,7 @@ async function getBrowser(): Promise<CBrowser> {
 
 /**
  * v14.2.1: Retry wrapper for transient browser errors.
+ * v14.2.5: Fixed page context desync after error recovery.
  * Retries operations that fail with common transient error patterns.
  */
 async function withRetry<T>(
@@ -128,6 +129,16 @@ async function withRetry<T>(
   const retryDelay = options.retryDelay ?? 500;
 
   let lastError: Error | null = null;
+
+  // v14.2.5: Capture current URL before operation to restore after recovery
+  let expectedUrl: string | null = null;
+  try {
+    const b = await getBrowser();
+    const page = await b.getPage();
+    expectedUrl = page.url();
+  } catch {
+    // Can't get URL, proceed without context preservation
+  }
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -155,6 +166,17 @@ async function withRetry<T>(
       try {
         const b = await getBrowser();
         await b.recoverBrowser();
+
+        // v14.2.5: Verify page context matches expected URL after recovery
+        // This prevents desync where recovery loads a different saved session
+        if (expectedUrl && expectedUrl !== "about:blank") {
+          const page = await b.getPage();
+          const currentUrl = page.url();
+          if (currentUrl !== expectedUrl && !currentUrl.startsWith(expectedUrl.split("?")[0])) {
+            // Page recovered to wrong URL, navigate back
+            await page.goto(expectedUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
+          }
+        }
       } catch {
         // Recovery failed, will retry operation anyway
       }
@@ -2457,14 +2479,20 @@ Begin the simulation now. Narrate your thoughts as this persona.
                 url: result.url,
                 goal: result.goal,
                 overallScore: result.overallScore,
-                resultsSummary: result.results.map((r) => ({
-                  persona: r.persona,
-                  disabilityType: r.disabilityType,
-                  goalAchieved: r.goalAchieved,
-                  empathyScore: r.empathyScore,
-                  barrierCount: r.barriers.length,
-                  wcagViolationCount: r.wcagViolations.length,
-                })),
+                resultsSummary: result.results.map((r) => {
+                  // v14.2.5: barrierCount now shows unique barrier types (not element count)
+                  const uniqueTypes = new Set(r.barriers.map(b => b.type));
+                  return {
+                    persona: r.persona,
+                    disabilityType: r.disabilityType,
+                    goalAchieved: r.goalAchieved,
+                    empathyScore: r.empathyScore,
+                    barrierCount: uniqueTypes.size,  // v14.2.5: Changed to unique types
+                    barrierTypes: Array.from(uniqueTypes),
+                    totalBarrierElements: r.barriers.length,  // v14.2.5: Raw element count
+                    wcagViolationCount: r.wcagViolations.length,
+                  };
+                }),
                 allWcagViolations: result.allWcagViolations,
                 topBarriers: result.topBarriers.slice(0, 5), // v11.11.0: Deduplicated by type
                 topRemediation: result.combinedRemediation.slice(0, 5),
