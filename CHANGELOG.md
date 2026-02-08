@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [14.4.0](https://github.com/alexandriashai/cbrowser/compare/v14.2.3...v14.4.0) (2026-02-08)
+
+### Added
+
+* v14.3.0 - React synthetic events, iframe traversal, content-aware diffing ([a601966](https://github.com/alexandriashai/cbrowser/commit/a6019664d36a1aa0a084f00e564ead75e51026f9)), closes [#193](https://github.com/alexandriashai/cbrowser/issues/193) [#194](https://github.com/alexandriashai/cbrowser/issues/194) [#195](https://github.com/alexandriashai/cbrowser/issues/195) [#196](https://github.com/alexandriashai/cbrowser/issues/196)
+
 ## [14.3.0](https://github.com/alexandriashai/cbrowser/compare/v14.2.5...v14.3.0) (2026-02-08)
 
 ### Added
