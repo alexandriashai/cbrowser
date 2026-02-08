@@ -566,8 +566,55 @@ export async function findElementByIntent(
     }
   }
 
-  // Form-based intents
-  if (intentLower.includes("login") || intentLower.includes("sign in")) {
+  // =========================================================================
+  // v11.11.0: Semantic role heuristics for button/submit intents (stress test fix)
+  // "submit button", "login button", "click the button" → prioritize <button>, input[type=submit]
+  // =========================================================================
+  const buttonKeywords = ["button", "submit", "btn", "click"];
+  const impliesButton = buttonKeywords.some(kw => intentWords.includes(kw));
+
+  if (impliesButton) {
+    // Get all button-like elements
+    const buttonElements = pageData.filter(el =>
+      el.tag === "button" ||
+      el.type === "submit" ||
+      el.role === "button" ||
+      (el.tag === "input" && el.type === "submit") ||
+      (el.tag === "a" && el.classes.includes("btn"))
+    );
+
+    if (buttonElements.length > 0) {
+      // Extract action keyword from intent (login, submit, search, etc.)
+      const actionKeywords = intentWords.filter(w =>
+        !buttonKeywords.includes(w) && !stopWords.has(w) && ordinalMap[w] === undefined
+      );
+
+      // Score buttons by how well they match the action
+      const scoredButtons = buttonElements.map(el => {
+        const elText = `${el.text} ${el.ariaLabel} ${el.title} ${el.name}`.toLowerCase();
+        let score = 0.5; // Base score for being a button
+
+        for (const action of actionKeywords) {
+          if (elText.includes(action)) score += 0.4;
+          else if (elText.split(/\s+/).some(w => w.includes(action) || action.includes(w))) score += 0.2;
+        }
+
+        // Boost for submit type
+        if (el.type === "submit") score += 0.1;
+
+        return { el, score };
+      }).sort((a, b) => b.score - a.score);
+
+      // Return best match if score is reasonable
+      if (scoredButtons[0].score >= 0.5) {
+        const best = scoredButtons[0];
+        return buildElementResult(best.el, `Button: ${best.el.text.slice(0, 30) || best.el.ariaLabel || "submit"}`, best.score);
+      }
+    }
+  }
+
+  // Form-based intents (only if not already handled by button matcher above)
+  if ((intentLower.includes("login") || intentLower.includes("sign in")) && !impliesButton) {
     const loginEl = pageData.find(el =>
       el.text.toLowerCase().includes("login") ||
       el.text.toLowerCase().includes("sign in") ||

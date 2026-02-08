@@ -1215,56 +1215,79 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
 // ============================================================================
 
 /**
- * v11.10.0: Deduplicate barriers by element+type, combine affected personas (issue #86)
+ * v11.11.0: Deduplicate barriers by TYPE only, aggregate affected elements (stress test fix)
  *
- * When multiple personas encounter the same barrier (e.g., small touch target),
- * we want ONE barrier entry with all affected personas listed, not N duplicate entries.
+ * Previous approach grouped by element+type, but 10 small touch targets still showed as
+ * 10 separate barriers. Now we group by TYPE only:
+ * - 10 small touch targets → 1 barrier with affectedElements: ["button#1", "link#2", ...]
+ * - All affected personas combined
+ * - Highest severity kept
  */
 function deduplicateBarriers(
-  allBarriers: AccessibilityBarrier[],
+  _allBarriers: AccessibilityBarrier[],
   results: AccessibilityEmpathyResult[]
 ): AccessibilityBarrier[] {
-  // Create a map keyed by element+type+description
-  const barrierMap = new Map<string, AccessibilityBarrier>();
+  // Group by barrier TYPE only (not element)
+  const barriersByType = new Map<AccessibilityBarrierType, {
+    barriers: AccessibilityBarrier[];
+    personas: Set<string>;
+    elements: Set<string>;
+    highestSeverity: AccessibilityBarrierSeverity;
+  }>();
 
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
+  for (const result of results) {
     const personaName = result.persona;
 
     for (const barrier of result.barriers) {
-      // Create unique key for this barrier type on this element
-      const key = `${barrier.type}|${barrier.element}|${barrier.description.slice(0, 50)}`;
+      const existing = barriersByType.get(barrier.type);
 
-      if (barrierMap.has(key)) {
-        // Add persona to existing barrier if not already included
-        const existing = barrierMap.get(key)!;
-        if (!existing.affectedPersonas.includes(personaName)) {
-          existing.affectedPersonas.push(personaName);
-        }
-        // Keep the highest severity
+      if (existing) {
+        existing.barriers.push(barrier);
+        existing.personas.add(personaName);
+        existing.elements.add(barrier.element);
+
+        // Track highest severity
         const severityOrder = { critical: 3, major: 2, minor: 1 };
-        if (severityOrder[barrier.severity] > severityOrder[existing.severity]) {
-          existing.severity = barrier.severity;
+        if (severityOrder[barrier.severity] > severityOrder[existing.highestSeverity]) {
+          existing.highestSeverity = barrier.severity;
         }
       } else {
-        // New barrier - clone it with this persona
-        barrierMap.set(key, {
-          ...barrier,
-          affectedPersonas: [personaName],
+        barriersByType.set(barrier.type, {
+          barriers: [barrier],
+          personas: new Set([personaName]),
+          elements: new Set([barrier.element]),
+          highestSeverity: barrier.severity,
         });
       }
     }
   }
 
-  // Also process barriers from allBarriers that may not have persona context
-  for (const barrier of allBarriers) {
-    const key = `${barrier.type}|${barrier.element}|${barrier.description.slice(0, 50)}`;
-    if (!barrierMap.has(key)) {
-      barrierMap.set(key, { ...barrier });
-    }
+  // Create one deduplicated barrier per type
+  const deduplicated: AccessibilityBarrier[] = [];
+
+  for (const [type, data] of barriersByType) {
+    const elementCount = data.elements.size;
+    const representative = data.barriers[0]; // Use first barrier as template
+
+    // Create aggregated description
+    const elementList = Array.from(data.elements).slice(0, 5);
+    const moreCount = elementCount > 5 ? ` (+${elementCount - 5} more)` : "";
+    const aggregatedDescription = elementCount > 1
+      ? `${representative.description.split(" - ")[0]} - affects ${elementCount} elements: ${elementList.join(", ")}${moreCount}`
+      : representative.description;
+
+    deduplicated.push({
+      type,
+      element: elementCount > 1 ? `${elementCount} elements` : representative.element,
+      description: aggregatedDescription,
+      affectedPersonas: Array.from(data.personas),
+      wcagCriteria: representative.wcagCriteria,
+      severity: data.highestSeverity,
+      remediation: representative.remediation,
+    });
   }
 
-  return Array.from(barrierMap.values());
+  return deduplicated;
 }
 
 // ============================================================================

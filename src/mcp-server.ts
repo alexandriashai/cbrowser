@@ -863,11 +863,35 @@ export async function startMcpServer(): Promise<void> {
         content: [
           {
             type: "text",
+            // v11.11.0: Include full differences for structured diff (stress test fix)
             text: JSON.stringify({
               overallStatus: result.overallStatus,
               similarityScore: result.analysis?.similarityScore,
-              summary: result.analysis?.summary,
-              changesCount: result.analysis?.changes?.length || 0,
+              summary: result.summary,
+              // v11.11.0: Return detailed differences instead of just count
+              differences: result.differences.slice(0, 10).map(d => ({
+                type: d.type,
+                severity: d.severity,
+                description: d.description,
+                affectedSide: d.affectedSide,
+              })),
+              differenceCount: result.differences.length,
+              // v11.11.0: Include page structure comparison summary
+              structureSummary: {
+                a: {
+                  headings: (result.screenshots.a as any).structure?.headings?.length || 0,
+                  links: (result.screenshots.a as any).structure?.links?.length || 0,
+                  forms: (result.screenshots.a as any).structure?.forms || 0,
+                  buttons: (result.screenshots.a as any).structure?.buttons?.length || 0,
+                },
+                b: {
+                  headings: (result.screenshots.b as any).structure?.headings?.length || 0,
+                  links: (result.screenshots.b as any).structure?.links?.length || 0,
+                  forms: (result.screenshots.b as any).structure?.forms || 0,
+                  buttons: (result.screenshots.b as any).structure?.buttons?.length || 0,
+                },
+              },
+              duration: result.duration,
             }, null, 2),
           },
         ],

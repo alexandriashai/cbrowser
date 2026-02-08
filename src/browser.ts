@@ -2570,7 +2570,7 @@ export class CBrowser {
   ): Promise<SmartRetryResult> {
     const maxRetries = options.maxRetries ?? 3;
     const retryDelay = options.retryDelay ?? 1000;
-    const minConfidence = options.minConfidence ?? 0.6; // v11.8.0: Confidence threshold for success
+    const minConfidence = options.minConfidence ?? 0.8; // v11.11.0: Raised from 0.6 to 0.8 (stress test fix)
     const attempts: RetryAttempt[] = [];
 
     // Dismiss overlays first if requested
@@ -2762,12 +2762,18 @@ export class CBrowser {
         }
 
         // v10.10.0: Check href for link selectors
-        if (href && selectorWords.some(w => href.toLowerCase().includes(w))) {
-          alternatives.push({
-            selector: `css:a[href*="${href.slice(0, 50)}"]`,
-            confidence: 0.7,
-            reason: `Href match: ${href.slice(0, 30)}...`,
-          });
+        // v11.11.0: Require at least 2 matching words to avoid false positives (stress test fix)
+        if (href && selectorWords.length >= 2) {
+          const hrefLower = href.toLowerCase();
+          const matchingHrefWords = selectorWords.filter(w => hrefLower.includes(w));
+          // Only match if at least 50% of selector words are in href
+          if (matchingHrefWords.length >= Math.max(2, selectorWords.length * 0.5)) {
+            alternatives.push({
+              selector: `css:a[href*="${href.slice(0, 50)}"]`,
+              confidence: 0.7,
+              reason: `Href match: ${href.slice(0, 30)}...`,
+            });
+          }
         }
       }
 
