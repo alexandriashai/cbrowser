@@ -56,6 +56,12 @@ jobs:
         run: |
           # These fields were set when BSL-1.1 was adopted and must NEVER change
 
+          if ! grep -q "Licensor: WF Media (Alexandria Eden)" LICENSE; then
+            echo "❌ ERROR: 'Licensor' line has been modified!"
+            echo "Must remain: 'WF Media (Alexandria Eden)'"
+            exit 1
+          fi
+
           if ! grep -q "Licensed Work: CBrowser 8.6.0 and later" LICENSE; then
             echo "❌ ERROR: 'Licensed Work' line has been modified!"
             echo "Must remain: 'CBrowser 8.6.0 and later' (when BSL-1.1 was adopted)"
@@ -69,5 +75,6 @@ jobs:
           fi
 
           echo "✅ LICENSE immutable fields are correct"
+          echo "   - Licensor: WF Media (Alexandria Eden)"
           echo "   - Licensed Work: CBrowser 8.6.0 and later"
           echo "   - Change Date: February 5, 2030"
