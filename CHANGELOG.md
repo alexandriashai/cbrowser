@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [11.7.2](https://github.com/alexandriashai/cbrowser/compare/v11.7.0...v11.7.2) (2026-02-08)
+
+### Fixed
+
+* v11.7.1 bug fixes from MCP demo testing ([1992cd1](https://github.com/alexandriashai/cbrowser/commit/1992cd191389a88b480749d50396178c184e563f))
+
 ## [11.7.0](https://github.com/alexandriashai/cbrowser/compare/v11.6.3...v11.7.0) (2026-02-08)
 
 ### Added
