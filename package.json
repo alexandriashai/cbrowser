@@ -33,6 +33,11 @@
       "types": "./dist/performance/index.d.ts",
       "import": "./dist/performance/index.js",
       "require": "./dist/performance/index.js"
+    },
+    "./stealth": {
+      "types": "./dist/stealth/index.d.ts",
+      "import": "./dist/stealth/index.js",
+      "require": "./dist/stealth/index.js"
     }
   },
   "scripts": {
