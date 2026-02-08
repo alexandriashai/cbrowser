@@ -23,6 +23,9 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | v7.4.6 | 2026-02-02 | Auth0 OAuth for claude.ai, modular architecture, 33 MCP tools |
 | v7.4.10-19 | 2026-02-03 | Session management, overlay dismissal, verbose debugging, NL test enhancements, a11y-first selectors, perf sensitivity profiles, example recipes |
 | v8.0.0 | 2026-02-03 | 9 bug fixes from stress testing: byte-level A/B comparison, CLI arg routing, self-healing cache validation, responsive test scoring |
+| v9.0.0 | 2026-02-04 | UX Analysis Suite: Agent-Ready Audit, Competitive Benchmark, Accessibility Empathy Mode |
+| v10.0.0-10.2.0 | 2026-02-05 | Cognitive science foundations: Dual-Process Theory, GOMS timing, F-Pattern degradation, Prospect Theory |
+| v11.0.0-11.10.3 | 2026-02-07 | 12 cognitive traits (selfEfficacy, satisficing, trustCalibration, interruptRecovery), ARIA-first selectors, browser crash recovery, enhanced confidence gating |
 
 ---
 
@@ -111,7 +114,7 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | Responsive Visual Testing | ✅ Complete | Compare mobile, tablet, desktop viewports |
 | A/B Visual Comparison | ✅ Complete | Compare two URLs (staging vs production) |
 | Modular Architecture | ✅ Complete | Tree-shakeable imports (`cbrowser/visual`, `/testing`, `/analysis`, `/performance`) |
-| 33 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
+| 43 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
 | Remote MCP Server | ✅ Complete | HTTP endpoint for claude.ai custom connectors |
 | Auth0 OAuth | ✅ Complete | OAuth 2.1 authentication for claude.ai integration |
 | Rich Session Management | ✅ Complete | Save/load/export/import sessions with metadata, cleanup, cross-domain warnings |
