@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.2.0](https://github.com/alexandriashai/cbrowser/compare/v16.1.0...v16.2.0) (2026-02-08)
+
+### Added
+
+* **enterprise:** add dynamic enterprise module loader ([c584d13](https://github.com/alexandriashai/cbrowser/commit/c584d1381f5eb4f38e4d77fd4cfcbcebf15e3bcc))
+
 ## [16.1.0](https://github.com/alexandriashai/cbrowser/compare/v16.0.0...v16.1.0) (2026-02-08)
 
 ### Added
