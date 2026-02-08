@@ -45,3 +45,20 @@ jobs:
 
       - name: Run ESLint
         run: npx eslint src/ --max-warnings=150
+
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify LICENSE version unchanged
+        run: |
+          # The BSL-1.1 license was adopted at v8.6.0 - this line must never change
+          if ! grep -q "Licensed Work: CBrowser 8.6.0 and later" LICENSE; then
+            echo "❌ ERROR: LICENSE file has been modified incorrectly!"
+            echo "The 'Licensed Work' line must remain: 'CBrowser 8.6.0 and later'"
+            echo "This is when BSL-1.1 was first adopted and must not be changed."
+            exit 1
+          fi
+          echo "✅ LICENSE version reference is correct (v8.6.0)"
