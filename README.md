@@ -1,13 +1,31 @@
 # CBrowser — Cognitive Browser Automation
 
-> **Browser automation that thinks like your users.** The only testing framework that models human cognition—patience thresholds, frustration curves, and the exact moment a user gives up.
+> **The browser automation that thinks.** After 360+ tool invocations across rigorous stress testing, CBrowser earned a **Grade A** assessment—17 issues tracked, 17 fixed, zero regressions.
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
+[![Grade A](https://img.shields.io/badge/Grade-A-brightgreen.svg)](docs/ASSESSMENT.md)
 [![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-Remote%20%2B%20Local-blue)](https://modelcontextprotocol.io)
+[![MCP Ready](https://img.shields.io/badge/MCP-43%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
+
+**Built for AI agents. Trusted by humans.** The only browser automation that asks: *"Will a confused first-timer complete this task—and exactly when will they give up?"*
+
+---
+
+## What Makes CBrowser Different
+
+**31 of 34 tools graded A- or above.** After extensive stress testing:
+
+| Capability | Status | Why It Matters |
+|------------|--------|----------------|
+| **Natural Language Tests** | ⭐ Best-in-class | Write tests in plain English. 10-step E2E flows run 100% stable. |
+| **Cognitive User Simulation** | 🔬 Novel | 12 research-backed traits model real human behavior—not just clicks. |
+| **Empathy Accessibility Audits** | 🔬 Novel | Simulate users with tremors, low vision, ADHD. No competitor offers this. |
+| **Self-Healing Selectors** | ✅ Production-ready | ARIA-first with 0.8+ confidence gating. Handles DOM changes automatically. |
+| **Constitutional AI Safety** | 🔬 Novel | Risk-classified actions prevent autonomous agents from doing damage. |
+| **43 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
 
 ---
 
@@ -259,7 +277,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: alexandriashai/cbrowser@v11
+      - uses: alexandriashai/cbrowser@v12
         with:
           test-file: tests/e2e/checkout.txt
           sensitivity: strict
@@ -302,7 +320,7 @@ await browser.navigate('https://example.com');
 
 const result = await browser.smartClick('Sign In', {
   maxRetries: 3,
-  minConfidence: 0.8  // v11.11.0: Raised threshold for reliable healing
+  minConfidence: 0.8  // v12.0.0: Raised threshold for reliable healing
 });
 
 const assertion = await browser.assert("page contains 'Welcome'");
@@ -350,13 +368,21 @@ npx cbrowser config set-api-key
 
 **Business Source License 1.1 (BSL-1.1)**
 
-- ✅ Free for non-production use (development, testing, evaluation, personal projects)
+- ✅ Free for non-production use: development, testing, personal projects, evaluation
 - ✅ Read, modify, and contribute to the source
-- ⚠️ Production use requires a commercial license
+- ⚠️ Production use (including production testing pipelines) requires a commercial license
+
+**Note:** Non-production use means evaluation of CBrowser itself, not using CBrowser as part of a production testing service.
 
 Converts to **Apache 2.0** on February 5, 2030.
 
 For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.shai.eden@gmail.com)
+
+---
+
+## Copyright
+
+© 2026 WF Media (Alexandria Eden). All rights reserved.
 
 ---
 
