@@ -6,7 +6,7 @@
 [![Grade A+](https://img.shields.io/badge/Grade-A+-brightgreen.svg)](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
 [![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-45%20Tools-blue)](https://modelcontextprotocol.io)
+[![MCP Ready](https://img.shields.io/badge/MCP-48%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
 
@@ -123,6 +123,26 @@ Friction points:
   1. Password requirements unclear (step 4)
   2. Form validation error not visible (step 6)
 ```
+
+### Custom Persona Builder (v16.6.0)
+
+Create research-backed custom personas via interactive questionnaire:
+
+```bash
+# Interactive questionnaire (8 core traits)
+npx cbrowser persona-questionnaire start
+
+# Comprehensive questionnaire (all 25 traits)
+npx cbrowser persona-questionnaire start --comprehensive --name "my-tester"
+
+# Look up trait behaviors
+npx cbrowser persona-questionnaire lookup --trait patience --value 0.25
+
+# List all available traits
+npx cbrowser persona-questionnaire list-traits
+```
+
+Each trait maps to research-backed behavioral descriptions with 5 levels (0, 0.25, 0.5, 0.75, 1.0).
 
 ---
 
@@ -260,6 +280,7 @@ Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 | **Testing** | `test_suite`, `repair_tests`, `flaky_check` |
 | **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
 | **Cognitive** | `cognitive_journey_init`, `cognitive_journey_update_state`, `compare_personas` |
+| **Persona** | `persona_questionnaire_get`, `persona_questionnaire_build`, `persona_trait_lookup` |
 | **Analysis** | `hunt_bugs`, `chaos_test`, `agent_ready_audit`, `competitive_benchmark`, `empathy_audit` |
 | **Stealth** | `stealth_enable`, `stealth_disable`, `stealth_status`, `stealth_check`, `stealth_diagnose` |
 

@@ -59,3 +59,6 @@ export * from "./browser/index.js";
 // Constitutional Stealth Framework (v15.0.0)
 // Full implementation available in cbrowser-enterprise
 export * from "./stealth/index.js";
+
+// Persona Questionnaire (v16.5.0) - Research-based persona generation
+export * from "./persona-questionnaire.js";

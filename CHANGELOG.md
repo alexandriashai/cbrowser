@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.6.0] - 2026-02-08
+
+### Added
+
+* **persona-questionnaire:** Research-based persona generation via interactive questionnaire
+* **persona-questionnaire:** 25 cognitive traits with 5-level behavioral mappings (0, 0.25, 0.5, 0.75, 1.0)
+* **persona-questionnaire:** Research citations for each trait (Bandura, Kahneman, Nielsen, Fogg, etc.)
+* **persona-questionnaire:** Trait correlations automatically apply (e.g., low patience → low resilience)
+* **mcp:** `persona_questionnaire_get` - Get questionnaire for building custom personas
+* **mcp:** `persona_questionnaire_build` - Build persona from questionnaire answers
+* **mcp:** `persona_trait_lookup` - Look up behavioral descriptions for trait values
+* **cli:** `persona-questionnaire start` - Interactive questionnaire for building personas
+* **cli:** `persona-questionnaire list-traits` - List all 25 traits with research basis
+* **cli:** `persona-questionnaire lookup --trait <name> --value <0-1>` - Behavioral lookup
+
+### Changed
+
+* **mcp:** Tool count increased from 45 to 48
+
+### Notes
+
+The persona questionnaire system solves the issue where AI-generated custom personas defaulted traits to 0.5.
+Now each trait has research-backed behavioral descriptions at multiple levels, enabling accurate differentiated persona generation.
+
 ## [16.5.0](https://github.com/alexandriashai/cbrowser/compare/v16.4.0...v16.5.0) (2026-02-09)
 
 ### Added

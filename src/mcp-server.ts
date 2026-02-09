@@ -66,6 +66,7 @@ import {
   listPersonas,
   getCognitiveProfile,
   createCognitivePersona,
+  saveCustomPersona,
   listEmotionalPersonas,
   getEmotionalPersona,
 } from "./personas.js";
@@ -1682,6 +1683,154 @@ Begin the simulation now. Narrate your thoughts as this persona.
           {
             type: "text",
             text: JSON.stringify({ personas, count: personas.length }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Persona Questionnaire Tools (v16.5.0)
+  // Research-based persona generation via questionnaire
+  // =========================================================================
+
+  server.tool(
+    "persona_questionnaire_get",
+    "Get the persona questionnaire for building a custom persona. Returns research-backed questions that map to cognitive traits. Use comprehensive=true for all 25 traits, or leave false for 8 core traits.",
+    {
+      comprehensive: z.boolean().optional().default(false).describe("Include all 25 traits (true) or just 8 core traits (false)"),
+      traits: z.array(z.string()).optional().describe("Specific trait names to include (overrides comprehensive)"),
+    },
+    async ({ comprehensive, traits }) => {
+      const { generatePersonaQuestionnaire, formatForAskUserQuestion } = await import("./persona-questionnaire.js");
+
+      const questions = generatePersonaQuestionnaire({
+        comprehensive,
+        traits: traits as Array<keyof CognitiveTraits> | undefined,
+      });
+
+      const formatted = formatForAskUserQuestion(questions);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              instructions: "Present these questions to the user one at a time or all at once. Each answer maps to a trait value. After collecting answers, use persona_questionnaire_build to create the persona.",
+              questionCount: questions.length,
+              questions: formatted,
+              rawQuestions: questions,  // Include raw for programmatic use
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_questionnaire_build",
+    "Build a custom persona from questionnaire answers. Answers should be a map of trait names to values (0-1). Missing traits will use intelligent defaults based on research correlations.",
+    {
+      name: z.string().describe("Name for the new persona"),
+      description: z.string().describe("Description of the persona"),
+      answers: z.record(z.string(), z.number()).describe("Map of trait names to values (0-1), e.g. {patience: 0.25, riskTolerance: 0.75}"),
+      save: z.boolean().optional().default(true).describe("Save the persona to disk for future use"),
+    },
+    async ({ name, description, answers, save }) => {
+      const { buildTraitsFromAnswers, getTraitLabel, getTraitBehaviors } = await import("./persona-questionnaire.js");
+
+      // Build traits from answers with research-based correlations
+      const traits = buildTraitsFromAnswers(answers);
+
+      // Create the persona
+      const persona = createCognitivePersona(name, description, traits, {});
+
+      // Save if requested
+      let savedPath: string | undefined;
+      if (save) {
+        savedPath = saveCustomPersona(persona);
+      }
+
+      // Generate behavioral summary for key traits
+      const traitSummary: Record<string, { value: number; label: string; behaviors: string[] }> = {};
+      for (const [trait, value] of Object.entries(traits)) {
+        if (value !== 0.5) {  // Only include non-default traits
+          traitSummary[trait] = {
+            value: value as number,
+            label: getTraitLabel(trait as keyof CognitiveTraits, value as number),
+            behaviors: getTraitBehaviors(trait as keyof CognitiveTraits, value as number),
+          };
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              persona: {
+                name: persona.name,
+                description: persona.description,
+                demographics: persona.demographics,
+              },
+              cognitiveTraits: traits,
+              traitSummary,
+              savedPath,
+              usage: `Use persona "${name}" with cognitive-journey or other commands`,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_trait_lookup",
+    "Look up behavioral descriptions for specific trait values. Useful for understanding what a trait value means in practice.",
+    {
+      trait: z.string().describe("Trait name (e.g., 'patience', 'riskTolerance')"),
+      value: z.number().min(0).max(1).describe("Trait value (0-1)"),
+    },
+    async ({ trait, value }) => {
+      const { getTraitReference, getTraitLabel, getTraitBehaviors } = await import("./persona-questionnaire.js");
+
+      const reference = getTraitReference(trait as keyof CognitiveTraits);
+
+      if (!reference) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: `Unknown trait: ${trait}`,
+                availableTraits: [
+                  "patience", "riskTolerance", "comprehension", "persistence", "curiosity",
+                  "workingMemory", "readingTendency", "resilience", "selfEfficacy", "satisficing",
+                  "trustCalibration", "interruptRecovery", "informationForaging", "changeBlindness",
+                  "anchoringBias", "timeHorizon", "attributionStyle", "metacognitivePlanning",
+                  "proceduralFluency", "transferLearning", "authoritySensitivity", "emotionalContagion",
+                  "fearOfMissingOut", "socialProofSensitivity", "mentalModelRigidity"
+                ],
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              trait: reference.name,
+              description: reference.description,
+              researchBasis: reference.researchBasis,
+              value,
+              label: getTraitLabel(trait as keyof CognitiveTraits, value),
+              behaviors: getTraitBehaviors(trait as keyof CognitiveTraits, value),
+              allLevels: reference.levels,
+            }, null, 2),
           },
         ],
       };

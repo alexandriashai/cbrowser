@@ -58,6 +58,27 @@ import {
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
 
+// Node readline for interactive input
+import * as readline from "readline";
+
+/**
+ * Helper function for interactive readline input.
+ */
+function readlineQuestion(prompt: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: process.stdin.isTTY || false,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
 function showHelp(): void {
   // Pad version string to maintain banner alignment
   const versionStr = `CBrowser CLI v${VERSION}`;
@@ -5035,6 +5056,188 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         // Exit with error if overall score is poor
         if (result.overallScore < 50) {
           process.exit(1);
+        }
+        break;
+      }
+
+      // =========================================================================
+      // Persona Questionnaire (v16.5.0) - Research-based custom persona builder
+      // =========================================================================
+
+      case "persona-questionnaire": {
+        const subcommand = args[0];
+
+        if (!subcommand || subcommand === "help") {
+          console.log(`
+CBrowser Persona Questionnaire (v16.5.0)
+========================================
+
+Build custom personas using a research-based questionnaire that maps
+behavioral answers to cognitive traits.
+
+Commands:
+  persona-questionnaire start        Start interactive questionnaire
+  persona-questionnaire list-traits  List all available traits with descriptions
+  persona-questionnaire lookup       Look up behaviors for a specific trait value
+
+Options for 'start':
+  --comprehensive     Include all 25 traits (default: 8 core traits)
+  --name <name>       Name for the persona (prompted if not provided)
+  --output <file>     Save questionnaire answers to JSON file
+
+Options for 'lookup':
+  --trait <name>      Trait name (e.g., patience, riskTolerance)
+  --value <0-1>       Trait value to look up
+
+Examples:
+  cbrowser persona-questionnaire start
+  cbrowser persona-questionnaire start --comprehensive --name "my-tester"
+  cbrowser persona-questionnaire list-traits
+  cbrowser persona-questionnaire lookup --trait patience --value 0.25
+`);
+          process.exit(0);
+        }
+
+        const { generatePersonaQuestionnaire, buildTraitsFromAnswers, getTraitReference, TRAIT_REFERENCE_MATRIX } = await import("./persona-questionnaire.js");
+        const { createCognitivePersona, saveCustomPersona } = await import("./personas.js");
+
+        switch (subcommand) {
+          case "start": {
+            const comprehensive = options.comprehensive === true;
+            const questions = generatePersonaQuestionnaire({ comprehensive });
+
+            console.log(`\n🧠 CBrowser Persona Questionnaire`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            console.log(`This questionnaire will help you create a research-backed persona.`);
+            console.log(`Answer each question to define cognitive traits.\n`);
+
+            // Get persona name
+            let personaName = options.name as string;
+            if (!personaName) {
+              console.log(`Enter a name for this persona:`);
+              personaName = await readlineQuestion("> ") || "custom-persona";
+            }
+
+            console.log(`\nCreating persona: ${personaName}\n`);
+
+            // Collect answers
+            const answers: Record<string, number> = {};
+
+            for (let i = 0; i < questions.length; i++) {
+              const q = questions[i];
+              console.log(`\n[${i + 1}/${questions.length}] ${q.question}\n`);
+
+              q.options.forEach((opt, idx) => {
+                console.log(`  ${idx + 1}. ${opt.label}`);
+                console.log(`     ${opt.description}`);
+              });
+
+              console.log(`\nEnter 1-${q.options.length} (or press Enter for default):`);
+              const answer = await readlineQuestion("> ");
+
+              if (answer && answer.trim()) {
+                const idx = parseInt(answer.trim()) - 1;
+                if (idx >= 0 && idx < q.options.length) {
+                  answers[q.trait] = q.options[idx].value;
+                  console.log(`  ✓ ${q.options[idx].label}`);
+                }
+              } else {
+                console.log(`  → Using default (moderate)`);
+              }
+            }
+
+            // Build persona
+            console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            console.log(`Building persona...`);
+
+            const traits = buildTraitsFromAnswers(answers);
+            const persona = createCognitivePersona(personaName, `Custom persona created via questionnaire`, traits, {});
+            const savedPath = saveCustomPersona(persona);
+
+            console.log(`\n✓ Persona saved: ${savedPath}`);
+            console.log(`\n📊 Trait Summary:`);
+
+            // Show non-default traits
+            for (const [trait, value] of Object.entries(traits)) {
+              if (value !== 0.5) {
+                const ref = TRAIT_REFERENCE_MATRIX.find(t => t.name === trait);
+                if (ref) {
+                  const level = ref.levels.reduce((prev, curr) =>
+                    Math.abs(curr.value - (value as number)) < Math.abs(prev.value - (value as number)) ? curr : prev
+                  );
+                  console.log(`  ${trait}: ${(value as number).toFixed(2)} (${level.label})`);
+                }
+              }
+            }
+
+            console.log(`\n💡 Use with: cbrowser cognitive-journey --persona "${personaName}" --start <url> --goal "<goal>"`);
+
+            // Save answers if requested
+            if (options.output) {
+              const fs = await import("fs");
+              fs.writeFileSync(options.output as string, JSON.stringify({ name: personaName, answers, traits }, null, 2));
+              console.log(`\n📁 Answers saved: ${options.output}`);
+            }
+            break;
+          }
+
+          case "list-traits": {
+            console.log(`\n🧠 CBrowser Cognitive Traits Reference`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            console.log(`${TRAIT_REFERENCE_MATRIX.length} research-backed traits available:\n`);
+
+            for (const trait of TRAIT_REFERENCE_MATRIX) {
+              console.log(`📍 ${trait.name}`);
+              console.log(`   ${trait.description}`);
+              console.log(`   Research: ${trait.researchBasis}`);
+              console.log(`   Scale: ${trait.levels[0].label} (0) → ${trait.levels[4].label} (1)`);
+              console.log();
+            }
+            break;
+          }
+
+          case "lookup": {
+            const traitName = options.trait as string;
+            const traitValue = parseFloat(options.value as string);
+
+            if (!traitName) {
+              console.error("Error: --trait <name> required");
+              console.error("Use 'persona-questionnaire list-traits' to see available traits");
+              process.exit(1);
+            }
+
+            if (isNaN(traitValue) || traitValue < 0 || traitValue > 1) {
+              console.error("Error: --value must be a number between 0 and 1");
+              process.exit(1);
+            }
+
+            const ref = getTraitReference(traitName as any);
+            if (!ref) {
+              console.error(`Error: Unknown trait "${traitName}"`);
+              console.error("Use 'persona-questionnaire list-traits' to see available traits");
+              process.exit(1);
+            }
+
+            const level = ref.levels.reduce((prev, curr) =>
+              Math.abs(curr.value - traitValue) < Math.abs(prev.value - traitValue) ? curr : prev
+            );
+
+            console.log(`\n📍 ${ref.name} = ${traitValue}`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            console.log(`Description: ${ref.description}`);
+            console.log(`Research: ${ref.researchBasis}`);
+            console.log(`\nLevel: ${level.label} (${level.value})`);
+            console.log(`\nBehaviors:`);
+            for (const behavior of level.behaviors) {
+              console.log(`  • ${behavior}`);
+            }
+            break;
+          }
+
+          default:
+            console.error(`Unknown subcommand: ${subcommand}`);
+            console.error("Use 'persona-questionnaire help' for usage");
+            process.exit(1);
         }
         break;
       }
