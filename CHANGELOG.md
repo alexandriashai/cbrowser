@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.0.0](https://github.com/alexandriashai/cbrowser/compare/v16.18.0...v17.0.0) (2026-02-09)
+
+### ⚠ BREAKING CHANGES
+
+* **mcp:** stealth tools are now Enterprise-only:
+- stealth_status, stealth_enable, stealth_disable
+- stealth_check, stealth_diagnose
+- cloudflare_detect, cloudflare_wait
+
+Users needing stealth capabilities should use cbrowser-enterprise.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+### Added
+
+* **mcp:** move stealth tools to Enterprise-only ([6c6ac3a](https://github.com/alexandriashai/cbrowser/commit/6c6ac3a02ca48ecb61689d41291f2d7edb6025f3))
+
 ## [16.18.0](https://github.com/alexandriashai/cbrowser/compare/v16.17.0...v16.18.0) (2026-02-09)
 
 ### Added
