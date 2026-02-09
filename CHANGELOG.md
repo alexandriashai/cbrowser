@@ -15,7 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [16.14.6](https://github.com/alexandriashai/cbrowser/compare/v16.14.5...v16.14.6) (2026-02-09)
 
+### Documentation
+
+* **skill:** Updated /CBrowser skill with three equal invocation methods (Local Tool, CLI, MCP)
+* **workflows:** Added invocation options to Navigate.md, Interact.md, Extract.md, CognitiveJourney.md
+* **docs:** Fixed outdated `mcp__chrome-devtools__*` references to `mcp__claude_ai_CBrowser_Demo__*`
+
 ## [16.14.5](https://github.com/alexandriashai/cbrowser/compare/v16.14.4...v16.14.5) (2026-02-09)
+
+### Documentation
+
+* **readme:** Version reference updates to v16.14.6
+* **cognitive traits:** Updated from 12 to 25 research-backed traits in README
 
 ## [16.14.4](https://github.com/alexandriashai/cbrowser/compare/v16.14.2...v16.14.4) (2026-02-09)
 
