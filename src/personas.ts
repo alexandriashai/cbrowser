@@ -682,6 +682,18 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
   // Derive decision style from traits
   let decisionStyle: DecisionStyleType = "cautious";
   const traits = persona.cognitiveTraits;
+
+  // v16.7.1: Validate trait completeness
+  if (traits) {
+    const expectedTraitCount = 25; // 7 required + 18 optional
+    const actualTraitCount = Object.keys(traits).filter(k => traits[k as keyof typeof traits] !== undefined).length;
+    if (actualTraitCount < expectedTraitCount) {
+      console.warn(
+        `[CBrowser] Persona "${persona.name}" has ${actualTraitCount}/${expectedTraitCount} traits. ` +
+        `Missing traits will use defaults. Consider regenerating the persona for full 25-trait model.`
+      );
+    }
+  }
   if (traits) {
     if (traits.patience < 0.3 && traits.riskTolerance > 0.6) {
       decisionStyle = "impulsive";
@@ -701,6 +713,7 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
 
   return {
     traits: traits || {
+      // Required traits (7)
       patience: 0.5,
       riskTolerance: 0.5,
       comprehension: 0.5,
@@ -708,8 +721,13 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
       curiosity: 0.5,
       workingMemory: 0.5,
       readingTendency: 0.5,
-      resilience: 0.5, // v10.6.0: Brief Resilience Scale (Smith et al., 2008)
-      // New traits (v15.0.0)
+      // Optional traits - Tier 1: Core (v10.6.0+)
+      resilience: 0.5, // Brief Resilience Scale (Smith et al., 2008)
+      selfEfficacy: 0.5, // v16.7.1: Bandura (1977) - was missing!
+      satisficing: 0.5, // v16.7.1: Simon (1956) - was missing!
+      trustCalibration: 0.5, // v16.7.1: Fogg (2003) - was missing!
+      interruptRecovery: 0.5, // v16.7.1: Mark et al. (2005) - was missing!
+      // Optional traits - Tier 2+ (v15.0.0)
       informationForaging: 0.5,
       changeBlindness: 0.3,
       anchoringBias: 0.5,

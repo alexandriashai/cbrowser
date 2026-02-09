@@ -250,7 +250,9 @@ export async function runCognitiveJourney(
       options.customTraits || {}
     );
   } else if (options.customTraits) {
+    // v16.7.1: Full 25-trait default set (was only 7, causing trait dropout)
     const defaultTraits: CognitiveTraits = {
+      // Required traits (7)
       patience: 0.5,
       riskTolerance: 0.5,
       comprehension: 0.5,
@@ -258,6 +260,26 @@ export async function runCognitiveJourney(
       curiosity: 0.5,
       workingMemory: 0.5,
       readingTendency: 0.5,
+      // Optional traits - Tier 1: Core
+      resilience: 0.5,
+      selfEfficacy: 0.5,
+      satisficing: 0.5,
+      trustCalibration: 0.5,
+      interruptRecovery: 0.5,
+      // Optional traits - Tier 2+
+      informationForaging: 0.5,
+      changeBlindness: 0.3,
+      anchoringBias: 0.5,
+      timeHorizon: 0.5,
+      attributionStyle: 0.5,
+      metacognitivePlanning: 0.5,
+      proceduralFluency: 0.5,
+      transferLearning: 0.5,
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.5,
+      fearOfMissingOut: 0.5,
+      socialProofSensitivity: 0.5,
+      mentalModelRigidity: 0.5,
     };
     personaObj = {
       ...existingPersona,

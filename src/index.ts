@@ -62,3 +62,7 @@ export * from "./stealth/index.js";
 
 // Persona Questionnaire (v16.5.0) - Research-based persona generation
 export * from "./persona-questionnaire.js";
+
+// Values System (v16.7.0) - Research-backed psychological values framework
+// Based on Schwartz's Theory of Basic Human Values, SDT, and Maslow
+export * from "./values/index.js";

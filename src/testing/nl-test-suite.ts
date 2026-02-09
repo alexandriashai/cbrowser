@@ -41,6 +41,8 @@ import type {
  * - "select '<option>' from <dropdown>"
  * - "scroll down/up"
  * - "wait [for] <seconds> seconds"
+ * - "wait for content" / "wait for page to load" / "wait for page ready" (v16.7.1)
+ * - "wait for '<text>' appears" / "wait for <element> to appear" (v16.7.1)
  * - "verify <assertion>" / "assert <assertion>" / "check <assertion>"
  * - "take screenshot"
  */
@@ -136,6 +138,26 @@ export function parseNLInstruction(instruction: string): NLTestStep {
       instruction,
       action: "wait",
       target: waitForMatch[1],
+    };
+  }
+
+  // v16.7.1: Wait for content/page ready patterns
+  const waitForContentMatch = lower.match(/^wait\s+(?:for\s+)?(?:page\s+)?(?:content|to\s+load|ready|stable|idle)$/i);
+  if (waitForContentMatch) {
+    return {
+      instruction,
+      action: "wait",
+      target: "__networkidle__",
+    };
+  }
+
+  // v16.7.1: Wait for element pattern (more flexible)
+  const waitForElementMatch = lower.match(/^wait\s+(?:for|until)\s+(?:the\s+)?(.+?)\s+(?:to\s+)?(?:appear|load|exist|be\s+visible)$/i);
+  if (waitForElementMatch) {
+    return {
+      instruction,
+      action: "wait",
+      target: waitForElementMatch[1],
     };
   }
 
@@ -440,7 +462,26 @@ export async function runNLTestSuite(
               if (step.target) {
                 const page = (browser as any).page as Page;
                 if (page) {
-                  await page.waitForSelector(`text=${step.target}`, { timeout: stepTimeout });
+                  // v16.7.1: Handle special wait-for-content directive
+                  if (step.target === "__networkidle__") {
+                    await page.waitForLoadState("networkidle", { timeout: stepTimeout });
+                  } else {
+                    // Try text selector first, fall back to regular selector
+                    try {
+                      await page.waitForSelector(`text=${step.target}`, { timeout: stepTimeout });
+                    } catch {
+                      // Fallback: try as a regular selector or role
+                      await page.waitForSelector(step.target, { timeout: stepTimeout }).catch(() => {
+                        // Final fallback: wait for any element containing the text
+                        const targetText = step.target!;
+                        return page.waitForFunction(
+                          (text) => document.body?.innerText?.includes(text) ?? false,
+                          targetText,
+                          { timeout: stepTimeout }
+                        );
+                      });
+                    }
+                  }
                 }
               } else {
                 const ms = parseFloat(step.value || "1") * 1000;
