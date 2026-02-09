@@ -41,4 +41,5 @@ export {
   PERSONA_VALUE_PROFILES,
   getPersonaValues,
   hasPersonaValues,
+  resolvePersonaName,
 } from "./persona-values.js";

@@ -444,25 +444,62 @@ export const PERSONA_VALUE_PROFILES: PersonaValueProfile[] = [
   },
 ];
 
+// ============================================================================
+// Persona Name Aliases (v16.14.3)
+// Maps full accessibility persona names to short value profile names
+// Fixes: list_cognitive_personas returns "cognitive-adhd" but values use "adhd"
+// ============================================================================
+
+const PERSONA_NAME_ALIASES: Record<string, string> = {
+  // Accessibility personas: full name → short name
+  "motor-impairment-tremor": "motor-tremor",
+  "low-vision-magnified": "low-vision",
+  "low-vision-moderate": "low-vision",
+  "cognitive-adhd": "adhd",
+  "color-blind-deuteranopia": "color-blind",
+  "color-blind-protanopia": "color-blind",
+  "color-blind-tritanopia": "color-blind",
+  // Also support short → full (bidirectional)
+  "motor-tremor": "motor-tremor",
+  "low-vision": "low-vision",
+  "adhd": "adhd",
+  "color-blind": "color-blind",
+};
+
+/**
+ * Resolve persona name to canonical value profile name.
+ * Accepts both full names (cognitive-adhd) and short names (adhd).
+ * @param personaName Input persona name
+ * @returns Canonical value profile name
+ */
+export function resolvePersonaName(personaName: string): string {
+  const lower = personaName.toLowerCase();
+  return PERSONA_NAME_ALIASES[lower] || lower;
+}
+
 /**
  * Lookup value profile by persona name.
- * @param personaName Name of the persona
+ * v16.14.3: Now supports aliases - accepts both "cognitive-adhd" and "adhd"
+ * @param personaName Name of the persona (full or short)
  * @returns PersonaValues or undefined if not found
  */
 export function getPersonaValues(personaName: string): PersonaValues | undefined {
+  const canonicalName = resolvePersonaName(personaName);
   const profile = PERSONA_VALUE_PROFILES.find(
-    (p) => p.personaName.toLowerCase() === personaName.toLowerCase()
+    (p) => p.personaName.toLowerCase() === canonicalName
   );
   return profile?.values;
 }
 
 /**
  * Check if a persona has a value profile defined.
- * @param personaName Name of the persona
+ * v16.14.3: Now supports aliases
+ * @param personaName Name of the persona (full or short)
  * @returns true if values are defined
  */
 export function hasPersonaValues(personaName: string): boolean {
+  const canonicalName = resolvePersonaName(personaName);
   return PERSONA_VALUE_PROFILES.some(
-    (p) => p.personaName.toLowerCase() === personaName.toLowerCase()
+    (p) => p.personaName.toLowerCase() === canonicalName
   );
 }

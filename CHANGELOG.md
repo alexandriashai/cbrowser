@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.14.3] - 2026-02-09
+
+### Fixed
+- **Persona Value Name Aliases** - `persona_values_lookup` now accepts both full names (`cognitive-adhd`) and short names (`adhd`)
+- `PERSONA_NAME_ALIASES` - Maps accessibility persona full names to value profile short names
+- `resolvePersonaName()` - New helper function for name normalization
+- Bidirectional alias support: "cognitive-adhd" → "adhd" and "adhd" → "adhd" both work
+
+### Name Mapping
+| Full Name | Short Name (Value Profile) |
+|-----------|---------------------------|
+| `cognitive-adhd` | `adhd` |
+| `motor-impairment-tremor` | `motor-tremor` |
+| `low-vision-magnified` | `low-vision` |
+| `color-blind-deuteranopia` | `color-blind` |
+
 ## [16.14.2](https://github.com/alexandriashai/cbrowser/compare/v16.14.0...v16.14.2) (2026-02-09)
 
 ### Fixed
