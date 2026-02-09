@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlink
 import { join } from "path";
 import { homedir } from "os";
 import type { Persona, CognitiveTraits, CognitiveProfile, AttentionPatternType, DecisionStyleType } from "./types.js";
+import { applyTraitCorrelations } from "./persona-questionnaire.js";
 
 // ============================================================================
 // Custom Personas Storage
@@ -655,6 +656,10 @@ export function createCognitivePersona(
   if (options.innerVoiceTemplate) {
     basePersona.behaviors.innerVoiceTemplate = options.innerVoiceTemplate;
   }
+
+  // v16.7.2: Apply research-based trait correlations to infer related traits
+  // This prevents personas from having many 0.5 defaults when only a few traits are set
+  applyTraitCorrelations(cognitiveTraits);
 
   basePersona.cognitiveTraits = cognitiveTraits;
 

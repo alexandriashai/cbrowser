@@ -1618,8 +1618,9 @@ function roundTrait(value: number): number {
  * Apply research-based correlations between traits.
  * When one trait is set, related traits should adjust unless explicitly set.
  * v16.7.2: Added precision rounding to avoid floating-point artifacts.
+ * v16.7.2: Exported for use in createCognitivePersona.
  */
-function applyTraitCorrelations(traits: CognitiveTraits): void {
+export function applyTraitCorrelations(traits: CognitiveTraits): void {
   // If patience is low, resilience tends to be low (r = 0.4)
   if (traits.patience < 0.3 && traits.resilience === 0.5) {
     traits.resilience = 0.3;
