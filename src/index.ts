@@ -30,7 +30,7 @@ export { CBrowser } from "./browser.js";
 export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./config.js";
 export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export * from "./types.js";
-export { BUILTIN_PERSONAS } from "./personas.js";
+export { BUILTIN_PERSONAS, registerPersonas } from "./personas.js";
 
 // Trait Reference (v15.0.0) - Cognitive trait definitions and guidelines
 export * from "./trait-reference.js";

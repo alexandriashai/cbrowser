@@ -42,4 +42,5 @@ export {
   getPersonaValues,
   hasPersonaValues,
   resolvePersonaName,
+  registerPersonaValues,
 } from "./persona-values.js";

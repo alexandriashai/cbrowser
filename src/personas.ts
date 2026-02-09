@@ -32,6 +32,17 @@ import { applyTraitCorrelations } from "./persona-questionnaire.js";
 const DATA_DIR = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
 const PERSONAS_DIR = join(DATA_DIR, "personas");
 
+// ============================================================================
+// Runtime Persona Registry (for Enterprise extensions)
+// ============================================================================
+
+/**
+ * In-memory persona registry for runtime-registered personas.
+ * Used by Enterprise edition to add Marketing Suite personas without disk writes.
+ * @since 16.17.0
+ */
+const RUNTIME_PERSONAS: Record<string, Persona> = {};
+
 function ensurePersonasDir(): void {
   if (!existsSync(DATA_DIR)) {
     mkdirSync(DATA_DIR, { recursive: true });
@@ -2231,23 +2242,28 @@ export function listEmotionalPersonas(): string[] {
  * @returns Persona object or undefined if not found
  */
 export function getAnyPersona(name: string): Persona | AccessibilityPersona | undefined {
-  // 1. Check custom personas first (user overrides)
+  // 1. Check runtime-registered personas first (Enterprise extensions)
+  if (RUNTIME_PERSONAS[name]) {
+    return RUNTIME_PERSONAS[name];
+  }
+
+  // 2. Check custom personas (user overrides from disk)
   const customPersonas = loadCustomPersonas();
   if (customPersonas[name]) {
     return customPersonas[name];
   }
 
-  // 2. Check built-in personas
+  // 3. Check built-in personas
   if (BUILTIN_PERSONAS[name]) {
     return BUILTIN_PERSONAS[name];
   }
 
-  // 3. Check accessibility personas
+  // 4. Check accessibility personas
   if (ACCESSIBILITY_PERSONAS[name]) {
     return ACCESSIBILITY_PERSONAS[name];
   }
 
-  // 4. Check emotional personas
+  // 5. Check emotional personas
   if (EMOTIONAL_PERSONAS[name]) {
     return EMOTIONAL_PERSONAS[name];
   }
@@ -2261,11 +2277,24 @@ export function getAnyPersona(name: string): Persona | AccessibilityPersona | un
  * @returns Combined list of all available persona names
  */
 export function listAllPersonas(): string[] {
+  const runtimeNames = Object.keys(RUNTIME_PERSONAS);
   const builtinNames = Object.keys(BUILTIN_PERSONAS);
   const accessibilityNames = Object.keys(ACCESSIBILITY_PERSONAS);
   const emotionalNames = Object.keys(EMOTIONAL_PERSONAS);
   const customNames = Object.keys(loadCustomPersonas());
 
-  // Combine and dedupe
-  return [...new Set([...builtinNames, ...accessibilityNames, ...emotionalNames, ...customNames])];
+  // Combine and dedupe (runtime first for Enterprise priority)
+  return [...new Set([...runtimeNames, ...builtinNames, ...accessibilityNames, ...emotionalNames, ...customNames])];
+}
+
+/**
+ * Register personas at runtime without disk writes.
+ * Used by Enterprise edition to add Marketing Suite personas.
+ * @param personas Array of Persona objects to register
+ * @since 16.17.0
+ */
+export function registerPersonas(personas: Persona[]): void {
+  for (const persona of personas) {
+    RUNTIME_PERSONAS[persona.name] = persona;
+  }
 }

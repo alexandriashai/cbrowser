@@ -503,3 +503,25 @@ export function hasPersonaValues(personaName: string): boolean {
     (p) => p.personaName.toLowerCase() === canonicalName
   );
 }
+
+/**
+ * Register additional persona value profiles at runtime.
+ * Used by Enterprise edition to add Marketing Suite personas.
+ * @param profiles Array of PersonaValueProfile to register
+ * @since 16.17.0
+ */
+export function registerPersonaValues(profiles: PersonaValueProfile[]): void {
+  for (const profile of profiles) {
+    // Check if already exists
+    const existingIndex = PERSONA_VALUE_PROFILES.findIndex(
+      (p) => p.personaName.toLowerCase() === profile.personaName.toLowerCase()
+    );
+    if (existingIndex >= 0) {
+      // Update existing
+      PERSONA_VALUE_PROFILES[existingIndex] = profile;
+    } else {
+      // Add new
+      PERSONA_VALUE_PROFILES.push(profile);
+    }
+  }
+}

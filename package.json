@@ -43,6 +43,11 @@
       "types": "./dist/mcp-server-remote.d.ts",
       "import": "./dist/mcp-server-remote.js",
       "require": "./dist/mcp-server-remote.js"
+    },
+    "./values": {
+      "types": "./dist/values/index.d.ts",
+      "import": "./dist/values/index.js",
+      "require": "./dist/values/index.js"
     }
   },
   "scripts": {
