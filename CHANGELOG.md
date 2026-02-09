@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.7.0](https://github.com/alexandriashai/cbrowser/compare/v16.5.0...v16.7.0) (2026-02-09)
+
+### Added
+
+* **personas:** add research-based questionnaire system for custom persona generation ([1187ded](https://github.com/alexandriashai/cbrowser/commit/1187ded259b0632126d18644c201ea6caf130a03))
+
 ## [16.6.0] - 2026-02-08
 
 ### Added
