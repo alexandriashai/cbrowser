@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.17.0](https://github.com/alexandriashai/cbrowser/compare/v16.16.2...v16.17.0) (2026-02-09)
+
+### Added
+
+* **mcp:** add extensible remote MCP server API for enterprise ([049bfca](https://github.com/alexandriashai/cbrowser/commit/049bfca5d9aa7c84d6320690a54a477c6c0a5829))
+
 ## [16.16.2](https://github.com/alexandriashai/cbrowser/compare/v16.16.1...v16.16.2) (2026-02-09)
 
 ## [16.16.1](https://github.com/alexandriashai/cbrowser/compare/v16.16.0...v16.16.1) (2026-02-09)
