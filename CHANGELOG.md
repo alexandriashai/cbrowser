@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.5.0](https://github.com/alexandriashai/cbrowser/compare/v16.4.0...v16.5.0) (2026-02-09)
+
+### Added
+
+* v16.4.0 - Cloudflare handling, proxy support, A+ grade ([d9d09ce](https://github.com/alexandriashai/cbrowser/commit/d9d09ceda44ef1651255766481a08ee2b25f7bab))
+
 ## [16.4.0](https://github.com/alexandriashai/cbrowser/compare/v16.3.0...v16.4.0) (2026-02-08)
 
 ### 🏆 Grade A+ Assessment
