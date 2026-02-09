@@ -3017,6 +3017,8 @@ export interface PerformanceMetrics {
   lcpRating?: "good" | "needs-improvement" | "poor";
   fidRating?: "good" | "needs-improvement" | "poor";
   clsRating?: "good" | "needs-improvement" | "poor";
+  fcpRating?: "good" | "needs-improvement" | "poor";  // v16.7.2
+  ttfbRating?: "good" | "needs-improvement" | "poor"; // v16.7.2
 }
 
 export interface PerformanceBudget {

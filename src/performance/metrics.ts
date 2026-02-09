@@ -172,12 +172,19 @@ export async function capturePerformanceBaseline(
     }
   }
 
-  // Determine ratings
+  // Determine ratings (Web Vitals thresholds)
   if (avgMetrics.lcp !== undefined) {
     avgMetrics.lcpRating = avgMetrics.lcp <= 2500 ? "good" : avgMetrics.lcp <= 4000 ? "needs-improvement" : "poor";
   }
   if (avgMetrics.cls !== undefined) {
     avgMetrics.clsRating = avgMetrics.cls <= 0.1 ? "good" : avgMetrics.cls <= 0.25 ? "needs-improvement" : "poor";
+  }
+  // v16.7.2: Add FCP and TTFB ratings
+  if (avgMetrics.fcp !== undefined) {
+    avgMetrics.fcpRating = avgMetrics.fcp <= 1800 ? "good" : avgMetrics.fcp <= 3000 ? "needs-improvement" : "poor";
+  }
+  if (avgMetrics.ttfb !== undefined) {
+    avgMetrics.ttfbRating = avgMetrics.ttfb <= 800 ? "good" : avgMetrics.ttfb <= 1800 ? "needs-improvement" : "poor";
   }
 
   const baseline: PerformanceBaseline = {
