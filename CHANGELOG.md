@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.9.3](https://github.com/alexandriashai/cbrowser/compare/v16.9.2...v16.9.3) (2026-02-09)
+
+### Fixed
+
+* **stealth:** reduce stealth_diagnose false positives ([61b49ea](https://github.com/alexandriashai/cbrowser/commit/61b49eab031a8d2afe3f90535f47030828adb029))
+
 ## [16.9.2](https://github.com/alexandriashai/cbrowser/compare/v16.9.1...v16.9.2) (2026-02-09)
 
 ### Fixed
