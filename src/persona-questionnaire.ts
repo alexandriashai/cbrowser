@@ -1607,8 +1607,17 @@ export function buildTraitsFromAnswers(
 }
 
 /**
+ * Round to 2 decimal places to avoid floating-point precision artifacts.
+ * e.g., 0.8000000000000001 becomes 0.8
+ */
+function roundTrait(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
  * Apply research-based correlations between traits.
  * When one trait is set, related traits should adjust unless explicitly set.
+ * v16.7.2: Added precision rounding to avoid floating-point artifacts.
  */
 function applyTraitCorrelations(traits: CognitiveTraits): void {
   // If patience is low, resilience tends to be low (r = 0.4)
@@ -1618,7 +1627,7 @@ function applyTraitCorrelations(traits: CognitiveTraits): void {
 
   // High comprehension correlates with transfer learning (r = 0.6)
   if (traits.comprehension > 0.7 && traits.transferLearning === 0.5) {
-    traits.transferLearning = traits.comprehension * 0.8;
+    traits.transferLearning = roundTrait(traits.comprehension * 0.8);
   }
 
   // Low self-efficacy correlates with internal attribution (r = 0.5)
@@ -1633,7 +1642,7 @@ function applyTraitCorrelations(traits: CognitiveTraits): void {
 
   // Low working memory correlates with poor procedural fluency (r = 0.7)
   if (traits.workingMemory < 0.3 && traits.proceduralFluency === 0.5) {
-    traits.proceduralFluency = traits.workingMemory * 1.2;
+    traits.proceduralFluency = roundTrait(traits.workingMemory * 1.2);
   }
 
   // High trust correlates with authority sensitivity (r = 0.4)
