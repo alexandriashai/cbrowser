@@ -21,6 +21,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      # Multi-user safety: session-scoped screenshots with auto-cleanup
+      - CBROWSER_SCREENSHOT_RETENTION=1h
 
     # === RESOURCE LIMITS ===
     # These protect your host from demo abuse
