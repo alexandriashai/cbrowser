@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.13.0](https://github.com/alexandriashai/cbrowser/compare/v16.10.0...v16.13.0) (2026-02-09)
+
+### Added
+
+* **values:** add research-backed values system v16.12.0 ([96230da](https://github.com/alexandriashai/cbrowser/commit/96230da350db470a0f763cb1b5f8cf700fa8cb5c))
+
 ## [16.12.0] - 2026-02-09
 
 ### Added
