@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.9.2](https://github.com/alexandriashai/cbrowser/compare/v16.9.1...v16.9.2) (2026-02-09)
+
+### Fixed
+
+* **overlay:** deduplicate overlay dismissal attempts ([1e31e7a](https://github.com/alexandriashai/cbrowser/commit/1e31e7ad21efabaf72b15d16536af5c3dab32bf9))
+
 ## [16.9.1](https://github.com/alexandriashai/cbrowser/compare/v16.9.0...v16.9.1) (2026-02-09)
 
 ### Fixed
