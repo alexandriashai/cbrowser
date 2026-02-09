@@ -432,6 +432,32 @@ npx cbrowser config set-api-key
 
 ---
 
+## Enterprise Edition
+
+[CBrowser Enterprise](https://github.com/alexandriashai/cbrowser-enterprise) extends CBrowser with:
+
+| Feature | Description |
+|---------|-------------|
+| **Marketing Suite** | Influence effectiveness research — test which design/copy/UX patterns influence which buyer segments |
+| **8 Marketing Personas** | B2B (enterprise-buyer, startup-founder, procurement-manager, technical-evaluator) + Consumer (impulse-shopper, price-researcher, loyal-customer, skeptical-first-timer) |
+| **Influence Matrix** | Conversion effectiveness for variant × persona combinations |
+| **Lever Analysis** | Which psychological persuasion patterns work for each persona |
+| **Constitutional Stealth** | Full stealth measures for authorized penetration testing |
+
+**MCP Server:** Enterprise MCP includes all 48 base tools + 8 marketing tools.
+
+```bash
+# Start Enterprise MCP server
+npx cbrowser-enterprise mcp-server
+
+# List marketing personas
+npx cbrowser-enterprise marketing personas list --category b2b
+```
+
+See [Marketing Suite Wiki](https://github.com/alexandriashai/cbrowser/wiki/Marketing-Suite) for full documentation.
+
+---
+
 ## License
 
 **Business Source License 1.1 (BSL-1.1)**
