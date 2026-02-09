@@ -1698,6 +1698,51 @@ export function getTraitReference(trait: keyof CognitiveTraits): TraitReference 
 }
 
 /**
+ * v16.7.2: Meaningful short headers for traits (max 12 chars).
+ * These are designed to be readable, not just truncated.
+ */
+const TRAIT_SHORT_HEADERS: Record<string, string> = {
+  // Tier 1: Core (7)
+  patience: "Patience",
+  riskTolerance: "Risk",
+  comprehension: "Comprehend",
+  persistence: "Persist",
+  curiosity: "Curiosity",
+  workingMemory: "Memory",
+  readingTendency: "Reading",
+  // Tier 2: Emotional (4)
+  resilience: "Resilience",
+  selfEfficacy: "Self-Effic",
+  satisficing: "Satisficing",
+  trustCalibration: "Trust",
+  // Tier 3: Decision (4)
+  interruptRecovery: "Interrupt",
+  informationForaging: "Foraging",
+  changeBlindness: "Change",
+  anchoringBias: "Anchoring",
+  // Tier 4: Planning (4)
+  timeHorizon: "TimeHorizon",
+  attributionStyle: "Attribution",
+  metacognitivePlanning: "MetaCog",
+  proceduralFluency: "Procedure",
+  // Tier 5: Perception (2)
+  transferLearning: "Transfer",
+  authoritySensitivity: "Authority",
+  // Tier 6: Social (4)
+  emotionalContagion: "Emotional",
+  fearOfMissingOut: "FOMO",
+  socialProofSensitivity: "SocialProof",
+  mentalModelRigidity: "Rigidity",
+};
+
+/**
+ * Get a short header for a trait (max 12 chars).
+ */
+function getTraitShortHeader(trait: string): string {
+  return TRAIT_SHORT_HEADERS[trait] || trait.slice(0, 12);
+}
+
+/**
  * Export questionnaire as AskUserQuestion format for Claude sessions.
  */
 export function formatForAskUserQuestion(questions: QuestionnaireQuestion[]): Array<{
@@ -1708,7 +1753,7 @@ export function formatForAskUserQuestion(questions: QuestionnaireQuestion[]): Ar
 }> {
   return questions.map(q => ({
     question: q.question,
-    header: q.trait.slice(0, 12),  // Max 12 chars for header
+    header: getTraitShortHeader(q.trait),  // v16.7.2: Use meaningful abbreviations
     options: q.options.map(o => ({
       label: o.label,
       description: o.description,
