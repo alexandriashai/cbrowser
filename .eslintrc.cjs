@@ -41,6 +41,8 @@ module.exports = {
     "dist/",
     "node_modules/",
     "tests/",
+    "examples/",
+    "docs/",
     "*.js",
     "*.cjs",
     "*.mjs",
