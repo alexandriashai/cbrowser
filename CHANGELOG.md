@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.9.4](https://github.com/alexandriashai/cbrowser/compare/v16.9.3...v16.9.4) (2026-02-09)
+
+### Fixed
+
+* **questionnaire:** use meaningful short headers instead of truncation ([7376513](https://github.com/alexandriashai/cbrowser/commit/7376513d1f15ee7cb0c1ca1a74daad1a6eb18683))
+
 ## [16.9.3](https://github.com/alexandriashai/cbrowser/compare/v16.9.2...v16.9.3) (2026-02-09)
 
 ### Fixed
