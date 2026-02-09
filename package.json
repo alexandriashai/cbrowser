@@ -120,7 +120,7 @@
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
-    "eslint": "^8.55.0",
+    "eslint": "^10.0.0",
     "husky": "^9.0.0",
     "lint-staged": "^16.2.7",
     "release-it": "^19.2.4",
