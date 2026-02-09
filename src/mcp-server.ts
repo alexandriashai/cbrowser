@@ -2418,14 +2418,20 @@ Begin the simulation now. Narrate your thoughts as this persona.
           description: WCAG_CRITERIA[c]?.description || "Unknown",
         })),
         barriersByType,
-        personaResults: session.personaResults.map(r => ({
-          persona: r.persona,
-          disabilityType: r.disabilityType,
-          goalAchieved: r.goalAchieved,
-          empathyScore: r.empathyScore,
-          barriersFound: r.barriers.length,
-          wcagViolationCount: r.wcagViolations.length,
-        })),
+        personaResults: session.personaResults.map(r => {
+          // v16.7.2: Separate barrier types from element counts
+          const uniqueTypes = new Set(r.barriers.map(b => b.type));
+          return {
+            persona: r.persona,
+            disabilityType: r.disabilityType,
+            goalAchieved: r.goalAchieved,
+            empathyScore: r.empathyScore,
+            barrierTypeCount: uniqueTypes.size,  // Unique barrier categories
+            barrierTypes: Array.from(uniqueTypes),
+            affectedElements: r.barriers.length,  // Raw element count
+            wcagViolationCount: r.wcagViolations.length,
+          };
+        }),
         remediationPriority,
         recommendations: generateEmpathyRecommendations(session),
       };
