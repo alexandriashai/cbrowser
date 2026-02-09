@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.15.0](https://github.com/alexandriashai/cbrowser/compare/v16.14.6...v16.15.0) (2026-02-09)
+
+### Added
+
+* **config:** session-scoped screenshots for multi-user MCP safety ([e741fb0](https://github.com/alexandriashai/cbrowser/commit/e741fb08b6ff09676c9acaedbcc31869ad8310cb))
+* **mcp:** add native MCP SDK OAuth server with Express ([111dd89](https://github.com/alexandriashai/cbrowser/commit/111dd89799a1f257141d7cb3eb7f2811e0dd1f0f))
+
 ## [16.14.6](https://github.com/alexandriashai/cbrowser/compare/v16.14.5...v16.14.6) (2026-02-09)
 
 ## [16.14.5](https://github.com/alexandriashai/cbrowser/compare/v16.14.4...v16.14.5) (2026-02-09)
