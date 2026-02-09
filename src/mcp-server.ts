@@ -448,7 +448,11 @@ function generateEmpathyRecommendations(session: EmpathyAuditSession): string[] 
   return recommendations;
 }
 
-export async function startMcpServer(): Promise<void> {
+/**
+ * Register all CBrowser tools on an MCP server instance.
+ * Internal function - use createMcpServer() for the public API.
+ */
+async function registerCBrowserTools(): Promise<McpServer> {
   // Auto-initialize all data directories on server start
   ensureDirectories();
 
@@ -3444,7 +3448,34 @@ This ensures personas are grounded in research, not stereotypes.
     }
   );
 
-  // Connect via stdio transport
+  return server;
+}
+
+/**
+ * Create and configure the MCP server with all CBrowser tools.
+ * Returns the server instance before connecting, allowing Enterprise
+ * or other packages to add additional tools.
+ *
+ * @example
+ * ```typescript
+ * import { createMcpServer } from 'cbrowser';
+ *
+ * const server = await createMcpServer();
+ * // Add custom tools here
+ * server.tool('my_custom_tool', 'Description', {}, async () => { ... });
+ * // Then connect
+ * await connectMcpServer(server);
+ * ```
+ */
+export async function createMcpServer(): Promise<McpServer> {
+  return registerCBrowserTools();
+}
+
+/**
+ * Connect an MCP server via stdio transport and set up shutdown handling.
+ * Use after createMcpServer() and adding any custom tools.
+ */
+export async function connectMcpServer(server: McpServer): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
@@ -3455,6 +3486,11 @@ This ensures personas are grounded in research, not stereotypes.
     }
     process.exit(0);
   });
+}
+
+export async function startMcpServer(): Promise<void> {
+  const server = await createMcpServer();
+  await connectMcpServer(server);
 }
 
 // Run if called directly
