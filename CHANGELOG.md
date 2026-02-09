@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.18.0](https://github.com/alexandriashai/cbrowser/compare/v16.17.0...v16.18.0) (2026-02-09)
+
+### Added
+
+* **personas:** add runtime persona registration for enterprise ([05d5913](https://github.com/alexandriashai/cbrowser/commit/05d59133c11f6787c3db2bfbe62bb610ff408a01))
+
 ## [16.17.0](https://github.com/alexandriashai/cbrowser/compare/v16.16.2...v16.17.0) (2026-02-09)
 
 ### Added
