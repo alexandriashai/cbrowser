@@ -100,7 +100,9 @@ How social context and comparison affect user behavior.
 
 ---
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 Traits don't exist in isolation. Research-backed correlations:
 

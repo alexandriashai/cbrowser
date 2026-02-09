@@ -109,7 +109,9 @@ The "patch" in foraging theory is analogous to a web page or site section:
 | Preview/Tooltip | Hover information | Low-Medium |
 | Domain/URL | Site credibility signals | Low |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|

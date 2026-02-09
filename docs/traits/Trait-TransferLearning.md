@@ -103,7 +103,9 @@ Based on Barnett & Ceci (2002), transfer distance affects success rate:
 | Very Far | Different domain, abstract similarity | 10-30% | Web form skills to mobile app form |
 | Analogical | Structural similarity only | 10-20% | Folder organization to database organization |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Research Basis |
 |---------------|-------------|----------------|

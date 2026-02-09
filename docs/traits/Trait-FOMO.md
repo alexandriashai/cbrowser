@@ -75,7 +75,9 @@ Cialdini, R. B. (2001). *Influence: Science and practice* (4th ed.). Allyn and B
 - **Cart Abandonment**: Unaffected by urgency emails; returns when ready or not at all
 - **Social Media**: Uses purposefully; comfortable missing content
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Correlated Trait | Correlation | Mechanism |
 |------------------|-------------|-----------|

@@ -48,7 +48,9 @@ Tversky, A., & Kahneman, D. (1992). Advances in prospect theory: Cumulative repr
 | 0.6-0.8 | Risk-Tolerant | Readily explores new websites. Enters email freely for content access. Tries new payment methods. Downloads apps without extensive research. Clicks on interesting links even from unfamiliar sources. Creates accounts easily. Minimal verification before form submission. |
 | 0.8-1.0 | Very Risk-Seeking | Clicks first, thinks later. Ignores security warnings. Enters personal data casually. Experiments with unverified sites and downloads. May fall for phishing without pattern recognition. No hesitation on unfamiliar checkouts. Dismisses browser warnings. |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

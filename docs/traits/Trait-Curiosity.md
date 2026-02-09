@@ -69,7 +69,9 @@ Loewenstein (1994) extended Berlyne's work:
 | 0.6-0.8 | Curious | Actively explores beyond task requirements. Reads related articles and linked content. Investigates new features and options. Clicks on "learn more" links. Explores settings and customization. Time on site 30-40% above average. |
 | 0.8-1.0 | Highly Exploratory | Deep exploration of all available content. Reads documentation and help pages. Investigates every feature, setting, and option. Follows rabbit holes of linked content. May forget original task while exploring. Discovers hidden features. Time on site 50%+ above average. |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

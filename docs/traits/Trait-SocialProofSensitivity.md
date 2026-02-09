@@ -75,7 +75,9 @@ Cialdini, R. B. (2001). *Influence: Science and practice* (4th ed.). Allyn and B
 - **Review Sorting**: May read negative reviews specifically to find edge cases
 - **Recommendations**: Explores independently rather than following suggestions
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Correlated Trait | Correlation | Mechanism |
 |------------------|-------------|-----------|

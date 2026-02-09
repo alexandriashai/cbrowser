@@ -98,7 +98,9 @@ Schwartz, B., Ward, A., Monterosso, J., Lyubomirsky, S., White, K., & Lehman, D.
 - Round numbers ("about 30" not "32")
 - Quick completion even if imprecise
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|

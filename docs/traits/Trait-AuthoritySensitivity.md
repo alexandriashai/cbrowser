@@ -70,7 +70,9 @@ Cialdini, R. B. (2001). *Influence: Science and practice* (4th ed.). Allyn and B
 - **Purchase Decisions**: Cross-references claims on independent review sites
 - **Information Architecture**: Prefers unfiltered, chronological content over curated selections
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Correlated Trait | Correlation | Mechanism |
 |------------------|-------------|-----------|

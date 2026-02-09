@@ -72,7 +72,9 @@ Kramer, A. D. I., Guillory, J. E., & Hancock, J. T. (2014). Experimental evidenc
 - **Content Engagement**: Shares based on utility, not emotional resonance
 - **Customer Support**: Evaluates resolution quality, not emotional tone
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Correlated Trait | Correlation | Mechanism |
 |------------------|-------------|-----------|

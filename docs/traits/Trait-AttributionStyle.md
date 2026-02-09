@@ -137,7 +137,9 @@ The three dimensions create distinct patterns:
 | **Growth** | Internal | Unstable | Controllable | "I wasn't focused. I'll try again carefully." High persistence. |
 | **Fixed Mindset** | Internal | Stable | Uncontrollable | "I'm just not good with technology." Low self-efficacy. |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|

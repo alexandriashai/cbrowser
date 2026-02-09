@@ -91,7 +91,9 @@ Sweller, J., & Cooper, G. A. (1985). The use of worked examples as a substitute 
 | High | Minimal observable load; confident movements; quick decisions |
 | Very High | No observable load; parallel processing; possibly bored with simple interfaces |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Research Basis |
 |---------------|-------------|----------------|

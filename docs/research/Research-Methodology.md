@@ -149,6 +149,30 @@ Accessibility personas include trait modifications based on disability research:
 
 ---
 
+## Validation Status
+
+> **Important:** CBrowser's trait implementations are **research-informed heuristics**, not direct measurements. The correlation values and behavioral parameters presented throughout this documentation are **educated estimates** derived from related HCI and cognitive psychology literature, not empirical calibrations from CBrowser-specific validation studies.
+>
+> Empirical calibration is planned — see [GitHub Issue #95](https://github.com/alexandriashai/cbrowser/issues/95) for methodology and timeline.
+
+### Current State
+
+| Aspect | Status |
+|--------|--------|
+| Trait definitions | Based on peer-reviewed research |
+| Behavioral parameters | Theoretically derived from related literature |
+| Persona profiles | Research-informed archetypes |
+| Correlation values | Educated estimates, not direct measurements |
+
+### Planned Validation (GitHub #95)
+
+The empirical calibration planned for future versions will include:
+- A/B testing simulated vs. real user behavior
+- Statistical comparison against published benchmarks (Baymard, Nielsen Norman, etc.)
+- Iterative tuning until simulation distributions match empirical baselines
+
+---
+
 ## Validation Methods
 
 ### 1. Expert Review
@@ -158,17 +182,7 @@ Trait definitions and values reviewed by:
 - Cognitive psychologists
 - Accessibility specialists
 
-### 2. Behavioral Testing
-
-Cognitive journeys validated against real user testing data:
-
-| Metric | Correlation with Real Users |
-|--------|----------------------------|
-| Abandonment prediction | r = 0.72 |
-| Navigation patterns | r = 0.68 |
-| Error recovery | r = 0.65 |
-
-### 3. Comparative Analysis
+### 2. Comparative Analysis
 
 CBrowser personas compared against:
 - Nielsen Norman Group persona archetypes

@@ -112,7 +112,9 @@ The landmark demonstration of anchoring:
 - Countdown timers affect urgency perception
 - "X people are viewing this" shapes demand perception
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|

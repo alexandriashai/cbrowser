@@ -66,7 +66,9 @@ Miller discovered that while raw information capacity is limited, we can increas
 | 0.6-0.8 | High | Handles 8-10 chunks comfortably. Manages complex dashboards. Tracks multiple open tasks. Compares 5+ options mentally. Remembers earlier form inputs while completing later sections. Navigates complex hierarchies. |
 | 0.8-1.0 | Very High | Handles 10+ chunks. Power-user of complex interfaces. Tracks multiple simultaneous processes. Mentally holds entire site structure. Rarely needs visual aids for memory. Can complete complex forms from memory. |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

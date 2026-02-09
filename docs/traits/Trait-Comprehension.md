@@ -67,7 +67,9 @@ Card, Moran, and Newell's GOMS model breaks user behavior into:
 | Moderate | Standard methods, typical operator times, basic selection |
 | High | Rich method library, efficient operators, optimal selection |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

@@ -49,7 +49,9 @@ Nielsen, J. (1993). *Usability Engineering*. Academic Press. ISBN 978-0125184069
 | 0.6-0.8 | Patient | Tolerates 15-20 seconds for complex operations. Reads loading messages and status updates. Willing to wait for quality content. Doesn't reflexively click repeatedly. Understands that complex operations take time. Rarely abandons due to speed alone. |
 | 0.8-1.0 | Very Patient | Tolerates 30+ seconds for important tasks. Reads terms and conditions fully. Waits for complete page loads before interacting. Never double-clicks out of impatience. Willing to retry failed operations. Provides patience buffer for first-time site visits. |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

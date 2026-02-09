@@ -70,7 +70,9 @@ Nielsen's eyetracking research identified the F-shaped reading pattern:
 | 0.6-0.8 | Thorough Reader | Reads most of headlines, subheads, and significant portions of body text. Notices text warnings and important messages. Reads 40-60% of text. Follows links within content. Reads captions and labels. More likely to notice inline guidance. |
 | 0.8-1.0 | Complete Reader | Reads nearly all text content systematically. Reads terms and conditions. Notices footnotes and fine print. Reads 70%+ of text. Processes instructions before acting. Unlikely to miss text-based warnings. May read comments and supplementary content. |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

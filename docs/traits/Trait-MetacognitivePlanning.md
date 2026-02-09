@@ -80,7 +80,9 @@ Dunlosky, J., & Metcalfe, J. (2009). *Metacognition*. SAGE Publications.
 | High | Diagnoses error cause; tries multiple systematic solutions |
 | Very High | Prevents errors through preview; when errors occur, uses systematic debugging |
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Research Basis |
 |---------------|-------------|----------------|

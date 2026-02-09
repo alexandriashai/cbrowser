@@ -127,7 +127,9 @@ Frederick, S., Loewenstein, G., & O'Donoghue, T. (2002). Time discounting and ti
 - Newsletter subscriptions
 - Documentation and reference material
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|

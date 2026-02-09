@@ -102,7 +102,9 @@ function updateEfficacy(state: SelfEfficacyState, success: boolean): void {
 }
 ```
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 Research and theoretical models indicate the following correlations:
 

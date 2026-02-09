@@ -80,7 +80,9 @@ Rensink, R. A., O'Regan, J. K., & Clark, J. J. (1997). To see or not to see: The
 - Price changes during session go undetected
 - Stock status changes ("In Stock" to "Out of Stock") are missed
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|

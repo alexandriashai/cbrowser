@@ -91,7 +91,9 @@ Carroll, J. M., & Rosson, M. B. (1987). Paradox of the active user. In J. M. Car
 - Looks for social login options in different position
 - Assumes password visible toggle is checkbox when it's icon
 
-## Trait Correlations
+## Estimated Trait Correlations
+
+> *Correlation estimates are derived from related research findings and theoretical models. Empirical calibration is planned ([GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95)).*
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
