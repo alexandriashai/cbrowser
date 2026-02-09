@@ -1,9 +1,9 @@
 # CBrowser — Cognitive Browser Automation
 
-> **The browser automation that thinks.** v16.14.6 achieved **Grade A+** in comprehensive stress testing—100% pass rate across 48+ tools and 60+ invocations, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
+> **The browser automation that thinks.** v16.15.0 achieved **Grade A+** in comprehensive stress testing—100% pass rate across 48+ tools and 60+ invocations, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
-[![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.6.md)
+[![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
 [![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-48%20Tools-blue)](https://modelcontextprotocol.io)
