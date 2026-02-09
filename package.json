@@ -38,6 +38,11 @@
       "types": "./dist/stealth/index.d.ts",
       "import": "./dist/stealth/index.js",
       "require": "./dist/stealth/index.js"
+    },
+    "./mcp-remote": {
+      "types": "./dist/mcp-server-remote.d.ts",
+      "import": "./dist/mcp-server-remote.js",
+      "require": "./dist/mcp-server-remote.js"
     }
   },
   "scripts": {

@@ -3260,9 +3260,20 @@ async function handleMcpRequest(
 }
 
 /**
- * Start the remote HTTP MCP server
+ * Options for starting the remote MCP server
  */
-export async function startRemoteMcpServer(): Promise<void> {
+export interface RemoteMcpServerOptions {
+  /** Callback to register additional tools after base tools are configured */
+  extendServer?: (server: McpServer) => void | Promise<void>;
+  /** Custom server name (default: "cbrowser") */
+  serverName?: string;
+}
+
+/**
+ * Start the remote HTTP MCP server
+ * @param options - Optional configuration including tool extension callback
+ */
+export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Promise<void> {
   // Auto-initialize all data directories on server start
   ensureDirectories();
 
@@ -3390,6 +3401,12 @@ export async function startRemoteMcpServer(): Promise<void> {
 
         // Create and connect server
         const server = createMcpServer();
+
+        // Allow extension with additional tools (for Enterprise)
+        if (options?.extendServer) {
+          await options.extendServer(server);
+        }
+
         await server.connect(transport);
 
         // Store transport for stateful mode
