@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.14.0] - 2026-02-09
+
+### Added
+- **Trait-Based Value Derivation** - General-category personas now derive Schwartz values from their cognitive traits instead of flat 0.5 defaults
+- `TRAIT_VALUE_CORRELATIONS` - 12 research-backed trait-to-value mappings (curiosity→stimulation, riskTolerance→security, etc.)
+- `deriveValuesFromTraits()` - Weighted value derivation from cognitive traits
+- `valueDerivations` field in persona output - Shows exactly which traits influenced which values
+- General category now uses `valueStrategy: "trait_based"` instead of "neutral"
+
+### Research Citations
+- Kashdan, T.B., et al. (2018) - Five-dimensional curiosity scale
+- Duckworth, A.L. (2016) - Grit and achievement motivation
+- Cialdini, R.B. (2001) - Social proof and conformity
+- Bandura, A. (1997) - Self-efficacy and autonomy
+- Przybylski, A.K. (2013) - FOMO and novelty-seeking
+
 ## [16.13.0](https://github.com/alexandriashai/cbrowser/compare/v16.10.0...v16.13.0) (2026-02-09)
 
 ### Added

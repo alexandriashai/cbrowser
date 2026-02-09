@@ -2100,11 +2100,13 @@ This ensures personas are grounded in research, not stereotypes.
       const traits = buildTraitsFromAnswers(answers);
 
       // v16.12.0: Build values based on category with safeguards
+      // v16.14.0: Pass traits for trait_based categories (general, emotional)
       // Check for cognitive subtype (e.g., adhd-combined, autism-spectrum)
       const subtypeValues = getCognitiveSubtypeValues(name);
       const categoryResult = buildValuesFromCategory(
         detectedCategory,
-        subtypeValues?.values || valueOverrides
+        subtypeValues?.values || valueOverrides,
+        traits  // v16.14.0: Pass traits for trait-based value derivation
       );
 
       // Validate that values match category guidelines
@@ -2154,6 +2156,10 @@ This ensures personas are grounded in research, not stereotypes.
               researchBasis: subtypeValues
                 ? [...categoryResult.researchBasis, subtypeValues.researchBasis]
                 : categoryResult.researchBasis,
+              // v16.14.0: Show how traits influenced values for trait_based categories
+              valueDerivations: categoryResult.derivations && categoryResult.derivations.length > 0
+                ? categoryResult.derivations
+                : undefined,
               warnings: warnings.length > 0 ? warnings : undefined,
               savedPath,
               usage: `Use persona "${name}" with cognitive-journey or other commands`,

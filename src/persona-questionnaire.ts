@@ -1957,14 +1957,16 @@ export const CATEGORY_VALUE_PRESETS: CategoryValuePreset[] = [
   },
   {
     category: "general",
-    description: "No specific disability - population baseline",
-    valueStrategy: "neutral",
+    description: "No specific disability - values derived from cognitive traits",
+    valueStrategy: "trait_based",
     researchBasis: [
       "Schwartz, S.H. (2012). Overview of Schwartz Theory of Basic Values.",
-      "Nielsen Norman Group usability research averages.",
-      "Kahneman, D. (2011). Thinking, Fast and Slow.",
+      "Kashdan, T.B., et al. (2018). The five-dimensional curiosity scale.",
+      "Bandura, A. (1997). Self-efficacy: The exercise of control.",
+      "Duckworth, A.L. (2016). Grit: The power of passion and perseverance.",
     ],
     defaultValues: {
+      // Baseline values - will be modified by deriveValuesFromTraits()
       selfDirection: 0.5,
       stimulation: 0.5,
       hedonism: 0.5,
@@ -1980,7 +1982,7 @@ export const CATEGORY_VALUE_PRESETS: CategoryValuePreset[] = [
       relatednessNeed: 0.5,
       maslowLevel: "esteem",
     },
-    guidance: "General personas use neutral baseline values. The persona's specific characteristics will be defined by cognitive traits, not disability-related value shifts.",
+    guidance: "General personas derive values from their cognitive traits. High curiosity → higher stimulation; high risk tolerance → lower security; high social proof sensitivity → higher conformity. Use deriveValuesFromTraits() with the persona's traits.",
   },
 ];
 
@@ -2045,19 +2047,43 @@ export function getCategoryValuePreset(category: PersonaCategory): CategoryValue
 /**
  * Build persona values based on category with research grounding.
  * Returns values, research citations, and guidance.
+ *
+ * v16.14.0: For trait_based categories (general, emotional), can derive values from traits.
  */
 export function buildValuesFromCategory(
   category: PersonaCategory,
-  overrides?: Partial<CategoryValuePreset["defaultValues"]>
+  overrides?: Partial<CategoryValuePreset["defaultValues"]>,
+  traits?: Partial<CognitiveTraits> | Record<string, number>
 ): {
   values: CategoryValuePreset["defaultValues"];
   researchBasis: string[];
   guidance: string;
   valueStrategy: CategoryValuePreset["valueStrategy"];
+  derivations?: Array<{ trait: string; affectedValue: string; contribution: number }>;
 } {
   const preset = getCategoryValuePreset(category);
 
-  // Merge overrides with defaults
+  // For trait_based strategies, derive values from traits if provided
+  if (preset.valueStrategy === "trait_based" && traits && Object.keys(traits).length > 0) {
+    const derived = deriveValuesFromTraits(traits);
+
+    // Merge: derived values + preset defaults for missing + overrides on top
+    const values = {
+      ...preset.defaultValues,
+      ...derived.values,
+      ...overrides,
+    };
+
+    return {
+      values,
+      researchBasis: [...preset.researchBasis, ...derived.researchBasis],
+      guidance: preset.guidance,
+      valueStrategy: preset.valueStrategy,
+      derivations: derived.derivations,
+    };
+  }
+
+  // For other strategies, use preset defaults with overrides
   const values = {
     ...preset.defaultValues,
     ...overrides,
@@ -2136,6 +2162,191 @@ export function getCognitiveSubtypeValues(
 ): { values: Partial<CategoryValuePreset["defaultValues"]>; researchBasis: string } | undefined {
   const normalizedName = subtypeName.toLowerCase().replace(/[_\s]+/g, "-");
   return COGNITIVE_SUBTYPES[normalizedName];
+}
+
+/**
+ * Trait-to-Value Correlations (v16.14.0)
+ *
+ * Research-backed mappings from cognitive traits to Schwartz values.
+ * Used for general-category personas to derive meaningful values from traits.
+ *
+ * @references
+ * - Kashdan, T.B., et al. (2018). The five-dimensional curiosity scale. JPSP.
+ * - Schwartz, S.H. (2012). An overview of the Schwartz theory of basic values.
+ * - Duckworth, A.L. (2016). Grit: The power of passion and perseverance.
+ * - Bandura, A. (1997). Self-efficacy: The exercise of control.
+ * - Cialdini, R.B. (2001). Influence: Science and practice.
+ */
+export const TRAIT_VALUE_CORRELATIONS: Record<string, {
+  affects: Array<{ value: string; direction: "positive" | "negative"; weight: number }>;
+  researchBasis: string;
+}> = {
+  curiosity: {
+    affects: [
+      { value: "stimulation", direction: "positive", weight: 0.6 },
+      { value: "selfDirection", direction: "positive", weight: 0.5 },
+    ],
+    researchBasis: "Kashdan (2018): Curiosity correlates with openness to experience",
+  },
+  riskTolerance: {
+    affects: [
+      { value: "security", direction: "negative", weight: 0.7 },
+      { value: "stimulation", direction: "positive", weight: 0.4 },
+    ],
+    researchBasis: "Schwartz (2012): Security opposes stimulation on value circumplex",
+  },
+  patience: {
+    affects: [
+      { value: "stimulation", direction: "negative", weight: 0.4 },
+      { value: "tradition", direction: "positive", weight: 0.3 },
+    ],
+    researchBasis: "Baumeister (1998): Patience relates to delayed gratification",
+  },
+  persistence: {
+    affects: [
+      { value: "achievement", direction: "positive", weight: 0.6 },
+      { value: "competenceNeed", direction: "positive", weight: 0.4 },
+    ],
+    researchBasis: "Duckworth (2016): Grit predicts achievement-oriented behavior",
+  },
+  socialProofSensitivity: {
+    affects: [
+      { value: "conformity", direction: "positive", weight: 0.7 },
+      { value: "selfDirection", direction: "negative", weight: 0.4 },
+    ],
+    researchBasis: "Cialdini (2001): Social proof activates conformity motivation",
+  },
+  trustCalibration: {
+    affects: [
+      { value: "security", direction: "negative", weight: 0.5 }, // High trust = less security-seeking
+      { value: "benevolence", direction: "positive", weight: 0.3 },
+    ],
+    researchBasis: "Rotter (1971): Trust correlates with positive interpersonal expectations",
+  },
+  authoritySensitivity: {
+    affects: [
+      { value: "conformity", direction: "positive", weight: 0.5 },
+      { value: "tradition", direction: "positive", weight: 0.4 },
+      { value: "selfDirection", direction: "negative", weight: 0.3 },
+    ],
+    researchBasis: "Schwartz (2012): Authority acceptance aligns with conservation values",
+  },
+  fearOfMissingOut: {
+    affects: [
+      { value: "stimulation", direction: "positive", weight: 0.6 },
+      { value: "security", direction: "negative", weight: 0.4 },
+    ],
+    researchBasis: "Przybylski (2013): FOMO drives novelty-seeking behavior",
+  },
+  selfEfficacy: {
+    affects: [
+      { value: "achievement", direction: "positive", weight: 0.5 },
+      { value: "autonomyNeed", direction: "positive", weight: 0.6 },
+      { value: "competenceNeed", direction: "positive", weight: 0.5 },
+    ],
+    researchBasis: "Bandura (1997): Self-efficacy predicts autonomous achievement",
+  },
+  resilience: {
+    affects: [
+      { value: "competenceNeed", direction: "positive", weight: 0.5 },
+      { value: "security", direction: "negative", weight: 0.3 }, // Resilient = less security-dependent
+    ],
+    researchBasis: "Masten (2001): Resilience reflects adaptive competence",
+  },
+  comprehension: {
+    affects: [
+      { value: "selfDirection", direction: "positive", weight: 0.4 },
+      { value: "competenceNeed", direction: "positive", weight: 0.3 },
+    ],
+    researchBasis: "Cognitive load research: Comprehension enables autonomous decision-making",
+  },
+  satisficing: {
+    affects: [
+      { value: "achievement", direction: "negative", weight: 0.4 }, // Satisficers are less achievement-driven
+      { value: "stimulation", direction: "negative", weight: 0.3 },
+    ],
+    researchBasis: "Simon (1956): Satisficing vs maximizing decision strategies",
+  },
+};
+
+/**
+ * Derive Schwartz values from cognitive traits. (v16.14.0)
+ *
+ * For general-category personas, values should reflect their cognitive profile.
+ * Uses weighted correlations from psychological research.
+ *
+ * @param traits - Cognitive traits (0-1 scale)
+ * @returns Derived values with research basis
+ */
+export function deriveValuesFromTraits(
+  traits: Partial<CognitiveTraits> | Record<string, number>
+): {
+  values: Partial<CategoryValuePreset["defaultValues"]>;
+  derivations: Array<{ trait: string; affectedValue: string; contribution: number }>;
+  researchBasis: string[];
+} {
+  // Start with neutral baseline
+  const derivedValues: Record<string, number> = {
+    selfDirection: 0.5,
+    stimulation: 0.5,
+    hedonism: 0.5,
+    achievement: 0.5,
+    power: 0.5,
+    security: 0.5,
+    conformity: 0.5,
+    tradition: 0.5,
+    benevolence: 0.5,
+    universalism: 0.5,
+    autonomyNeed: 0.5,
+    competenceNeed: 0.5,
+    relatednessNeed: 0.5,
+  };
+
+  const derivations: Array<{ trait: string; affectedValue: string; contribution: number }> = [];
+  const researchBasis: string[] = [];
+
+  // Apply trait correlations
+  for (const [traitName, traitValue] of Object.entries(traits)) {
+    const correlation = TRAIT_VALUE_CORRELATIONS[traitName];
+    if (!correlation || traitValue === undefined) continue;
+
+    // Trait deviation from neutral (0.5)
+    const traitDeviation = traitValue - 0.5;
+
+    for (const effect of correlation.affects) {
+      // Calculate contribution: deviation * weight * direction
+      const contribution = traitDeviation * effect.weight * (effect.direction === "positive" ? 1 : -1);
+
+      // Apply to value (clamped to 0-1)
+      if (derivedValues[effect.value] !== undefined) {
+        const oldValue = derivedValues[effect.value];
+        derivedValues[effect.value] = Math.max(0, Math.min(1, oldValue + contribution));
+
+        if (Math.abs(contribution) > 0.05) {
+          derivations.push({
+            trait: traitName,
+            affectedValue: effect.value,
+            contribution: Math.round(contribution * 100) / 100,
+          });
+        }
+      }
+    }
+
+    if (!researchBasis.includes(correlation.researchBasis)) {
+      researchBasis.push(correlation.researchBasis);
+    }
+  }
+
+  // Round values for cleaner output
+  for (const key of Object.keys(derivedValues)) {
+    derivedValues[key] = Math.round(derivedValues[key] * 100) / 100;
+  }
+
+  return {
+    values: derivedValues as Partial<CategoryValuePreset["defaultValues"]>,
+    derivations,
+    researchBasis,
+  };
 }
 
 /**

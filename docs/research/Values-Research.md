@@ -237,6 +237,57 @@ Values and traits correlate (r = 0.35-0.55) based on Schwartz & Bardi (2001) and
 
 ---
 
+## Trait-to-Value Derivation (v16.14.0)
+
+For **general-category** personas (no specific disability), values are derived FROM cognitive traits rather than defaulting to neutral (0.5). This produces more differentiated personas that reflect their behavioral profile.
+
+### How It Works
+
+The `deriveValuesFromTraits()` function applies weighted correlations:
+
+```
+derivedValue = baseline(0.5) + Σ(traitDeviation × weight × direction)
+```
+
+Where:
+- **traitDeviation** = trait value - 0.5 (positive if above neutral, negative if below)
+- **weight** = correlation strength (0.3-0.7)
+- **direction** = +1 for positive correlation, -1 for inverse
+
+### TRAIT_VALUE_CORRELATIONS
+
+| Trait | Affects | Direction | Weight | Research Basis |
+|-------|---------|-----------|--------|----------------|
+| curiosity | stimulation, selfDirection | + | 0.6, 0.5 | Kashdan (2018) |
+| riskTolerance | security, stimulation | -, + | 0.7, 0.4 | Schwartz (2012) |
+| patience | stimulation, tradition | -, + | 0.4, 0.3 | Baumeister (1998) |
+| persistence | achievement, competenceNeed | + | 0.6, 0.4 | Duckworth (2016) |
+| socialProofSensitivity | conformity, selfDirection | +, - | 0.7, 0.4 | Cialdini (2001) |
+| trustCalibration | security, benevolence | -, + | 0.5, 0.3 | Rotter (1971) |
+| authoritySensitivity | conformity, tradition, selfDirection | +, +, - | 0.5, 0.4, 0.3 | Schwartz (2012) |
+| fearOfMissingOut | stimulation, security | +, - | 0.6, 0.4 | Przybylski (2013) |
+| selfEfficacy | achievement, autonomyNeed, competenceNeed | + | 0.5, 0.6, 0.5 | Bandura (1997) |
+| resilience | competenceNeed, security | +, - | 0.5, 0.3 | Masten (2001) |
+| comprehension | selfDirection, competenceNeed | + | 0.4, 0.3 | Cognitive load research |
+| satisficing | achievement, stimulation | - | 0.4, 0.3 | Simon (1956) |
+
+### Example: High-Curiosity, Low-Patience Persona
+
+**Input Traits:**
+- curiosity: 0.9 (deviation: +0.4)
+- patience: 0.2 (deviation: -0.3)
+- riskTolerance: 0.8 (deviation: +0.3)
+
+**Derived Values:**
+- stimulation: 0.98 (curiosity +0.24, patience +0.12, risk +0.12)
+- selfDirection: 0.78 (curiosity +0.2, risk +0.08)
+- security: 0.29 (riskTolerance -0.21)
+- tradition: 0.41 (patience -0.09)
+
+The `valueDerivations` field in persona output shows exactly which traits influenced which values.
+
+---
+
 ## API Usage
 
 ### Accessing Persona Values

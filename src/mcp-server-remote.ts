@@ -2346,17 +2346,19 @@ Begin the simulation now. Narrate your thoughts as this persona.
       // Detect or use provided category
       const detectedCategory = category || detectPersonaCategory(name, description);
 
+      // Build traits from answers with research-based correlations (moved up for v16.14.0)
+      const traits = buildTraitsFromAnswers(answers);
+
       // Build category-appropriate values with optional overrides
+      // v16.14.0: Pass traits for trait_based categories (general, emotional)
       const categoryResult = buildValuesFromCategory(
         detectedCategory,
-        valueOverrides as Record<string, number> | undefined
+        valueOverrides as Record<string, number> | undefined,
+        traits  // v16.14.0: Pass traits for trait-based value derivation
       );
 
       // Validate values match category guidelines
       const warnings = validateCategoryValues(detectedCategory, categoryResult.values);
-
-      // Build traits from answers with research-based correlations
-      const traits = buildTraitsFromAnswers(answers);
 
       // Create the persona
       const persona = createCognitivePersona(name, description, traits, {});
@@ -2400,6 +2402,10 @@ Begin the simulation now. Narrate your thoughts as this persona.
               },
               values: categoryResult.values,
               researchBasis: categoryResult.researchBasis,
+              // v16.14.0: Show how traits influenced values for trait_based categories
+              ...(categoryResult.derivations && categoryResult.derivations.length > 0 && {
+                valueDerivations: categoryResult.derivations,
+              }),
               ...(warnings.length > 0 && { warnings }),
               savedPath,
               usage: `Use persona "${name}" with cognitive-journey or other commands`,
