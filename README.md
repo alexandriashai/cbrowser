@@ -100,20 +100,24 @@ An AI agent can freely browse and gather data, but cannot accidentally submit a 
 
 ## Cognitive User Simulation
 
-CBrowser models 25 research-backed cognitive traits to simulate how real users think and behave:
+CBrowser models **25 research-backed cognitive traits** across 6 tiers to simulate how real users think and behave:
 
 | Trait | Research Basis | What It Models |
 |-------|---------------|----------------|
-| **Patience** | — | How quickly users abandon on friction |
-| **Frustration** | — | Accumulates with errors, decays with success |
-| **Decision Fatigue** | Baumeister et al. (1998)* | Users start choosing defaults after too many decisions |
-| **Dual-Process Thinking** | Kahneman (2011) | System 1 (fast/automatic) vs System 2 (slow/deliberate) |
+| **Patience** | Nah (2004); Nielsen (1993) | Tolerance for delays; abandonment at 8+ seconds |
+| **Working Memory** | Miller (1956) | 7±2 item capacity; affects form complexity tolerance |
+| **Comprehension** | Card, Moran & Newell (1983) | UI convention understanding; GOMS model timing |
+| **Risk Tolerance** | Kahneman & Tversky (1979) | Prospect theory; loss aversion affects CTA clicks |
 | **Self-Efficacy** | Bandura (1977) | Belief in ability to solve problems; low = faster abandonment |
-| **Satisficing** | Simon (1956) | Accept "good enough" vs. optimize; satisficers decide 50% faster |
-| **Trust Calibration** | Fogg (2003) | Baseline trust affects click-through by 40% |
-| **Interrupt Recovery** | Mark et al. (2005) | Average recovery time 23min; models context preservation |
+| **Satisficing** | Simon (1956) | Accept "good enough" vs. optimize; 50% faster decisions |
+| **Trust Calibration** | Fogg (2003) | 8 trust signals; affects click-through by 40% |
+| **Information Foraging** | Pirolli & Card (1999) | "Scent" following behavior; predicts navigation patterns |
+| **Social Proof** | Cialdini (2001) | Influence of reviews, ratings, popularity indicators |
+| **FOMO** | Przybylski et al. (2013) | Fear of missing out; urgency and scarcity responses |
 
-*\*Note: Ego depletion research has faced [replication challenges](https://doi.org/10.1177/1745691616652873). CBrowser uses a simplified decision fatigue model focused on observable choice patterns.*
+*See [Trait Index](https://github.com/alexandriashai/cbrowser/wiki/Trait-Index) for all 25 traits including: Persistence, Resilience, Curiosity, Change Blindness, Anchoring Bias, Time Horizon, Attribution Style, Metacognitive Planning, Procedural Fluency, Transfer Learning, Authority Sensitivity, Emotional Contagion, Mental Model Rigidity, Interrupt Recovery, and Reading Tendency.*
+
+> **Note:** Trait correlation values are [educated estimates](https://github.com/alexandriashai/cbrowser/wiki/Research-Methodology#validation-status) derived from related research. Empirical calibration planned per [GitHub #95](https://github.com/alexandriashai/cbrowser/issues/95).
 
 **Full documentation:** [Research Methodology](https://github.com/alexandriashai/cbrowser/wiki/Research-Methodology) · [Trait Index](https://github.com/alexandriashai/cbrowser/wiki/Trait-Index) · [Bibliography](https://github.com/alexandriashai/cbrowser/wiki/Bibliography)
 
