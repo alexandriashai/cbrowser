@@ -126,9 +126,13 @@ let stealthConfig: Partial<StealthConfig> | null = null;
 
 async function getBrowser(): Promise<CBrowser> {
   if (!browser) {
+    // Pass proxy configuration from stealth config if available
+    const proxyConfig = stealthConfig?.proxy;
+
     browser = new CBrowser({
       headless: true,
       persistent: true,
+      proxy: proxyConfig,
     });
 
     // If stealth is enabled and we have an enforcer, apply to new pages
@@ -136,6 +140,9 @@ async function getBrowser(): Promise<CBrowser> {
       const page = await browser.getPage();
       if (page) {
         await stealthEnforcer.applyStealthMeasures(page);
+        if (proxyConfig) {
+          console.log(`[Stealth] Browser launched with proxy: ${proxyConfig.server.replace(/:[^:@]*@/, ":****@")}`);
+        }
       }
     }
   }
@@ -402,6 +409,60 @@ function configureMcpTools(server: McpServer): void {
               title: result.title,
               loadTime: result.loadTime,
               screenshot: result.screenshot,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "cloudflare_detect",
+    "Detect if the current page is a Cloudflare challenge page. Returns the type of challenge (turnstile, managed, interstitial, js-challenge) and evidence.",
+    {},
+    async () => {
+      const b = await getBrowser();
+      const result = await b.detectCloudflareChallenge();
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              detected: result.detected,
+              challenge_type: result.type,
+              evidence: result.evidence,
+              message: result.detected
+                ? `Cloudflare ${result.type} challenge detected. Use cloudflare_wait to wait for resolution.`
+                : "No Cloudflare challenge detected on current page.",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "cloudflare_wait",
+    "Wait for a Cloudflare challenge to resolve. Use this after navigating to a page that shows a Cloudflare protection page. The tool will poll until the challenge completes or times out.",
+    {
+      timeout: z.number().optional().describe("Maximum time to wait in milliseconds (default: 30000)"),
+    },
+    async ({ timeout }) => {
+      const b = await getBrowser();
+      const result = await b.waitForCloudflareResolution(timeout ?? 30000);
+      const screenshot = await b.screenshot();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              resolved: result.resolved,
+              original_url: result.originalUrl,
+              final_url: result.finalUrl,
+              wait_time_ms: result.waitTime,
+              message: result.message,
+              screenshot,
             }, null, 2),
           },
         ],
@@ -2145,6 +2206,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const available = await isEnterpriseAvailable();
       const version = getEnterpriseVersion();
       const enabled = stealthConfig?.enabled ?? false;
+      const proxyConfigured = !!stealthConfig?.proxy?.server;
 
       return {
         content: [
@@ -2158,8 +2220,12 @@ Begin the simulation now. Narrate your thoughts as this persona.
                 authorized_domains: stealthConfig?.authorization?.authorizedDomains ?? [],
                 blocked_domains: stealthConfig?.authorization?.blockedDomains ?? [],
               } : null,
+              proxy_configured: proxyConfigured,
+              proxy_server: proxyConfigured
+                ? stealthConfig?.proxy?.server?.replace(/:[^:@]*@/, ":****@") // Mask password
+                : null,
               message: available
-                ? `Enterprise v${version} available. Stealth ${enabled ? "enabled" : "disabled"}.`
+                ? `Enterprise v${version} available. Stealth ${enabled ? "enabled" : "disabled"}.${proxyConfigured ? " Proxy active." : ""}`
                 : "Enterprise not installed. Install cbrowser-enterprise for stealth capabilities.",
             }, null, 2),
           },
@@ -2170,12 +2236,15 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "stealth_enable",
-    "Enable constitutional stealth mode for authorized domains. Requires cbrowser-enterprise. You must have authorization to test on the specified domains.",
+    "Enable constitutional stealth mode for authorized domains. Requires cbrowser-enterprise. You must have authorization to test on the specified domains. Optionally configure a residential/datacenter proxy to bypass IP-based detection.",
     {
       authorized_domains: z.array(z.string()).describe("Domains you are authorized to test (e.g., ['*.mycompany.com', 'staging.example.com'])"),
       signed_by: z.string().describe("Your email or identifier confirming authorization"),
+      proxy_server: z.string().optional().describe("Proxy server URL (e.g., 'http://proxy.example.com:8080' or 'socks5://proxy.example.com:1080'). Use residential proxies for best detection bypass."),
+      proxy_username: z.string().optional().describe("Proxy authentication username (optional)"),
+      proxy_password: z.string().optional().describe("Proxy authentication password (optional)"),
     },
-    async ({ authorized_domains, signed_by }) => {
+    async ({ authorized_domains, signed_by, proxy_server, proxy_username, proxy_password }) => {
       const available = await isEnterpriseAvailable();
 
       if (!available) {
@@ -2213,12 +2282,18 @@ Begin the simulation now. Narrate your thoughts as this persona.
           formsPerMinute: 5,
           authAttemptsPerMinute: 3,
         },
+        // Add proxy config if provided
+        proxy: proxy_server ? {
+          server: proxy_server,
+          username: proxy_username,
+          password: proxy_password,
+        } : undefined,
       };
 
       // Get enforcer with config
       stealthEnforcer = await getEnforcer(stealthConfig);
 
-      // Reset browser to apply stealth to new pages
+      // Reset browser to apply stealth and proxy to new pages
       if (browser) {
         await browser.close();
         browser = null;
@@ -2235,7 +2310,11 @@ Begin the simulation now. Narrate your thoughts as this persona.
               signed_by,
               signed_at: stealthConfig.acknowledgment?.signedAt,
               rate_limits: stealthConfig.rateLimits,
-              note: "Stealth measures will be applied to all new pages on authorized domains.",
+              proxy_configured: !!proxy_server,
+              proxy_server: proxy_server ? proxy_server.replace(/:[^:@]*@/, ":****@") : null, // Mask password in logs
+              note: proxy_server
+                ? "Stealth measures and proxy will be applied to all new pages on authorized domains."
+                : "Stealth measures will be applied to all new pages on authorized domains.",
             }, null, 2),
           },
         ],
@@ -2287,7 +2366,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "stealth_disable",
-    "Disable stealth mode and clear the enforcer. Browser will revert to normal operation.",
+    "Disable stealth mode and clear the enforcer. Browser state is preserved - no recovery needed.",
     {},
     async () => {
       const wasEnabled = stealthConfig?.enabled ?? false;
@@ -2295,11 +2374,8 @@ Begin the simulation now. Narrate your thoughts as this persona.
       stealthEnforcer = null;
       stealthConfig = null;
 
-      // Reset browser
-      if (browser) {
-        await browser.close();
-        browser = null;
-      }
+      // Preserve browser state - don't close
+      // User can call reset_browser explicitly if needed
 
       return {
         content: [
@@ -2308,12 +2384,147 @@ Begin the simulation now. Narrate your thoughts as this persona.
             text: JSON.stringify({
               success: true,
               was_enabled: wasEnabled,
+              browser_preserved: true,
               message: wasEnabled
-                ? "Stealth mode disabled. Browser reset to normal operation."
+                ? "Stealth mode disabled. Browser state preserved - continue using normally."
                 : "Stealth was not enabled.",
             }, null, 2),
           },
         ],
+      };
+    }
+  );
+
+  // ============================================================================
+  // STEALTH DIAGNOSTIC TOOL (v16.3.0)
+  // ============================================================================
+
+  server.tool(
+    "stealth_diagnose",
+    "Navigate to a URL and diagnose what bot detection methods the site uses. Returns analysis of fingerprint, IP, behavioral, and WAF/Cloudflare detection.",
+    {
+      url: z.string().url().describe("URL to diagnose for bot detection methods"),
+    },
+    async ({ url }) => {
+      const b = await getBrowser();
+      const diagnosis: {
+        url: string;
+        detection_methods: {
+          fingerprint: { detected: boolean; evidence: string[] };
+          ip_reputation: { likely: boolean; evidence: string[] };
+          behavioral: { detected: boolean; evidence: string[] };
+          waf_cloudflare: { detected: boolean; type: string | null; evidence: string[] };
+        };
+        page_loaded: boolean;
+        recommendations: string[];
+      } = {
+        url,
+        detection_methods: {
+          fingerprint: { detected: false, evidence: [] },
+          ip_reputation: { likely: false, evidence: [] },
+          behavioral: { detected: false, evidence: [] },
+          waf_cloudflare: { detected: false, type: null, evidence: [] },
+        },
+        page_loaded: false,
+        recommendations: [],
+      };
+
+      try {
+        // Navigate with short timeout to detect blocks
+        const navResult = await b.navigate(url);
+
+        if (!navResult.success) {
+          diagnosis.detection_methods.ip_reputation.likely = true;
+          diagnosis.detection_methods.ip_reputation.evidence.push("Navigation failed: " + (navResult.errors?.join(", ") || "unknown error"));
+          diagnosis.recommendations.push("Site may block datacenter IPs. Consider residential proxy.");
+          return {
+            content: [{ type: "text", text: JSON.stringify(diagnosis, null, 2) }],
+          };
+        }
+
+        diagnosis.page_loaded = true;
+
+        // Check page content for detection indicators
+        const page = await b.getPage();
+        if (page) {
+          const content = await page.content();
+          const pageUrl = page.url();
+
+          // Cloudflare detection
+          if (content.includes("cf-browser-verification") || content.includes("cf_chl_opt")) {
+            diagnosis.detection_methods.waf_cloudflare.detected = true;
+            diagnosis.detection_methods.waf_cloudflare.type = "Cloudflare Challenge";
+            diagnosis.detection_methods.waf_cloudflare.evidence.push("Found cf-browser-verification in page");
+            diagnosis.recommendations.push("Cloudflare challenge detected. Stealth may help with browser checks.");
+          }
+
+          if (content.includes("turnstile") || content.includes("challenges.cloudflare.com")) {
+            diagnosis.detection_methods.waf_cloudflare.detected = true;
+            diagnosis.detection_methods.waf_cloudflare.type = "Cloudflare Turnstile";
+            diagnosis.detection_methods.waf_cloudflare.evidence.push("Found Turnstile widget");
+            diagnosis.recommendations.push("Turnstile CAPTCHA present. May pass with stealth, but IP reputation affects success.");
+          }
+
+          // Reddit-style IP blocking
+          if (pageUrl.includes("blocked") || content.includes("blocked") || content.includes("access denied")) {
+            diagnosis.detection_methods.ip_reputation.likely = true;
+            diagnosis.detection_methods.ip_reputation.evidence.push("Page contains 'blocked' or 'access denied'");
+            diagnosis.recommendations.push("IP-based blocking detected. Requires residential proxy.");
+          }
+
+          // Check for common bot detection scripts
+          const botDetectors = [
+            { name: "PerimeterX", pattern: /px-captcha|human-challenge/ },
+            { name: "DataDome", pattern: /datadome|dd\.js/ },
+            { name: "Akamai Bot Manager", pattern: /akamai.*bot|_abck/ },
+            { name: "Shape Security", pattern: /shape.*security/ },
+            { name: "Imperva/Incapsula", pattern: /incap_ses|visid_incap/ },
+            { name: "Distil Networks", pattern: /distil|d\.js/ },
+          ];
+
+          for (const detector of botDetectors) {
+            if (detector.pattern.test(content)) {
+              diagnosis.detection_methods.fingerprint.detected = true;
+              diagnosis.detection_methods.fingerprint.evidence.push(`Found ${detector.name} signatures`);
+            }
+          }
+
+          // Check for navigator.webdriver detection
+          if (content.includes("webdriver") || content.includes("navigator.webdriver")) {
+            diagnosis.detection_methods.fingerprint.detected = true;
+            diagnosis.detection_methods.fingerprint.evidence.push("Page checks navigator.webdriver");
+            diagnosis.recommendations.push("Enable stealth to patch navigator.webdriver.");
+          }
+
+          // Check for automation tool detection
+          if (content.includes("puppeteer") || content.includes("playwright") || content.includes("selenium")) {
+            diagnosis.detection_methods.fingerprint.detected = true;
+            diagnosis.detection_methods.fingerprint.evidence.push("Page checks for automation tools");
+          }
+
+          // Summary recommendations
+          if (diagnosis.detection_methods.fingerprint.detected && !diagnosis.detection_methods.ip_reputation.likely) {
+            diagnosis.recommendations.push("Browser fingerprint detection found. Stealth mode should help.");
+          }
+
+          if (diagnosis.detection_methods.ip_reputation.likely) {
+            diagnosis.recommendations.push("IP reputation is the primary block. Stealth alone won't solve this.");
+          }
+
+          if (!diagnosis.detection_methods.fingerprint.detected &&
+              !diagnosis.detection_methods.ip_reputation.likely &&
+              !diagnosis.detection_methods.waf_cloudflare.detected) {
+            diagnosis.recommendations.push("No obvious bot detection found. Site should work without stealth.");
+          }
+        }
+      } catch (error) {
+        diagnosis.detection_methods.ip_reputation.likely = true;
+        diagnosis.detection_methods.ip_reputation.evidence.push("Error: " + String(error));
+        diagnosis.recommendations.push("Navigation error - likely IP-based blocking.");
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(diagnosis, null, 2) }],
       };
     }
   );

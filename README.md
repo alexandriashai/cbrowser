@@ -1,12 +1,12 @@
 # CBrowser — Cognitive Browser Automation
 
-> **The browser automation that thinks.** After 360+ tool invocations across rigorous stress testing, CBrowser earned a **Grade A** assessment—17 issues tracked, 17 fixed, zero regressions.
+> **The browser automation that thinks.** After 640+ tool invocations across rigorous stress testing on 11 real-world sites, CBrowser earned a **Grade A+** assessment—19 issues tracked, 19 fixed, zero open bugs. [View Full Assessment →](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
-[![Grade A](https://img.shields.io/badge/Grade-A-brightgreen.svg)](docs/ASSESSMENT.md)
+[![Grade A+](https://img.shields.io/badge/Grade-A+-brightgreen.svg)](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
 [![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-43%20Tools-blue)](https://modelcontextprotocol.io)
+[![MCP Ready](https://img.shields.io/badge/MCP-45%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
 
@@ -16,7 +16,7 @@
 
 ## What Makes CBrowser Different
 
-**31 of 34 tools graded A- or above.** After extensive stress testing:
+**31 of 33 tools graded A or above (5 at A+).** After 640+ tool invocations across 11 real-world sites including Spotify, Airbnb, and MDN:
 
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
@@ -25,7 +25,7 @@
 | **Empathy Accessibility Audits** | 🔬 Novel | Simulate users with tremors, low vision, ADHD. No competitor offers this. |
 | **Self-Healing Selectors** | ✅ Production-ready | ARIA-first with 0.8+ confidence gating. Handles DOM changes automatically. |
 | **Constitutional AI Safety** | 🔬 Novel | Risk-classified actions prevent autonomous agents from doing damage. |
-| **43 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
+| **45 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
 
 ---
 
@@ -251,16 +251,17 @@ Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 }
 ```
 
-### 43 MCP Tools
+### 45 MCP Tools
 
 | Category | Tools |
 |----------|-------|
-| **Navigation** | `navigate`, `screenshot`, `extract` |
+| **Navigation** | `navigate`, `screenshot`, `extract`, `cloudflare_detect`, `cloudflare_wait` |
 | **Interaction** | `click`, `smart_click`, `fill`, `scroll` |
 | **Testing** | `test_suite`, `repair_tests`, `flaky_check` |
 | **Visual** | `visual_baseline`, `visual_compare`, `responsive_test`, `cross_browser_test`, `ab_compare` |
 | **Cognitive** | `cognitive_journey_init`, `cognitive_journey_update_state`, `compare_personas` |
 | **Analysis** | `hunt_bugs`, `chaos_test`, `agent_ready_audit`, `competitive_benchmark`, `empathy_audit` |
+| **Stealth** | `stealth_enable`, `stealth_disable`, `stealth_status`, `stealth_check`, `stealth_diagnose` |
 
 ---
 
@@ -343,6 +344,10 @@ await browser.close();
 | `CBROWSER_HEADLESS` | `true` | Run headless |
 | `CBROWSER_BROWSER` | `chromium` | Browser engine |
 | `CBROWSER_TIMEOUT` | `30000` | Default timeout (ms) |
+| `CBROWSER_PROXY` | — | Proxy URL (e.g., `http://user:pass@proxy:8080`) |
+| `CBROWSER_PROXY_SERVER` | — | Proxy server (alternative to full URL) |
+| `CBROWSER_PROXY_USERNAME` | — | Proxy username (with `CBROWSER_PROXY_SERVER`) |
+| `CBROWSER_PROXY_PASSWORD` | — | Proxy password (with `CBROWSER_PROXY_SERVER`) |
 
 ### API Key (for Cognitive Journeys)
 
@@ -391,5 +396,6 @@ For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.sha
 - [NPM Package](https://www.npmjs.com/package/cbrowser)
 - [GitHub Repository](https://github.com/alexandriashai/cbrowser)
 - [Issue Tracker](https://github.com/alexandriashai/cbrowser/issues)
+- [A+ Assessment Report](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
 - [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 - [Roadmap](ROADMAP.md)

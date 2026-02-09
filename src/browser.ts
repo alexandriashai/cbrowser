@@ -305,6 +305,16 @@ export class CBrowser {
     // Use browser-specific launch args for optimal performance
     const launchArgs = BROWSER_LAUNCH_ARGS[this.config.browser];
 
+    // Build proxy options for Playwright if configured
+    const proxyOptions = this.config.proxy ? {
+      proxy: {
+        server: this.config.proxy.server,
+        username: this.config.proxy.username,
+        password: this.config.proxy.password,
+        bypass: this.config.proxy.bypass?.join(","),
+      },
+    } : {};
+
     if (this.config.persistent) {
       const browserStateDir = join(this.paths.dataDir, "browser-state");
       if (!existsSync(browserStateDir)) {
@@ -314,18 +324,26 @@ export class CBrowser {
         headless: this.config.headless,
         args: launchArgs,
         ...contextOptions,
+        ...proxyOptions,
       });
       this.page = this.context.pages()[0] || await this.context.newPage();
       if (this.config.verbose) {
         console.log(`🔄 Using persistent browser context: ${browserStateDir}`);
+        if (this.config.proxy) {
+          console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
+        }
       }
     } else {
       this.browser = await browserType.launch({
         headless: this.config.headless,
         args: launchArgs,
+        ...proxyOptions,
       });
       this.context = await this.browser.newContext(contextOptions);
       this.page = await this.context.newPage();
+      if (this.config.verbose && this.config.proxy) {
+        console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
+      }
     }
 
     // Apply network mocks if configured
@@ -1475,6 +1493,152 @@ export class CBrowser {
       await page.waitForTimeout(checkInterval);
       elapsed += checkInterval + 150;
     }
+  }
+
+  /**
+   * Detect if the current page is a Cloudflare challenge.
+   * Checks for various Cloudflare protection signatures.
+   * @returns Object with detected challenge type and evidence
+   */
+  async detectCloudflareChallenge(): Promise<{
+    detected: boolean;
+    type: "turnstile" | "managed" | "interstitial" | "js-challenge" | null;
+    evidence: string[];
+  }> {
+    const page = await this.getPage();
+    const evidence: string[] = [];
+    let type: "turnstile" | "managed" | "interstitial" | "js-challenge" | null = null;
+
+    try {
+      const content = await page.content();
+      const pageUrl = page.url();
+
+      // Cloudflare Turnstile (CAPTCHA alternative)
+      if (content.includes("challenges.cloudflare.com") || content.includes("turnstile")) {
+        evidence.push("Cloudflare Turnstile widget detected");
+        type = "turnstile";
+      }
+
+      // Cloudflare Managed Challenge (browser verification)
+      if (content.includes("cf-browser-verification") || content.includes("cf_chl_opt")) {
+        evidence.push("Cloudflare browser verification page");
+        type = "managed";
+      }
+
+      // Cloudflare Interstitial (5-second wait)
+      if (content.includes("Just a moment") && content.includes("cf-spinner")) {
+        evidence.push("Cloudflare interstitial page");
+        type = "interstitial";
+      }
+
+      // Cloudflare JS Challenge
+      if (content.includes("jschl-answer") || content.includes("cf_chl_jschl")) {
+        evidence.push("Cloudflare JavaScript challenge");
+        type = "js-challenge";
+      }
+
+      // Check for Cloudflare ray ID in headers/page
+      if (content.includes("cf-ray") || content.includes("__cf_bm")) {
+        evidence.push("Cloudflare Ray ID or bot management cookie present");
+      }
+
+      // Check URL for challenge path
+      if (pageUrl.includes("/cdn-cgi/challenge-platform/")) {
+        evidence.push("URL contains Cloudflare challenge platform path");
+        if (!type) type = "managed";
+      }
+
+    } catch (e) {
+      evidence.push(`Detection error: ${(e as Error).message}`);
+    }
+
+    return {
+      detected: type !== null,
+      type,
+      evidence,
+    };
+  }
+
+  /**
+   * Wait for a Cloudflare challenge to resolve.
+   * Monitors the page for redirect after challenge completion.
+   *
+   * @param timeout - Maximum time to wait in ms (default: 30000)
+   * @param checkInterval - How often to check in ms (default: 1000)
+   * @returns Success status and final URL
+   */
+  async waitForCloudflareResolution(timeout: number = 30000, checkInterval: number = 1000): Promise<{
+    resolved: boolean;
+    originalUrl: string;
+    finalUrl: string;
+    waitTime: number;
+    message: string;
+  }> {
+    const page = await this.getPage();
+    const startTime = Date.now();
+    const originalUrl = page.url();
+    let elapsed = 0;
+
+    // First, confirm we're on a Cloudflare challenge
+    const initialCheck = await this.detectCloudflareChallenge();
+    if (!initialCheck.detected) {
+      return {
+        resolved: true,
+        originalUrl,
+        finalUrl: originalUrl,
+        waitTime: 0,
+        message: "No Cloudflare challenge detected",
+      };
+    }
+
+    if (this.config.verbose) {
+      console.log(`⏳ Cloudflare ${initialCheck.type} challenge detected, waiting for resolution...`);
+    }
+
+    // Wait for the challenge to resolve (URL changes or content changes)
+    while (elapsed < timeout) {
+      await page.waitForTimeout(checkInterval);
+      elapsed = Date.now() - startTime;
+
+      const currentCheck = await this.detectCloudflareChallenge();
+      const currentUrl = page.url();
+
+      // Challenge resolved if:
+      // 1. No longer on a challenge page
+      // 2. URL has changed (redirected to actual content)
+      if (!currentCheck.detected || currentUrl !== originalUrl) {
+        // Wait a bit more for page to stabilize
+        await this.waitForStability(page, 2000);
+
+        const finalUrl = page.url();
+        const waitTime = Date.now() - startTime;
+
+        if (this.config.verbose) {
+          console.log(`✅ Cloudflare challenge resolved in ${waitTime}ms`);
+        }
+
+        return {
+          resolved: true,
+          originalUrl,
+          finalUrl,
+          waitTime,
+          message: `Cloudflare challenge resolved after ${waitTime}ms`,
+        };
+      }
+
+      if (this.config.verbose && elapsed % 5000 === 0) {
+        console.log(`⏳ Still waiting for Cloudflare... (${Math.round(elapsed / 1000)}s)`);
+      }
+    }
+
+    // Timeout
+    return {
+      resolved: false,
+      originalUrl,
+      finalUrl: page.url(),
+      waitTime: elapsed,
+      message: `Timeout waiting for Cloudflare challenge (${timeout}ms)`,
+    };
   }
 
   // =========================================================================

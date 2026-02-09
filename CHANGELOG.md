@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.4.0](https://github.com/alexandriashai/cbrowser/compare/v16.3.0...v16.4.0) (2026-02-08)
+
+### 🏆 Grade A+ Assessment
+
+CBrowser achieved **Grade A+** in comprehensive testing by Claude (Opus 4.6):
+- **640+ tool invocations** across 11 real-world sites
+- **31 of 33 tools** graded A or above (5 at A+)
+- **19 bugs found, 19 fixed, 0 open**
+- **100%** NL test pass rate, cross-domain reliability, persona return rate
+
+[View Full Assessment →](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
+
+### Added
+
+* **cloudflare:** `cloudflare_detect` MCP tool - detect Cloudflare challenge pages (turnstile, managed, interstitial, js-challenge)
+* **cloudflare:** `cloudflare_wait` MCP tool - wait for Cloudflare challenges to resolve with configurable timeout
+* **cloudflare:** `detectCloudflareChallenge()` and `waitForCloudflareResolution()` browser methods
+* **stealth:** `stealth_diagnose` MCP tool - analyze what bot detection methods a site uses
+* **proxy:** Residential/datacenter proxy support via `CBROWSER_PROXY` env var or `stealth_enable` params
+* **proxy:** `ProxyConfig` interface with server, username, password, and bypass options
+
+### Changed
+
+* **stealth:** `stealth_disable` now preserves browser state (no recovery needed)
+* **stealth:** `stealth_enable` accepts optional proxy configuration for IP-based detection bypass
+* **stealth:** `stealth_status` shows proxy configuration when active
+
+### Fixed
+
+* **stealth:** Browser state no longer reset when disabling stealth mode
+
 ## [16.3.0](https://github.com/alexandriashai/cbrowser/compare/v16.2.0...v16.3.0) (2026-02-08)
 
 ### Added

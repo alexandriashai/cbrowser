@@ -22,7 +22,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile } from "./types.js";
+import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile, ProxyConfig } from "./types.js";
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
 export type ColorScheme = "light" | "dark" | "no-preference";
@@ -66,6 +66,8 @@ export interface CBrowserConfig {
   userAgent?: string;
   /** Enable persistent browser context (cookies/localStorage survive between sessions) */
   persistent?: boolean;
+  /** Proxy configuration for residential/datacenter proxies */
+  proxy?: ProxyConfig;
 }
 
 /**
@@ -120,6 +122,34 @@ export function getDefaultConfig(): CBrowserConfig {
   const dataDir = getDataDir();
   const configFile = loadConfigFile(dataDir);
 
+  // Build proxy config from environment if available
+  // Format: CBROWSER_PROXY=http://user:pass@proxy.example.com:8080
+  // Or use separate vars: CBROWSER_PROXY_SERVER, CBROWSER_PROXY_USERNAME, CBROWSER_PROXY_PASSWORD
+  let proxy: ProxyConfig | undefined;
+  const proxyUrl = process.env.CBROWSER_PROXY;
+  const proxyServer = process.env.CBROWSER_PROXY_SERVER;
+
+  if (proxyUrl) {
+    // Parse full proxy URL (http://user:pass@host:port)
+    try {
+      const url = new URL(proxyUrl);
+      proxy = {
+        server: `${url.protocol}//${url.host}`,
+        username: url.username || undefined,
+        password: url.password || undefined,
+      };
+    } catch {
+      // Invalid URL, use as-is
+      proxy = { server: proxyUrl };
+    }
+  } else if (proxyServer) {
+    proxy = {
+      server: proxyServer,
+      username: process.env.CBROWSER_PROXY_USERNAME,
+      password: process.env.CBROWSER_PROXY_PASSWORD,
+    };
+  }
+
   return {
     dataDir,
     browser: parseBrowserType(process.env.CBROWSER_BROWSER || configFile?.browser),
@@ -136,6 +166,7 @@ export function getDefaultConfig(): CBrowserConfig {
     videoDir: join(dataDir, "videos"),
     networkMocks: configFile?.networkMocks,
     performanceBudget: configFile?.performanceBudget,
+    proxy,
   };
 }
 

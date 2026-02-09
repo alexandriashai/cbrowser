@@ -4592,6 +4592,21 @@ export interface StealthAuthorization {
 }
 
 /**
+ * Proxy configuration for residential/datacenter proxy support
+ * Used to bypass IP-based detection (v16.4.0)
+ */
+export interface ProxyConfig {
+  /** Proxy server URL (e.g., http://proxy.example.com:8080) */
+  server: string;
+  /** Proxy username (optional) */
+  username?: string;
+  /** Proxy password (optional) */
+  password?: string;
+  /** Bypass proxy for these domains (optional) */
+  bypass?: string[];
+}
+
+/**
  * Constitutional stealth configuration
  */
 export interface StealthConfig {
@@ -4605,6 +4620,8 @@ export interface StealthConfig {
   rateLimits: StealthRateLimits;
   /** Stealth features to enable */
   features?: StealthFeatures;
+  /** Proxy configuration for IP-based detection bypass (v16.4.0) */
+  proxy?: ProxyConfig;
 }
 
 /**
