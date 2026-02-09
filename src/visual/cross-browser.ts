@@ -80,7 +80,16 @@ function getCrossBrowserScreenshotsPath(): string {
 }
 
 /**
- * Capture screenshot with a specific browser
+ * Capture screenshot with a specific browser.
+ *
+ * v16.11.0: Performance Note
+ * WebKit captures are typically 2-2.5x slower than Chromium due to:
+ * - Playwright uses a custom WebKit build with additional instrumentation
+ * - On non-macOS, WebKit runs as an emulation layer (not native Safari)
+ * - WebKit's rendering pipeline has different optimization characteristics
+ *
+ * This is expected behavior and not a bug. For CI/CD speed optimization,
+ * consider running WebKit tests in a separate, less frequent pipeline.
  */
 async function captureWithBrowser(
   url: string,

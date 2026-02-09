@@ -146,6 +146,38 @@ npx cbrowser persona-questionnaire list-traits
 
 Each trait maps to research-backed behavioral descriptions with 5 levels (0, 0.25, 0.5, 0.75, 1.0).
 
+### Research-Backed Values System (v16.12.0)
+
+Beyond cognitive traits, CBrowser models **motivational values** that drive user decisions. The values system integrates three foundational psychological frameworks:
+
+| Framework | Research Basis | What It Models |
+|-----------|---------------|----------------|
+| **Schwartz's Universal Values** | Schwartz (1992) | 10 core human values: Power, Achievement, Hedonism, Stimulation, Self-Direction, Universalism, Benevolence, Tradition, Conformity, Security |
+| **Self-Determination Theory** | Deci & Ryan (1985) | Autonomy, Competence, and Relatedness needs that drive intrinsic motivation |
+| **Maslow's Hierarchy** | Maslow (1943) | 5 need levels from Physiological to Self-Actualization |
+
+Values influence decision-making differently than cognitive traits. A user high in **Security** values will read privacy policies; one high in **Stimulation** will click "Try Beta Features" immediately.
+
+```bash
+# Look up a persona's values profile
+npx cbrowser persona-values power-user
+
+# Output shows Schwartz values, SDT needs, and Maslow level
+```
+
+### Category-Aware Persona Creation
+
+When you create a custom persona via `persona-questionnaire`, CBrowser automatically assigns appropriate values based on persona category:
+
+| Category | Example Values Profile |
+|----------|----------------------|
+| **Novice** | High Security, high Conformity, low Self-Direction |
+| **Professional** | High Achievement, high Competence, high Self-Direction |
+| **Elderly** | High Tradition, high Security, moderate Benevolence |
+| **Accessibility** | High Universalism, variable by specific disability |
+
+This ensures cognitive journeys reflect realistic motivational differences—not just skill gaps. See [Persona Values Documentation](docs/PERSONA-VALUES.md) for the complete values framework.
+
 ---
 
 ## Natural Language Testing

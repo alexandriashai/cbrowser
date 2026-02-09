@@ -101,6 +101,16 @@ import {
   listPerformanceBaselines,
 } from "./performance/index.js";
 
+// Values system (Schwartz's 10 Universal Values)
+import {
+  getPersonaValues,
+  hasPersonaValues,
+  PERSONA_VALUE_PROFILES,
+  calculatePatternSusceptibility,
+  rankInfluencePatternsForProfile,
+  INFLUENCE_PATTERNS,
+} from "./values/index.js";
+
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
 
@@ -121,6 +131,23 @@ async function getBrowser(): Promise<CBrowser> {
  * v14.2.1: Retry wrapper for transient browser errors.
  * v14.2.5: Fixed page context desync after error recovery.
  * Retries operations that fail with common transient error patterns.
+ *
+ * v16.11.0: CRASH RESILIENCE PATTERN
+ * For tools that use context-level operations (setOffline, route interception),
+ * use an explicit try-catch + recovery pattern instead of withRetry:
+ *
+ *   try {
+ *     const result = await dangerousOperation();
+ *     return { content: [{ type: "text", text: JSON.stringify(result) }] };
+ *   } catch (error: any) {
+ *     try { await browser.recoverBrowser(); } catch { }
+ *     return { content: [{ type: "text", text: JSON.stringify({
+ *       error: error.message, recovered: true
+ *     }) }] };
+ *   }
+ *
+ * This ensures the MCP server never crashes from unhandled browser errors.
+ * See chaos_test for the reference implementation.
  */
 async function withRetry<T>(
   operation: () => Promise<T>,
@@ -1289,19 +1316,54 @@ export async function startMcpServer(): Promise<void> {
     },
     async ({ url, networkLatency, offline, blockUrls }) => {
       const b = await getBrowser();
-      const result = await runChaosTest(b, url, { networkLatency, offline, blockUrls });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              passed: result.passed,
-              errors: result.errors,
-              duration: result.duration,
-            }, null, 2),
-          },
-        ],
-      };
+      try {
+        const result = await runChaosTest(b, url, { networkLatency, offline, blockUrls });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                passed: result.passed,
+                errors: result.errors,
+                duration: result.duration,
+                // v16.11.0: Include impact analysis in response
+                impact: result.impact,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error: any) {
+        // v16.11.0: Graceful error handling for chaos test crashes
+        // Attempt browser recovery to prevent server crash
+        try {
+          await b.recoverBrowser();
+        } catch {
+          // Browser recovery failed, but continue with error response
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                passed: false,
+                errors: [`Chaos test crashed: ${error.message}`],
+                duration: 0,
+                impact: {
+                  loadTimeMs: 0,
+                  blockedResources: [],
+                  failedResources: [],
+                  delayedResources: [],
+                  pageCompleted: false,
+                  pageInteractive: false,
+                  consoleErrors: 0,
+                  degradationSummary: ["Test crashed - browser recovered"],
+                },
+                recovered: true,
+              }, null, 2),
+            },
+          ],
+        };
+      }
     }
   );
 
@@ -1395,6 +1457,7 @@ export async function startMcpServer(): Promise<void> {
       goal: z.string().describe("What the simulated user is trying to accomplish"),
       startUrl: z.string().url().describe("Starting URL for the journey"),
       customTraits: z.object({
+        // Core 7 traits
         patience: z.number().min(0).max(1).optional(),
         riskTolerance: z.number().min(0).max(1).optional(),
         comprehension: z.number().min(0).max(1).optional(),
@@ -1402,7 +1465,26 @@ export async function startMcpServer(): Promise<void> {
         curiosity: z.number().min(0).max(1).optional(),
         workingMemory: z.number().min(0).max(1).optional(),
         readingTendency: z.number().min(0).max(1).optional(),
-      }).optional().describe("Override specific cognitive traits"),
+        // v16.11.0: Extended traits (18 more = 25 total)
+        resilience: z.number().min(0).max(1).optional(),
+        selfEfficacy: z.number().min(0).max(1).optional(),
+        satisficing: z.number().min(0).max(1).optional(),
+        trustCalibration: z.number().min(0).max(1).optional(),
+        interruptRecovery: z.number().min(0).max(1).optional(),
+        informationForaging: z.number().min(0).max(1).optional(),
+        changeBlindness: z.number().min(0).max(1).optional(),
+        anchoringBias: z.number().min(0).max(1).optional(),
+        timeHorizon: z.number().min(0).max(1).optional(),
+        attributionStyle: z.number().min(0).max(1).optional(),
+        metacognitivePlanning: z.number().min(0).max(1).optional(),
+        proceduralFluency: z.number().min(0).max(1).optional(),
+        transferLearning: z.number().min(0).max(1).optional(),
+        authoritySensitivity: z.number().min(0).max(1).optional(),
+        emotionalContagion: z.number().min(0).max(1).optional(),
+        fearOfMissingOut: z.number().min(0).max(1).optional(),
+        socialProofSensitivity: z.number().min(0).max(1).optional(),
+        mentalModelRigidity: z.number().min(0).max(1).optional(),
+      }).optional().describe("Override specific cognitive traits (25 available)"),
     },
     async ({ persona: personaName, goal, startUrl, customTraits }) => {
       // Get or create persona
@@ -1413,8 +1495,9 @@ export async function startMcpServer(): Promise<void> {
         // Create from description
         personaObj = createCognitivePersona(personaName, personaName, customTraits || {});
       } else if (customTraits) {
-        // Merge custom traits with defaults
+        // v16.11.0: Full 25-trait default set (was only 7, causing trait dropout)
         const defaultTraits: CognitiveTraits = {
+          // Core 7 traits
           patience: 0.5,
           riskTolerance: 0.5,
           comprehension: 0.5,
@@ -1422,6 +1505,26 @@ export async function startMcpServer(): Promise<void> {
           curiosity: 0.5,
           workingMemory: 0.5,
           readingTendency: 0.5,
+          // Tier 1: Core (5 more)
+          resilience: 0.5,
+          selfEfficacy: 0.5,
+          satisficing: 0.5,
+          trustCalibration: 0.5,
+          interruptRecovery: 0.5,
+          // Tier 2-6: Extended (13 more)
+          informationForaging: 0.5,
+          changeBlindness: 0.3,
+          anchoringBias: 0.5,
+          timeHorizon: 0.5,
+          attributionStyle: 0.5,
+          metacognitivePlanning: 0.5,
+          proceduralFluency: 0.5,
+          transferLearning: 0.5,
+          authoritySensitivity: 0.5,
+          emotionalContagion: 0.5,
+          fearOfMissingOut: 0.5,
+          socialProofSensitivity: 0.5,
+          mentalModelRigidity: 0.5,
         };
         personaObj = {
           ...existingPersona,
@@ -1471,6 +1574,12 @@ export async function startMcpServer(): Promise<void> {
       const b = await getBrowser();
       await b.navigate(startUrl);
 
+      // v16.12.0: Include persona values for influence pattern analysis
+      const personaValues = getPersonaValues(personaObj.name);
+      const influencePatterns = personaValues
+        ? rankInfluencePatternsForProfile(personaValues).slice(0, 5) // Top 5 most effective patterns
+        : undefined;
+
       return {
         content: [
           {
@@ -1480,6 +1589,36 @@ export async function startMcpServer(): Promise<void> {
                 name: personaObj.name,
                 description: personaObj.description,
                 demographics: personaObj.demographics,
+                values: personaValues ? {
+                  schwartz: {
+                    selfDirection: personaValues.selfDirection,
+                    stimulation: personaValues.stimulation,
+                    hedonism: personaValues.hedonism,
+                    achievement: personaValues.achievement,
+                    power: personaValues.power,
+                    security: personaValues.security,
+                    conformity: personaValues.conformity,
+                    tradition: personaValues.tradition,
+                    benevolence: personaValues.benevolence,
+                    universalism: personaValues.universalism,
+                  },
+                  higherOrder: {
+                    openness: personaValues.openness,
+                    selfEnhancement: personaValues.selfEnhancement,
+                    conservation: personaValues.conservation,
+                    selfTranscendence: personaValues.selfTranscendence,
+                  },
+                  sdt: {
+                    autonomyNeed: personaValues.autonomyNeed,
+                    competenceNeed: personaValues.competenceNeed,
+                    relatednessNeed: personaValues.relatednessNeed,
+                  },
+                  maslowLevel: personaValues.maslowLevel,
+                } : undefined,
+                influenceSusceptibility: influencePatterns?.map(ip => ({
+                  pattern: ip.pattern.name,
+                  susceptibility: ip.susceptibility,
+                })),
               },
               cognitiveProfile: profile,
               initialState,
@@ -1660,29 +1799,149 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "list_cognitive_personas",
-    "List all available personas with their cognitive traits",
+    "List all available personas with their cognitive traits (includes accessibility and emotional personas)",
     {},
     async () => {
-      const names = listPersonas();
-      const personas = names.map(name => {
+      // v16.11.0: Include all persona types - BUILTIN + ACCESSIBILITY + EMOTIONAL
+      const builtinNames = listPersonas();
+      const accessibilityNames = listAccessibilityPersonas();
+
+      // Built-in personas (power-user, first-timer, etc.)
+      const builtinPersonas = builtinNames.map(name => {
         const p = getPersona(name);
         if (!p) return null;
         const profile = getCognitiveProfile(p);
+        // v16.12.0: Include Schwartz values for each persona
+        const values = getPersonaValues(p.name);
         return {
           name: p.name,
           description: p.description,
+          category: "builtin",
           demographics: p.demographics,
           cognitiveTraits: profile.traits,
           attentionPattern: profile.attentionPattern,
           decisionStyle: profile.decisionStyle,
+          values: values ? {
+            schwartz: {
+              selfDirection: values.selfDirection,
+              stimulation: values.stimulation,
+              hedonism: values.hedonism,
+              achievement: values.achievement,
+              power: values.power,
+              security: values.security,
+              conformity: values.conformity,
+              tradition: values.tradition,
+              benevolence: values.benevolence,
+              universalism: values.universalism,
+            },
+            higherOrder: {
+              openness: values.openness,
+              selfEnhancement: values.selfEnhancement,
+              conservation: values.conservation,
+              selfTranscendence: values.selfTranscendence,
+            },
+            sdt: {
+              autonomyNeed: values.autonomyNeed,
+              competenceNeed: values.competenceNeed,
+              relatednessNeed: values.relatednessNeed,
+            },
+            maslowLevel: values.maslowLevel,
+          } : undefined,
         };
       }).filter(Boolean);
+
+      // Accessibility personas (motor-tremor, low-vision, adhd, etc.)
+      const accessibilityPersonas = accessibilityNames.map(name => {
+        const p = getAccessibilityPersona(name);
+        if (!p) return null;
+        // v16.11.0: Compute disabilityType and barrierTypes from accessibilityTraits
+        const traits = p.accessibilityTraits;
+        let disabilityType = "General accessibility";
+        const barrierTypes: string[] = [];
+
+        if (traits?.tremor) {
+          disabilityType = "Motor impairment (tremor)";
+          barrierTypes.push("motor_precision", "touch_target");
+        }
+        if (traits?.visionLevel !== undefined && traits.visionLevel < 0.5) {
+          disabilityType = "Low vision";
+          barrierTypes.push("visual_clarity", "contrast");
+        }
+        if (traits?.colorBlindness) {
+          disabilityType = `Color blindness (${traits.colorBlindness})`;
+          barrierTypes.push("sensory");
+        }
+        if (traits?.processingSpeed !== undefined && traits.processingSpeed < 0.6) {
+          disabilityType = "Cognitive (Processing)";
+          barrierTypes.push("cognitive_load", "temporal");
+        }
+        if (traits?.attentionSpan !== undefined && traits.attentionSpan < 0.5) {
+          if (!disabilityType.includes("Cognitive")) {
+            disabilityType = "Cognitive (ADHD/Attention)";
+          }
+          barrierTypes.push("cognitive_load");
+        }
+        // Name-based fallback
+        if (disabilityType === "General accessibility") {
+          if (p.name.includes("deaf") || p.name.includes("hearing")) disabilityType = "Hearing impairment";
+          else if (p.name.includes("motor")) disabilityType = "Motor impairment";
+          else if (p.name.includes("vision") || p.name.includes("blind")) disabilityType = "Vision impairment";
+          else if (p.name.includes("cognitive") || p.name.includes("adhd")) disabilityType = "Cognitive";
+        }
+
+        // v16.12.0: Include Schwartz values for accessibility personas
+        const values = getPersonaValues(p.name);
+        return {
+          name: p.name,
+          description: p.description,
+          category: "accessibility",
+          disabilityType,
+          demographics: p.demographics,
+          cognitiveTraits: p.cognitiveTraits || {},
+          barrierTypes: [...new Set(barrierTypes)], // Deduplicate
+          values: values ? {
+            schwartz: {
+              selfDirection: values.selfDirection,
+              stimulation: values.stimulation,
+              hedonism: values.hedonism,
+              achievement: values.achievement,
+              power: values.power,
+              security: values.security,
+              conformity: values.conformity,
+              tradition: values.tradition,
+              benevolence: values.benevolence,
+              universalism: values.universalism,
+            },
+            higherOrder: {
+              openness: values.openness,
+              selfEnhancement: values.selfEnhancement,
+              conservation: values.conservation,
+              selfTranscendence: values.selfTranscendence,
+            },
+            sdt: {
+              autonomyNeed: values.autonomyNeed,
+              competenceNeed: values.competenceNeed,
+              relatednessNeed: values.relatednessNeed,
+            },
+            maslowLevel: values.maslowLevel,
+          } : undefined,
+        };
+      }).filter(Boolean);
+
+      const allPersonas = [...builtinPersonas, ...accessibilityPersonas];
 
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ personas, count: personas.length }, null, 2),
+            text: JSON.stringify({
+              personas: allPersonas,
+              count: allPersonas.length,
+              categories: {
+                builtin: builtinPersonas.length,
+                accessibility: accessibilityPersonas.length,
+              },
+            }, null, 2),
           },
         ],
       };
@@ -1696,13 +1955,19 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "persona_questionnaire_get",
-    "Get the persona questionnaire for building a custom persona. Returns research-backed questions that map to cognitive traits. Use comprehensive=true for all 25 traits, or leave false for 8 core traits.",
+    "Get the persona questionnaire for building a custom persona. Returns research-backed questions that map to cognitive traits. Use comprehensive=true for all 25 traits, or leave false for 8 core traits. v16.12.0: Now includes category question for value safeguards.",
     {
       comprehensive: z.boolean().optional().default(false).describe("Include all 25 traits (true) or just 8 core traits (false)"),
       traits: z.array(z.string()).optional().describe("Specific trait names to include (overrides comprehensive)"),
+      includeCategory: z.boolean().optional().default(true).describe("Include category selection question for value safeguards"),
     },
-    async ({ comprehensive, traits }) => {
-      const { generatePersonaQuestionnaire, formatForAskUserQuestion } = await import("./persona-questionnaire.js");
+    async ({ comprehensive, traits, includeCategory }) => {
+      const {
+        generatePersonaQuestionnaire,
+        formatForAskUserQuestion,
+        CATEGORY_QUESTION,
+        CATEGORY_VALUE_PRESETS,
+      } = await import("./persona-questionnaire.js");
 
       const questions = generatePersonaQuestionnaire({
         comprehensive,
@@ -1711,15 +1976,94 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
       const formatted = formatForAskUserQuestion(questions);
 
+      // v16.12.0: Include category question and value presets
+      const categoryInfo = includeCategory ? {
+        categoryQuestion: CATEGORY_QUESTION,
+        categoryPresets: CATEGORY_VALUE_PRESETS.map(p => ({
+          category: p.category,
+          description: p.description,
+          valueStrategy: p.valueStrategy,
+          guidance: p.guidance,
+        })),
+      } : undefined;
+
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify({
-              instructions: "Present these questions to the user one at a time or all at once. Each answer maps to a trait value. After collecting answers, use persona_questionnaire_build to create the persona.",
+              instructions: `
+PERSONA CREATION WORKFLOW (v16.12.0):
+
+1. FIRST: Ask the category question to determine value assignment strategy:
+   - Cognitive disabilities (ADHD, autism) → specific values from neuroscience
+   - Physical disabilities (motor, mobility) → security/autonomy shifts only
+   - Sensory differences (color-blind, deaf) → neutral values (perception ≠ motivation)
+   - Emotional traits (anxious, confident) → trait-based psychology values
+   - General → population baseline
+
+2. THEN: Ask the trait questions to build cognitive profile
+
+3. FINALLY: Call persona_questionnaire_build with:
+   - name, description, answers (from trait questions)
+   - category (from category question)
+   - The tool will apply appropriate value safeguards based on category
+
+This ensures personas are grounded in research, not stereotypes.
+`.trim(),
+              categoryInfo,
               questionCount: questions.length,
               questions: formatted,
-              rawQuestions: questions,  // Include raw for programmatic use
+              rawQuestions: questions,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_category_guidance",
+    "Get research-based guidance for a specific persona category. Explains what values are appropriate and why, with citations. Use before building a persona to understand category constraints.",
+    {
+      category: z.enum(["cognitive", "physical", "sensory", "emotional", "general"]).describe("Persona category to get guidance for"),
+    },
+    async ({ category }) => {
+      const {
+        getCategoryValuePreset,
+        COGNITIVE_SUBTYPES,
+      } = await import("./persona-questionnaire.js");
+
+      const preset = getCategoryValuePreset(category);
+
+      // Get subtypes if cognitive
+      const subtypes = category === "cognitive"
+        ? Object.entries(COGNITIVE_SUBTYPES).map(([name, info]) => ({
+            name,
+            values: info.values,
+            researchBasis: info.researchBasis,
+          }))
+        : undefined;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              category,
+              description: preset.description,
+              valueStrategy: preset.valueStrategy,
+              guidance: preset.guidance,
+              defaultValues: preset.defaultValues,
+              researchBasis: preset.researchBasis,
+              subtypes,
+              safeguards: {
+                cognitive: "Use specific values based on the neurobiological profile (e.g., ADHD = high stimulation). NOT stereotyping - grounded in dopamine/reward research.",
+                physical: "Apply security ↑ and autonomyNeed ↑ shifts for predictable interfaces. Don't change core personality values.",
+                sensory: "Use neutral (0.5) values. Sensory perception ≠ motivational psychology. Color-blindness doesn't make someone more/less achievement-oriented.",
+                emotional: "Apply trait-based values from personality psychology (e.g., anxiety = high security-seeking).",
+                general: "Use population baselines. Specific characteristics come from cognitive traits, not disability-based value shifts.",
+              }[category],
             }, null, 2),
           },
         ],
@@ -1729,18 +2073,42 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "persona_questionnaire_build",
-    "Build a custom persona from questionnaire answers. Answers should be a map of trait names to values (0-1). Missing traits will use intelligent defaults based on research correlations.",
+    "Build a custom persona from questionnaire answers with category-aware value safeguards. Answers map trait names to values (0-1). Category determines value assignment strategy: cognitive disabilities get specific values, physical get security/autonomy shifts, sensory-only get neutral values.",
     {
       name: z.string().describe("Name for the new persona"),
       description: z.string().describe("Description of the persona"),
       answers: z.record(z.string(), z.number()).describe("Map of trait names to values (0-1), e.g. {patience: 0.25, riskTolerance: 0.75}"),
+      category: z.enum(["cognitive", "physical", "sensory", "emotional", "general"]).optional().describe("Persona category for value safeguards. Auto-detected from name/description if not provided."),
+      valueOverrides: z.record(z.string(), z.number()).optional().describe("Override specific Schwartz values (0-1), e.g. {security: 0.8, stimulation: 0.3}"),
       save: z.boolean().optional().default(true).describe("Save the persona to disk for future use"),
     },
-    async ({ name, description, answers, save }) => {
-      const { buildTraitsFromAnswers, getTraitLabel, getTraitBehaviors } = await import("./persona-questionnaire.js");
+    async ({ name, description, answers, category, valueOverrides, save }) => {
+      const {
+        buildTraitsFromAnswers,
+        getTraitLabel,
+        getTraitBehaviors,
+        detectPersonaCategory,
+        buildValuesFromCategory,
+        validateCategoryValues,
+        getCognitiveSubtypeValues,
+      } = await import("./persona-questionnaire.js");
+
+      // v16.12.0: Detect category if not provided
+      const detectedCategory = category || detectPersonaCategory(name, description);
 
       // Build traits from answers with research-based correlations
       const traits = buildTraitsFromAnswers(answers);
+
+      // v16.12.0: Build values based on category with safeguards
+      // Check for cognitive subtype (e.g., adhd-combined, autism-spectrum)
+      const subtypeValues = getCognitiveSubtypeValues(name);
+      const categoryResult = buildValuesFromCategory(
+        detectedCategory,
+        subtypeValues?.values || valueOverrides
+      );
+
+      // Validate that values match category guidelines
+      const warnings = validateCategoryValues(detectedCategory, categoryResult.values);
 
       // Create the persona
       const persona = createCognitivePersona(name, description, traits, {});
@@ -1776,6 +2144,17 @@ Begin the simulation now. Narrate your thoughts as this persona.
               },
               cognitiveTraits: traits,
               traitSummary,
+              // v16.12.0: Category-aware values
+              category: {
+                detected: detectedCategory,
+                strategy: categoryResult.valueStrategy,
+                guidance: categoryResult.guidance,
+              },
+              values: categoryResult.values,
+              researchBasis: subtypeValues
+                ? [...categoryResult.researchBasis, subtypeValues.researchBasis]
+                : categoryResult.researchBasis,
+              warnings: warnings.length > 0 ? warnings : undefined,
               savedPath,
               usage: `Use persona "${name}" with cognitive-journey or other commands`,
             }, null, 2),
@@ -1830,6 +2209,136 @@ Begin the simulation now. Narrate your thoughts as this persona.
               label: getTraitLabel(trait as keyof CognitiveTraits, value),
               behaviors: getTraitBehaviors(trait as keyof CognitiveTraits, value),
               allLevels: reference.levels,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Values System Tools (v16.12.0)
+  // Schwartz's 10 Universal Values, Self-Determination Theory, Maslow
+  // =========================================================================
+
+  server.tool(
+    "persona_values_lookup",
+    "Look up the values profile for a persona (Schwartz's 10 Universal Values, SDT needs, Maslow level). Values describe WHO the persona is at a deeper motivational level, informing influence susceptibility.",
+    {
+      persona: z.string().describe("Persona name (e.g., 'first-timer', 'power-user', 'anxious-user')"),
+      includeInfluencePatterns: z.boolean().optional().default(true).describe("Include ranked influence patterns this persona is susceptible to"),
+    },
+    async ({ persona, includeInfluencePatterns }) => {
+      const values = getPersonaValues(persona);
+
+      if (!values) {
+        // List available personas with values
+        const availablePersonas = PERSONA_VALUE_PROFILES.map(p => p.personaName);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: `No values profile found for persona: ${persona}`,
+                availablePersonas,
+                note: "Values are defined for all built-in personas. Custom personas can have values added via the questionnaire.",
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      // Find rationale for this persona
+      const profile = PERSONA_VALUE_PROFILES.find(
+        p => p.personaName.toLowerCase() === persona.toLowerCase()
+      );
+
+      // Calculate influence susceptibility if requested
+      let influencePatterns: Array<{pattern: string; susceptibility: number; description: string}> | undefined;
+      if (includeInfluencePatterns) {
+        const ranked = rankInfluencePatternsForProfile(values);
+        influencePatterns = ranked.slice(0, 7).map(r => ({
+          pattern: r.pattern.name,
+          susceptibility: r.susceptibility,
+          description: r.pattern.description,
+        }));
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              persona,
+              rationale: profile?.rationale,
+              schwartzValues: {
+                selfDirection: { value: values.selfDirection, meaning: "Independent thought, creativity, freedom" },
+                stimulation: { value: values.stimulation, meaning: "Excitement, novelty, challenge" },
+                hedonism: { value: values.hedonism, meaning: "Pleasure, sensuous gratification" },
+                achievement: { value: values.achievement, meaning: "Personal success through competence" },
+                power: { value: values.power, meaning: "Social status, prestige, control" },
+                security: { value: values.security, meaning: "Safety, harmony, stability" },
+                conformity: { value: values.conformity, meaning: "Restraint of actions that harm others" },
+                tradition: { value: values.tradition, meaning: "Respect for customs, heritage" },
+                benevolence: { value: values.benevolence, meaning: "Welfare of close others" },
+                universalism: { value: values.universalism, meaning: "Tolerance, social justice, environment" },
+              },
+              higherOrderValues: {
+                openness: { value: values.openness, meaning: "(selfDirection + stimulation) / 2" },
+                selfEnhancement: { value: values.selfEnhancement, meaning: "(achievement + power) / 2" },
+                conservation: { value: values.conservation, meaning: "(security + conformity + tradition) / 3" },
+                selfTranscendence: { value: values.selfTranscendence, meaning: "(benevolence + universalism) / 2" },
+              },
+              selfDeterminationTheory: {
+                autonomyNeed: { value: values.autonomyNeed, meaning: "Need for choice and control" },
+                competenceNeed: { value: values.competenceNeed, meaning: "Need to feel capable" },
+                relatednessNeed: { value: values.relatednessNeed, meaning: "Need for connection" },
+              },
+              maslowLevel: {
+                level: values.maslowLevel,
+                meaning: values.maslowLevel === "physiological" ? "Basic survival needs"
+                  : values.maslowLevel === "safety" ? "Security and stability"
+                  : values.maslowLevel === "belonging" ? "Social connection and love"
+                  : values.maslowLevel === "esteem" ? "Achievement and recognition"
+                  : "Self-fulfillment and growth",
+              },
+              influencePatterns,
+              researchBasis: {
+                schwartz: "Schwartz, S. H. (1992, 2012). Theory of Basic Human Values. DOI: 10.1016/S0065-2601(08)60281-6",
+                sdt: "Deci, E. L., & Ryan, R. M. (1985, 2000). Self-Determination Theory. DOI: 10.1037/0003-066X.55.1.68",
+                maslow: "Maslow, A. H. (1943). A Theory of Human Motivation. DOI: 10.1037/h0054346",
+              },
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "list_influence_patterns",
+    "List all research-backed influence/persuasion patterns and which persona values make someone susceptible to each pattern. Based on Cialdini, Kahneman, and behavioral economics research.",
+    {},
+    async () => {
+      // INFLUENCE_PATTERNS is an array of InfluencePattern objects
+      const patterns = INFLUENCE_PATTERNS.map(pattern => ({
+        name: pattern.name,
+        description: pattern.description,
+        researchBasis: pattern.researchBasis,
+        targetValues: pattern.targetValues,
+        mechanism: pattern.mechanism,
+        examples: pattern.examples,
+      }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              count: patterns.length,
+              patterns,
+              usage: "Use persona_values_lookup to see which patterns a specific persona is susceptible to",
+              note: "These patterns describe psychological influence mechanisms. Use ethically for UX optimization, not manipulation.",
             }, null, 2),
           },
         ],
@@ -2464,6 +2973,8 @@ Begin the simulation now. Narrate your thoughts as this persona.
     },
     async ({ url, name, runs }) => {
       const result = await capturePerformanceBaseline(url, { name, runs });
+      // v16.11.0: Return all available metrics, not just core 4
+      const m = result.metrics;
       return {
         content: [
           {
@@ -2471,10 +2982,38 @@ Begin the simulation now. Narrate your thoughts as this persona.
             text: JSON.stringify({
               name: result.name,
               url: result.url,
-              lcp: result.metrics.lcp,
-              fcp: result.metrics.fcp,
-              ttfb: result.metrics.ttfb,
-              cls: result.metrics.cls,
+              // Core Web Vitals
+              coreWebVitals: {
+                lcp: m.lcp,
+                lcpRating: m.lcpRating,
+                fid: m.fid,
+                fidRating: m.fidRating,
+                cls: m.cls,
+                clsRating: m.clsRating,
+              },
+              // Additional timing metrics
+              timingMetrics: {
+                fcp: m.fcp,
+                fcpRating: m.fcpRating,
+                ttfb: m.ttfb,
+                ttfbRating: m.ttfbRating,
+                tti: m.tti,
+                tbt: m.tbt,
+                domContentLoaded: m.domContentLoaded,
+                load: m.load,
+              },
+              // Resource metrics
+              resourceMetrics: {
+                resourceCount: m.resourceCount,
+                transferSize: m.transferSize,
+              },
+              // Flat copy for backward compatibility
+              metrics: {
+                lcp: m.lcp,
+                fcp: m.fcp,
+                ttfb: m.ttfb,
+                cls: m.cls,
+              },
             }, null, 2),
           },
         ],
@@ -2484,11 +3023,11 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.tool(
     "perf_regression",
-    "Detect performance regression against baseline with configurable sensitivity. Uses dual thresholds: both percentage AND absolute change must be exceeded. Profiles: strict (CI/CD, FCP 10%/50ms), normal (default, FCP 20%/100ms), lenient (dev, FCP 30%/200ms). Sub-50ms FCP variations ignored by default.",
+    "Detect performance regression against baseline with configurable sensitivity. Uses dual thresholds: both percentage AND absolute change must be exceeded. Profiles: strict (perf envs, FCP 10%/50ms), normal (default, FCP 20%/100ms), ci (automated pipelines, FCP 25%/150ms), lenient (dev, FCP 30%/200ms).",
     {
       url: z.string().url().describe("URL to test"),
       baselineName: z.string().describe("Name of baseline to compare against"),
-      sensitivity: z.enum(["strict", "normal", "lenient"]).optional().default("normal").describe("Sensitivity profile: strict (CI/CD), normal (default), lenient (development)"),
+      sensitivity: z.enum(["strict", "normal", "ci", "lenient"]).optional().default("normal").describe("Sensitivity profile: strict (perf testing), normal (local dev), ci (automated pipelines), lenient (development)"),
       thresholdLcp: z.number().optional().describe("Override LCP threshold percentage"),
     },
     async ({ url, baselineName, sensitivity, thresholdLcp }) => {

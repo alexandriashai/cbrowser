@@ -3374,7 +3374,7 @@ export interface DualThreshold {
 /** Sensitivity profile for performance regression detection */
 export interface SensitivityProfile {
   /** Profile name */
-  name: "strict" | "normal" | "lenient";
+  name: "strict" | "normal" | "ci" | "lenient";
   /** Per-metric dual thresholds */
   thresholds: {
     fcp: DualThreshold;
@@ -3440,7 +3440,7 @@ export interface PerformanceRegressionResult {
   /** Duration of test */
   duration: number;
   /** Sensitivity profile used */
-  sensitivity: "strict" | "normal" | "lenient";
+  sensitivity: "strict" | "normal" | "ci" | "lenient";
   /** Detailed comparison per metric */
   comparisons: PerformanceComparison[];
   /** Detected regressions */

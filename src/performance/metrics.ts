@@ -49,12 +49,25 @@ const _DEFAULT_REGRESSION_THRESHOLDS: PerformanceRegressionThresholds = {
 };
 
 // ============================================================================
-// Sensitivity Profiles (v7.4.18)
+// Sensitivity Profiles (v16.11.0)
 // ============================================================================
-
+//
+// DUAL THRESHOLD SYSTEM: Both percentage AND absolute change must be exceeded.
+// This prevents false positives from:
+// - Sub-50ms jitter on fast pages (% threshold met but absolute not)
+// - Large % on already-slow pages (absolute threshold met but not significant)
+//
+// PROFILE SELECTION GUIDE:
+// - strict:  Dedicated perf testing environments, pre-release gates
+// - normal:  Local development, manual verification
+// - ci:      Automated CI/CD pipelines (accounts for VM/container overhead)
+// - lenient: Development with known performance issues, debugging
+//
 export const SENSITIVITY_PROFILES: Record<string, SensitivityProfile> = {
   strict: {
     name: "strict",
+    // Use for: Dedicated perf environments, pre-release quality gates
+    // Catches: 10% FCP regression over 50ms absolute change
     thresholds: {
       fcp:          { percent: 10,  minAbsolute: 50 },
       lcp:          { percent: 10,  minAbsolute: 100 },
@@ -68,6 +81,8 @@ export const SENSITIVITY_PROFILES: Record<string, SensitivityProfile> = {
   },
   normal: {
     name: "normal",
+    // Use for: Local development, manual verification
+    // Catches: 20% FCP regression over 100ms absolute change
     thresholds: {
       fcp:          { percent: 20,  minAbsolute: 100 },
       lcp:          { percent: 20,  minAbsolute: 200 },
@@ -79,8 +94,28 @@ export const SENSITIVITY_PROFILES: Record<string, SensitivityProfile> = {
       transferSize: { percent: 25,  minAbsolute: 51200 },  // 50KB
     },
   },
+  // v16.11.0: Added CI-specific profile with higher absolute thresholds
+  // CI environments have variable baseline due to shared resources
+  ci: {
+    name: "ci",
+    // Use for: GitHub Actions, GitLab CI, Jenkins, etc.
+    // Accounts for: VM cold start, shared resources, network variability
+    // Catches: 25% FCP regression over 150ms absolute change
+    thresholds: {
+      fcp:          { percent: 25,  minAbsolute: 150 },
+      lcp:          { percent: 25,  minAbsolute: 300 },
+      ttfb:         { percent: 25,  minAbsolute: 75 },
+      cls:          { percent: 25,  minAbsolute: 0.08 },
+      tti:          { percent: 30,  minAbsolute: 300 },
+      tbt:          { percent: 50,  minAbsolute: 150 },
+      fid:          { percent: 50,  minAbsolute: 75 },
+      transferSize: { percent: 25,  minAbsolute: 76800 },  // 75KB
+    },
+  },
   lenient: {
     name: "lenient",
+    // Use for: Development with known issues, debugging, explorations
+    // Catches: 30% FCP regression over 200ms absolute change
     thresholds: {
       fcp:          { percent: 30,  minAbsolute: 200 },
       lcp:          { percent: 30,  minAbsolute: 400 },
@@ -114,8 +149,8 @@ export interface PerformanceBaselineOptions {
 export interface PerformanceRegressionOptions {
   /** Regression thresholds (legacy percentage-only, overridden by sensitivity) */
   thresholds?: PerformanceRegressionThresholds;
-  /** Sensitivity profile: strict, normal, lenient (default: normal) */
-  sensitivity?: "strict" | "normal" | "lenient";
+  /** Sensitivity profile: strict, normal, ci, lenient (default: normal) */
+  sensitivity?: "strict" | "normal" | "ci" | "lenient";
   /** Custom dual thresholds per metric (overrides sensitivity profile) */
   customThresholds?: Partial<Record<string, DualThreshold>>;
   /** Headless mode */

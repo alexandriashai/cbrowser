@@ -1560,37 +1560,53 @@ function generateQuestionText(trait: TraitReference): string {
 
 /**
  * Build cognitive traits from questionnaire answers.
- * Missing answers default to 0.5 (neutral baseline).
+ * v16.11.0: Research-based defaults instead of flat 0.5 neutral.
+ * Missing answers use "typical adult internet user" baseline from research.
  */
 export function buildTraitsFromAnswers(
   answers: Record<string, number>
 ): CognitiveTraits {
+  // v16.11.0: Research-based defaults instead of flat 0.5
+  // These values represent "typical adult internet user" baseline derived from:
+  // - Baumeister & Tierney (2011): Willpower research
+  // - Kahneman (2011): Thinking, Fast and Slow
+  // - Nielsen Norman Group usability research averages
+  // - Bandura (1997): Self-efficacy studies
   const traits: CognitiveTraits = {
-    patience: 0.5,
-    riskTolerance: 0.5,
-    comprehension: 0.5,
-    persistence: 0.5,
-    curiosity: 0.5,
-    workingMemory: 0.5,
-    readingTendency: 0.5,
-    resilience: 0.5,
-    selfEfficacy: 0.5,
-    satisficing: 0.5,
-    trustCalibration: 0.5,
-    interruptRecovery: 0.5,
-    informationForaging: 0.5,
-    changeBlindness: 0.3,
-    anchoringBias: 0.5,
-    timeHorizon: 0.5,
-    attributionStyle: 0.5,
-    metacognitivePlanning: 0.5,
-    proceduralFluency: 0.5,
-    transferLearning: 0.5,
-    authoritySensitivity: 0.5,
-    emotionalContagion: 0.5,
-    fearOfMissingOut: 0.5,
-    socialProofSensitivity: 0.5,
-    mentalModelRigidity: 0.5,
+    // Tier 1: Core traits (from attention/patience research)
+    patience: 0.45,            // Research: average user abandons after 3-5 seconds (NNGroup)
+    riskTolerance: 0.40,       // Research: loss aversion - people are risk-averse by default
+    comprehension: 0.55,       // Research: most adults read at 8th grade level
+    persistence: 0.50,         // Neutral - highly variable
+    curiosity: 0.55,           // Research: novelty-seeking is common (dopamine system)
+    workingMemory: 0.55,       // Research: 4±1 chunks (Miller's law, adjusted for digital)
+    readingTendency: 0.35,     // Research: 79% scan, 16% read word-by-word (NNGroup)
+
+    // Tier 2: Emotional traits (from self-efficacy and resilience research)
+    resilience: 0.45,          // Research: digital fatigue lowers bounce-back
+    selfEfficacy: 0.50,        // Neutral - domain-dependent
+    satisficing: 0.60,         // Research: people prefer "good enough" (Simon, 1956)
+
+    // Tier 3: Decision-making traits (from behavioral economics)
+    trustCalibration: 0.45,    // Research: healthy skepticism is common online
+    interruptRecovery: 0.40,   // Research: avg recovery time 23 min (UC Irvine study)
+    informationForaging: 0.55, // Research: users follow information scent (Pirolli)
+    changeBlindness: 0.35,     // Research: 40-60% miss major changes (Simons & Levin)
+    anchoringBias: 0.65,       // Research: anchoring is one of the strongest biases
+
+    // Tier 4: Planning traits (from goal-setting research)
+    timeHorizon: 0.45,         // Research: present bias is common (Laibson)
+    attributionStyle: 0.50,    // Neutral - situational vs dispositional
+    metacognitivePlanning: 0.45, // Research: most people don't plan systematically
+    proceduralFluency: 0.50,   // Neutral - domain-dependent
+    transferLearning: 0.45,    // Research: transfer is harder than expected
+
+    // Tier 5: Perception traits (from attention and perception research)
+    authoritySensitivity: 0.55, // Research: authority effect (Milgram studies)
+    emotionalContagion: 0.55,   // Research: emotional mirroring is default
+    fearOfMissingOut: 0.50,     // Neutral - highly age-dependent
+    socialProofSensitivity: 0.60, // Research: social proof is powerful (Cialdini)
+    mentalModelRigidity: 0.55,  // Research: confirmation bias is common
   };
 
   // Apply answers
@@ -1614,41 +1630,79 @@ function roundTrait(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+// v16.11.0: Research-based baseline values for comparison
+// Used to detect if a trait was "not explicitly set"
+const BASELINE_TRAITS: Record<string, number> = {
+  patience: 0.45,
+  riskTolerance: 0.40,
+  comprehension: 0.55,
+  persistence: 0.50,
+  curiosity: 0.55,
+  workingMemory: 0.55,
+  readingTendency: 0.35,
+  resilience: 0.45,
+  selfEfficacy: 0.50,
+  satisficing: 0.60,
+  trustCalibration: 0.45,
+  interruptRecovery: 0.40,
+  informationForaging: 0.55,
+  changeBlindness: 0.35,
+  anchoringBias: 0.65,
+  timeHorizon: 0.45,
+  attributionStyle: 0.50,
+  metacognitivePlanning: 0.45,
+  proceduralFluency: 0.50,
+  transferLearning: 0.45,
+  authoritySensitivity: 0.55,
+  emotionalContagion: 0.55,
+  fearOfMissingOut: 0.50,
+  socialProofSensitivity: 0.60,
+  mentalModelRigidity: 0.55,
+};
+
+/** Check if a trait is at its baseline (wasn't explicitly set) */
+function isAtBaseline(trait: string, value: number | undefined): boolean {
+  if (value === undefined) return true;
+  const baseline = BASELINE_TRAITS[trait];
+  return baseline !== undefined && Math.abs(value - baseline) < 0.01;
+}
+
 /**
  * Apply research-based correlations between traits.
  * When one trait is set, related traits should adjust unless explicitly set.
  * v16.7.2: Added precision rounding to avoid floating-point artifacts.
  * v16.7.2: Exported for use in createCognitivePersona.
+ * v16.11.0: Updated to use research-based baseline checks
  */
 export function applyTraitCorrelations(traits: CognitiveTraits): void {
   // If patience is low, resilience tends to be low (r = 0.4)
-  if (traits.patience < 0.3 && traits.resilience === 0.5) {
+  if (traits.patience < 0.3 && isAtBaseline("resilience", traits.resilience)) {
     traits.resilience = 0.3;
   }
 
   // High comprehension correlates with transfer learning (r = 0.6)
-  if (traits.comprehension > 0.7 && traits.transferLearning === 0.5) {
+  if (traits.comprehension > 0.7 && isAtBaseline("transferLearning", traits.transferLearning)) {
     traits.transferLearning = roundTrait(traits.comprehension * 0.8);
   }
 
   // Low self-efficacy correlates with internal attribution (r = 0.5)
-  if (traits.selfEfficacy !== undefined && traits.selfEfficacy < 0.3 && traits.attributionStyle === 0.5) {
+  if (traits.selfEfficacy !== undefined && traits.selfEfficacy < 0.3 && isAtBaseline("attributionStyle", traits.attributionStyle)) {
     traits.attributionStyle = 0.7;  // Blame self more
   }
 
   // High curiosity correlates with FOMO (r = 0.3)
-  if (traits.curiosity > 0.7 && traits.fearOfMissingOut === 0.5) {
-    traits.fearOfMissingOut = 0.6;
+  if (traits.curiosity > 0.7 && isAtBaseline("fearOfMissingOut", traits.fearOfMissingOut)) {
+    traits.fearOfMissingOut = 0.65;
   }
 
   // Low working memory correlates with poor procedural fluency (r = 0.7)
-  if (traits.workingMemory < 0.3 && traits.proceduralFluency === 0.5) {
+  if (traits.workingMemory < 0.3 && isAtBaseline("proceduralFluency", traits.proceduralFluency)) {
     traits.proceduralFluency = roundTrait(traits.workingMemory * 1.2);
   }
 
   // High trust correlates with authority sensitivity (r = 0.4)
-  if (traits.trustCalibration !== undefined && traits.trustCalibration > 0.7 && traits.authoritySensitivity === 0.5) {
-    traits.authoritySensitivity = 0.7;
+  if (traits.trustCalibration !== undefined && traits.trustCalibration > 0.7 && isAtBaseline("authoritySensitivity", traits.authoritySensitivity)) {
+    traits.authoritySensitivity = 0.75;
   }
 }
 
@@ -1762,3 +1816,415 @@ export function formatForAskUserQuestion(questions: QuestionnaireQuestion[]): Ar
     multiSelect: false,
   }));
 }
+
+// ============================================================================
+// v16.12.0: Category-Aware Values System
+// Applies research-grounded safeguards based on persona category
+// ============================================================================
+
+/**
+ * Persona categories with different value assignment strategies.
+ *
+ * Research-grounded approach:
+ * - COGNITIVE: Disabilities affecting brain function → specific values based on neuroscience
+ * - PHYSICAL: Motor/mobility impairments → security/autonomy shifts
+ * - SENSORY: Perception-only differences → neutral values (doesn't change motivation)
+ * - EMOTIONAL: Trait anxiety/confidence → specific values based on psychology
+ * - GENERAL: No disability → research-based population defaults
+ */
+export type PersonaCategory =
+  | "cognitive"   // ADHD, dyslexia, autism, processing speed
+  | "physical"    // Motor tremor, mobility, dexterity
+  | "sensory"     // Color blindness, hearing, visual acuity
+  | "emotional"   // Anxiety, depression, confidence
+  | "general";    // No specific disability
+
+/**
+ * Category-specific value presets with research citations.
+ */
+export interface CategoryValuePreset {
+  category: PersonaCategory;
+  description: string;
+  valueStrategy: "specific" | "security_autonomy_shift" | "neutral" | "trait_based";
+  researchBasis: string[];
+  defaultValues: {
+    // Schwartz values (0-1)
+    selfDirection?: number;
+    stimulation?: number;
+    hedonism?: number;
+    achievement?: number;
+    power?: number;
+    security?: number;
+    conformity?: number;
+    tradition?: number;
+    benevolence?: number;
+    universalism?: number;
+    // SDT needs (0-1)
+    autonomyNeed?: number;
+    competenceNeed?: number;
+    relatednessNeed?: number;
+    // Maslow level
+    maslowLevel?: "physiological" | "safety" | "belonging" | "esteem" | "self-actualization";
+  };
+  guidance: string;
+}
+
+/**
+ * Research-grounded value presets for each category.
+ */
+export const CATEGORY_VALUE_PRESETS: CategoryValuePreset[] = [
+  {
+    category: "cognitive",
+    description: "Disabilities affecting brain function, attention, or processing",
+    valueStrategy: "specific",
+    researchBasis: [
+      "Barkley, R.A. (2015). ADHD: A Handbook for Diagnosis and Treatment. Guilford Press.",
+      "Volkow, N.D., et al. (2011). Motivation deficit in ADHD. Molecular Psychiatry 16.",
+      "Sonuga-Barke, E.J. (2005). Causal models of ADHD. Biological Psychiatry 57(11).",
+    ],
+    defaultValues: {
+      // Cognitive disabilities often show dopamine-related value shifts
+      stimulation: 0.8,      // High novelty-seeking (dopamine system)
+      security: 0.3,         // Low tolerance for routine
+      conformity: 0.3,       // Difficulty with prescribed processes
+      autonomyNeed: 0.7,     // Need for self-paced interaction
+      maslowLevel: "esteem",
+    },
+    guidance: "Cognitive disabilities affect dopamine and reward systems. Apply specific values based on the condition (e.g., ADHD = high stimulation, low conformity). These are NOT stereotypes but neurobiologically-grounded tendencies.",
+  },
+  {
+    category: "physical",
+    description: "Motor, mobility, or dexterity impairments",
+    valueStrategy: "security_autonomy_shift",
+    researchBasis: [
+      "Trewin, S. (2000). Configuration agents, control and privacy. ACM ASSETS.",
+      "Wobbrock, J.O., et al. (2011). Ability-Based Design. CACM 54(6).",
+      "Keates, S., et al. (2002). Countering design exclusion. CHI Extended Abstracts.",
+    ],
+    defaultValues: {
+      stimulation: 0.3,      // Lower: prefers predictable interfaces
+      security: 0.75,        // Higher: needs stable, forgiving UI
+      autonomyNeed: 0.75,    // Higher: need for control over interaction pace
+      maslowLevel: "safety",
+    },
+    guidance: "Physical disabilities don't change WHO the person is, but do increase need for predictable, forgiving interfaces. Apply security and autonomy shifts without changing core personality values.",
+  },
+  {
+    category: "sensory",
+    description: "Perception-only differences (color vision, hearing)",
+    valueStrategy: "neutral",
+    researchBasis: [
+      "Sharpe, L.T., et al. (1999). Red, green, and red-green hybrid pigments. Vision Research 39(25).",
+      "Note: Sensory perception does not affect motivational psychology per Schwartz's value theory.",
+    ],
+    defaultValues: {
+      // All neutral - sensory differences don't change motivation
+      selfDirection: 0.5,
+      stimulation: 0.5,
+      hedonism: 0.5,
+      achievement: 0.5,
+      power: 0.5,
+      security: 0.5,
+      conformity: 0.5,
+      tradition: 0.5,
+      benevolence: 0.5,
+      universalism: 0.5,
+      autonomyNeed: 0.5,
+      competenceNeed: 0.5,
+      relatednessNeed: 0.5,
+      maslowLevel: "esteem",
+    },
+    guidance: "Sensory-only differences (color blindness, hearing impairment) affect HOW someone perceives, not WHO they are. Use neutral values (0.5) for all Schwartz values. The disability affects interaction modality, not motivation.",
+  },
+  {
+    category: "emotional",
+    description: "Trait anxiety, depression, or confidence levels",
+    valueStrategy: "trait_based",
+    researchBasis: [
+      "Carver, C.S., & White, T.L. (1994). Behavioral inhibition and activation. JPSP 67(2).",
+      "Gray, J.A., & McNaughton, N. (2000). The Neuropsychology of Anxiety. Oxford.",
+      "Bandura, A. (1997). Self-efficacy: The exercise of control. W.H. Freeman.",
+    ],
+    defaultValues: {
+      // Varies based on specific emotional trait - these are anxiety defaults
+      security: 0.9,         // High security-seeking
+      stimulation: 0.2,      // Low novelty tolerance
+      conformity: 0.8,       // High preference for established norms
+      autonomyNeed: 0.3,     // Low preference for independent action
+      maslowLevel: "safety",
+    },
+    guidance: "Emotional traits have well-researched effects on values. Anxiety increases security-seeking; confidence increases self-direction. Apply trait-specific values from personality psychology research.",
+  },
+  {
+    category: "general",
+    description: "No specific disability - population baseline",
+    valueStrategy: "neutral",
+    researchBasis: [
+      "Schwartz, S.H. (2012). Overview of Schwartz Theory of Basic Values.",
+      "Nielsen Norman Group usability research averages.",
+      "Kahneman, D. (2011). Thinking, Fast and Slow.",
+    ],
+    defaultValues: {
+      selfDirection: 0.5,
+      stimulation: 0.5,
+      hedonism: 0.5,
+      achievement: 0.5,
+      power: 0.5,
+      security: 0.5,
+      conformity: 0.5,
+      tradition: 0.5,
+      benevolence: 0.5,
+      universalism: 0.5,
+      autonomyNeed: 0.5,
+      competenceNeed: 0.5,
+      relatednessNeed: 0.5,
+      maslowLevel: "esteem",
+    },
+    guidance: "General personas use neutral baseline values. The persona's specific characteristics will be defined by cognitive traits, not disability-related value shifts.",
+  },
+];
+
+/**
+ * Keywords for detecting persona category from name or description.
+ */
+const CATEGORY_KEYWORDS: Record<PersonaCategory, string[]> = {
+  cognitive: [
+    "adhd", "attention deficit", "add", "dyslexia", "dyslexic", "autism",
+    "autistic", "asd", "processing speed", "cognitive impairment", "learning disability",
+    "executive function", "working memory impairment", "dyscalculia", "dyspraxia",
+  ],
+  physical: [
+    "motor", "tremor", "mobility", "wheelchair", "dexterity", "paralysis",
+    "parkinson", "cerebral palsy", "amputation", "arthritis", "carpal tunnel",
+    "repetitive strain", "rsi", "limited mobility", "motor impairment",
+  ],
+  sensory: [
+    "color blind", "colorblind", "colour blind", "colourblind", "deaf", "hearing",
+    "hard of hearing", "hoh", "blind", "low vision", "visual impairment",
+    "macular degeneration", "glaucoma", "cataracts", "tinnitus",
+  ],
+  emotional: [
+    "anxious", "anxiety", "anxious-user", "confident", "confident-user",
+    "depressed", "depression", "stressed", "overwhelmed", "fearful",
+    "nervous", "worried", "self-doubt", "low confidence",
+  ],
+  general: [], // No keywords - default fallback
+};
+
+/**
+ * Detect persona category from name and description.
+ * Returns the most specific matching category.
+ */
+export function detectPersonaCategory(
+  name: string,
+  description?: string
+): PersonaCategory {
+  const text = `${name} ${description || ""}`.toLowerCase();
+
+  // Check each category's keywords
+  for (const category of ["cognitive", "physical", "sensory", "emotional"] as PersonaCategory[]) {
+    const keywords = CATEGORY_KEYWORDS[category];
+    for (const keyword of keywords) {
+      if (text.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+
+  return "general";
+}
+
+/**
+ * Get the value preset for a category.
+ */
+export function getCategoryValuePreset(category: PersonaCategory): CategoryValuePreset {
+  return CATEGORY_VALUE_PRESETS.find(p => p.category === category) ||
+    CATEGORY_VALUE_PRESETS.find(p => p.category === "general")!;
+}
+
+/**
+ * Build persona values based on category with research grounding.
+ * Returns values, research citations, and guidance.
+ */
+export function buildValuesFromCategory(
+  category: PersonaCategory,
+  overrides?: Partial<CategoryValuePreset["defaultValues"]>
+): {
+  values: CategoryValuePreset["defaultValues"];
+  researchBasis: string[];
+  guidance: string;
+  valueStrategy: CategoryValuePreset["valueStrategy"];
+} {
+  const preset = getCategoryValuePreset(category);
+
+  // Merge overrides with defaults
+  const values = {
+    ...preset.defaultValues,
+    ...overrides,
+  };
+
+  return {
+    values,
+    researchBasis: preset.researchBasis,
+    guidance: preset.guidance,
+    valueStrategy: preset.valueStrategy,
+  };
+}
+
+/**
+ * ADHD-specific value adjustments based on subtype.
+ * More granular than the general cognitive preset.
+ */
+export const COGNITIVE_SUBTYPES: Record<string, {
+  values: Partial<CategoryValuePreset["defaultValues"]>;
+  researchBasis: string;
+}> = {
+  "adhd-combined": {
+    values: {
+      stimulation: 0.9,
+      security: 0.25,
+      conformity: 0.25,
+      autonomyNeed: 0.7,
+    },
+    researchBasis: "Barkley (2015): Combined type shows both inattention and hyperactivity-impulsivity",
+  },
+  "adhd-inattentive": {
+    values: {
+      stimulation: 0.7,
+      security: 0.35,
+      conformity: 0.35,
+      autonomyNeed: 0.6,
+    },
+    researchBasis: "Barkley (2015): Inattentive type shows less impulsivity, more daydreaming",
+  },
+  "adhd-hyperactive": {
+    values: {
+      stimulation: 0.95,
+      security: 0.2,
+      conformity: 0.2,
+      autonomyNeed: 0.8,
+    },
+    researchBasis: "Barkley (2015): Hyperactive-impulsive type shows high novelty-seeking",
+  },
+  "autism-spectrum": {
+    values: {
+      stimulation: 0.3,      // Often prefers predictable environments
+      security: 0.8,         // High need for structure
+      conformity: 0.4,       // May not follow social conventions
+      tradition: 0.3,        // May question established ways
+      autonomyNeed: 0.6,
+    },
+    researchBasis: "Baron-Cohen (2008): Autism shows preference for systemizing over empathizing",
+  },
+  "dyslexia": {
+    values: {
+      // Dyslexia affects reading, not motivation - mostly neutral with slight adjustments
+      selfDirection: 0.6,    // Often develop creative problem-solving
+      stimulation: 0.5,
+      security: 0.5,
+      autonomyNeed: 0.6,
+    },
+    researchBasis: "Shaywitz (2003): Dyslexia is a reading difference, not a personality difference",
+  },
+};
+
+/**
+ * Get cognitive subtype-specific values if available.
+ */
+export function getCognitiveSubtypeValues(
+  subtypeName: string
+): { values: Partial<CategoryValuePreset["defaultValues"]>; researchBasis: string } | undefined {
+  const normalizedName = subtypeName.toLowerCase().replace(/[_\s]+/g, "-");
+  return COGNITIVE_SUBTYPES[normalizedName];
+}
+
+/**
+ * Validate that category-appropriate values are being assigned.
+ * Returns warnings if values violate category guidelines.
+ */
+export function validateCategoryValues(
+  category: PersonaCategory,
+  values: Partial<CategoryValuePreset["defaultValues"]>
+): string[] {
+  const warnings: string[] = [];
+  const preset = getCategoryValuePreset(category);
+
+  if (category === "sensory") {
+    // Sensory should have mostly neutral values
+    const nonNeutralCount = Object.entries(values)
+      .filter(([key, val]) => key !== "maslowLevel" && typeof val === "number" && Math.abs(val - 0.5) > 0.15)
+      .length;
+
+    if (nonNeutralCount > 2) {
+      warnings.push(
+        `SENSORY personas should have mostly neutral values (0.5). ` +
+        `Found ${nonNeutralCount} values significantly different from 0.5. ` +
+        `Sensory differences affect perception, not motivation.`
+      );
+    }
+  }
+
+  if (category === "physical") {
+    // Physical should have elevated security and autonomy, but not extreme values elsewhere
+    if (values.security !== undefined && values.security < 0.6) {
+      warnings.push(
+        `PHYSICAL disabilities typically increase security needs (predictable UI). ` +
+        `Consider security >= 0.6.`
+      );
+    }
+    if (values.autonomyNeed !== undefined && values.autonomyNeed < 0.6) {
+      warnings.push(
+        `PHYSICAL disabilities typically increase autonomy needs (control over pace). ` +
+        `Consider autonomyNeed >= 0.6.`
+      );
+    }
+  }
+
+  if (category === "cognitive") {
+    // Cognitive should have specific, non-neutral values
+    if (values.stimulation !== undefined && Math.abs(values.stimulation - 0.5) < 0.1) {
+      warnings.push(
+        `COGNITIVE disabilities typically affect stimulation/novelty-seeking. ` +
+        `Consider specific values based on the condition (e.g., ADHD = high stimulation).`
+      );
+    }
+  }
+
+  return warnings;
+}
+
+/**
+ * Category question for the persona questionnaire.
+ * Ask this first to determine appropriate value guidance.
+ */
+export const CATEGORY_QUESTION: {
+  question: string;
+  header: string;
+  options: Array<{ label: string; description: string; category: PersonaCategory }>;
+} = {
+  question: "What type of persona are you creating?",
+  header: "Persona Type",
+  options: [
+    {
+      label: "General User",
+      description: "No specific disability - typical user with varied characteristics",
+      category: "general",
+    },
+    {
+      label: "Cognitive Disability",
+      description: "ADHD, autism, dyslexia, processing differences (affects attention/thinking)",
+      category: "cognitive",
+    },
+    {
+      label: "Physical Disability",
+      description: "Motor tremor, mobility, dexterity impairments (affects physical interaction)",
+      category: "physical",
+    },
+    {
+      label: "Sensory Difference",
+      description: "Color blindness, hearing, vision differences (affects perception only)",
+      category: "sensory",
+    },
+    // Note: "Other" option always available via AskUserQuestion
+  ],
+};

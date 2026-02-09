@@ -2513,7 +2513,8 @@ export class CBrowser {
     const page = await this.getPage();
 
     try {
-      const element = await this.findElement(selector);
+      // v16.11.0: Use findFillableElement to prioritize input/textarea/select over text matches
+      const element = await this.findFillableElement(selector);
 
       if (!element) {
         const available = await this.getAvailableInputs(page);
@@ -4039,6 +4040,150 @@ export class CBrowser {
     } catch {}
 
     return null;
+  }
+
+  /**
+   * v16.11.0: Find a fillable element (input/textarea/select).
+   * Prioritizes fillable elements over text/label matches to avoid matching
+   * div labels instead of actual input fields.
+   *
+   * Bug fix for: "fill matches div label instead of input"
+   */
+  private async findFillableElement(selector: string): Promise<Locator | null> {
+    const page = await this.getPage();
+
+    // Strategy 1: Direct CSS selector (passthrough)
+    if (selector.startsWith("css:")) {
+      return page.locator(selector.slice(4)).first();
+    }
+
+    // Strategy 2: ARIA selector (passthrough)
+    if (selector.startsWith("aria:")) {
+      const [role, name] = selector.slice(5).split("/");
+      return page.getByRole(role as any, { name }).first();
+    }
+
+    // Strategy 3: Input by name attribute (PRIORITY for fill)
+    try {
+      const byName = page.locator(`input[name="${selector}"], textarea[name="${selector}"], select[name="${selector}"]`).first();
+      if (await byName.count() > 0) return byName;
+    } catch {}
+
+    // Strategy 4: Input by id (PRIORITY for fill)
+    try {
+      const byId = page.locator(`input#${selector}, textarea#${selector}, select#${selector}`).first();
+      if (await byId.count() > 0) return byId;
+    } catch {}
+
+    // Strategy 5: Input by type attribute (e.g., "email", "password")
+    try {
+      const byType = page.locator(`input[type="${selector}"]`).first();
+      if (await byType.count() > 0) return byType;
+    } catch {}
+
+    // Strategy 6: Placeholder (common for inputs)
+    const byPlaceholder = page.getByPlaceholder(selector).first();
+    if (await byPlaceholder.count() > 0) {
+      return byPlaceholder;
+    }
+
+    // Strategy 7: Label - this returns the associated INPUT, not the label itself
+    // getByLabel is specifically designed for form fields
+    const byLabel = page.getByLabel(selector).first();
+    if (await byLabel.count() > 0) {
+      // Verify it's actually a fillable element, not a div with aria-label
+      const tagName = await byLabel.evaluate((el) => el.tagName.toLowerCase());
+      if (['input', 'textarea', 'select'].includes(tagName)) {
+        return byLabel;
+      }
+    }
+
+    // Strategy 8: ARIA label on fillable elements
+    try {
+      const byAriaLabel = page.locator(`input[aria-label*="${selector}" i], textarea[aria-label*="${selector}" i], select[aria-label*="${selector}" i]`).first();
+      if (await byAriaLabel.count() > 0) return byAriaLabel;
+    } catch {}
+
+    // Strategy 9: Fuzzy match on fillable elements only
+    try {
+      const fuzzyHandle = await page.evaluateHandle((search) => {
+        const fillables = Array.from(document.querySelectorAll("input, textarea, select"));
+        const searchLower = search.toLowerCase();
+        for (const el of fillables) {
+          const name = el.getAttribute("name")?.toLowerCase() || "";
+          const id = el.getAttribute("id")?.toLowerCase() || "";
+          const placeholder = el.getAttribute("placeholder")?.toLowerCase() || "";
+          const type = el.getAttribute("type")?.toLowerCase() || "";
+          const ariaLabel = el.getAttribute("aria-label")?.toLowerCase() || "";
+          // Check associated label
+          const labelledBy = el.getAttribute("aria-labelledby");
+          const labelText = labelledBy
+            ? document.getElementById(labelledBy)?.textContent?.toLowerCase() || ""
+            : "";
+          // Check for<label for="id"> pattern
+          const labelFor = el.id
+            ? document.querySelector(`label[for="${el.id}"]`)?.textContent?.toLowerCase() || ""
+            : "";
+
+          if (name.includes(searchLower) || id.includes(searchLower) ||
+              placeholder.includes(searchLower) || type === searchLower ||
+              ariaLabel.includes(searchLower) || labelText.includes(searchLower) ||
+              labelFor.includes(searchLower)) {
+            return el;
+          }
+        }
+        return null;
+      }, selector);
+
+      const element = fuzzyHandle.asElement();
+      if (element) {
+        const generatedSelector = await page.evaluate((el) => {
+          if (el.id) return `#${el.id}`;
+          const name = el.getAttribute("name");
+          if (name) return `[name="${name}"]`;
+          const testId = el.getAttribute("data-testid");
+          if (testId) return `[data-testid="${testId}"]`;
+          return null;
+        }, element);
+
+        if (generatedSelector) {
+          return page.locator(generatedSelector).first();
+        }
+      }
+    } catch {}
+
+    // Strategy 10: Search within iframes
+    try {
+      const frames = page.frames();
+      for (const frame of frames) {
+        if (frame === page.mainFrame()) continue;
+
+        try {
+          // Placeholder in iframe
+          const byPlaceholderFrame = frame.getByPlaceholder(selector, { exact: false });
+          if (await byPlaceholderFrame.count() > 0) {
+            (this as any)._activeFrame = frame;
+            return byPlaceholderFrame.first();
+          }
+
+          // Label in iframe (for form fields)
+          const byLabelFrame = frame.getByLabel(selector, { exact: false });
+          if (await byLabelFrame.count() > 0) {
+            const tagName = await byLabelFrame.first().evaluate((el) => el.tagName.toLowerCase());
+            if (['input', 'textarea', 'select'].includes(tagName)) {
+              (this as any)._activeFrame = frame;
+              return byLabelFrame.first();
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch {}
+
+    // Fallback: Use standard findElement (may match non-fillable elements)
+    // This maintains backward compatibility for edge cases
+    return this.findElement(selector);
   }
 
   // =========================================================================

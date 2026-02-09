@@ -212,8 +212,14 @@ export async function runChaosTest(
     const context = await (browser as any).context;
     const hadRoutes = chaos.networkLatency || chaos.blockUrls || chaos.failApis;
 
+    // v16.11.0: Wrap offline mode in try-catch to prevent server crashes
     if (chaos.offline) {
-      await context.setOffline(true);
+      try {
+        await context.setOffline(true);
+      } catch (offlineError: any) {
+        errors.push(`Failed to enable offline mode: ${offlineError.message}`);
+        // Continue test without offline - better than crashing
+      }
     }
 
     if (hadRoutes) {

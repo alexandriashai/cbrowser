@@ -61,6 +61,132 @@ All values on 0.0-1.0 scale. Higher = more of the trait.
 
 ---
 
+## Category-Aware Values System (v16.12.0)
+
+As of v16.12.0, CBrowser personas include a comprehensive psychological values framework that varies by persona category. This enables more nuanced simulation of user decision-making and motivation.
+
+### Persona Value Categories
+
+Each persona belongs to one of five categories, which determines how their psychological values are derived:
+
+| Category | Examples | Value Derivation |
+|----------|----------|------------------|
+| **cognitive** | ADHD, dyslexia, autism | Specific values based on neuroscience research into how these conditions affect motivation and decision-making |
+| **physical** | motor-tremor, mobility | Security and autonomy shifts only - physical conditions primarily affect accessibility needs, not core values |
+| **sensory** | color-blindness, low-vision | Neutral/balanced values - sensory differences don't correlate with value changes |
+| **emotional** | anxiety, confidence | Trait-based values derived from personality research on emotional regulation |
+| **general** | power-user, first-timer | Default balanced values representing typical user motivations |
+
+### Psychological Values Framework
+
+Each persona now includes a comprehensive values profile based on established psychological frameworks:
+
+#### Schwartz's 10 Universal Values
+
+All personas include scores (0.0-1.0) for Schwartz's empirically-validated value dimensions:
+
+| Value | Description |
+|-------|-------------|
+| **security** | Safety, harmony, stability of society and relationships |
+| **conformity** | Restraint of actions likely to upset others or violate norms |
+| **tradition** | Respect for customs and ideas from culture or religion |
+| **benevolence** | Preserving and enhancing the welfare of close others |
+| **universalism** | Understanding, appreciation, and protection for all people |
+| **selfDirection** | Independent thought and action, creativity, exploration |
+| **stimulation** | Excitement, novelty, and challenge in life |
+| **hedonism** | Pleasure and sensuous gratification |
+| **achievement** | Personal success through demonstrating competence |
+| **power** | Social status, prestige, control over people and resources |
+
+#### Higher-Order Values
+
+Aggregated from the 10 basic values:
+
+| Higher-Order Value | Comprises |
+|--------------------|-----------|
+| **openness** | Self-direction, stimulation |
+| **conservation** | Security, conformity, tradition |
+| **selfEnhancement** | Achievement, power, hedonism |
+| **selfTranscendence** | Benevolence, universalism |
+
+#### Self-Determination Theory (SDT) Needs
+
+Basic psychological needs that drive intrinsic motivation:
+
+| Need | Description |
+|------|-------------|
+| **autonomy** | Need to feel in control of one's own behaviors and goals |
+| **competence** | Need to gain mastery and feel effective |
+| **relatedness** | Need to feel connected to others |
+
+#### Maslow's Hierarchy Level
+
+Each persona is positioned on Maslow's hierarchy (1-5):
+
+| Level | Name | Focus |
+|-------|------|-------|
+| 1 | Physiological | Basic survival needs |
+| 2 | Safety | Security and stability |
+| 3 | Belonging | Social connection |
+| 4 | Esteem | Achievement and recognition |
+| 5 | Self-Actualization | Personal growth and fulfillment |
+
+### Category-Specific Value Patterns
+
+**Cognitive Personas (ADHD, Dyslexia, Autism):**
+- Higher `stimulation` and `selfDirection` values (novelty-seeking, autonomy preference)
+- Lower `conformity` and `tradition` (different relationship with social norms)
+- Values derived from neuroscience research on dopamine systems and executive function
+
+**Physical Personas (Motor Tremor, Mobility):**
+- Elevated `security` values (heightened awareness of physical safety)
+- Elevated `autonomy` SDT need (maintaining independence is paramount)
+- Other values remain balanced
+
+**Sensory Personas (Color-Blindness, Low-Vision):**
+- Neutral/balanced values across all dimensions
+- Sensory processing differences don't correlate with value changes
+- Focus is on accessibility needs, not motivation differences
+
+**Emotional Personas (Anxiety, Low Confidence):**
+- Higher `security` and `conformity` values
+- Lower `stimulation` and `riskTolerance`
+- Derived from personality psychology research
+
+**General Personas (Power User, First Timer, etc.):**
+- Default balanced values representing typical user populations
+- Values may shift based on specific persona characteristics (e.g., power users higher on `achievement`)
+
+### Research Citations
+
+As of v16.12.0, accessibility personas include a `researchBasis` field containing academic citations that support the trait and value profiles. This ensures scientific validity and allows developers to trace assumptions back to peer-reviewed sources.
+
+Example research basis for ADHD persona:
+- Barkley (1997) - Executive function theory
+- Volkow et al. (2011) - Dopamine system differences
+- Schwartz et al. (2012) - Value structures in populations
+
+### Using Values in Testing
+
+Values influence simulated decision-making during cognitive journeys:
+
+```typescript
+// Journey decisions factor in persona values
+await cognitive_journey_init({
+  persona: "adhd",
+  goal: "complete registration",
+  startUrl: "https://example.com/signup"
+});
+
+// ADHD persona with high stimulation/selfDirection values:
+// - More likely to explore interesting tangents
+// - Less likely to follow prescribed paths
+// - Higher engagement with novel UI elements
+// - Lower tolerance for repetitive forms
+```
+
+---
+
 ## Using Personas
 
 ### Via MCP Tool

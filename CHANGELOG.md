@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.12.0] - 2026-02-09
+
+### Added
+- **Research-Backed Values System** - All personas now include Schwartz's 10 Universal Values, Higher-Order Values, SDT Needs, and Maslow's Hierarchy level
+- **Category-Aware Persona Creation** - New personas automatically get appropriate values based on their category (cognitive, physical, sensory, emotional, general)
+- `detectPersonaCategory()` - Automatically detects persona category from name/description
+- `buildValuesFromCategory()` - Generates research-backed values for each category
+- `validateCategoryValues()` - Warns when values don't match category research
+- `persona_values_lookup` MCP tool - Look up value profile for any persona
+- `list_influence_patterns` MCP tool - Get persuasion patterns with persona susceptibility
+- `persona_category_guidance` MCP tool - Get research-based guidance for each category
+- `COGNITIVE_SUBTYPES` - ADHD-combined, autism-spectrum, dyslexia subtypes with specific values
+- `researchBasis` field on all accessibility persona value profiles with academic citations
+
+### Research Citations
+- Schwartz, S.H. (1992, 2012) - Theory of Basic Human Values
+- Deci, E.L. & Ryan, R.M. (1985, 2000) - Self-Determination Theory
+- Maslow, A.H. (1943) - Hierarchy of Needs
+- Barkley, R.A. (2015) - ADHD dopamine research
+- Volkow, N.D. et al. (2011) - ADHD motivation deficits
+
 ## [16.10.0](https://github.com/alexandriashai/cbrowser/compare/v16.9.4...v16.10.0) (2026-02-09)
 
 ### Added

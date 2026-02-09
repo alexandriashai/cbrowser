@@ -291,7 +291,7 @@ PERFORMANCE REGRESSION (v6.4.0)
   perf-baseline delete <name> Delete a baseline
 
   perf-regression <url> <baseline>  Compare current performance against baseline
-    --sensitivity <level>     strict|normal|lenient (default: normal)
+    --sensitivity <level>     strict|normal|ci|lenient (default: normal)
     --threshold-lcp <n>       Max LCP increase % (default: 20)
     --threshold-cls <n>       Max CLS increase (default: 0.1)
     --threshold-fcp <n>       Max FCP increase % (default: 20)
@@ -4536,7 +4536,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("Usage: cbrowser perf-regression <url> <baseline-name> [options]");
           console.error("");
           console.error("Options:");
-          console.error("  --sensitivity <level> strict|normal|lenient (default: normal)");
+          console.error("  --sensitivity <level> strict|normal|ci|lenient (default: normal)");
           console.error("  --threshold-lcp <n>   Max LCP increase % (default: 20)");
           console.error("  --threshold-cls <n>   Max CLS increase absolute (default: 0.1)");
           console.error("  --threshold-fcp <n>   Max FCP increase % (default: 20)");
@@ -4546,6 +4546,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("Sensitivity profiles (both % AND absolute must be exceeded):");
           console.error("  strict:  FCP 10%/50ms, LCP 10%/100ms, TTFB 15%/30ms, CLS 10%/0.02");
           console.error("  normal:  FCP 20%/100ms, LCP 20%/200ms, TTFB 20%/50ms, CLS 20%/0.05");
+          console.error("  ci:      FCP 25%/150ms, LCP 25%/300ms, TTFB 25%/75ms, CLS 25%/0.08 (for CI/CD)");
           console.error("  lenient: FCP 30%/200ms, LCP 30%/400ms, TTFB 30%/100ms, CLS 30%/0.1");
           console.error("");
           console.error("Examples:");
@@ -4572,7 +4573,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         const regressionOptions: PerformanceRegressionOptions = {
           headless,
-          sensitivity: sensitivity as "strict" | "normal" | "lenient",
+          sensitivity: sensitivity as "strict" | "normal" | "ci" | "lenient",
           thresholds: Object.keys(thresholds).length > 0 ? thresholds : undefined,
         };
 
