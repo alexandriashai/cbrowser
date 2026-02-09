@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.14.0](https://github.com/alexandriashai/cbrowser/compare/v16.13.0...v16.14.0) (2026-02-09)
+
+### Added
+
+* **values:** trait-based value derivation for general personas v16.14.0 ([e0270e1](https://github.com/alexandriashai/cbrowser/commit/e0270e16c488d32d9b58121e5ab53ab057a83439))
+
 ## [16.14.0] - 2026-02-09
 
 ### Added
