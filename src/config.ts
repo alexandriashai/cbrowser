@@ -19,10 +19,43 @@
  * Default: ~/.cbrowser/
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, statSync, rmdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import { randomUUID } from "crypto";
 import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile, ProxyConfig } from "./types.js";
+
+/**
+ * Session ID for multi-user safety.
+ * Each MCP server instance or CLI invocation gets a unique session.
+ * Screenshots are stored in session-specific subdirectories.
+ */
+let currentSessionId: string | null = null;
+
+/**
+ * Get or create the current session ID.
+ * For MCP server mode, this isolates each user's screenshots.
+ */
+export function getSessionId(): string {
+  if (!currentSessionId) {
+    currentSessionId = randomUUID().slice(0, 8);
+  }
+  return currentSessionId;
+}
+
+/**
+ * Set the session ID explicitly (useful for MCP server).
+ */
+export function setSessionId(id: string): void {
+  currentSessionId = id;
+}
+
+/**
+ * Reset session ID (for testing).
+ */
+export function resetSessionId(): void {
+  currentSessionId = null;
+}
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
 export type ColorScheme = "light" | "dark" | "no-preference";
@@ -177,6 +210,8 @@ export interface CBrowserPaths {
   dataDir: string;
   sessionsDir: string;
   screenshotsDir: string;
+  /** Base screenshots directory (without session ID) */
+  screenshotsBaseDir: string;
   videosDir: string;
   harDir: string;
   personasDir: string;
@@ -189,18 +224,24 @@ export interface CBrowserPaths {
   visualScreenshotsDir: string;
   browserStateDir: string;
   credentialsFile: string;
+  /** Current session ID for screenshot isolation */
+  sessionId: string;
 }
 
 /**
  * Get all paths based on the data directory.
+ * Screenshots are stored in session-specific subdirectories for multi-user safety.
  */
 export function getPaths(dataDir?: string): CBrowserPaths {
   const base = dataDir || getDataDir();
+  const sessionId = getSessionId();
+  const screenshotsBase = join(base, "screenshots");
 
   return {
     dataDir: base,
     sessionsDir: join(base, "sessions"),
-    screenshotsDir: join(base, "screenshots"),
+    screenshotsBaseDir: screenshotsBase,
+    screenshotsDir: join(screenshotsBase, sessionId), // Session-scoped!
     videosDir: join(base, "videos"),
     harDir: join(base, "har"),
     personasDir: join(base, "personas"),
@@ -213,11 +254,13 @@ export function getPaths(dataDir?: string): CBrowserPaths {
     visualScreenshotsDir: join(base, "visual-baselines", "screenshots"),
     browserStateDir: join(base, "browser-state"),
     credentialsFile: join(base, "credentials.json"),
+    sessionId,
   };
 }
 
 /**
  * Ensure all required directories exist.
+ * Also runs automatic screenshot cleanup based on retention settings.
  */
 export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
   const p = paths || getPaths();
@@ -225,7 +268,8 @@ export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
   const dirs = [
     p.dataDir,
     p.sessionsDir,
-    p.screenshotsDir,
+    p.screenshotsBaseDir,  // Base screenshots dir
+    p.screenshotsDir,       // Session-specific screenshots dir
     p.videosDir,
     p.harDir,
     p.personasDir,
@@ -245,6 +289,10 @@ export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
     }
   }
 
+  // Automatic cleanup of OLD screenshot sessions on startup
+  // This is safe for multi-user: only deletes sessions older than retention period
+  cleanupOldScreenshotSessions(p);
+
   return p;
 }
 
@@ -254,6 +302,161 @@ export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
 export function mergeConfig(userConfig: Partial<CBrowserConfig>): CBrowserConfig {
   const defaults = getDefaultConfig();
   return { ...defaults, ...userConfig };
+}
+
+/**
+ * Get screenshot retention period in milliseconds.
+ * Default: 1 hour (3600000 ms)
+ * Set CBROWSER_SCREENSHOT_RETENTION to customize (in ms or with suffix: 1h, 30m, 7d)
+ */
+export function getScreenshotRetention(): number {
+  const value = process.env.CBROWSER_SCREENSHOT_RETENTION;
+  if (!value) return 3600000; // 1 hour default
+
+  // Parse suffixes: 1h, 30m, 7d, 24h
+  const match = value.match(/^(\d+)(ms|s|m|h|d)?$/i);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    const unit = (match[2] || "ms").toLowerCase();
+    switch (unit) {
+      case "d": return num * 24 * 60 * 60 * 1000;
+      case "h": return num * 60 * 60 * 1000;
+      case "m": return num * 60 * 1000;
+      case "s": return num * 1000;
+      default: return num; // ms
+    }
+  }
+  return parseInt(value, 10) || 3600000;
+}
+
+/**
+ * Clean up old screenshots that exceed the retention period.
+ * Called automatically on CBrowser startup.
+ * Returns the number of files deleted.
+ */
+/**
+ * Format retention period for display.
+ */
+function formatRetention(ms: number): string {
+  if (ms === 0) return "disabled";
+  if (ms >= 24 * 60 * 60 * 1000) {
+    const days = Math.round(ms / (24 * 60 * 60 * 1000));
+    return `${days}d`;
+  }
+  if (ms >= 60 * 60 * 1000) {
+    const hours = Math.round(ms / (60 * 60 * 1000));
+    return `${hours}h`;
+  }
+  if (ms >= 60 * 1000) {
+    const mins = Math.round(ms / (60 * 1000));
+    return `${mins}m`;
+  }
+  return `${ms}ms`;
+}
+
+/**
+ * Clean up old screenshot SESSION DIRECTORIES that exceed the retention period.
+ * This is safe for multi-user MCP server deployments:
+ * - Each user gets their own session directory
+ * - Only entire old sessions are cleaned up, not individual files
+ * - A session directory is only deleted if ALL its contents are older than retention
+ *
+ * Called automatically on CBrowser startup.
+ * Returns the number of session directories deleted.
+ */
+export function cleanupOldScreenshotSessions(paths?: CBrowserPaths): number {
+  const p = paths || getPaths();
+  const retention = getScreenshotRetention();
+  const now = Date.now();
+  let deletedSessions = 0;
+
+  // Skip cleanup if retention is 0 (disabled)
+  if (retention === 0) return 0;
+
+  if (!existsSync(p.screenshotsBaseDir)) return 0;
+
+  try {
+    const entries = readdirSync(p.screenshotsBaseDir);
+    for (const entry of entries) {
+      const sessionDir = join(p.screenshotsBaseDir, entry);
+
+      try {
+        const stats = statSync(sessionDir);
+
+        // Skip if not a directory (legacy flat files)
+        if (!stats.isDirectory()) {
+          // Clean up legacy flat files too
+          if (entry.endsWith(".png") || entry.endsWith(".jpg") || entry.endsWith(".jpeg")) {
+            const age = now - stats.mtimeMs;
+            if (age > retention) {
+              unlinkSync(sessionDir);
+            }
+          }
+          continue;
+        }
+
+        // Don't delete the current session
+        if (entry === p.sessionId) continue;
+
+        // Check if the session directory is old enough to delete
+        const sessionAge = now - stats.mtimeMs;
+        if (sessionAge > retention) {
+          // Delete all files in the session directory
+          const files = readdirSync(sessionDir);
+          for (const file of files) {
+            try {
+              unlinkSync(join(sessionDir, file));
+            } catch {
+              // Skip files we can't delete
+            }
+          }
+          // Remove the empty directory
+          try {
+            rmdirSync(sessionDir);
+            deletedSessions++;
+          } catch {
+            // Directory not empty or permission error
+          }
+        }
+      } catch {
+        // Skip entries we can't stat
+      }
+    }
+  } catch {
+    // Directory read error, skip cleanup
+  }
+
+  return deletedSessions;
+}
+
+/**
+ * Clean up screenshots in the CURRENT session only.
+ * Useful for explicit cleanup without affecting other users.
+ */
+export function cleanupCurrentSessionScreenshots(paths?: CBrowserPaths): number {
+  const p = paths || getPaths();
+  let deleted = 0;
+
+  if (!existsSync(p.screenshotsDir)) return 0;
+
+  try {
+    const files = readdirSync(p.screenshotsDir);
+    for (const file of files) {
+      if (!file.endsWith(".png") && !file.endsWith(".jpg") && !file.endsWith(".jpeg")) {
+        continue;
+      }
+      try {
+        unlinkSync(join(p.screenshotsDir, file));
+        deleted++;
+      } catch {
+        // Skip files we can't delete
+      }
+    }
+  } catch {
+    // Directory read error
+  }
+
+  return deleted;
 }
 
 /**
@@ -284,6 +487,9 @@ export interface StatusInfo {
     viewportWidth: number;
     viewportHeight: number;
     configFile: string | null;
+    screenshotRetention: string;
+    /** Current screenshot session ID */
+    screenshotSession: string;
   };
   healCache: {
     totalEntries: number;
@@ -295,6 +501,8 @@ export interface StatusInfo {
   visualBaselines: number;
   recordings: number;
   suggestions: string[];
+  /** Number of active screenshot sessions */
+  screenshotSessions: number;
 }
 
 function countFiles(dir: string, ext?: string): number {
@@ -348,15 +556,49 @@ export async function checkBrowsers(): Promise<BrowserStatus[]> {
 }
 
 /**
+ * Count screenshot sessions and total files across all sessions.
+ */
+function countScreenshotSessions(baseDir: string): { sessions: number; files: number } {
+  if (!existsSync(baseDir)) return { sessions: 0, files: 0 };
+  try {
+    const entries = readdirSync(baseDir);
+    let sessions = 0;
+    let files = 0;
+    for (const entry of entries) {
+      const entryPath = join(baseDir, entry);
+      try {
+        const stats = statSync(entryPath);
+        if (stats.isDirectory()) {
+          sessions++;
+          const sessionFiles = readdirSync(entryPath);
+          files += sessionFiles.filter(f => f.endsWith(".png") || f.endsWith(".jpg")).length;
+        } else if (entry.endsWith(".png") || entry.endsWith(".jpg")) {
+          // Legacy flat files
+          files++;
+        }
+      } catch {
+        // Skip
+      }
+    }
+    return { sessions, files };
+  } catch {
+    return { sessions: 0, files: 0 };
+  }
+}
+
+/**
  * Gather environment status info for diagnostics.
  */
 export async function getStatusInfo(version: string): Promise<StatusInfo> {
   const paths = getPaths();
   const config = getDefaultConfig();
 
+  // Screenshot session stats
+  const screenshotStats = countScreenshotSessions(paths.screenshotsBaseDir);
+
   // Directory status
   const dirEntries: Array<[string, string, string?]> = [
-    ["screenshots", paths.screenshotsDir, ".png"],
+    ["screenshots", paths.screenshotsBaseDir, ".png"],
     ["sessions", paths.sessionsDir, ".json"],
     ["baselines", paths.baselinesDir, ".json"],
     ["visual-baselines", paths.visualBaselinesDir],
@@ -428,6 +670,8 @@ export async function getStatusInfo(version: string): Promise<StatusInfo> {
       viewportWidth: config.viewportWidth,
       viewportHeight: config.viewportHeight,
       configFile: findConfigFile(),
+      screenshotRetention: formatRetention(getScreenshotRetention()),
+      screenshotSession: paths.sessionId,
     },
     healCache,
     sessions,
@@ -435,6 +679,7 @@ export async function getStatusInfo(version: string): Promise<StatusInfo> {
     visualBaselines,
     recordings,
     suggestions,
+    screenshotSessions: screenshotStats.sessions,
   };
 }
 
@@ -475,6 +720,8 @@ export function formatStatus(info: StatusInfo): string {
   lines.push(`   ├── Headless:    ${info.config.headless}`);
   lines.push(`   ├── Timeout:     ${info.config.timeout}ms`);
   lines.push(`   ├── Viewport:    ${info.config.viewportWidth}x${info.config.viewportHeight}`);
+  lines.push(`   ├── Screenshot cleanup: ${info.config.screenshotRetention} (auto, per-session)`);
+  lines.push(`   ├── Session ID:  ${info.config.screenshotSession} (${info.screenshotSessions} active sessions)`);
   lines.push(`   └── Config file: ${info.config.configFile || "none found"}`);
   lines.push("");
 
