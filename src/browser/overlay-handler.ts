@@ -327,6 +327,8 @@ export class OverlayHandler {
     const timeout = options.timeout ?? 5000;
     const details: DismissOverlayResult["details"] = [];
     const maxPasses = 5; // Prevent infinite loops
+    // v16.7.2: Track selectors we've already attempted to prevent duplicate attempts
+    const attemptedSelectors = new Set<string>();
 
     try {
       // Multi-pass dismissal: some sites reveal new overlays after dismissing the first
@@ -340,6 +342,7 @@ export class OverlayHandler {
             if (await customEl.isVisible({ timeout: 2000 })) {
               await customEl.click();
               await page.waitForTimeout(500);
+              attemptedSelectors.add(options.customSelector);
               details.push({
                 type: "custom",
                 selector: options.customSelector,
@@ -355,9 +358,14 @@ export class OverlayHandler {
 
         if (detected.length === 0) break; // No more overlays
 
-        // Attempt to dismiss each detected overlay
+        // v16.7.2: Filter out already-attempted overlays to prevent duplicate attempts
+        const newOverlays = detected.filter(o => !attemptedSelectors.has(o.selector));
+        if (newOverlays.length === 0) break; // All remaining overlays already attempted
+
+        // Attempt to dismiss each newly detected overlay
         let dismissedThisPass = false;
-        for (const overlay of detected) {
+        for (const overlay of newOverlays) {
+          attemptedSelectors.add(overlay.selector);
           const result = await this.tryDismissOverlay(page, overlay, timeout);
           details.push(result);
           if (result.dismissed) {
