@@ -2621,10 +2621,21 @@ Begin the simulation now. Narrate your thoughts as this persona.
             diagnosis.recommendations.push("Turnstile CAPTCHA present. May pass with stealth, but IP reputation affects success.");
           }
 
-          // Reddit-style IP blocking
-          if (pageUrl.includes("blocked") || content.includes("blocked") || content.includes("access denied")) {
+          // Reddit-style IP blocking - v16.7.2: More specific patterns to reduce false positives
+          const blockPatterns = [
+            /you.{0,20}(have been|are|'ve been) blocked/i,
+            /your.{0,20}(ip|access).{0,20}(blocked|denied)/i,
+            /access.{0,10}(to this|has been).{0,10}denied/i,
+            /request.{0,15}blocked/i,
+            /temporarily blocked/i,
+            /ip.{0,10}(address|range).{0,15}blocked/i,
+          ];
+          const isBlocked = blockPatterns.some(p => p.test(content)) ||
+                            pageUrl.includes("/blocked") ||
+                            pageUrl.includes("access-denied");
+          if (isBlocked) {
             diagnosis.detection_methods.ip_reputation.likely = true;
-            diagnosis.detection_methods.ip_reputation.evidence.push("Page contains 'blocked' or 'access denied'");
+            diagnosis.detection_methods.ip_reputation.evidence.push("Page indicates access/IP blocking");
             diagnosis.recommendations.push("IP-based blocking detected. Requires residential proxy.");
           }
 
@@ -2645,15 +2656,28 @@ Begin the simulation now. Narrate your thoughts as this persona.
             }
           }
 
-          // Check for navigator.webdriver detection
-          if (content.includes("webdriver") || content.includes("navigator.webdriver")) {
+          // Check for navigator.webdriver detection - v16.7.2: Only in JS context
+          // Patterns that indicate actual detection code, not just documentation
+          const webdriverPatterns = [
+            /navigator\s*\.\s*webdriver/,
+            /window\s*\.\s*navigator\s*\.\s*webdriver/,
+            /\.webdriver\s*[=!]/,  // Assignment or comparison
+            /webdriver.*true|true.*webdriver/i,  // Boolean check context
+          ];
+          if (webdriverPatterns.some(p => p.test(content))) {
             diagnosis.detection_methods.fingerprint.detected = true;
             diagnosis.detection_methods.fingerprint.evidence.push("Page checks navigator.webdriver");
             diagnosis.recommendations.push("Enable stealth to patch navigator.webdriver.");
           }
 
-          // Check for automation tool detection
-          if (content.includes("puppeteer") || content.includes("playwright") || content.includes("selenium")) {
+          // Check for automation tool detection - v16.7.2: Only in detection context
+          const automationDetectionPatterns = [
+            /window\s*\.\s*(?:__)?(?:puppeteer|playwright|selenium)/i,
+            /navigator\s*\.\s*(?:__)?(?:puppeteer|playwright|selenium)/i,
+            /typeof\s+(?:puppeteer|playwright|selenium)/i,
+            /["'](?:puppeteer|playwright|selenium)["']\s*in\s*window/i,
+          ];
+          if (automationDetectionPatterns.some(p => p.test(content))) {
             diagnosis.detection_methods.fingerprint.detected = true;
             diagnosis.detection_methods.fingerprint.evidence.push("Page checks for automation tools");
           }
