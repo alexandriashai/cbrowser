@@ -53,10 +53,10 @@ Nielsen, J. (1993). *Usability Engineering*. Academic Press. ISBN 978-0125184069
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
-| [Persistence](Trait-Persistence) | r = 0.45 | Both load on conscientiousness factor; patient users persist longer |
+| [Persistence](./Trait-Persistence.md) | r = 0.45 | Both load on conscientiousness factor; patient users persist longer |
 | [Resilience](../traits/Trait-Resilience) | r = 0.38 | Patient users recover better from delays |
 | [Self-Efficacy](../traits/Trait-SelfEfficacy) | r = 0.32 | Confident users wait longer, believing success is coming |
-| [Risk Tolerance](Trait-RiskTolerance) | r = -0.22 | Impatient users take more shortcuts (risky behavior) |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | r = -0.22 | Impatient users take more shortcuts (risky behavior) |
 | [FOMO](../traits/Trait-FOMO) | r = -0.41 | FOMO drives impatience to not miss out |
 
 ## Impact on Web Behavior
@@ -109,10 +109,10 @@ Very Patient (0.8-1.0): Tolerates 30+ seconds
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
-- [Persistence](Trait-Persistence) - Related grit trait
-- [Working Memory](Trait-WorkingMemory) - Affects wait perception
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Trait Index](./Trait-Index.md) - All cognitive traits
+- [Persistence](./Trait-Persistence.md) - Related grit trait
+- [Working Memory](./Trait-WorkingMemory.md) - Affects wait perception
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 

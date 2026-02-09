@@ -112,11 +112,11 @@ Cialdini, R. B. (2001). *Influence: Science and practice* (4th ed.). Allyn and B
 
 ## See Also
 
-- [Social Proof Sensitivity](Trait-SocialProofSensitivity) - Peer-based influence
-- [Trust Calibration](Trait-TrustCalibration) - Credibility assessment processes
-- [Self-Efficacy](Trait-SelfEfficacy) - Confidence in personal judgment
-- [FOMO](Trait-FOMO) - External pressure responsiveness
-- [Trait Index](Trait-Index) - All cognitive traits
+- [Social Proof Sensitivity](./Trait-SocialProofSensitivity.md) - Peer-based influence
+- [Trust Calibration](./Trait-TrustCalibration.md) - Credibility assessment processes
+- [Self-Efficacy](./Trait-SelfEfficacy.md) - Confidence in personal judgment
+- [FOMO](./Trait-FOMO.md) - External pressure responsiveness
+- [Trait Index](./Trait-Index.md) - All cognitive traits
 
 ## Bibliography
 

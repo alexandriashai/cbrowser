@@ -140,10 +140,10 @@ Rensink, R. A., O'Regan, J. K., & Clark, J. J. (1997). To see or not to see: The
 
 ## See Also
 
-- [Mental Model Rigidity](Trait-MentalModelRigidity) - Related perceptual limitation
-- [Working Memory](Trait-WorkingMemory) - Capacity constraint that affects change detection
-- [Reading Tendency](Trait-ReadingTendency) - Scanning patterns affect peripheral awareness
-- [Trait Index](Trait-Index) - Complete trait listing
+- [Mental Model Rigidity](./Trait-MentalModelRigidity.md) - Related perceptual limitation
+- [Working Memory](./Trait-WorkingMemory.md) - Capacity constraint that affects change detection
+- [Reading Tendency](./Trait-ReadingTendency.md) - Scanning patterns affect peripheral awareness
+- [Trait Index](./Trait-Index.md) - Complete trait listing
 - [Distracted Dave](../personas/Persona-DistractedDave) - High change blindness persona
 
 ## Bibliography

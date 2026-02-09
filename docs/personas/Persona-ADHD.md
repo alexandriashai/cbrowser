@@ -127,8 +127,8 @@ npx cbrowser cognitive-journey --persona cognitive-adhd --start https://example.
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Working Memory](../traits/Trait-WorkingMemory.md)
 - [Patience](../traits/Trait-Patience.md)
 - [Curiosity](../traits/Trait-Curiosity.md)

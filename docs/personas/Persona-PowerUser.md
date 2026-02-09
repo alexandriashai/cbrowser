@@ -122,8 +122,8 @@ npx cbrowser cognitive-journey --persona power-user --start https://example.com 
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Patience](../traits/Trait-Patience.md)
 - [Comprehension](../traits/Trait-Comprehension.md)
 - [Working Memory](../traits/Trait-WorkingMemory.md)

@@ -128,11 +128,11 @@ Cialdini, R. B. (2001). *Influence: Science and practice* (4th ed.). Allyn and B
 
 ## See Also
 
-- [Authority Sensitivity](Trait-AuthoritySensitivity) - Expert-based influence
-- [FOMO](Trait-FOMO) - Fear of missing popular items
-- [Emotional Contagion](Trait-EmotionalContagion) - Emotional content of social proof
-- [Trust Calibration](Trait-TrustCalibration) - Credibility assessment
-- [Trait Index](Trait-Index) - All cognitive traits
+- [Authority Sensitivity](./Trait-AuthoritySensitivity.md) - Expert-based influence
+- [FOMO](./Trait-FOMO.md) - Fear of missing popular items
+- [Emotional Contagion](./Trait-EmotionalContagion.md) - Emotional content of social proof
+- [Trust Calibration](./Trait-TrustCalibration.md) - Credibility assessment
+- [Trait Index](./Trait-Index.md) - All cognitive traits
 
 ## Bibliography
 

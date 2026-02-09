@@ -123,11 +123,11 @@ FOMO-targeting design patterns are effective but can be manipulative. Ethical de
 
 ## See Also
 
-- [Social Proof Sensitivity](Trait-SocialProofSensitivity) - Influence by others' behavior
-- [Emotional Contagion](Trait-EmotionalContagion) - Absorption of social emotions
-- [Patience](Trait-Patience) - Time tolerance and urgency response
-- [Satisficing](Trait-Satisficing) - Decision-making strategies
-- [Trait Index](Trait-Index) - All cognitive traits
+- [Social Proof Sensitivity](./Trait-SocialProofSensitivity.md) - Influence by others' behavior
+- [Emotional Contagion](./Trait-EmotionalContagion.md) - Absorption of social emotions
+- [Patience](./Trait-Patience.md) - Time tolerance and urgency response
+- [Satisficing](./Trait-Satisficing.md) - Decision-making strategies
+- [Trait Index](./Trait-Index.md) - All cognitive traits
 
 ## Bibliography
 

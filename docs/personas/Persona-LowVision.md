@@ -126,8 +126,8 @@ npx cbrowser cognitive-journey --persona low-vision --start https://example.com 
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Reading Tendency](../traits/Trait-ReadingTendency.md)
 - [Persistence](../traits/Trait-Persistence.md)
 - [Change Blindness](../traits/Trait-ChangeBlindness.md)

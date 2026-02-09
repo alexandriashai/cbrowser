@@ -116,12 +116,12 @@ The landmark demonstration of anchoring:
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|
-| [Comprehension](Trait-Comprehension) | r = -0.22 | Understanding enables anchor recognition |
-| [Risk Tolerance](Trait-RiskTolerance) | r = 0.18 | Risk-takers may use anchors as shortcuts |
-| [Satisficing](Trait-Satisficing) | r = 0.35 | Satisficers accept anchored "good enough" values |
-| [Self-Efficacy](Trait-SelfEfficacy) | r = -0.24 | Confidence enables independent judgment |
-| [Trust Calibration](Trait-TrustCalibration) | r = -0.31 | Skeptics question anchor validity |
-| [Authority Sensitivity](Trait-AuthoritySensitivity) | r = 0.38 | Authority-sensitive users accept suggested values |
+| [Comprehension](./Trait-Comprehension.md) | r = -0.22 | Understanding enables anchor recognition |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | r = 0.18 | Risk-takers may use anchors as shortcuts |
+| [Satisficing](./Trait-Satisficing.md) | r = 0.35 | Satisficers accept anchored "good enough" values |
+| [Self-Efficacy](./Trait-SelfEfficacy.md) | r = -0.24 | Confidence enables independent judgment |
+| [Trust Calibration](./Trait-TrustCalibration.md) | r = -0.31 | Skeptics question anchor validity |
+| [Authority Sensitivity](./Trait-AuthoritySensitivity.md) | r = 0.38 | Authority-sensitive users accept suggested values |
 
 ## Persona Values
 
@@ -199,12 +199,12 @@ function modifyDefault(defaultValue: number, optimalValue: number, traits: Trait
 
 ## See Also
 
-- [Satisficing](Trait-Satisficing) - Anchors provide quick "good enough" answers
-- [Trust Calibration](Trait-TrustCalibration) - Skepticism of anchor validity
-- [Authority Sensitivity](Trait-AuthoritySensitivity) - Suggested values as authority
-- [Self-Efficacy](Trait-SelfEfficacy) - Confidence to form independent judgments
-- [Time Horizon](Trait-TimeHorizon) - Time pressure increases anchoring
-- [Persona Index](../personas/Persona-Index) - Trait combinations in personas
+- [Satisficing](./Trait-Satisficing.md) - Anchors provide quick "good enough" answers
+- [Trust Calibration](./Trait-TrustCalibration.md) - Skepticism of anchor validity
+- [Authority Sensitivity](./Trait-AuthoritySensitivity.md) - Suggested values as authority
+- [Self-Efficacy](./Trait-SelfEfficacy.md) - Confidence to form independent judgments
+- [Time Horizon](./Trait-TimeHorizon.md) - Time pressure increases anchoring
+- [Persona Index](../personas/Persona-Index.md) - Trait combinations in personas
 
 ## Bibliography
 

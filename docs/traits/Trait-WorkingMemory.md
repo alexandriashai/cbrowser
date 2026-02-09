@@ -70,10 +70,10 @@ Miller discovered that while raw information capacity is limited, we can increas
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
-| [Comprehension](Trait-Comprehension) | r = 0.52 | Memory capacity enables complex understanding |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.52 | Memory capacity enables complex understanding |
 | [Procedural Fluency](../traits/Trait-ProceduralFluency) | r = 0.45 | Procedure execution requires memory |
 | [Metacognitive Planning](../traits/Trait-MetacognitivePlanning) | r = 0.48 | Planning requires holding multiple options |
-| [Curiosity](Trait-Curiosity) | r = 0.28 | Limited memory restricts exploration |
+| [Curiosity](./Trait-Curiosity.md) | r = 0.28 | Limited memory restricts exploration |
 | [Interrupt Recovery](../traits/Trait-InterruptRecovery) | r = 0.41 | Memory enables task resumption |
 
 ## Impact on Web Behavior
@@ -165,11 +165,11 @@ Sweller's Cognitive Load Theory (1988) extends Miller's work:
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
-- [Comprehension](Trait-Comprehension) - Uses working memory capacity
+- [Trait Index](./Trait-Index.md) - All cognitive traits
+- [Comprehension](./Trait-Comprehension.md) - Uses working memory capacity
 - [Procedural Fluency](../traits/Trait-ProceduralFluency) - Memory for procedures
 - [Interrupt Recovery](../traits/Trait-InterruptRecovery) - Task state in memory
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 

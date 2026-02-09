@@ -84,11 +84,11 @@ Dunlosky, J., & Metcalfe, J. (2009). *Metacognition*. SAGE Publications.
 
 | Related Trait | Correlation | Research Basis |
 |---------------|-------------|----------------|
-| [Working Memory](Trait-WorkingMemory) | r = 0.58 | Metacognitive monitoring requires maintaining current state and goals in working memory (Veenman et al., 2006) |
-| [Persistence](Trait-Persistence) | r = 0.42 | High metacognition enables more effective persistence through strategic adjustment rather than mere repetition (Schraw & Dennison, 1994) |
-| [Comprehension](Trait-Comprehension) | r = 0.51 | Metacognitive awareness improves comprehension monitoring and repair (Flavell, 1979) |
-| [Self-Efficacy](Trait-SelfEfficacy) | r = 0.47 | Self-awareness of capabilities relates to self-efficacy beliefs (Bandura, 1986) |
-| [Satisficing](Trait-Satisficing) | r = -0.35 | High metacognition tends toward maximizing through deliberate evaluation (Simon, 1956) |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.58 | Metacognitive monitoring requires maintaining current state and goals in working memory (Veenman et al., 2006) |
+| [Persistence](./Trait-Persistence.md) | r = 0.42 | High metacognition enables more effective persistence through strategic adjustment rather than mere repetition (Schraw & Dennison, 1994) |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.51 | Metacognitive awareness improves comprehension monitoring and repair (Flavell, 1979) |
+| [Self-Efficacy](./Trait-SelfEfficacy.md) | r = 0.47 | Self-awareness of capabilities relates to self-efficacy beliefs (Bandura, 1986) |
+| [Satisficing](./Trait-Satisficing.md) | r = -0.35 | High metacognition tends toward maximizing through deliberate evaluation (Simon, 1956) |
 
 ## Persona Values
 
@@ -128,12 +128,12 @@ interface MetacognitiveState {
 
 ## See Also
 
-- [Trait-WorkingMemory](Trait-WorkingMemory) - Capacity for maintaining goals and state
-- [Trait-ProceduralFluency](Trait-ProceduralFluency) - Executing learned procedures efficiently
-- [Trait-TransferLearning](Trait-TransferLearning) - Applying strategies across domains
-- [Trait-Comprehension](Trait-Comprehension) - Understanding interface conventions
-- [Cognitive-User-Simulation](../Cognitive-User-Simulation) - Main simulation documentation
-- [Persona-Index](../personas/Persona-Index) - Pre-configured trait combinations
+- [Trait-WorkingMemory](./Trait-WorkingMemory.md) - Capacity for maintaining goals and state
+- [Trait-ProceduralFluency](./Trait-ProceduralFluency.md) - Executing learned procedures efficiently
+- [Trait-TransferLearning](./Trait-TransferLearning.md) - Applying strategies across domains
+- [Trait-Comprehension](./Trait-Comprehension.md) - Understanding interface conventions
+- [Cognitive-User-Simulation](../COGNITIVE-SIMULATION.md) - Main simulation documentation
+- [Persona-Index](../personas/Persona-Index.md) - Pre-configured trait combinations
 
 ## Bibliography
 

@@ -124,8 +124,8 @@ npx cbrowser cognitive-journey --persona elderly-user --start https://example.co
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Patience](../traits/Trait-Patience.md)
 - [Working Memory](../traits/Trait-WorkingMemory.md)
 - [Reading Tendency](../traits/Trait-ReadingTendency.md)

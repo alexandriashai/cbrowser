@@ -218,7 +218,7 @@ If you have research that could improve trait calibration:
 
 ## See Also
 
-- [Trait Index](../traits/Trait-Index) - All 25 cognitive traits
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
-- [Bibliography](Bibliography) - Complete academic references
-- [Cognitive User Simulation](../Cognitive-User-Simulation) - Main documentation
+- [Trait Index](../traits/Trait-Index.md) - All 25 cognitive traits
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
+- [Bibliography](./Bibliography.md) - Complete academic references
+- [Cognitive User Simulation](../COGNITIVE-SIMULATION.md) - Main documentation

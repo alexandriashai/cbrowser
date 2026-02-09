@@ -102,11 +102,11 @@ Schwartz, B., Ward, A., Monterosso, J., Lyubomirsky, S., White, K., & Lehman, D.
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|
-| [Patience](Trait-Patience) | r = -0.38 | Satisficers make faster decisions, reducing patience demands |
-| [Working Memory](Trait-WorkingMemory) | r = 0.21 | Maximizing requires holding multiple options in memory |
-| [Risk Tolerance](Trait-RiskTolerance) | r = 0.25 | Satisficing accepts "good enough" risk of non-optimal choice |
-| [Information Foraging](Trait-InformationForaging) | r = -0.44 | Maximizers forage longer for complete information |
-| [Time Horizon](Trait-TimeHorizon) | r = -0.19 | Maximizers invest present time for future optimal outcomes |
+| [Patience](./Trait-Patience.md) | r = -0.38 | Satisficers make faster decisions, reducing patience demands |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.21 | Maximizing requires holding multiple options in memory |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | r = 0.25 | Satisficing accepts "good enough" risk of non-optimal choice |
+| [Information Foraging](./Trait-InformationForaging.md) | r = -0.44 | Maximizers forage longer for complete information |
+| [Time Horizon](./Trait-TimeHorizon.md) | r = -0.19 | Maximizers invest present time for future optimal outcomes |
 
 ## Persona Values
 
@@ -154,11 +154,11 @@ if (traits.satisficing > 0.7) {
 
 ## See Also
 
-- [Information Foraging](Trait-InformationForaging) - How users hunt for information
-- [Anchoring Bias](Trait-AnchoringBias) - How first information affects decisions
-- [Risk Tolerance](Trait-RiskTolerance) - Willingness to accept uncertainty
-- [Working Memory](Trait-WorkingMemory) - Capacity for option comparison
-- [Persona Index](../personas/Persona-Index) - Trait combinations in personas
+- [Information Foraging](./Trait-InformationForaging.md) - How users hunt for information
+- [Anchoring Bias](./Trait-AnchoringBias.md) - How first information affects decisions
+- [Risk Tolerance](./Trait-RiskTolerance.md) - Willingness to accept uncertainty
+- [Working Memory](./Trait-WorkingMemory.md) - Capacity for option comparison
+- [Persona Index](../personas/Persona-Index.md) - Trait combinations in personas
 
 ## Bibliography
 

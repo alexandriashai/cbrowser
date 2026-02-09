@@ -264,6 +264,6 @@ All citations follow APA 7th Edition format. When citing CBrowser's trait system
 
 ## See Also
 
-- [Trait Index](../traits/Trait-Index) - All 25 cognitive traits
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
-- [Research Methodology](Research-Methodology) - Trait selection process
+- [Trait Index](../traits/Trait-Index.md) - All 25 cognitive traits
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
+- [Research Methodology](./Research-Methodology.md) - Trait selection process

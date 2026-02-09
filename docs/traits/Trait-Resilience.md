@@ -133,11 +133,11 @@ Research and theoretical models indicate the following correlations:
 
 ## See Also
 
-- [Trait-SelfEfficacy](Trait-SelfEfficacy) - Belief in problem-solving ability (strongly correlated)
-- [Trait-Persistence](Trait-Persistence) - Tendency to continue trying (behavioral manifestation)
-- [Trait-Patience](Trait-Patience) - Time-based tolerance (distinct but related construct)
-- [Trait-InterruptRecovery](Trait-InterruptRecovery) - Recovery from external disruptions
-- [Trait-Index](Trait-Index) - Complete trait listing
+- [Trait-SelfEfficacy](./Trait-SelfEfficacy.md) - Belief in problem-solving ability (strongly correlated)
+- [Trait-Persistence](./Trait-Persistence.md) - Tendency to continue trying (behavioral manifestation)
+- [Trait-Patience](./Trait-Patience.md) - Time-based tolerance (distinct but related construct)
+- [Trait-InterruptRecovery](./Trait-InterruptRecovery.md) - Recovery from external disruptions
+- [Trait-Index](./Trait-Index.md) - Complete trait listing
 
 ## Bibliography
 

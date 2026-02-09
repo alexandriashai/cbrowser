@@ -107,11 +107,11 @@ Based on Barnett & Ceci (2002), transfer distance affects success rate:
 
 | Related Trait | Correlation | Research Basis |
 |---------------|-------------|----------------|
-| [Comprehension](Trait-Comprehension) | r = 0.61 | Deep comprehension enables recognition of structural similarities (Chi et al., 1981) |
-| [Procedural Fluency](Trait-ProceduralFluency) | r = 0.62 | Fluent procedures are more transferable than struggling procedures (Anderson, 1982) |
-| [Metacognitive Planning](Trait-MetacognitivePlanning) | r = 0.54 | Metacognition enables explicit strategy transfer (Perkins & Salomon, 1992) |
-| [Working Memory](Trait-WorkingMemory) | r = 0.45 | Holding source and target representations requires working memory (Gentner, 1983) |
-| [Curiosity](Trait-Curiosity) | r = 0.38 | Curious exploration facilitates pattern discovery (Berlyne, 1960) |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.61 | Deep comprehension enables recognition of structural similarities (Chi et al., 1981) |
+| [Procedural Fluency](./Trait-ProceduralFluency.md) | r = 0.62 | Fluent procedures are more transferable than struggling procedures (Anderson, 1982) |
+| [Metacognitive Planning](./Trait-MetacognitivePlanning.md) | r = 0.54 | Metacognition enables explicit strategy transfer (Perkins & Salomon, 1992) |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.45 | Holding source and target representations requires working memory (Gentner, 1983) |
+| [Curiosity](./Trait-Curiosity.md) | r = 0.38 | Curious exploration facilitates pattern discovery (Berlyne, 1960) |
 
 ## Persona Values
 
@@ -213,12 +213,12 @@ Thorndike's theory predicts that transfer depends on shared elements between con
 
 ## See Also
 
-- [Trait-ProceduralFluency](Trait-ProceduralFluency) - Fluent procedures that enable transfer
-- [Trait-MetacognitivePlanning](Trait-MetacognitivePlanning) - Strategic awareness of transferable knowledge
-- [Trait-Comprehension](Trait-Comprehension) - Understanding that enables structural recognition
-- [Trait-WorkingMemory](Trait-WorkingMemory) - Capacity for holding analogical mappings
-- [Cognitive-User-Simulation](../Cognitive-User-Simulation) - Main simulation documentation
-- [Persona-Index](../personas/Persona-Index) - Pre-configured trait combinations
+- [Trait-ProceduralFluency](./Trait-ProceduralFluency.md) - Fluent procedures that enable transfer
+- [Trait-MetacognitivePlanning](./Trait-MetacognitivePlanning.md) - Strategic awareness of transferable knowledge
+- [Trait-Comprehension](./Trait-Comprehension.md) - Understanding that enables structural recognition
+- [Trait-WorkingMemory](./Trait-WorkingMemory.md) - Capacity for holding analogical mappings
+- [Cognitive-User-Simulation](../COGNITIVE-SIMULATION.md) - Main simulation documentation
+- [Persona-Index](../personas/Persona-Index.md) - Pre-configured trait combinations
 
 ## Bibliography
 

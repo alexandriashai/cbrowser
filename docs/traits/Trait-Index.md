@@ -27,13 +27,13 @@ Fundamental cognitive capacities that form the foundation of user behavior.
 
 | Trait | Scale | Primary Research |
 |-------|-------|------------------|
-| [Patience](Trait-Patience) | 0.0-1.0 | Nah (2004) - 8-10 second tolerance threshold |
-| [Risk Tolerance](Trait-RiskTolerance) | 0.0-1.0 | Kahneman & Tversky (1979) - Prospect Theory |
-| [Comprehension](Trait-Comprehension) | 0.0-1.0 | Card, Moran & Newell (1983) - GOMS Model |
-| [Persistence](Trait-Persistence) | 0.0-1.0 | Duckworth et al. (2007) - Grit Scale |
-| [Curiosity](Trait-Curiosity) | 0.0-1.0 | Berlyne (1960) - Epistemic Curiosity |
-| [Working Memory](Trait-WorkingMemory) | 0.0-1.0 | Miller (1956) - 7±2 Chunks |
-| [Reading Tendency](Trait-ReadingTendency) | 0.0-1.0 | Nielsen (2006) - F-Pattern |
+| [Patience](./Trait-Patience.md) | 0.0-1.0 | Nah (2004) - 8-10 second tolerance threshold |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | 0.0-1.0 | Kahneman & Tversky (1979) - Prospect Theory |
+| [Comprehension](./Trait-Comprehension.md) | 0.0-1.0 | Card, Moran & Newell (1983) - GOMS Model |
+| [Persistence](./Trait-Persistence.md) | 0.0-1.0 | Duckworth et al. (2007) - Grit Scale |
+| [Curiosity](./Trait-Curiosity.md) | 0.0-1.0 | Berlyne (1960) - Epistemic Curiosity |
+| [Working Memory](./Trait-WorkingMemory.md) | 0.0-1.0 | Miller (1956) - 7±2 Chunks |
+| [Reading Tendency](./Trait-ReadingTendency.md) | 0.0-1.0 | Nielsen (2006) - F-Pattern |
 
 ---
 
@@ -43,10 +43,10 @@ Affective factors that influence persistence, confidence, and recovery from setb
 
 | Trait | Scale | Primary Research |
 |-------|-------|------------------|
-| [Resilience](Trait-Resilience) | 0.0-1.0 | Smith et al. (2008) - Brief Resilience Scale |
-| [Self-Efficacy](Trait-SelfEfficacy) | 0.0-1.0 | Bandura (1977) - Self-Efficacy Theory |
-| [Trust Calibration](Trait-TrustCalibration) | 0.0-1.0 | Fogg (2003) - Stanford Credibility |
-| [Interrupt Recovery](Trait-InterruptRecovery) | 0.0-1.0 | Mark et al. (2005) - Cost of Interruption |
+| [Resilience](./Trait-Resilience.md) | 0.0-1.0 | Smith et al. (2008) - Brief Resilience Scale |
+| [Self-Efficacy](./Trait-SelfEfficacy.md) | 0.0-1.0 | Bandura (1977) - Self-Efficacy Theory |
+| [Trust Calibration](./Trait-TrustCalibration.md) | 0.0-1.0 | Fogg (2003) - Stanford Credibility |
+| [Interrupt Recovery](./Trait-InterruptRecovery.md) | 0.0-1.0 | Mark et al. (2005) - Cost of Interruption |
 
 ---
 
@@ -56,11 +56,11 @@ How users evaluate options, make choices, and allocate cognitive resources.
 
 | Trait | Scale | Primary Research |
 |-------|-------|------------------|
-| [Satisficing](Trait-Satisficing) | 0.0-1.0 | Simon (1956) - Bounded Rationality |
-| [Information Foraging](Trait-InformationForaging) | 0.0-1.0 | Pirolli & Card (1999) - Info Foraging |
-| [Anchoring Bias](Trait-AnchoringBias) | 0.0-1.0 | Tversky & Kahneman (1974) - Anchoring |
-| [Time Horizon](Trait-TimeHorizon) | 0.0-1.0 | Laibson (1997) - Hyperbolic Discounting |
-| [Attribution Style](Trait-AttributionStyle) | 0.0-1.0 | Weiner (1985) - Attribution Theory |
+| [Satisficing](./Trait-Satisficing.md) | 0.0-1.0 | Simon (1956) - Bounded Rationality |
+| [Information Foraging](./Trait-InformationForaging.md) | 0.0-1.0 | Pirolli & Card (1999) - Info Foraging |
+| [Anchoring Bias](./Trait-AnchoringBias.md) | 0.0-1.0 | Tversky & Kahneman (1974) - Anchoring |
+| [Time Horizon](./Trait-TimeHorizon.md) | 0.0-1.0 | Laibson (1997) - Hyperbolic Discounting |
+| [Attribution Style](./Trait-AttributionStyle.md) | 0.0-1.0 | Weiner (1985) - Attribution Theory |
 
 ---
 
@@ -70,9 +70,9 @@ Strategic thinking, procedural knowledge, and learning transfer capabilities.
 
 | Trait | Scale | Primary Research |
 |-------|-------|------------------|
-| [Metacognitive Planning](Trait-MetacognitivePlanning) | 0.0-1.0 | Flavell (1979) - Metacognition |
-| [Procedural Fluency](Trait-ProceduralFluency) | 0.0-1.0 | Sweller (1988) - Cognitive Load |
-| [Transfer Learning](Trait-TransferLearning) | 0.0-1.0 | Thorndike (1901) - Transfer of Practice |
+| [Metacognitive Planning](./Trait-MetacognitivePlanning.md) | 0.0-1.0 | Flavell (1979) - Metacognition |
+| [Procedural Fluency](./Trait-ProceduralFluency.md) | 0.0-1.0 | Sweller (1988) - Cognitive Load |
+| [Transfer Learning](./Trait-TransferLearning.md) | 0.0-1.0 | Thorndike (1901) - Transfer of Practice |
 
 ---
 
@@ -82,8 +82,8 @@ Limitations in visual attention and mental model updating.
 
 | Trait | Scale | Primary Research |
 |-------|-------|------------------|
-| [Change Blindness](Trait-ChangeBlindness) | 0.0-1.0 | Simons & Chabris (1999) - Gorilla Study |
-| [Mental Model Rigidity](Trait-MentalModelRigidity) | 0.0-1.0 | Johnson-Laird (1983) - Mental Models |
+| [Change Blindness](./Trait-ChangeBlindness.md) | 0.0-1.0 | Simons & Chabris (1999) - Gorilla Study |
+| [Mental Model Rigidity](./Trait-MentalModelRigidity.md) | 0.0-1.0 | Johnson-Laird (1983) - Mental Models |
 
 ---
 
@@ -93,10 +93,10 @@ How social context and comparison affect user behavior.
 
 | Trait | Scale | Primary Research |
 |-------|-------|------------------|
-| [Authority Sensitivity](Trait-AuthoritySensitivity) | 0.0-1.0 | Milgram (1963) - Obedience |
-| [Emotional Contagion](Trait-EmotionalContagion) | 0.0-1.0 | Hatfield et al. (1993) - Contagion |
-| [FOMO](Trait-FOMO) | 0.0-1.0 | Przybylski et al. (2013) - FoMO Scale |
-| [Social Proof Sensitivity](Trait-SocialProofSensitivity) | 0.0-1.0 | Goldstein, Cialdini et al. (2008) |
+| [Authority Sensitivity](./Trait-AuthoritySensitivity.md) | 0.0-1.0 | Milgram (1963) - Obedience |
+| [Emotional Contagion](./Trait-EmotionalContagion.md) | 0.0-1.0 | Hatfield et al. (1993) - Contagion |
+| [FOMO](./Trait-FOMO.md) | 0.0-1.0 | Przybylski et al. (2013) - FoMO Scale |
+| [Social Proof Sensitivity](./Trait-SocialProofSensitivity.md) | 0.0-1.0 | Goldstein, Cialdini et al. (2008) |
 
 ---
 
@@ -146,13 +146,13 @@ npx cbrowser cognitive-journey \
 
 ## See Also
 
-- [Persona Index](../personas/Persona-Index) - Pre-configured trait combinations
-- [Bibliography](../research/Bibliography) - Complete academic references
-- [Research Methodology](../research/Research-Methodology) - How traits were selected
-- [Cognitive User Simulation](../Cognitive-User-Simulation) - Main documentation
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured trait combinations
+- [Bibliography](../research/Bibliography.md) - Complete academic references
+- [Research Methodology](../research/Research-Methodology.md) - How traits were selected
+- [Cognitive User Simulation](../COGNITIVE-SIMULATION.md) - Main documentation
 
 ---
 
 ## Bibliography
 
-See [Complete Bibliography](../research/Bibliography) for all academic sources.
+See [Complete Bibliography](../research/Bibliography.md) for all academic sources.

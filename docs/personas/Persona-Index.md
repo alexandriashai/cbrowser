@@ -12,15 +12,15 @@ CBrowser includes 9 pre-configured user personas, each with research-backed cogn
 
 | Persona | Description | Key Characteristics |
 |---------|-------------|---------------------|
-| [Power User](Persona-PowerUser) | Tech-savvy expert | High comprehension, low patience, rapid scanning |
-| [First Timer](Persona-FirstTimer) | New to the interface | Low comprehension, high curiosity, methodical |
-| [Elderly User](Persona-ElderlyUser) | Older adult (65+) | Low working memory, high reading tendency |
-| [Mobile User](Persona-MobileUser) | Smartphone-first | Low patience, high satisficing, touch-focused |
-| [Impatient User](Persona-ImpatientUser) | Quick to abandon | Very low patience, high FOMO |
-| [Screen Reader User](Persona-ScreenReaderUser) | Assistive technology | High persistence, sequential navigation |
-| [Motor Tremor](Persona-MotorTremor) | Motor impairment | Low risk tolerance, high patience |
-| [Low Vision](Persona-LowVision) | Vision impairment | High reading tendency, low change blindness |
-| [ADHD](Persona-ADHD) | Attention differences | Low working memory, high curiosity, low patience |
+| [Power User](./Persona-PowerUser.md) | Tech-savvy expert | High comprehension, low patience, rapid scanning |
+| [First Timer](./Persona-FirstTimer.md) | New to the interface | Low comprehension, high curiosity, methodical |
+| [Elderly User](./Persona-ElderlyUser.md) | Older adult (65+) | Low working memory, high reading tendency |
+| [Mobile User](./Persona-MobileUser.md) | Smartphone-first | Low patience, high satisficing, touch-focused |
+| [Impatient User](./Persona-ImpatientUser.md) | Quick to abandon | Very low patience, high FOMO |
+| [Screen Reader User](./Persona-ScreenReaderUser.md) | Assistive technology | High persistence, sequential navigation |
+| [Motor Tremor](./Persona-MotorTremor.md) | Motor impairment | Low risk tolerance, high patience |
+| [Low Vision](./Persona-LowVision.md) | Vision impairment | High reading tendency, low change blindness |
+| [ADHD](./Persona-ADHD.md) | Attention differences | Low working memory, high curiosity, low patience |
 
 ---
 
@@ -46,18 +46,18 @@ All values on 0.0-1.0 scale. Higher = more of the trait.
 
 ### General Users
 
-- **[Power User](Persona-PowerUser)** - Experienced users who know shortcuts, scan quickly, and expect responsive interfaces
-- **[First Timer](Persona-FirstTimer)** - New users learning the interface, more exploratory and methodical
-- **[Mobile User](Persona-MobileUser)** - Users on smartphones with touch interaction and attention constraints
-- **[Impatient User](Persona-ImpatientUser)** - Users with very low tolerance for friction, quick to abandon
+- **[Power User](./Persona-PowerUser.md)** - Experienced users who know shortcuts, scan quickly, and expect responsive interfaces
+- **[First Timer](./Persona-FirstTimer.md)** - New users learning the interface, more exploratory and methodical
+- **[Mobile User](./Persona-MobileUser.md)** - Users on smartphones with touch interaction and attention constraints
+- **[Impatient User](./Persona-ImpatientUser.md)** - Users with very low tolerance for friction, quick to abandon
 
 ### Accessibility Personas
 
-- **[Elderly User](Persona-ElderlyUser)** - Older adults with age-related cognitive changes
-- **[Screen Reader User](Persona-ScreenReaderUser)** - Users navigating via screen reader technology
-- **[Motor Tremor](Persona-MotorTremor)** - Users with motor impairments affecting precision
-- **[Low Vision](Persona-LowVision)** - Users with significant vision impairment
-- **[ADHD](Persona-ADHD)** - Users with attention differences
+- **[Elderly User](./Persona-ElderlyUser.md)** - Older adults with age-related cognitive changes
+- **[Screen Reader User](./Persona-ScreenReaderUser.md)** - Users navigating via screen reader technology
+- **[Motor Tremor](./Persona-MotorTremor.md)** - Users with motor impairments affecting precision
+- **[Low Vision](./Persona-LowVision.md)** - Users with significant vision impairment
+- **[ADHD](./Persona-ADHD.md)** - Users with attention differences
 
 ---
 
@@ -284,13 +284,13 @@ const customPersona = {
 
 ## See Also
 
-- [Trait Index](../traits/Trait-Index) - All 25 cognitive traits explained
-- [Cognitive User Simulation](../Cognitive-User-Simulation) - Main documentation
-- [Persona Questionnaire](../Persona-Questionnaire) - Generate custom personas
-- [Multi-Persona Comparison](../Multi-Persona-Comparison) - Compare across personas
+- [Trait Index](../traits/Trait-Index.md) - All 25 cognitive traits explained
+- [Cognitive User Simulation](../COGNITIVE-SIMULATION.md) - Main documentation
+- [Persona Questionnaire](../PERSONA-QUESTIONNAIRE.md) - Generate custom personas
+- [Multi-Persona Comparison](../GETTING-STARTED.md) - Compare across personas
 
 ---
 
 ## Bibliography
 
-See [Complete Bibliography](../research/Bibliography) for all academic sources used in persona development.
+See [Complete Bibliography](../research/Bibliography.md) for all academic sources used in persona development.

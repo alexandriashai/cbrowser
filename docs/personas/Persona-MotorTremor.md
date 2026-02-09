@@ -126,8 +126,8 @@ npx cbrowser cognitive-journey --persona motor-tremor --start https://example.co
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Patience](../traits/Trait-Patience.md)
 - [Persistence](../traits/Trait-Persistence.md)
 - [Risk Tolerance](../traits/Trait-RiskTolerance.md)

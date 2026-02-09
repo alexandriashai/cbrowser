@@ -216,11 +216,11 @@ Research and theoretical models indicate the following correlations:
 
 ## See Also
 
-- [Trait-WorkingMemory](Trait-WorkingMemory) - Memory capacity (strongly related)
-- [Trait-Resilience](Trait-Resilience) - Emotional recovery from setbacks (different type of recovery)
-- [Trait-Patience](Trait-Patience) - Time tolerance for recovery process
-- [Trait-Persistence](Trait-Persistence) - Motivation to resume rather than abandon
-- [Trait-Index](Trait-Index) - Complete trait listing
+- [Trait-WorkingMemory](./Trait-WorkingMemory.md) - Memory capacity (strongly related)
+- [Trait-Resilience](./Trait-Resilience.md) - Emotional recovery from setbacks (different type of recovery)
+- [Trait-Patience](./Trait-Patience.md) - Time tolerance for recovery process
+- [Trait-Persistence](./Trait-Persistence.md) - Motivation to resume rather than abandon
+- [Trait-Index](./Trait-Index.md) - Complete trait listing
 
 ## Bibliography
 

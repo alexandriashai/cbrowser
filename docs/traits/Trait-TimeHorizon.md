@@ -131,12 +131,12 @@ Frederick, S., Loewenstein, G., & O'Donoghue, T. (2002). Time discounting and ti
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|
-| [Patience](Trait-Patience) | r = 0.68 | Future focus requires waiting tolerance |
-| [Persistence](Trait-Persistence) | r = 0.52 | Long-term goals require sustained effort |
-| [Self-Efficacy](Trait-SelfEfficacy) | r = 0.34 | Confidence in future self enables delay |
-| [Risk Tolerance](Trait-RiskTolerance) | r = -0.28 | Present focus correlates with risk-seeking |
-| [Satisficing](Trait-Satisficing) | r = 0.21 | Future-focused may optimize more |
-| [Metacognitive Planning](Trait-MetacognitivePlanning) | r = 0.45 | Planning requires future orientation |
+| [Patience](./Trait-Patience.md) | r = 0.68 | Future focus requires waiting tolerance |
+| [Persistence](./Trait-Persistence.md) | r = 0.52 | Long-term goals require sustained effort |
+| [Self-Efficacy](./Trait-SelfEfficacy.md) | r = 0.34 | Confidence in future self enables delay |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | r = -0.28 | Present focus correlates with risk-seeking |
+| [Satisficing](./Trait-Satisficing.md) | r = 0.21 | Future-focused may optimize more |
+| [Metacognitive Planning](./Trait-MetacognitivePlanning.md) | r = 0.45 | Planning requires future orientation |
 
 ## Persona Values
 
@@ -237,12 +237,12 @@ function discountedValue(
 
 ## See Also
 
-- [Patience](Trait-Patience) - Tolerance for waiting
-- [Persistence](Trait-Persistence) - Sustained effort toward goals
-- [Self-Efficacy](Trait-SelfEfficacy) - Belief in future success
-- [Satisficing](Trait-Satisficing) - "Good enough now" vs optimal later
-- [Metacognitive Planning](Trait-MetacognitivePlanning) - Strategic future thinking
-- [Persona Index](../personas/Persona-Index) - Trait combinations in personas
+- [Patience](./Trait-Patience.md) - Tolerance for waiting
+- [Persistence](./Trait-Persistence.md) - Sustained effort toward goals
+- [Self-Efficacy](./Trait-SelfEfficacy.md) - Belief in future success
+- [Satisficing](./Trait-Satisficing.md) - "Good enough now" vs optimal later
+- [Metacognitive Planning](./Trait-MetacognitivePlanning.md) - Strategic future thinking
+- [Persona Index](../personas/Persona-Index.md) - Trait combinations in personas
 
 ## Bibliography
 

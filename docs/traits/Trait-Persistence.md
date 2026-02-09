@@ -63,7 +63,7 @@ Duckworth's Grit Scale measures two factors relevant to web behavior:
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
-| [Patience](Trait-Patience) | r = 0.45 | Both load on conscientiousness |
+| [Patience](./Trait-Patience.md) | r = 0.45 | Both load on conscientiousness |
 | [Resilience](../traits/Trait-Resilience) | r = 0.52 | Emotional recovery enables persistence |
 | [Self-Efficacy](../traits/Trait-SelfEfficacy) | r = 0.48 | Confidence fuels continued effort |
 | [Metacognitive Planning](../traits/Trait-MetacognitivePlanning) | r = 0.41 | Planning enables strategic persistence |
@@ -138,11 +138,11 @@ Very High: Exhaust all options (5+ attempts)
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
-- [Patience](Trait-Patience) - Related time tolerance trait
+- [Trait Index](./Trait-Index.md) - All cognitive traits
+- [Patience](./Trait-Patience.md) - Related time tolerance trait
 - [Resilience](../traits/Trait-Resilience) - Emotional recovery from setbacks
 - [Self-Efficacy](../traits/Trait-SelfEfficacy) - Confidence in ability to succeed
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 

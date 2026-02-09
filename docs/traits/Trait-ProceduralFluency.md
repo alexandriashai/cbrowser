@@ -95,12 +95,12 @@ Sweller, J., & Cooper, G. A. (1985). The use of worked examples as a substitute 
 
 | Related Trait | Correlation | Research Basis |
 |---------------|-------------|----------------|
-| [Working Memory](Trait-WorkingMemory) | r = 0.48 | Procedural fluency frees working memory capacity (Sweller, 1988) |
-| [Comprehension](Trait-Comprehension) | r = 0.55 | Understanding enables procedure learning (Anderson, 1982) |
-| [MetacognitivePlanning](Trait-MetacognitivePlanning) | r = 0.41 | Metacognition monitors procedural execution (Veenman et al., 2006) |
-| [Transfer Learning](Trait-TransferLearning) | r = 0.62 | Fluent procedures transfer more readily to similar contexts (Thorndike & Woodworth, 1901) |
-| [Patience](Trait-Patience) | r = 0.38 | Low fluency requires more patience to complete tasks (Nah, 2004) |
-| [Interrupt Recovery](Trait-InterruptRecovery) | r = 0.45 | Automatic procedures easier to resume after interruption (Mark et al., 2005) |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.48 | Procedural fluency frees working memory capacity (Sweller, 1988) |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.55 | Understanding enables procedure learning (Anderson, 1982) |
+| [MetacognitivePlanning](./Trait-MetacognitivePlanning.md) | r = 0.41 | Metacognition monitors procedural execution (Veenman et al., 2006) |
+| [Transfer Learning](./Trait-TransferLearning.md) | r = 0.62 | Fluent procedures transfer more readily to similar contexts (Thorndike & Woodworth, 1901) |
+| [Patience](./Trait-Patience.md) | r = 0.38 | Low fluency requires more patience to complete tasks (Nah, 2004) |
+| [Interrupt Recovery](./Trait-InterruptRecovery.md) | r = 0.45 | Automatic procedures easier to resume after interruption (Mark et al., 2005) |
 
 ## Persona Values
 
@@ -167,12 +167,12 @@ function calculateCognitiveLoad(
 
 ## See Also
 
-- [Trait-WorkingMemory](Trait-WorkingMemory) - Capacity freed by procedural automaticity
-- [Trait-MetacognitivePlanning](Trait-MetacognitivePlanning) - Strategic monitoring of procedures
-- [Trait-TransferLearning](Trait-TransferLearning) - Applying procedures across contexts
-- [Trait-Comprehension](Trait-Comprehension) - Understanding that enables procedure learning
-- [Cognitive-User-Simulation](../Cognitive-User-Simulation) - Main simulation documentation
-- [Persona-Index](../personas/Persona-Index) - Pre-configured trait combinations
+- [Trait-WorkingMemory](./Trait-WorkingMemory.md) - Capacity freed by procedural automaticity
+- [Trait-MetacognitivePlanning](./Trait-MetacognitivePlanning.md) - Strategic monitoring of procedures
+- [Trait-TransferLearning](./Trait-TransferLearning.md) - Applying procedures across contexts
+- [Trait-Comprehension](./Trait-Comprehension.md) - Understanding that enables procedure learning
+- [Cognitive-User-Simulation](../COGNITIVE-SIMULATION.md) - Main simulation documentation
+- [Persona-Index](../personas/Persona-Index.md) - Pre-configured trait combinations
 
 ## Bibliography
 

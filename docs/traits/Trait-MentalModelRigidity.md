@@ -180,7 +180,7 @@ Carroll, J. M., & Rosson, M. B. (1987). Paradox of the active user. In J. M. Car
 
 ## Interaction with Change Blindness
 
-Mental Model Rigidity and [Change Blindness](Trait-ChangeBlindness) interact in complex ways:
+Mental Model Rigidity and [Change Blindness](./Trait-ChangeBlindness.md) interact in complex ways:
 
 | Scenario | High Rigidity + High Blindness | High Rigidity + Low Blindness |
 |----------|-------------------------------|------------------------------|
@@ -190,11 +190,11 @@ Mental Model Rigidity and [Change Blindness](Trait-ChangeBlindness) interact in 
 
 ## See Also
 
-- [Change Blindness](Trait-ChangeBlindness) - Related perceptual limitation
-- [Transfer Learning](Trait-TransferLearning) - Ability to apply knowledge across contexts
-- [Procedural Fluency](Trait-ProceduralFluency) - Automated interaction patterns
-- [Persistence](Trait-Persistence) - Continuing despite obstacles
-- [Trait Index](Trait-Index) - Complete trait listing
+- [Change Blindness](./Trait-ChangeBlindness.md) - Related perceptual limitation
+- [Transfer Learning](./Trait-TransferLearning.md) - Ability to apply knowledge across contexts
+- [Procedural Fluency](./Trait-ProceduralFluency.md) - Automated interaction patterns
+- [Persistence](./Trait-Persistence.md) - Continuing despite obstacles
+- [Trait Index](./Trait-Index.md) - Complete trait listing
 - [Senior Sam](../personas/Persona-SeniorSam) - High rigidity persona
 
 ## Bibliography

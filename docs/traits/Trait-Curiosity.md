@@ -73,11 +73,11 @@ Loewenstein (1994) extended Berlyne's work:
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
-| [Risk Tolerance](Trait-RiskTolerance) | r = 0.44 | Curiosity accepts risk of unknown content |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | r = 0.44 | Curiosity accepts risk of unknown content |
 | [Information Foraging](../traits/Trait-InformationForaging) | r = 0.51 | Curiosity drives broader foraging patterns |
-| [Working Memory](Trait-WorkingMemory) | r = 0.28 | Capacity limits exploration complexity |
-| [Patience](Trait-Patience) | r = 0.32 | Time allows for exploration |
-| [Persistence](Trait-Persistence) | r = 0.35 | Persistence enables deep curiosity dives |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.28 | Capacity limits exploration complexity |
+| [Patience](./Trait-Patience.md) | r = 0.32 | Time allows for exploration |
+| [Persistence](./Trait-Persistence.md) | r = 0.35 | Persistence enables deep curiosity dives |
 
 ## Impact on Web Behavior
 
@@ -158,11 +158,11 @@ High curiosity users click:
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
+- [Trait Index](./Trait-Index.md) - All cognitive traits
 - [Information Foraging](../traits/Trait-InformationForaging) - Related foraging trait
-- [Risk Tolerance](Trait-RiskTolerance) - Risk acceptance enables exploration
-- [Working Memory](Trait-WorkingMemory) - Capacity for exploration
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Risk Tolerance](./Trait-RiskTolerance.md) - Risk acceptance enables exploration
+- [Working Memory](./Trait-WorkingMemory.md) - Capacity for exploration
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 

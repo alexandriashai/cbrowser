@@ -166,11 +166,11 @@ Design interventions can leverage the four sources:
 
 ## See Also
 
-- [Trait-Resilience](Trait-Resilience) - Recovery from setbacks (strongly correlated)
-- [Trait-Persistence](Trait-Persistence) - Behavioral persistence (downstream effect)
-- [Trait-Comprehension](Trait-Comprehension) - Understanding ability (distinct from confidence)
-- [Trait-RiskTolerance](Trait-RiskTolerance) - Willingness to take interface risks
-- [Trait-Index](Trait-Index) - Complete trait listing
+- [Trait-Resilience](./Trait-Resilience.md) - Recovery from setbacks (strongly correlated)
+- [Trait-Persistence](./Trait-Persistence.md) - Behavioral persistence (downstream effect)
+- [Trait-Comprehension](./Trait-Comprehension.md) - Understanding ability (distinct from confidence)
+- [Trait-RiskTolerance](./Trait-RiskTolerance.md) - Willingness to take interface risks
+- [Trait-Index](./Trait-Index.md) - Complete trait listing
 
 ## Bibliography
 

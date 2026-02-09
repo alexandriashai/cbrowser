@@ -74,11 +74,11 @@ Nielsen's eyetracking research identified the F-shaped reading pattern:
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
-| [Comprehension](Trait-Comprehension) | r = 0.35 | Reading enables comprehension |
-| [Patience](Trait-Patience) | r = 0.42 | Time allows for reading |
-| [Curiosity](Trait-Curiosity) | r = 0.38 | Interest drives deeper reading |
-| [Working Memory](Trait-WorkingMemory) | r = 0.25 | Capacity to process text |
-| [Risk Tolerance](Trait-RiskTolerance) | r = -0.28 | Risk-averse users read warnings |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.35 | Reading enables comprehension |
+| [Patience](./Trait-Patience.md) | r = 0.42 | Time allows for reading |
+| [Curiosity](./Trait-Curiosity.md) | r = 0.38 | Interest drives deeper reading |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.25 | Capacity to process text |
+| [Risk Tolerance](./Trait-RiskTolerance.md) | r = -0.28 | Risk-averse users read warnings |
 
 ## Impact on Web Behavior
 
@@ -189,11 +189,11 @@ Structure content for scanners:
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
-- [Comprehension](Trait-Comprehension) - Understanding what is read
-- [Patience](Trait-Patience) - Time to read
-- [Working Memory](Trait-WorkingMemory) - Capacity to process
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Trait Index](./Trait-Index.md) - All cognitive traits
+- [Comprehension](./Trait-Comprehension.md) - Understanding what is read
+- [Patience](./Trait-Patience.md) - Time to read
+- [Working Memory](./Trait-WorkingMemory.md) - Capacity to process
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 

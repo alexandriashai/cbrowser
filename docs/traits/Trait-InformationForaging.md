@@ -113,12 +113,12 @@ The "patch" in foraging theory is analogous to a web page or site section:
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|
-| [Comprehension](Trait-Comprehension) | r = 0.48 | Understanding text enables scent detection |
-| [Reading Tendency](Trait-ReadingTendency) | r = 0.39 | Scanners may miss scent cues |
-| [Working Memory](Trait-WorkingMemory) | r = 0.31 | Holding goal enables scent evaluation |
-| [Patience](Trait-Patience) | r = 0.28 | Patient users may persist despite weak scent |
-| [Satisficing](Trait-Satisficing) | r = -0.44 | Strong foragers optimize paths |
-| [Curiosity](Trait-Curiosity) | r = 0.24 | Curious users explore adjacent scent |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.48 | Understanding text enables scent detection |
+| [Reading Tendency](./Trait-ReadingTendency.md) | r = 0.39 | Scanners may miss scent cues |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.31 | Holding goal enables scent evaluation |
+| [Patience](./Trait-Patience.md) | r = 0.28 | Patient users may persist despite weak scent |
+| [Satisficing](./Trait-Satisficing.md) | r = -0.44 | Strong foragers optimize paths |
+| [Curiosity](./Trait-Curiosity.md) | r = 0.24 | Curious users explore adjacent scent |
 
 ## Persona Values
 
@@ -185,12 +185,12 @@ function shouldLeavePage(timeOnPage: number, contentRelevance: number, traits: T
 
 ## See Also
 
-- [Satisficing](Trait-Satisficing) - When "good enough" information suffices
-- [Reading Tendency](Trait-ReadingTendency) - Scanning vs reading affects scent detection
-- [Comprehension](Trait-Comprehension) - Understanding content enables evaluation
-- [Working Memory](Trait-WorkingMemory) - Holding goals while navigating
-- [Patience](Trait-Patience) - Persistence on weak-scent paths
-- [Persona Index](../personas/Persona-Index) - Trait combinations in personas
+- [Satisficing](./Trait-Satisficing.md) - When "good enough" information suffices
+- [Reading Tendency](./Trait-ReadingTendency.md) - Scanning vs reading affects scent detection
+- [Comprehension](./Trait-Comprehension.md) - Understanding content enables evaluation
+- [Working Memory](./Trait-WorkingMemory.md) - Holding goals while navigating
+- [Patience](./Trait-Patience.md) - Persistence on weak-scent paths
+- [Persona Index](../personas/Persona-Index.md) - Trait combinations in personas
 
 ## Bibliography
 

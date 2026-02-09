@@ -194,11 +194,11 @@ Research and theoretical models indicate the following correlations:
 
 ## See Also
 
-- [Trait-RiskTolerance](Trait-RiskTolerance) - Willingness to take chances (related but distinct)
-- [Trait-ReadingTendency](Trait-ReadingTendency) - Tendency to read content (skeptics read more)
-- [Trait-Patience](Trait-Patience) - Time tolerance for verification
-- [Trait-SelfEfficacy](Trait-SelfEfficacy) - Confidence may relate to trust
-- [Trait-Index](Trait-Index) - Complete trait listing
+- [Trait-RiskTolerance](./Trait-RiskTolerance.md) - Willingness to take chances (related but distinct)
+- [Trait-ReadingTendency](./Trait-ReadingTendency.md) - Tendency to read content (skeptics read more)
+- [Trait-Patience](./Trait-Patience.md) - Time tolerance for verification
+- [Trait-SelfEfficacy](./Trait-SelfEfficacy.md) - Confidence may relate to trust
+- [Trait-Index](./Trait-Index.md) - Complete trait listing
 
 ## Bibliography
 

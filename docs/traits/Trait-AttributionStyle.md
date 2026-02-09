@@ -141,12 +141,12 @@ The three dimensions create distinct patterns:
 
 | Related Trait | Correlation | Mechanism |
 |--------------|-------------|-----------|
-| [Self-Efficacy](Trait-SelfEfficacy) | r = 0.52 | Internal attribution builds confidence |
-| [Persistence](Trait-Persistence) | r = 0.41 | Internal + controllable = retry motivation |
-| [Resilience](Trait-Resilience) | r = 0.38 | Attribution style affects recovery |
-| [Trust Calibration](Trait-TrustCalibration) | r = -0.26 | External attributors distrust systems |
-| [Patience](Trait-Patience) | r = 0.23 | Internal attributors invest patience in self-improvement |
-| [Comprehension](Trait-Comprehension) | r = 0.19 | Understanding reduces need for external blame |
+| [Self-Efficacy](./Trait-SelfEfficacy.md) | r = 0.52 | Internal attribution builds confidence |
+| [Persistence](./Trait-Persistence.md) | r = 0.41 | Internal + controllable = retry motivation |
+| [Resilience](./Trait-Resilience.md) | r = 0.38 | Attribution style affects recovery |
+| [Trust Calibration](./Trait-TrustCalibration.md) | r = -0.26 | External attributors distrust systems |
+| [Patience](./Trait-Patience.md) | r = 0.23 | Internal attributors invest patience in self-improvement |
+| [Comprehension](./Trait-Comprehension.md) | r = 0.19 | Understanding reduces need for external blame |
 
 ## Persona Values
 
@@ -246,12 +246,12 @@ function decideToBugReport(issue: Issue, traits: Traits): boolean {
 
 ## See Also
 
-- [Self-Efficacy](Trait-SelfEfficacy) - Confidence in ability to succeed
-- [Persistence](Trait-Persistence) - Continued effort after setbacks
-- [Resilience](Trait-Resilience) - Recovery from failures
-- [Trust Calibration](Trait-TrustCalibration) - Trust in system reliability
-- [Interrupt Recovery](Trait-InterruptRecovery) - Resumption after disruption
-- [Persona Index](../personas/Persona-Index) - Trait combinations in personas
+- [Self-Efficacy](./Trait-SelfEfficacy.md) - Confidence in ability to succeed
+- [Persistence](./Trait-Persistence.md) - Continued effort after setbacks
+- [Resilience](./Trait-Resilience.md) - Recovery from failures
+- [Trust Calibration](./Trait-TrustCalibration.md) - Trust in system reliability
+- [Interrupt Recovery](./Trait-InterruptRecovery.md) - Resumption after disruption
+- [Persona Index](../personas/Persona-Index.md) - Trait combinations in personas
 
 ## Bibliography
 

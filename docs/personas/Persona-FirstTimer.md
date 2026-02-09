@@ -124,8 +124,8 @@ npx cbrowser cognitive-journey --persona first-timer --start https://example.com
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Curiosity](../traits/Trait-Curiosity.md)
 - [Comprehension](../traits/Trait-Comprehension.md)
 - [Risk Tolerance](../traits/Trait-RiskTolerance.md)

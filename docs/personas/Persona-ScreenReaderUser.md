@@ -126,8 +126,8 @@ npx cbrowser cognitive-journey --persona screen-reader-user --start https://exam
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Persistence](../traits/Trait-Persistence.md)
 - [Patience](../traits/Trait-Patience.md)
 - [Reading Tendency](../traits/Trait-ReadingTendency.md)

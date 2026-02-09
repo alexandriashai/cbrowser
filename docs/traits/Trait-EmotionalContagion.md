@@ -115,11 +115,11 @@ Kramer, A. D. I., Guillory, J. E., & Hancock, J. T. (2014). Experimental evidenc
 
 ## See Also
 
-- [FOMO](Trait-FOMO) - Social anxiety and urgency
-- [Resilience](Trait-Resilience) - Emotional recovery capability
-- [Social Proof Sensitivity](Trait-SocialProofSensitivity) - Influence by others' behavior
-- [Trust Calibration](Trait-TrustCalibration) - Credibility assessment
-- [Trait Index](Trait-Index) - All cognitive traits
+- [FOMO](./Trait-FOMO.md) - Social anxiety and urgency
+- [Resilience](./Trait-Resilience.md) - Emotional recovery capability
+- [Social Proof Sensitivity](./Trait-SocialProofSensitivity.md) - Influence by others' behavior
+- [Trust Calibration](./Trait-TrustCalibration.md) - Credibility assessment
+- [Trait Index](./Trait-Index.md) - All cognitive traits
 
 ## Bibliography
 

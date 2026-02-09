@@ -125,8 +125,8 @@ npx cbrowser cognitive-journey --persona impatient-user --start https://example.
 
 ## See Also
 
-- [Persona Index](Persona-Index)
-- [Trait Index](../traits/Trait-Index)
+- [Persona Index](./Persona-Index.md)
+- [Trait Index](../traits/Trait-Index.md)
 - [Patience](../traits/Trait-Patience.md)
 - [FOMO](../traits/Trait-FOMO.md)
 - [Persistence](../traits/Trait-Persistence.md)

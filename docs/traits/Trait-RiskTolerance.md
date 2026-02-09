@@ -54,8 +54,8 @@ Tversky, A., & Kahneman, D. (1992). Advances in prospect theory: Cumulative repr
 |---------------|-------------|-----------|
 | [Trust Calibration](../traits/Trait-TrustCalibration) | r = -0.48 | Risk-averse users have stricter trust requirements |
 | [Self-Efficacy](../traits/Trait-SelfEfficacy) | r = 0.35 | Confident users take more risks |
-| [Patience](Trait-Patience) | r = -0.22 | Impatient users skip risk evaluation |
-| [Curiosity](Trait-Curiosity) | r = 0.44 | Curious users accept risk to explore |
+| [Patience](./Trait-Patience.md) | r = -0.22 | Impatient users skip risk evaluation |
+| [Curiosity](./Trait-Curiosity.md) | r = 0.44 | Curious users accept risk to explore |
 | [FOMO](../traits/Trait-FOMO) | r = 0.38 | Fear of missing out overrides risk concerns |
 
 ## Prospect Theory Application
@@ -134,10 +134,10 @@ Very Risk-Seeking: Submits any form without hesitation
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
+- [Trait Index](./Trait-Index.md) - All cognitive traits
 - [Trust Calibration](../traits/Trait-TrustCalibration) - Related credibility trait
 - [Satisficing](../traits/Trait-Satisficing) - Decision-making under uncertainty
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 

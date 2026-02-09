@@ -71,10 +71,10 @@ Card, Moran, and Newell's GOMS model breaks user behavior into:
 
 | Related Trait | Correlation | Mechanism |
 |---------------|-------------|-----------|
-| [Working Memory](Trait-WorkingMemory) | r = 0.52 | Memory capacity enables complex comprehension |
+| [Working Memory](./Trait-WorkingMemory.md) | r = 0.52 | Memory capacity enables complex comprehension |
 | [Procedural Fluency](../traits/Trait-ProceduralFluency) | r = 0.61 | Comprehension enables procedure learning |
 | [Transfer Learning](../traits/Trait-TransferLearning) | r = 0.48 | Understanding enables cross-domain transfer |
-| [Reading Tendency](Trait-ReadingTendency) | r = 0.35 | Reading enables text-based comprehension |
+| [Reading Tendency](./Trait-ReadingTendency.md) | r = 0.35 | Reading enables text-based comprehension |
 | [Self-Efficacy](../traits/Trait-SelfEfficacy) | r = 0.42 | Understanding builds confidence |
 
 ## Readability and Comprehension
@@ -149,11 +149,11 @@ Very High: Debugs issues independently, consults documentation
 
 ## See Also
 
-- [Trait Index](Trait-Index) - All cognitive traits
-- [Working Memory](Trait-WorkingMemory) - Capacity for understanding
+- [Trait Index](./Trait-Index.md) - All cognitive traits
+- [Working Memory](./Trait-WorkingMemory.md) - Capacity for understanding
 - [Procedural Fluency](../traits/Trait-ProceduralFluency) - Learned comprehension
-- [Reading Tendency](Trait-ReadingTendency) - Text processing behavior
-- [Persona Index](../personas/Persona-Index) - Pre-configured personas
+- [Reading Tendency](./Trait-ReadingTendency.md) - Text processing behavior
+- [Persona Index](../personas/Persona-Index.md) - Pre-configured personas
 
 ## Bibliography
 
