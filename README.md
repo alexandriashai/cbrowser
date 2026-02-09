@@ -12,6 +12,8 @@
 
 **Built for AI agents. Trusted by humans.** The only browser automation that asks: *"Will a confused first-timer complete this task—and exactly when will they give up?"*
 
+Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI agents to navigate. The same principles that reduce user friction—clear structure, predictable patterns, accessible design—make sites more reliable for autonomous AI.
+
 ---
 
 ## What Makes CBrowser Different
