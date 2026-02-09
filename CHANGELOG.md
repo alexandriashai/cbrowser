@@ -20,6 +20,7 @@ CBrowser achieved **Grade A+** in comprehensive testing by Claude (Opus 4.6):
 
 ### Added
 
+* **mcp:** add stealth/enterprise tools to remote MCP server ([37403e9](https://github.com/alexandriashai/cbrowser/commit/37403e985958fbe073667980a2247353999a51e8))
 * **cloudflare:** `cloudflare_detect` MCP tool - detect Cloudflare challenge pages (turnstile, managed, interstitial, js-challenge)
 * **cloudflare:** `cloudflare_wait` MCP tool - wait for Cloudflare challenges to resolve with configurable timeout
 * **cloudflare:** `detectCloudflareChallenge()` and `waitForCloudflareResolution()` browser methods
