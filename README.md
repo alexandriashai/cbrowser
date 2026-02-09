@@ -1,9 +1,9 @@
 # CBrowser — Cognitive Browser Automation
 
-> **The browser automation that thinks.** After 640+ tool invocations across rigorous stress testing on 11 real-world sites, CBrowser earned a **Grade A+** assessment—19 issues tracked, 19 fixed, zero open bugs. [View Full Assessment →](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
+> **The browser automation that thinks.** v16.14.4 earned a **Grade A+** in final pre-launch stress testing—100% pass rate across 48+ tools and 60+ invocations, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
-[![Grade A+](https://img.shields.io/badge/Grade-A+-brightgreen.svg)](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
+[![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
 [![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-48%20Tools-blue)](https://modelcontextprotocol.io)
@@ -18,7 +18,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 
 ## What Makes CBrowser Different
 
-**31 of 33 tools graded A or above (5 at A+).** After 640+ tool invocations across 11 real-world sites including Spotify, Airbnb, and MDN:
+**48 tools, 15 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
 
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
