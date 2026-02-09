@@ -84,7 +84,9 @@ import { listAccessibilityPersonas, getAccessibilityPersona } from "./personas.j
 // Persona imports for cognitive journey
 import {
   getPersona,
+  getAnyPersona,
   listPersonas,
+  listAllPersonas,
   getCognitiveProfile,
   createCognitivePersona,
   saveCustomPersona,
@@ -97,6 +99,7 @@ import type {
   AbandonmentThresholds,
   CognitiveTraits,
   Persona,
+  AccessibilityPersona,
 } from "./types.js";
 
 // Performance module imports
@@ -1420,11 +1423,13 @@ Example:
     },
     async ({ url, goal, personas }) => {
       // Gather persona profiles
+      // v16.14.1: Use getAnyPersona to find personas in ALL registries
       const personaProfiles = personas.map((personaName) => {
-        const existingPersona = getPersona(personaName);
-        let personaObj: Persona;
+        const existingPersona = getAnyPersona(personaName);
+        let personaObj: Persona | AccessibilityPersona;
 
         if (!existingPersona) {
+          // Only create generic stub if persona truly doesn't exist
           personaObj = createCognitivePersona(personaName, personaName, {});
         } else {
           personaObj = existingPersona;
@@ -1696,8 +1701,9 @@ Begin with the first persona: ${personas[0]}
     },
     async ({ persona: personaName, goal, startUrl, customTraits }) => {
       // Get or create persona
-      const existingPersona = getPersona(personaName);
-      let personaObj: Persona;
+      // v16.14.1: Use getAnyPersona to find personas in ALL registries
+      const existingPersona = getAnyPersona(personaName);
+      let personaObj: Persona | AccessibilityPersona;
 
       if (!existingPersona) {
         // Create from description

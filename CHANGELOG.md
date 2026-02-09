@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.14.1] - 2026-02-09
+
+### Fixed
+- **Persona Name Mismatch Bug** - `compare_personas_init` and `cognitive_journey_init` now correctly find accessibility personas like `cognitive-adhd` instead of falling back to generic stubs
+- `getAnyPersona()` - New unified lookup function that checks ALL persona registries (custom, builtin, accessibility, emotional)
+- `listAllPersonas()` - New function to list all persona names from all registries
+- `getCognitiveProfile()` - Now accepts both `Persona` and `AccessibilityPersona` types with proper trait merging
+
+### Bug Details
+- **Symptom:** `compare_personas_init` would return flattened generic profiles for accessibility personas
+- **Root Cause:** `getPersona()` only checked `BUILTIN_PERSONAS`, not `ACCESSIBILITY_PERSONAS`
+- **Impact:** Accessibility personas like `cognitive-adhd` lost their differentiated traits (workingMemory: 0.25, patience: 0.25) and became generic 0.5 stubs
+
 ## [16.14.0](https://github.com/alexandriashai/cbrowser/compare/v16.13.0...v16.14.0) (2026-02-09)
 
 ### Added

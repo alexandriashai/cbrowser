@@ -63,7 +63,9 @@ import { listAccessibilityPersonas, getAccessibilityPersona } from "./personas.j
 // Persona imports for cognitive journey
 import {
   getPersona,
+  getAnyPersona,
   listPersonas,
+  listAllPersonas,
   getCognitiveProfile,
   createCognitivePersona,
   saveCustomPersona,
@@ -1488,8 +1490,9 @@ export async function startMcpServer(): Promise<void> {
     },
     async ({ persona: personaName, goal, startUrl, customTraits }) => {
       // Get or create persona
-      const existingPersona = getPersona(personaName);
-      let personaObj: Persona;
+      // v16.14.1: Use getAnyPersona to find personas in ALL registries
+      const existingPersona = getAnyPersona(personaName);
+      let personaObj: Persona | AccessibilityPersona;
 
       if (!existingPersona) {
         // Create from description
@@ -2372,11 +2375,14 @@ This ensures personas are grounded in research, not stereotypes.
       const sessionId = `cmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       // Build persona profiles
+      // v16.14.1: Use getAnyPersona to find personas in ALL registries
+      // (builtin, accessibility, emotional, custom) - fixes name mismatch bug
       const personas = personaNames.map(name => {
-        const existingPersona = getPersona(name);
-        let personaObj: Persona;
+        const existingPersona = getAnyPersona(name);
+        let personaObj: Persona | AccessibilityPersona;
 
         if (!existingPersona) {
+          // Only create generic stub if persona truly doesn't exist
           personaObj = createCognitivePersona(name, name, {});
         } else {
           personaObj = existingPersona;

@@ -670,7 +670,7 @@ export function createCognitivePersona(
  * Get the cognitive profile for a persona.
  * Returns cognitive traits plus attention pattern and decision style.
  */
-export function getCognitiveProfile(persona: Persona): CognitiveProfile {
+export function getCognitiveProfile(persona: Persona | AccessibilityPersona): CognitiveProfile {
   // Derive attention pattern from humanBehavior.attention.pattern or behaviors
   let attentionPattern: AttentionPatternType = "f-pattern";
   if (persona.humanBehavior?.attention?.pattern) {
@@ -700,13 +700,19 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
     }
   }
   if (traits) {
-    if (traits.patience < 0.3 && traits.riskTolerance > 0.6) {
+    // v16.14.1: Use optional chaining and defaults for Partial<CognitiveTraits> compatibility
+    const patience = traits.patience ?? 0.5;
+    const riskTolerance = traits.riskTolerance ?? 0.5;
+    const comprehension = traits.comprehension ?? 0.5;
+    const readingTendency = traits.readingTendency ?? 0.5;
+
+    if (patience < 0.3 && riskTolerance > 0.6) {
       decisionStyle = "impulsive";
-    } else if (traits.comprehension > 0.8 && traits.patience < 0.4) {
+    } else if (comprehension > 0.8 && patience < 0.4) {
       decisionStyle = "efficient";
-    } else if (traits.riskTolerance < 0.3) {
+    } else if (riskTolerance < 0.3) {
       decisionStyle = "cautious";
-    } else if (traits.readingTendency > 0.8 && traits.patience > 0.7) {
+    } else if (readingTendency > 0.8 && patience > 0.7) {
       decisionStyle = "deliberate";
     } else if (persona.demographics.device === "mobile") {
       decisionStyle = "quick-tap";
@@ -716,37 +722,41 @@ export function getCognitiveProfile(persona: Persona): CognitiveProfile {
     decisionStyle = persona.behaviors.decisionStyle as DecisionStyleType;
   }
 
+  // v16.14.1: Merge traits with defaults to ensure complete CognitiveTraits
+  // This handles both Persona (full traits) and AccessibilityPersona (partial traits)
+  const defaultTraits: CognitiveTraits = {
+    // Required traits (7)
+    patience: 0.5,
+    riskTolerance: 0.5,
+    comprehension: 0.5,
+    persistence: 0.5,
+    curiosity: 0.5,
+    workingMemory: 0.5,
+    readingTendency: 0.5,
+    // Optional traits - Tier 1: Core (v10.6.0+)
+    resilience: 0.5, // Brief Resilience Scale (Smith et al., 2008)
+    selfEfficacy: 0.5, // v16.7.1: Bandura (1977) - was missing!
+    satisficing: 0.5, // v16.7.1: Simon (1956) - was missing!
+    trustCalibration: 0.5, // v16.7.1: Fogg (2003) - was missing!
+    interruptRecovery: 0.5, // v16.7.1: Mark et al. (2005) - was missing!
+    // Optional traits - Tier 2+ (v15.0.0)
+    informationForaging: 0.5,
+    changeBlindness: 0.3,
+    anchoringBias: 0.5,
+    timeHorizon: 0.5,
+    attributionStyle: 0.5,
+    metacognitivePlanning: 0.5,
+    proceduralFluency: 0.5,
+    transferLearning: 0.5,
+    authoritySensitivity: 0.5,
+    emotionalContagion: 0.5,
+    fearOfMissingOut: 0.5,
+    socialProofSensitivity: 0.5,
+    mentalModelRigidity: 0.5,
+  };
+
   return {
-    traits: traits || {
-      // Required traits (7)
-      patience: 0.5,
-      riskTolerance: 0.5,
-      comprehension: 0.5,
-      persistence: 0.5,
-      curiosity: 0.5,
-      workingMemory: 0.5,
-      readingTendency: 0.5,
-      // Optional traits - Tier 1: Core (v10.6.0+)
-      resilience: 0.5, // Brief Resilience Scale (Smith et al., 2008)
-      selfEfficacy: 0.5, // v16.7.1: Bandura (1977) - was missing!
-      satisficing: 0.5, // v16.7.1: Simon (1956) - was missing!
-      trustCalibration: 0.5, // v16.7.1: Fogg (2003) - was missing!
-      interruptRecovery: 0.5, // v16.7.1: Mark et al. (2005) - was missing!
-      // Optional traits - Tier 2+ (v15.0.0)
-      informationForaging: 0.5,
-      changeBlindness: 0.3,
-      anchoringBias: 0.5,
-      timeHorizon: 0.5,
-      attributionStyle: 0.5,
-      metacognitivePlanning: 0.5,
-      proceduralFluency: 0.5,
-      transferLearning: 0.5,
-      authoritySensitivity: 0.5,
-      emotionalContagion: 0.5,
-      fearOfMissingOut: 0.5,
-      socialProofSensitivity: 0.5,
-      mentalModelRigidity: 0.5,
-    },
+    traits: traits ? { ...defaultTraits, ...traits } : defaultTraits,
     attentionPattern,
     decisionStyle,
     innerVoiceTemplate: persona.behaviors.innerVoiceTemplate as string | undefined,
@@ -2200,4 +2210,62 @@ export function getEmotionalPersona(name: string): Persona | undefined {
  */
 export function listEmotionalPersonas(): string[] {
   return Object.keys(EMOTIONAL_PERSONAS);
+}
+
+// ============================================================================
+// Unified Persona Lookup (v16.14.1)
+// ============================================================================
+
+/**
+ * Get ANY persona by name, checking all registries:
+ * 1. Custom personas (highest priority - user overrides)
+ * 2. Built-in personas (power-user, first-timer, etc.)
+ * 3. Accessibility personas (cognitive-adhd, motor-impairment-tremor, etc.)
+ * 4. Emotional personas (anxious-user, confident-user, etc.)
+ *
+ * v16.14.1: Fixes persona name mismatch bug where compare_personas_init
+ * couldn't find accessibility personas like "cognitive-adhd" because
+ * getPersona() only checked BUILTIN_PERSONAS.
+ *
+ * @param name Persona name to look up
+ * @returns Persona object or undefined if not found
+ */
+export function getAnyPersona(name: string): Persona | AccessibilityPersona | undefined {
+  // 1. Check custom personas first (user overrides)
+  const customPersonas = loadCustomPersonas();
+  if (customPersonas[name]) {
+    return customPersonas[name];
+  }
+
+  // 2. Check built-in personas
+  if (BUILTIN_PERSONAS[name]) {
+    return BUILTIN_PERSONAS[name];
+  }
+
+  // 3. Check accessibility personas
+  if (ACCESSIBILITY_PERSONAS[name]) {
+    return ACCESSIBILITY_PERSONAS[name];
+  }
+
+  // 4. Check emotional personas
+  if (EMOTIONAL_PERSONAS[name]) {
+    return EMOTIONAL_PERSONAS[name];
+  }
+
+  return undefined;
+}
+
+/**
+ * List ALL persona names from all registries.
+ *
+ * @returns Combined list of all available persona names
+ */
+export function listAllPersonas(): string[] {
+  const builtinNames = Object.keys(BUILTIN_PERSONAS);
+  const accessibilityNames = Object.keys(ACCESSIBILITY_PERSONAS);
+  const emotionalNames = Object.keys(EMOTIONAL_PERSONAS);
+  const customNames = Object.keys(loadCustomPersonas());
+
+  // Combine and dedupe
+  return [...new Set([...builtinNames, ...accessibilityNames, ...emotionalNames, ...customNames])];
 }
