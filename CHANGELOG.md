@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [16.14.4](https://github.com/alexandriashai/cbrowser/compare/v16.14.2...v16.14.4) (2026-02-09)
+
+### Fixed
+
+* **values:** persona name alias support v16.14.3 ([939b934](https://github.com/alexandriashai/cbrowser/commit/939b934166780ce7aa360ec3ce9e38f39ebece3c))
+
 ## [16.14.3] - 2026-02-09
 
 ### Fixed
