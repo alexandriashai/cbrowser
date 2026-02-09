@@ -44,6 +44,7 @@ import {
 import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
+import { createApp as createNativeAuthApp } from "./mcp-server-native-auth.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { getStatusInfo, formatStatus, getDataDir } from "./config.js";
 import { printEnterpriseStatus } from "./stealth/index.js";
@@ -577,6 +578,9 @@ MCP SERVER (v5.0.0)
   mcp-remote                  Start remote HTTP MCP server for claude.ai connectors
     --port <port>             Port to listen on (default: 3000)
     --host <host>             Host to bind to (default: 0.0.0.0)
+  mcp-native-auth             Start MCP server with native SDK OAuth (Express-based)
+                              Uses MCP SDK's mcpAuthRouter with ProxyOAuthServerProvider
+                              Requires AUTH0_DOMAIN and AUTH0_AUDIENCE environment vars
 
 CLAUDE SKILL INSTALLATION & SYNC
   install-skill               Install CBrowser as a Claude skill to ~/.claude/skills/
@@ -1027,6 +1031,25 @@ async function main(): Promise<void> {
     if (options.host) process.env.HOST = String(options.host);
     if (options.stateful) process.env.MCP_SESSION_MODE = "stateful";
     await startRemoteMcpServer();
+    return;
+  }
+
+  // Native Auth MCP Server mode - Express-based with MCP SDK OAuth router
+  if (command === "mcp-native-auth") {
+    if (options.port) process.env.PORT = String(options.port);
+    if (options.host) process.env.HOST = String(options.host);
+    // Dynamically import and run the native auth server
+    const { createApp } = await import("./mcp-server-native-auth.js");
+    const app = createApp();
+    const PORT = parseInt(process.env.PORT || "3000", 10);
+    const HOST = process.env.HOST || "0.0.0.0";
+    const { createServer } = await import("node:http");
+    const server = createServer(app);
+    server.listen(PORT, HOST, () => {
+      console.log(`[Native Auth] MCP Server running at http://${HOST}:${PORT}`);
+    });
+    // Keep process running
+    await new Promise(() => {});
     return;
   }
 
