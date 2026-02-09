@@ -106,12 +106,16 @@ CBrowser models 25 research-backed cognitive traits to simulate how real users t
 |-------|---------------|----------------|
 | **Patience** | — | How quickly users abandon on friction |
 | **Frustration** | — | Accumulates with errors, decays with success |
-| **Decision Fatigue** | Baumeister's ego depletion | Users start choosing defaults after too many decisions |
-| **Dual-Process Thinking** | Kahneman (Nobel Prize) | System 1 (fast/automatic) vs System 2 (slow/deliberate) |
+| **Decision Fatigue** | Baumeister et al. (1998)* | Users start choosing defaults after too many decisions |
+| **Dual-Process Thinking** | Kahneman (2011) | System 1 (fast/automatic) vs System 2 (slow/deliberate) |
 | **Self-Efficacy** | Bandura (1977) | Belief in ability to solve problems; low = faster abandonment |
 | **Satisficing** | Simon (1956) | Accept "good enough" vs. optimize; satisficers decide 50% faster |
 | **Trust Calibration** | Fogg (2003) | Baseline trust affects click-through by 40% |
 | **Interrupt Recovery** | Mark et al. (2005) | Average recovery time 23min; models context preservation |
+
+*\*Note: Ego depletion research has faced [replication challenges](https://doi.org/10.1177/1745691616652873). CBrowser uses a simplified decision fatigue model focused on observable choice patterns.*
+
+**Full documentation:** [Research Methodology](https://github.com/alexandriashai/cbrowser/wiki/Research-Methodology) · [Trait Index](https://github.com/alexandriashai/cbrowser/wiki/Trait-Index) · [Bibliography](https://github.com/alexandriashai/cbrowser/wiki/Bibliography)
 
 ### Abandonment Detection
 
@@ -454,3 +458,9 @@ For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.sha
 - [A+ Assessment Report](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
 - [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 - [Roadmap](ROADMAP.md)
+
+### Research Documentation
+
+- [Research Methodology](https://github.com/alexandriashai/cbrowser/wiki/Research-Methodology) — How 25 traits were selected and validated
+- [Trait Index](https://github.com/alexandriashai/cbrowser/wiki/Trait-Index) — All cognitive traits with citations
+- [Bibliography](https://github.com/alexandriashai/cbrowser/wiki/Bibliography) — Complete academic references
