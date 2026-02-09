@@ -21,11 +21,11 @@
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
 | **Natural Language Tests** | ⭐ Best-in-class | Write tests in plain English. 10-step E2E flows run 100% stable. |
-| **Cognitive User Simulation** | 🔬 Novel | 12 research-backed traits model real human behavior—not just clicks. |
+| **Cognitive User Simulation** | 🔬 Novel | 25 research-backed traits model real human behavior—not just clicks. |
 | **Empathy Accessibility Audits** | 🔬 Novel | Simulate users with tremors, low vision, ADHD. No competitor offers this. |
 | **Self-Healing Selectors** | ✅ Production-ready | ARIA-first with 0.8+ confidence gating. Handles DOM changes automatically. |
 | **Constitutional AI Safety** | 🔬 Novel | Risk-classified actions prevent autonomous agents from doing damage. |
-| **45 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
+| **48 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
 
 ---
 
@@ -271,7 +271,7 @@ Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 }
 ```
 
-### 45 MCP Tools
+### 48 MCP Tools
 
 | Category | Tools |
 |----------|-------|
