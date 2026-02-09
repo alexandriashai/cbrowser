@@ -8,7 +8,25 @@ Intelligent data extraction from web pages using AI understanding.
 
 - "extract", "get data", "scrape"
 - "pull information", "grab content"
-- `bun run Tools/CBrowser.ts extract <what>`
+
+---
+
+## Invocation Methods
+
+### Option 1: Local Tool (Primary)
+```bash
+bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts extract "all product names"
+```
+
+### Option 2: CLI (Fallback)
+```bash
+npx cbrowser extract "https://example.com" --selector "all product names"
+```
+
+### Option 3: MCP (Alternative - when MCP server is running)
+```
+mcp__claude_ai_CBrowser_Demo__extract(url: "https://example.com", selector: "all product names")
+```
 
 ---
 

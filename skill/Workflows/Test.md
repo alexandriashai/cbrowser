@@ -344,6 +344,30 @@ bun run Tools/CBrowser.ts test suite "critical-paths"
 
 ---
 
+## npm Package Test Features (v7.4.15-7.4.17)
+
+The npm package (`npx cbrowser`) provides additional test flags:
+
+```bash
+# Dry run: parse and display test steps without executing
+npx cbrowser test-suite tests.txt --dry-run
+
+# Fuzzy matching: case-insensitive, whitespace-normalized text assertions
+npx cbrowser test-suite tests.txt --fuzzy-match
+
+# Step-through: interactive step-by-step execution (Enter=execute, s=skip, q=quit)
+npx cbrowser test-suite tests.txt --step-through
+
+# Verbose debugging: on failure, shows available elements and AI suggestions
+npx cbrowser click "search button" --verbose
+npx cbrowser fill "email" "test" --verbose --debug-dir ./debug
+
+# Dismiss overlays before interacting
+npx cbrowser click "Add to Cart" --dismiss-overlays --url https://example.com
+```
+
+---
+
 ## CI/CD Integration
 
 ```yaml

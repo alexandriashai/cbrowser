@@ -8,7 +8,25 @@ Smart navigation with AI wait detection and session awareness.
 
 - "navigate to", "go to", "open"
 - URL provided directly
-- `bun run Tools/CBrowser.ts navigate <url>`
+
+---
+
+## Invocation Methods
+
+### Option 1: Local Tool (Primary)
+```bash
+bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts navigate "https://example.com"
+```
+
+### Option 2: CLI (Fallback)
+```bash
+npx cbrowser navigate "https://example.com"
+```
+
+### Option 3: MCP (Alternative - when MCP server is running)
+```
+mcp__claude_ai_CBrowser_Demo__navigate(url: "https://example.com")
+```
 
 ---
 
@@ -25,7 +43,7 @@ Smart navigation with AI wait detection and session awareness.
 │     └─ Load session if exists                               │
 │                                                             │
 │  2. NAVIGATE                                                │
-│     ├─ Use mcp__claude-in-chrome__navigate                  │
+│     ├─ Use CBrowser navigate (MCP or CLI)                   │
 │     ├─ Wait for network idle                                │
 │     └─ Handle redirects                                     │
 │                                                             │
@@ -110,24 +128,35 @@ Original URL → Redirect detected?
 
 ## Usage
 
-### Basic Navigation
+### MCP (Preferred when available)
+
+```
+# Basic navigation
+mcp__claude_ai_CBrowser_Demo__navigate(url: "https://example.com")
+
+# With session - load first, then navigate
+mcp__claude_ai_CBrowser_Demo__load_session(name: "github-dev")
+mcp__claude_ai_CBrowser_Demo__navigate(url: "https://github.com/settings")
+```
+
+### CLI (Fallback)
+
+```bash
+# Basic navigation
+npx cbrowser navigate "https://example.com"
+
+# With session
+npx cbrowser session load "github-dev"
+npx cbrowser navigate "https://github.com/settings"
+
+# Navigate and wait for element
+npx cbrowser navigate "https://example.com" --wait-for "main content area"
+```
+
+### Local Tool (Development)
 
 ```bash
 bun run Tools/CBrowser.ts navigate "https://example.com"
-```
-
-### With Session
-
-```bash
-# Load existing session and navigate
-bun run Tools/CBrowser.ts session load "github-dev"
-bun run Tools/CBrowser.ts navigate "https://github.com/settings"
-```
-
-### Navigate and Wait for Element
-
-```bash
-bun run Tools/CBrowser.ts navigate "https://example.com" --wait-for "main content area"
 ```
 
 ---

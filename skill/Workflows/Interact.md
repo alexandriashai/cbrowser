@@ -8,7 +8,29 @@ AI-guided interactions with page elements using natural language.
 
 - "click", "fill", "submit", "type"
 - "interact with", "select", "toggle"
-- `bun run Tools/CBrowser.ts <action> <target>`
+
+---
+
+## Invocation Methods
+
+### Option 1: Local Tool (Primary)
+```bash
+bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts click "the blue login button"
+bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts fill "email input" "user@example.com"
+```
+
+### Option 2: CLI (Fallback)
+```bash
+npx cbrowser click "the blue login button"
+npx cbrowser fill "email input" "user@example.com"
+```
+
+### Option 3: MCP (Alternative - when MCP server is running)
+```
+mcp__claude_ai_CBrowser_Demo__click(selector: "the blue login button")
+mcp__claude_ai_CBrowser_Demo__fill(selector: "email input", value: "user@example.com")
+mcp__claude_ai_CBrowser_Demo__smart_click(selector: "Submit", dismissOverlays: true)
+```
 
 ---
 
@@ -261,6 +283,43 @@ Or use persona defaults:
 ```bash
 bun run Tools/CBrowser.ts fill-form "registration" --persona provider-signup
 # Uses test data from persona definition
+```
+
+---
+
+## Verbose Debugging (v7.4.16)
+
+When an interaction fails, use `--verbose` to see available elements and AI suggestions:
+
+```bash
+# Click with verbose feedback
+npx cbrowser click "search button" --url https://example.com --verbose
+
+# Fill with verbose feedback
+npx cbrowser fill "email" "user@test.com" --url https://example.com --verbose
+
+# Save debug screenshots to a directory
+npx cbrowser click "submit" --verbose --debug-dir ./debug
+```
+
+Verbose mode shows:
+- Available clickable elements (tag, text, selector)
+- Available input fields (type, name, placeholder, label)
+- AI-generated suggestions for the correct selector
+- Debug screenshot with green highlights on available elements
+
+## Overlay Dismissal (v7.4.14)
+
+Dismiss modal overlays before interacting:
+
+```bash
+# Auto-dismiss overlays before clicking
+npx cbrowser click "Add to Cart" --dismiss-overlays --url https://example.com
+
+# Dismiss specific overlay type
+npx cbrowser dismiss-overlay --type cookie --url https://example.com
+npx cbrowser dismiss-overlay --type age-verify --url https://example.com
+npx cbrowser dismiss-overlay --type newsletter --url https://example.com
 ```
 
 ---

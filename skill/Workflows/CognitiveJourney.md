@@ -42,22 +42,46 @@ Activate this workflow when request contains:
 
 ---
 
+## Invocation Methods
+
+### Option 1: Local Tool (Primary)
+```bash
+bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts cognitive-journey \
+  --persona first-timer \
+  --start "https://example.com" \
+  --goal "find help documentation"
+```
+
+### Option 2: CLI (Fallback)
+```bash
+npx cbrowser cognitive-journey --persona first-timer --start "https://example.com" --goal "find help documentation"
+```
+
+### Option 3: MCP (Alternative - when MCP server is running)
+```
+mcp__claude_ai_CBrowser_Demo__cognitive_journey_init(
+  persona: "first-timer",
+  goal: "find help documentation",
+  startUrl: "https://example.com"
+)
+```
+
+---
+
 ## MCP Tools Available
 
-Use these `mcp__chrome-devtools__*` tools during simulation:
+Use these CBrowser MCP tools during simulation:
 
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
-| `navigate_page` | Go to URL | Start journey, follow links |
-| `take_snapshot` | Get accessibility tree | "See" the page as the persona |
-| `take_screenshot` | Visual screenshot | Complex visual decisions, confusion points |
-| `click` | Click element by uid | Execute click decision |
-| `fill` | Type in input | Fill forms |
-| `hover` | Hover over element | Curious personas exploring |
-| `press_key` | Keyboard input | Screen reader nav, shortcuts |
-| `wait_for` | Wait for text | After actions, wait for page update |
-| `list_pages` | Get available pages | Setup check |
-| `select_page` | Focus on page | Multi-tab scenarios |
+| `mcp__claude_ai_CBrowser_Demo__navigate` | Go to URL | Start journey, follow links |
+| `mcp__claude_ai_CBrowser_Demo__screenshot` | Visual screenshot | Complex visual decisions, confusion points |
+| `mcp__claude_ai_CBrowser_Demo__click` | Click element | Execute click decision |
+| `mcp__claude_ai_CBrowser_Demo__smart_click` | Click with retry | Self-healing click |
+| `mcp__claude_ai_CBrowser_Demo__fill` | Type in input | Fill forms |
+| `mcp__claude_ai_CBrowser_Demo__extract` | Get page content | "See" the page as the persona |
+| `mcp__claude_ai_CBrowser_Demo__cognitive_journey_update_state` | Update cognitive state | After each action |
+| `mcp__claude_ai_CBrowser_Demo__list_cognitive_personas` | List personas | Check available personas |
 
 ---
 
