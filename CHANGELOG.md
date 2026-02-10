@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.2.0](https://github.com/alexandriashai/cbrowser/compare/v17.1.0...v17.2.0) (2026-02-10)
+
+### Added
+
+* **cli:** add structured AskUserQuestion prompt for missing API key ([79af369](https://github.com/alexandriashai/cbrowser/commit/79af3699b3fdadf151d87742e06b381eee1d0547))
+
 ## [17.1.0](https://github.com/alexandriashai/cbrowser/compare/v17.0.0...v17.1.0) (2026-02-10)
 
 ### Added
