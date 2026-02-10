@@ -3828,7 +3828,17 @@ export class CBrowser {
     const match = assertion.match(/["']([^"']+)["']/);
     if (match) {
       const expected = match[1];
-      const content = await page.textContent("body") || "";
+      // v17.3.2: Use same filtered text extraction as "page contains" assertions
+      // This normalizes whitespace and removes script/style content
+      const content = await page.evaluate(() => {
+        const clone = document.body.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+        // Get innerText (normalizes whitespace) and clean it up
+        let text = clone.innerText || clone.textContent || "";
+        // Normalize whitespace: collapse multiple spaces/newlines to single space
+        text = text.replace(/[\n\t\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return text;
+      }) || "";
       const passed = content.toLowerCase().includes(expected.toLowerCase());
 
       return { passed, assertion, expected, message: passed ? `Found "${expected}"` : `Did not find "${expected}"` };
