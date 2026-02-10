@@ -119,7 +119,7 @@ export async function comparePersonas(
     maxTime = 120,
     maxConcurrency = 2, // Lower default for API rate limits
     headless = true,
-    vision = false,
+    vision = true, // Vision ON by default (v17.1.0) - text-only misses rendered content
   } = options;
 
   // Check API key

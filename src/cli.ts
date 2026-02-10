@@ -4752,12 +4752,39 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "cognitive-journey": {
         // Check API key first
         if (!isApiKeyConfigured()) {
-          console.error("❌ Anthropic API key not configured.");
-          console.error("");
-          console.error("Set your API key with:");
-          console.error("  cbrowser config set-api-key sk-ant-...");
-          console.error("");
-          console.error("Or set the ANTHROPIC_API_KEY environment variable.");
+          // Output structured prompt for Claude Code integration
+          // Format matches Claude Agent SDK's AskUserQuestion tool
+          const apiKeyPrompt = {
+            questions: [
+              {
+                question: "Cognitive journeys require an Anthropic API key. How would you like to proceed?",
+                header: "API Key",
+                options: [
+                  {
+                    label: "I'll provide my API key",
+                    description: "Set with: cbrowser config set-api-key sk-ant-..."
+                  },
+                  {
+                    label: "Set via environment",
+                    description: "Set ANTHROPIC_API_KEY environment variable"
+                  },
+                  {
+                    label: "Cancel",
+                    description: "Skip this journey for now"
+                  }
+                ],
+                multiSelect: false
+              }
+            ],
+            _metadata: {
+              error: "api_key_missing",
+              setup_command: "cbrowser config set-api-key <YOUR_KEY>",
+              env_var: "ANTHROPIC_API_KEY"
+            }
+          };
+
+          // Output JSON for Claude Code to parse
+          console.log(JSON.stringify(apiKeyPrompt, null, 2));
           process.exit(1);
         }
 
