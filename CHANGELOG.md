@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.3.1](https://github.com/alexandriashai/cbrowser/compare/v17.3.0...v17.3.1) (2026-02-10)
+
+### Fixed
+
+* **mcp:** redirect console.log to stderr for stdio transport ([69344b7](https://github.com/alexandriashai/cbrowser/commit/69344b795c1e5bd0b014c9826071675655321d16))
+
 ## [17.3.0](https://github.com/alexandriashai/cbrowser/compare/v17.2.0...v17.3.0) (2026-02-10)
 
 ### Added
