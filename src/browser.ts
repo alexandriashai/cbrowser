@@ -2805,8 +2805,17 @@ export class CBrowser {
 
       // Strategy 3: Set value directly via JavaScript (last resort)
       // v14.3.0: Use native setter + InputEvent for React compatibility
+      // v17.4.1: Enhanced event dispatch for jQuery/vanilla JS compatibility
       await hiddenInput.evaluate((el: Element, val: string) => {
         const input = el as HTMLInputElement;
+
+        // Focus the element first (required for many event listeners)
+        input.focus();
+        el.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+        el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+        // Clear existing value
+        input.value = '';
 
         // Get the native value setter to bypass React's synthetic property
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -2825,14 +2834,35 @@ export class CBrowser {
           input.value = val;
         }
 
-        // Dispatch InputEvent (more specific than Event, better React compatibility)
+        // Dispatch comprehensive events for framework compatibility
+        // 1. KeyboardEvents (jQuery and vanilla JS often listen to these)
+        const lastChar = val.slice(-1);
+        const keyboardEventInit = {
+          bubbles: true,
+          cancelable: true,
+          key: lastChar,
+          code: `Key${lastChar.toUpperCase()}`,
+          keyCode: lastChar.charCodeAt(0),
+          which: lastChar.charCodeAt(0),
+        };
+        el.dispatchEvent(new KeyboardEvent('keydown', keyboardEventInit));
+        el.dispatchEvent(new KeyboardEvent('keypress', keyboardEventInit));
+        el.dispatchEvent(new KeyboardEvent('keyup', keyboardEventInit));
+
+        // 2. InputEvent (React and modern frameworks)
         el.dispatchEvent(new InputEvent('input', {
           bubbles: true,
           cancelable: true,
           inputType: 'insertText',
           data: val
         }));
+
+        // 3. Change event (form validation, jQuery .change())
         el.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // 4. Blur events (trigger validation on blur)
+        el.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+        el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
       }, value);
 
       return { success: true, strategy: 'js-value-set' };
