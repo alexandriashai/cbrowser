@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.3.0](https://github.com/alexandriashai/cbrowser/compare/v17.2.0...v17.3.0) (2026-02-10)
+
+### Added
+
+* **mcp:** add scroll tool and persona creation to MCP servers ([b6fd565](https://github.com/alexandriashai/cbrowser/commit/b6fd5650435c9e083145bca608a58fb598cdd58d))
+
 ## [17.2.0](https://github.com/alexandriashai/cbrowser/compare/v17.1.0...v17.2.0) (2026-02-10)
 
 ### Added
