@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.1.0](https://github.com/alexandriashai/cbrowser/compare/v17.0.0...v17.1.0) (2026-02-10)
+
+### Added
+
+* **cli:** read CBROWSER_CUSTOM_TRAITS env var for custom trait profiles ([b3eb844](https://github.com/alexandriashai/cbrowser/commit/b3eb84467fb95ad64812baedf7d691b01ce3833e))
+
 ## [17.0.0](https://github.com/alexandriashai/cbrowser/compare/v16.18.0...v17.0.0) (2026-02-09)
 
 ### ⚠ BREAKING CHANGES
