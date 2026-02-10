@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.4.1](https://github.com/alexandriashai/cbrowser/compare/v17.4.0...v17.4.1) (2026-02-10)
+
+### Fixed
+
+* **fill:** dispatch comprehensive events for js-value-set strategy ([d913eeb](https://github.com/alexandriashai/cbrowser/commit/d913eeb388209bd7775ae4b840839fb81e300890))
+
 ## [17.4.0](https://github.com/alexandriashai/cbrowser/compare/v17.3.3...v17.4.0) (2026-02-10)
 
 ### Added
