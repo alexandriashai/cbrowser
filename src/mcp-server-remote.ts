@@ -548,6 +548,80 @@ function configureMcpTools(server: McpServer): void {
     }
   );
 
+  server.tool(
+    "scroll",
+    "Scroll the page in a direction. Use when content might be below the fold or to navigate long pages.",
+    {
+      direction: z.enum(["down", "up", "top", "bottom"]).default("down").describe("Scroll direction: down (400px), up (400px), top (page start), bottom (page end)"),
+      amount: z.number().optional().describe("Custom scroll amount in pixels (overrides direction default)"),
+    },
+    async ({ direction, amount }) => {
+      const b = await getBrowser();
+      const page = await b.getPage();
+
+      const scrollAmount = amount || 400;
+      let scrollPosition = 0;
+      let maxScroll = 0;
+
+      try {
+        switch (direction) {
+          case "top":
+            await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+            break;
+          case "bottom":
+            await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+            break;
+          case "up":
+            await page.evaluate((amt) => window.scrollBy({ top: -amt, behavior: "smooth" }), scrollAmount);
+            break;
+          case "down":
+          default:
+            await page.evaluate((amt) => window.scrollBy({ top: amt, behavior: "smooth" }), scrollAmount);
+            break;
+        }
+
+        // Wait for scroll animation
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Get final scroll position
+        const scrollInfo = await page.evaluate(() => ({
+          scrollY: window.scrollY,
+          maxScroll: document.body.scrollHeight - window.innerHeight,
+        }));
+        scrollPosition = scrollInfo.scrollY;
+        maxScroll = scrollInfo.maxScroll;
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: true,
+                direction,
+                scrollPosition,
+                maxScroll,
+                atTop: scrollPosition <= 0,
+                atBottom: scrollPosition >= maxScroll - 10,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: false,
+                error: (error as Error).message,
+              }, null, 2),
+            },
+          ],
+        };
+      }
+    }
+  );
+
   // =========================================================================
   // Extraction Tools
   // =========================================================================
@@ -2832,13 +2906,32 @@ async function handleMcpRequest(
       chunks.push(chunk);
     }
     const body = Buffer.concat(chunks).toString("utf-8");
-    const parsedBody = body ? JSON.parse(body) : undefined;
+
+    // Safely parse JSON - reject malformed requests gracefully
+    let parsedBody: Record<string, unknown> | undefined;
+    try {
+      parsedBody = body ? JSON.parse(body) : undefined;
+    } catch (parseError) {
+      console.error(`Invalid JSON in request body: ${(parseError as Error).message}`);
+      console.error(`Body preview: ${body.substring(0, 100)}...`);
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        error: {
+          code: -32700,
+          message: "Parse error: Invalid JSON in request body",
+        },
+        id: null,
+      }));
+      return;
+    }
 
     // Log request details
-    const method = parsedBody?.method || "unknown";
+    const method = (parsedBody?.method as string) || "unknown";
     let logLine = `← ${method}`;
-    if (method === "tools/call" && parsedBody?.params?.name) {
-      logLine += ` [${parsedBody.params.name}]`;
+    const params = parsedBody?.params as Record<string, unknown> | undefined;
+    if (method === "tools/call" && params?.name) {
+      logLine += ` [${params.name}]`;
     }
     if (method === "notifications/initialized") {
       logLine = `← session initialized`;

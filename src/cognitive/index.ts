@@ -870,7 +870,7 @@ RESPONSE FORMAT (JSON):
 {
   "phase": "perceive|comprehend|decide|execute|evaluate",
   "monologue": "Internal thought as this persona (first person)",
-  "action": "click:selector|hover:selector|fill:selector:value|navigate:url|null",
+  "action": "click:selector|hover:selector|fill:selector:value|navigate:url|scroll:direction|null",
   "actionTarget": "description of what you're clicking/filling",
   "goalAchieved": boolean,
   "goalProgress": 0.0-1.0,
@@ -888,6 +888,7 @@ ACTIONS:
   IMPORTANT: For <select> dropdowns, use fill with the option text (e.g., fill:Gender:Female)
   Do NOT click on select dropdowns - use fill directly with the desired option value
 - navigate:url - Go to a URL directly
+- scroll:direction - Scroll the page (direction: down, up, bottom, top)
 
 ABANDONMENT THRESHOLDS:
 - If patience drops below ${thresholds.patienceMin}, give up
@@ -984,6 +985,7 @@ Based on the page content, AVAILABLE ELEMENTS, and FORM INPUTS above, what do yo
 - To click: use "click:ElementText"
 - To fill a form field: use "fill:FieldName:value"
 - To navigate: use "navigate:URL"
+- To scroll (if goal content might be below): use "scroll:down" or "scroll:up"
 Respond in JSON format.`;
 }
 
@@ -1213,6 +1215,35 @@ async function executeAction(
       const url = args.join(":");
       const result = await browser.navigate(url);
       return { success: true, newUrl: result.url };
+    }
+    case "scroll": {
+      // Scroll action for cognitive journeys (v17.3.0)
+      // Directions: down, up, bottom, top
+      const direction = args[0]?.toLowerCase() || "down";
+      const page = await browser.getPage();
+
+      try {
+        switch (direction) {
+          case "top":
+            await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+            break;
+          case "bottom":
+            await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+            break;
+          case "up":
+            await page.evaluate(() => window.scrollBy({ top: -400, behavior: "smooth" }));
+            break;
+          case "down":
+          default:
+            await page.evaluate(() => window.scrollBy({ top: 400, behavior: "smooth" }));
+            break;
+        }
+        // Wait for scroll animation
+        await sleep(300);
+        return { success: true };
+      } catch {
+        return { success: false };
+      }
     }
     default:
       // Unknown action type, skip

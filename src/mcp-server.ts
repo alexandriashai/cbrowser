@@ -116,6 +116,15 @@ import {
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
 
+// Persona questionnaire imports
+import {
+  generatePersonaQuestionnaire,
+  buildTraitsFromAnswers,
+  TRAIT_REFERENCE_MATRIX,
+  deriveValuesFromTraits,
+  type QuestionnaireQuestion,
+} from "./persona-questionnaire.js";
+
 // Shared browser instance
 let browser: CBrowser | null = null;
 
@@ -214,6 +223,173 @@ async function withRetry<T>(
   }
 
   throw lastError;
+}
+
+// =========================================================================
+// Persona Questionnaire Session Management
+// =========================================================================
+
+interface ValueQuestion {
+  id: string;
+  value: string;
+  question: string;
+  options: Array<{ value: number; label: string; description: string }>;
+}
+
+const VALUES_QUESTIONS: ValueQuestion[] = [
+  {
+    id: "security", value: "security",
+    question: "How important is safety and stability to this persona?",
+    options: [
+      { value: 0.0, label: "Not Important", description: "Takes risks freely, ignores safety warnings" },
+      { value: 0.33, label: "Somewhat Important", description: "Considers safety but willing to take chances" },
+      { value: 0.67, label: "Important", description: "Prefers established, secure options" },
+      { value: 1.0, label: "Very Important", description: "Prioritizes safety above almost everything" },
+    ],
+  },
+  {
+    id: "stimulation", value: "stimulation",
+    question: "How much does this persona seek excitement and novelty?",
+    options: [
+      { value: 0.0, label: "Avoids", description: "Prefers predictable, calm experiences" },
+      { value: 0.33, label: "Occasionally", description: "Open to new things but not seeking them" },
+      { value: 0.67, label: "Seeks", description: "Actively looks for new and exciting experiences" },
+      { value: 1.0, label: "Craves", description: "Constantly seeking stimulation and novelty" },
+    ],
+  },
+  {
+    id: "achievement", value: "achievement",
+    question: "How driven is this persona by personal success and competence?",
+    options: [
+      { value: 0.0, label: "Not Driven", description: "Success is not a priority" },
+      { value: 0.33, label: "Moderately", description: "Likes to succeed but not at all costs" },
+      { value: 0.67, label: "Driven", description: "Works hard to demonstrate competence" },
+      { value: 1.0, label: "Highly Driven", description: "Success and achievement are paramount" },
+    ],
+  },
+  {
+    id: "conformity", value: "conformity",
+    question: "How much does this persona follow social expectations and norms?",
+    options: [
+      { value: 0.0, label: "Independent", description: "Makes own rules, ignores conventions" },
+      { value: 0.33, label: "Flexible", description: "Follows norms when convenient" },
+      { value: 0.67, label: "Compliant", description: "Generally follows social expectations" },
+      { value: 1.0, label: "Traditional", description: "Strongly adheres to social norms" },
+    ],
+  },
+  {
+    id: "hedonism", value: "hedonism",
+    question: "How much does this persona prioritize pleasure and enjoyment?",
+    options: [
+      { value: 0.0, label: "Practical", description: "Prioritizes function over pleasure" },
+      { value: 0.33, label: "Balanced", description: "Enjoys pleasure but not a priority" },
+      { value: 0.67, label: "Pleasure-Seeking", description: "Actively seeks enjoyable experiences" },
+      { value: 1.0, label: "Hedonistic", description: "Pleasure and enjoyment are top priorities" },
+    ],
+  },
+  {
+    id: "power", value: "power",
+    question: "How important is social status and influence to this persona?",
+    options: [
+      { value: 0.0, label: "Not Important", description: "Doesn't care about status or control" },
+      { value: 0.33, label: "Minor Concern", description: "Aware of status but not driven by it" },
+      { value: 0.67, label: "Important", description: "Values influence and recognition" },
+      { value: 1.0, label: "Critical", description: "Status and control are major motivators" },
+    ],
+  },
+  {
+    id: "tradition", value: "tradition",
+    question: "How much does this persona value cultural and family traditions?",
+    options: [
+      { value: 0.0, label: "Progressive", description: "Embraces change, questions traditions" },
+      { value: 0.33, label: "Moderate", description: "Respects traditions but open to change" },
+      { value: 0.67, label: "Traditional", description: "Values and maintains traditions" },
+      { value: 1.0, label: "Strongly Traditional", description: "Traditions are core to identity" },
+    ],
+  },
+  {
+    id: "benevolence", value: "benevolence",
+    question: "How much does this persona prioritize caring for close others?",
+    options: [
+      { value: 0.0, label: "Self-Focused", description: "Prioritizes own needs over others" },
+      { value: 0.33, label: "Balanced", description: "Cares for others when convenient" },
+      { value: 0.67, label: "Caring", description: "Actively helps and supports close others" },
+      { value: 1.0, label: "Devoted", description: "Others' welfare is a top priority" },
+    ],
+  },
+  {
+    id: "universalism", value: "universalism",
+    question: "How much does this persona care about broader social and environmental issues?",
+    options: [
+      { value: 0.0, label: "Narrow Focus", description: "Focuses on immediate concerns only" },
+      { value: 0.33, label: "Aware", description: "Somewhat concerned about broader issues" },
+      { value: 0.67, label: "Engaged", description: "Actively considers social/environmental impact" },
+      { value: 1.0, label: "Activist", description: "Deeply committed to social justice and environment" },
+    ],
+  },
+  {
+    id: "selfDirection", value: "selfDirection",
+    question: "How much does this persona value independence and autonomy?",
+    options: [
+      { value: 0.0, label: "Guided", description: "Prefers clear direction from others" },
+      { value: 0.33, label: "Moderate", description: "Likes some guidance but can be independent" },
+      { value: 0.67, label: "Independent", description: "Prefers making own choices" },
+      { value: 1.0, label: "Autonomous", description: "Strongly values independence and self-reliance" },
+    ],
+  },
+];
+
+interface QuestionnaireSession {
+  personaName: string;
+  questions: QuestionnaireQuestion[];
+  valueQuestions: ValueQuestion[];
+  answers: Record<string, number>;
+  valueAnswers: Record<string, number>;
+  currentIndex: number;
+  phase: "traits" | "values";
+  comprehensive: boolean;
+  startedAt: number;
+  lastQuestionAskedAt: number;
+}
+
+const questionnaireSessionsMap = new Map<string, QuestionnaireSession>();
+
+function getQuestionnaireSession(sessionId: string): QuestionnaireSession | undefined {
+  return questionnaireSessionsMap.get(sessionId);
+}
+
+function setQuestionnaireSession(sessionId: string, session: QuestionnaireSession): void {
+  questionnaireSessionsMap.set(sessionId, session);
+}
+
+function clearQuestionnaireSession(sessionId: string): void {
+  questionnaireSessionsMap.delete(sessionId);
+}
+
+function getTraitHeader(trait: string): string {
+  const headers: Record<string, string> = {
+    patience: "Patience", riskTolerance: "Risk", comprehension: "Comprehension",
+    persistence: "Persistence", curiosity: "Curiosity", workingMemory: "Memory",
+    readingTendency: "Reading", resilience: "Resilience", selfEfficacy: "Confidence",
+    satisficing: "Decisions", trustCalibration: "Trust", interruptRecovery: "Focus",
+    informationForaging: "Search Style", changeBlindness: "Awareness", anchoringBias: "Anchoring",
+    timeHorizon: "Time Focus", attributionStyle: "Attribution", metacognitivePlanning: "Planning",
+    proceduralFluency: "Procedures", transferLearning: "Transfer", authoritySensitivity: "Authority",
+    emotionalContagion: "Emotional", fearOfMissingOut: "FOMO", socialProofSensitivity: "Social Proof",
+    mentalModelRigidity: "Flexibility",
+  };
+  return headers[trait] || trait;
+}
+
+function convertToThirdPerson(question: string): string {
+  return question
+    .replace(/\bdo you\b/gi, "does this persona")
+    .replace(/\bare you\b/gi, "is this persona")
+    .replace(/\byou're\b/gi, "this persona is")
+    .replace(/\byou've\b/gi, "they have")
+    .replace(/\byou'd\b/gi, "they would")
+    .replace(/\byour\b/gi, "their")
+    .replace(/\byou\b/gi, "they");
 }
 
 // =========================================================================
@@ -613,6 +789,70 @@ async function registerCBrowserTools(): Promise<McpServer> {
           content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
         };
       });
+    }
+  );
+
+  server.tool(
+    "scroll",
+    "Scroll the page in a direction. Use when content might be below the fold or to navigate long pages.",
+    {
+      direction: z.enum(["down", "up", "top", "bottom"]).default("down").describe("Scroll direction: down (400px), up (400px), top (page start), bottom (page end)"),
+      amount: z.number().optional().describe("Custom scroll amount in pixels (only for up/down)"),
+    },
+    async ({ direction, amount }) => {
+      const b = await getBrowser();
+      const page = await b.getPage();
+
+      try {
+        const scrollAmount = amount || 400;
+        switch (direction) {
+          case "top":
+            await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+            break;
+          case "bottom":
+            await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+            break;
+          case "up":
+            await page.evaluate((amt) => window.scrollBy({ top: -amt, behavior: "smooth" }), scrollAmount);
+            break;
+          case "down":
+          default:
+            await page.evaluate((amt) => window.scrollBy({ top: amt, behavior: "smooth" }), scrollAmount);
+            break;
+        }
+        // Wait for scroll animation
+        await new Promise(r => setTimeout(r, 300));
+
+        // Get new scroll position
+        const scrollY = await page.evaluate(() => window.scrollY);
+        const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+        const viewportHeight = await page.evaluate(() => window.innerHeight);
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              direction,
+              scrollPosition: scrollY,
+              scrollHeight,
+              viewportHeight,
+              atTop: scrollY === 0,
+              atBottom: scrollY + viewportHeight >= scrollHeight - 10,
+            }, null, 2),
+          }],
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }, null, 2),
+          }],
+        };
+      }
     }
   );
 
@@ -3444,6 +3684,403 @@ This ensures personas are grounded in research, not stereotypes.
             }, null, 2),
           },
         ],
+      };
+    }
+  );
+
+  // =========================================================================
+  // Persona Creation Tools (v17.3.0)
+  // =========================================================================
+
+  server.tool(
+    "persona_create_start",
+    "Start creating a custom persona. YOU MUST USE YOUR AskUserQuestion TOOL to present the choice to the user.",
+    {
+      persona_name: z.string().describe("Name for the new persona"),
+      comprehensive: z.boolean().optional().describe("Include all 25 traits (true) or just core 8 traits (false)"),
+    },
+    async ({ persona_name, comprehensive = false }) => {
+      const sessionId = "local-session";
+
+      const existingSession = getQuestionnaireSession(sessionId);
+      if (existingSession) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              warning: "A questionnaire session is already in progress",
+              existing_persona: existingSession.personaName,
+              progress: `${existingSession.currentIndex}/${existingSession.questions.length} questions answered`,
+              options: ["Use persona_create_questionnaire_answer to continue", "Use persona_create_cancel to discard"],
+            }, null, 2),
+          }],
+        };
+      }
+
+      const traitCount = comprehensive ? 25 : 8;
+      const totalQuestions = traitCount + VALUES_QUESTIONS.length;
+
+      return {
+        content: [{
+          type: "text",
+          text: `ACTION REQUIRED: Use your AskUserQuestion tool to ask the user:
+
+Question: "How would you like to create the '${persona_name}' persona?"
+Header: "Create Mode"
+
+Options:
+1. "Fill out questionnaire (Recommended)" - Answer ${totalQuestions} questions about this persona's cognitive traits and values.
+2. "Describe the persona" - Provide a text description and I'll infer appropriate trait and value settings.
+
+After the user chooses:
+- If "questionnaire": Call persona_create_questionnaire_start with persona_name="${persona_name}" and comprehensive=${comprehensive}
+- If "describe": Ask the user to describe the persona, then call persona_create_from_description
+
+IMPORTANT: Do NOT show this text to the user. USE AskUserQuestion to present the choice interactively.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_create_questionnaire_start",
+    "Start the questionnaire mode for persona creation. YOU MUST USE AskUserQuestion to present each question interactively.",
+    {
+      persona_name: z.string().describe("Name for the new persona"),
+      comprehensive: z.boolean().optional().describe("Include all 25 traits (default: false)"),
+    },
+    async ({ persona_name, comprehensive = false }) => {
+      const sessionId = "local-session";
+      const rawQuestions = generatePersonaQuestionnaire({ comprehensive });
+
+      const session: QuestionnaireSession = {
+        personaName: persona_name,
+        questions: rawQuestions,
+        valueQuestions: VALUES_QUESTIONS,
+        answers: {},
+        valueAnswers: {},
+        currentIndex: 0,
+        phase: "traits",
+        comprehensive,
+        startedAt: Date.now(),
+        lastQuestionAskedAt: Date.now(),
+      };
+      setQuestionnaireSession(sessionId, session);
+
+      const firstQuestion = rawQuestions[0];
+      const thirdPersonQuestion = convertToThirdPerson(firstQuestion.question);
+      const totalQuestions = rawQuestions.length + VALUES_QUESTIONS.length;
+
+      return {
+        content: [{
+          type: "text",
+          text: `ACTION REQUIRED: Use your AskUserQuestion tool to ask about the "${persona_name}" persona.
+
+Question 1 of ${totalQuestions} (Trait: ${firstQuestion.trait})
+"${thirdPersonQuestion}"
+
+Header: "${getTraitHeader(firstQuestion.trait)}"
+
+Options:
+${firstQuestion.options.map((o, i) => `${i + 1}. "${o.label}" - ${o.description}`).join("\n")}
+
+After the user selects an option, call persona_create_questionnaire_answer with answer_value.
+
+IMPORTANT: Use AskUserQuestion - do NOT just display this text.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_create_questionnaire_answer",
+    "Submit an answer for the current questionnaire question.",
+    {
+      answer_value: z.number().min(0).max(1).describe("The value selected (0.0, 0.25, 0.33, 0.67, 0.75, or 1.0)"),
+    },
+    async ({ answer_value }) => {
+      const sessionId = "local-session";
+      const session = getQuestionnaireSession(sessionId);
+
+      if (!session) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              error: "No questionnaire session in progress",
+              instruction: "Start a new questionnaire with persona_create_questionnaire_start",
+            }, null, 2),
+          }],
+        };
+      }
+
+      const totalQuestions = session.questions.length + session.valueQuestions.length;
+      const now = Date.now();
+
+      if (session.phase === "traits") {
+        const currentQuestion = session.questions[session.currentIndex];
+        session.answers[currentQuestion.trait] = answer_value;
+        session.currentIndex++;
+
+        if (session.currentIndex >= session.questions.length) {
+          session.phase = "values";
+          session.currentIndex = 0;
+        }
+      } else {
+        const currentValueQ = session.valueQuestions[session.currentIndex];
+        session.valueAnswers[currentValueQ.value] = answer_value;
+        session.currentIndex++;
+      }
+
+      session.lastQuestionAskedAt = now;
+
+      if (session.phase === "values" && session.currentIndex >= session.valueQuestions.length) {
+        const traits = buildTraitsFromAnswers(session.answers);
+        const derivedResult = deriveValuesFromTraits(traits);
+        const derivedValues = derivedResult.values;
+        const values = {
+          selfDirection: session.valueAnswers.selfDirection ?? derivedValues.selfDirection ?? 0.5,
+          stimulation: session.valueAnswers.stimulation ?? derivedValues.stimulation ?? 0.5,
+          hedonism: session.valueAnswers.hedonism ?? derivedValues.hedonism ?? 0.5,
+          achievement: session.valueAnswers.achievement ?? derivedValues.achievement ?? 0.5,
+          power: session.valueAnswers.power ?? derivedValues.power ?? 0.5,
+          security: session.valueAnswers.security ?? derivedValues.security ?? 0.5,
+          conformity: session.valueAnswers.conformity ?? derivedValues.conformity ?? 0.5,
+          tradition: session.valueAnswers.tradition ?? derivedValues.tradition ?? 0.5,
+          benevolence: session.valueAnswers.benevolence ?? derivedValues.benevolence ?? 0.5,
+          universalism: session.valueAnswers.universalism ?? derivedValues.universalism ?? 0.5,
+        };
+
+        const personaName = session.personaName;
+        const duration = Date.now() - session.startedAt;
+        clearQuestionnaireSession(sessionId);
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              questionnaire_complete: true,
+              persona_name: personaName,
+              duration_seconds: Math.round(duration / 1000),
+              traits,
+              values,
+              instruction: "Persona has been created with traits AND values. Use with cognitive_journey_init.",
+            }, null, 2),
+          }],
+        };
+      }
+
+      const answeredCount = session.phase === "traits"
+        ? session.currentIndex
+        : session.questions.length + session.currentIndex;
+
+      if (session.phase === "traits") {
+        const nextQuestion = session.questions[session.currentIndex];
+        const thirdPersonQuestion = convertToThirdPerson(nextQuestion.question);
+        setQuestionnaireSession(sessionId, session);
+
+        return {
+          content: [{
+            type: "text",
+            text: `ACTION REQUIRED: Use your AskUserQuestion tool.
+
+Question ${answeredCount + 1} of ${totalQuestions} (Trait: ${nextQuestion.trait})
+"${thirdPersonQuestion}"
+
+Header: "${getTraitHeader(nextQuestion.trait)}"
+
+Options:
+${nextQuestion.options.map((o, i) => `${i + 1}. "${o.label}" - ${o.description}`).join("\n")}
+
+Progress: ${Math.round((answeredCount / totalQuestions) * 100)}% complete`,
+          }],
+        };
+      } else {
+        const nextValueQ = session.valueQuestions[session.currentIndex];
+        setQuestionnaireSession(sessionId, session);
+
+        return {
+          content: [{
+            type: "text",
+            text: `ACTION REQUIRED: Use your AskUserQuestion tool.
+
+Question ${answeredCount + 1} of ${totalQuestions} (Value: ${nextValueQ.value})
+"${nextValueQ.question}"
+
+Header: "${nextValueQ.value.charAt(0).toUpperCase() + nextValueQ.value.slice(1)}"
+
+Options:
+${nextValueQ.options.map((o, i) => `${i + 1}. "${o.label}" - ${o.description}`).join("\n")}
+
+Progress: ${Math.round((answeredCount / totalQuestions) * 100)}% complete`,
+          }],
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "persona_create_from_description",
+    "Create a persona from a text description. Returns trait reference for manual inference.",
+    {
+      persona_name: z.string().describe("Name for the new persona"),
+      description: z.string().describe("Text description of the persona"),
+    },
+    async ({ persona_name, description }) => {
+      const traitInfo = TRAIT_REFERENCE_MATRIX.map(trait => ({
+        name: trait.name,
+        description: trait.description,
+        levels: trait.levels.map(l => ({ value: l.value, label: l.label, behaviors: l.behaviors.slice(0, 2) })),
+      }));
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            mode: "manual_inference",
+            persona_name,
+            user_description: description,
+            instruction: "Based on the description, infer trait values (0.0-1.0) and return via persona_create_submit_traits.",
+            trait_reference: traitInfo,
+            follow_up_tool: "persona_create_submit_traits",
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_create_submit_traits",
+    "Submit manually inferred traits for a persona.",
+    {
+      persona_name: z.string().describe("Name for the persona"),
+      traits: z.record(z.string(), z.number().min(0).max(1)).describe("Object with trait names as keys and values 0.0-1.0"),
+      values: z.record(z.string(), z.number().min(0).max(1)).optional().describe("Optional Schwartz values"),
+    },
+    async ({ persona_name, traits, values }: {
+      persona_name: string;
+      traits: Record<string, number>;
+      values?: Record<string, number>;
+    }) => {
+      const coreTraits = ["patience", "riskTolerance", "comprehension"];
+      const missingCore = coreTraits.filter(t => !(t in traits));
+
+      if (missingCore.length > 0) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              error: `Missing core traits: ${missingCore.join(", ")}`,
+              instruction: "Include at least patience, riskTolerance, and comprehension",
+            }, null, 2),
+          }],
+        };
+      }
+
+      const fullTraits = buildTraitsFromAnswers(traits);
+      const derivedResult = deriveValuesFromTraits(fullTraits);
+      const derivedValues = derivedResult.values;
+      const fullValues = {
+        selfDirection: values?.selfDirection ?? derivedValues.selfDirection ?? 0.5,
+        stimulation: values?.stimulation ?? derivedValues.stimulation ?? 0.5,
+        hedonism: derivedValues.hedonism ?? 0.5,
+        achievement: values?.achievement ?? derivedValues.achievement ?? 0.5,
+        power: derivedValues.power ?? 0.5,
+        security: values?.security ?? derivedValues.security ?? 0.5,
+        conformity: values?.conformity ?? derivedValues.conformity ?? 0.5,
+        tradition: derivedValues.tradition ?? 0.5,
+        benevolence: derivedValues.benevolence ?? 0.5,
+        universalism: derivedValues.universalism ?? 0.5,
+      };
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            persona_name,
+            traits: fullTraits,
+            values: fullValues,
+            provided_traits: Object.keys(traits).length,
+            defaulted_traits: Object.keys(fullTraits).length - Object.keys(traits).length,
+            instruction: "Persona traits AND values are ready. Use with cognitive_journey_init.",
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_create_cancel",
+    "Cancel the current questionnaire session.",
+    {},
+    async () => {
+      const sessionId = "local-session";
+      const session = getQuestionnaireSession(sessionId);
+
+      if (!session) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({ message: "No questionnaire session to cancel" }, null, 2),
+          }],
+        };
+      }
+
+      const personaName = session.personaName;
+      const progress = session.currentIndex;
+      clearQuestionnaireSession(sessionId);
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            cancelled: true,
+            persona_name: personaName,
+            progress_lost: `${progress} answers discarded`,
+            instruction: "Questionnaire cancelled. Use persona_create_start to begin a new persona.",
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "persona_traits_list",
+    "List all available cognitive traits with their descriptions and value levels.",
+    {
+      format: z.enum(["summary", "detailed"]).optional().describe("Summary (names only) or detailed (with levels)"),
+    },
+    async ({ format = "summary" }) => {
+      if (format === "summary") {
+        const traits = TRAIT_REFERENCE_MATRIX.map(t => ({
+          name: t.name,
+          description: t.description,
+        }));
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({ count: traits.length, traits }, null, 2),
+          }],
+        };
+      }
+
+      const traits = TRAIT_REFERENCE_MATRIX.map(t => ({
+        name: t.name,
+        description: t.description,
+        researchBasis: t.researchBasis,
+        levels: t.levels.map(l => ({
+          value: l.value,
+          label: l.label,
+          behaviors: l.behaviors,
+        })),
+      }));
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ count: traits.length, traits }, null, 2),
+        }],
       };
     }
   );
