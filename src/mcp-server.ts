@@ -125,6 +125,13 @@ import {
   type QuestionnaireQuestion,
 } from "./persona-questionnaire.js";
 
+// ============================================================================
+// CRITICAL: Redirect console.log to stderr for MCP stdio transport
+// MCP uses stdout for JSON-RPC messages. Any console.log output corrupts
+// the protocol and causes "Unexpected token" JSON parsing errors in clients.
+// ============================================================================
+console.log = (...args: unknown[]) => console.error(...args);
+
 // Shared browser instance
 let browser: CBrowser | null = null;
 
