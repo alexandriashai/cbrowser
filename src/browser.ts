@@ -133,6 +133,9 @@ export class CBrowser {
   private selectorCacheManager: SelectorCacheManager;
   private overlayHandler: OverlayHandler;
 
+  // Track last filled input for Enter key fallback when submit buttons are hidden
+  private lastFilledInputSelector: string | null = null;
+
   constructor(userConfig: Partial<CBrowserConfig> = {}) {
     this.config = mergeConfig(userConfig);
     this.paths = ensureDirectories(getPaths(this.config.dataDir));
@@ -1728,12 +1731,56 @@ export class CBrowser {
         message: `Clicked: ${selector}`,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // v17.4.0: Enter key fallback for hidden submit buttons
+      // When a submit button is not visible (common in toggle-to-expand UIs),
+      // pressing Enter on the last filled input is the universal form submission fallback
+      const isVisibilityError = errorMessage.includes('not visible') ||
+                                errorMessage.includes('is not visible') ||
+                                errorMessage.includes('hidden');
+      const isLikelySubmit = selector.toLowerCase().includes('submit') ||
+                             selector.toLowerCase().includes('search') ||
+                             selector.toLowerCase().includes('go') ||
+                             selector.toLowerCase().includes('send');
+
+      if (isVisibilityError && isLikelySubmit && this.lastFilledInputSelector) {
+        if (options.verbose) {
+          console.log(`Submit button "${selector}" not visible, trying Enter key on last filled input "${this.lastFilledInputSelector}"`);
+        }
+
+        try {
+          // Find the last filled input and press Enter on it
+          const lastInput = await this.findElement(this.lastFilledInputSelector);
+          if (lastInput) {
+            await lastInput.focus();
+            await page.keyboard.press('Enter');
+
+            // Wait for navigation or network activity
+            await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+
+            this.audit("click", `${selector} (Enter-fallback)`, zone, "success");
+
+            return {
+              success: true,
+              screenshot: await this.screenshot(),
+              message: `Submitted via Enter key (button "${selector}" was not visible)`,
+            };
+          }
+        } catch (enterError) {
+          if (options.verbose) {
+            console.log(`Enter key fallback failed: ${enterError instanceof Error ? enterError.message : String(enterError)}`);
+          }
+          // Fall through to normal error handling
+        }
+      }
+
       this.audit("click", selector, zone, "failure");
 
       const result: ClickResult = {
         success: false,
         screenshot: await this.screenshot(),
-        message: `Failed to click: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Failed to click: ${errorMessage}`,
       };
 
       if (options.verbose) {
@@ -2553,6 +2600,7 @@ export class CBrowser {
 
           if (customResult.success) {
             this.audit("fill", `${selector} (custom-dropdown:${customResult.strategy})`, "yellow", "success");
+            this.lastFilledInputSelector = selector;
             return {
               success: true,
               screenshot: await this.screenshot(),
@@ -2568,6 +2616,7 @@ export class CBrowser {
 
           if (customResult.success) {
             this.audit("fill", `${selector} (custom-input:${customResult.strategy})`, "yellow", "success");
+            this.lastFilledInputSelector = selector;
             return {
               success: true,
               screenshot: await this.screenshot(),
@@ -2613,6 +2662,7 @@ export class CBrowser {
         }
 
         this.audit("fill", `${selector} (select)`, "yellow", "success");
+        this.lastFilledInputSelector = selector;
 
         return {
           success: true,
@@ -2625,6 +2675,9 @@ export class CBrowser {
       await element.fill(value);
 
       this.audit("fill", selector, "yellow", "success");
+
+      // Track last filled input for Enter key fallback when submit buttons are hidden
+      this.lastFilledInputSelector = selector;
 
       return {
         success: true,
