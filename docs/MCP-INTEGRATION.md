@@ -44,7 +44,7 @@ npx cbrowser mcp-remote
 PORT=8080 npx cbrowser mcp-remote
 ```
 
-## All 48 MCP Tools
+## All 68 MCP Tools
 
 ### Navigation (5 tools)
 

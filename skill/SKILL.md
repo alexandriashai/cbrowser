@@ -336,7 +336,7 @@ npx cbrowser click "search" --verbose --debug-dir ./debug  # Save debug screensh
 
 ### v7.4.1: Modular Architecture + MCP Tools
 
-CBrowser v7.4.1 includes modular architecture for tree-shakeable imports and 31 MCP tools for Claude Desktop:
+CBrowser v7.4.1 includes modular architecture for tree-shakeable imports. MCP tools have grown significantly since then (now 68 local, 52 remote):
 
 ```typescript
 // Import everything (unchanged)
@@ -358,7 +358,7 @@ import { capturePerformanceBaseline, detectPerformanceRegression } from 'cbrowse
 | `cbrowser/analysis` | AI analysis | `huntBugs`, `runChaosTest`, `comparePersonas`, `findElementByIntent` |
 | `cbrowser/performance` | Performance | `capturePerformanceBaseline`, `detectPerformanceRegression` |
 
-**MCP Server (36 tools for Claude Desktop):**
+**MCP Server (68 tools for Claude Desktop):**
 
 Add to `claude_desktop_config.json`:
 ```json
@@ -923,7 +923,7 @@ User: "Simulate a confused first-timer trying to register as a provider"
 | v7.4.6 | Auth0 OAuth for claude.ai, opaque token validation, 30-minute token caching, demo server |
 | v7.4.3 | Remote MCP authentication (API key support), "Cognitive Browser" branding |
 | v7.4.2 | Remote MCP server for claude.ai custom connectors |
-| v7.4.1 | Modular architecture, 31 MCP tools |
+| v7.4.1 | Modular architecture, MCP tools foundation |
 | v7.3.0 | A/B visual comparison (compare two URLs side by side) |
 | v7.2.0 | Responsive visual testing (mobile, tablet, desktop viewport comparison) |
 | v7.1.0 | Cross-browser visual testing (Chrome, Firefox, Safari comparison) |

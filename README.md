@@ -6,7 +6,7 @@
 [![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
 [![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-48%20Tools-blue)](https://modelcontextprotocol.io)
+[![MCP Ready](https://img.shields.io/badge/MCP-68%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
 
@@ -18,7 +18,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 
 ## What Makes CBrowser Different
 
-**48 tools, 15 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
+**68 tools, 15 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
 
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
@@ -27,7 +27,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 | **Empathy Accessibility Audits** | 🔬 Novel | Simulate users with tremors, low vision, ADHD. No competitor offers this. |
 | **Self-Healing Selectors** | ✅ Production-ready | ARIA-first with 0.8+ confidence gating. Handles DOM changes automatically. |
 | **Constitutional AI Safety** | 🔬 Novel | Risk-classified actions prevent autonomous agents from doing damage. |
-| **48 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
+| **68 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
 
 ---
 
@@ -313,7 +313,7 @@ Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 }
 ```
 
-### 48 MCP Tools
+### 68 MCP Tools
 
 | Category | Tools |
 |----------|-------|

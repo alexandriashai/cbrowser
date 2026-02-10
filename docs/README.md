@@ -44,7 +44,7 @@ Welcome to the CBrowser documentation. This directory contains comprehensive gui
 
 ## MCP Tools Reference
 
-CBrowser provides 48 MCP tools organized by category:
+CBrowser provides 68 MCP tools organized by category:
 
 | Category | Tools | Description |
 |----------|-------|-------------|
@@ -63,10 +63,10 @@ See [MCP Integration](./MCP-INTEGRATION.md) for complete tool documentation.
 
 See [CHANGELOG.md](../CHANGELOG.md) for detailed release notes.
 
-### Current Version: 16.7.0
+### Current Version: 17.3.2
 
 Key features:
-- 48 MCP tools for Claude integration
+- 68 MCP tools for Claude integration
 - Research-backed persona questionnaire system
 - 25 cognitive traits with behavioral mappings
 - Accessibility empathy testing
