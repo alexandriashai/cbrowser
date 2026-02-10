@@ -124,7 +124,7 @@ COGNITIVE JOURNEY (API-powered, realistic user simulation)
     --max-steps <n>           Maximum steps before timeout (default: 50)
     --max-time <s>            Maximum time in seconds (default: 120)
     --verbose                 Show step-by-step narration and internal monologue
-    --vision                  Enable vision mode - send screenshots to Claude (more accurate)
+    --no-vision               Disable vision mode (text-only, less accurate but faster)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
 
@@ -4778,14 +4778,29 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const maxTime = options["max-time"] ? parseInt(options["max-time"] as string) : 120;
         const verbose = options.verbose === true;
         const headless = options.headless === true;
-        const vision = options.vision === true;
+        const vision = options["no-vision"] !== true; // Vision ON by default (v17.1.0)
+
+        // Read custom traits from environment variable (for Enterprise autonomous mode)
+        let customTraits: Record<string, number> | undefined;
+        const envTraits = process.env.CBROWSER_CUSTOM_TRAITS;
+        if (envTraits) {
+          try {
+            customTraits = JSON.parse(envTraits);
+            if (verbose) {
+              console.log(`   Custom traits: ${Object.keys(customTraits || {}).length} trait overrides from env`);
+            }
+          } catch {
+            console.warn(`   ⚠️ Could not parse CBROWSER_CUSTOM_TRAITS env var`);
+          }
+        }
 
         console.log(`\n🧠 COGNITIVE JOURNEY`);
         console.log(`   Persona: ${personaName}`);
         console.log(`   Goal: "${goal}"`);
         console.log(`   URL: ${startUrl}`);
         console.log(`   Max steps: ${maxSteps} | Max time: ${maxTime}s`);
-        if (vision) console.log(`   Vision: enabled (screenshots sent to Claude)`);
+        if (!vision) console.log(`   Vision: disabled (text-only mode)`);
+        if (customTraits) console.log(`   Traits: custom profile (${Object.keys(customTraits).length} traits)`);
         console.log("");
 
         try {
@@ -4798,6 +4813,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             verbose,
             headless,
             vision,
+            customTraits, // Pass custom traits from env var
             onStep: verbose ? undefined : (step) => {
               process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
             },
