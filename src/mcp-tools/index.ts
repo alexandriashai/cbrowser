@@ -18,6 +18,13 @@
 // Re-export types
 export type { McpServer, CBrowser, ToolRegistrationContext } from "./types.js";
 
+// Re-export screenshot utilities
+export {
+  setRemoteMode,
+  getRemoteMode,
+  transformResponseForRemote,
+} from "./screenshot-utils.js";
+
 // Re-export base tools
 export { registerBaseTools } from "./base/index.js";
 

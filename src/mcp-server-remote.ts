@@ -54,7 +54,7 @@ import {
 } from "./stealth/index.js";
 
 // Modular MCP tools (v17.5.0)
-import { registerAllPublicTools } from "./mcp-tools/index.js";
+import { registerAllPublicTools, setRemoteMode } from "./mcp-tools/index.js";
 import type { ToolRegistrationContext } from "./mcp-tools/types.js";
 
 // Shared browser instance
@@ -405,6 +405,9 @@ export type { ToolRegistrationContext };
 export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Promise<void> {
   // Auto-initialize all data directories on server start
   ensureDirectories();
+
+  // Enable remote mode for screenshot handling (returns base64 images instead of paths)
+  setRemoteMode(true);
 
   const port = parseInt(process.env.PORT || "3000", 10);
   const host = process.env.HOST || "0.0.0.0";
