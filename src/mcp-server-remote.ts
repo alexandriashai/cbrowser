@@ -34,6 +34,12 @@
  *   AUTH0_DOMAIN - Your Auth0 tenant domain (e.g., 'your-tenant.auth0.com')
  *   AUTH0_AUDIENCE - API audience/identifier (e.g., 'https://cbrowser-mcp.yourdomain.com')
  *   AUTH0_CLIENT_ID - Optional: Client ID for static registration
+ *
+ * Rate Limiting Environment Variables:
+ *   RATE_LIMIT_ENABLED - Enable IP-based rate limiting (default: false)
+ *   RATE_LIMIT_REQUESTS - Max requests per window (default: 5)
+ *   RATE_LIMIT_WINDOW_MS - Window size in milliseconds (default: 3600000 = 1 hour)
+ *   RATE_LIMIT_WHITELIST - Comma-separated IPs to skip rate limiting
  */
 
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
@@ -222,6 +228,171 @@ function validateApiKey(req: IncomingMessage, validKeys: Set<string>): boolean {
 
   return false;
 }
+
+// ============================================================================
+// Rate Limiting (with session tracking and burst allowance)
+// ============================================================================
+
+interface RateLimitConfig {
+  enabled: boolean;
+  maxRequests: number;        // Sustained limit per hour
+  windowMs: number;           // Main window (default: 1 hour)
+  burstRequests: number;      // Burst limit (first few minutes)
+  burstWindowMs: number;      // Burst window (default: 5 minutes)
+  whitelist: Set<string>;
+}
+
+interface RateLimitEntry {
+  requests: number[];         // Timestamps of all requests
+  sessionStart: number;       // When this session/IP first appeared
+}
+
+// Rate limit storage: key (session or IP) -> entry
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+function getRateLimitConfig(): RateLimitConfig {
+  const enabled = process.env.RATE_LIMIT_ENABLED === "true";
+  const maxRequests = parseInt(process.env.RATE_LIMIT_REQUESTS || "30", 10);
+  const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "3600000", 10);
+  const burstRequests = parseInt(process.env.RATE_LIMIT_BURST || "15", 10);
+  const burstWindowMs = parseInt(process.env.RATE_LIMIT_BURST_WINDOW_MS || "300000", 10);
+  const whitelistStr = process.env.RATE_LIMIT_WHITELIST || "";
+
+  const whitelist = new Set<string>();
+  for (const ip of whitelistStr.split(",")) {
+    const trimmed = ip.trim();
+    if (trimmed) {
+      whitelist.add(trimmed);
+    }
+  }
+
+  return { enabled, maxRequests, windowMs, burstRequests, burstWindowMs, whitelist };
+}
+
+function getClientIP(req: IncomingMessage): string {
+  // Check X-Forwarded-For header (behind proxy/load balancer)
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") {
+    // Take the first IP in the chain (original client)
+    return forwarded.split(",")[0].trim();
+  }
+
+  // Check X-Real-IP header (nginx)
+  const realIp = req.headers["x-real-ip"];
+  if (typeof realIp === "string") {
+    return realIp.trim();
+  }
+
+  // Fall back to socket remote address
+  return req.socket.remoteAddress || "unknown";
+}
+
+function getRateLimitKey(req: IncomingMessage): string {
+  // Prefer MCP session ID for per-session tracking
+  const sessionId = req.headers["mcp-session-id"];
+  if (typeof sessionId === "string" && sessionId.length > 0) {
+    return `session:${sessionId}`;
+  }
+
+  // Fall back to IP-based tracking
+  return `ip:${getClientIP(req)}`;
+}
+
+function checkRateLimit(
+  req: IncomingMessage,
+  config: RateLimitConfig
+): { allowed: boolean; remaining: number; resetTime: number; burstRemaining?: number } {
+  if (!config.enabled) {
+    return { allowed: true, remaining: config.maxRequests, resetTime: 0 };
+  }
+
+  const ip = getClientIP(req);
+
+  // Skip rate limiting for whitelisted IPs
+  if (config.whitelist.has(ip)) {
+    return { allowed: true, remaining: config.maxRequests, resetTime: 0 };
+  }
+
+  const key = getRateLimitKey(req);
+  const now = Date.now();
+  const windowStart = now - config.windowMs;
+  const burstWindowStart = now - config.burstWindowMs;
+
+  // Get or create entry
+  let entry = rateLimitStore.get(key);
+  if (!entry) {
+    entry = { requests: [], sessionStart: now };
+    rateLimitStore.set(key, entry);
+  }
+
+  // Filter out requests outside the main window
+  entry.requests = entry.requests.filter(timestamp => timestamp > windowStart);
+
+  // Count requests in burst window
+  const burstRequests = entry.requests.filter(timestamp => timestamp > burstWindowStart).length;
+
+  // Check if within burst period (first burstWindowMs of session)
+  const inBurstPeriod = (now - entry.sessionStart) < config.burstWindowMs;
+
+  // Determine current limit based on burst period
+  let currentLimit: number;
+  let currentWindowRequests: number;
+
+  if (inBurstPeriod) {
+    // During burst period: use burst limit
+    currentLimit = config.burstRequests;
+    currentWindowRequests = burstRequests;
+  } else {
+    // After burst period: use sustained limit
+    currentLimit = config.maxRequests;
+    currentWindowRequests = entry.requests.length;
+  }
+
+  // Calculate remaining requests
+  const remaining = Math.max(0, currentLimit - currentWindowRequests);
+
+  // Calculate reset time
+  const resetTime = entry.requests.length > 0
+    ? entry.requests[0] + config.windowMs
+    : now + config.windowMs;
+
+  if (currentWindowRequests >= currentLimit) {
+    // Rate limit exceeded
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime,
+      burstRemaining: inBurstPeriod ? 0 : undefined,
+    };
+  }
+
+  // Allow request and record it
+  entry.requests.push(now);
+
+  return {
+    allowed: true,
+    remaining: remaining - 1,
+    resetTime,
+    burstRemaining: inBurstPeriod ? Math.max(0, config.burstRequests - burstRequests - 1) : undefined,
+  };
+}
+
+// Cleanup old rate limit entries periodically (every 10 minutes)
+setInterval(() => {
+  const now = Date.now();
+  const config = getRateLimitConfig();
+
+  for (const [key, entry] of rateLimitStore.entries()) {
+    // Filter out old requests
+    entry.requests = entry.requests.filter(t => t > now - config.windowMs);
+
+    // Remove entry if no requests and session is old (2x window)
+    const sessionAge = now - entry.sessionStart;
+    if (entry.requests.length === 0 && sessionAge > config.windowMs * 2) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
 
 async function validateAuth(
   req: IncomingMessage,
@@ -417,6 +588,7 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   const apiKeyAuthEnabled = apiKeys !== null && apiKeys.size > 0;
   const auth0Enabled = auth0 !== null;
   const authEnabled = apiKeyAuthEnabled || auth0Enabled;
+  const rateLimitConfig = getRateLimitConfig();
 
   console.log(`Starting CBrowser Remote MCP Server v${VERSION}...`);
   console.log(`Mode: ${sessionMode}`);
@@ -426,6 +598,15 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   }
   if (auth0Enabled) {
     console.log(`  - Auth0 OAuth: enabled (${auth0?.domain})`);
+  }
+  if (rateLimitConfig.enabled) {
+    console.log(`Rate Limiting: enabled`);
+    console.log(`  - Sustained: ${rateLimitConfig.maxRequests} requests per ${rateLimitConfig.windowMs / 1000 / 60} min`);
+    console.log(`  - Burst: ${rateLimitConfig.burstRequests} requests in first ${rateLimitConfig.burstWindowMs / 1000 / 60} min`);
+    console.log(`  - Tracking: per-session (falls back to IP)`);
+    if (rateLimitConfig.whitelist.size > 0) {
+      console.log(`  - Whitelisted IPs: ${Array.from(rateLimitConfig.whitelist).join(", ")}`);
+    }
   }
   console.log(`Listening on ${host}:${port}`);
 
@@ -505,6 +686,30 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
     // =====================================================================
     // Protected Endpoints (auth required)
     // =====================================================================
+
+    // Rate limit check (if enabled)
+    const rateLimit = checkRateLimit(req, rateLimitConfig);
+    if (!rateLimit.allowed) {
+      const retryAfter = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
+      res.writeHead(429, {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfter),
+        "X-RateLimit-Limit": String(rateLimitConfig.maxRequests),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": String(Math.ceil(rateLimit.resetTime / 1000)),
+      });
+      res.end(JSON.stringify({
+        error: "Too Many Requests",
+        message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
+        retry_after: retryAfter,
+      }));
+      return;
+    }
+
+    // Add rate limit headers to successful responses
+    res.setHeader("X-RateLimit-Limit", String(rateLimitConfig.maxRequests));
+    res.setHeader("X-RateLimit-Remaining", String(rateLimit.remaining));
+    res.setHeader("X-RateLimit-Reset", String(Math.ceil(rateLimit.resetTime / 1000)));
 
     // Auth check for protected endpoints
     if (authEnabled) {
