@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "17.6.0",
+  "version": "17.6.1",
   "type": "module",
   "description": "Cognitive browser automation that thinks like your users—and helps AI agents navigate too. Simulate real user cognition with abandonment detection, constitutional safety, chaos engineering, and UX friction discovery. Sites that pass CBrowser's cognitive tests are easier for both humans and AI agents to navigate.",
   "main": "dist/index.js",

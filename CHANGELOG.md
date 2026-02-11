@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.6.1](https://github.com/alexandriashai/cbrowser/compare/v17.6.0...v17.6.1) (2026-02-11)
+
+### Fixed
+
+* **mcp:** auto-fix Accept header for Claude.ai custom connectors ([a8462b9](https://github.com/alexandriashai/cbrowser/commit/a8462b925a1258b2431d79441f76703167bdb8d0))
+
 ## [17.6.0](https://github.com/alexandriashai/cbrowser/compare/v17.5.3...v17.6.0) (2026-02-11)
 
 ### Added
