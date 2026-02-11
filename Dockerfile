@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.51.1-noble
+FROM mcr.microsoft.com/playwright:v1.58.2-noble
 
 LABEL org.opencontainers.image.source="https://github.com/alexandriashai/cbrowser"
 LABEL org.opencontainers.image.description="CBrowser - Cognitive Browser automation for CI/CD pipelines"
