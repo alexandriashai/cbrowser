@@ -48,6 +48,11 @@
       "types": "./dist/values/index.d.ts",
       "import": "./dist/values/index.js",
       "require": "./dist/values/index.js"
+    },
+    "./mcp-tools": {
+      "types": "./dist/mcp-tools/index.d.ts",
+      "import": "./dist/mcp-tools/index.js",
+      "require": "./dist/mcp-tools/index.js"
     }
   },
   "scripts": {

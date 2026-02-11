@@ -66,3 +66,31 @@ export * from "./persona-questionnaire.js";
 // Values System (v16.7.0) - Research-backed psychological values framework
 // Based on Schwartz's Theory of Basic Human Values, SDT, and Maslow
 export * from "./values/index.js";
+
+// MCP Tools (v17.5.0) - Modular MCP tool registration
+// Allows granular tool imports for custom server composition
+export {
+  registerAllPublicTools,
+  registerBaseTools,
+  registerPersonaCreationTools,
+  registerAskUserTool,
+  registerEnterpriseStubs,
+  // Individual tool categories for granular use
+  registerNavigationTools,
+  registerInteractionTools,
+  registerExtractionTools,
+  registerAssertionTools,
+  registerAnalysisTools,
+  registerSessionTools,
+  registerHealingTools,
+  registerVisualTestingTools,
+  registerTestingTools,
+  registerBugAnalysisTools,
+  registerPersonaComparisonTools,
+  registerCognitiveTools,
+  registerValuesTools,
+  registerPerformanceTools,
+  registerAuditTools,
+  registerBrowserManagementTools,
+} from "./mcp-tools/index.js";
+export type { ToolRegistrationContext } from "./mcp-tools/index.js";
