@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.6.0](https://github.com/alexandriashai/cbrowser/compare/v17.5.3...v17.6.0) (2026-02-11)
+
+### Added
+
+* **mcp:** modular tool registration for MCP servers ([27308c7](https://github.com/alexandriashai/cbrowser/commit/27308c77772cd0f6b1679c1ed5a9d2010baab3a4))
+
 ## [17.5.3](https://github.com/alexandriashai/cbrowser/compare/v17.5.2...v17.5.3) (2026-02-11)
 
 ## [17.5.2](https://github.com/alexandriashai/cbrowser/compare/v17.5.1...v17.5.2) (2026-02-11)
