@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.0.0](https://github.com/alexandriashai/cbrowser/compare/v17.6.1...v18.0.0) (2026-02-11)
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** Persistent mode is now enabled by default.
+Use --no-persistent to disable session continuity.
+
+Fixes:
+- #103: Device emulation persistence - `device set` now saves to session state
+- #104: Session state loss - persistent mode is now the default
+
+Changes:
+- Add device field to SessionState interface
+- Add saveDeviceSetting() method to CBrowser class
+- Restore device setting on browser launch in persistent mode
+- Change CLI default from --persistent to --no-persistent
+- Update help text to reflect new default
+
+Also includes new documentation files for tool categories.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+### Fixed
+
+* **cli:** session persistence and device emulation ([#103](https://github.com/alexandriashai/cbrowser/issues/103), [#104](https://github.com/alexandriashai/cbrowser/issues/104)) ([67432e5](https://github.com/alexandriashai/cbrowser/commit/67432e580fcded743fe216e47555d29532418a09))
+
 ## [17.7.0] (2026-02-11)
 
 ### Fixed
