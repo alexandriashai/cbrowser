@@ -295,7 +295,7 @@ CBrowser runs as an MCP server for Claude Desktop and claude.ai.
 
 **Public Demo Server** (rate-limited, no auth):
 ```
-https://cbrowser-mcp-demo.wyldfyre.ai/mcp
+https://demo.cbrowser.ai/mcp
 ```
 
 Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)

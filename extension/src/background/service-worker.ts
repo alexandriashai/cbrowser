@@ -43,7 +43,7 @@ const state: BackgroundState = {
 // ============================================
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
-  mcpServerUrl: 'https://cbrowser-mcp-demo.wyldfyre.ai',
+  mcpServerUrl: 'https://demo.cbrowser.ai',
   autoScreenshot: true,
   recordingHotkey: 'Ctrl+Shift+R',
   theme: 'system',

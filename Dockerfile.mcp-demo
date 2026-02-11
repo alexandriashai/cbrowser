@@ -1,5 +1,5 @@
 # CBrowser MCP Demo Server - Resource-Limited Container
-# For running the public demo at cbrowser-mcp-demo.wyldfyre.ai
+# For running the public demo at demo.cbrowser.ai
 #
 # Features:
 # - Rate limited (5 req/min, burst 10)

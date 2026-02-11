@@ -49,7 +49,7 @@ function claudeAISetup() {
   console.log("=== claude.ai Custom Connector Setup ===\n");
 
   console.log("Public Demo Server (rate-limited, no auth):");
-  console.log("  URL: https://cbrowser-mcp-demo.wyldfyre.ai/mcp");
+  console.log("  URL: https://demo.cbrowser.ai/mcp");
   console.log("  Rate limit: 5 requests/minute, burst of 10");
   console.log("  Purpose: Evaluation only\n");
 

@@ -321,7 +321,7 @@ let defaultBridge: MCPBridge | null = null;
 export function getMCPBridge(): MCPBridge {
   if (!defaultBridge) {
     defaultBridge = new MCPBridge({
-      serverUrl: 'https://cbrowser-mcp-demo.wyldfyre.ai',
+      serverUrl: 'https://demo.cbrowser.ai',
     });
   }
   return defaultBridge;

@@ -74,7 +74,7 @@ Connect to a CBrowser MCP server for advanced testing:
 3. Add auth token if required
 4. Test connection
 
-Default demo server: `https://cbrowser-mcp-demo.wyldfyre.ai`
+Default demo server: `https://demo.cbrowser.ai`
 
 ## Architecture
 

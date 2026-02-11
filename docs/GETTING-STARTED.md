@@ -191,7 +191,7 @@ Add to `claude_desktop_config.json`:
 
 Use the public demo server:
 ```
-https://cbrowser-mcp-demo.wyldfyre.ai/mcp
+https://demo.cbrowser.ai/mcp
 ```
 
 Or deploy your own: see [MCP Integration](./MCP-INTEGRATION.md).

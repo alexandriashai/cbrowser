@@ -376,7 +376,7 @@ Add to `claude_desktop_config.json`:
 
 **Public Demo Server (rate-limited, no auth required):**
 ```
-URL: https://cbrowser-mcp-demo.wyldfyre.ai/mcp
+URL: https://demo.cbrowser.ai/mcp
 Rate limit: 5 requests/minute, burst of 10
 For evaluation purposes only
 ```
