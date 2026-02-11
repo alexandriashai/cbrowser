@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.5.0](https://github.com/alexandriashai/cbrowser/compare/v17.4.1...v17.5.0) (2026-02-10)
+
+### Fixed
+
+* **click:** navigate correctly when clicking URL-text links inside anchor tags ([#click-url-text](https://github.com/alexandriashai/cbrowser/issues/click-url-text))
+
+When sites render link URLs as visible text (e.g., `<a><span>https://example.com/path</span></a>`), `findElement` may match the inner text element rather than the anchor. Clicking the inner element doesn't trigger navigation. Now when the selector looks like a URL, CBrowser traverses up to find the parent anchor and clicks that instead.
+
 ## [17.4.1](https://github.com/alexandriashai/cbrowser/compare/v17.4.0...v17.4.1) (2026-02-10)
 
 ### Fixed

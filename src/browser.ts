@@ -1689,8 +1689,77 @@ export class CBrowser {
         return result;
       }
 
+      // v17.5.0: When clicking URL-text links, ensure we click the anchor, not inner text
+      // Sites often render link URLs as visible text inside <a> tags. When findElement matches
+      // that URL text, it may return an inner element (span, text node) rather than the anchor.
+      // Clicking the inner element doesn't always trigger navigation. Fix: find and click the anchor.
+      let clickTarget = element;
+      const looksLikeUrl = selector.startsWith('http://') || selector.startsWith('https://') || selector.includes('://');
+
+      if (looksLikeUrl) {
+        const ancestorAnchorInfo = await element.evaluate((el: Element) => {
+          // If we're already an anchor, no change needed
+          if (el.tagName === 'A') {
+            return { isAnchor: true, href: (el as HTMLAnchorElement).href };
+          }
+
+          // Walk up to find parent anchor
+          let current = el.parentElement;
+          while (current) {
+            if (current.tagName === 'A') {
+              // Generate a selector for this anchor
+              const anchor = current as HTMLAnchorElement;
+              let anchorSelector = '';
+
+              if (anchor.id) {
+                anchorSelector = `#${anchor.id}`;
+              } else if (anchor.href) {
+                // Use href attribute selector - escape special chars
+                const escapedHref = anchor.href.replace(/"/g, '\\"');
+                anchorSelector = `a[href="${escapedHref}"]`;
+              }
+
+              return {
+                isAnchor: false,
+                hasAncestorAnchor: true,
+                ancestorSelector: anchorSelector,
+                href: anchor.href
+              };
+            }
+            current = current.parentElement;
+          }
+
+          return { isAnchor: false, hasAncestorAnchor: false };
+        });
+
+        if (ancestorAnchorInfo.hasAncestorAnchor && ancestorAnchorInfo.ancestorSelector) {
+          // Found a parent anchor - click that instead
+          const ancestorAnchor = page.locator(ancestorAnchorInfo.ancestorSelector).first();
+          if (await ancestorAnchor.count() > 0) {
+            clickTarget = ancestorAnchor;
+            if (options.verbose) {
+              console.log(`URL-text click: found parent anchor, clicking ${ancestorAnchorInfo.ancestorSelector}`);
+            }
+          }
+        }
+      }
+
+      // v17.4.2: Handle target="_blank" links - navigate in same tab instead of opening new tab
+      // This matches user intent: "click this link" means "go there", not "open new tab"
+      const targetBlankRemoved = await clickTarget.evaluate((el: Element) => {
+        if (el.tagName === 'A' && (el as HTMLAnchorElement).target === '_blank') {
+          (el as HTMLAnchorElement).removeAttribute('target');
+          return true;
+        }
+        return false;
+      });
+
+      if (targetBlankRemoved && options.verbose) {
+        console.log('Removed target="_blank" to navigate in same tab');
+      }
+
       // Check for sticky element interception before clicking
-      const interception = await this.checkForInterception(element);
+      const interception = await this.checkForInterception(clickTarget);
 
       if (interception.intercepted && interception.interceptorSelector) {
         if (options.verbose) {
@@ -1699,7 +1768,7 @@ export class CBrowser {
 
         // Try to handle the interception
         const handled = await this.handleStickyInterception(
-          element,
+          clickTarget,
           interception.interceptorSelector,
           { verbose: options.verbose }
         );
@@ -1717,7 +1786,7 @@ export class CBrowser {
         }
       } else {
         // No interception, normal click
-        await element.click();
+        await clickTarget.click();
       }
 
       // Wait for any navigation or network activity
