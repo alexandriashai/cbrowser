@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2026 WF Media (Alexandria Eden)
  * Email: alexandria.shai.eden@gmail.com
+ * Website: https://cbrowser.ai/
  *
  * This source code is licensed under the Business Source License 1.1
  * found in the LICENSE file in the root directory of this source tree.
@@ -89,7 +90,9 @@ function showHelp(): void {
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║${padding}${versionStr}${rightPadding}║
 ║    AI-powered browser automation with cross-browser visual testing          ║
-║    Semantic Versioning: https://semver.org/                                  ║
+║                                                                              ║
+║    📚 Documentation: https://cbrowser.ai/docs                                ║
+║    📦 npm: https://npmjs.com/package/cbrowser                                ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 NAVIGATION

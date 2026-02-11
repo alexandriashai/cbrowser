@@ -3,8 +3,8 @@
 > **The browser automation that thinks.** v16.15.0 achieved **Grade A+** in comprehensive stress testing—100% pass rate across 48+ tools and 60+ invocations, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
+[![Documentation](https://img.shields.io/badge/Docs-cbrowser.ai-blue.svg)](https://cbrowser.ai/docs)
 [![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
-[![Tests](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml/badge.svg)](https://github.com/alexandriashai/cbrowser/actions/workflows/test.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-68%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
@@ -482,15 +482,16 @@ For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.sha
 
 ## Links
 
+- **[📚 Documentation](https://cbrowser.ai/docs)** — Full documentation, guides, and API reference
 - [NPM Package](https://www.npmjs.com/package/cbrowser)
 - [GitHub Repository](https://github.com/alexandriashai/cbrowser)
 - [Issue Tracker](https://github.com/alexandriashai/cbrowser/issues)
 - [A+ Assessment Report](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
-- [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 - [Roadmap](ROADMAP.md)
 
 ### Research Documentation
 
-- [Research Methodology](https://github.com/alexandriashai/cbrowser/wiki/Research-Methodology) — How 25 traits were selected and validated
-- [Trait Index](https://github.com/alexandriashai/cbrowser/wiki/Trait-Index) — All cognitive traits with citations
-- [Bibliography](https://github.com/alexandriashai/cbrowser/wiki/Bibliography) — Complete academic references
+- [Research Methodology](https://cbrowser.ai/docs/Research-Methodology) — How 25 traits were selected and validated
+- [Trait Index](https://cbrowser.ai/docs/Trait-Index) — All cognitive traits with citations
+- [Bibliography](https://cbrowser.ai/docs/Bibliography) — Complete academic references
+- [Persona Index](https://cbrowser.ai/docs/Persona-Index) — All 13 built-in personas
