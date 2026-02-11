@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.2.0](https://github.com/alexandriashai/cbrowser/compare/v18.1.0...v18.2.0) (2026-02-11)
+
+### Added
+
+* **mcp-remote:** add base64 image encoding for remote screenshots ([9a9507b](https://github.com/alexandriashai/cbrowser/commit/9a9507b8fada2d604f4e3ec40e462d99c8bba03f)), closes [#107](https://github.com/alexandriashai/cbrowser/issues/107)
+
 ## [18.1.0](https://github.com/alexandriashai/cbrowser/compare/v18.0.0...v18.1.0) (2026-02-11)
 
 ### Added
