@@ -314,6 +314,22 @@ async function handleMcpRequest(
 ): Promise<void> {
   const start = Date.now();
 
+  // Fix Accept header for clients that don't properly set it (e.g., Claude.ai custom connectors)
+  // The MCP SDK requires "application/json, text/event-stream" but some clients omit this
+  // We must modify both headers object AND rawHeaders array since @hono/node-server may read either
+  const acceptHeader = req.headers.accept || "";
+  if (!acceptHeader.includes("text/event-stream")) {
+    const fixedAccept = "application/json, text/event-stream";
+    req.headers.accept = fixedAccept;
+    // Also fix rawHeaders array (Hono may read from this)
+    const acceptIdx = req.rawHeaders.findIndex(h => h.toLowerCase() === "accept");
+    if (acceptIdx >= 0) {
+      req.rawHeaders[acceptIdx + 1] = fixedAccept;
+    } else {
+      req.rawHeaders.push("Accept", fixedAccept);
+    }
+  }
+
   // Parse body for POST requests
   if (req.method === "POST") {
     const chunks: Buffer[] = [];
