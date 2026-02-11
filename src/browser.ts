@@ -113,6 +113,7 @@ interface SessionState {
   url: string;
   timestamp: number;
   viewport?: { width: number; height: number };
+  device?: string;
 }
 
 export class CBrowser {
@@ -166,7 +167,7 @@ export class CBrowser {
     return join(this.paths.dataDir, "browser-state", "last-session.json");
   }
 
-  private saveSessionState(url: string, viewport?: { width: number; height: number }): void {
+  private saveSessionState(url: string, viewport?: { width: number; height: number }, device?: string): void {
     try {
       // Don't save about:blank or empty URLs
       if (!url || url === "about:blank" || url === "") return;
@@ -175,6 +176,7 @@ export class CBrowser {
         url,
         timestamp: Date.now(),
         viewport,
+        device: device || this.config.device,
       };
 
       const stateDir = join(this.paths.dataDir, "browser-state");
@@ -185,6 +187,32 @@ export class CBrowser {
       writeFileSync(this.sessionStateFile, JSON.stringify(state, null, 2));
     } catch (e) {
       // Silently fail - this is a best-effort feature
+    }
+  }
+
+  /**
+   * Save device setting to session state for persistence.
+   */
+  saveDeviceSetting(device: string): void {
+    try {
+      const stateDir = join(this.paths.dataDir, "browser-state");
+      if (!existsSync(stateDir)) {
+        mkdirSync(stateDir, { recursive: true });
+      }
+
+      // Load existing state or create new
+      let state: SessionState;
+      if (existsSync(this.sessionStateFile)) {
+        state = JSON.parse(readFileSync(this.sessionStateFile, "utf-8"));
+      } else {
+        state = { url: "", timestamp: Date.now() };
+      }
+
+      state.device = device;
+      state.timestamp = Date.now();
+      writeFileSync(this.sessionStateFile, JSON.stringify(state, null, 2));
+    } catch (e) {
+      console.error(`Failed to save device setting: ${(e as Error).message}`);
     }
   }
 
@@ -226,6 +254,17 @@ export class CBrowser {
    */
   async launch(): Promise<void> {
     if (this.browser || this.context) return;
+
+    // Load saved session state to restore device setting if not explicitly set
+    if (this.config.persistent && !this.config.device) {
+      const savedSession = this.loadSessionState();
+      if (savedSession?.device && DEVICE_PRESETS[savedSession.device]) {
+        this.config.device = savedSession.device;
+        if (this.config.verbose) {
+          console.log(`🔄 Restoring device: ${savedSession.device}`);
+        }
+      }
+    }
 
     // Select browser engine based on config
     const browserType = this.config.browser === "firefox"

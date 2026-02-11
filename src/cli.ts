@@ -625,7 +625,7 @@ OPTIONS
   --record-video              Enable video recording
   --force                     Bypass red zone safety checks
   --headless                  Run browser in headless mode
-  --persistent                Enable persistent browser context (cookies survive)
+  --no-persistent             Disable persistent browser context (default: enabled)
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
@@ -1339,9 +1339,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     }
   }
 
-  const persistentMode = options.persistent === true || options.persistent === "true";
-  if (persistentMode) {
-    console.log("🔄 Persistent mode enabled");
+  // Default to persistent mode for session continuity between commands
+  // Use --no-persistent to disable
+  const persistentMode = options.persistent !== false && options.persistent !== "false";
+  if (!persistentMode) {
+    console.log("🔄 Persistent mode disabled");
   }
 
   // Default to headless for CLI usage, unless explicitly set to false
@@ -2497,8 +2499,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Run 'cbrowser device list' to see available devices");
               process.exit(1);
             }
+            // Save device setting to persistent session state
+            const deviceBrowser = new CBrowser({ persistent: true, headless: true, verbose: false });
+            deviceBrowser.saveDeviceSetting(deviceName);
             console.log(`✓ Device set: ${deviceName}`);
-            console.log("  Note: Device emulation applies to new browser sessions");
+            console.log("  Device emulation will apply to all subsequent commands");
             break;
           }
           default:
