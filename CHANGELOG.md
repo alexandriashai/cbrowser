@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.1.0](https://github.com/alexandriashai/cbrowser/compare/v18.0.0...v18.1.0) (2026-02-11)
+
+### Added
+
+* **mcp:** return base64 images for remote MCP mode ([#107](https://github.com/alexandriashai/cbrowser/issues/107)) ([a62c0c1](https://github.com/alexandriashai/cbrowser/commit/a62c0c128321560c2280606b9ec7be9b0614befe))
+
 ## [18.0.0](https://github.com/alexandriashai/cbrowser/compare/v17.6.1...v18.0.0) (2026-02-11)
 
 ### ⚠ BREAKING CHANGES
