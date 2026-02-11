@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [17.5.1](https://github.com/alexandriashai/cbrowser/compare/v17.4.1...v17.5.1) (2026-02-11)
+
+### Fixed
+
+* **click:** navigate correctly when clicking URL-text links ([0051b0a](https://github.com/alexandriashai/cbrowser/commit/0051b0ad86bbfe4933895392c0c24135bc327769))
+
 ## [17.5.0](https://github.com/alexandriashai/cbrowser/compare/v17.4.1...v17.5.0) (2026-02-10)
 
 ### Fixed
