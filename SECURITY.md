@@ -14,7 +14,7 @@
 If you discover a security vulnerability in CBrowser, please report it responsibly:
 
 1. **Do NOT open a public GitHub issue**
-2. Email security concerns to: security@wyldfyre.ai
+2. Email security concerns to: alexandria.shai.eden@gmail.com
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
