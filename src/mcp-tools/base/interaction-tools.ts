@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { buildContentWithScreenshots } from "../screenshot-utils.js";
 
 /**
  * Register interaction tools (5 tools: click, smart_click, dismiss_overlay, fill, scroll)
@@ -37,7 +38,7 @@ export function registerInteractionTools(
         if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
       }
       return {
-        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+        content: buildContentWithScreenshots(response, result.screenshot, result.debugScreenshot),
       };
     }
   );
@@ -121,7 +122,7 @@ export function registerInteractionTools(
         if (result.debugScreenshot) response.debugScreenshot = result.debugScreenshot;
       }
       return {
-        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+        content: buildContentWithScreenshots(response, result.debugScreenshot),
       };
     }
   );

@@ -159,3 +159,43 @@ export function setRemoteMode(enabled: boolean): void {
 export function getRemoteMode(): boolean {
   return remoteMode;
 }
+
+/**
+ * Build MCP content array with optional images for remote mode.
+ * This is the standard pattern for tools that return screenshots.
+ *
+ * @param data - The JSON data to include in text content
+ * @param screenshotPaths - Screenshot path(s) to convert to images in remote mode
+ * @returns Array of MCP content blocks
+ */
+export function buildContentWithScreenshots(
+  data: Record<string, unknown>,
+  ...screenshotPaths: (string | undefined)[]
+): ContentBlock[] {
+  const content: ContentBlock[] = [
+    {
+      type: "text",
+      text: JSON.stringify(data, null, 2),
+    },
+  ];
+
+  // In remote mode, add image content blocks for screenshots
+  if (getRemoteMode()) {
+    for (const path of screenshotPaths) {
+      if (!path) continue;
+
+      const base64Data = screenshotToBase64(path);
+      if (base64Data) {
+        const base64Only = base64Data.split(",")[1];
+        const mimeType = base64Data.split(";")[0].split(":")[1];
+        content.push({
+          type: "image",
+          data: base64Only,
+          mimeType: mimeType,
+        });
+      }
+    }
+  }
+
+  return content;
+}

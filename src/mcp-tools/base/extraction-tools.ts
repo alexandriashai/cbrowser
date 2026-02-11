@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { buildContentWithScreenshots } from "../screenshot-utils.js";
 
 /**
  * Register extraction tools (2 tools: screenshot, extract)
@@ -25,12 +26,7 @@ export function registerExtractionTools(
       const b = await getBrowser();
       const file = await b.screenshot(path);
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ screenshot: file }, null, 2),
-          },
-        ],
+        content: buildContentWithScreenshots({ screenshot: file }, file),
       };
     }
   );
