@@ -1,7 +1,7 @@
 /**
  * CBrowser MCP Tools - Ask User Tool
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 

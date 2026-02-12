@@ -4,7 +4,7 @@
  * Implements Schwartz's 10 universal values with research citations.
  * This is the foundation for understanding WHO a persona is at a motivational level.
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT - See LICENSE file
  *
  * @references

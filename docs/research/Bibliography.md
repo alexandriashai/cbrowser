@@ -1,6 +1,6 @@
 # Bibliography
 
-> **Copyright**: (c) 2026 Alexa Eden. All rights reserved.
+> **Copyright**: (c) 2026 Alexandria Eden. All rights reserved.
 >
 > **License**: [MIT License](https://github.com/alexandriashai/cbrowser/blob/main/LICENSE) - Converts to Apache 2.0 on February 5, 2030.
 >

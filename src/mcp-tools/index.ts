@@ -11,7 +11,7 @@
  *
  * Public npm total: 82 (60 real + 22 stubs)
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 

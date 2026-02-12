@@ -12,7 +12,7 @@
  * - Stealth (7): stealth_status, stealth_enable, stealth_disable, stealth_check,
  *   stealth_diagnose, cloudflare_detect, cloudflare_wait
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 

@@ -2,7 +2,7 @@
  * CBrowser MCP Tools - Base Tools Index
  * Registers all 52 base tools across 17 categories
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 

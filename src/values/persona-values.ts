@@ -4,7 +4,7 @@
  * Assigns Schwartz value profiles to each persona, enabling
  * prediction of behavioral tendencies and influence susceptibility.
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT - See LICENSE file
  */
 

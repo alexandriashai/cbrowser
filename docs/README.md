@@ -36,4 +36,4 @@ For all other documentation, please visit **[cbrowser.ai/docs](https://cbrowser.
 
 ---
 
-© 2026 Alexa Eden | [cbrowser.ai](https://cbrowser.ai)
+© 2026 Alexandria Eden | [cbrowser.ai](https://cbrowser.ai)

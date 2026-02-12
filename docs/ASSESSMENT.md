@@ -123,4 +123,4 @@ Minor items for future releases (none block the A grade):
 
 *Assessment completed February 8, 2026*
 
-*© 2026 Alexa Eden. All rights reserved.*
+*© 2026 Alexandria Eden. All rights reserved.*

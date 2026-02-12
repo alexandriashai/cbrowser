@@ -5,7 +5,7 @@
  * Theory of Basic Human Values, Self-Determination Theory, and Maslow's
  * Hierarchy of Needs.
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT - See LICENSE file
  */
 

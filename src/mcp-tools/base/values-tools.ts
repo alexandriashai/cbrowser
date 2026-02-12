@@ -2,7 +2,7 @@
  * CBrowser MCP Tools - Values System Tools
  * Schwartz's 10 Universal Values, Self-Determination Theory, Maslow
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 

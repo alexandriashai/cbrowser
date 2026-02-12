@@ -4,7 +4,7 @@
  * Persona Questionnaire System
  * Research-based behavioral trait mapping for custom persona generation
  *
- * Copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com
+ * Copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com
  */
 
 import type { CognitiveTraits } from "./types.js";

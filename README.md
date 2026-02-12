@@ -476,7 +476,7 @@ For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.sha
 
 ## Copyright
 
-© 2026 Alexa Eden. All rights reserved.
+© 2026 Alexandria Eden. All rights reserved.
 
 ---
 

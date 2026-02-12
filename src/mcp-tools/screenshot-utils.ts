@@ -4,7 +4,7 @@
  * Utilities for converting screenshot file paths to inline base64 images
  * for remote MCP mode where claude.ai can't access server filesystem.
  *
- * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 
