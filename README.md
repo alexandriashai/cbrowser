@@ -1,6 +1,6 @@
 # CBrowser — Cognitive Browser Automation
 
-> **The browser automation that thinks.** v16.15.0 achieved **Grade A+** in comprehensive stress testing—100% pass rate across 48+ tools and 60+ invocations, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
+> **The browser automation that thinks.** Achieved **Grade A+** in comprehensive stress testing—100% pass rate across 68+ tools, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![Documentation](https://img.shields.io/badge/Docs-cbrowser.ai-blue.svg)](https://cbrowser.ai/docs)
@@ -18,7 +18,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 
 ## What Makes CBrowser Different
 
-**68 tools, 15 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
+**68 tools, 17 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
 
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
@@ -460,23 +460,18 @@ See [Marketing Suite Wiki](https://github.com/alexandriashai/cbrowser/wiki/Marke
 
 ## License
 
-**MIT License (MIT)**
+**MIT License** — Free and open source.
 
-- ✅ Free for non-production use: development, testing, personal projects, evaluation
-- ✅ Read, modify, and contribute to the source
-- ⚠️ Production use (including production testing pipelines) requires a commercial license
-
-**Note:** Non-production use means evaluation of CBrowser itself, not using CBrowser as part of a production testing service.
-
-Converts to **Apache 2.0** on February 5, 2030.
-
-For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.shai.eden@gmail.com)
+Use, modify, and distribute freely for any purpose, including commercial and production use. See [LICENSE](LICENSE) for full terms.
 
 ---
 
 ## Copyright
 
-© 2026 Alexandria Eden. All rights reserved.
+© 2026 Alexandria Eden
+
+Contact: [alexandria.shai.eden@gmail.com](mailto:alexandria.shai.eden@gmail.com)
+Website: [cbrowser.ai](https://cbrowser.ai)
 
 ---
 
@@ -494,4 +489,4 @@ For commercial licensing: [alexandria.shai.eden@gmail.com](mailto:alexandria.sha
 - [Research Methodology](https://cbrowser.ai/docs/Research-Methodology) — How 25 traits were selected and validated
 - [Trait Index](https://cbrowser.ai/docs/Trait-Index) — All cognitive traits with citations
 - [Bibliography](https://cbrowser.ai/docs/Bibliography) — Complete academic references
-- [Persona Index](https://cbrowser.ai/docs/Persona-Index) — All 13 built-in personas
+- [Persona Index](https://cbrowser.ai/docs/Persona-Index) — All 17 built-in personas
