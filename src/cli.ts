@@ -5294,6 +5294,10 @@ Examples:
   } finally {
     await browser.close();
   }
+
+  // Explicitly exit after successful browser commands
+  // Persistent context may keep handles open that prevent natural exit
+  process.exit(0);
 }
 
 main().catch((error) => {
