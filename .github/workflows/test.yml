@@ -56,9 +56,9 @@ jobs:
         run: |
           # These fields were set when MIT was adopted and must NEVER change
 
-          if ! grep -q "Licensor: WF Media (Alexandria Eden)" LICENSE; then
+          if ! grep -q "Licensor: Alexa Eden" LICENSE; then
             echo "❌ ERROR: 'Licensor' line has been modified!"
-            echo "Must remain: 'WF Media (Alexandria Eden)'"
+            echo "Must remain: 'Alexa Eden'"
             exit 1
           fi
 
@@ -75,6 +75,6 @@ jobs:
           fi
 
           echo "✅ LICENSE immutable fields are correct"
-          echo "   - Licensor: WF Media (Alexandria Eden)"
+          echo "   - Licensor: Alexa Eden"
           echo "   - Licensed Work: CBrowser 8.6.0 and later"
           echo "   - Change Date: February 5, 2030"

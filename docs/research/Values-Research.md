@@ -1,6 +1,6 @@
 # Values Research
 
-> **Copyright**: (c) 2026 WF Media (Alexandria Eden). All rights reserved.
+> **Copyright**: (c) 2026 Alexa Eden. All rights reserved.
 >
 > **License**: [MIT License](https://github.com/alexandriashai/cbrowser/blob/main/LICENSE) - Converts to Apache 2.0 on February 5, 2030.
 >
