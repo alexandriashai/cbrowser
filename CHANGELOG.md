@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.3.10](https://github.com/alexandriashai/cbrowser/compare/v18.3.9...v18.3.10) (2026-02-12)
+
+### Fixed
+
+* add explicit process.exit(0) after browser commands ([930dbf0](https://github.com/alexandriashai/cbrowser/commit/930dbf0dfd2b5ff78f7284e6bde74999cd4abcd7))
+
 ## [18.3.9](https://github.com/alexandriashai/cbrowser/compare/v18.3.8...v18.3.9) (2026-02-12)
 
 ## [18.3.8](https://github.com/alexandriashai/cbrowser/compare/v18.3.5...v18.3.8) (2026-02-12)
