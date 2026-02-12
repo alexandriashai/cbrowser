@@ -890,7 +890,7 @@ User: "Simulate a confused first-timer trying to register as a provider"
 | v16.7.1 | **25 cognitive traits release.** Persona questionnaire, comprehensive wiki documentation with 38 pages, research bibliography with 60+ APA citations, 9 persona profiles with full trait mappings |
 | v16.6.0-v16.7.0 | 25 research-backed cognitive traits in 6 tiers, persona questionnaire for custom user profiles, trait correlations |
 | v14.0.0-v15.x | Stealth mode improvements, Cloudflare bypass, enterprise browser management, compare_personas tool |
-| v13.0.0-v13.0.3 | **Grade A milestone release.** License clarification (MIT with Attribution), copyright headers on all 37 source files, CI protection for LICENSE immutable fields, empathy audit barrier deduplication by TYPE, goalAchieved calibration |
+| v13.0.0-v13.0.3 | **Grade A milestone release.** License clarification (MIT), copyright headers on all 37 source files, CI protection for LICENSE immutable fields, empathy audit barrier deduplication by TYPE, goalAchieved calibration |
 | v12.0.0 | Major license update with production use clarification |
 | v11.10.4 | Professional README rewrite, roadmap updates, enterprise-grade documentation |
 | v11.10.0-v11.10.3 | Browser crash recovery with exponential backoff, empathy audit barrier deduplication, A/B comparison fixes, enhanced MCP tool responses |

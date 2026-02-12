@@ -107,7 +107,7 @@
     "semantic-versioning"
   ],
   "author": "Alexa Eden",
-  "license": "MIT-with-attribution",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alexandriashai/cbrowser.git"
