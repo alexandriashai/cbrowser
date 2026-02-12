@@ -1,16 +1,8 @@
 #!/usr/bin/env node
 /**
  * CBrowser - Cognitive Browser Automation
- *
- * Copyright (c) 2026 WF Media (Alexandria Eden)
- * Email: alexandria.shai.eden@gmail.com
- * Website: https://cbrowser.ai/
- *
- * This source code is licensed under the Business Source License 1.1
- * found in the LICENSE file in the root directory of this source tree.
- *
- * Non-production use is permitted. Production use requires a commercial license.
- * See LICENSE for full terms.
+ * Copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com
+ * Learn more at https://cbrowser.ai - MIT License
  */
 
 /**
@@ -565,6 +557,12 @@ export interface RemoteMcpServerOptions {
    * different tool compositions.
    */
   registerTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>;
+  /**
+   * HTML content to serve on GET / requests.
+   * If provided, GET / serves this homepage while POST / handles MCP.
+   * If not provided, both GET and POST / go to MCP endpoint.
+   */
+  homepageHtml?: string;
 }
 
 // Re-export for enterprise use
@@ -719,6 +717,13 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
         sendUnauthorized(res, authResult.reason);
         return;
       }
+    }
+
+    // Homepage (GET / with homepageHtml option)
+    if (url.pathname === "/" && req.method === "GET" && options?.homepageHtml) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(options.homepageHtml);
+      return;
     }
 
     // MCP endpoint

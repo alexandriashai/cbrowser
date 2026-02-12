@@ -54,7 +54,7 @@ jobs:
 
       - name: Verify LICENSE immutable fields unchanged
         run: |
-          # These fields were set when BSL-1.1 was adopted and must NEVER change
+          # These fields were set when MIT was adopted and must NEVER change
 
           if ! grep -q "Licensor: WF Media (Alexandria Eden)" LICENSE; then
             echo "❌ ERROR: 'Licensor' line has been modified!"
@@ -64,13 +64,13 @@ jobs:
 
           if ! grep -q "Licensed Work: CBrowser 8.6.0 and later" LICENSE; then
             echo "❌ ERROR: 'Licensed Work' line has been modified!"
-            echo "Must remain: 'CBrowser 8.6.0 and later' (when BSL-1.1 was adopted)"
+            echo "Must remain: 'CBrowser 8.6.0 and later' (when MIT was adopted)"
             exit 1
           fi
 
           if ! grep -q "Change Date: February 5, 2030" LICENSE; then
             echo "❌ ERROR: 'Change Date' line has been modified!"
-            echo "Must remain: 'February 5, 2030' (4 years from BSL-1.1 adoption)"
+            echo "Must remain: 'February 5, 2030' (4 years from MIT adoption)"
             exit 1
           fi
 

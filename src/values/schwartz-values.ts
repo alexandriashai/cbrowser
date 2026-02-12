@@ -4,8 +4,8 @@
  * Implements Schwartz's 10 universal values with research citations.
  * This is the foundation for understanding WHO a persona is at a motivational level.
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1) - See LICENSE file
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT - See LICENSE file
  *
  * @references
  * - Schwartz, S.H. (1992). Universals in the content and structure of values.

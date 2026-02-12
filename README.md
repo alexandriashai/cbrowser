@@ -5,7 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![Documentation](https://img.shields.io/badge/Docs-cbrowser.ai-blue.svg)](https://cbrowser.ai/docs)
 [![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
-[![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-68%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
@@ -460,7 +460,7 @@ See [Marketing Suite Wiki](https://github.com/alexandriashai/cbrowser/wiki/Marke
 
 ## License
 
-**Business Source License 1.1 (BSL-1.1)**
+**MIT License (MIT)**
 
 - ✅ Free for non-production use: development, testing, personal projects, evaluation
 - ✅ Read, modify, and contribute to the source

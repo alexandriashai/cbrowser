@@ -107,7 +107,7 @@
     "semantic-versioning"
   ],
   "author": "WF Media",
-  "license": "BSL-1.1",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alexandriashai/cbrowser.git"

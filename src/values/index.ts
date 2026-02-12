@@ -5,8 +5,8 @@
  * Theory of Basic Human Values, Self-Determination Theory, and Maslow's
  * Hierarchy of Needs.
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1) - See LICENSE file
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT - See LICENSE file
  */
 
 // Core Schwartz values and types

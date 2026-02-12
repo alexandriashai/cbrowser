@@ -12,8 +12,8 @@
  * - Stealth (7): stealth_status, stealth_enable, stealth_disable, stealth_check,
  *   stealth_diagnose, cloudflare_detect, cloudflare_wait
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1)
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT
  */
 
 import { z } from "zod";

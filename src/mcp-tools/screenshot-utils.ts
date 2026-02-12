@@ -4,8 +4,8 @@
  * Utilities for converting screenshot file paths to inline base64 images
  * for remote MCP mode where claude.ai can't access server filesystem.
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1)
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT
  */
 
 import { readFileSync, existsSync } from "node:fs";

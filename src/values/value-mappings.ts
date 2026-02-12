@@ -4,8 +4,8 @@
  * Maps Schwartz values to behavioral tendencies and effective influence patterns.
  * Used to predict which persuasion techniques will be effective for a given persona.
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1) - See LICENSE file
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT - See LICENSE file
  *
  * @references
  * - Cialdini, R.B. (2001). Influence: Science and practice (4th ed.).

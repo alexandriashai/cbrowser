@@ -1,8 +1,8 @@
 /**
  * CBrowser MCP Tools - Testing Tools
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1)
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT
  */
 
 import { z } from "zod";

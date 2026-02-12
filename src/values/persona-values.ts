@@ -4,8 +4,8 @@
  * Assigns Schwartz value profiles to each persona, enabling
  * prediction of behavioral tendencies and influence susceptibility.
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1) - See LICENSE file
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT - See LICENSE file
  */
 
 import type { PersonaValues, MaslowLevel } from "./schwartz-values.js";

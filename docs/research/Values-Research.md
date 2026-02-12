@@ -2,7 +2,7 @@
 
 > **Copyright**: (c) 2026 WF Media (Alexandria Eden). All rights reserved.
 >
-> **License**: [Business Source License 1.1](https://github.com/alexandriashai/cbrowser/blob/main/LICENSE) - Converts to Apache 2.0 on February 5, 2030.
+> **License**: [MIT License](https://github.com/alexandriashai/cbrowser/blob/main/LICENSE) - Converts to Apache 2.0 on February 5, 2030.
 >
 > **Note**: All research citations reference publicly available academic sources. Contact: alexandria.shai.eden@gmail.com
 

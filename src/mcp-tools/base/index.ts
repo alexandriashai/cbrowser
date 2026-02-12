@@ -2,8 +2,8 @@
  * CBrowser MCP Tools - Base Tools Index
  * Registers all 52 base tools across 17 categories
  *
- * @copyright 2026 WF Media (Alexandria Eden) alexandria.shai.eden@gmail.com
- * @license BSL-1.1 (Business Source License 1.1)
+ * @copyright 2026 Alexa Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT
  */
 
 import type { McpServer, ToolRegistrationContext } from "../types.js";
