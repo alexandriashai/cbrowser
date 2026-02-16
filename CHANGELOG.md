@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.11.0](https://github.com/alexandriashai/cbrowser/compare/v18.10.0...v18.11.0) (2026-02-16)
+
+### Added
+
+* add security_audit and persona_values_list MCP tools ([c075609](https://github.com/alexandriashai/cbrowser/commit/c0756090cd76c52db6de70aeb4190a44f630d3da))
+
 ## [18.10.0](https://github.com/alexandriashai/cbrowser/compare/v18.9.3...v18.10.0) (2026-02-16)
 
 ### Added
