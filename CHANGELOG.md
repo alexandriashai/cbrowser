@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.8.0](https://github.com/alexandriashai/cbrowser/compare/v18.7.0...v18.8.0) (2026-02-16)
+
+### Added
+
+* **marketing:** show marketing tools as stubs on local MCP ([6986fc1](https://github.com/alexandriashai/cbrowser/commit/6986fc1e49ffa4636bff6d8762e22d1034c9b626))
+
 ## [18.7.0](https://github.com/alexandriashai/cbrowser/compare/v18.6.1...v18.7.0) (2026-02-16)
 
 ### Added
