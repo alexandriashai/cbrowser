@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Authority Sensitivity](https://cbrowser.ai/docs/Trait-AuthoritySensitivity)**
+
+---
+
 # Authority Sensitivity
 
 **Category**: Tier 6 - Social Traits

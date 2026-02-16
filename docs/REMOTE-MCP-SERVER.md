@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Remote MCP Server Deployment Guide](https://cbrowser.ai/docs/REMOTE-MCP-SERVER)**
+
+---
+
 # Remote MCP Server Deployment Guide
 
 Deploy CBrowser (Cognitive Browser) as a remote MCP server for claude.ai custom connectors. This allows your entire team to use CBrowser through Claude without local installation.

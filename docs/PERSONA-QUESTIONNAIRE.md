@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Persona Questionnaire System](https://cbrowser.ai/docs/PERSONA-QUESTIONNAIRE)**
+
+---
+
 # Persona Questionnaire System
 
 **Introduced in v16.6.0**

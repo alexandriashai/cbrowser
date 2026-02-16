@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Getting Started with CBrowser](https://cbrowser.ai/docs/GETTING-STARTED)**
+
+---
+
 # Getting Started with CBrowser
 
 CBrowser (Cognitive Browser) is the browser automation that thinks like your users. This guide will get you up and running quickly.

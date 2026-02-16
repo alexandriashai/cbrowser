@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser v16.14.4 - Final Pre-Launch Stress Test](https://cbrowser.ai/docs/STRESS-TEST-v16.14.4)**
+
+---
+
 # CBrowser v16.14.4 — Final Pre-Launch Stress Test
 
 **Date:** February 9, 2026

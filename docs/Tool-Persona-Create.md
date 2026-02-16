@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Creating Custom Personas](https://cbrowser.ai/docs/Tool-Persona-Create)**
+
+---
+
 # Creating Custom Personas
 
 **Build personas that match your actual users, not generic archetypes.**

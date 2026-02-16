@@ -1,6 +1,12 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser Documentation](https://cbrowser.ai/docs/README)**
+
+---
+
 # CBrowser Documentation
 
-**📚 Full documentation has moved to: [https://cbrowser.ai/docs](https://cbrowser.ai/docs)**
+**Full documentation has moved to: [https://cbrowser.ai/docs](https://cbrowser.ai/docs)**
 
 ---
 

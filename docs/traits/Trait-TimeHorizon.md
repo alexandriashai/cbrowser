@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Time Horizon](https://cbrowser.ai/docs/Trait-TimeHorizon)**
+
+---
+
 # Time Horizon
 
 **Category**: Tier 3 - Decision-Making Traits

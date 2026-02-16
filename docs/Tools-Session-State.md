@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Session & State Tools](https://cbrowser.ai/docs/Tools-Session-State)**
+
+---
+
 # Session & State Tools
 
 **Stay logged in. Handle Cloudflare. Test sites that fight back.**

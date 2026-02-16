@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Working Memory](https://cbrowser.ai/docs/Trait-WorkingMemory)**
+
+---
+
 # Working Memory
 
 **Category**: Tier 1 - Core Traits

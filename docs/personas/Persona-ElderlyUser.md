@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Elderly User](https://cbrowser.ai/docs/Persona-ElderlyUser)**
+
+---
+
 # Elderly User
 
 **Category**: General Users

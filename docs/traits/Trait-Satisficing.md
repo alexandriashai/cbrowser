@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Satisficing](https://cbrowser.ai/docs/Trait-Satisficing)**
+
+---
+
 # Satisficing
 
 **Category**: Tier 3 - Decision-Making Traits

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Attribution Style](https://cbrowser.ai/docs/Trait-AttributionStyle)**
+
+---
+
 # Attribution Style
 
 **Category**: Tier 3 - Decision-Making Traits

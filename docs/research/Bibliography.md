@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Bibliography](https://cbrowser.ai/docs/Bibliography)**
+
+---
+
 # Bibliography
 
 > **Copyright**: (c) 2026 Alexandria Eden. All rights reserved.

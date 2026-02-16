@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Information Foraging](https://cbrowser.ai/docs/Trait-InformationForaging)**
+
+---
+
 # Information Foraging
 
 **Category**: Tier 3 - Decision-Making Traits

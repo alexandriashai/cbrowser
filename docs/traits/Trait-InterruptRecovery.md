@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Interrupt Recovery](https://cbrowser.ai/docs/Trait-InterruptRecovery)**
+
+---
+
 # Interrupt Recovery
 
 **Category**: Tier 2 - Emotional Traits

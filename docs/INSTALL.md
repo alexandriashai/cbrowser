@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser Installation Guide](https://cbrowser.ai/docs/INSTALL)**
+
+---
+
 # CBrowser Installation Guide
 
 ## Installation Options

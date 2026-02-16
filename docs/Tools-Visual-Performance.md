@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Visual & Performance Tools](https://cbrowser.ai/docs/Tools-Visual-Performance)**
+
+---
+
 # Visual & Performance Tools
 
 **Catch regressions before your users see them.**

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Utility Tools](https://cbrowser.ai/docs/Tools-Utilities)**
+
+---
+
 # Utility Tools
 
 **Diagnostics, health checks, and infrastructure.**

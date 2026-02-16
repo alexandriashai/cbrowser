@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Screen Reader User](https://cbrowser.ai/docs/Persona-ScreenReaderUser)**
+
+---
+
 # Screen Reader User
 
 **Category**: Accessibility Personas

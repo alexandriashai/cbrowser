@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Competitive Benchmark](https://cbrowser.ai/docs/Tool-Competitive-Benchmark)**
+
+---
+
 # Competitive Benchmark
 
 **See how your UX stacks up against competitors.**

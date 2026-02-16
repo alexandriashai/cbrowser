@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Values Research](https://cbrowser.ai/docs/Values-Research)**
+
+---
+
 # Values Research
 
 > **Copyright**: (c) 2026 Alexandria Eden. All rights reserved.

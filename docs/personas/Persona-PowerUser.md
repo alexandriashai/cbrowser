@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Power User](https://cbrowser.ai/docs/Persona-PowerUser)**
+
+---
+
 # Power User
 
 **Category**: General Users

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Research Methodology](https://cbrowser.ai/docs/Research-Methodology)**
+
+---
+
 # Research Methodology
 
 > **Copyright**: (c) 2026 Alexandria Eden. All rights reserved.

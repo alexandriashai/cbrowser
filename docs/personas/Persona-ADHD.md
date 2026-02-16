@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Cognitive ADHD User](https://cbrowser.ai/docs/Persona-ADHD)**
+
+---
+
 # Cognitive ADHD User
 
 **Category**: Accessibility Personas

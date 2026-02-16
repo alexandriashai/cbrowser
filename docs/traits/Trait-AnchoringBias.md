@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Anchoring Bias](https://cbrowser.ai/docs/Trait-AnchoringBias)**
+
+---
+
 # Anchoring Bias
 
 **Category**: Tier 3 - Decision-Making Traits

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Risk Tolerance](https://cbrowser.ai/docs/Trait-RiskTolerance)**
+
+---
+
 # Risk Tolerance
 
 **Category**: Tier 1 - Core Traits

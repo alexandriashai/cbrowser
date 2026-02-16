@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Impatient User](https://cbrowser.ai/docs/Persona-ImpatientUser)**
+
+---
+
 # Impatient User
 
 **Category**: General Users

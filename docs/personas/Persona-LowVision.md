@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Low Vision User](https://cbrowser.ai/docs/Persona-LowVision)**
+
+---
+
 # Low Vision User
 
 **Category**: Accessibility Personas

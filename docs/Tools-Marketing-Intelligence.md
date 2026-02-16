@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Marketing Intelligence Tools](https://cbrowser.ai/docs/Tools-Marketing-Intelligence)**
+
+---
+
 # Marketing Intelligence Tools
 
 **Stop guessing which messages work. Start measuring influence.**

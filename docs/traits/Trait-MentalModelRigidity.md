@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Mental Model Rigidity](https://cbrowser.ai/docs/Trait-MentalModelRigidity)**
+
+---
+
 # Mental Model Rigidity
 
 **Category**: Tier 5 - Perception Traits

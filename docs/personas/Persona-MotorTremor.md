@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Motor Tremor User](https://cbrowser.ai/docs/Persona-MotorTremor)**
+
+---
+
 # Motor Tremor User
 
 **Category**: Accessibility Personas

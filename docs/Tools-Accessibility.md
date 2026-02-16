@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Accessibility Tools](https://cbrowser.ai/docs/Tools-Accessibility)**
+
+---
+
 # Accessibility Tools
 
 **Experience your site through the eyes of someone who can't use a mouse.**

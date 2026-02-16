@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Auth0 OAuth Setup for CBrowser MCP Server](https://cbrowser.ai/docs/AUTH0-SETUP)**
+
+---
+
 # Auth0 OAuth Setup for CBrowser MCP Server
 
 This guide walks you through setting up Auth0 authentication for the CBrowser Remote MCP Server, enabling integration with claude.ai's custom connector feature.

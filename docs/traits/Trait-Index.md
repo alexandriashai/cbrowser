@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Cognitive Traits Index](https://cbrowser.ai/docs/Trait-Index)**
+
+---
+
 # Cognitive Traits Index
 
 > **Copyright**: (c) 2026 Alexandria Eden. All rights reserved.

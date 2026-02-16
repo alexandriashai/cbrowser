@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Self-Efficacy](https://cbrowser.ai/docs/Trait-SelfEfficacy)**
+
+---
+
 # Self-Efficacy
 
 **Category**: Tier 2 - Emotional Traits

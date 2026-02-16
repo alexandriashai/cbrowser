@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Transfer Learning](https://cbrowser.ai/docs/Trait-TransferLearning)**
+
+---
+
 # Transfer Learning
 
 **Category**: Tier 4 - Planning Traits

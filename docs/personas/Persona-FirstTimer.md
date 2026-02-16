@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[First-Timer](https://cbrowser.ai/docs/Persona-FirstTimer)**
+
+---
+
 # First-Timer
 
 **Category**: General Users

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[FOMO (Fear of Missing Out)](https://cbrowser.ai/docs/Trait-FOMO)**
+
+---
+
 # FOMO (Fear of Missing Out)
 
 **Category**: Tier 6 - Social Traits

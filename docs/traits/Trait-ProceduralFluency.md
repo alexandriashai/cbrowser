@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Procedural Fluency](https://cbrowser.ai/docs/Trait-ProceduralFluency)**
+
+---
+
 # Procedural Fluency
 
 **Category**: Tier 4 - Planning Traits

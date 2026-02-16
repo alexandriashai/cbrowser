@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Hunt Bugs](https://cbrowser.ai/docs/Tool-Hunt-Bugs)**
+
+---
+
 # Hunt Bugs
 
 **Turn AI loose on your site. See what's broken.**

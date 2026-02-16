@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Metacognitive Planning](https://cbrowser.ai/docs/Trait-MetacognitivePlanning)**
+
+---
+
 # Metacognitive Planning
 
 **Category**: Tier 4 - Planning Traits

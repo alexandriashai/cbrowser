@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser Enterprise Integration Guide](https://cbrowser.ai/docs/ENTERPRISE-INTEGRATION)**
+
+---
+
 # CBrowser Enterprise Integration Guide
 
 This document explains how to integrate the private `cbrowser-enterprise` package with the public `cbrowser` package.

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Persistence](https://cbrowser.ai/docs/Trait-Persistence)**
+
+---
+
 # Persistence
 
 **Category**: Tier 1 - Core Traits

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Browser Automation Tools](https://cbrowser.ai/docs/Tools-Browser-Automation)**
+
+---
+
 # Browser Automation Tools
 
 **Tell the browser what you want. Let AI figure out how.**

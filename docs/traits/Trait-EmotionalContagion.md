@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Emotional Contagion](https://cbrowser.ai/docs/Trait-EmotionalContagion)**
+
+---
+
 # Emotional Contagion
 
 **Category**: Tier 6 - Social Traits

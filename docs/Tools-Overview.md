@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Tools Reference](https://cbrowser.ai/docs/Tools-Overview)**
+
+---
+
 # Tools Reference
 
 **Stop writing brittle test scripts. Start having conversations with your browser.**

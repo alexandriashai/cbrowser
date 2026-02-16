@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Social Proof Sensitivity](https://cbrowser.ai/docs/Trait-SocialProofSensitivity)**
+
+---
+
 # Social Proof Sensitivity
 
 **Category**: Tier 6 - Social Traits

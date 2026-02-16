@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Patience](https://cbrowser.ai/docs/Trait-Patience)**
+
+---
+
 # Patience
 
 **Category**: Tier 1 - Core Traits

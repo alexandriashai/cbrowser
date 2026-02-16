@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser MCP Demo Server Deployment](https://cbrowser.ai/docs/DEMO-DEPLOYMENT)**
+
+---
+
 # CBrowser MCP Demo Server Deployment
 
 Deploy a rate-limited, resource-constrained MCP demo server.

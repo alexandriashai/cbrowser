@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Change Blindness](https://cbrowser.ai/docs/Trait-ChangeBlindness)**
+
+---
+
 # Change Blindness
 
 **Category**: Tier 5 - Perception Traits

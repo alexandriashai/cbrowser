@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Marketing Campaigns](https://cbrowser.ai/docs/Tool-Marketing-Campaign)**
+
+---
+
 # Marketing Campaigns
 
 **Test which messages work for which audiences — with scientific rigor.**

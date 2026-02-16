@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Mobile User](https://cbrowser.ai/docs/Persona-MobileUser)**
+
+---
+
 # Mobile User
 
 **Category**: General Users

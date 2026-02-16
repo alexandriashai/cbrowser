@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[MCP Server Integration](https://cbrowser.ai/docs/MCP-INTEGRATION)**
+
+---
+
 # MCP Server Integration
 
 CBrowser provides full Model Context Protocol (MCP) integration for Claude Desktop and claude.ai.

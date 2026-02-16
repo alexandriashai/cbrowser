@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Cognitive Journey Autonomous](https://cbrowser.ai/docs/Tool-Cognitive-Journey-Autonomous)**
+
+---
+
 # Cognitive Journey Autonomous
 
 **🔒 Enterprise Feature**

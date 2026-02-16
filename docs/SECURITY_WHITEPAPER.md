@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Constitutional AI for Browser Automation: A Defense-in-Depth Approach](https://cbrowser.ai/docs/SECURITY_WHITEPAPER)**
+
+---
+
 # Constitutional AI for Browser Automation: A Defense-in-Depth Approach
 
 > **CBrowser Security Whitepaper**

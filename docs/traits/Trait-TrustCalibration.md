@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Trust Calibration](https://cbrowser.ai/docs/Trait-TrustCalibration)**
+
+---
+
 # Trust Calibration
 
 **Category**: Tier 2 - Emotional Traits

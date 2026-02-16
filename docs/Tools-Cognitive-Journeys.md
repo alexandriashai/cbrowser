@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Cognitive Journey Tools](https://cbrowser.ai/docs/Tools-Cognitive-Journeys)**
+
+---
+
 # Cognitive Journey Tools
 
 **Find out where users give up before they actually do.**

@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser v12.0.0 - Independent Assessment](https://cbrowser.ai/docs/ASSESSMENT)**
+
+---
+
 # CBrowser v12.0.0 — Independent Assessment
 
 **Final Grade: A**

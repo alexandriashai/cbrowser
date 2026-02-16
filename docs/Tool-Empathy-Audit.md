@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Empathy Audit](https://cbrowser.ai/docs/Tool-Empathy-Audit)**
+
+---
+
 # Empathy Audit
 
 **Experience your site through the eyes of someone with a disability.**

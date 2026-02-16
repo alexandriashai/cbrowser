@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Testing & Quality Tools](https://cbrowser.ai/docs/Tools-Testing-Quality)**
+
+---
+
 # Testing & Quality Tools
 
 **Write tests in plain English. Let AI fix them when they break.**

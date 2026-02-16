@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[CBrowser Scoring Methodology & Research Sources](https://cbrowser.ai/docs/METHODOLOGY)**
+
+---
+
 # CBrowser Scoring Methodology & Research Sources
 
 CBrowser's analysis features use **heuristic estimates** calibrated against published UX and accessibility research. This document explains our methodology, sources, and limitations.

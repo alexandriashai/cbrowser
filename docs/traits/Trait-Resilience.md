@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Resilience](https://cbrowser.ai/docs/Trait-Resilience)**
+
+---
+
 # Resilience
 
 **Category**: Tier 2 - Emotional Traits

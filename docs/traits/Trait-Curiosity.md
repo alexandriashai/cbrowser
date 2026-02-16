@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Curiosity](https://cbrowser.ai/docs/Trait-Curiosity)**
+
+---
+
 # Curiosity
 
 **Category**: Tier 1 - Core Traits

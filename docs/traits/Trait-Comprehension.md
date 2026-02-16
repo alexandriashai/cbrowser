@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Comprehension](https://cbrowser.ai/docs/Trait-Comprehension)**
+
+---
+
 # Comprehension
 
 **Category**: Tier 1 - Core Traits

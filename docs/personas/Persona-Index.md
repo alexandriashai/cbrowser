@@ -1,3 +1,9 @@
+> **This documentation is no longer maintained here.**
+>
+> For the latest version, please visit: **[Persona Index](https://cbrowser.ai/docs/Persona-Index)**
+
+---
+
 # Persona Index
 
 > **Copyright**: (c) 2026 Alexandria Eden. All rights reserved.
