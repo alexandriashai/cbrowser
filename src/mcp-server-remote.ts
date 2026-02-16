@@ -56,12 +56,109 @@ import {
 import { registerAllPublicTools, setRemoteMode } from "./mcp-tools/index.js";
 import type { ToolRegistrationContext } from "./mcp-tools/types.js";
 
-// Shared browser instance
+// Shared browser instance (single Chromium process)
 let browser: CBrowser | null = null;
 
 // Stealth state (enterprise integration)
 const stealthConfig: Partial<StealthConfig> | null = null;
 
+// ============================================================================
+// Session Isolation (v18.4.0)
+// ============================================================================
+
+const MAX_CONCURRENT_SESSIONS = parseInt(process.env.MAX_CONCURRENT_SESSIONS || "20", 10);
+const SESSION_IDLE_TIMEOUT_MS = parseInt(process.env.SESSION_IDLE_TIMEOUT_MS || "300000", 10); // 5 min
+
+interface SessionInfo {
+  browser: CBrowser;
+  createdAt: number;
+  lastActivity: number;
+}
+
+// Active sessions: sessionId -> SessionInfo
+const activeSessions = new Map<string, SessionInfo>();
+
+/**
+ * Get or create a session-specific browser instance.
+ * Each session gets its own CBrowser with isolated context.
+ */
+async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
+  // Check if session already exists
+  const existing = activeSessions.get(sessionId);
+  if (existing) {
+    existing.lastActivity = Date.now();
+    return existing.browser;
+  }
+
+  // Check concurrent session limit
+  if (activeSessions.size >= MAX_CONCURRENT_SESSIONS) {
+    throw new Error(
+      `🚫 CBrowser Demo Server at Capacity\n\n` +
+      `The demo server currently has ${MAX_CONCURRENT_SESSIONS} active sessions.\n\n` +
+      `Please tell the user:\n` +
+      `"The CBrowser demo server is currently at full capacity. ` +
+      `Please wait a few minutes and try again, or visit https://cbrowser.ai/enterprise for unlimited access."\n\n` +
+      `Sessions automatically expire after 5 minutes of inactivity.`
+    );
+  }
+
+  // Create new session with isolated browser context
+  const proxyConfig = stealthConfig?.proxy;
+  const sessionBrowser = new CBrowser({
+    headless: true,
+    persistent: false, // Non-persistent = fresh context per session
+    proxy: proxyConfig,
+  });
+
+  activeSessions.set(sessionId, {
+    browser: sessionBrowser,
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
+  });
+
+  console.log(`[Session] Created new session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active)`);
+
+  return sessionBrowser;
+}
+
+/**
+ * Clean up a session's browser context
+ */
+async function cleanupSession(sessionId: string): Promise<void> {
+  const session = activeSessions.get(sessionId);
+  if (session) {
+    try {
+      await session.browser.close();
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    activeSessions.delete(sessionId);
+    console.log(`[Session] Cleaned up session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active)`);
+  }
+}
+
+/**
+ * Periodic cleanup of idle sessions
+ */
+setInterval(async () => {
+  const now = Date.now();
+  const idleSessions: string[] = [];
+
+  for (const [sessionId, session] of activeSessions) {
+    if (now - session.lastActivity > SESSION_IDLE_TIMEOUT_MS) {
+      idleSessions.push(sessionId);
+    }
+  }
+
+  for (const sessionId of idleSessions) {
+    console.log(`[Session] Cleaning up idle session ${sessionId.substring(0, 8)}... (idle for ${Math.round((now - activeSessions.get(sessionId)!.lastActivity) / 1000)}s)`);
+    await cleanupSession(sessionId);
+  }
+}, 60000); // Check every minute
+
+/**
+ * Legacy getBrowser for backward compatibility (uses shared instance)
+ */
 async function getBrowser(): Promise<CBrowser> {
   if (!browser) {
     // Pass proxy configuration from stealth config if available
@@ -438,12 +535,20 @@ function sendUnauthorized(res: ServerResponse, message?: string): void {
 /**
  * Configure all CBrowser tools on an MCP server instance.
  * This is shared between stdio and HTTP transports.
+ *
+ * @param sessionId - Optional session ID for session isolation
  */
 function configureMcpTools(
   server: McpServer,
-  customRegisterTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>
+  customRegisterTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>,
+  sessionId?: string
 ): void {
-  const context: ToolRegistrationContext = { getBrowser };
+  // Create session-aware getBrowser function
+  const sessionGetBrowser = sessionId
+    ? () => getSessionBrowser(sessionId)
+    : getBrowser;
+
+  const context: ToolRegistrationContext = { getBrowser: sessionGetBrowser };
 
   if (customRegisterTools) {
     // Use custom tool registration (for Enterprise servers)
@@ -456,15 +561,19 @@ function configureMcpTools(
 
 /**
  * Create a configured MCP server instance
+ *
+ * @param customRegisterTools - Optional custom tool registration
+ * @param sessionId - Optional session ID for session isolation
  */
 function createMcpServer(
-  customRegisterTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>
+  customRegisterTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>,
+  sessionId?: string
 ): McpServer {
   const server = new McpServer({
     name: "cbrowser",
     version: VERSION,
   });
-  configureMcpTools(server, customRegisterTools);
+  configureMcpTools(server, customRegisterTools, sessionId);
   return server;
 }
 
@@ -623,6 +732,9 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   if (auth0Enabled) {
     console.log(`  - Auth0 OAuth: enabled (${auth0?.domain})`);
   }
+  console.log(`Session Isolation: enabled`);
+  console.log(`  - Max concurrent sessions: ${MAX_CONCURRENT_SESSIONS}`);
+  console.log(`  - Idle timeout: ${SESSION_IDLE_TIMEOUT_MS / 1000}s`);
   if (rateLimitConfig.enabled) {
     console.log(`Rate Limiting: enabled`);
     console.log(`  - Sustained: ${rateLimitConfig.maxRequests} requests per ${rateLimitConfig.windowMs / 1000 / 60} min`);
@@ -771,20 +883,31 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
     // MCP endpoint
     if (url.pathname === "/mcp" || url.pathname === "/") {
       // Get or create session
-      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+      const existingSessionId = req.headers["mcp-session-id"] as string | undefined;
 
       let transport: StreamableHTTPServerTransport;
+      let browserSessionId: string;
 
-      if (sessionMode === "stateful" && sessionId && transports.has(sessionId)) {
-        transport = transports.get(sessionId)!;
+      if (sessionMode === "stateful" && existingSessionId && transports.has(existingSessionId)) {
+        transport = transports.get(existingSessionId)!;
+        browserSessionId = existingSessionId;
+
+        // Update session activity
+        const session = activeSessions.get(browserSessionId);
+        if (session) {
+          session.lastActivity = Date.now();
+        }
       } else {
+        // Generate a new browser session ID for isolation
+        browserSessionId = randomUUID();
+
         // Create new transport
         transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: sessionMode === "stateful" ? () => randomUUID() : undefined,
+          sessionIdGenerator: sessionMode === "stateful" ? () => browserSessionId : undefined,
         });
 
-        // Create and connect server (with optional custom tool registration)
-        const server = createMcpServer(options?.registerTools);
+        // Create and connect server with session isolation
+        const server = createMcpServer(options?.registerTools, browserSessionId);
 
         // Allow extension with additional tools (for Enterprise)
         if (options?.extendServer) {
@@ -798,10 +921,23 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
           const newSessionId = transport.sessionId;
           if (newSessionId) {
             transports.set(newSessionId, transport);
-            transport.onclose = () => {
+            transport.onclose = async () => {
               transports.delete(newSessionId);
+              // Clean up browser session on disconnect
+              await cleanupSession(browserSessionId);
             };
           }
+        } else {
+          // For stateless mode, clean up after a delay
+          transport.onclose = async () => {
+            // Give some time for rapid reconnects before cleanup
+            setTimeout(async () => {
+              const session = activeSessions.get(browserSessionId);
+              if (session && Date.now() - session.lastActivity > 30000) {
+                await cleanupSession(browserSessionId);
+              }
+            }, 30000);
+          };
         }
 
         // Add error handling for transport errors
