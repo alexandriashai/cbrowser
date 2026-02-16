@@ -1,16 +1,18 @@
 /**
  * CBrowser MCP Tools - Marketing Tools
  *
- * 3 real marketing tools for MCP-orchestrated campaign workflows:
+ * 4 marketing tools for MCP-orchestrated campaign workflows:
  * - marketing_personas_list: List marketing personas with value profiles
  * - marketing_campaign_create: Create a marketing campaign
+ * - marketing_campaign_run: Execute campaign with selected personas
  * - marketing_campaign_report_result: Report journey results to campaign
  *
- * Workflow:
- * 1. List personas → marketing_personas_list
- * 2. Create campaign → marketing_campaign_create
- * 3. Run journeys via cognitive_journey_init/update_state (MCP orchestrated)
- * 4. Report results → marketing_campaign_report_result
+ * AVAILABILITY:
+ * - Local MCP (npx cbrowser mcp-server): NOT AVAILABLE
+ * - Demo server (demo.cbrowser.ai): AVAILABLE
+ * - Enterprise: AVAILABLE
+ *
+ * Set MCP_MODE=demo or MCP_MODE=enterprise to enable these tools.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -170,9 +172,25 @@ function getMarketingPersonas(): MarketingPersonaProfile[] {
 // ============================================================================
 
 /**
- * Register marketing tools (3 tools)
+ * Check if marketing tools should be enabled.
+ * Only available on demo and enterprise servers, NOT on local MCP.
+ */
+export function isMarketingEnabled(): boolean {
+  const mode = process.env.MCP_MODE?.toLowerCase();
+  return mode === "demo" || mode === "enterprise";
+}
+
+/**
+ * Register marketing tools (4 tools)
+ *
+ * Only registers if MCP_MODE=demo or MCP_MODE=enterprise.
+ * Local MCP servers do not get marketing tools.
  */
 export function registerMarketingTools(server: McpServer): void {
+  // Marketing tools are only available on demo/enterprise servers
+  if (!isMarketingEnabled()) {
+    return;
+  }
   // =========================================================================
   // marketing_personas_list - List marketing personas with value profiles
   // =========================================================================
@@ -381,6 +399,109 @@ export function registerMarketingTools(server: McpServer): void {
               avgSteps,
               topFrictionPoints: topFriction,
             },
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // =========================================================================
+  // marketing_campaign_run - Execute campaign with personas
+  // =========================================================================
+
+  server.tool(
+    "marketing_campaign_run",
+    "Execute a marketing campaign by orchestrating cognitive journeys for specified personas. Returns instructions for running each journey. Use cognitive_journey_init/update_state to execute each journey, then report results with marketing_campaign_report_result.",
+    {
+      campaign_name: z.string().describe("Campaign name from marketing_campaign_create"),
+      personas: z.array(z.string()).optional().describe("Specific personas to run (default: all available)"),
+      max_personas: z.number().int().positive().optional().describe("Maximum number of personas to run (default: 5)"),
+    },
+    async ({ campaign_name, personas, max_personas }) => {
+      const store = loadCampaigns();
+
+      // Check if campaign exists
+      if (!store.campaigns[campaign_name]) {
+        const availableCampaigns = Object.keys(store.campaigns);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: `Campaign '${campaign_name}' not found.`,
+              availableCampaigns: availableCampaigns.length > 0 ? availableCampaigns : "No campaigns created yet. Use marketing_campaign_create first.",
+            }, null, 2),
+          }],
+        };
+      }
+
+      const campaign = store.campaigns[campaign_name];
+      const marketingPersonas = getMarketingPersonas();
+
+      // Filter to requested personas or use all
+      let selectedPersonas = marketingPersonas;
+      if (personas && personas.length > 0) {
+        selectedPersonas = marketingPersonas.filter(p =>
+          personas.some(name => p.name.toLowerCase().includes(name.toLowerCase()))
+        );
+      }
+
+      // Limit number of personas
+      const limit = max_personas || 5;
+      selectedPersonas = selectedPersonas.slice(0, limit);
+
+      if (selectedPersonas.length === 0) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: "No matching personas found.",
+              availablePersonas: marketingPersonas.map(p => p.name),
+            }, null, 2),
+          }],
+        };
+      }
+
+      // Generate execution plan
+      const executionPlan = selectedPersonas.map((persona, index) => ({
+        order: index + 1,
+        persona: persona.name,
+        category: persona.category,
+        topInfluencePatterns: Object.entries(persona.influenceSusceptibility)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([pattern, score]) => ({ pattern, score: score.toFixed(2) })),
+        instructions: [
+          `cognitive_journey_init({ persona: "${persona.name}", goal: "${campaign.goal}", startUrl: "${campaign.url}" })`,
+          `// Orchestrate journey with cognitive_journey_update_state`,
+          `marketing_campaign_report_result({ campaign_name: "${campaign_name}", persona: "${persona.name}", ... })`,
+        ],
+      }));
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: true,
+            campaign: {
+              name: campaign.name,
+              url: campaign.url,
+              goal: campaign.goal,
+            },
+            executionPlan: {
+              totalPersonas: selectedPersonas.length,
+              personas: executionPlan,
+            },
+            instructions: [
+              "Execute each persona's journey in order:",
+              "1. Call cognitive_journey_init with the persona name, goal, and start URL",
+              "2. Orchestrate the journey using cognitive_journey_update_state",
+              "3. When the journey completes (goal achieved or abandoned), call marketing_campaign_report_result",
+              "4. Repeat for each persona in the execution plan",
+              "5. After all journeys complete, use marketing_funnel_analyze (Enterprise) or review campaign stats",
+            ],
+            note: "For fully autonomous execution without manual orchestration, upgrade to Enterprise and use cognitive_journey_autonomous.",
           }, null, 2),
         }],
       };
