@@ -30,7 +30,7 @@ import { registerSecurityTools } from "./security-tools.js";
 import { registerMarketingTools } from "./marketing-tools.js";
 
 /**
- * Register all 56 base tools on an MCP server
+ * Register all 57 base tools on an MCP server
  *
  * Tool count by category:
  * - Navigation: 1 (navigate)
