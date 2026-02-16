@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.4.0](https://github.com/alexandriashai/cbrowser/compare/v18.3.12...v18.4.0) (2026-02-16)
+
+### Added
+
+* **mcp-remote:** session isolation with per-session browser contexts ([0f89e2f](https://github.com/alexandriashai/cbrowser/commit/0f89e2f))
+  - Each MCP session gets isolated browser context (cookies, localStorage separated)
+  - `MAX_CONCURRENT_SESSIONS` env var (default: 20)
+  - `SESSION_IDLE_TIMEOUT_MS` env var (default: 5 minutes)
+  - Automatic cleanup when sessions disconnect or go idle
+
+* **mcp-remote:** per-session memory limits with auto-kill ([0866f83](https://github.com/alexandriashai/cbrowser/commit/0866f83))
+  - `SESSION_MEMORY_LIMIT_MB` env var (default: 800MB)
+  - Monitor Chromium RSS via /proc every 30 seconds
+  - Auto-terminate sessions exceeding limit to protect other users
+  - Prevents one bloated page from degrading all sessions
+
+* **mcp-remote:** transparent session recovery ([0866f83](https://github.com/alexandriashai/cbrowser/commit/0866f83))
+  - Expired sessions auto-recover on next request (no manual reconnect needed)
+  - Low-friction UX: user's next command just works with fresh session
+  - Logging shows recovery: `[Session] Auto-recovering expired session...`
+
 ## [18.3.12](https://github.com/alexandriashai/cbrowser/compare/v18.3.11...v18.3.12) (2026-02-16)
 
 ## [18.3.11](https://github.com/alexandriashai/cbrowser/compare/v18.4.0...v18.3.11) (2026-02-16)
