@@ -532,14 +532,36 @@ async function handleMcpRequest(
       logLine = `← session initialized`;
     }
 
+    // Add connection close handler to detect early disconnects
+    let connectionClosed = false;
+    req.on("close", () => {
+      if (!res.writableEnded) {
+        connectionClosed = true;
+        console.warn(`[Connection Closed] Client disconnected before response completed: ${logLine}`);
+      }
+    });
+
     await transport.handleRequest(req, res, parsedBody);
 
     const duration = Date.now() - start;
-    console.log(`${logLine} → ${res.statusCode} (${duration}ms)`);
+    if (!connectionClosed) {
+      console.log(`${logLine} → ${res.statusCode} (${duration}ms)`);
+    }
   } else {
+    // Add connection close handler for GET requests
+    let connectionClosed = false;
+    req.on("close", () => {
+      if (!res.writableEnded) {
+        connectionClosed = true;
+        console.warn(`[Connection Closed] Client disconnected before response completed: GET`);
+      }
+    });
+
     await transport.handleRequest(req, res);
     const duration = Date.now() - start;
-    console.log(`← ${req.method} → ${res.statusCode} (${duration}ms)`);
+    if (!connectionClosed) {
+      console.log(`← ${req.method} → ${res.statusCode} (${duration}ms)`);
+    }
   }
 }
 
@@ -778,9 +800,33 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
             };
           }
         }
+
+        // Add error handling for transport errors
+        transport.onerror = (error: Error) => {
+          console.error(`[MCP Transport Error] ${error.message}`);
+        };
       }
 
-      await handleMcpRequest(req, res, transport);
+      // Handle the request with error wrapping
+      try {
+        await handleMcpRequest(req, res, transport);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[MCP Request Error] ${errorMessage}`);
+
+        // If response not yet sent, send error
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            jsonrpc: "2.0",
+            error: {
+              code: -32603,
+              message: `Tool execution failed: ${errorMessage}`,
+            },
+            id: null,
+          }));
+        }
+      }
       return;
     }
 
