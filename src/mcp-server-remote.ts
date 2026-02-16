@@ -534,30 +534,134 @@ async function handleMcpRequest(
 
     // Add connection close handler to detect early disconnects
     let connectionClosed = false;
+    let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+
+    // For tool calls (which can be long-running), add SSE keep-alive
+    const isToolCall = method === "tools/call";
+    const startKeepAlive = () => {
+      if (keepAliveInterval || !isToolCall) return;
+      keepAliveInterval = setInterval(() => {
+        if (!res.writableEnded && !connectionClosed) {
+          try {
+            // SSE comment format - keeps connection alive through Cloudflare
+            res.write(": keepalive\n\n");
+          } catch (e) {
+            if (keepAliveInterval) {
+              clearInterval(keepAliveInterval);
+              keepAliveInterval = null;
+            }
+          }
+        } else {
+          if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+          }
+        }
+      }, 30000); // 30 seconds
+    };
+
+    // Start keep-alive after first write for tool calls
+    if (isToolCall) {
+      const originalWrite = res.write.bind(res) as typeof res.write;
+      let firstWrite = true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (res as any).write = (chunk: unknown, encodingOrCb?: BufferEncoding | ((error: Error | null | undefined) => void), cb?: (error: Error | null | undefined) => void) => {
+        if (firstWrite) {
+          firstWrite = false;
+          startKeepAlive();
+        }
+        return originalWrite(chunk as string | Uint8Array, encodingOrCb as BufferEncoding, cb);
+      };
+    }
+
     req.on("close", () => {
       if (!res.writableEnded) {
         connectionClosed = true;
         console.warn(`[Connection Closed] Client disconnected before response completed: ${logLine}`);
       }
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+      }
     });
 
     await transport.handleRequest(req, res, parsedBody);
+
+    // Clean up keep-alive
+    if (keepAliveInterval) {
+      clearInterval(keepAliveInterval);
+      keepAliveInterval = null;
+    }
 
     const duration = Date.now() - start;
     if (!connectionClosed) {
       console.log(`${logLine} → ${res.statusCode} (${duration}ms)`);
     }
   } else {
-    // Add connection close handler for GET requests
+    // Add connection close handler for GET requests (SSE streams)
     let connectionClosed = false;
+    let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+
+    // SSE keep-alive: Send periodic comments to prevent Cloudflare proxy timeout
+    // Cloudflare times out idle connections at ~100 seconds, so we ping every 30s
+    const startKeepAlive = () => {
+      if (keepAliveInterval) return; // Already started
+      keepAliveInterval = setInterval(() => {
+        if (!res.writableEnded && !connectionClosed) {
+          try {
+            // SSE comment format - doesn't trigger events, just keeps connection alive
+            res.write(": keepalive\n\n");
+          } catch (e) {
+            // Connection may have closed, stop the interval
+            if (keepAliveInterval) {
+              clearInterval(keepAliveInterval);
+              keepAliveInterval = null;
+            }
+          }
+        } else {
+          // Response ended or connection closed, stop the interval
+          if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+          }
+        }
+      }, 30000); // 30 seconds
+    };
+
+    // Start keep-alive after headers are sent (when SSE stream begins)
+    res.on("pipe", startKeepAlive);
+    // Also check on first write
+    const originalWrite = res.write.bind(res) as typeof res.write;
+    let firstWrite = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (res as any).write = (chunk: unknown, encodingOrCb?: BufferEncoding | ((error: Error | null | undefined) => void), cb?: (error: Error | null | undefined) => void) => {
+      if (firstWrite) {
+        firstWrite = false;
+        startKeepAlive();
+      }
+      return originalWrite(chunk as string | Uint8Array, encodingOrCb as BufferEncoding, cb);
+    };
+
     req.on("close", () => {
       if (!res.writableEnded) {
         connectionClosed = true;
         console.warn(`[Connection Closed] Client disconnected before response completed: GET`);
       }
+      // Clean up keep-alive interval
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+      }
     });
 
     await transport.handleRequest(req, res);
+
+    // Clean up keep-alive interval after response completes
+    if (keepAliveInterval) {
+      clearInterval(keepAliveInterval);
+      keepAliveInterval = null;
+    }
+
     const duration = Date.now() - start;
     if (!connectionClosed) {
       console.log(`← ${req.method} → ${res.statusCode} (${duration}ms)`);
