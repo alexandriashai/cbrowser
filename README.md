@@ -300,6 +300,8 @@ https://demo.cbrowser.ai/mcp
 
 Deploy your own: see [Remote MCP Server Guide](https://cbrowser.ai/docs/Remote-MCP-Server)
 
+**v18.13.0+:** Screenshots automatically compress to JPEG in remote mode to stay under claude.ai's 200KB tool response limit. Compression is adaptive (quality 85→25, scales down if needed).
+
 ### Local MCP (Claude Desktop)
 
 ```json
@@ -324,6 +326,7 @@ Deploy your own: see [Remote MCP Server Guide](https://cbrowser.ai/docs/Remote-M
 | **Cognitive** | `cognitive_journey_init`, `cognitive_journey_update_state`, `compare_personas` |
 | **Persona** | `persona_questionnaire_get`, `persona_questionnaire_build`, `persona_trait_lookup` |
 | **Analysis** | `hunt_bugs`, `chaos_test`, `agent_ready_audit`, `competitive_benchmark`, `empathy_audit` |
+| **Security** | `security_audit` - scans MCP tools for prompt injection patterns |
 | **Stealth** | `stealth_enable`, `stealth_disable`, `stealth_status`, `stealth_check`, `stealth_diagnose` |
 
 ---
