@@ -557,7 +557,7 @@ async function handleMcpRequest(
             keepAliveInterval = null;
           }
         }
-      }, 10000); // 10 seconds - very aggressive to beat Cloudflare
+      }, 1000); // 1 second - maximum aggression
     };
 
     // Start keep-alive after first write for tool calls
@@ -625,7 +625,7 @@ async function handleMcpRequest(
             keepAliveInterval = null;
           }
         }
-      }, 10000); // 10 seconds - very aggressive to beat Cloudflare
+      }, 1000); // 1 second - maximum aggression
     };
 
     // Start keep-alive after headers are sent (when SSE stream begins)
