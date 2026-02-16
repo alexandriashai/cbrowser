@@ -87,3 +87,6 @@ export {
   registerBrowserManagementTools,
 } from "./mcp-tools/index.js";
 export type { ToolRegistrationContext } from "./mcp-tools/index.js";
+
+// Security module (v18.0.0) - Request signing and audit logging
+export * from "./security/index.js";

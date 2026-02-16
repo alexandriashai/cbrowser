@@ -2586,6 +2586,33 @@ export interface AuditEntry {
   duration?: number;
 }
 
+/**
+ * Tool invocation audit entry for MCP tool call logging.
+ * Captures tool name, parameters, timing, and results for security auditing.
+ */
+export interface ToolInvocationEntry {
+  /** ISO timestamp of when the tool was invoked */
+  timestamp: string;
+  /** Current MCP session ID */
+  sessionId: string;
+  /** Unique request ID for this invocation */
+  requestId: string;
+  /** Name of the tool that was invoked */
+  tool: string;
+  /** Parameters passed to the tool (sensitive values redacted) */
+  parameters: Record<string, unknown>;
+  /** Security zone of this action */
+  zone: ActionZone;
+  /** Result status of the invocation */
+  result: "success" | "failure" | "blocked";
+  /** Duration of the tool execution in milliseconds */
+  duration: number;
+  /** Error message if result is failure */
+  error?: string;
+  /** IDs of AuditEntry records triggered by this tool invocation */
+  actionsTriggered: string[];
+}
+
 // ============================================================================
 // Credential Types
 // ============================================================================

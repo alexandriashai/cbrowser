@@ -25,9 +25,10 @@ import { registerValuesTools } from "./values-tools.js";
 import { registerPerformanceTools } from "./performance-tools.js";
 import { registerAuditTools } from "./audit-tools.js";
 import { registerBrowserManagementTools } from "./browser-management-tools.js";
+import { registerSecurityTools } from "./security-tools.js";
 
 /**
- * Register all 52 base tools on an MCP server
+ * Register all 53 base tools on an MCP server
  *
  * Tool count by category:
  * - Navigation: 1 (navigate)
@@ -46,8 +47,9 @@ import { registerBrowserManagementTools } from "./browser-management-tools.js";
  * - Performance: 3 (perf_baseline, perf_regression, list_baselines)
  * - Audit: 3 (agent_ready_audit, competitive_benchmark, empathy_audit)
  * - Browser Management: 4 (status, browser_health, browser_recover, reset_browser)
+ * - Security: 1 (security_audit)
  *
- * Total: 52 tools
+ * Total: 53 tools
  */
 export function registerBaseTools(
   server: McpServer,
@@ -100,6 +102,9 @@ export function registerBaseTools(
 
   // Browser Management (4)
   registerBrowserManagementTools(server, context);
+
+  // Security (1) - no browser context needed
+  registerSecurityTools(server);
 }
 
 // Re-export individual registration functions for granular use
@@ -119,3 +124,4 @@ export { registerValuesTools } from "./values-tools.js";
 export { registerPerformanceTools } from "./performance-tools.js";
 export { registerAuditTools } from "./audit-tools.js";
 export { registerBrowserManagementTools } from "./browser-management-tools.js";
+export { registerSecurityTools } from "./security-tools.js";
