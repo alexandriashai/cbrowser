@@ -115,7 +115,7 @@ Transform CBrowser from a browser automation tool into a complete testing and mo
 | Responsive Visual Testing | ✅ Complete | Compare mobile, tablet, desktop viewports |
 | A/B Visual Comparison | ✅ Complete | Compare two URLs (staging vs production) |
 | Modular Architecture | ✅ Complete | Tree-shakeable imports (`cbrowser/visual`, `/testing`, `/analysis`, `/performance`) |
-| 68 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
+| 83 MCP Tools | ✅ Complete | Full MCP server for Claude Desktop with all capabilities |
 | Remote MCP Server | ✅ Complete | HTTP endpoint for claude.ai custom connectors |
 | Auth0 OAuth | ✅ Complete | OAuth 2.1 authentication for claude.ai integration |
 | Rich Session Management | ✅ Complete | Save/load/export/import sessions with metadata, cleanup, cross-domain warnings |

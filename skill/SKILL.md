@@ -358,7 +358,7 @@ import { capturePerformanceBaseline, detectPerformanceRegression } from 'cbrowse
 | `cbrowser/analysis` | AI analysis | `huntBugs`, `runChaosTest`, `comparePersonas`, `findElementByIntent` |
 | `cbrowser/performance` | Performance | `capturePerformanceBaseline`, `detectPerformanceRegression` |
 
-**MCP Server (68 tools for Claude Desktop):**
+**MCP Server (83 tools for Claude Desktop):**
 
 Add to `claude_desktop_config.json`:
 ```json

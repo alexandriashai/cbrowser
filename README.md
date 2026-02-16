@@ -1,12 +1,12 @@
 # CBrowser — Cognitive Browser Automation
 
-> **The browser automation that thinks.** Achieved **Grade A+** in comprehensive stress testing—100% pass rate across 68+ tools, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
+> **The browser automation that thinks.** Achieved **Grade A+** in comprehensive stress testing—100% pass rate across 83 tools, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![Documentation](https://img.shields.io/badge/Docs-cbrowser.ai-blue.svg)](https://cbrowser.ai/docs)
 [![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-68%20Tools-blue)](https://modelcontextprotocol.io)
+[![MCP Ready](https://img.shields.io/badge/MCP-83%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
 
@@ -18,7 +18,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 
 ## What Makes CBrowser Different
 
-**68 tools, 17 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
+**83 tools, 17 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
 
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
@@ -27,7 +27,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 | **Empathy Accessibility Audits** | 🔬 Novel | Simulate users with tremors, low vision, ADHD. No competitor offers this. |
 | **Self-Healing Selectors** | ✅ Production-ready | ARIA-first with 0.8+ confidence gating. Handles DOM changes automatically. |
 | **Constitutional AI Safety** | 🔬 Novel | Risk-classified actions prevent autonomous agents from doing damage. |
-| **68 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
+| **83 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
 
 ---
 
@@ -184,7 +184,7 @@ When you create a custom persona via `persona-questionnaire`, CBrowser automatic
 | **Elderly** | High Tradition, high Security, moderate Benevolence |
 | **Accessibility** | High Universalism, variable by specific disability |
 
-This ensures cognitive journeys reflect realistic motivational differences—not just skill gaps. See [Persona Values Documentation](docs/PERSONA-VALUES.md) for the complete values framework.
+This ensures cognitive journeys reflect realistic motivational differences—not just skill gaps. See [Persona Values Documentation](https://cbrowser.ai/docs/Values-Framework) for the complete values framework.
 
 ---
 
@@ -298,7 +298,7 @@ CBrowser runs as an MCP server for Claude Desktop and claude.ai.
 https://demo.cbrowser.ai/mcp
 ```
 
-Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
+Deploy your own: see [Remote MCP Server Guide](https://cbrowser.ai/docs/Remote-MCP-Server)
 
 ### Local MCP (Claude Desktop)
 
@@ -313,7 +313,7 @@ Deploy your own: see [Remote MCP Server Guide](docs/REMOTE-MCP-SERVER.md)
 }
 ```
 
-### 68 MCP Tools
+### 83 MCP Tools
 
 | Category | Tools |
 |----------|-------|
@@ -482,7 +482,7 @@ Website: [cbrowser.ai](https://cbrowser.ai)
 - [GitHub Repository](https://github.com/alexandriashai/cbrowser)
 - [Issue Tracker](https://github.com/alexandriashai/cbrowser/issues)
 - [A+ Assessment Report](https://claude.ai/public/artifacts/0cee560d-60b8-44d6-8eec-e674fbfac9c4)
-- [Roadmap](ROADMAP.md)
+- [Roadmap](https://cbrowser.ai/docs/Roadmap)
 
 ### Research Documentation
 
