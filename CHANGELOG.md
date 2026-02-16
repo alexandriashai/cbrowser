@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.9.0](https://github.com/alexandriashai/cbrowser/compare/v18.8.1...v18.9.0) (2026-02-16)
+
+### Added
+
+* **cognitive:** add location parameters for cognitive journeys ([2e1a0b5](https://github.com/alexandriashai/cbrowser/commit/2e1a0b51c1c25259f805e55767e35a8e86dcf8d0))
+
 ## [18.8.1](https://github.com/alexandriashai/cbrowser/compare/v18.8.0...v18.8.1) (2026-02-16)
 
 ### Fixed
