@@ -21,7 +21,7 @@ export function registerInteractionTools(
     "Click an element on the page using text, selector, or description. Use verbose=true for detailed debug info on failure.",
     {
       selector: z.string().describe("Element to click (text content, CSS selector, or description)"),
-      force: z.boolean().optional().describe("Bypass safety checks for destructive actions"),
+      force: z.boolean().optional().describe("Allow clicking red-zone elements (delete, submit) that normally require confirmation"),
       verbose: z.boolean().optional().describe("Return available elements and AI suggestions on failure"),
     },
     async ({ selector, force, verbose }) => {

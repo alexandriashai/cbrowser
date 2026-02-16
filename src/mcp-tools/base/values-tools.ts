@@ -165,7 +165,7 @@ export function registerValuesTools(server: McpServer): void {
 
   server.tool(
     "list_influence_patterns",
-    "List all research-backed influence/persuasion patterns and which persona values make someone susceptible to each pattern. Based on Cialdini, Kahneman, and behavioral economics research.",
+    "List research-backed behavioral persuasion patterns (Cialdini, Kahneman) and which persona values correlate with susceptibility to each pattern.",
     {},
     async () => {
       const patterns = INFLUENCE_PATTERNS.map(pattern => ({
