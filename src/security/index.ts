@@ -39,7 +39,7 @@ export {
   type ToolHandler,
 } from "./audit-wrapper.js";
 
-// Tool pinning
+// Tool pinning - re-export from @cbrowser/mcp-guardian
 export {
   hashToolDefinition,
   createToolManifest,
@@ -55,7 +55,7 @@ export {
   type ToolPinEntry,
   type ToolManifest,
   type PinningResult,
-} from "./tool-pinning.js";
+} from "mcp-guardian";
 
 // Tool permissions
 export {
@@ -72,19 +72,20 @@ export {
   type PermissionCheckResult,
 } from "./tool-permissions.js";
 
-// Description injection scanning
+// Description injection scanning - re-export from @cbrowser/mcp-guardian
 export {
   scanToolDescription,
   scanToolDefinitions,
-  scanMcpConfig,
   formatScanReport,
   isDescriptionSafe,
+  scanMcpConfig,
+  scanMcpConfigSync,
   type ScanSeverity,
   type ScanIssue,
   type ToolScanResult,
   type ServerScanResult,
   type ScanSummary,
-} from "./description-scanner.js";
+} from "mcp-guardian";
 
 // Output sanitization
 export {

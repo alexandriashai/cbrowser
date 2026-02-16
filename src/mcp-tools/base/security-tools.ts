@@ -8,13 +8,9 @@
 import { z } from "zod";
 import type { McpServer } from "../types.js";
 import {
-  scanToolDefinitions,
-  scanMcpConfig,
-  formatScanReport,
-  type ServerScanResult,
-  type ScanSummary,
-} from "../../security/index.js";
-import { loadToolManifest } from "../../security/tool-pinning.js";
+  securityAuditHandler,
+  type SecurityAuditParams,
+} from "mcp-guardian";
 
 /**
  * Register security tools (1 tool: security_audit)
@@ -35,77 +31,14 @@ export function registerSecurityTools(server: McpServer): void {
         .optional()
         .default("json")
         .describe("Output format: json (structured) or text (human-readable)"),
+      async_scan: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe("If true, connects to MCP servers to scan their tools (slower but more accurate)."),
     },
-    async ({ config_path, format }) => {
-      let result: ServerScanResult | ScanSummary;
-
-      if (config_path) {
-        // Scan external MCP config
-        result = scanMcpConfig(config_path);
-      } else {
-        // Scan current CBrowser tools from manifest
-        const manifest = loadToolManifest();
-
-        if (!manifest) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    error: "No tool manifest found",
-                    hint:
-                      "Run CBrowser once to generate the tool manifest, or provide a config_path to scan.",
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
-
-        // Convert manifest entries to tool definitions for scanning
-        // Note: We only have the tool names and metadata, not the actual descriptions
-        // from the manifest. For a full scan, we'd need to query the server.
-        const tools = Object.entries(manifest.tools).map(([name, entry]) => ({
-          name,
-          // We use a placeholder description since manifest doesn't store descriptions
-          // Full scanning would require querying the actual server
-          description: `Tool: ${name} (${entry.descriptionLength} chars, ${entry.parameterCount} params)`,
-          schema: {},
-        }));
-
-        result = scanToolDefinitions(tools, "cbrowser");
-
-        // Add manifest info to result
-        (result as ServerScanResult & { manifestInfo?: object }).manifestInfo = {
-          version: manifest.version,
-          pinnedAt: manifest.pinnedAt,
-          toolCount: Object.keys(manifest.tools).length,
-        };
-      }
-
-      // Format output
-      if (format === "text" && "serverName" in result) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: formatScanReport(result as ServerScanResult),
-            },
-          ],
-        };
-      }
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
+    async (params) => {
+      return await securityAuditHandler(params as SecurityAuditParams);
     }
   );
 }
