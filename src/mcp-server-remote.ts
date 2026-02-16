@@ -68,6 +68,7 @@ const stealthConfig: Partial<StealthConfig> | null = null;
 
 const MAX_CONCURRENT_SESSIONS = parseInt(process.env.MAX_CONCURRENT_SESSIONS || "20", 10);
 const SESSION_IDLE_TIMEOUT_MS = parseInt(process.env.SESSION_IDLE_TIMEOUT_MS || "300000", 10); // 5 min
+const SESSION_MEMORY_LIMIT_MB = parseInt(process.env.SESSION_MEMORY_LIMIT_MB || "800", 10); // 800MB per session
 
 interface SessionInfo {
   browser: CBrowser;
@@ -78,11 +79,27 @@ interface SessionInfo {
 // Active sessions: sessionId -> SessionInfo
 const activeSessions = new Map<string, SessionInfo>();
 
+// Track recently expired sessions for clear error messaging
+// Sessions stay in this set for 10 minutes after expiry
+const expiredSessions = new Map<string, { expiredAt: number; reason: string }>();
+const EXPIRED_SESSION_RETENTION_MS = 600000; // 10 min
+
 /**
  * Get or create a session-specific browser instance.
  * Each session gets its own CBrowser with isolated context.
+ * If a session expired, transparently create a new one (low-friction reconnect).
  */
 async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
+  // Check if this session was recently expired - auto-recover by creating new session
+  const expiredInfo = expiredSessions.get(sessionId);
+  if (expiredInfo) {
+    const minutesAgo = Math.round((Date.now() - expiredInfo.expiredAt) / 60000);
+    console.log(`[Session] Auto-recovering expired session ${sessionId.substring(0, 8)}... (expired ${minutesAgo}m ago: ${expiredInfo.reason})`);
+    // Clear the expired marker so we can create a fresh session
+    expiredSessions.delete(sessionId);
+    // Fall through to create new session below
+  }
+
   // Check if session already exists
   const existing = activeSessions.get(sessionId);
   if (existing) {
@@ -123,8 +140,9 @@ async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
 
 /**
  * Clean up a session's browser context
+ * @param reason - Why the session was cleaned up (for user messaging)
  */
-async function cleanupSession(sessionId: string): Promise<void> {
+async function cleanupSession(sessionId: string, reason: string = "Session ended"): Promise<void> {
   const session = activeSessions.get(sessionId);
   if (session) {
     try {
@@ -133,28 +151,74 @@ async function cleanupSession(sessionId: string): Promise<void> {
       // Ignore cleanup errors
     }
     activeSessions.delete(sessionId);
-    console.log(`[Session] Cleaned up session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active)`);
+
+    // Track as expired so subsequent requests get a clear message
+    expiredSessions.set(sessionId, {
+      expiredAt: Date.now(),
+      reason,
+    });
+
+    console.log(`[Session] Cleaned up session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active) - ${reason}`);
   }
 }
 
 /**
- * Periodic cleanup of idle sessions
+ * Get memory usage of a browser session in MB
+ * Returns null if unable to determine
+ */
+async function getSessionMemoryMB(session: SessionInfo): Promise<number | null> {
+  try {
+    // CBrowser wraps Playwright - try to get the underlying browser process
+    const browserInstance = (session.browser as any).browser;
+    if (!browserInstance) return null;
+
+    const browserProcess = browserInstance.process?.();
+    if (!browserProcess?.pid) return null;
+
+    // Read /proc/<pid>/status for RSS memory
+    const { readFileSync } = await import("node:fs");
+    const status = readFileSync(`/proc/${browserProcess.pid}/status`, "utf-8");
+    const rssMatch = status.match(/VmRSS:\s+(\d+)\s+kB/);
+    if (rssMatch) {
+      return Math.round(parseInt(rssMatch[1], 10) / 1024); // Convert kB to MB
+    }
+  } catch (e) {
+    // Process may have exited or not be accessible
+  }
+  return null;
+}
+
+/**
+ * Periodic cleanup of idle sessions, memory hogs, and expired session tracking
  */
 setInterval(async () => {
   const now = Date.now();
-  const idleSessions: string[] = [];
 
-  for (const [sessionId, session] of activeSessions) {
-    if (now - session.lastActivity > SESSION_IDLE_TIMEOUT_MS) {
-      idleSessions.push(sessionId);
+  // Clean up expired session tracking (older than retention period)
+  for (const [sessionId, info] of expiredSessions) {
+    if (now - info.expiredAt > EXPIRED_SESSION_RETENTION_MS) {
+      expiredSessions.delete(sessionId);
     }
   }
 
-  for (const sessionId of idleSessions) {
-    console.log(`[Session] Cleaning up idle session ${sessionId.substring(0, 8)}... (idle for ${Math.round((now - activeSessions.get(sessionId)!.lastActivity) / 1000)}s)`);
-    await cleanupSession(sessionId);
+  // Check each active session for idle timeout and memory usage
+  for (const [sessionId, session] of activeSessions) {
+    // Check idle timeout
+    if (now - session.lastActivity > SESSION_IDLE_TIMEOUT_MS) {
+      const idleSeconds = Math.round((now - session.lastActivity) / 1000);
+      console.log(`[Session] Cleaning up idle session ${sessionId.substring(0, 8)}... (idle for ${idleSeconds}s)`);
+      await cleanupSession(sessionId, `Idle timeout (inactive for ${idleSeconds}s)`);
+      continue;
+    }
+
+    // Check memory usage
+    const memoryMB = await getSessionMemoryMB(session);
+    if (memoryMB !== null && memoryMB > SESSION_MEMORY_LIMIT_MB) {
+      console.log(`[Session] Killing session ${sessionId.substring(0, 8)}... (${memoryMB}MB > ${SESSION_MEMORY_LIMIT_MB}MB limit)`);
+      await cleanupSession(sessionId, `Memory limit exceeded (${memoryMB}MB used, ${SESSION_MEMORY_LIMIT_MB}MB limit)`);
+    }
   }
-}, 60000); // Check every minute
+}, 30000); // Check every 30 seconds (more responsive for memory)
 
 /**
  * Legacy getBrowser for backward compatibility (uses shared instance)
@@ -735,6 +799,7 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   console.log(`Session Isolation: enabled`);
   console.log(`  - Max concurrent sessions: ${MAX_CONCURRENT_SESSIONS}`);
   console.log(`  - Idle timeout: ${SESSION_IDLE_TIMEOUT_MS / 1000}s`);
+  console.log(`  - Memory limit per session: ${SESSION_MEMORY_LIMIT_MB}MB`);
   if (rateLimitConfig.enabled) {
     console.log(`Rate Limiting: enabled`);
     console.log(`  - Sustained: ${rateLimitConfig.maxRequests} requests per ${rateLimitConfig.windowMs / 1000 / 60} min`);
