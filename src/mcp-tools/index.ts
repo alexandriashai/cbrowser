@@ -4,12 +4,12 @@
  * Modular tool registration for CBrowser MCP servers.
  *
  * Tool counts:
- * - Base tools: 52 (across 16 categories)
+ * - Base tools: 56 (across 18 categories)
  * - Persona creation: 7
  * - Ask user: 1
- * - Enterprise stubs: 22
+ * - Enterprise stubs: 19
  *
- * Public npm total: 82 (60 real + 22 stubs)
+ * Public npm total: 83 (64 real + 19 stubs)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -46,6 +46,7 @@ export {
   registerPerformanceTools,
   registerAuditTools,
   registerBrowserManagementTools,
+  registerMarketingTools,
 } from "./base/index.js";
 
 // Re-export persona creation tools
@@ -67,12 +68,12 @@ import { registerEnterpriseStubs } from "./enterprise-stubs.js";
  * Register all public npm tools on an MCP server
  *
  * This registers:
- * - 52 base tools
+ * - 56 base tools (including 3 marketing tools)
  * - 7 persona creation tools
  * - 1 ask_user tool
- * - 22 enterprise stubs
+ * - 19 enterprise stubs
  *
- * Total: 82 tools (60 real + 22 stubs)
+ * Total: 83 tools (64 real + 19 stubs)
  */
 export function registerAllPublicTools(
   server: McpServer,

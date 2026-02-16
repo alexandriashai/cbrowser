@@ -1,13 +1,14 @@
 /**
  * CBrowser MCP Tools - Enterprise Stubs
  *
- * 22 stub tools that return upgrade messages for Enterprise-only features:
+ * 19 stub tools that return upgrade messages for Enterprise-only features:
  * - API Key Management (3): set_api_key, clear_api_key, api_key_status
  * - API Key Prompt (1): get_api_key_prompt
  * - Autonomous Journey (1): cognitive_journey_autonomous
- * - Marketing Core (8): marketing_campaign_create, marketing_campaign_run,
- *   marketing_campaign_influence_matrix, marketing_campaign_levers, marketing_funnel_analysis,
- *   marketing_competitive_compare, marketing_personas_list, marketing_report_result
+ * - Marketing Core (5): marketing_campaign_run, marketing_campaign_influence_matrix,
+ *   marketing_campaign_levers, marketing_funnel_analysis, marketing_competitive_compare
+ *   (Note: marketing_personas_list, marketing_campaign_create, marketing_report_result
+ *    are now real tools in base/marketing-tools.ts)
  * - Marketing Discovery (2): marketing_audience_discover, marketing_audience_discover_status
  * - Stealth (7): stealth_status, stealth_enable, stealth_disable, stealth_check,
  *   stealth_diagnose, cloudflare_detect, cloudflare_wait
@@ -41,7 +42,7 @@ function enterpriseUpgradeMessage(feature: string, description?: string): {
 }
 
 /**
- * Register enterprise stub tools (22 stubs)
+ * Register enterprise stub tools (19 stubs)
  */
 export function registerEnterpriseStubs(server: McpServer): void {
   // =========================================================================
@@ -144,27 +145,10 @@ export function registerEnterpriseStubs(server: McpServer): void {
   );
 
   // =========================================================================
-  // Marketing Core Stubs (8) - campaign management and influence analysis
+  // Marketing Core Stubs (5) - campaign management and influence analysis
+  // (marketing_campaign_create, marketing_personas_list, marketing_report_result
+  //  are now real tools in base/marketing-tools.ts)
   // =========================================================================
-
-  server.tool(
-    "marketing_campaign_create",
-    "[Enterprise] Create a new marketing campaign for influence and persuasion analysis.",
-    {
-      name: z.string().describe("Campaign name"),
-      url: z.string().url().describe("Target URL to analyze"),
-      goal: z.string().describe("Campaign goal (e.g., 'sign up for free trial')"),
-    },
-    async () => ({
-      content: [{
-        type: "text",
-        text: JSON.stringify(enterpriseUpgradeMessage(
-          "Marketing Suite",
-          "Create and manage marketing campaigns with influence pattern analysis."
-        ), null, 2),
-      }],
-    })
-  );
 
   server.tool(
     "marketing_campaign_run",
@@ -248,42 +232,6 @@ export function registerEnterpriseStubs(server: McpServer): void {
         text: JSON.stringify(enterpriseUpgradeMessage(
           "Marketing Suite - Competitive Analysis",
           "Run cognitive journeys on competitor sites and compare conversion effectiveness."
-        ), null, 2),
-      }],
-    })
-  );
-
-  server.tool(
-    "marketing_personas_list",
-    "[Enterprise] List all available marketing personas with their value profiles.",
-    {},
-    async () => ({
-      content: [{
-        type: "text",
-        text: JSON.stringify(enterpriseUpgradeMessage(
-          "Marketing Suite - Persona Library",
-          "Access marketing-focused personas with detailed influence susceptibility profiles."
-        ), null, 2),
-      }],
-    })
-  );
-
-  server.tool(
-    "marketing_report_result",
-    "[Enterprise] Report the result of a cognitive journey for campaign analysis.",
-    {
-      campaign_name: z.string().describe("Campaign name"),
-      persona: z.string().describe("Persona name"),
-      goal_achieved: z.boolean().describe("Whether the goal was achieved"),
-      steps: z.number().describe("Number of steps taken"),
-      friction_points: z.array(z.string()).optional().describe("Friction points encountered"),
-    },
-    async () => ({
-      content: [{
-        type: "text",
-        text: JSON.stringify(enterpriseUpgradeMessage(
-          "Marketing Suite - Result Reporting",
-          "Report journey results to build campaign analytics."
         ), null, 2),
       }],
     })
