@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.5.0](https://github.com/alexandriashai/cbrowser/compare/v18.3.12...v18.5.0) (2026-02-16)
+
+### Added
+
+* add connection close detection and error logging for MCP ([3303126](https://github.com/alexandriashai/cbrowser/commit/3303126e3343189c7816e4ceac834d3c48e1ea34))
+* add session isolation for MCP remote server ([0f89e2f](https://github.com/alexandriashai/cbrowser/commit/0f89e2f802fa26ba5bf4faed34601d24edfba0ca))
+* add SSE keep-alive pings to prevent Cloudflare proxy timeout ([3aa1bdd](https://github.com/alexandriashai/cbrowser/commit/3aa1bddbacc9d7f393fab8db8692e176845198d5))
+* improve rate limit error message for claude.ai ([e52c26c](https://github.com/alexandriashai/cbrowser/commit/e52c26c0c31b862c07dec9de8e954ad781ad0761))
+* per-session memory limits + transparent session recovery ([0866f83](https://github.com/alexandriashai/cbrowser/commit/0866f83cde67c8068999edb1ff67643ce5141015))
+
+### Fixed
+
+* 1s keep-alive pings - maximum aggression ([59c2025](https://github.com/alexandriashai/cbrowser/commit/59c202507e10bc6cf1e4b0df12178e409e985256))
+* 5s keep-alive pings ([3c393c7](https://github.com/alexandriashai/cbrowser/commit/3c393c74efa93f246ea19d97c73145abccb0be3c))
+* reduce keep-alive to 10s, re-enable Cloudflare proxy for security ([af5e754](https://github.com/alexandriashai/cbrowser/commit/af5e7541a27a93b9e2bfc44e6bdf28b7458d3aab))
+* reduce SSE keep-alive interval to 15s for aggressive timeout prevention ([fa651e8](https://github.com/alexandriashai/cbrowser/commit/fa651e872083e307b498b420572b9eb77c412cae))
+* remove keep-alive pings - they were corrupting SSE protocol ([aab7d70](https://github.com/alexandriashai/cbrowser/commit/aab7d704c9b2a22e028ea57413502ec39ae84a08))
+
 ## [18.4.0](https://github.com/alexandriashai/cbrowser/compare/v18.3.12...v18.4.0) (2026-02-16)
 
 ### Added
