@@ -18,12 +18,13 @@ export function registerExtractionTools(
 ): void {
   server.tool(
     "screenshot",
-    "Take a screenshot of the current page",
+    "Take a screenshot of the current page. In remote mode, screenshots are automatically compressed to JPEG to stay under Claude.ai's 200KB limit.",
     {
       path: z.string().optional().describe("Optional path to save the screenshot"),
     },
     async ({ path }) => {
       const b = await getBrowser();
+      // Compression is automatic in remote mode (handled by browser.screenshot())
       const file = await b.screenshot(path);
       return {
         content: buildContentWithScreenshots({ screenshot: file }, file),

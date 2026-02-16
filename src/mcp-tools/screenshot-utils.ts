@@ -4,11 +4,30 @@
  * Utilities for converting screenshot file paths to inline base64 images
  * for remote MCP mode where claude.ai can't access server filesystem.
  *
+ * Includes automatic compression to stay under Claude.ai's 200KB tool response limit.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, unlinkSync } from "node:fs";
+import { join, dirname } from "node:path";
+
+/**
+ * Maximum allowed size for tool responses in bytes.
+ * Claude.ai enforces a 200KB limit. We target 150KB to leave headroom.
+ */
+export const MAX_RESPONSE_SIZE = 150000; // 150KB target (200KB limit)
+
+/**
+ * JPEG quality settings to try when compressing screenshots
+ */
+const QUALITY_STEPS = [85, 70, 55, 40, 25];
+
+/**
+ * Scale factors to try when JPEG quality alone isn't enough
+ */
+const SCALE_FACTORS = [1.0, 0.75, 0.5, 0.35];
 
 /**
  * MCP content block types
@@ -51,6 +70,71 @@ export function screenshotToBase64(filePath: string): string | null {
   } catch (error) {
     console.warn(`Failed to read screenshot: ${(error as Error).message}`);
     return null;
+  }
+}
+
+/**
+ * Check if a file's base64 encoding would exceed the size limit
+ */
+export function willExceedLimit(filePath: string, limit: number = MAX_RESPONSE_SIZE): boolean {
+  try {
+    if (!existsSync(filePath)) return false;
+    const buffer = readFileSync(filePath);
+    // Base64 encoding inflates size by ~33%
+    const estimatedBase64Size = Math.ceil(buffer.length * 1.37);
+    return estimatedBase64Size > limit;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get file size in bytes
+ */
+export function getFileSize(filePath: string): number {
+  try {
+    if (!existsSync(filePath)) return 0;
+    return readFileSync(filePath).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Screenshot compression options for remote MCP mode
+ */
+export interface ScreenshotCompressionOptions {
+  /** Target max size in bytes (default: 150KB) */
+  maxSize?: number;
+  /** Initial JPEG quality (default: 85) */
+  quality?: number;
+  /** Scale factor for resizing (default: 1.0) */
+  scale?: number;
+}
+
+/**
+ * Get recommended compression settings based on current file size
+ */
+export function getCompressionSettings(currentSize: number, targetSize: number = MAX_RESPONSE_SIZE): ScreenshotCompressionOptions {
+  // Base64 inflates size by ~33%, so actual file needs to be smaller
+  const actualTargetSize = Math.floor(targetSize / 1.37);
+
+  if (currentSize <= actualTargetSize) {
+    return { quality: 85, scale: 1.0 };
+  }
+
+  const ratio = currentSize / actualTargetSize;
+
+  if (ratio <= 1.5) {
+    return { quality: 70, scale: 1.0 };
+  } else if (ratio <= 2.5) {
+    return { quality: 55, scale: 1.0 };
+  } else if (ratio <= 4) {
+    return { quality: 50, scale: 0.75 };
+  } else if (ratio <= 6) {
+    return { quality: 45, scale: 0.5 };
+  } else {
+    return { quality: 40, scale: 0.35 };
   }
 }
 

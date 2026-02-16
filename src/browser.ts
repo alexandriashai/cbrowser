@@ -66,6 +66,7 @@ import {
 import { SessionManager } from "./browser/session-manager.js";
 import { SelectorCacheManager } from "./browser/selector-cache.js";
 import { OverlayHandler } from "./browser/overlay-handler.js";
+import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.js";
 
 // Browser-specific fast launch args for performance optimization
 const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
@@ -107,6 +108,23 @@ interface SessionState {
   timestamp: number;
   viewport?: { width: number; height: number };
   device?: string;
+}
+
+/**
+ * Screenshot options for compression.
+ * Used to control JPEG compression when staying under Claude.ai's 200KB limit.
+ */
+export interface ScreenshotOptions {
+  /** Use JPEG format with compression (default: false for PNG, auto-enabled in remote mode) */
+  compress?: boolean;
+  /** JPEG quality 0-100 (default: 85, only used when compress=true) */
+  quality?: number;
+  /** Scale factor 0-1 (default: 1.0, only used when compress=true) */
+  scale?: number;
+  /** Target max file size in bytes - will auto-adjust quality/scale if needed */
+  maxSize?: number;
+  /** Full page screenshot (default: false) */
+  fullPage?: boolean;
 }
 
 export class CBrowser {
@@ -4587,12 +4605,121 @@ export class CBrowser {
 
   /**
    * Take a screenshot.
+   *
+   * In remote MCP mode, screenshots are automatically compressed to JPEG
+   * to stay under Claude.ai's 200KB tool response limit.
    */
-  async screenshot(path?: string): Promise<string> {
+  async screenshot(path?: string, options?: ScreenshotOptions): Promise<string> {
     const page = await this.getPage();
+    const opts = options || {};
+
+    // In remote mode, auto-enable compression to stay under Claude.ai's 200KB limit
+    // unless explicitly disabled
+    const useCompression = opts.compress ??
+      (getRemoteMode() && opts.compress !== false);
+
+    // If compression requested, maxSize specified, or in remote mode
+    if (useCompression || opts.maxSize) {
+      const compressionOpts = {
+        ...opts,
+        compress: true,
+        maxSize: opts.maxSize || Math.floor(MAX_RESPONSE_SIZE / 1.37), // ~110KB raw = ~150KB base64
+      };
+      return this.screenshotCompressed(path, compressionOpts);
+    }
+
     const filename = path || join(this.paths.screenshotsDir, `screenshot-${Date.now()}.png`);
 
-    await page.screenshot({ path: filename, fullPage: false });
+    await page.screenshot({ path: filename, fullPage: opts.fullPage || false });
+    return filename;
+  }
+
+  /**
+   * Take a compressed JPEG screenshot.
+   * Automatically adjusts quality and scale to stay under maxSize.
+   *
+   * @param path - Output path (will use .jpg extension)
+   * @param options - Compression options
+   * @returns Path to the compressed screenshot
+   */
+  async screenshotCompressed(path?: string, options?: ScreenshotOptions): Promise<string> {
+    const page = await this.getPage();
+    const maxSize = options?.maxSize || 110000; // ~150KB after base64 (110KB raw = ~150KB base64)
+    const fullPage = options?.fullPage || false;
+
+    // Quality and scale steps to try
+    const qualitySteps = [85, 70, 55, 45, 35, 25];
+    const scaleSteps = [1.0, 0.75, 0.5, 0.4, 0.3];
+
+    let quality = options?.quality || 85;
+    let scale = options?.scale || 1.0;
+
+    // Generate filename with .jpg extension
+    const baseFilename = path || join(this.paths.screenshotsDir, `screenshot-${Date.now()}`);
+    const filename = baseFilename.endsWith('.jpg') || baseFilename.endsWith('.jpeg')
+      ? baseFilename
+      : baseFilename.replace(/\.png$/, '') + '.jpg';
+
+    // Get viewport size for scaling
+    const viewport = page.viewportSize() || { width: 1280, height: 800 };
+
+    // Try different quality/scale combinations
+    for (const tryScale of scaleSteps) {
+      for (const tryQuality of qualitySteps) {
+        // Skip if we'd make quality worse than needed
+        if (tryQuality < quality && tryScale >= scale) continue;
+
+        const scaledWidth = Math.round(viewport.width * tryScale);
+        const scaledHeight = Math.round(viewport.height * tryScale);
+
+        // Set viewport to scaled size temporarily if scaling down
+        if (tryScale < 1.0) {
+          await page.setViewportSize({ width: scaledWidth, height: scaledHeight });
+        }
+
+        try {
+          await page.screenshot({
+            path: filename,
+            fullPage,
+            type: 'jpeg',
+            quality: tryQuality
+          });
+
+          // Check file size
+          const stats = await import('node:fs').then(fs => fs.statSync(filename));
+          const fileSize = stats.size;
+
+          if (this.config.verbose) {
+            console.log(`  Screenshot: ${fileSize} bytes (quality=${tryQuality}, scale=${tryScale})`);
+          }
+
+          // Restore viewport if we scaled
+          if (tryScale < 1.0) {
+            await page.setViewportSize(viewport);
+          }
+
+          // If under limit, we're done
+          if (fileSize <= maxSize) {
+            return filename;
+          }
+
+          // Continue to next quality level
+          quality = tryQuality;
+          scale = tryScale;
+        } catch (err) {
+          // Restore viewport on error
+          if (tryScale < 1.0) {
+            await page.setViewportSize(viewport);
+          }
+          throw err;
+        }
+      }
+    }
+
+    // Return best effort (smallest we could get)
+    if (this.config.verbose) {
+      console.log(`  Screenshot compression: used minimum quality settings`);
+    }
     return filename;
   }
 

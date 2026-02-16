@@ -34,6 +34,7 @@ export {
   setRemoteMode,
   getRemoteMode,
   transformResponseForRemote,
+  MAX_RESPONSE_SIZE,
 } from "./screenshot-utils.js";
 
 // Re-export base tools
