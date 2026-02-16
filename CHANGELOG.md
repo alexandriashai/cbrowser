@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.8.1](https://github.com/alexandriashai/cbrowser/compare/v18.8.0...v18.8.1) (2026-02-16)
+
+### Fixed
+
+* export registerSecurityTools from mcp-tools index ([d30071a](https://github.com/alexandriashai/cbrowser/commit/d30071a602d04d2954bbde4c7868b93bbe9033c2))
+
 ## [18.8.0](https://github.com/alexandriashai/cbrowser/compare/v18.7.0...v18.8.0) (2026-02-16)
 
 ### Added
