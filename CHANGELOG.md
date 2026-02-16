@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.7.0](https://github.com/alexandriashai/cbrowser/compare/v18.6.1...v18.7.0) (2026-02-16)
+
+### Added
+
+* **mcp:** make marketing tools demo/enterprise only, add campaign_run ([d5ca86e](https://github.com/alexandriashai/cbrowser/commit/d5ca86eb9d380c18e22d1ca6f06b6b4011c9a3e5))
+
 ## [18.6.1](https://github.com/alexandriashai/cbrowser/compare/v18.6.0...v18.6.1) (2026-02-16)
 
 ### Fixed
