@@ -557,7 +557,7 @@ async function handleMcpRequest(
             keepAliveInterval = null;
           }
         }
-      }, 1000); // 1 second - maximum aggression
+      }, 5000); // 5 seconds
     };
 
     // Start keep-alive after first write for tool calls
@@ -625,7 +625,7 @@ async function handleMcpRequest(
             keepAliveInterval = null;
           }
         }
-      }, 1000); // 1 second - maximum aggression
+      }, 5000); // 5 seconds
     };
 
     // Start keep-alive after headers are sent (when SSE stream begins)
