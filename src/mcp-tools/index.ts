@@ -6,14 +6,14 @@
  * Tool counts by deployment:
  *
  * LOCAL MCP (npx cbrowser mcp-server):
- * - Base tools: 53 (no marketing)
+ * - Base tools: 57 (4 marketing as stubs)
  * - Persona creation: 7
  * - Ask user: 1
  * - Enterprise stubs: 18
- * - Total: 79 (61 real + 18 stubs)
+ * - Total: 83 (61 real + 22 stubs)
  *
  * DEMO SERVER (MCP_MODE=demo):
- * - Base tools: 57 (includes 4 marketing)
+ * - Base tools: 57 (4 marketing real)
  * - Persona creation: 7
  * - Ask user: 1
  * - Enterprise stubs: 18
@@ -78,16 +78,16 @@ import { registerEnterpriseStubs } from "./enterprise-stubs.js";
 /**
  * Register all public npm tools on an MCP server
  *
- * Tool count varies by MCP_MODE:
- * - LOCAL: 79 tools (53 base + 7 persona + 1 ask_user + 18 stubs)
- * - DEMO: 83 tools (57 base + 7 persona + 1 ask_user + 18 stubs)
+ * Tool count: 83 tools across all deployments
+ * - LOCAL: 83 tools (61 real + 22 stubs including 4 marketing stubs)
+ * - DEMO: 83 tools (65 real + 18 stubs)
  * - ENTERPRISE: 83 tools all functional
  */
 export function registerAllPublicTools(
   server: McpServer,
   context: ToolRegistrationContext
 ): void {
-  // Base tools (52)
+  // Base tools (57)
   registerBaseTools(server, context);
 
   // Persona creation tools (7)
@@ -96,6 +96,6 @@ export function registerAllPublicTools(
   // Ask user tool (1)
   registerAskUserTool(server);
 
-  // Enterprise stubs (22)
+  // Enterprise stubs (18)
   registerEnterpriseStubs(server);
 }

@@ -8,11 +8,12 @@
  * - marketing_campaign_report_result: Report journey results to campaign
  *
  * AVAILABILITY:
- * - Local MCP (npx cbrowser mcp-server): NOT AVAILABLE
- * - Demo server (demo.cbrowser.ai): AVAILABLE
- * - Enterprise: AVAILABLE
+ * - Local MCP (npx cbrowser mcp-server): STUB (upgrade message)
+ * - Demo server (demo.cbrowser.ai): AVAILABLE (real implementation)
+ * - Enterprise: AVAILABLE (real implementation)
  *
- * Set MCP_MODE=demo or MCP_MODE=enterprise to enable these tools.
+ * Set MCP_MODE=demo or MCP_MODE=enterprise to enable real implementations.
+ * Without MCP_MODE, tools register as stubs that return upgrade messages.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -181,16 +182,32 @@ export function isMarketingEnabled(): boolean {
 }
 
 /**
+ * Upgrade message for marketing tools on local MCP
+ */
+function marketingUpgradeMessage(toolName: string, description: string): string {
+  return JSON.stringify({
+    available: false,
+    tool: toolName,
+    message: `${toolName} requires the demo server or Enterprise.`,
+    description,
+    howToAccess: [
+      "Option 1: Use the free demo server at demo.cbrowser.ai",
+      "Option 2: Upgrade to CBrowser Enterprise for full access",
+    ],
+    demoServer: "https://demo.cbrowser.ai",
+    enterprise: "https://cbrowser.ai/enterprise",
+  }, null, 2);
+}
+
+/**
  * Register marketing tools (4 tools)
  *
- * Only registers if MCP_MODE=demo or MCP_MODE=enterprise.
- * Local MCP servers do not get marketing tools.
+ * On demo/enterprise: Real implementations
+ * On local MCP: Stubs with upgrade messages
  */
 export function registerMarketingTools(server: McpServer): void {
-  // Marketing tools are only available on demo/enterprise servers
-  if (!isMarketingEnabled()) {
-    return;
-  }
+  const isEnabled = isMarketingEnabled();
+
   // =========================================================================
   // marketing_personas_list - List marketing personas with value profiles
   // =========================================================================
@@ -200,6 +217,19 @@ export function registerMarketingTools(server: McpServer): void {
     "List all available marketing personas with their Schwartz value profiles and Cialdini influence susceptibility scores. Use this to understand which personas to target in campaigns.",
     {},
     async () => {
+      // Stub on local MCP
+      if (!isEnabled) {
+        return {
+          content: [{
+            type: "text",
+            text: marketingUpgradeMessage(
+              "marketing_personas_list",
+              "List marketing personas with Schwartz value profiles and Cialdini influence susceptibility scores."
+            ),
+          }],
+        };
+      }
+
       const personas = getMarketingPersonas();
 
       const summary = {
@@ -253,6 +283,19 @@ export function registerMarketingTools(server: McpServer): void {
       goal: z.string().describe("Goal to measure (e.g., 'Complete signup and reach dashboard')"),
     },
     async ({ name, url, goal }) => {
+      // Stub on local MCP
+      if (!isEnabled) {
+        return {
+          content: [{
+            type: "text",
+            text: marketingUpgradeMessage(
+              "marketing_campaign_create",
+              "Create marketing campaigns to track cognitive journey results across personas."
+            ),
+          }],
+        };
+      }
+
       const store = loadCampaigns();
 
       // Check if campaign already exists
@@ -327,6 +370,19 @@ export function registerMarketingTools(server: McpServer): void {
       abandonment_reason: z.string().optional().describe("Reason for abandonment if goal not achieved"),
     },
     async ({ campaign_name, persona, goal_achieved, steps, friction_points, duration, abandonment_reason }) => {
+      // Stub on local MCP
+      if (!isEnabled) {
+        return {
+          content: [{
+            type: "text",
+            text: marketingUpgradeMessage(
+              "marketing_campaign_report_result",
+              "Report cognitive journey results to marketing campaigns for analysis."
+            ),
+          }],
+        };
+      }
+
       const store = loadCampaigns();
 
       // Check if campaign exists
@@ -418,6 +474,19 @@ export function registerMarketingTools(server: McpServer): void {
       max_personas: z.number().int().positive().optional().describe("Maximum number of personas to run (default: 5)"),
     },
     async ({ campaign_name, personas, max_personas }) => {
+      // Stub on local MCP
+      if (!isEnabled) {
+        return {
+          content: [{
+            type: "text",
+            text: marketingUpgradeMessage(
+              "marketing_campaign_run",
+              "Execute marketing campaigns by orchestrating cognitive journeys across personas."
+            ),
+          }],
+        };
+      }
+
       const store = loadCampaigns();
 
       // Check if campaign exists

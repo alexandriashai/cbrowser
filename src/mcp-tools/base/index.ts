@@ -1,7 +1,7 @@
 /**
  * CBrowser MCP Tools - Base Tools Index
- * Registers up to 57 base tools across 18 categories
- * (Marketing tools only register on demo/enterprise servers)
+ * Registers 57 base tools across 18 categories
+ * (Marketing tools register everywhere but as stubs on local MCP)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -51,9 +51,9 @@ import { registerMarketingTools } from "./marketing-tools.js";
  * - Browser Management: 4 (status, browser_health, browser_recover, reset_browser)
  * - Security: 1 (security_audit)
  * - Marketing: 4 (marketing_personas_list, marketing_campaign_create, marketing_campaign_run, marketing_campaign_report_result)
- *   NOTE: Marketing tools only register when MCP_MODE=demo or MCP_MODE=enterprise
+ *   NOTE: Marketing tools register as stubs on local MCP, real implementations on demo/enterprise
  *
- * Total: 57 tools (53 always + 4 marketing on demo/enterprise)
+ * Total: 57 tools (always registered; marketing tools are stubs on local MCP)
  */
 export function registerBaseTools(
   server: McpServer,
