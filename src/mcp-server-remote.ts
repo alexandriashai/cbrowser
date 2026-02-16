@@ -557,7 +557,7 @@ async function handleMcpRequest(
             keepAliveInterval = null;
           }
         }
-      }, 30000); // 30 seconds
+      }, 15000); // 15 seconds - aggressive to beat Cloudflare timeout
     };
 
     // Start keep-alive after first write for tool calls
@@ -603,7 +603,7 @@ async function handleMcpRequest(
     let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
     // SSE keep-alive: Send periodic comments to prevent Cloudflare proxy timeout
-    // Cloudflare times out idle connections at ~100 seconds, so we ping every 30s
+    // Cloudflare may timeout idle connections aggressively, ping every 15s
     const startKeepAlive = () => {
       if (keepAliveInterval) return; // Already started
       keepAliveInterval = setInterval(() => {
@@ -625,7 +625,7 @@ async function handleMcpRequest(
             keepAliveInterval = null;
           }
         }
-      }, 30000); // 30 seconds
+      }, 15000); // 15 seconds - aggressive to beat Cloudflare timeout
     };
 
     // Start keep-alive after headers are sent (when SSE stream begins)
