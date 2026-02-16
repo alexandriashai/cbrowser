@@ -121,7 +121,7 @@ import {
 // Security tools (mcp-guardian)
 import {
   securityAuditHandler,
-  type SecurityAuditParams,
+  type SecurityAuditHandlerOptions,
 } from "mcp-guardian";
 
 // ============================================================================
@@ -630,6 +630,13 @@ function generateEmpathyRecommendations(session: EmpathyAuditSession): string[] 
   return recommendations;
 }
 
+// Tool collector for security_audit self-scan
+interface CollectedTool {
+  name: string;
+  description: string;
+}
+const collectedTools: CollectedTool[] = [];
+
 /**
  * Register all CBrowser tools on an MCP server instance.
  * Internal function - use createMcpServer() for the public API.
@@ -638,10 +645,21 @@ async function registerCBrowserTools(): Promise<McpServer> {
   // Auto-initialize all data directories on server start
   ensureDirectories();
 
+  // Clear collected tools for fresh registration
+  collectedTools.length = 0;
+
   const server = new McpServer({
     name: "cbrowser",
     version: VERSION,
   });
+
+  // Wrap server.tool to collect tool definitions
+  const originalTool = server.tool.bind(server);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (server as any).tool = (name: string, description: string, ...rest: unknown[]) => {
+    collectedTools.push({ name, description });
+    return (originalTool as (...args: unknown[]) => unknown)(name, description, ...rest);
+  };
 
   // =========================================================================
   // Navigation Tools
@@ -4170,7 +4188,16 @@ Progress: ${Math.round((answeredCount / totalQuestions) * 100)}% complete`,
         .describe("If true, connects to MCP servers to scan their tools (slower but more accurate)."),
     },
     async (params) => {
-      return await securityAuditHandler(params as SecurityAuditParams);
+      // If no config_path provided, scan CBrowser's own tools
+      const options: SecurityAuditHandlerOptions = {
+        ...params,
+        // Pass collected CBrowser tools for self-scan when no config_path
+        ...(params.config_path ? {} : {
+          tools: collectedTools.map(t => ({ name: t.name, description: t.description, schema: {} })),
+          serverName: "cbrowser",
+        }),
+      };
+      return await securityAuditHandler(options);
     }
   );
 
