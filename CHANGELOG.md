@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.13.1](https://github.com/alexandriashai/cbrowser/compare/v18.13.0...v18.13.1) (2026-02-16)
+
+### Fixed
+
+* **security:** remediate mcp-guardian detected issues ([df6178d](https://github.com/alexandriashai/cbrowser/commit/df6178dc3ca4346eada6ef13ed13222f299021a9))
+
 ## [18.13.0](https://github.com/alexandriashai/cbrowser/compare/v18.12.0...v18.13.0) (2026-02-16)
 
 ### Added
