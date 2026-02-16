@@ -697,18 +697,27 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
     // Rate limit check (if enabled)
     const rateLimit = checkRateLimit(req, rateLimitConfig);
     if (!rateLimit.allowed) {
-      const retryAfter = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
+      const retryAfterSeconds = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
+      const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+      const humanReadableTime = retryAfterSeconds > 60
+        ? `${retryAfterMinutes} minute${retryAfterMinutes !== 1 ? "s" : ""}`
+        : `${retryAfterSeconds} second${retryAfterSeconds !== 1 ? "s" : ""}`;
+
       res.writeHead(429, {
         "Content-Type": "application/json",
-        "Retry-After": String(retryAfter),
+        "Retry-After": String(retryAfterSeconds),
         "X-RateLimit-Limit": String(rateLimitConfig.maxRequests),
         "X-RateLimit-Remaining": "0",
         "X-RateLimit-Reset": String(Math.ceil(rateLimit.resetTime / 1000)),
       });
       res.end(JSON.stringify({
-        error: "Too Many Requests",
-        message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
-        retry_after: retryAfter,
+        error: "Rate Limit Exceeded",
+        message: `⚠️ CBrowser Demo Rate Limit Reached\n\nThe demo server allows ${rateLimitConfig.maxRequests} requests per hour to ensure fair access for all users.\n\nPlease wait ${humanReadableTime} before trying again.\n\nFor unlimited access, see: https://cbrowser.ai/enterprise`,
+        user_message: `Rate limit reached. Please wait ${humanReadableTime} and try again.`,
+        retry_after_seconds: retryAfterSeconds,
+        retry_after_human: humanReadableTime,
+        limit: rateLimitConfig.maxRequests,
+        window_minutes: Math.round(rateLimitConfig.windowMs / 60000),
       }));
       return;
     }
