@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.13.0](https://github.com/alexandriashai/cbrowser/compare/v18.12.0...v18.13.0) (2026-02-16)
+
+### Added
+
+* auto-compress screenshots in remote mode for Claude.ai 200KB limit ([822de50](https://github.com/alexandriashai/cbrowser/commit/822de507aeb24ea85979fe9d12595b5399f053ce))
+
 ## [18.12.0](https://github.com/alexandriashai/cbrowser/compare/v18.11.1...v18.12.0) (2026-02-16)
 
 ### Added
