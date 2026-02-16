@@ -1,6 +1,6 @@
 /**
  * CBrowser MCP Tools - Base Tools Index
- * Registers 57 base tools across 18 categories
+ * Registers 58 base tools across 18 categories
  * (Marketing tools register everywhere but as stubs on local MCP)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
@@ -45,7 +45,7 @@ import { registerMarketingTools } from "./marketing-tools.js";
  * - Bug Analysis: 2 (hunt_bugs, chaos_test)
  * - Persona Comparison: 3 (compare_personas, compare_personas_init, compare_personas_complete)
  * - Cognitive: 3 (cognitive_journey_init, cognitive_journey_update_state, list_cognitive_personas)
- * - Values: 6 (persona_values_lookup, list_influence_patterns, persona_questionnaire_get, persona_questionnaire_build, persona_trait_lookup, persona_category_guidance)
+ * - Values: 7 (persona_values_list, persona_values_lookup, list_influence_patterns, persona_questionnaire_get, persona_questionnaire_build, persona_trait_lookup, persona_category_guidance)
  * - Performance: 3 (perf_baseline, perf_regression, list_baselines)
  * - Audit: 3 (agent_ready_audit, competitive_benchmark, empathy_audit)
  * - Browser Management: 4 (status, browser_health, browser_recover, reset_browser)
@@ -53,7 +53,7 @@ import { registerMarketingTools } from "./marketing-tools.js";
  * - Marketing: 4 (marketing_personas_list, marketing_campaign_create, marketing_campaign_run, marketing_campaign_report_result)
  *   NOTE: Marketing tools register as stubs on local MCP, real implementations on demo/enterprise
  *
- * Total: 57 tools (always registered; marketing tools are stubs on local MCP)
+ * Total: 58 tools (always registered; marketing tools are stubs on local MCP)
  */
 export function registerBaseTools(
   server: McpServer,

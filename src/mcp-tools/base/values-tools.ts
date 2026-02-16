@@ -16,9 +16,62 @@ import {
 } from "../../values/index.js";
 
 /**
- * Register values system tools (6 tools)
+ * Register values system tools (7 tools)
  */
 export function registerValuesTools(server: McpServer): void {
+  server.tool(
+    "persona_values_list",
+    "List all Schwartz's 10 Universal Values with their meanings, plus higher-order values, Self-Determination Theory needs, and Maslow levels. Use this to understand the values framework before looking up specific personas.",
+    {},
+    async () => {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              schwartzValues: {
+                selfDirection: { range: "0-1", meaning: "Independent thought, creativity, freedom. High: values autonomy and exploration. Low: prefers guidance and structure." },
+                stimulation: { range: "0-1", meaning: "Excitement, novelty, challenge. High: seeks variety and new experiences. Low: prefers routine and predictability." },
+                hedonism: { range: "0-1", meaning: "Pleasure, sensuous gratification. High: prioritizes enjoyment and comfort. Low: prioritizes duty over pleasure." },
+                achievement: { range: "0-1", meaning: "Personal success through competence. High: driven to excel and demonstrate capability. Low: content without external validation." },
+                power: { range: "0-1", meaning: "Social status, prestige, control. High: seeks influence over others/resources. Low: indifferent to status hierarchies." },
+                security: { range: "0-1", meaning: "Safety, harmony, stability. High: risk-averse, needs predictability. Low: comfortable with uncertainty." },
+                conformity: { range: "0-1", meaning: "Restraint of actions that harm others. High: follows social rules carefully. Low: independent of social expectations." },
+                tradition: { range: "0-1", meaning: "Respect for customs, heritage. High: values cultural/religious practices. Low: questions or ignores tradition." },
+                benevolence: { range: "0-1", meaning: "Welfare of close others. High: prioritizes helping friends/family. Low: more self-focused." },
+                universalism: { range: "0-1", meaning: "Tolerance, social justice, environment. High: cares about all people and nature. Low: focused on in-group." },
+              },
+              higherOrderValues: {
+                openness: { formula: "(selfDirection + stimulation) / 2", meaning: "Openness to change - receptivity to new ideas and experiences" },
+                selfEnhancement: { formula: "(achievement + power) / 2", meaning: "Focus on personal success and dominance" },
+                conservation: { formula: "(security + conformity + tradition) / 3", meaning: "Preservation of stability and traditional practices" },
+                selfTranscendence: { formula: "(benevolence + universalism) / 2", meaning: "Concern for welfare of others and nature" },
+              },
+              selfDeterminationTheory: {
+                autonomyNeed: { range: "0-1", meaning: "Need for choice and self-direction (Deci & Ryan, 1985)" },
+                competenceNeed: { range: "0-1", meaning: "Need to feel capable and effective" },
+                relatednessNeed: { range: "0-1", meaning: "Need for connection and belonging" },
+              },
+              maslowLevels: [
+                { level: "physiological", meaning: "Basic survival needs (food, water, shelter)" },
+                { level: "safety", meaning: "Security, stability, freedom from fear" },
+                { level: "belonging", meaning: "Social connection, love, acceptance" },
+                { level: "esteem", meaning: "Achievement, recognition, respect" },
+                { level: "self-actualization", meaning: "Self-fulfillment, reaching potential" },
+              ],
+              researchBasis: {
+                schwartz: "Schwartz, S. H. (1992, 2012). Theory of Basic Human Values. DOI: 10.1016/S0065-2601(08)60281-6",
+                sdt: "Deci, E. L., & Ryan, R. M. (1985, 2000). Self-Determination Theory. DOI: 10.1037/0003-066X.55.1.68",
+                maslow: "Maslow, A. H. (1943). A Theory of Human Motivation. DOI: 10.1037/h0054346",
+              },
+              usage: "Use persona_values_lookup with a persona name to see these values for a specific persona, and list_influence_patterns to see which persuasion patterns work on which values.",
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
   server.tool(
     "persona_values_lookup",
     "Look up the values profile for a persona (Schwartz's 10 Universal Values, SDT needs, Maslow level). Values describe WHO the persona is at a deeper motivational level, informing influence susceptibility.",
