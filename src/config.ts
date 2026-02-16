@@ -185,8 +185,10 @@ export function getDefaultConfig(): CBrowserConfig {
     timeout: parseInt(process.env.CBROWSER_TIMEOUT || (configFile?.timeout?.toString()) || "30000", 10) || 30000,
     verbose: process.env.CBROWSER_VERBOSE === "true",
     device: process.env.CBROWSER_DEVICE || configFile?.device,
-    locale: process.env.CBROWSER_LOCALE || configFile?.locale,
-    timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone,
+    // CBrowser defaults: America/Denver timezone, en-US locale
+    // Priority: env var > config file > CBrowser default > (system default unused)
+    locale: process.env.CBROWSER_LOCALE || configFile?.locale || "en-US",
+    timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone || "America/Denver",
     colorScheme: (process.env.CBROWSER_COLOR_SCHEME as ColorScheme) || configFile?.colorScheme,
     recordVideo: process.env.CBROWSER_RECORD_VIDEO === "true" || configFile?.recordVideo || false,
     videoDir: join(dataDir, "videos"),

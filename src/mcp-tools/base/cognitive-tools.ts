@@ -22,6 +22,7 @@ import type {
   CognitiveTraits,
   Persona,
   AccessibilityPersona,
+  PersonaLocation,
 } from "../../types.js";
 
 /**
@@ -65,8 +66,17 @@ export function registerCognitiveTools(
         socialProofSensitivity: z.number().min(0).max(1).optional(),
         mentalModelRigidity: z.number().min(0).max(1).optional(),
       }).optional().describe("Override specific cognitive traits (25 available)"),
+      location: z.object({
+        timezone: z.string().optional().describe("IANA timezone (e.g., 'America/New_York', 'Europe/London')"),
+        locale: z.string().optional().describe("BCP 47 locale (e.g., 'en-US', 'de-DE')"),
+        geolocation: z.object({
+          latitude: z.number().min(-90).max(90),
+          longitude: z.number().min(-180).max(180),
+          accuracy: z.number().optional(),
+        }).optional().describe("Geographic coordinates for geolocation-dependent features"),
+      }).optional().describe("Override persona's location settings (timezone, locale, geolocation)"),
     },
-    async ({ persona: personaName, goal, startUrl, customTraits }) => {
+    async ({ persona: personaName, goal, startUrl, customTraits, location }) => {
       const existingPersona = getAnyPersona(personaName);
       let personaObj: Persona | AccessibilityPersona;
 
@@ -142,6 +152,24 @@ export function registerCognitiveTools(
       };
 
       const b = await getBrowser();
+
+      // Apply location settings: explicit override > persona default
+      const effectiveLocation: PersonaLocation = {
+        ...((personaObj as Persona).location || {}),
+        ...(location || {}),
+      };
+      let locationResult: {
+        geolocationApplied?: boolean;
+        timezoneStored?: boolean;
+        localeStored?: boolean;
+        effectiveTimezone?: string;
+        effectiveLocale?: string;
+        note?: string;
+      } = {};
+      if (effectiveLocation.timezone || effectiveLocation.locale || effectiveLocation.geolocation) {
+        locationResult = await b.applyPersonaLocation(effectiveLocation);
+      }
+
       await b.navigate(startUrl);
 
       const personaValues = getPersonaValues(personaObj.name);
@@ -158,6 +186,12 @@ export function registerCognitiveTools(
                 name: personaObj.name,
                 description: personaObj.description,
                 demographics: personaObj.demographics,
+                location: effectiveLocation.timezone || effectiveLocation.locale || effectiveLocation.geolocation ? {
+                  timezone: effectiveLocation.timezone,
+                  locale: effectiveLocation.locale,
+                  geolocation: effectiveLocation.geolocation,
+                  applied: locationResult,
+                } : undefined,
                 values: personaValues ? {
                   schwartz: {
                     selfDirection: personaValues.selfDirection,

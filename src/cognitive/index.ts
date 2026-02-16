@@ -44,6 +44,7 @@ import type {
   EmotionalState,
   EmotionalEvent,
   EmotionalConfig,
+  PersonaLocation,
 } from "../types.js";
 import {
   createInitialEmotionalState,
@@ -193,6 +194,12 @@ export interface CognitiveJourneyOptions {
   vision?: boolean;
   /** Callback for step updates */
   onStep?: (step: CognitiveStep) => void;
+  /** Location override for the persona (timezone, locale, geolocation) */
+  location?: {
+    timezone?: string;
+    locale?: string;
+    geolocation?: { latitude: number; longitude: number; accuracy?: number };
+  };
 }
 
 export interface CognitiveStep {
@@ -395,7 +402,28 @@ export async function runCognitiveJourney(
 
   // Initialize browser (auto-detect headless for servers without display)
   const headless = options.headless ?? !process.env.DISPLAY;
-  const browser = new CBrowser({ headless, persistent: true });
+
+  // Merge location settings: options.location > persona.location > defaults
+  const effectiveLocation: PersonaLocation = {
+    ...(personaObj.location || {}),
+    ...(options.location || {}),
+  };
+
+  // Create browser with timezone/locale if specified
+  const browserConfig: { headless: boolean; persistent: true; timezone?: string; locale?: string } = {
+    headless,
+    persistent: true,
+  };
+  if (effectiveLocation.timezone) browserConfig.timezone = effectiveLocation.timezone;
+  if (effectiveLocation.locale) browserConfig.locale = effectiveLocation.locale;
+
+  const browser = new CBrowser(browserConfig);
+
+  // Apply geolocation at runtime if specified
+  if (effectiveLocation.geolocation) {
+    await browser.setGeolocationRuntime(effectiveLocation.geolocation);
+  }
+
   await browser.navigate(options.startUrl);
 
   const fullMonologue: string[] = [];

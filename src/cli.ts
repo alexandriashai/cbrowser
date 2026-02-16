@@ -122,6 +122,9 @@ COGNITIVE JOURNEY (API-powered, realistic user simulation)
     --no-vision               Disable vision mode (text-only, less accurate but faster)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
+    --timezone <tz>           Override persona timezone (e.g., "America/New_York", "Europe/London")
+    --locale <loc>            Override persona locale (e.g., "en-US", "de-DE")
+    --geolocation <lat,lng>   Override persona geolocation (e.g., "40.7128,-74.0060")
 
     Why use this over 'explore'?
       • Tracks cognitive state: patience, frustration, confusion
@@ -4807,6 +4810,22 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const headless = options.headless === true;
         const vision = options["no-vision"] !== true; // Vision ON by default (v17.1.0)
 
+        // Parse location options
+        let locationOverride: { timezone?: string; locale?: string; geolocation?: { latitude: number; longitude: number } } | undefined;
+        if (options.timezone || options.locale || options.geolocation) {
+          locationOverride = {};
+          if (options.timezone) locationOverride.timezone = options.timezone as string;
+          if (options.locale) locationOverride.locale = options.locale as string;
+          if (options.geolocation) {
+            const [lat, lng] = (options.geolocation as string).split(",").map(s => parseFloat(s.trim()));
+            if (!isNaN(lat) && !isNaN(lng)) {
+              locationOverride.geolocation = { latitude: lat, longitude: lng };
+            } else {
+              console.warn("   ⚠️ Invalid geolocation format. Use: --geolocation lat,lng");
+            }
+          }
+        }
+
         // Read custom traits from environment variable (for Enterprise autonomous mode)
         let customTraits: Record<string, number> | undefined;
         const envTraits = process.env.CBROWSER_CUSTOM_TRAITS;
@@ -4828,6 +4847,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log(`   Max steps: ${maxSteps} | Max time: ${maxTime}s`);
         if (!vision) console.log(`   Vision: disabled (text-only mode)`);
         if (customTraits) console.log(`   Traits: custom profile (${Object.keys(customTraits).length} traits)`);
+        if (locationOverride) {
+          const locParts: string[] = [];
+          if (locationOverride.timezone) locParts.push(`tz=${locationOverride.timezone}`);
+          if (locationOverride.locale) locParts.push(`locale=${locationOverride.locale}`);
+          if (locationOverride.geolocation) locParts.push(`geo=${locationOverride.geolocation.latitude},${locationOverride.geolocation.longitude}`);
+          console.log(`   Location: ${locParts.join(", ")}`);
+        }
         console.log("");
 
         try {
@@ -4841,6 +4867,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             headless,
             vision,
             customTraits, // Pass custom traits from env var
+            location: locationOverride, // Pass location override
             onStep: verbose ? undefined : (step) => {
               process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
             },

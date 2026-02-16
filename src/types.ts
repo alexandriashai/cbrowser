@@ -49,6 +49,24 @@ export interface HumanBehaviorParams {
   attention: AttentionParams;
 }
 
+/**
+ * Geographic location settings for personas.
+ * Allows personas to have realistic local context (timezone, language, coordinates).
+ * Used by cognitive journeys to set browser context appropriately.
+ */
+export interface PersonaLocation {
+  /** IANA timezone identifier (e.g., "America/New_York", "Europe/London") */
+  timezone?: string;
+  /** BCP 47 locale identifier (e.g., "en-US", "de-DE", "ja-JP") */
+  locale?: string;
+  /** Geographic coordinates for geolocation-dependent features */
+  geolocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
+}
+
 export interface Persona {
   name: string;
   description: string;
@@ -65,6 +83,8 @@ export interface Persona {
   };
   /** Focus hierarchy for task-specific attention patterns */
   focusHierarchy?: FocusHierarchy;
+  /** Geographic location for realistic local context in cognitive journeys */
+  location?: PersonaLocation;
 }
 
 // ============================================================================

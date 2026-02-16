@@ -844,6 +844,12 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
     context: {
       viewport: [1920, 1080],
     },
+    // Location context: tech professional in San Francisco
+    location: {
+      timezone: "America/Los_Angeles",
+      locale: "en-US",
+      geolocation: { latitude: 37.7749, longitude: -122.4194 },
+    },
   },
 
   "first-timer": {
@@ -1139,6 +1145,12 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
     },
     context: {
       viewport: [1280, 800],
+    },
+    // Location context: retiree in Florida
+    location: {
+      timezone: "America/New_York",
+      locale: "en-US",
+      geolocation: { latitude: 25.7617, longitude: -80.1918 }, // Miami
     },
   },
 

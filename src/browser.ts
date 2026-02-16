@@ -1343,6 +1343,61 @@ export class CBrowser {
     return Object.keys(LOCATION_PRESETS);
   }
 
+  /**
+   * Apply persona location settings for cognitive journey simulation.
+   *
+   * This method:
+   * - Sets geolocation at runtime (immediate effect)
+   * - Stores timezone/locale in config (applies on next context creation)
+   *
+   * @param location - PersonaLocation settings to apply
+   * @returns Object with applied settings and notes
+   */
+  async applyPersonaLocation(location: {
+    timezone?: string;
+    locale?: string;
+    geolocation?: { latitude: number; longitude: number; accuracy?: number };
+  }): Promise<{
+    geolocationApplied: boolean;
+    timezoneStored: boolean;
+    localeStored: boolean;
+    effectiveTimezone: string | undefined;
+    effectiveLocale: string | undefined;
+    note?: string;
+  }> {
+    let geolocationApplied = false;
+    let timezoneStored = false;
+    let localeStored = false;
+
+    // Apply geolocation at runtime (immediate effect)
+    if (location.geolocation) {
+      geolocationApplied = await this.setGeolocationRuntime(location.geolocation);
+    }
+
+    // Store timezone for context (affects Date objects, Intl APIs)
+    if (location.timezone) {
+      this.config.timezone = location.timezone;
+      timezoneStored = true;
+    }
+
+    // Store locale for context (affects number/date formatting, language)
+    if (location.locale) {
+      this.config.locale = location.locale;
+      localeStored = true;
+    }
+
+    return {
+      geolocationApplied,
+      timezoneStored,
+      localeStored,
+      effectiveTimezone: this.config.timezone,
+      effectiveLocale: this.config.locale,
+      note: (timezoneStored || localeStored)
+        ? "Timezone/locale stored in config. For full effect, these apply when browser context is recreated."
+        : undefined,
+    };
+  }
+
   // =========================================================================
   // Navigation
   // =========================================================================
