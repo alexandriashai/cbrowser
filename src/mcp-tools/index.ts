@@ -57,6 +57,7 @@ export {
   registerPerformanceTools,
   registerAuditTools,
   registerBrowserManagementTools,
+  registerSecurityTools,
   registerMarketingTools,
 } from "./base/index.js";
 
