@@ -409,22 +409,28 @@ export async function runCognitiveJourney(
     ...(options.location || {}),
   };
 
-  // Create browser with timezone/locale if specified
-  const browserConfig: { headless: boolean; persistent: true; timezone?: string; locale?: string } = {
+  // Create browser with timezone/locale/geolocation if specified
+  const browserConfig: {
+    headless: boolean;
+    persistent: true;
+    timezone?: string;
+    locale?: string;
+    geolocation?: { latitude: number; longitude: number; accuracy?: number };
+  } = {
     headless,
     persistent: true,
   };
   if (effectiveLocation.timezone) browserConfig.timezone = effectiveLocation.timezone;
   if (effectiveLocation.locale) browserConfig.locale = effectiveLocation.locale;
+  if (effectiveLocation.geolocation) browserConfig.geolocation = effectiveLocation.geolocation;
 
   const browser = new CBrowser(browserConfig);
+  await browser.navigate(options.startUrl);
 
-  // Apply geolocation at runtime if specified
+  // Apply geolocation at runtime as well (ensures permission is granted after context exists)
   if (effectiveLocation.geolocation) {
     await browser.setGeolocationRuntime(effectiveLocation.geolocation);
   }
-
-  await browser.navigate(options.startUrl);
 
   const fullMonologue: string[] = [];
   const frictionPoints: FrictionPoint[] = [];
