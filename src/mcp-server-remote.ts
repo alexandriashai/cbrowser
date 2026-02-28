@@ -948,23 +948,43 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
     // MCP endpoint
     if (url.pathname === "/mcp" || url.pathname === "/") {
       // Get or create session
+      // v18.14.0: Use client's mcp-session-id for browser session correlation
+      // This fixes DOM interaction desync where navigate worked but other tools saw blank page
       const existingSessionId = req.headers["mcp-session-id"] as string | undefined;
 
       let transport: StreamableHTTPServerTransport;
       let browserSessionId: string;
 
-      if (sessionMode === "stateful" && existingSessionId && transports.has(existingSessionId)) {
-        transport = transports.get(existingSessionId)!;
+      // First, determine the browser session ID (independent of transport mode)
+      // Always prefer client's session ID for browser continuity
+      let sessionSource: string;
+      if (existingSessionId && activeSessions.has(existingSessionId)) {
+        // Reuse existing browser session
         browserSessionId = existingSessionId;
-
-        // Update session activity
+        sessionSource = "reused";
         const session = activeSessions.get(browserSessionId);
         if (session) {
           session.lastActivity = Date.now();
         }
+      } else if (existingSessionId) {
+        // Client has a session ID but we don't have a browser for it yet
+        // Use their ID to create a new browser session (enables session continuity)
+        browserSessionId = existingSessionId;
+        sessionSource = "client-new";
       } else {
-        // Generate a new browser session ID for isolation
+        // No session ID from client - generate new one
         browserSessionId = randomUUID();
+        sessionSource = "generated";
+      }
+
+      // Log session handling for debugging (truncate ID for readability)
+      const shortId = browserSessionId.substring(0, 8);
+      console.log(`[Session] ${sessionSource}: ${shortId}... (active: ${activeSessions.size})`);
+
+      // Now handle transport (stateful mode caches transport, stateless creates new each time)
+      if (sessionMode === "stateful" && existingSessionId && transports.has(existingSessionId)) {
+        transport = transports.get(existingSessionId)!;
+      } else {
 
         // Create new transport
         transport = new StreamableHTTPServerTransport({
