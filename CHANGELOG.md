@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.13.5](https://github.com/alexandriashai/cbrowser/compare/v18.13.4...v18.13.5) (2026-02-28)
+
+### Fixed
+
+* **mcp:** use client session ID for browser context correlation ([b30792b](https://github.com/alexandriashai/cbrowser/commit/b30792bc69d4ed8d462d138591ee9f7143e5fa80))
+
 ## [18.13.4](https://github.com/alexandriashai/cbrowser/compare/v18.13.3...v18.13.4) (2026-02-27)
 
 ### Fixed
