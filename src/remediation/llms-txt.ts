@@ -90,6 +90,106 @@ async function extractPageData(page: Page, url: string): Promise<PageData> {
       .filter((h) => h.length > 0)
       .slice(0, 20);
 
+    /**
+     * Extract the primary title from a link element.
+     * Prioritizes: aria-label > heading inside link > first meaningful text
+     * Avoids concatenating badge text, descriptions, and action text like "Learn more"
+     */
+    function extractLinkTitle(anchor: Element): string {
+      // Priority 1: aria-label (explicit accessible name)
+      const ariaLabel = anchor.getAttribute("aria-label");
+      if (ariaLabel && ariaLabel.length < 100) {
+        return ariaLabel.trim();
+      }
+
+      // Priority 2: Heading inside the link (h1-h6, or elements with heading-like classes)
+      const heading = anchor.querySelector("h1, h2, h3, h4, h5, h6, [class*='title']:not([class*='subtitle']), [class*='heading']");
+      if (heading) {
+        const headingText = heading.textContent?.trim();
+        if (headingText && headingText.length > 1 && headingText.length < 100) {
+          return headingText;
+        }
+      }
+
+      // Priority 3: Title attribute
+      const titleAttr = anchor.getAttribute("title");
+      if (titleAttr && titleAttr.length < 100) {
+        return titleAttr.trim();
+      }
+
+      // Priority 4: Check for card-style structure and extract main text
+      // Skip badges, tags, descriptions, and action text
+      const skipClasses = /badge|tag|label|chip|description|excerpt|summary|meta|action|cta/i;
+      const skipPatterns = /^(learn more|read more|view|see all|click|→|→|explore|get started|new|featured|flagship|coming soon)$/i;
+
+      // Find the first meaningful child element that's not a badge/tag/description
+      const children = anchor.children;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        const className = child.className || "";
+
+        // Skip badges, tags, and metadata elements
+        if (typeof className === "string" && skipClasses.test(className)) {
+          continue;
+        }
+
+        // If it's a heading-like element or simple span/div, get its text
+        const tag = child.tagName.toLowerCase();
+        if (tag.match(/^h[1-6]$/) || tag === "span" || tag === "div" || tag === "strong") {
+          const text = child.textContent?.trim();
+          // Skip if it matches skip patterns or is too long (likely description)
+          if (text && text.length > 1 && text.length < 80 && !skipPatterns.test(text)) {
+            return text;
+          }
+        }
+      }
+
+      // Priority 5: Direct text content of the anchor (not children)
+      // Get only immediate text nodes, not nested text
+      let directText = "";
+      anchor.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent?.trim();
+          if (text && text.length > 1 && !skipPatterns.test(text)) {
+            directText = text;
+          }
+        }
+      });
+      if (directText && directText.length < 80) {
+        return directText;
+      }
+
+      // Priority 6: First meaningful span/strong that isn't a badge
+      const textEl = anchor.querySelector("span:not([class*='badge']):not([class*='tag']):not([class*='label']), strong, em");
+      if (textEl) {
+        const text = textEl.textContent?.trim();
+        if (text && text.length > 1 && text.length < 80 && !skipPatterns.test(text)) {
+          return text;
+        }
+      }
+
+      // Fallback: Clean up full textContent
+      const fullText = anchor.textContent?.trim() || "";
+
+      // Remove common prefix patterns (badges)
+      let cleaned = fullText
+        .replace(/^(flagship|new|featured|coming soon)\s*/i, "")
+        .replace(/\s*(learn more|read more|view|→)$/i, "");
+
+      // Take first sentence-like chunk if still too long
+      if (cleaned.length > 60) {
+        // Try to find a natural break point
+        const sentenceEnd = cleaned.search(/[.!?]\s|[A-Z][a-z]/);
+        if (sentenceEnd > 10 && sentenceEnd < 60) {
+          cleaned = cleaned.slice(0, sentenceEnd).trim();
+        } else {
+          cleaned = cleaned.slice(0, 60) + "...";
+        }
+      }
+
+      return cleaned || fullText.slice(0, 60);
+    }
+
     const links: Array<{ text: string; href: string; isNavigation: boolean }> = [];
     const seenHrefs = new Set<string>();
 
@@ -97,7 +197,7 @@ async function extractPageData(page: Page, url: string): Promise<PageData> {
     const navLinks = document.querySelectorAll("nav a, header a, [role='navigation'] a");
     navLinks.forEach((a) => {
       const href = a.getAttribute("href");
-      const text = a.textContent?.trim();
+      const text = extractLinkTitle(a);
       if (href && text && !seenHrefs.has(href) && !href.startsWith("#")) {
         seenHrefs.add(href);
         links.push({ text, href, isNavigation: true });
@@ -108,7 +208,7 @@ async function extractPageData(page: Page, url: string): Promise<PageData> {
     const mainLinks = document.querySelectorAll("main a, article a, .content a");
     mainLinks.forEach((a) => {
       const href = a.getAttribute("href");
-      const text = a.textContent?.trim();
+      const text = extractLinkTitle(a);
       if (href && text && !seenHrefs.has(href) && !href.startsWith("#") && links.length < 50) {
         seenHrefs.add(href);
         links.push({ text, href, isNavigation: false });

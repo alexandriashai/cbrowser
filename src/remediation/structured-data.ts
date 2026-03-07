@@ -96,8 +96,12 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
     const hasPrice = !!(
       document.querySelector('[class*="price"], [itemprop="price"], .price')
     );
+    // Check for add-to-cart buttons using class selectors and text content matching
     const hasAddToCart = !!(
-      document.querySelector('[class*="add-to-cart"], [class*="addtocart"], button:has-text("Add to Cart"), button:has-text("Buy")')
+      document.querySelector('[class*="add-to-cart"], [class*="addtocart"], [class*="add_to_cart"], [data-action="add-to-cart"]') ||
+      Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"]')).some(
+        el => /add to cart|buy now|purchase|add to bag/i.test(el.textContent || '')
+      )
     );
     const hasProductSchema = !!(
       document.querySelector('script[type="application/ld+json"]')?.textContent?.includes('"@type":"Product"') ||

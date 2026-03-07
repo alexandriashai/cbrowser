@@ -4481,6 +4481,10 @@ export interface AgentReadyAuditOptions {
   html?: boolean;
   /** Run browser in headless mode */
   headless?: boolean;
+  /** Overall timeout in milliseconds (default: 60000) */
+  timeout?: number;
+  /** Navigation timeout in milliseconds (default: 30000) */
+  navigationTimeout?: number;
 }
 
 // ============================================================================

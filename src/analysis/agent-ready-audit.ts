@@ -1599,23 +1599,32 @@ export function generateAgentReadyHtmlReport(result: AgentReadyAuditResult): str
 
 export async function runAgentReadyAudit(
   url: string,
-  _options: AgentReadyAuditOptions = {}
+  options: AgentReadyAuditOptions = {}
 ): Promise<AgentReadyAuditResult> {
   const startTime = Date.now();
+  const overallTimeout = options.timeout ?? 60000;
+  const navigationTimeout = options.navigationTimeout ?? 30000;
   let browser: Browser | null = null;
 
-  try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      viewport: { width: 1920, height: 1080 },
-    });
-    const page = await context.newPage();
+  // Wrap entire operation in timeout
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Audit timed out after ${overallTimeout}ms`)), overallTimeout);
+  });
 
-    // Navigate to URL
-    await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+  const auditPromise = async (): Promise<AgentReadyAuditResult> => {
+    try {
+      browser = await chromium.launch({ headless: options.headless ?? true });
+      const context = await browser.newContext({
+        viewport: { width: 1920, height: 1080 },
+      });
+      const page = await context.newPage();
 
-    // Wait for dynamic content
-    await page.waitForTimeout(2000);
+      // Navigate to URL - use domcontentloaded for faster completion
+      // networkidle can hang on sites with continuous network activity
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: navigationTimeout });
+
+      // Brief wait for initial JS execution (reduced from 2s)
+      await page.waitForTimeout(1000);
 
     // Initialize detection context
     const issues: AgentReadyIssue[] = [];
@@ -1678,9 +1687,21 @@ export async function runAgentReadyAudit(
     };
 
     return result;
-  } finally {
-    if (browser) {
-      await browser.close();
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
     }
+  };
+
+  // Race between audit and timeout
+  try {
+    return await Promise.race<AgentReadyAuditResult>([auditPromise(), timeoutPromise]);
+  } catch (error) {
+    // Ensure browser is closed on timeout
+    if (browser) {
+      await (browser as Browser).close();
+    }
+    throw error;
   }
 }
