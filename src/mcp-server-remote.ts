@@ -982,8 +982,11 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
       console.log(`[Session] ${sessionSource}: ${shortId}... (active: ${activeSessions.size})`);
 
       // Now handle transport (stateful mode caches transport, stateless creates new each time)
-      if (sessionMode === "stateful" && existingSessionId && transports.has(existingSessionId)) {
+      const hasExistingTransport = existingSessionId ? transports.has(existingSessionId) : false;
+
+      if (sessionMode === "stateful" && existingSessionId && hasExistingTransport) {
         transport = transports.get(existingSessionId)!;
+        console.log(`[Transport] Reusing cached transport for ${existingSessionId.substring(0, 8)}...`);
       } else {
 
         // Create new transport
@@ -1002,16 +1005,16 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
         await server.connect(transport);
 
         // Store transport for stateful mode
+        // IMPORTANT: Use browserSessionId directly, not transport.sessionId
+        // The transport.sessionId is only set AFTER the first response is sent,
+        // but we need to store it NOW so subsequent requests can find it
         if (sessionMode === "stateful") {
-          const newSessionId = transport.sessionId;
-          if (newSessionId) {
-            transports.set(newSessionId, transport);
-            transport.onclose = async () => {
-              transports.delete(newSessionId);
-              // Clean up browser session on disconnect
-              await cleanupSession(browserSessionId);
-            };
-          }
+          transports.set(browserSessionId, transport);
+          transport.onclose = async () => {
+            transports.delete(browserSessionId);
+            // Clean up browser session on disconnect
+            await cleanupSession(browserSessionId);
+          };
         } else {
           // For stateless mode, clean up after a delay
           transport.onclose = async () => {

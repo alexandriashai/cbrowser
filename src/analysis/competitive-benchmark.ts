@@ -1369,3 +1369,318 @@ export async function runCompetitiveBenchmark(
     recommendations,
   };
 }
+
+// ============================================================================
+// AI Readiness Benchmark (v17.0.0)
+// ============================================================================
+
+import type {
+  AIBenchmarkResult,
+  AIBenchmarkSiteResult,
+  AIBenchmarkComparison,
+  AIBenchmarkRecommendation,
+  AIBenchmarkOptions,
+} from "../types.js";
+import { runAgentReadyAudit } from "./agent-ready-audit.js";
+
+/**
+ * Run AI readiness benchmark across multiple competitor sites.
+ *
+ * Unlike cognitive competitive benchmark (which simulates human users),
+ * this focuses on how well each site works for AI agents:
+ * - Structured data for machine understanding
+ * - Stable selectors for automation
+ * - Accessible labels for element identification
+ * - Clear semantic structure
+ *
+ * @since 17.0.0
+ */
+export async function runAIReadinessBenchmark(
+  options: AIBenchmarkOptions
+): Promise<AIBenchmarkResult> {
+  const {
+    urls,
+    headless = true,
+    maxConcurrency = 3,
+  } = options;
+
+  const startTime = Date.now();
+  const results: AIBenchmarkSiteResult[] = [];
+
+  // Process URLs in batches
+  for (let i = 0; i < urls.length; i += maxConcurrency) {
+    const batch = urls.slice(i, i + maxConcurrency);
+
+    const batchResults = await Promise.all(
+      batch.map(async (url): Promise<AIBenchmarkSiteResult> => {
+        const siteName = new URL(url).hostname.replace("www.", "");
+
+        try {
+          const audit = await runAgentReadyAudit(url, { headless });
+
+          // Determine strengths based on high category scores
+          const strengths: string[] = [];
+          if (audit.score.findability >= 80) {
+            strengths.push("Easy for agents to locate elements");
+          }
+          if (audit.score.stability >= 80) {
+            strengths.push("Stable selectors that won't break");
+          }
+          if (audit.score.accessibility >= 80) {
+            strengths.push("Good ARIA labels for identification");
+          }
+          if (audit.score.semantics >= 80) {
+            strengths.push("Clear semantic HTML structure");
+          }
+
+          // Determine weaknesses based on low category scores
+          const weaknesses: string[] = [];
+          if (audit.score.findability < 60) {
+            weaknesses.push("Agents struggle to find elements");
+          }
+          if (audit.score.stability < 60) {
+            weaknesses.push("Dynamic selectors break automation");
+          }
+          if (audit.score.accessibility < 60) {
+            weaknesses.push("Missing labels for element identification");
+          }
+          if (audit.score.semantics < 60) {
+            weaknesses.push("Poor semantic structure");
+          }
+
+          // Add issue-based weaknesses
+          const issueDescriptions = audit.issues.slice(0, 3).map(
+            (issue) => issue.description
+          );
+
+          return {
+            url,
+            siteName,
+            grade: audit.grade,
+            score: audit.score.overall,
+            scoreBreakdown: audit.score,
+            topIssues: issueDescriptions,
+            strengths: strengths.length > 0 ? strengths : ["No major strengths detected"],
+            weaknesses: weaknesses.length > 0 ? weaknesses : issueDescriptions,
+            duration: audit.duration,
+          };
+        } catch (error) {
+          return {
+            url,
+            siteName,
+            grade: "F" as const,
+            score: 0,
+            scoreBreakdown: {
+              overall: 0,
+              findability: 0,
+              stability: 0,
+              accessibility: 0,
+              semantics: 0,
+            },
+            topIssues: [],
+            strengths: [],
+            weaknesses: ["Failed to audit site"],
+            duration: 0,
+            error: (error as Error).message,
+          };
+        }
+      })
+    );
+
+    results.push(...batchResults);
+  }
+
+  // Generate ranking
+  const sortedResults = [...results].sort((a, b) => b.score - a.score);
+  const ranking = sortedResults.map((r, i) => ({
+    rank: i + 1,
+    site: r.siteName,
+    grade: r.grade,
+    score: r.score,
+  }));
+
+  // Generate comparison
+  const comparison = generateAIComparison(results);
+
+  // Generate recommendations
+  const recommendations = generateAIRecommendations(results, ranking);
+
+  return {
+    timestamp: new Date().toISOString(),
+    duration: Date.now() - startTime,
+    sites: results,
+    ranking,
+    comparison,
+    recommendations,
+  };
+}
+
+/**
+ * Generate comparative analysis between sites
+ */
+function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComparison {
+  // Find best in each category
+  const byScore = [...results].sort((a, b) => b.score - a.score);
+  const byFindability = [...results].sort(
+    (a, b) => b.scoreBreakdown.findability - a.scoreBreakdown.findability
+  );
+  const byStability = [...results].sort(
+    (a, b) => b.scoreBreakdown.stability - a.scoreBreakdown.stability
+  );
+  const byAccessibility = [...results].sort(
+    (a, b) => b.scoreBreakdown.accessibility - a.scoreBreakdown.accessibility
+  );
+  const bySemantics = [...results].sort(
+    (a, b) => b.scoreBreakdown.semantics - a.scoreBreakdown.semantics
+  );
+
+  // Find common issues
+  const issueCounts = new Map<string, number>();
+  for (const result of results) {
+    for (const issue of result.topIssues) {
+      issueCounts.set(issue, (issueCounts.get(issue) || 0) + 1);
+    }
+  }
+  const commonIssues = Array.from(issueCounts.entries())
+    .filter(([_, count]) => count >= Math.ceil(results.length / 2))
+    .map(([issue]) => issue);
+
+  // Build site advantages
+  const siteAdvantages: Record<string, string[]> = {};
+  for (const result of results) {
+    const advantages: string[] = [];
+
+    // Check if best in any category
+    if (result.siteName === byScore[0]?.siteName) {
+      advantages.push("Best overall AI readiness");
+    }
+    if (result.siteName === byFindability[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
+      advantages.push("Best element findability");
+    }
+    if (result.siteName === byStability[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
+      advantages.push("Most stable selectors");
+    }
+    if (result.siteName === byAccessibility[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
+      advantages.push("Best ARIA/accessibility labels");
+    }
+    if (result.siteName === bySemantics[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
+      advantages.push("Best semantic structure");
+    }
+
+    // Add strength-based advantages
+    advantages.push(...result.strengths.filter(s => s !== "No major strengths detected"));
+
+    siteAdvantages[result.siteName] = advantages;
+  }
+
+  return {
+    bestOverall: byScore[0]?.siteName || "N/A",
+    bestFindability: byFindability[0]?.siteName || "N/A",
+    bestStability: byStability[0]?.siteName || "N/A",
+    bestAccessibility: byAccessibility[0]?.siteName || "N/A",
+    bestSemantics: bySemantics[0]?.siteName || "N/A",
+    commonIssues,
+    siteAdvantages,
+  };
+}
+
+/**
+ * Generate prioritized recommendations for each site
+ */
+function generateAIRecommendations(
+  results: AIBenchmarkSiteResult[],
+  ranking: Array<{ rank: number; site: string; grade: string; score: number }>
+): AIBenchmarkRecommendation[] {
+  const recommendations: AIBenchmarkRecommendation[] = [];
+  const bestSite = ranking[0];
+
+  for (const result of results) {
+    // Skip the best site (nothing to compare to)
+    if (result.siteName === bestSite?.site && ranking.length > 1) {
+      continue;
+    }
+
+    let priority = 1;
+
+    // Add weakness-based recommendations
+    for (const weakness of result.weaknesses) {
+      const betterSite = results.find(
+        (r) =>
+          r.siteName !== result.siteName &&
+          !r.weaknesses.includes(weakness)
+      );
+
+      recommendations.push({
+        site: result.siteName,
+        priority: priority++,
+        improvement: weakness,
+        competitorReference: betterSite
+          ? `${betterSite.siteName} handles this better`
+          : undefined,
+      });
+    }
+
+    // Add category-specific recommendations
+    const categories: Array<{
+      name: string;
+      score: number;
+      fix: string;
+    }> = [
+      {
+        name: "findability",
+        score: result.scoreBreakdown.findability,
+        fix: "Add unique IDs and ARIA labels to interactive elements",
+      },
+      {
+        name: "stability",
+        score: result.scoreBreakdown.stability,
+        fix: "Use data-testid attributes and semantic selectors",
+      },
+      {
+        name: "accessibility",
+        score: result.scoreBreakdown.accessibility,
+        fix: "Ensure all form inputs have associated labels",
+      },
+      {
+        name: "semantics",
+        score: result.scoreBreakdown.semantics,
+        fix: "Add JSON-LD structured data and proper heading hierarchy",
+      },
+    ];
+
+    for (const cat of categories) {
+      if (cat.score < 70) {
+        const getScore = (r: AIBenchmarkSiteResult): number => {
+          switch (cat.name) {
+            case "findability": return r.scoreBreakdown.findability;
+            case "stability": return r.scoreBreakdown.stability;
+            case "accessibility": return r.scoreBreakdown.accessibility;
+            case "semantics": return r.scoreBreakdown.semantics;
+            default: return 0;
+          }
+        };
+
+        const bestInCat = results
+          .filter((r) => r.siteName !== result.siteName)
+          .sort((a, b) => getScore(b) - getScore(a))[0];
+
+        recommendations.push({
+          site: result.siteName,
+          priority: priority++,
+          improvement: `Improve ${cat.name}: ${cat.fix}`,
+          competitorReference: bestInCat
+            ? `${bestInCat.siteName} scores ${getScore(bestInCat)} in ${cat.name}`
+            : undefined,
+        });
+      }
+    }
+  }
+
+  // Sort by site then priority
+  recommendations.sort((a, b) => {
+    if (a.site !== b.site) return a.site.localeCompare(b.site);
+    return a.priority - b.priority;
+  });
+
+  return recommendations;
+}

@@ -13,6 +13,7 @@ import {
   listPersonas,
   getCognitiveProfile,
   createCognitivePersona,
+  isAgentPersonaObject,
 } from "../../personas.js";
 import { listAccessibilityPersonas, getAccessibilityPersona } from "../../personas.js";
 import { getPersonaValues, rankInfluencePatternsForProfile } from "../../values/index.js";
@@ -79,6 +80,20 @@ export function registerCognitiveTools(
     async ({ persona: personaName, goal, startUrl, customTraits, location }) => {
       const existingPersona = getAnyPersona(personaName);
       let personaObj: Persona | AccessibilityPersona;
+
+      // v17.0.0: Check for agent personas - cognitive journeys don't support them yet
+      if (existingPersona && isAgentPersonaObject(existingPersona)) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              error: "Agent personas not supported for cognitive journeys",
+              message: `"${personaName}" is an AI agent persona. Cognitive journeys simulate human behavior and require human personas.`,
+              suggestedPersonas: ["first-timer", "power-user", "mobile-user"],
+            }, null, 2),
+          }],
+        };
+      }
 
       if (!existingPersona) {
         personaObj = createCognitivePersona(personaName, personaName, customTraits || {});

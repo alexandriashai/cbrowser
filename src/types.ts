@@ -444,6 +444,136 @@ export interface CognitiveTraits {
   mentalModelRigidity?: number;
 }
 
+// ============================================================================
+// AI Agent Traits (v17.0.0)
+// ============================================================================
+
+/**
+ * Selector strategy used by AI agents to find elements.
+ * Different agents prefer different selection approaches.
+ * @since 17.0.0
+ */
+export type AgentSelectorStrategy = "css" | "xpath" | "aria" | "text" | "visual";
+
+/**
+ * Domain knowledge level for AI agents.
+ * @since 17.0.0
+ */
+export type AgentDomainKnowledge = "general" | "specialized" | "none";
+
+/**
+ * Traits that define how an AI agent interacts with web pages.
+ * Fundamentally different from human CognitiveTraits - agents don't have emotions.
+ * @since 17.0.0
+ */
+export interface AgentTraits {
+  /**
+   * Primary strategy for selecting elements.
+   * - css: Fast, fragile to changes (crawlers)
+   * - xpath: Flexible path-based selection
+   * - aria: Accessibility-focused, robust (task agents)
+   * - text: Content-based selection (retrieval agents)
+   * - visual: Screenshot-based selection (multimodal agents)
+   */
+  selectorStrategy: AgentSelectorStrategy;
+
+  /**
+   * Context window size in tokens (affects how much page context agent considers).
+   * Lower values = faster but may miss context. Higher = thorough but slower.
+   * Typical range: 4096 - 128000
+   */
+  contextWindow: number;
+
+  /**
+   * Maximum retry attempts before abandoning a selector/action.
+   * Unlike human patience (emotional), this is a hard limit.
+   * Typical range: 1 - 10
+   */
+  retryBudget: number;
+
+  /**
+   * Willingness to backtrack and try alternative paths (0-1).
+   * 0 = commits to first path, never backtracks
+   * 1 = freely explores alternatives, high backtrack tolerance
+   */
+  backtrackWillingness: number;
+
+  /**
+   * Exploration strategy preference (0-1).
+   * 0 = depth-first (follows links deeply before trying siblings)
+   * 1 = breadth-first (explores all options at current level first)
+   */
+  explorationVsBreadth: number;
+
+  /**
+   * Tolerance for ambiguous or unclear element matches (0-1).
+   * 0 = only acts on exact matches, very strict
+   * 1 = acts on partial/fuzzy matches, lenient
+   */
+  ambiguityTolerance: number;
+
+  /**
+   * Ability to recover from errors and continue (0-1).
+   * 0 = fails fast on any error
+   * 1 = robust error handling, continues despite issues
+   */
+  errorRecovery: number;
+
+  /**
+   * Level of domain-specific knowledge.
+   * - none: Generic web navigation only
+   * - general: Understands common patterns (forms, auth, e-commerce)
+   * - specialized: Deep knowledge of specific domain (e.g., healthcare, finance)
+   */
+  domainKnowledge: AgentDomainKnowledge;
+
+  /**
+   * Whether agent can process visual content (screenshots, images).
+   * Multimodal agents can "see" the page, not just parse DOM.
+   */
+  multiModalCapability: boolean;
+}
+
+/**
+ * State tracking for agent journeys (different from human emotional state).
+ * @since 17.0.0
+ */
+export interface AgentJourneyState {
+  /** Total actions taken in this journey */
+  actionCount: number;
+  /** Remaining retries before abandonment */
+  retriesRemaining: number;
+  /** Number of selector failures encountered */
+  selectorFailures: number;
+  /** Number of times agent backtracked */
+  backtrackCount: number;
+  /** Number of ambiguous situations encountered */
+  ambiguityEncountered: number;
+  /** URLs/elements already visited (for loop detection) */
+  visitedPaths: Set<string>;
+  /** Whether agent is stuck in a loop */
+  loopDetected: boolean;
+  /** Current exploration depth */
+  depth: number;
+}
+
+/**
+ * Agent persona definition combining traits with metadata.
+ * @since 17.0.0
+ */
+export interface AgentPersona {
+  /** Unique identifier for the agent persona */
+  name: string;
+  /** Human-readable description of agent's purpose */
+  description: string;
+  /** Agent behavioral traits */
+  agentTraits: AgentTraits;
+  /** Primary use case for this agent type */
+  useCase: "retrieval" | "task-completion" | "crawling" | "conversation";
+  /** Optional: specific domains this agent excels at */
+  domains?: string[];
+}
+
 /**
  * Attention patterns that define how a persona visually scans pages.
  */
@@ -4216,6 +4346,21 @@ export type AgentReadyIssueCategory = "findability" | "stability" | "accessibili
 /** Severity level for agent-ready issues */
 export type AgentReadyIssueSeverity = "low" | "medium" | "high" | "critical";
 
+/**
+ * AI-specific audit subcategories for granular reporting.
+ * These provide more detail within the main categories without affecting scoring.
+ * @since 17.0.0
+ */
+export type AIAuditSubcategory =
+  | "machine-metadata"      // JSON-LD, OpenGraph, Twitter Cards
+  | "navigation-patterns"   // Breadcrumbs, skip links, heading hierarchy
+  | "actionable-elements"   // Action verbs, aria-describedby
+  | "content-chrome"        // Content-to-nav ratio
+  | "api-exposure"          // /api/ endpoints, GraphQL
+  | "llms-txt"              // /llms.txt presence
+  | "state-persistence"     // CSRF, session indicators
+  | "dynamic-content";      // Loading states, infinite scroll
+
 /** Effort level for fixing issues */
 export type AgentReadyEffort = "trivial" | "easy" | "medium" | "hard";
 
@@ -4228,6 +4373,8 @@ export interface AgentReadyIssue {
   category: AgentReadyIssueCategory;
   /** Severity level */
   severity: AgentReadyIssueSeverity;
+  /** AI-specific subcategory for granular reporting @since 17.0.0 */
+  subcategory?: AIAuditSubcategory;
   /** Element selector or description */
   element: string;
   /** Description of the issue */
@@ -4288,6 +4435,17 @@ export interface AgentReadySummary {
   customDropdowns: number;
   /** Elements without visible text */
   elementsWithoutText: number;
+  // AI-specific counters @since 17.0.0
+  /** Machine-readable metadata found (JSON-LD, OG, Twitter) */
+  machineMetadataCount?: number;
+  /** Navigation aids found (breadcrumbs, skip links) */
+  navigationAidsCount?: number;
+  /** Whether /llms.txt was found */
+  hasLlmsTxt?: boolean;
+  /** API endpoints detected in page */
+  apiEndpointsCount?: number;
+  /** Dynamic content patterns detected */
+  dynamicContentCount?: number;
 }
 
 /** Letter grade for agent-ready audit */
@@ -4438,6 +4596,97 @@ export interface CompetitiveBenchmarkOptions {
   output?: string;
   /** Generate HTML report */
   html?: boolean;
+}
+
+// ============================================================================
+// AI Readiness Benchmark Types (v17.0.0)
+// ============================================================================
+
+/** Result for a single site in AI benchmark */
+export interface AIBenchmarkSiteResult {
+  /** URL tested */
+  url: string;
+  /** Site name (extracted from hostname) */
+  siteName: string;
+  /** AI readiness grade (A-F) */
+  grade: AgentReadyGrade;
+  /** AI readiness score (0-100) */
+  score: number;
+  /** Score breakdown by category */
+  scoreBreakdown: AgentReadyScore;
+  /** Top issues found */
+  topIssues: string[];
+  /** Strengths for AI agents */
+  strengths: string[];
+  /** Weaknesses for AI agents */
+  weaknesses: string[];
+  /** Duration of audit in ms */
+  duration: number;
+  /** Error message if audit failed */
+  error?: string;
+}
+
+/** Comparison data between sites */
+export interface AIBenchmarkComparison {
+  /** Best overall site for AI agents */
+  bestOverall: string;
+  /** Best site for findability */
+  bestFindability: string;
+  /** Best site for stability */
+  bestStability: string;
+  /** Best site for accessibility */
+  bestAccessibility: string;
+  /** Best site for semantics */
+  bestSemantics: string;
+  /** Common issues across all sites */
+  commonIssues: string[];
+  /** What each site does better */
+  siteAdvantages: Record<string, string[]>;
+}
+
+/** Recommendation for improving AI readiness */
+export interface AIBenchmarkRecommendation {
+  /** Site this applies to */
+  site: string;
+  /** Priority (1=highest) */
+  priority: number;
+  /** What to improve */
+  improvement: string;
+  /** Which competitor does it better */
+  competitorReference?: string;
+}
+
+/** Result of AI readiness benchmark */
+export interface AIBenchmarkResult {
+  /** When benchmark was run */
+  timestamp: string;
+  /** Duration of entire benchmark in ms */
+  duration: number;
+  /** Results per site */
+  sites: AIBenchmarkSiteResult[];
+  /** Sites ranked by AI readiness */
+  ranking: Array<{
+    rank: number;
+    site: string;
+    grade: AgentReadyGrade;
+    score: number;
+  }>;
+  /** Comparative analysis */
+  comparison: AIBenchmarkComparison;
+  /** Prioritized recommendations */
+  recommendations: AIBenchmarkRecommendation[];
+}
+
+/** Options for AI readiness benchmark */
+export interface AIBenchmarkOptions {
+  /** URLs to benchmark */
+  urls: string[];
+  /** Optional goal for agent journey simulation */
+  goal?: string;
+  /** Run headless */
+  headless?: boolean;
+  /** Max concurrent audits */
+  maxConcurrency?: number;
 }
 
 // ============================================================================

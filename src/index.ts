@@ -40,6 +40,12 @@ export * from "./testing/index.js";
 // Analysis module
 export * from "./analysis/index.js";
 
+// Remediation module (v17.0.0)
+export * from "./remediation/index.js";
+
+// llms.txt module (v17.0.0)
+export * from "./llms-txt/index.js";
+
 // Performance module
 export * from "./performance/index.js";
 
@@ -85,6 +91,8 @@ export {
   registerPerformanceTools,
   registerAuditTools,
   registerBrowserManagementTools,
+  registerRemediationTools,
+  registerLlmsTxtTools,
 } from "./mcp-tools/index.js";
 export type { ToolRegistrationContext } from "./mcp-tools/index.js";
 

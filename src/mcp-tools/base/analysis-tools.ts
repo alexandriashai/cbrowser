@@ -7,10 +7,10 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { findElementByIntent } from "../../analysis/index.js";
+import { findElementByIntent, runAIReadinessBenchmark } from "../../analysis/index.js";
 
 /**
- * Register analysis tools (3 tools: analyze_page, generate_tests, find_element_by_intent)
+ * Register analysis tools (4 tools: analyze_page, generate_tests, find_element_by_intent, ai_benchmark)
  */
 export function registerAnalysisTools(
   server: McpServer,
@@ -86,6 +86,71 @@ export function registerAnalysisTools(
       }
       return {
         content: [{ type: "text", text: JSON.stringify(result || { found: false, message: "No matching element found" }, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
+    "ai_benchmark",
+    "Compare AI-friendliness across competitor sites. Runs agent-ready audits on each URL, ranks by AI readiness grade, and identifies what each competitor does better for AI agents. Use for competitive intelligence on AI-readiness.",
+    {
+      urls: z.array(z.string().url()).describe("Array of competitor URLs to benchmark"),
+      goal: z.string().optional().describe("Optional goal for context (e.g., 'complete checkout')"),
+    },
+    async ({ urls, goal }) => {
+      const result = await runAIReadinessBenchmark({
+        urls,
+        goal,
+        headless: true,
+        maxConcurrency: 3,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                timestamp: result.timestamp,
+                duration: `${(result.duration / 1000).toFixed(1)}s`,
+                sitesAnalyzed: result.sites.length,
+                ranking: result.ranking.map((r) => ({
+                  rank: r.rank,
+                  site: r.site,
+                  grade: r.grade,
+                  score: r.score,
+                })),
+                comparison: {
+                  bestOverall: result.comparison.bestOverall,
+                  bestFindability: result.comparison.bestFindability,
+                  bestStability: result.comparison.bestStability,
+                  bestAccessibility: result.comparison.bestAccessibility,
+                  bestSemantics: result.comparison.bestSemantics,
+                  commonIssues: result.comparison.commonIssues.slice(0, 3),
+                },
+                siteAdvantages: result.comparison.siteAdvantages,
+                topRecommendations: result.recommendations
+                  .slice(0, 10)
+                  .map((r) => ({
+                    site: r.site,
+                    priority: r.priority,
+                    improvement: r.improvement,
+                    competitorReference: r.competitorReference,
+                  })),
+                detailedResults: result.sites.map((s) => ({
+                  site: s.siteName,
+                  grade: s.grade,
+                  score: s.score,
+                  strengths: s.strengths,
+                  weaknesses: s.weaknesses,
+                  topIssues: s.topIssues,
+                })),
+              },
+              null,
+              2
+            ),
+          },
+        ],
       };
     }
   );

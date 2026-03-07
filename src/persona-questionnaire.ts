@@ -1837,7 +1837,8 @@ export type PersonaCategory =
   | "physical"    // Motor tremor, mobility, dexterity
   | "sensory"     // Color blindness, hearing, visual acuity
   | "emotional"   // Anxiety, depression, confidence
-  | "general";    // No specific disability
+  | "general"     // No specific disability
+  | "agent";      // AI agent personas (v17.0.0)
 
 /**
  * Category-specific value presets with research citations.
@@ -2010,6 +2011,11 @@ const CATEGORY_KEYWORDS: Record<PersonaCategory, string[]> = {
     "depressed", "depression", "stressed", "overwhelmed", "fearful",
     "nervous", "worried", "self-doubt", "low confidence",
   ],
+  agent: [
+    "agent", "ai agent", "bot", "crawler", "scraper", "automation",
+    "retrieval", "task-completion", "crawl", "conversational",
+    "gpt", "claude", "llm", "language model", "autonomous",
+  ],
   general: [], // No keywords - default fallback
 };
 
@@ -2023,8 +2029,8 @@ export function detectPersonaCategory(
 ): PersonaCategory {
   const text = `${name} ${description || ""}`.toLowerCase();
 
-  // Check each category's keywords
-  for (const category of ["cognitive", "physical", "sensory", "emotional"] as PersonaCategory[]) {
+  // Check each category's keywords (agent first to prioritize AI agent detection)
+  for (const category of ["agent", "cognitive", "physical", "sensory", "emotional"] as PersonaCategory[]) {
     const keywords = CATEGORY_KEYWORDS[category];
     for (const keyword of keywords) {
       if (text.includes(keyword)) {
@@ -2435,6 +2441,11 @@ export const CATEGORY_QUESTION: {
       label: "Sensory Difference",
       description: "Color blindness, hearing, vision differences (affects perception only)",
       category: "sensory",
+    },
+    {
+      label: "AI Agent",
+      description: "AI-powered automation agent (crawler, retrieval, task completion)",
+      category: "agent",
     },
     // Note: "Other" option always available via AskUserQuestion
   ],

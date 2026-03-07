@@ -476,6 +476,639 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
 }
 
 // ============================================================================
+// AI-Specific Detection Functions (v17.0.0)
+// ============================================================================
+
+/**
+ * Detect machine-readable metadata (JSON-LD, OpenGraph, Twitter Cards, landmarks)
+ * @since 17.0.0
+ */
+async function detectMachineMetadata(ctx: DetectionContext): Promise<void> {
+  const { page, issues, summary } = ctx;
+
+  const metadata = await page.evaluate(() => {
+    // Check for JSON-LD
+    const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
+    const hasJsonLd = jsonLdScripts.length > 0;
+    let jsonLdValid = true;
+    jsonLdScripts.forEach(script => {
+      try {
+        JSON.parse(script.textContent || '');
+      } catch {
+        jsonLdValid = false;
+      }
+    });
+
+    // Check for OpenGraph tags
+    const ogTags = document.querySelectorAll('meta[property^="og:"]');
+    const hasOg = ogTags.length > 0;
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    const ogDescription = document.querySelector('meta[property="og:description"]');
+
+    // Check for Twitter Cards
+    const twitterTags = document.querySelectorAll('meta[name^="twitter:"]');
+    const hasTwitter = twitterTags.length > 0;
+
+    // Check for semantic landmarks
+    const hasMain = !!document.querySelector('main, [role="main"]');
+    const hasNav = !!document.querySelector('nav, [role="navigation"]');
+    const hasHeader = !!document.querySelector('header, [role="banner"]');
+    const hasFooter = !!document.querySelector('footer, [role="contentinfo"]');
+
+    return {
+      jsonLd: { present: hasJsonLd, valid: jsonLdValid, count: jsonLdScripts.length },
+      og: { present: hasOg, hasTitle: !!ogTitle, hasDescription: !!ogDescription, count: ogTags.length },
+      twitter: { present: hasTwitter, count: twitterTags.length },
+      landmarks: { main: hasMain, nav: hasNav, header: hasHeader, footer: hasFooter },
+    };
+  });
+
+  // Track metadata count
+  let metadataCount = 0;
+  if (metadata.jsonLd.present) metadataCount++;
+  if (metadata.og.present) metadataCount++;
+  if (metadata.twitter.present) metadataCount++;
+  summary.machineMetadataCount = metadataCount;
+
+  // Report missing JSON-LD
+  if (!metadata.jsonLd.present) {
+    issues.push({
+      category: "semantics",
+      severity: "medium",
+      subcategory: "machine-metadata",
+      element: "head",
+      description: "No JSON-LD structured data found",
+      detectionMethod: "json-ld-check",
+      recommendation: "Add JSON-LD schema markup for better AI agent understanding",
+      codeExample: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Page Title",
+  "description": "Page description"
+}
+</script>`,
+    });
+  } else if (!metadata.jsonLd.valid) {
+    issues.push({
+      category: "semantics",
+      severity: "high",
+      subcategory: "machine-metadata",
+      element: "script[type='application/ld+json']",
+      description: "Invalid JSON-LD (malformed JSON)",
+      detectionMethod: "json-ld-check",
+      recommendation: "Fix JSON syntax errors in structured data",
+    });
+  }
+
+  // Report missing OpenGraph
+  if (!metadata.og.present) {
+    issues.push({
+      category: "semantics",
+      severity: "low",
+      subcategory: "machine-metadata",
+      element: "head",
+      description: "No OpenGraph meta tags found",
+      detectionMethod: "og-check",
+      recommendation: "Add OpenGraph tags for better content previews",
+      codeExample: `<meta property="og:title" content="Page Title">
+<meta property="og:description" content="Page description">
+<meta property="og:image" content="https://example.com/image.jpg">`,
+    });
+  }
+
+  // Report missing landmarks
+  const missingLandmarks: string[] = [];
+  if (!metadata.landmarks.main) missingLandmarks.push("main");
+  if (!metadata.landmarks.nav) missingLandmarks.push("nav");
+
+  if (missingLandmarks.length > 0) {
+    issues.push({
+      category: "accessibility",
+      severity: "medium",
+      subcategory: "machine-metadata",
+      element: "body",
+      description: `Missing semantic landmarks: ${missingLandmarks.join(", ")}`,
+      detectionMethod: "landmark-check",
+      recommendation: "Add semantic landmark elements for page structure",
+      codeExample: `<header role="banner">...</header>
+<nav role="navigation">...</nav>
+<main role="main">...</main>
+<footer role="contentinfo">...</footer>`,
+    });
+  }
+}
+
+/**
+ * Detect navigation patterns (breadcrumbs, skip links, heading hierarchy)
+ * @since 17.0.0
+ */
+async function detectNavigationPatterns(ctx: DetectionContext): Promise<void> {
+  const { page, issues, summary } = ctx;
+
+  const navPatterns = await page.evaluate(() => {
+    // Check for breadcrumbs
+    const breadcrumbNav = document.querySelector('nav[aria-label*="breadcrumb" i], nav[aria-label*="Breadcrumb" i], [role="navigation"][aria-label*="breadcrumb" i]');
+    const breadcrumbSchema = document.querySelector('[itemtype*="BreadcrumbList"]');
+    const hasBreadcrumbs = !!breadcrumbNav || !!breadcrumbSchema;
+
+    // Check for skip links
+    const skipLinks = document.querySelectorAll('a[href^="#"]:first-child, a[href^="#main"], a[href^="#content"], .skip-link, .skip-to-content');
+    const hasSkipLink = skipLinks.length > 0;
+
+    // Check heading hierarchy
+    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+    const headingLevels = headings.map(h => parseInt(h.tagName[1]));
+    let hierarchyValid = true;
+    let hierarchyIssue = '';
+    const h1Count = headingLevels.filter(l => l === 1).length;
+
+    if (h1Count === 0) {
+      hierarchyValid = false;
+      hierarchyIssue = 'No H1 found';
+    } else if (h1Count > 1) {
+      hierarchyValid = false;
+      hierarchyIssue = `Multiple H1 elements (${h1Count})`;
+    }
+
+    // Check for skipped levels (e.g., h1 -> h3)
+    for (let i = 1; i < headingLevels.length; i++) {
+      if (headingLevels[i] > headingLevels[i - 1] + 1) {
+        hierarchyValid = false;
+        hierarchyIssue = `Skipped heading level (h${headingLevels[i - 1]} to h${headingLevels[i]})`;
+        break;
+      }
+    }
+
+    // Check page title
+    const pageTitle = document.title?.trim();
+
+    return {
+      breadcrumbs: hasBreadcrumbs,
+      skipLink: hasSkipLink,
+      headings: { valid: hierarchyValid, issue: hierarchyIssue, count: headings.length },
+      pageTitle: { present: !!pageTitle, length: pageTitle?.length || 0 },
+    };
+  });
+
+  // Track navigation aids
+  let navAidsCount = 0;
+  if (navPatterns.breadcrumbs) navAidsCount++;
+  if (navPatterns.skipLink) navAidsCount++;
+  summary.navigationAidsCount = navAidsCount;
+
+  // Report missing breadcrumbs (only for multi-page sites with depth)
+  if (!navPatterns.breadcrumbs) {
+    issues.push({
+      category: "findability",
+      severity: "low",
+      subcategory: "navigation-patterns",
+      element: "nav",
+      description: "No breadcrumb navigation found",
+      detectionMethod: "breadcrumb-check",
+      recommendation: "Add breadcrumb navigation for hierarchical sites",
+      codeExample: `<nav aria-label="Breadcrumb">
+  <ol>
+    <li><a href="/">Home</a></li>
+    <li><a href="/section">Section</a></li>
+    <li aria-current="page">Current Page</li>
+  </ol>
+</nav>`,
+    });
+  }
+
+  // Report missing skip link
+  if (!navPatterns.skipLink) {
+    issues.push({
+      category: "accessibility",
+      severity: "medium",
+      subcategory: "navigation-patterns",
+      element: "body",
+      description: "No skip-to-content link found",
+      detectionMethod: "skip-link-check",
+      recommendation: "Add a skip link for keyboard navigation",
+      codeExample: `<a href="#main-content" class="skip-link">Skip to main content</a>
+<!-- CSS: .skip-link { position: absolute; left: -10000px; } .skip-link:focus { left: 0; } -->`,
+    });
+  }
+
+  // Report heading hierarchy issues
+  if (!navPatterns.headings.valid) {
+    issues.push({
+      category: "semantics",
+      severity: "medium",
+      subcategory: "navigation-patterns",
+      element: "h1-h6",
+      description: `Heading hierarchy issue: ${navPatterns.headings.issue}`,
+      detectionMethod: "heading-hierarchy-check",
+      recommendation: "Use a single H1 and maintain proper heading order (h1 → h2 → h3)",
+    });
+  }
+
+  // Report missing or short page title
+  if (!navPatterns.pageTitle.present) {
+    issues.push({
+      category: "findability",
+      severity: "high",
+      subcategory: "navigation-patterns",
+      element: "title",
+      description: "Page has no title",
+      detectionMethod: "page-title-check",
+      recommendation: "Add a descriptive <title> element",
+    });
+  } else if (navPatterns.pageTitle.length < 10) {
+    issues.push({
+      category: "findability",
+      severity: "low",
+      subcategory: "navigation-patterns",
+      element: "title",
+      description: "Page title is very short (< 10 chars)",
+      detectionMethod: "page-title-check",
+      recommendation: "Use a more descriptive page title",
+    });
+  }
+}
+
+/**
+ * Detect actionable elements (action verbs on buttons, aria-describedby)
+ * @since 17.0.0
+ */
+async function detectActionableElements(ctx: DetectionContext): Promise<void> {
+  const { page, issues } = ctx;
+
+  const actionAnalysis = await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], input[type="button"]'));
+
+    // Generic/weak button labels
+    const genericLabels = ['submit', 'click', 'ok', 'yes', 'no', 'go', 'next', 'back', 'continue', 'send', 'done'];
+    // Strong action verbs
+    const actionVerbs = ['add', 'create', 'save', 'delete', 'remove', 'edit', 'update', 'download', 'upload', 'share', 'copy', 'search', 'filter', 'sort', 'buy', 'subscribe', 'register', 'login', 'logout', 'sign'];
+
+    const weakButtons: Array<{ selector: string; text: string }> = [];
+    let elementsWithDescribedBy = 0;
+
+    buttons.forEach(btn => {
+      const text = (btn.textContent?.trim() || btn.getAttribute('value') || btn.getAttribute('aria-label') || '').toLowerCase();
+      const words = text.split(/\s+/);
+
+      // Check if button uses generic label without action verb
+      const isGeneric = words.some(w => genericLabels.includes(w)) && !words.some(w => actionVerbs.some(v => w.startsWith(v)));
+
+      if (isGeneric && text.length < 20) {
+        weakButtons.push({
+          selector: btn.tagName.toLowerCase() + (btn.id ? `#${btn.id}` : ''),
+          text: text.slice(0, 30),
+        });
+      }
+
+      // Track aria-describedby usage
+      if (btn.hasAttribute('aria-describedby')) {
+        elementsWithDescribedBy++;
+      }
+    });
+
+    return {
+      weakButtons: weakButtons.slice(0, 5), // Limit to avoid noise
+      totalButtons: buttons.length,
+      elementsWithDescribedBy,
+    };
+  });
+
+  // Report buttons with generic labels
+  for (const btn of actionAnalysis.weakButtons) {
+    issues.push({
+      category: "findability",
+      severity: "low",
+      subcategory: "actionable-elements",
+      element: btn.selector,
+      description: `Button with generic label: "${btn.text}"`,
+      detectionMethod: "action-verb-check",
+      recommendation: "Use specific action verbs (e.g., 'Save Changes' instead of 'Submit')",
+      codeExample: `<!-- Instead of: -->
+<button>Submit</button>
+<!-- Use: -->
+<button>Save Changes</button>
+<button>Create Account</button>
+<button>Download Report</button>`,
+    });
+  }
+}
+
+/**
+ * Detect content-to-navigation ratio
+ * @since 17.0.0
+ */
+async function detectContentChrome(ctx: DetectionContext): Promise<void> {
+  const { page, issues } = ctx;
+
+  const ratio = await page.evaluate(() => {
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const viewportArea = viewport.width * viewport.height;
+
+    // Calculate nav/header/footer area
+    let chromeArea = 0;
+    const chromeElements = document.querySelectorAll('nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"]');
+
+    chromeElements.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      // Only count visible elements in viewport
+      if (rect.width > 0 && rect.height > 0 && rect.top < viewport.height) {
+        const visibleHeight = Math.min(rect.bottom, viewport.height) - Math.max(rect.top, 0);
+        const visibleWidth = Math.min(rect.right, viewport.width) - Math.max(rect.left, 0);
+        if (visibleHeight > 0 && visibleWidth > 0) {
+          chromeArea += visibleWidth * visibleHeight;
+        }
+      }
+    });
+
+    // Calculate main content area
+    let mainArea = 0;
+    const mainEl = document.querySelector('main, [role="main"], article, .content, #content, #main');
+    if (mainEl) {
+      const rect = mainEl.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const visibleHeight = Math.min(rect.bottom, viewport.height) - Math.max(rect.top, 0);
+        const visibleWidth = Math.min(rect.right, viewport.width) - Math.max(rect.left, 0);
+        if (visibleHeight > 0 && visibleWidth > 0) {
+          mainArea = visibleWidth * visibleHeight;
+        }
+      }
+    }
+
+    const chromeRatio = chromeArea / viewportArea;
+    const contentRatio = mainArea / viewportArea;
+
+    return {
+      chromeRatio: Math.round(chromeRatio * 100),
+      contentRatio: Math.round(contentRatio * 100),
+      viewportArea,
+    };
+  });
+
+  // Flag excessive chrome (> 50% of viewport)
+  if (ratio.chromeRatio > 50) {
+    issues.push({
+      category: "findability",
+      severity: "medium",
+      subcategory: "content-chrome",
+      element: "viewport",
+      description: `Navigation/chrome occupies ${ratio.chromeRatio}% of above-fold viewport`,
+      detectionMethod: "content-chrome-check",
+      recommendation: "Reduce navigation prominence or use collapsible menus",
+    });
+  }
+}
+
+/**
+ * Detect API exposure (links to /api/ endpoints, GraphQL hints)
+ * @since 17.0.0
+ */
+async function detectApiExposure(ctx: DetectionContext): Promise<void> {
+  const { page, issues, summary } = ctx;
+
+  const apiInfo = await page.evaluate(() => {
+    const pageSource = document.documentElement.outerHTML;
+
+    // Look for /api/ patterns in links and scripts
+    const apiPatterns = pageSource.match(/["'](\/api\/[^"']*|https?:\/\/[^"']*\/api\/[^"']*)["']/gi) || [];
+    const uniqueApiPaths = [...new Set(apiPatterns.map(p => p.replace(/["']/g, '').split('?')[0]))];
+
+    // Look for GraphQL hints
+    const hasGraphQL = /graphql|__schema|__typename/i.test(pageSource);
+    const graphqlEndpoint = pageSource.match(/["'](\/graphql|https?:\/\/[^"']*graphql[^"']*)["']/i);
+
+    return {
+      apiEndpoints: uniqueApiPaths.slice(0, 10),
+      hasGraphQL,
+      graphqlEndpoint: graphqlEndpoint ? graphqlEndpoint[1] : null,
+    };
+  });
+
+  summary.apiEndpointsCount = apiInfo.apiEndpoints.length;
+
+  // Report API exposure as informational (positive for agents)
+  if (apiInfo.apiEndpoints.length > 0) {
+    issues.push({
+      category: "findability",
+      severity: "low", // Actually positive - just noting for awareness
+      subcategory: "api-exposure",
+      element: "script/link",
+      description: `${apiInfo.apiEndpoints.length} API endpoint(s) detected in page source`,
+      detectionMethod: "api-exposure-check",
+      recommendation: "API endpoints are agent-friendly. Ensure they're documented.",
+    });
+  }
+
+  if (apiInfo.hasGraphQL) {
+    issues.push({
+      category: "findability",
+      severity: "low",
+      subcategory: "api-exposure",
+      element: apiInfo.graphqlEndpoint || "script",
+      description: "GraphQL API detected",
+      detectionMethod: "graphql-check",
+      recommendation: "GraphQL is agent-friendly. Consider enabling introspection for agents.",
+    });
+  }
+}
+
+/**
+ * Detect /llms.txt presence
+ * @since 17.0.0
+ */
+async function detectLlmsTxt(ctx: DetectionContext): Promise<void> {
+  const { page, issues, summary } = ctx;
+
+  try {
+    const pageUrl = new URL(page.url());
+    const llmsTxtUrl = `${pageUrl.origin}/llms.txt`;
+
+    // Use page context to fetch (same cookies/auth)
+    const response = await page.context().request.get(llmsTxtUrl, {
+      timeout: 5000,
+      failOnStatusCode: false,
+    });
+
+    const status = response.status();
+    summary.hasLlmsTxt = status === 200;
+
+    if (status === 200) {
+      const content = await response.text();
+      const lines = content.split('\n').filter(l => l.trim());
+
+      // Basic validation
+      const hasTitle = lines.some(l => l.startsWith('#'));
+      const hasLinks = lines.some(l => l.includes('[') && l.includes(']('));
+
+      if (!hasTitle || !hasLinks) {
+        issues.push({
+          category: "semantics",
+          severity: "low",
+          subcategory: "llms-txt",
+          element: "/llms.txt",
+          description: "llms.txt exists but may be incomplete (missing headers or links)",
+          detectionMethod: "llms-txt-check",
+          recommendation: "Add markdown headers (#) and links ([text](url)) to llms.txt",
+        });
+      }
+      // No issue if llms.txt is present and valid - it's a positive signal
+    } else if (status === 404) {
+      issues.push({
+        category: "semantics",
+        severity: "low",
+        subcategory: "llms-txt",
+        element: "/llms.txt",
+        description: "No /llms.txt found (recommended for AI agent documentation)",
+        detectionMethod: "llms-txt-check",
+        recommendation: "Add /llms.txt to help AI agents understand your site",
+        codeExample: `# Site Name
+
+> Brief description of the site
+
+## Documentation
+- [Getting Started](/docs/start)
+- [API Reference](/api)
+
+## Important Pages
+- [Pricing](/pricing)
+- [Contact](/contact)`,
+      });
+    }
+  } catch {
+    // Silently handle fetch errors - don't penalize for network issues
+    summary.hasLlmsTxt = false;
+  }
+}
+
+/**
+ * Detect state persistence patterns (CSRF tokens, session indicators)
+ * @since 17.0.0
+ */
+async function detectStatePersistence(ctx: DetectionContext): Promise<void> {
+  const { page, issues } = ctx;
+
+  const stateInfo = await page.evaluate(() => {
+    // Look for CSRF tokens
+    const csrfInputs = document.querySelectorAll('input[name*="csrf" i], input[name*="token" i], input[name="_token"], input[name="authenticity_token"]');
+    const csrfMeta = document.querySelector('meta[name*="csrf" i]');
+    const hasCsrf = csrfInputs.length > 0 || !!csrfMeta;
+
+    // Look for session indicators in forms
+    const hiddenInputs = document.querySelectorAll('input[type="hidden"]');
+    const sessionIndicators = Array.from(hiddenInputs).filter(input => {
+      const name = input.getAttribute('name')?.toLowerCase() || '';
+      return name.includes('session') || name.includes('state') || name.includes('nonce');
+    });
+
+    // Look for forms that might have non-idempotent actions
+    const forms = document.querySelectorAll('form');
+    const postForms = Array.from(forms).filter(f => f.method.toLowerCase() === 'post');
+
+    return {
+      hasCsrf,
+      csrfCount: csrfInputs.length + (csrfMeta ? 1 : 0),
+      sessionIndicators: sessionIndicators.length,
+      postFormCount: postForms.length,
+    };
+  });
+
+  // Report CSRF presence as informational (awareness for agents)
+  if (stateInfo.hasCsrf) {
+    issues.push({
+      category: "stability",
+      severity: "low",
+      subcategory: "state-persistence",
+      element: "form",
+      description: `${stateInfo.csrfCount} CSRF token(s) detected - agents need fresh tokens per request`,
+      detectionMethod: "csrf-check",
+      recommendation: "Ensure API endpoints support token refresh or use stateless auth for agents",
+    });
+  }
+
+  if (stateInfo.sessionIndicators > 0) {
+    issues.push({
+      category: "stability",
+      severity: "low",
+      subcategory: "state-persistence",
+      element: "input[type='hidden']",
+      description: `${stateInfo.sessionIndicators} session state indicator(s) in forms`,
+      detectionMethod: "session-check",
+      recommendation: "Document required session state for programmatic form submission",
+    });
+  }
+}
+
+/**
+ * Detect dynamic content patterns (loading states, infinite scroll, lazy load)
+ * @since 17.0.0
+ */
+async function detectDynamicContent(ctx: DetectionContext): Promise<void> {
+  const { page, issues, summary } = ctx;
+
+  const dynamicInfo = await page.evaluate(() => {
+    // Look for loading indicators
+    const loadingIndicators = document.querySelectorAll('[class*="loading" i], [class*="spinner" i], [class*="skeleton" i], [aria-busy="true"], [data-loading]');
+
+    // Look for infinite scroll patterns
+    const infiniteScrollHints = document.querySelectorAll('[data-infinite], [class*="infinite" i], [class*="load-more" i]');
+
+    // Look for lazy-load images
+    const lazyImages = document.querySelectorAll('img[loading="lazy"], img[data-src], img[data-lazy]');
+
+    // Check for intersection observer usage (common for infinite scroll)
+    const hasIntersectionObserver = typeof IntersectionObserver !== 'undefined';
+
+    // Look for "Load More" buttons
+    const loadMoreButtons = Array.from(document.querySelectorAll('button, a')).filter(el => {
+      const text = el.textContent?.toLowerCase() || '';
+      return text.includes('load more') || text.includes('show more') || text.includes('view more');
+    });
+
+    return {
+      loadingIndicators: loadingIndicators.length,
+      infiniteScrollHints: infiniteScrollHints.length,
+      lazyImages: lazyImages.length,
+      loadMoreButtons: loadMoreButtons.length,
+      hasIntersectionObserver,
+    };
+  });
+
+  const dynamicCount =
+    (dynamicInfo.loadingIndicators > 0 ? 1 : 0) +
+    (dynamicInfo.infiniteScrollHints > 0 ? 1 : 0) +
+    (dynamicInfo.lazyImages > 5 ? 1 : 0) +
+    (dynamicInfo.loadMoreButtons > 0 ? 1 : 0);
+
+  summary.dynamicContentCount = dynamicCount;
+
+  // Report infinite scroll as a potential challenge for agents
+  if (dynamicInfo.infiniteScrollHints > 0 || dynamicInfo.loadMoreButtons > 0) {
+    issues.push({
+      category: "stability",
+      severity: "medium",
+      subcategory: "dynamic-content",
+      element: "body",
+      description: "Infinite scroll or load-more pattern detected",
+      detectionMethod: "infinite-scroll-check",
+      recommendation: "Provide pagination alternative or API endpoint for programmatic access",
+    });
+  }
+
+  // Report loading indicators
+  if (dynamicInfo.loadingIndicators > 3) {
+    issues.push({
+      category: "stability",
+      severity: "low",
+      subcategory: "dynamic-content",
+      element: "body",
+      description: `${dynamicInfo.loadingIndicators} loading indicator(s) found - agents should wait for content`,
+      detectionMethod: "loading-state-check",
+      recommendation: "Use aria-busy and loading states consistently for better agent detection",
+    });
+  }
+}
+
+// ============================================================================
 // Report Generation
 // ============================================================================
 
@@ -994,6 +1627,12 @@ export async function runAgentReadyAudit(
       stickyOverlays: 0,
       customDropdowns: 0,
       elementsWithoutText: 0,
+      // AI-specific counters (v17.0.0)
+      machineMetadataCount: 0,
+      navigationAidsCount: 0,
+      hasLlmsTxt: false,
+      apiEndpointsCount: 0,
+      dynamicContentCount: 0,
     };
 
     const ctx: DetectionContext = { page, issues, summary };
@@ -1006,6 +1645,16 @@ export async function runAgentReadyAudit(
     await detectMissingAltText(ctx);
     await detectBadLinks(ctx);
     await detectLowFindabilityElements(ctx);
+
+    // AI-specific detection functions (v17.0.0)
+    await detectMachineMetadata(ctx);
+    await detectNavigationPatterns(ctx);
+    await detectActionableElements(ctx);
+    await detectContentChrome(ctx);
+    await detectApiExposure(ctx);
+    await detectLlmsTxt(ctx);
+    await detectStatePersistence(ctx);
+    await detectDynamicContent(ctx);
 
     // Update summary
     summary.problematicElements = issues.length;

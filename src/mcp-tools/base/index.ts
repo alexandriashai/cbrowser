@@ -1,6 +1,6 @@
 /**
  * CBrowser MCP Tools - Base Tools Index
- * Registers 58 base tools across 18 categories
+ * Registers 64 base tools across 20 categories
  * (Marketing tools register everywhere but as stubs on local MCP)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
@@ -28,6 +28,8 @@ import { registerAuditTools } from "./audit-tools.js";
 import { registerBrowserManagementTools } from "./browser-management-tools.js";
 import { registerSecurityTools } from "./security-tools.js";
 import { registerMarketingTools } from "./marketing-tools.js";
+import { registerRemediationTools } from "./remediation-tools.js";
+import { registerLlmsTxtTools } from "./llms-txt-tools.js";
 
 /**
  * Register all 57 base tools on an MCP server
@@ -37,7 +39,7 @@ import { registerMarketingTools } from "./marketing-tools.js";
  * - Interaction: 5 (click, smart_click, dismiss_overlay, fill, scroll)
  * - Extraction: 2 (screenshot, extract)
  * - Assertion: 1 (assert)
- * - Analysis: 3 (analyze_page, generate_tests, find_element_by_intent)
+ * - Analysis: 4 (analyze_page, generate_tests, find_element_by_intent, ai_benchmark)
  * - Session: 4 (save_session, load_session, list_sessions, delete_session)
  * - Healing: 1 (heal_stats)
  * - Visual Testing: 6 (visual_baseline, visual_regression, cross_browser_test, cross_browser_diff, responsive_test, ab_comparison)
@@ -52,8 +54,10 @@ import { registerMarketingTools } from "./marketing-tools.js";
  * - Security: 1 (security_audit)
  * - Marketing: 4 (marketing_personas_list, marketing_campaign_create, marketing_campaign_run, marketing_campaign_report_result)
  *   NOTE: Marketing tools register as stubs on local MCP, real implementations on demo/enterprise
+ * - Remediation: 3 (remediation_patches, llms_txt_generate, structured_data_suggest)
+ * - llms.txt: 2 (llms_txt_validate, llms_txt_diff)
  *
- * Total: 58 tools (always registered; marketing tools are stubs on local MCP)
+ * Total: 63 tools (always registered; marketing tools are stubs on local MCP)
  */
 export function registerBaseTools(
   server: McpServer,
@@ -71,7 +75,7 @@ export function registerBaseTools(
   // Assertion (1)
   registerAssertionTools(server, context);
 
-  // Analysis (3)
+  // Analysis (4)
   registerAnalysisTools(server, context);
 
   // Session (4)
@@ -112,6 +116,12 @@ export function registerBaseTools(
 
   // Marketing (3) - no browser context needed
   registerMarketingTools(server);
+
+  // Remediation (3) - no browser context needed
+  registerRemediationTools(server, context);
+
+  // llms.txt (2) - no browser context needed
+  registerLlmsTxtTools(server, context);
 }
 
 // Re-export individual registration functions for granular use
@@ -133,3 +143,5 @@ export { registerAuditTools } from "./audit-tools.js";
 export { registerBrowserManagementTools } from "./browser-management-tools.js";
 export { registerSecurityTools } from "./security-tools.js";
 export { registerMarketingTools } from "./marketing-tools.js";
+export { registerRemediationTools } from "./remediation-tools.js";
+export { registerLlmsTxtTools } from "./llms-txt-tools.js";

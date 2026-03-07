@@ -64,6 +64,7 @@ import {
   saveCustomPersona,
   listEmotionalPersonas,
   getEmotionalPersona,
+  isAgentPersonaObject,
 } from "./personas.js";
 
 // Emotional state functions (v13.1.0)
@@ -1762,6 +1763,20 @@ async function registerCBrowserTools(): Promise<McpServer> {
       const existingPersona = getAnyPersona(personaName);
       let personaObj: Persona | AccessibilityPersona;
 
+      // v17.0.0: Check for agent personas - cognitive journeys don't support them yet
+      if (existingPersona && isAgentPersonaObject(existingPersona)) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              error: "Agent personas not supported for cognitive journeys",
+              message: `"${personaName}" is an AI agent persona. Cognitive journeys simulate human behavior and require human personas. Use a human persona instead, or use agent-ready-audit for AI agent testing.`,
+              suggestedPersonas: ["first-timer", "power-user", "mobile-user"],
+            }, null, 2),
+          }],
+        };
+      }
+
       if (!existingPersona) {
         // Create from description
         personaObj = createCognitivePersona(personaName, personaName, customTraits || {});
@@ -2698,7 +2713,17 @@ This ensures personas are grounded in research, not stereotypes.
       // Build persona profiles
       // v16.14.1: Use getAnyPersona to find personas in ALL registries
       // (builtin, accessibility, emotional, custom) - fixes name mismatch bug
-      const personas = personaNames.map(name => {
+      // v17.0.0: Filter out agent personas - cognitive journeys don't support them
+      const personas = personaNames
+        .filter(name => {
+          const persona = getAnyPersona(name);
+          if (persona && isAgentPersonaObject(persona)) {
+            console.warn(`[CBrowser] Skipping agent persona "${name}" - not supported for persona comparison`);
+            return false;
+          }
+          return true;
+        })
+        .map(name => {
         const existingPersona = getAnyPersona(name);
         let personaObj: Persona | AccessibilityPersona;
 
@@ -2706,7 +2731,8 @@ This ensures personas are grounded in research, not stereotypes.
           // Only create generic stub if persona truly doesn't exist
           personaObj = createCognitivePersona(name, name, {});
         } else {
-          personaObj = existingPersona;
+          // Safe cast - we filtered out agent personas above
+          personaObj = existingPersona as Persona | AccessibilityPersona;
         }
 
         const profile = getCognitiveProfile(personaObj);

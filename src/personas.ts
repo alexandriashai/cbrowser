@@ -15,8 +15,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import type { Persona, CognitiveTraits, CognitiveProfile, AttentionPatternType, DecisionStyleType } from "./types.js";
+import type { Persona, CognitiveTraits, CognitiveProfile, AttentionPatternType, DecisionStyleType, AgentPersona } from "./types.js";
 import { applyTraitCorrelations } from "./persona-questionnaire.js";
+import { AGENT_PERSONAS, isAgentPersona, getAgentPersona, listAgentPersonas, isAgentPersonaObject } from "./agent-personas.js";
 
 // ============================================================================
 // Custom Personas Storage
@@ -2246,7 +2247,7 @@ export function listEmotionalPersonas(): string[] {
  * @param name Persona name to look up
  * @returns Persona object or undefined if not found
  */
-export function getAnyPersona(name: string): Persona | AccessibilityPersona | undefined {
+export function getAnyPersona(name: string): Persona | AccessibilityPersona | AgentPersona | undefined {
   // 1. Check runtime-registered personas first (Enterprise extensions)
   if (RUNTIME_PERSONAS[name]) {
     return RUNTIME_PERSONAS[name];
@@ -2273,6 +2274,11 @@ export function getAnyPersona(name: string): Persona | AccessibilityPersona | un
     return EMOTIONAL_PERSONAS[name];
   }
 
+  // 6. Check agent personas (v17.0.0)
+  if (AGENT_PERSONAS[name]) {
+    return AGENT_PERSONAS[name];
+  }
+
   return undefined;
 }
 
@@ -2286,10 +2292,11 @@ export function listAllPersonas(): string[] {
   const builtinNames = Object.keys(BUILTIN_PERSONAS);
   const accessibilityNames = Object.keys(ACCESSIBILITY_PERSONAS);
   const emotionalNames = Object.keys(EMOTIONAL_PERSONAS);
+  const agentNames = Object.keys(AGENT_PERSONAS);
   const customNames = Object.keys(loadCustomPersonas());
 
   // Combine and dedupe (runtime first for Enterprise priority)
-  return [...new Set([...runtimeNames, ...builtinNames, ...accessibilityNames, ...emotionalNames, ...customNames])];
+  return [...new Set([...runtimeNames, ...builtinNames, ...accessibilityNames, ...emotionalNames, ...agentNames, ...customNames])];
 }
 
 /**
@@ -2303,3 +2310,10 @@ export function registerPersonas(personas: Persona[]): void {
     RUNTIME_PERSONAS[persona.name] = persona;
   }
 }
+
+// ============================================================================
+// Agent Personas Re-exports (v17.0.0)
+// ============================================================================
+
+// Re-export agent personas for convenience
+export { AGENT_PERSONAS, isAgentPersona, getAgentPersona, listAgentPersonas, isAgentPersonaObject };

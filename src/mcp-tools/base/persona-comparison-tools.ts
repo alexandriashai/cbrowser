@@ -13,6 +13,7 @@ import {
   getAnyPersona,
   getCognitiveProfile,
   createCognitivePersona,
+  isAgentPersonaObject,
 } from "../../personas.js";
 import type { Persona, AccessibilityPersona, CognitiveState } from "../../types.js";
 
@@ -93,14 +94,25 @@ Example:
       personas: z.array(z.string()).describe("Persona names to compare (e.g., ['first-timer', 'power-user', 'elderly-user'])"),
     },
     async ({ url, goal, personas }) => {
-      const personaProfiles = personas.map((personaName) => {
+      // v17.0.0: Filter out agent personas - persona comparison doesn't support them
+      const filteredPersonas = personas.filter(name => {
+        const persona = getAnyPersona(name);
+        if (persona && isAgentPersonaObject(persona)) {
+          console.warn(`[CBrowser] Skipping agent persona "${name}" - not supported for persona comparison`);
+          return false;
+        }
+        return true;
+      });
+
+      const personaProfiles = filteredPersonas.map((personaName) => {
         const existingPersona = getAnyPersona(personaName);
         let personaObj: Persona | AccessibilityPersona;
 
         if (!existingPersona) {
           personaObj = createCognitivePersona(personaName, personaName, {});
         } else {
-          personaObj = existingPersona;
+          // Safe cast - we filtered out agent personas above
+          personaObj = existingPersona as Persona | AccessibilityPersona;
         }
 
         const profile = getCognitiveProfile(personaObj);
