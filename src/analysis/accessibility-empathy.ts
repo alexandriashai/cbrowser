@@ -538,6 +538,486 @@ async function detectMissingFormLabels(ctx: BarrierContext): Promise<void> {
 }
 
 // ============================================================================
+// Persona-Specific Detectors (v18.15.0)
+// ============================================================================
+
+/**
+ * Get the persona category for routing to specialized detectors.
+ * @since v18.15.0
+ */
+function getPersonaCategory(personaName: string): "motor" | "cognitive" | "vision" | "general" {
+  const name = personaName.toLowerCase();
+
+  // Motor personas
+  if (
+    name.includes("motor") ||
+    name.includes("tremor") ||
+    name.includes("limited-mobility") ||
+    name.includes("mobility")
+  ) {
+    return "motor";
+  }
+
+  // Cognitive personas
+  if (
+    name.includes("adhd") ||
+    name.includes("dyslexia") ||
+    name.includes("dyslexic") ||
+    name.includes("memory") ||
+    name.includes("cognitive")
+  ) {
+    return "cognitive";
+  }
+
+  // Vision personas
+  if (
+    name.includes("vision") ||
+    name.includes("low-vision") ||
+    name.includes("color-blind") ||
+    name.includes("deuteranopia") ||
+    name.includes("elderly")
+  ) {
+    return "vision";
+  }
+
+  return "general";
+}
+
+/**
+ * Detect barriers specifically relevant to motor-impaired personas.
+ *
+ * Key checks:
+ * - Target size violations (< 44x44px critical for tremor users)
+ * - Hover-dependent interactions (impossible with tremor)
+ * - Drag-and-drop without keyboard alternative
+ * - Time-limited interactions
+ *
+ * @since v18.15.0
+ */
+async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
+  const { page, barriers } = ctx;
+
+  // Check for hover-dependent interactions (no click alternative)
+  const hoverOnlyElements = await page.$$eval(
+    '[class*="hover"], [class*="dropdown"], [class*="menu"], [class*="tooltip"]',
+    (elements) => {
+      const results: Array<{ selector: string; hasClickAlternative: boolean; text: string }> = [];
+
+      for (const el of elements.slice(0, 20)) {
+        // Check if element or children have click handlers
+        const hasClick = el.hasAttribute('onclick') ||
+                         el.querySelector('[onclick]') !== null ||
+                         el.querySelector('a, button') !== null;
+
+        results.push({
+          selector: el.tagName.toLowerCase() + (el.className ? `.${(el as HTMLElement).className.split(' ')[0]}` : ''),
+          hasClickAlternative: hasClick,
+          text: el.textContent?.trim().slice(0, 30) || '',
+        });
+      }
+
+      return results.filter(r => !r.hasClickAlternative);
+    }
+  );
+
+  for (const el of hoverOnlyElements.slice(0, 5)) {
+    barriers.push({
+      type: "motor_precision",
+      element: el.selector,
+      description: `Hover-dependent interaction without click alternative may be inaccessible for users with tremors`,
+      affectedPersonas: ["motor-impairment-tremor", "motor-impairment-limited-mobility"],
+      wcagCriteria: ["2.1.1", "2.5.1"],
+      severity: "major",
+      remediation: "Add click/tap alternative to hover interactions, or make hover content accessible via keyboard focus",
+    });
+    ctx.wcagViolations.add("2.1.1");
+  }
+
+  // Check for drag-and-drop without keyboard alternative
+  const dragDropElements = await page.$$eval(
+    '[draggable="true"], [class*="drag"], [class*="sortable"], [class*="reorder"]',
+    (elements) => elements.map(el => ({
+      selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
+      hasAriaGrabbed: el.hasAttribute('aria-grabbed'),
+      hasKeyboardHandler: el.hasAttribute('onkeydown') || el.hasAttribute('onkeyup'),
+    }))
+  );
+
+  for (const el of dragDropElements.slice(0, 3)) {
+    if (!el.hasKeyboardHandler) {
+      barriers.push({
+        type: "motor_precision",
+        element: el.selector,
+        description: `Drag-and-drop element lacks keyboard alternative`,
+        affectedPersonas: ["motor-impairment-tremor", "motor-impairment-limited-mobility"],
+        wcagCriteria: ["2.1.1", "2.5.7"],
+        severity: "critical",
+        remediation: "Provide keyboard-accessible alternative for drag-and-drop (arrow keys, or explicit move buttons)",
+      });
+      ctx.wcagViolations.add("2.1.1");
+    }
+  }
+
+  // Check for very small spacing between interactive elements (motor precision issue)
+  const closeElements = await page.$$eval(
+    'button, a, input[type="checkbox"], input[type="radio"]',
+    (elements) => {
+      const closeGroups: Array<{ selectors: string[]; spacing: number }> = [];
+      const elArray = Array.from(elements);
+
+      for (let i = 0; i < Math.min(elArray.length, 30); i++) {
+        const rect1 = elArray[i].getBoundingClientRect();
+        if (rect1.width === 0) continue;
+
+        for (let j = i + 1; j < Math.min(elArray.length, 30); j++) {
+          const rect2 = elArray[j].getBoundingClientRect();
+          if (rect2.width === 0) continue;
+
+          // Calculate distance between elements
+          const dx = Math.max(0, Math.max(rect1.left, rect2.left) - Math.min(rect1.right, rect2.right));
+          const dy = Math.max(0, Math.max(rect1.top, rect2.top) - Math.min(rect1.bottom, rect2.bottom));
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          // Flag elements less than 8px apart
+          if (distance < 8 && distance >= 0) {
+            closeGroups.push({
+              selectors: [
+                elArray[i].tagName.toLowerCase() + (elArray[i].id ? `#${elArray[i].id}` : ''),
+                elArray[j].tagName.toLowerCase() + (elArray[j].id ? `#${elArray[j].id}` : '')
+              ],
+              spacing: Math.round(distance),
+            });
+          }
+        }
+      }
+
+      return closeGroups.slice(0, 5);
+    }
+  );
+
+  if (closeElements.length > 0) {
+    barriers.push({
+      type: "motor_precision",
+      element: `${closeElements.length} element groups`,
+      description: `${closeElements.length} groups of interactive elements are very close together (< 8px spacing), making them difficult to target for users with tremors`,
+      affectedPersonas: ["motor-impairment-tremor"],
+      wcagCriteria: ["2.5.5"],
+      severity: "major",
+      remediation: "Increase spacing between interactive elements to at least 8-12px",
+    });
+  }
+}
+
+/**
+ * Detect barriers specifically relevant to cognitive personas (ADHD, dyslexia, memory impairment).
+ *
+ * Key checks:
+ * - Form complexity (field count, required fields)
+ * - Distraction count (animations, auto-playing media)
+ * - Reading level (sentence complexity)
+ * - Memory burden (multi-step processes without progress indicators)
+ *
+ * @since v18.15.0
+ */
+async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
+  const { page, barriers } = ctx;
+
+  // Check for auto-playing media (distraction for ADHD)
+  const autoPlayMedia = await page.$$eval(
+    'video[autoplay], audio[autoplay], [class*="autoplay"]',
+    (elements) => elements.map(el => ({
+      selector: el.tagName.toLowerCase(),
+      hasControls: el.hasAttribute('controls'),
+      hasMuted: el.hasAttribute('muted'),
+    }))
+  );
+
+  for (const media of autoPlayMedia) {
+    if (!media.hasMuted) {
+      barriers.push({
+        type: "cognitive_load",
+        element: media.selector,
+        description: `Auto-playing ${media.selector} with sound can be highly distracting for users with ADHD`,
+        affectedPersonas: ["cognitive-adhd"],
+        wcagCriteria: ["1.4.2", "2.2.2"],
+        severity: "critical",
+        remediation: "Add muted attribute to autoplay media, or provide user controls to pause/stop",
+      });
+      ctx.wcagViolations.add("1.4.2");
+    }
+  }
+
+  // Check for multi-step forms without progress indicator
+  const multiStepForms = await page.$$eval('form', (forms) => {
+    const results: Array<{
+      selector: string;
+      fieldCount: number;
+      hasProgress: boolean;
+      hasStepIndicator: boolean;
+    }> = [];
+
+    for (const form of forms) {
+      const inputs = form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), textarea, select');
+      const hasProgress =
+        form.querySelector('[class*="progress"], [class*="stepper"], [role="progressbar"]') !== null ||
+        document.querySelector('[class*="step-indicator"], [class*="wizard"]') !== null;
+
+      results.push({
+        selector: 'form' + (form.id ? `#${form.id}` : ''),
+        fieldCount: inputs.length,
+        hasProgress,
+        hasStepIndicator: hasProgress,
+      });
+    }
+
+    return results;
+  });
+
+  for (const form of multiStepForms) {
+    if (form.fieldCount > 5 && !form.hasProgress) {
+      barriers.push({
+        type: "cognitive_load",
+        element: form.selector,
+        description: `Form with ${form.fieldCount} fields lacks progress indicator - users with memory impairment may lose track of progress`,
+        affectedPersonas: ["cognitive-adhd", "cognitive-memory-impairment"],
+        wcagCriteria: ["3.3.4"],
+        severity: "major",
+        remediation: "Add progress indicator showing steps completed and remaining, or break form into clearly numbered sections",
+      });
+    }
+  }
+
+  // Check for dense text blocks (dyslexia barrier)
+  const denseTextBlocks = await page.$$eval('p, article, section', (elements) => {
+    const results: Array<{
+      selector: string;
+      wordCount: number;
+      lineHeight: string;
+      fontSize: string;
+    }> = [];
+
+    for (const el of elements.slice(0, 20)) {
+      const text = el.textContent || '';
+      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+      const styles = window.getComputedStyle(el);
+
+      // Flag blocks with 200+ words AND tight line spacing
+      if (wordCount > 200) {
+        results.push({
+          selector: el.tagName.toLowerCase() + (el.className ? `.${(el as HTMLElement).className.split(' ')[0]}` : ''),
+          wordCount,
+          lineHeight: styles.lineHeight,
+          fontSize: styles.fontSize,
+        });
+      }
+    }
+
+    return results;
+  });
+
+  for (const block of denseTextBlocks.slice(0, 3)) {
+    const lineHeightNum = parseFloat(block.lineHeight);
+    const fontSizeNum = parseFloat(block.fontSize);
+    const lineHeightRatio = lineHeightNum / fontSizeNum;
+
+    // Line height < 1.5 is hard for dyslexic users
+    if (lineHeightRatio < 1.5) {
+      barriers.push({
+        type: "cognitive_load",
+        element: block.selector,
+        description: `Dense text block (${block.wordCount} words) with tight line spacing (${lineHeightRatio.toFixed(1)}x) is difficult for dyslexic users`,
+        affectedPersonas: ["dyslexic-user"],
+        wcagCriteria: ["1.4.12"],
+        severity: "major",
+        remediation: "Increase line-height to at least 1.5x font size, and consider breaking text into shorter paragraphs with headings",
+      });
+      ctx.wcagViolations.add("1.4.12");
+    }
+  }
+
+  // Check for justified text (dyslexia barrier)
+  const justifiedText = await page.$$eval('p, article, div', (elements) => {
+    const results: string[] = [];
+
+    for (const el of elements.slice(0, 50)) {
+      const styles = window.getComputedStyle(el);
+      if (styles.textAlign === 'justify') {
+        results.push(el.tagName.toLowerCase() + (el.className ? `.${(el as HTMLElement).className.split(' ')[0]}` : ''));
+      }
+    }
+
+    return results.slice(0, 5);
+  });
+
+  if (justifiedText.length > 0) {
+    barriers.push({
+      type: "cognitive_load",
+      element: `${justifiedText.length} elements`,
+      description: `Justified text creates uneven word spacing that makes reading difficult for dyslexic users`,
+      affectedPersonas: ["dyslexic-user"],
+      wcagCriteria: ["1.4.12"],
+      severity: "minor",
+      remediation: "Use left-aligned text instead of justified for better readability",
+    });
+    ctx.wcagViolations.add("1.4.12");
+  }
+}
+
+/**
+ * Detect barriers specifically relevant to vision personas (low vision, color blindness, elderly).
+ *
+ * Key checks:
+ * - Contrast ratios below WCAG thresholds
+ * - Text scaling behavior
+ * - Color-only information
+ * - Small font sizes (< 16px)
+ *
+ * @since v18.15.0
+ */
+async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
+  const { page, barriers } = ctx;
+
+  // Check for small base font sizes (vision impairment)
+  const smallFontElements = await page.$$eval('body, p, span, div, li, td', (elements) => {
+    const results: Array<{ selector: string; fontSize: string; fontSizeNum: number }> = [];
+
+    for (const el of elements.slice(0, 100)) {
+      const styles = window.getComputedStyle(el);
+      const fontSize = parseFloat(styles.fontSize);
+
+      // Flag fonts smaller than 14px as problematic for low vision
+      if (fontSize > 0 && fontSize < 14) {
+        results.push({
+          selector: el.tagName.toLowerCase() + (el.className ? `.${(el as HTMLElement).className.split(' ')[0]}` : ''),
+          fontSize: styles.fontSize,
+          fontSizeNum: fontSize,
+        });
+      }
+    }
+
+    return results.slice(0, 10);
+  });
+
+  if (smallFontElements.length > 0) {
+    const avgSize = smallFontElements.reduce((sum, el) => sum + el.fontSizeNum, 0) / smallFontElements.length;
+    barriers.push({
+      type: "visual_clarity",
+      element: `${smallFontElements.length} elements`,
+      description: `${smallFontElements.length} text elements use small font sizes (avg ${avgSize.toFixed(0)}px) that may be difficult for low-vision users`,
+      affectedPersonas: ["low-vision-magnified", "elderly-low-vision"],
+      wcagCriteria: ["1.4.4"],
+      severity: avgSize < 12 ? "critical" : "major",
+      remediation: "Use minimum 16px base font size, and ensure text can be resized to 200% without loss of content",
+    });
+    ctx.wcagViolations.add("1.4.4");
+  }
+
+  // Check for thin fonts (hard for low vision)
+  const thinFontElements = await page.$$eval('body, h1, h2, h3, p, span', (elements) => {
+    const results: string[] = [];
+
+    for (const el of elements.slice(0, 50)) {
+      const styles = window.getComputedStyle(el);
+      const fontWeight = parseInt(styles.fontWeight, 10) || 400;
+
+      // Font weight < 400 is thin and harder to read
+      if (fontWeight < 400 && el.textContent && el.textContent.trim().length > 0) {
+        results.push(el.tagName.toLowerCase());
+      }
+    }
+
+    return results;
+  });
+
+  if (thinFontElements.length > 3) {
+    barriers.push({
+      type: "visual_clarity",
+      element: `${thinFontElements.length} text elements`,
+      description: `Multiple elements use thin font weights (< 400) which are harder to read for low-vision users`,
+      affectedPersonas: ["low-vision-magnified", "elderly-low-vision"],
+      wcagCriteria: ["1.4.12"],
+      severity: "minor",
+      remediation: "Use font-weight 400 or higher for body text to improve readability",
+    });
+  }
+
+  // Check for links distinguished only by color (color blindness)
+  const colorOnlyLinks = await page.$$eval('a', (links) => {
+    const results: Array<{ selector: string; hasUnderline: boolean; hasIcon: boolean }> = [];
+
+    for (const link of links.slice(0, 30)) {
+      const styles = window.getComputedStyle(link);
+      const hasUnderline = styles.textDecoration.includes('underline');
+      const hasIcon = link.querySelector('svg, i, [class*="icon"]') !== null;
+
+      if (!hasUnderline && !hasIcon) {
+        results.push({
+          selector: link.textContent?.trim().slice(0, 20) || 'link',
+          hasUnderline,
+          hasIcon,
+        });
+      }
+    }
+
+    return results;
+  });
+
+  if (colorOnlyLinks.length > 2) {
+    barriers.push({
+      type: "sensory",
+      element: `${colorOnlyLinks.length} links`,
+      description: `${colorOnlyLinks.length} links are distinguished only by color, without underline or icon - color-blind users may not identify them as links`,
+      affectedPersonas: ["color-blind-deuteranopia"],
+      wcagCriteria: ["1.4.1"],
+      severity: "major",
+      remediation: "Add underline to links on hover/focus at minimum, or use a non-color visual indicator",
+    });
+    ctx.wcagViolations.add("1.4.1");
+  }
+
+  // Check for status indicators using only red/green (color blindness)
+  const redGreenIndicators = await page.$$eval(
+    '[class*="status"], [class*="indicator"], [class*="badge"], [class*="alert"]',
+    (elements) => {
+      const problematic: string[] = [];
+
+      for (const el of elements.slice(0, 20)) {
+        const styles = window.getComputedStyle(el);
+        const bgColor = styles.backgroundColor;
+        const color = styles.color;
+
+        // Simplified red/green detection
+        const hasRedGreen =
+          (bgColor.includes('255') && bgColor.includes('0')) || // Pure red or green
+          (color.includes('255') && color.includes('0'));
+
+        const hasIcon = el.querySelector('svg, i, [class*="icon"]') !== null;
+        const hasText = (el.textContent?.trim() || '').length > 1;
+
+        if (hasRedGreen && !hasIcon && !hasText) {
+          problematic.push(el.className?.split(' ')[0] || 'indicator');
+        }
+      }
+
+      return problematic;
+    }
+  );
+
+  if (redGreenIndicators.length > 0) {
+    barriers.push({
+      type: "sensory",
+      element: `${redGreenIndicators.length} status indicators`,
+      description: `Status indicators using red/green without additional cues may be indistinguishable for color-blind users`,
+      affectedPersonas: ["color-blind-deuteranopia"],
+      wcagCriteria: ["1.4.1"],
+      severity: "major",
+      remediation: "Add icons, patterns, or text labels to status indicators in addition to color",
+    });
+    ctx.wcagViolations.add("1.4.1");
+  }
+}
+
+// ============================================================================
 // Journey Simulation for Empathy
 // ============================================================================
 
@@ -571,7 +1051,7 @@ async function simulateAccessibilityJourney(
     await page.waitForTimeout(2000);
 
     // Run barrier detection
-    // v10.10.0: All detectors now run unconditionally regardless of persona
+    // v10.10.0: All general detectors run unconditionally regardless of persona
     await detectSmallTouchTargets(ctx);
     await detectLowContrast(ctx);
     await detectCognitiveLoad(ctx);
@@ -579,6 +1059,28 @@ async function simulateAccessibilityJourney(
     await detectColorOnlyInfo(ctx);
     await detectMissingAltText(ctx);
     await detectMissingFormLabels(ctx);
+
+    // v18.15.0: Run persona-specific detectors based on persona category
+    // This ensures each persona type gets specialized barrier detection
+    const personaCategory = getPersonaCategory(persona.name);
+
+    switch (personaCategory) {
+      case "motor":
+        await detectMotorBarriers(ctx);
+        break;
+      case "cognitive":
+        await detectCognitiveBarriers(ctx);
+        break;
+      case "vision":
+        await detectVisionBarriers(ctx);
+        break;
+      case "general":
+        // Run all category-specific detectors for general personas
+        await detectMotorBarriers(ctx);
+        await detectCognitiveBarriers(ctx);
+        await detectVisionBarriers(ctx);
+        break;
+    }
 
     // Use cognitive journey for realistic step tracking if API key available
     if (isApiKeyConfigured()) {

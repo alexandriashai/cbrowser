@@ -84,54 +84,121 @@ export function registerAuditTools(server: McpServer): void {
 
   server.tool(
     "empathy_audit",
-    "Simulate how people with disabilities experience a site. Tests motor impairments, cognitive differences, and sensory limitations. Returns barriers, WCAG violations, and remediation suggestions.",
+    "Simulate how people with disabilities experience a site. Tests ONE persona per call to avoid timeout. Call multiple times with different disabilities for full coverage. Available: motor-impairment-tremor, low-vision-magnified, cognitive-adhd, dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia.",
     {
       url: z.string().url().describe("URL to audit"),
       goal: z.string().describe("Task goal (e.g., 'complete checkout')"),
-      disabilities: z.array(z.string()).optional().describe("Disability personas to test. Available: motor-impairment-tremor, low-vision-magnified, cognitive-adhd, dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia"),
+      disabilities: z.array(z.string()).optional().describe("Disability persona to test. Pass ONE for reliable results. If multiple passed, only first is used."),
       wcagLevel: z.enum(["A", "AA", "AAA"]).optional().default("AA").describe("WCAG conformance level"),
       maxSteps: z.number().optional().default(20).describe("Max steps per persona"),
       maxTime: z.number().optional().default(120).describe("Max time per persona in seconds"),
     },
     async ({ url, goal, disabilities, wcagLevel, maxSteps, maxTime }) => {
-      const disabilityList = disabilities || listAccessibilityPersonas();
-      const result = await runEmpathyAudit(url, {
-        goal,
-        disabilities: disabilityList,
-        wcagLevel,
-        maxSteps,
-        maxTime,
-        headless: true,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              url: result.url,
-              goal: result.goal,
-              overallScore: result.overallScore,
-              resultsSummary: result.results.map((r) => {
-                const uniqueTypes = new Set(r.barriers.map(b => b.type));
-                return {
-                  persona: r.persona,
-                  disabilityType: r.disabilityType,
-                  goalAchieved: r.goalAchieved,
-                  empathyScore: r.empathyScore,
-                  barrierTypeCount: uniqueTypes.size,
-                  barrierTypes: Array.from(uniqueTypes),
-                  affectedElements: r.barriers.length,
-                  wcagViolationCount: r.wcagViolations.length,
-                };
-              }),
-              allWcagViolations: result.allWcagViolations,
-              topBarriers: result.topBarriers.slice(0, 5),
-              topRemediation: result.combinedRemediation.slice(0, 5),
-              duration: result.duration,
-            }, null, 2),
-          },
-        ],
-      };
+      try {
+        // Auto-limit to 1 persona to avoid MCP client timeout on Claude.ai (~60s limit)
+        const allPersonas = listAccessibilityPersonas();
+        const requestedList = disabilities || allPersonas;
+        const wasLimited = requestedList.length > 1;
+        const singlePersona = [requestedList[0]];
+
+        const result = await runEmpathyAudit(url, {
+          goal,
+          disabilities: singlePersona,
+          wcagLevel,
+          maxSteps,
+          maxTime,
+          headless: true,
+        });
+        // Build response with guidance for additional personas
+        const testedPersona = singlePersona[0];
+        const remainingPersonas = allPersonas.filter(p => p !== testedPersona);
+
+        const response: Record<string, unknown> = {
+          url: result.url,
+          goal: result.goal,
+          testedPersona,
+          overallScore: result.overallScore,
+          resultsSummary: result.results.map((r) => {
+            const uniqueTypes = new Set(r.barriers.map(b => b.type));
+            return {
+              persona: r.persona,
+              disabilityType: r.disabilityType,
+              goalAchieved: r.goalAchieved,
+              empathyScore: r.empathyScore,
+              barrierTypeCount: uniqueTypes.size,
+              barrierTypes: Array.from(uniqueTypes),
+              affectedElements: r.barriers.length,
+              wcagViolationCount: r.wcagViolations.length,
+            };
+          }),
+          allWcagViolations: result.allWcagViolations,
+          topBarriers: result.topBarriers.slice(0, 5),
+          topRemediation: result.combinedRemediation.slice(0, 5),
+          duration: result.duration,
+        };
+
+        // Add guidance if we limited the request
+        if (wasLimited) {
+          response.note = `Limited to 1 persona to avoid timeout. For full coverage, call again with: ${remainingPersonas.slice(0, 3).join(", ")}${remainingPersonas.length > 3 ? `, and ${remainingPersonas.length - 3} more` : ""}`;
+          response.remainingPersonas = remainingPersonas;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(response, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        // Categorize the error for better user feedback
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+
+        // Determine error type for actionable feedback
+        let errorType = "unknown";
+        let suggestion = "Please try again or contact support if the issue persists.";
+
+        if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+          errorType = "timeout";
+          suggestion = "The page took too long to load. Try increasing maxTime or testing a faster page.";
+        } else if (errorMessage.includes("net::") || errorMessage.includes("DNS") || errorMessage.includes("ERR_")) {
+          errorType = "network";
+          suggestion = "Unable to reach the URL. Check the URL is valid and accessible.";
+        } else if (errorMessage.includes("blocked") || errorMessage.includes("403") || errorMessage.includes("captcha")) {
+          errorType = "bot-detection";
+          suggestion = "The site may be blocking automation. Try with a different URL.";
+        } else if (errorMessage.includes("chromium") || errorMessage.includes("browser")) {
+          errorType = "browser";
+          suggestion = "Browser automation error. The server may need to restart.";
+        }
+
+        // Log the full error for debugging
+        console.error(`[empathy_audit] Error: ${errorMessage}`);
+        if (errorStack) {
+          console.error(`[empathy_audit] Stack: ${errorStack}`);
+        }
+
+        // Return a structured error response
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: true,
+                errorType,
+                message: errorMessage,
+                suggestion,
+                url,
+                goal,
+                disabilities: disabilities || "all",
+              }, null, 2),
+            },
+          ],
+          isError: true,
+        };
+      }
     }
   );
 }

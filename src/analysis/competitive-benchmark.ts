@@ -1380,8 +1380,140 @@ import type {
   AIBenchmarkComparison,
   AIBenchmarkRecommendation,
   AIBenchmarkOptions,
+  AuditFailureCategory,
+  AuditStatus,
+  AgentReadyGrade,
 } from "../types.js";
 import { runAgentReadyAudit } from "./agent-ready-audit.js";
+
+// ============================================================================
+// Error Categorization & Retry Logic (v18.15.0)
+// ============================================================================
+
+/**
+ * Categorize an error into a failure type for better diagnostics.
+ */
+function categorizeError(error: Error): {
+  category: AuditFailureCategory;
+  suggestion: string;
+} {
+  const message = error.message.toLowerCase();
+
+  // Timeout errors
+  if (
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("navigation timeout")
+  ) {
+    return {
+      category: "timeout",
+      suggestion: "Increase timeout or try during off-peak hours",
+    };
+  }
+
+  // Bot detection patterns
+  if (
+    message.includes("captcha") ||
+    message.includes("cloudflare") ||
+    message.includes("blocked") ||
+    message.includes("access denied") ||
+    message.includes("403") ||
+    message.includes("bot") ||
+    message.includes("challenge")
+  ) {
+    return {
+      category: "bot-detection",
+      suggestion: "Try with stealth mode enabled or use authenticated session",
+    };
+  }
+
+  // Network errors
+  if (
+    message.includes("net::err") ||
+    message.includes("dns") ||
+    message.includes("connection refused") ||
+    message.includes("econnrefused") ||
+    message.includes("enotfound") ||
+    message.includes("network") ||
+    message.includes("fetch failed")
+  ) {
+    return {
+      category: "network",
+      suggestion: "Check network connectivity and URL validity",
+    };
+  }
+
+  // Parse errors
+  if (
+    message.includes("parse") ||
+    message.includes("syntax") ||
+    message.includes("unexpected token") ||
+    message.includes("invalid")
+  ) {
+    return {
+      category: "parse-error",
+      suggestion: "Site may have unusual structure; try manual inspection",
+    };
+  }
+
+  return {
+    category: "unknown",
+    suggestion: "Unexpected error; check logs for details",
+  };
+}
+
+/**
+ * Sleep for exponential backoff
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Retry a function with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxAttempts?: number;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+  } = {}
+): Promise<{ result: T; attempts: number } | { error: Error; attempts: number }> {
+  const {
+    maxAttempts = 3,
+    initialDelayMs = 1000,
+    maxDelayMs = 10000,
+  } = options;
+
+  let lastError: Error = new Error("No attempts made");
+  let delay = initialDelayMs;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await fn();
+      return { result, attempts: attempt };
+    } catch (error) {
+      lastError = error as Error;
+
+      // Don't retry on certain errors
+      const { category } = categorizeError(lastError);
+      if (category === "bot-detection" || category === "parse-error") {
+        // These won't improve with retries
+        return { error: lastError, attempts: attempt };
+      }
+
+      if (attempt < maxAttempts) {
+        // Exponential backoff with jitter
+        const jitter = Math.random() * 500;
+        await sleep(Math.min(delay + jitter, maxDelayMs));
+        delay *= 2;
+      }
+    }
+  }
+
+  return { error: lastError, attempts: maxAttempts };
+}
 
 /**
  * Run AI readiness benchmark across multiple competitor sites.
@@ -1414,89 +1546,107 @@ export async function runAIReadinessBenchmark(
     const batchResults = await Promise.all(
       batch.map(async (url): Promise<AIBenchmarkSiteResult> => {
         const siteName = new URL(url).hostname.replace("www.", "");
+        const auditStartTime = Date.now();
 
-        try {
-          const audit = await runAgentReadyAudit(url, { headless });
+        // Retry with exponential backoff
+        const retryResult = await withRetry(
+          () => runAgentReadyAudit(url, { headless }),
+          { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 10000 }
+        );
 
-          // Determine strengths based on high category scores
-          const strengths: string[] = [];
-          if (audit.score.findability >= 80) {
-            strengths.push("Easy for agents to locate elements");
-          }
-          if (audit.score.stability >= 80) {
-            strengths.push("Stable selectors that won't break");
-          }
-          if (audit.score.accessibility >= 80) {
-            strengths.push("Good ARIA labels for identification");
-          }
-          if (audit.score.semantics >= 80) {
-            strengths.push("Clear semantic HTML structure");
-          }
-
-          // Determine weaknesses based on low category scores
-          const weaknesses: string[] = [];
-          if (audit.score.findability < 60) {
-            weaknesses.push("Agents struggle to find elements");
-          }
-          if (audit.score.stability < 60) {
-            weaknesses.push("Dynamic selectors break automation");
-          }
-          if (audit.score.accessibility < 60) {
-            weaknesses.push("Missing labels for element identification");
-          }
-          if (audit.score.semantics < 60) {
-            weaknesses.push("Poor semantic structure");
-          }
-
-          // Add issue-based weaknesses
-          const issueDescriptions = audit.issues.slice(0, 3).map(
-            (issue) => issue.description
-          );
+        if ("error" in retryResult) {
+          const error = retryResult.error;
+          const { category, suggestion } = categorizeError(error);
 
           return {
             url,
             siteName,
-            grade: audit.grade,
-            score: audit.score.overall,
-            scoreBreakdown: audit.score,
-            topIssues: issueDescriptions,
-            strengths: strengths.length > 0 ? strengths : ["No major strengths detected"],
-            weaknesses: weaknesses.length > 0 ? weaknesses : issueDescriptions,
-            duration: audit.duration,
-          };
-        } catch (error) {
-          return {
-            url,
-            siteName,
-            grade: "F" as const,
-            score: 0,
-            scoreBreakdown: {
-              overall: 0,
-              findability: 0,
-              stability: 0,
-              accessibility: 0,
-              semantics: 0,
-            },
+            grade: null,
+            score: null,  // null indicates audit couldn't complete
+            scoreBreakdown: null,
             topIssues: [],
             strengths: [],
-            weaknesses: ["Failed to audit site"],
-            duration: 0,
-            error: (error as Error).message,
+            weaknesses: [`Audit failed: ${category}`],
+            duration: Date.now() - auditStartTime,
+            error: error.message,
+            auditStatus: "failed" as AuditStatus,
+            failureCategory: category,
+            failureDetails: error.message,
+            retryAttempts: retryResult.attempts,
+            suggestion,
           };
         }
+
+        const audit = retryResult.result;
+
+        // Determine strengths based on high category scores
+        const strengths: string[] = [];
+        if (audit.score.findability >= 80) {
+          strengths.push("Easy for agents to locate elements");
+        }
+        if (audit.score.stability >= 80) {
+          strengths.push("Stable selectors that won't break");
+        }
+        if (audit.score.accessibility >= 80) {
+          strengths.push("Good ARIA labels for identification");
+        }
+        if (audit.score.semantics >= 80) {
+          strengths.push("Clear semantic HTML structure");
+        }
+
+        // Determine weaknesses based on low category scores
+        const weaknesses: string[] = [];
+        if (audit.score.findability < 60) {
+          weaknesses.push("Agents struggle to find elements");
+        }
+        if (audit.score.stability < 60) {
+          weaknesses.push("Dynamic selectors break automation");
+        }
+        if (audit.score.accessibility < 60) {
+          weaknesses.push("Missing labels for element identification");
+        }
+        if (audit.score.semantics < 60) {
+          weaknesses.push("Poor semantic structure");
+        }
+
+        // Add issue-based weaknesses
+        const issueDescriptions = audit.issues.slice(0, 3).map(
+          (issue) => issue.description
+        );
+
+        return {
+          url,
+          siteName,
+          grade: audit.grade,
+          score: audit.score.overall,
+          scoreBreakdown: audit.score,
+          topIssues: issueDescriptions,
+          strengths: strengths.length > 0 ? strengths : ["No major strengths detected"],
+          weaknesses: weaknesses.length > 0 ? weaknesses : issueDescriptions,
+          duration: audit.duration,
+          auditStatus: "complete" as AuditStatus,
+          retryAttempts: retryResult.attempts,
+        };
       })
     );
 
     results.push(...batchResults);
   }
 
-  // Generate ranking
-  const sortedResults = [...results].sort((a, b) => b.score - a.score);
+  // Generate ranking (successful audits first, sorted by score; failed audits last)
+  const sortedResults = [...results].sort((a, b) => {
+    // Failed audits (null score) sort last
+    if (a.score === null && b.score === null) return 0;
+    if (a.score === null) return 1;
+    if (b.score === null) return -1;
+    return b.score - a.score;
+  });
   const ranking = sortedResults.map((r, i) => ({
     rank: i + 1,
     site: r.siteName,
     grade: r.grade,
     score: r.score,
+    auditStatus: r.auditStatus,
   }));
 
   // Generate comparison
@@ -1519,18 +1669,24 @@ export async function runAIReadinessBenchmark(
  * Generate comparative analysis between sites
  */
 function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComparison {
-  // Find best in each category
-  const byScore = [...results].sort((a, b) => b.score - a.score);
-  const byFindability = [...results].sort(
+  // Only compare successfully audited sites
+  const successfulResults = results.filter(
+    (r): r is AIBenchmarkSiteResult & { score: number; scoreBreakdown: NonNullable<AIBenchmarkSiteResult["scoreBreakdown"]> } =>
+      r.score !== null && r.scoreBreakdown !== null
+  );
+
+  // Find best in each category (from successful audits only)
+  const byScore = [...successfulResults].sort((a, b) => b.score - a.score);
+  const byFindability = [...successfulResults].sort(
     (a, b) => b.scoreBreakdown.findability - a.scoreBreakdown.findability
   );
-  const byStability = [...results].sort(
+  const byStability = [...successfulResults].sort(
     (a, b) => b.scoreBreakdown.stability - a.scoreBreakdown.stability
   );
-  const byAccessibility = [...results].sort(
+  const byAccessibility = [...successfulResults].sort(
     (a, b) => b.scoreBreakdown.accessibility - a.scoreBreakdown.accessibility
   );
-  const bySemantics = [...results].sort(
+  const bySemantics = [...successfulResults].sort(
     (a, b) => b.scoreBreakdown.semantics - a.scoreBreakdown.semantics
   );
 
@@ -1589,22 +1745,41 @@ function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComp
  */
 function generateAIRecommendations(
   results: AIBenchmarkSiteResult[],
-  ranking: Array<{ rank: number; site: string; grade: string; score: number }>
+  ranking: Array<{ rank: number; site: string; grade: AgentReadyGrade | null; score: number | null; auditStatus: AuditStatus }>
 ): AIBenchmarkRecommendation[] {
   const recommendations: AIBenchmarkRecommendation[] = [];
-  const bestSite = ranking[0];
+
+  // Find the best successfully audited site
+  const successfulRankings = ranking.filter(r => r.auditStatus === "complete" && r.score !== null);
+  const bestSite = successfulRankings[0];
+
+  // Successfully audited sites for comparison
+  const successfulResults = results.filter(r => r.score !== null && r.scoreBreakdown !== null);
 
   for (const result of results) {
-    // Skip the best site (nothing to compare to)
-    if (result.siteName === bestSite?.site && ranking.length > 1) {
+    let priority = 1;
+
+    // For failed audits, provide failure-specific recommendations
+    if (result.auditStatus === "failed" || result.score === null) {
+      recommendations.push({
+        site: result.siteName,
+        priority: priority++,
+        improvement: result.suggestion || "Retry audit with different settings",
+        competitorReference: bestSite
+          ? `${bestSite.site} was successfully audited`
+          : undefined,
+      });
       continue;
     }
 
-    let priority = 1;
+    // Skip the best site (nothing to compare to)
+    if (result.siteName === bestSite?.site && successfulRankings.length > 1) {
+      continue;
+    }
 
     // Add weakness-based recommendations
     for (const weakness of result.weaknesses) {
-      const betterSite = results.find(
+      const betterSite = successfulResults.find(
         (r) =>
           r.siteName !== result.siteName &&
           !r.weaknesses.includes(weakness)
@@ -1620,58 +1795,61 @@ function generateAIRecommendations(
       });
     }
 
-    // Add category-specific recommendations
-    const categories: Array<{
-      name: string;
-      score: number;
-      fix: string;
-    }> = [
-      {
-        name: "findability",
-        score: result.scoreBreakdown.findability,
-        fix: "Add unique IDs and ARIA labels to interactive elements",
-      },
-      {
-        name: "stability",
-        score: result.scoreBreakdown.stability,
-        fix: "Use data-testid attributes and semantic selectors",
-      },
-      {
-        name: "accessibility",
-        score: result.scoreBreakdown.accessibility,
-        fix: "Ensure all form inputs have associated labels",
-      },
-      {
-        name: "semantics",
-        score: result.scoreBreakdown.semantics,
-        fix: "Add JSON-LD structured data and proper heading hierarchy",
-      },
-    ];
+    // Add category-specific recommendations (only for successful audits)
+    if (result.scoreBreakdown) {
+      const categories: Array<{
+        name: string;
+        score: number;
+        fix: string;
+      }> = [
+        {
+          name: "findability",
+          score: result.scoreBreakdown.findability,
+          fix: "Add unique IDs and ARIA labels to interactive elements",
+        },
+        {
+          name: "stability",
+          score: result.scoreBreakdown.stability,
+          fix: "Use data-testid attributes and semantic selectors",
+        },
+        {
+          name: "accessibility",
+          score: result.scoreBreakdown.accessibility,
+          fix: "Ensure all form inputs have associated labels",
+        },
+        {
+          name: "semantics",
+          score: result.scoreBreakdown.semantics,
+          fix: "Add JSON-LD structured data and proper heading hierarchy",
+        },
+      ];
 
-    for (const cat of categories) {
-      if (cat.score < 70) {
-        const getScore = (r: AIBenchmarkSiteResult): number => {
-          switch (cat.name) {
-            case "findability": return r.scoreBreakdown.findability;
-            case "stability": return r.scoreBreakdown.stability;
-            case "accessibility": return r.scoreBreakdown.accessibility;
-            case "semantics": return r.scoreBreakdown.semantics;
-            default: return 0;
-          }
-        };
+      for (const cat of categories) {
+        if (cat.score < 70) {
+          const getScore = (r: AIBenchmarkSiteResult): number => {
+            if (!r.scoreBreakdown) return 0;
+            switch (cat.name) {
+              case "findability": return r.scoreBreakdown.findability;
+              case "stability": return r.scoreBreakdown.stability;
+              case "accessibility": return r.scoreBreakdown.accessibility;
+              case "semantics": return r.scoreBreakdown.semantics;
+              default: return 0;
+            }
+          };
 
-        const bestInCat = results
-          .filter((r) => r.siteName !== result.siteName)
-          .sort((a, b) => getScore(b) - getScore(a))[0];
+          const bestInCat = successfulResults
+            .filter((r) => r.siteName !== result.siteName)
+            .sort((a, b) => getScore(b) - getScore(a))[0];
 
-        recommendations.push({
-          site: result.siteName,
-          priority: priority++,
-          improvement: `Improve ${cat.name}: ${cat.fix}`,
-          competitorReference: bestInCat
-            ? `${bestInCat.siteName} scores ${getScore(bestInCat)} in ${cat.name}`
-            : undefined,
-        });
+          recommendations.push({
+            site: result.siteName,
+            priority: priority++,
+            improvement: `Improve ${cat.name}: ${cat.fix}`,
+            competitorReference: bestInCat
+              ? `${bestInCat.siteName} scores ${getScore(bestInCat)} in ${cat.name}`
+              : undefined,
+          });
+        }
       }
     }
   }

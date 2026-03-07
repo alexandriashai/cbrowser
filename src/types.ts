@@ -4606,18 +4606,37 @@ export interface CompetitiveBenchmarkOptions {
 // AI Readiness Benchmark Types (v17.0.0)
 // ============================================================================
 
+/** Failure category for audit errors */
+export type AuditFailureCategory =
+  | "timeout"          // Page load or operation timed out
+  | "bot-detection"    // Site detected and blocked automation
+  | "network"          // Network error (DNS, connection refused, etc.)
+  | "parse-error"      // Page loaded but couldn't be analyzed
+  | "unknown";         // Unexpected error
+
+/** Audit status indicating completion level */
+export type AuditStatus =
+  | "complete"   // Audit finished successfully
+  | "partial"    // Some data collected before failure
+  | "failed";    // Audit could not complete
+
 /** Result for a single site in AI benchmark */
 export interface AIBenchmarkSiteResult {
   /** URL tested */
   url: string;
   /** Site name (extracted from hostname) */
   siteName: string;
-  /** AI readiness grade (A-F) */
-  grade: AgentReadyGrade;
-  /** AI readiness score (0-100) */
-  score: number;
-  /** Score breakdown by category */
-  scoreBreakdown: AgentReadyScore;
+  /** AI readiness grade (A-F, or null if audit failed) */
+  grade: AgentReadyGrade | null;
+  /**
+   * AI readiness score (0-100, or null if audit failed)
+   * - null = audit could not complete (network error, bot detection, timeout)
+   * - 0-100 = audit completed successfully and this is the actual score
+   * @breaking v18.15.0: Changed from `number` to `number | null`
+   */
+  score: number | null;
+  /** Score breakdown by category (null if audit failed) */
+  scoreBreakdown: AgentReadyScore | null;
   /** Top issues found */
   topIssues: string[];
   /** Strengths for AI agents */
@@ -4628,6 +4647,16 @@ export interface AIBenchmarkSiteResult {
   duration: number;
   /** Error message if audit failed */
   error?: string;
+  /** Status of the audit */
+  auditStatus: AuditStatus;
+  /** Category of failure (only present if auditStatus !== "complete") */
+  failureCategory?: AuditFailureCategory;
+  /** Detailed failure information */
+  failureDetails?: string;
+  /** Number of retry attempts made */
+  retryAttempts?: number;
+  /** Suggestion for resolving failure */
+  suggestion?: string;
 }
 
 /** Comparison data between sites */
@@ -4668,12 +4697,13 @@ export interface AIBenchmarkResult {
   duration: number;
   /** Results per site */
   sites: AIBenchmarkSiteResult[];
-  /** Sites ranked by AI readiness */
+  /** Sites ranked by AI readiness (failed audits sorted last) */
   ranking: Array<{
     rank: number;
     site: string;
-    grade: AgentReadyGrade;
-    score: number;
+    grade: AgentReadyGrade | null;
+    score: number | null;
+    auditStatus: AuditStatus;
   }>;
   /** Comparative analysis */
   comparison: AIBenchmarkComparison;
