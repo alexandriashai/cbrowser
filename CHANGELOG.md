@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.14.1](https://github.com/alexandriashai/cbrowser/compare/v18.14.0...v18.14.1) (2026-03-07)
+
+### Fixed
+
+* resolve AI-Friendliness tool bugs ([94a48b0](https://github.com/alexandriashai/cbrowser/commit/94a48b0db986cb709ee5c82931b54f2959276e67))
+
 ## [18.14.0](https://github.com/alexandriashai/cbrowser/compare/v18.13.5...v18.14.0) (2026-03-07)
 
 ### Added
