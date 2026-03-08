@@ -17,8 +17,18 @@ echo "=================================================="
 
 # Get version from package.json
 VERSION=$(node -p "require('./package.json').version")
+MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
 BUNDLE_NAME="cbrowser-${VERSION}.mcpb"
 BUILD_DIR=".mcpb-build"
+
+# Version sync check
+if [ "$VERSION" != "$MANIFEST_VERSION" ]; then
+  echo -e "${RED}ERROR: Version mismatch!${NC}"
+  echo "  package.json:  $VERSION"
+  echo "  manifest.json: $MANIFEST_VERSION"
+  echo "Update manifest.json version to match."
+  exit 1
+fi
 
 echo -e "${YELLOW}Version:${NC} ${VERSION}"
 echo -e "${YELLOW}Output:${NC} dist/${BUNDLE_NAME}"

@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.3",
   "name": "cbrowser",
-  "version": "18.18.0",
+  "version": "18.18.3",
   "description": "Cognitive browser automation with 91 MCP tools for AI agents. Simulate real user cognition, run persona-based testing, and make sites AI-friendly.",
   "author": {
     "name": "Alexandria Eden",
