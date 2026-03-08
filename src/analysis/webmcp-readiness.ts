@@ -40,6 +40,32 @@ const TIER_CONFIG: Record<WebMCPTierNumber, { name: string; weight: number }> = 
 };
 
 /**
+ * Parse SSE or JSON response from MCP server
+ */
+async function parseMcpResponse(response: Response): Promise<unknown> {
+  const text = await response.text();
+
+  // Check if it's SSE format (starts with "event:" or "data:")
+  if (text.startsWith("event:") || text.startsWith("data:")) {
+    // Parse SSE - find the data line
+    const lines = text.split("\n");
+    for (const line of lines) {
+      if (line.startsWith("data:")) {
+        const jsonStr = line.slice(5).trim();
+        if (jsonStr) {
+          return JSON.parse(jsonStr);
+        }
+      }
+    }
+    // No data line found
+    return null;
+  }
+
+  // Regular JSON response
+  return JSON.parse(text);
+}
+
+/**
  * Run WebMCP readiness audit on an MCP server
  */
 export async function runWebMCPReadyAudit(
@@ -336,7 +362,7 @@ async function runTier1ServerImplementation(
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await parseMcpResponse(response) as { result?: { protocolVersion?: string } };
       const serverVersion = data?.result?.protocolVersion;
       const isLatest = serverVersion === "2024-11-05";
 
@@ -395,7 +421,7 @@ async function runTier1ServerImplementation(
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await parseMcpResponse(response) as { error?: { code?: number; message?: string } };
       const hasError = data?.error !== undefined;
       const hasErrorCode = data?.error?.code !== undefined;
       const hasErrorMessage = data?.error?.message !== undefined;
@@ -407,9 +433,9 @@ async function runTier1ServerImplementation(
         score: hasError ? (hasErrorCode && hasErrorMessage ? 1 : 0.5) : 0,
         maxScore: 1,
         details: hasError
-          ? `Returns error with code ${data.error.code}: ${data.error.message}`
+          ? `Returns error with code ${data.error?.code}: ${data.error?.message}`
           : "Does not return proper error for invalid method",
-        evidence: hasError ? `Code: ${data.error.code}` : undefined,
+        evidence: hasError ? `Code: ${data.error?.code}` : undefined,
       });
 
       if (!hasError) {
@@ -511,7 +537,7 @@ async function runTier2ToolDiscoverability(
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await parseMcpResponse(response) as { result?: { tools?: unknown[] } };
       tools = data?.result?.tools || [];
       toolCount = tools.length;
 
@@ -667,9 +693,9 @@ async function runTier3Instrumentation(
   try {
     const response = await fetch(`${baseUrl}/info`, { method: "GET" });
     if (response.ok) {
-      const data = await response.json();
-      const hasVersion = data.version !== undefined;
-      const hasName = data.name !== undefined;
+      const data = await parseMcpResponse(response) as { name?: string; version?: string };
+      const hasVersion = data?.version !== undefined;
+      const hasName = data?.name !== undefined;
 
       checks.push({
         id: "info_endpoint",
@@ -712,9 +738,9 @@ async function runTier3Instrumentation(
     });
 
     if (response.ok) {
-      const data = await response.json();
-      const hasResource = data.resource !== undefined;
-      const hasAuthServer = data.authorization_servers !== undefined;
+      const data = await parseMcpResponse(response) as { resource?: string; authorization_servers?: string[] };
+      const hasResource = data?.resource !== undefined;
+      const hasAuthServer = data?.authorization_servers !== undefined;
 
       checks.push({
         id: "oauth_metadata",
@@ -725,7 +751,7 @@ async function runTier3Instrumentation(
         details: hasResource && hasAuthServer
           ? "OAuth metadata properly configured"
           : "Partial OAuth metadata",
-        evidence: data.resource,
+        evidence: data?.resource,
       });
     } else {
       checks.push({
@@ -1065,4 +1091,132 @@ function generateRecommendations(
   }
 
   return recommendations.slice(0, 10); // Top 10 recommendations
+}
+
+/**
+ * Generate HTML report for WebMCP readiness audit
+ */
+export function generateWebMCPReadyHtmlReport(result: WebMCPReadyResult): string {
+  const gradeColors: Record<WebMCPGrade, string> = {
+    "A": "#22c55e",
+    "B": "#84cc16",
+    "C": "#eab308",
+    "D": "#f97316",
+    "F": "#ef4444",
+  };
+
+  const severityColors: Record<string, string> = {
+    critical: "#ef4444",
+    high: "#f97316",
+    medium: "#eab308",
+    low: "#3b82f6",
+  };
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebMCP Readiness Audit - ${result.url}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #0a0a0a; color: #e5e5e5; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #fff; margin-bottom: 8px; }
+    .subtitle { color: #a3a3a3; margin-bottom: 24px; }
+    .score-card { background: #171717; border-radius: 12px; padding: 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
+    .grade { font-size: 72px; font-weight: bold; color: ${gradeColors[result.grade]}; }
+    .score-details h2 { margin: 0 0 8px; color: #fff; }
+    .score-details p { margin: 4px 0; color: #a3a3a3; }
+    .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .tier { background: #171717; border-radius: 8px; padding: 16px; }
+    .tier-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .tier-name { font-weight: 600; color: #fff; }
+    .tier-score { font-weight: bold; }
+    .progress-bar { height: 8px; background: #262626; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); }
+    .checks { margin-top: 12px; }
+    .check { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; }
+    .check-pass { color: #22c55e; }
+    .check-fail { color: #ef4444; }
+    .issues { background: #171717; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+    .issues h3 { margin: 0 0 16px; color: #fff; }
+    .issue { padding: 12px; background: #262626; border-radius: 6px; margin-bottom: 8px; }
+    .issue-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .severity { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .recommendations { background: #171717; border-radius: 8px; padding: 16px; }
+    .recommendations h3 { margin: 0 0 16px; color: #fff; }
+    .rec { padding: 8px 0; border-bottom: 1px solid #262626; }
+    .rec:last-child { border-bottom: none; }
+    .footer { text-align: center; margin-top: 24px; color: #525252; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WebMCP Readiness Audit</h1>
+    <p class="subtitle">${result.url} • ${result.timestamp}</p>
+
+    <div class="score-card">
+      <div class="grade">${result.grade}</div>
+      <div class="score-details">
+        <h2>Score: ${result.score}/100</h2>
+        <p>Checks passed: ${result.summary.passedChecks}/${result.summary.totalChecks}</p>
+        <p>Critical issues: ${result.summary.criticalIssues} • High issues: ${result.summary.highIssues}</p>
+        <p>Tools found: ${result.summary.toolCount} • Duration: ${result.duration}ms</p>
+      </div>
+    </div>
+
+    <h3 style="color: #fff; margin-bottom: 16px;">Tier Scores</h3>
+    <div class="tiers">
+      ${result.tiers.map(tier => `
+        <div class="tier">
+          <div class="tier-header">
+            <span class="tier-name">${tier.tier}. ${tier.name}</span>
+            <span class="tier-score" style="color: ${tier.score >= 80 ? '#22c55e' : tier.score >= 60 ? '#eab308' : '#ef4444'}">${tier.score}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${tier.score}%"></div>
+          </div>
+          <div class="checks">
+            ${tier.checks.map(check => `
+              <div class="check ${check.passed ? 'check-pass' : 'check-fail'}">
+                ${check.passed ? '✓' : '✗'} ${check.name}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${result.issues.length > 0 ? `
+    <div class="issues">
+      <h3>Issues Found (${result.issues.length})</h3>
+      ${result.issues.map(issue => `
+        <div class="issue">
+          <div class="issue-header">
+            <span class="severity" style="background: ${severityColors[issue.severity]}20; color: ${severityColors[issue.severity]}">${issue.severity}</span>
+            <span style="color: #a3a3a3">Tier ${issue.tier}</span>
+          </div>
+          <p style="margin: 4px 0; color: #fff;">${issue.issue}</p>
+          <p style="margin: 4px 0; font-size: 14px; color: #a3a3a3;">💡 ${issue.remediation}</p>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+
+    ${result.recommendations.length > 0 ? `
+    <div class="recommendations">
+      <h3>Recommendations</h3>
+      ${result.recommendations.map(rec => `
+        <div class="rec">• ${rec}</div>
+      `).join('')}
+    </div>
+    ` : ''}
+
+    <div class="footer">
+      Generated by CBrowser WebMCP Readiness Audit • <a href="https://cbrowser.ai" style="color: #3b82f6">cbrowser.ai</a>
+    </div>
+  </div>
+</body>
+</html>`;
 }

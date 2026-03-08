@@ -14,7 +14,7 @@
 import { CBrowser } from "./browser.js";
 
 // Analysis module imports
-import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport } from "./analysis/index.js";
+import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport, runWebMCPReadyAudit, generateWebMCPReadyHtmlReport } from "./analysis/index.js";
 
 // Testing module imports
 import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, dryRunNLTestSuite, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
@@ -473,6 +473,17 @@ ACCESSIBILITY EMPATHY AUDIT (v8.0.0)
         --goal "complete checkout" \\
         --disabilities "motor-impairment-tremor,low-vision-magnified" \\
         --html
+
+WEBMCP READINESS AUDIT (v18.15.0)
+  webmcp-ready <url>          Audit MCP server for Claude in Chrome compatibility
+    --api-key <key>           API key for authenticated servers
+    --oauth-token <token>     OAuth token for OAuth-protected servers
+    --timeout <ms>            Request timeout in milliseconds (default: 30000)
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+    Examples:
+      cbrowser webmcp-ready "https://demo.cbrowser.ai/mcp"
+      cbrowser webmcp-ready "https://your-server.com/mcp" --api-key YOUR_KEY --html
 
 TEST RECORDING (v2.5.0)
   record start                Start recording interactions
@@ -4958,6 +4969,78 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           const fs = await import("fs");
           const htmlReport = generateAgentReadyHtmlReport(result);
           const htmlPath = (options.output as string)?.replace(".json", ".html") || "agent-ready-report.html";
+          fs.writeFileSync(htmlPath, htmlReport);
+          console.log(`🌐 HTML report saved: ${htmlPath}`);
+        }
+
+        // Exit with error if grade is failing
+        if (result.grade === "F") {
+          process.exit(1);
+        }
+        break;
+      }
+
+      case "webmcp-ready": {
+        const url = args[0];
+        if (!url) {
+          console.error("Error: URL required");
+          console.error("Usage: cbrowser webmcp-ready <url> [--api-key <key>] [--timeout <ms>] [--html] [--output <file>]");
+          process.exit(1);
+        }
+
+        console.log(`\n🔍 Running WebMCP Readiness Audit on ${url}...\n`);
+
+        const result = await runWebMCPReadyAudit(url, {
+          apiKey: options["api-key"] as string,
+          oauthToken: options["oauth-token"] as string,
+          timeout: options.timeout ? parseInt(options.timeout as string) : 30000,
+        });
+
+        // Print formatted summary
+        console.log(`╔══════════════════════════════════════════════════════════════╗`);
+        console.log(`║  WebMCP Readiness Audit Results                              ║`);
+        console.log(`╠══════════════════════════════════════════════════════════════╣`);
+        console.log(`║  URL: ${result.url.padEnd(54)}║`);
+        console.log(`║  Score: ${result.score}/100  Grade: ${result.grade.padEnd(42)}║`);
+        console.log(`║  Checks: ${result.summary.passedChecks}/${result.summary.totalChecks} passed  Duration: ${result.duration}ms${' '.repeat(Math.max(0, 24 - result.duration.toString().length))}║`);
+        console.log(`╚══════════════════════════════════════════════════════════════╝`);
+
+        console.log(`\n📊 Tier Scores:`);
+        for (const tier of result.tiers) {
+          const bar = '█'.repeat(Math.round(tier.score / 10)) + '░'.repeat(10 - Math.round(tier.score / 10));
+          console.log(`  ${tier.tier}. ${tier.name.padEnd(22)} ${bar} ${tier.score}%`);
+        }
+
+        if (result.issues.length > 0) {
+          console.log(`\n⚠️  Issues Found (${result.issues.length}):`);
+          for (const issue of result.issues.slice(0, 5)) {
+            const icon = issue.severity === 'critical' ? '🔴' : issue.severity === 'high' ? '🟠' : '🟡';
+            console.log(`  ${icon} [Tier ${issue.tier}] ${issue.issue}`);
+          }
+          if (result.issues.length > 5) {
+            console.log(`  ... and ${result.issues.length - 5} more issues`);
+          }
+        }
+
+        if (result.recommendations.length > 0) {
+          console.log(`\n💡 Top Recommendations:`);
+          for (const rec of result.recommendations.slice(0, 3)) {
+            console.log(`  • ${rec}`);
+          }
+        }
+
+        // Save JSON output if requested
+        if (options.output) {
+          const fs = await import("fs");
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Generate HTML report if requested
+        if (options.html) {
+          const fs = await import("fs");
+          const htmlPath = (options.output as string)?.replace(".json", ".html") || "webmcp-ready-report.html";
+          const htmlReport = generateWebMCPReadyHtmlReport(result);
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`🌐 HTML report saved: ${htmlPath}`);
         }
