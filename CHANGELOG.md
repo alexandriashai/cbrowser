@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.18.0](https://github.com/alexandriashai/cbrowser/compare/v18.17.0...v18.18.0) (2026-03-08)
+
+### Added
+
+* add /llms.txt and /docs endpoints to MCP server ([1afa479](https://github.com/alexandriashai/cbrowser/commit/1afa479720ad36174a1792edab837a5ba1bff643))
+
 ## [18.17.0](https://github.com/alexandriashai/cbrowser/compare/v18.16.1...v18.17.0) (2026-03-08)
 
 ### Added
