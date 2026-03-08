@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.17.0](https://github.com/alexandriashai/cbrowser/compare/v18.16.1...v18.17.0) (2026-03-08)
+
+### Added
+
+* add webmcp-ready CLI command with SSE support ([6bf1e9c](https://github.com/alexandriashai/cbrowser/commit/6bf1e9c74c94dcb39edae8e020f99c23733af368))
+
 ## [18.16.1](https://github.com/alexandriashai/cbrowser/compare/v18.16.0...v18.16.1) (2026-03-08)
 
 ### Fixed
