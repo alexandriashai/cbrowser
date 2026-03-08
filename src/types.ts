@@ -5080,3 +5080,122 @@ export interface IConstitutionalEnforcer {
   /** Apply stealth measures to a page (implemented by enterprise) */
   applyStealthMeasures(page: unknown): Promise<void>;
 }
+
+// ============================================================================
+// WebMCP Readiness Types (v18.15.0)
+// ============================================================================
+
+/** Tier in the 6-tier WebMCP evaluation framework */
+export type WebMCPTierNumber = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Tier names for the WebMCP evaluation framework */
+export const WEBMCP_TIERS = {
+  1: { name: "Server Implementation", weight: 0.25 },
+  2: { name: "Tool Discoverability", weight: 0.20 },
+  3: { name: "Instrumentation", weight: 0.15 },
+  4: { name: "Consistency", weight: 0.15 },
+  5: { name: "Agent Optimizations", weight: 0.15 },
+  6: { name: "Documentation", weight: 0.10 },
+} as const;
+
+/** Individual check within a tier */
+export interface WebMCPCheck {
+  /** Check ID (e.g., "protocol_version") */
+  id: string;
+  /** Human-readable check name */
+  name: string;
+  /** Whether check passed */
+  passed: boolean;
+  /** Score contribution (0-1) */
+  score: number;
+  /** Max possible score for this check */
+  maxScore: number;
+  /** Details of what was found */
+  details: string;
+  /** Evidence (e.g., response snippet, URL) */
+  evidence?: string;
+}
+
+/** Issue found during WebMCP evaluation */
+export interface WebMCPIssue {
+  /** Which tier this issue belongs to */
+  tier: WebMCPTierNumber;
+  /** Severity: critical, high, medium, low */
+  severity: "critical" | "high" | "medium" | "low";
+  /** Issue description */
+  issue: string;
+  /** How to fix it */
+  remediation: string;
+  /** Estimated effort: quick, moderate, significant */
+  effort: "quick" | "moderate" | "significant";
+}
+
+/** Result for a single tier */
+export interface WebMCPTierResult {
+  /** Tier number (1-6) */
+  tier: WebMCPTierNumber;
+  /** Tier name */
+  name: string;
+  /** Score for this tier (0-100) */
+  score: number;
+  /** Weight applied to overall score */
+  weight: number;
+  /** Individual checks within this tier */
+  checks: WebMCPCheck[];
+}
+
+/** Letter grade for WebMCP readiness */
+export type WebMCPGrade = "A" | "B" | "C" | "D" | "F";
+
+/** Full result of WebMCP readiness audit */
+export interface WebMCPReadyResult {
+  /** URL of the MCP server tested */
+  url: string;
+  /** When audit was run */
+  timestamp: string;
+  /** Overall score (0-100) */
+  score: number;
+  /** Letter grade */
+  grade: WebMCPGrade;
+  /** Results by tier */
+  tiers: WebMCPTierResult[];
+  /** All issues found, sorted by severity */
+  issues: WebMCPIssue[];
+  /** Prioritized recommendations */
+  recommendations: string[];
+  /** Duration of audit in ms */
+  duration: number;
+  /** Summary statistics */
+  summary: {
+    /** Total checks run */
+    totalChecks: number;
+    /** Checks that passed */
+    passedChecks: number;
+    /** Critical issues count */
+    criticalIssues: number;
+    /** High issues count */
+    highIssues: number;
+    /** Whether server responded */
+    serverResponded: boolean;
+    /** Protocol version detected */
+    protocolVersion?: string;
+    /** Number of tools exposed */
+    toolCount?: number;
+  };
+}
+
+/** Options for WebMCP readiness audit */
+export interface WebMCPReadyOptions {
+  /** Include verbose check details */
+  verbose?: boolean;
+  /** Output path for JSON report */
+  output?: string;
+  /** Generate HTML report */
+  html?: boolean;
+  /** Overall timeout in milliseconds (default: 30000) */
+  timeout?: number;
+  /** API key if server requires auth */
+  apiKey?: string;
+  /** OAuth token if server requires auth */
+  oauthToken?: string;
+}

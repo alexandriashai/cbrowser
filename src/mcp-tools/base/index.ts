@@ -1,6 +1,6 @@
 /**
  * CBrowser MCP Tools - Base Tools Index
- * Registers 64 base tools across 20 categories
+ * Registers 65 base tools across 20 categories
  * (Marketing tools register everywhere but as stubs on local MCP)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
@@ -32,7 +32,7 @@ import { registerRemediationTools } from "./remediation-tools.js";
 import { registerLlmsTxtTools } from "./llms-txt-tools.js";
 
 /**
- * Register all 57 base tools on an MCP server
+ * Register all 65 base tools on an MCP server
  *
  * Tool count by category:
  * - Navigation: 1 (navigate)
@@ -49,7 +49,7 @@ import { registerLlmsTxtTools } from "./llms-txt-tools.js";
  * - Cognitive: 3 (cognitive_journey_init, cognitive_journey_update_state, list_cognitive_personas)
  * - Values: 7 (persona_values_list, persona_values_lookup, list_influence_patterns, persona_questionnaire_get, persona_questionnaire_build, persona_trait_lookup, persona_category_guidance)
  * - Performance: 3 (perf_baseline, perf_regression, list_baselines)
- * - Audit: 3 (agent_ready_audit, competitive_benchmark, empathy_audit)
+ * - Audit: 4 (agent_ready_audit, competitive_benchmark, empathy_audit, webmcp_ready_audit)
  * - Browser Management: 4 (status, browser_health, browser_recover, reset_browser)
  * - Security: 1 (security_audit)
  * - Marketing: 4 (marketing_personas_list, marketing_campaign_create, marketing_campaign_run, marketing_campaign_report_result)
@@ -57,7 +57,7 @@ import { registerLlmsTxtTools } from "./llms-txt-tools.js";
  * - Remediation: 3 (remediation_patches, llms_txt_generate, structured_data_suggest)
  * - llms.txt: 2 (llms_txt_validate, llms_txt_diff)
  *
- * Total: 63 tools (always registered; marketing tools are stubs on local MCP)
+ * Total: 65 tools (always registered; marketing tools are stubs on local MCP)
  */
 export function registerBaseTools(
   server: McpServer,

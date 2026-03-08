@@ -57,6 +57,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:mcpb": "./scripts/build-mcpb.sh",
     "dev": "tsc --watch",
     "start": "bun run src/cli.ts",
     "mcp": "node dist/mcp-server.js",

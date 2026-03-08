@@ -1,12 +1,12 @@
 # CBrowser — Cognitive Browser Automation
 
-> **The browser automation that thinks.** Achieved **Grade A+** in comprehensive stress testing—100% pass rate across 90 tools, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
+> **The browser automation that thinks.** Achieved **Grade A+** in comprehensive stress testing—100% pass rate across 91 tools, zero critical bugs, zero server crashes. [View Full Assessment →](docs/STRESS-TEST-v16.14.4.md)
 
 [![npm version](https://img.shields.io/npm/v/cbrowser.svg)](https://www.npmjs.com/package/cbrowser)
 [![Documentation](https://img.shields.io/badge/Docs-cbrowser.ai-blue.svg)](https://cbrowser.ai/docs)
 [![Grade A+](https://img.shields.io/badge/Stress%20Test-A+-brightgreen.svg)](docs/STRESS-TEST-v16.14.4.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-90%20Tools-blue)](https://modelcontextprotocol.io)
+[![MCP Ready](https://img.shields.io/badge/MCP-91%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green.svg)](https://nodejs.org/)
 
@@ -18,7 +18,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 
 ## What Makes CBrowser Different
 
-**90 tools, 17 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
+**91 tools, 17 cognitive personas, 25 research-backed traits.** After rigorous stress testing across production sites including Airbnb and Hacker News:
 
 | Capability | Status | Why It Matters |
 |------------|--------|----------------|
@@ -27,7 +27,7 @@ Sites that pass CBrowser's cognitive tests are easier for both humans **and** AI
 | **Empathy Accessibility Audits** | 🔬 Novel | Simulate users with tremors, low vision, ADHD. No competitor offers this. |
 | **Self-Healing Selectors** | ✅ Production-ready | ARIA-first with 0.8+ confidence gating. Handles DOM changes automatically. |
 | **Constitutional AI Safety** | 🔬 Novel | Risk-classified actions prevent autonomous agents from doing damage. |
-| **90 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
+| **91 MCP Tools** | ✅ Production-ready | Full Claude integration—local and remote servers. |
 
 ---
 
@@ -315,7 +315,7 @@ Deploy your own: see [Remote MCP Server Guide](https://cbrowser.ai/docs/Remote-M
 }
 ```
 
-### 90 MCP Tools
+### 91 MCP Tools
 
 | Category | Tools |
 |----------|-------|
@@ -423,7 +423,7 @@ npx cbrowser config set-api-key
 
 ### Token Cost & Selective Loading
 
-CBrowser's 90 MCP tools consume approximately **~38,000 tokens** when loaded into an LLM context. For cost-sensitive applications, use selective tool loading:
+CBrowser's 91 MCP tools consume approximately **~38,000 tokens** when loaded into an LLM context. For cost-sensitive applications, use selective tool loading:
 
 **Tool Categories (for programmatic use):**
 

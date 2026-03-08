@@ -6,21 +6,21 @@
  * Tool counts by deployment:
  *
  * LOCAL MCP (npx cbrowser mcp-server):
- * - Base tools: 64 (4 marketing as stubs, 3 remediation, 1 ai_benchmark, 2 llms.txt)
+ * - Base tools: 65 (4 marketing as stubs, 3 remediation, 1 ai_benchmark, 2 llms.txt, 1 webmcp_ready)
  * - Persona creation: 7
  * - Ask user: 1
  * - Enterprise stubs: 18
- * - Total: 90 (67 real + 23 stubs)
+ * - Total: 91 (68 real + 23 stubs)
  *
  * DEMO SERVER (MCP_MODE=demo):
- * - Base tools: 64 (4 marketing real, 3 remediation, 1 ai_benchmark, 2 llms.txt)
+ * - Base tools: 65 (4 marketing real, 3 remediation, 1 ai_benchmark, 2 llms.txt, 1 webmcp_ready)
  * - Persona creation: 7
  * - Ask user: 1
  * - Enterprise stubs: 18
- * - Total: 90 (71 real + 19 stubs)
+ * - Total: 91 (72 real + 19 stubs)
  *
  * ENTERPRISE (MCP_MODE=enterprise):
- * - All 90 tools fully functional
+ * - All 91 tools fully functional
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -82,16 +82,16 @@ import { registerEnterpriseStubs } from "./enterprise-stubs.js";
 /**
  * Register all public npm tools on an MCP server
  *
- * Tool count: 90 tools across all deployments
- * - LOCAL: 90 tools (67 real + 23 stubs including 4 marketing stubs)
- * - DEMO: 90 tools (71 real + 19 stubs)
- * - ENTERPRISE: 90 tools all functional
+ * Tool count: 91 tools across all deployments
+ * - LOCAL: 91 tools (68 real + 23 stubs including 4 marketing stubs)
+ * - DEMO: 91 tools (72 real + 19 stubs)
+ * - ENTERPRISE: 91 tools all functional
  */
 export function registerAllPublicTools(
   server: McpServer,
   context: ToolRegistrationContext
 ): void {
-  // Base tools (64)
+  // Base tools (65)
   registerBaseTools(server, context);
 
   // Persona creation tools (7)

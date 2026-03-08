@@ -19,3 +19,4 @@ export * from "./persona-comparison.js";
 export * from "./agent-ready-audit.js";
 export * from "./competitive-benchmark.js";
 export * from "./accessibility-empathy.js";
+export * from "./webmcp-readiness.js";

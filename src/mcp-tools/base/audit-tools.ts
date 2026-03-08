@@ -11,11 +11,12 @@ import {
   runAgentReadyAudit,
   runCompetitiveBenchmark,
   runEmpathyAudit,
+  runWebMCPReadyAudit,
 } from "../../analysis/index.js";
 import { listAccessibilityPersonas } from "../../personas.js";
 
 /**
- * Register audit tools (3 tools: agent_ready_audit, competitive_benchmark, empathy_audit)
+ * Register audit tools (4 tools: agent_ready_audit, competitive_benchmark, empathy_audit, webmcp_ready_audit)
  */
 export function registerAuditTools(server: McpServer): void {
   server.tool(
@@ -199,6 +200,46 @@ export function registerAuditTools(server: McpServer): void {
           isError: true,
         };
       }
+    }
+  );
+
+  server.tool(
+    "webmcp_ready_audit",
+    "Audit an MCP server for Claude in Chrome / WebMCP compatibility. Uses 6-tier evaluation: Server Implementation (25%), Tool Discoverability (20%), Instrumentation (15%), Consistency (15%), Agent Optimizations (15%), Documentation (10%). Returns score (0-100), grade (A-F), tier breakdown, issues, and recommendations.",
+    {
+      url: z.string().url().describe("MCP server URL to audit (e.g., https://demo.cbrowser.ai/mcp)"),
+      apiKey: z.string().optional().describe("API key if server requires authentication"),
+      oauthToken: z.string().optional().describe("OAuth token if server uses OAuth"),
+      timeout: z.number().optional().default(30000).describe("Timeout in ms (default: 30000)"),
+    },
+    async ({ url, apiKey, oauthToken, timeout }) => {
+      const result = await runWebMCPReadyAudit(url, {
+        apiKey,
+        oauthToken,
+        timeout,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              url: result.url,
+              score: result.score,
+              grade: result.grade,
+              summary: result.summary,
+              tierScores: result.tiers.map((t) => ({
+                tier: t.tier,
+                name: t.name,
+                score: t.score,
+                weight: `${Math.round(t.weight * 100)}%`,
+              })),
+              topIssues: result.issues.slice(0, 5),
+              topRecommendations: result.recommendations.slice(0, 5),
+              duration: result.duration,
+            }, null, 2),
+          },
+        ],
+      };
     }
   );
 }
