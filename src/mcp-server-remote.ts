@@ -998,11 +998,22 @@ ${VERSION}
     if (url.pathname === "/.well-known/oauth-protected-resource") {
       const metadata = getProtectedResourceMetadata();
       if (metadata) {
+        // Full OAuth configured
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(metadata));
       } else {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "OAuth not configured" }));
+        // No OAuth - return open-access metadata (RFC 9728 compatible)
+        const serverHost = req.headers.host || `${host}:${port}`;
+        const protocol = req.headers["x-forwarded-proto"] || "http";
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          resource: `${protocol}://${serverHost}`,
+          authorization_servers: [],
+          bearer_methods_supported: ["header"],
+          scopes_supported: [],
+          resource_documentation: `${protocol}://${serverHost}/docs`,
+          resource_description: "CBrowser MCP Server - Open access (no authentication required)",
+        }));
       }
       return;
     }
