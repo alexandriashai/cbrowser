@@ -43,7 +43,7 @@ cp README.md "$BUILD_DIR/"
 # Step 4: Install production dependencies
 echo -e "\n${GREEN}[4/6] Installing production dependencies...${NC}"
 cd "$BUILD_DIR"
-npm install --only=production --ignore-scripts
+npm install --omit=dev --ignore-scripts
 
 # Remove unnecessary files from node_modules
 echo -e "\n${GREEN}[5/6] Cleaning node_modules...${NC}"
