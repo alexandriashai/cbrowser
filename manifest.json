@@ -1,0 +1,27 @@
+{
+  "manifest_version": "0.3",
+  "name": "cbrowser",
+  "version": "18.18.0",
+  "description": "Cognitive browser automation with 91 MCP tools for AI agents. Simulate real user cognition, run persona-based testing, and make sites AI-friendly.",
+  "author": {
+    "name": "Alexandria Eden",
+    "email": "alexandria.shai.eden@gmail.com",
+    "url": "https://cbrowser.ai"
+  },
+  "license": "MIT",
+  "homepage": "https://cbrowser.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexandriashai/cbrowser.git"
+  },
+  "documentation": "https://cbrowser.ai/docs",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/mcp-server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/mcp-server.js"],
+      "env": {}
+    }
+  }
+}

@@ -36,7 +36,7 @@ npm run build
 echo -e "\n${GREEN}[3/6] Copying files to bundle...${NC}"
 cp -r dist "$BUILD_DIR/"
 cp package.json "$BUILD_DIR/"
-cp claude.json "$BUILD_DIR/"
+cp manifest.json "$BUILD_DIR/"
 cp LICENSE "$BUILD_DIR/" 2>/dev/null || echo "LICENSE not found, skipping"
 cp README.md "$BUILD_DIR/"
 
@@ -66,7 +66,7 @@ zip -r "../dist/${BUNDLE_NAME}" \
   dist/ \
   node_modules/ \
   package.json \
-  claude.json \
+  manifest.json \
   LICENSE \
   README.md \
   -x "*.git*" \
