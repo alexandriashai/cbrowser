@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.18.2](https://github.com/alexandriashai/cbrowser/compare/v18.18.1...v18.18.2) (2026-03-08)
+
+### Changed
+
+* update MCPB manifest to spec v0.3 ([1518556](https://github.com/alexandriashai/cbrowser/commit/1518556a2a92e66465855ee4999eb81b4f836b29))
+
 ## [18.18.1](https://github.com/alexandriashai/cbrowser/compare/v18.18.0...v18.18.1) (2026-03-08)
 
 ### Fixed
