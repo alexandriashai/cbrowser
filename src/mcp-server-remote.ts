@@ -879,6 +879,121 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
       return;
     }
 
+    // llms.txt - AI-readable documentation (WebMCP standard)
+    if (url.pathname === "/llms.txt" || url.pathname === "/.well-known/llms.txt") {
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end(`# CBrowser MCP Server
+# AI-powered browser automation with cognitive user simulation
+
+> CBrowser is an MCP server that provides 91 tools for browser automation,
+> visual testing, cognitive user simulation, and accessibility auditing.
+> It simulates how real humans think, struggle, and give up on websites.
+
+## MCP Endpoint
+POST /mcp - Model Context Protocol endpoint (JSON-RPC 2.0 over SSE)
+
+## Key Capabilities
+- navigate: Open URLs and take screenshots
+- click, fill: Interact with page elements using natural language
+- screenshot: Capture current page state
+- cognitive_journey_init: Simulate real users with patience/frustration tracking
+- empathy_audit: Test with disability personas (motor tremor, low vision, ADHD)
+- agent_ready_audit: Grade site AI-friendliness (A+ to F)
+- hunt_bugs: Autonomous bug discovery
+- visual_baseline, visual_regression: AI-powered visual testing
+- compare_personas: Test with multiple user types simultaneously
+
+## Authentication
+- OAuth 2.1 with PKCE for claude.ai integration
+- API Key authentication for programmatic access
+- Demo server (demo.cbrowser.ai): Rate-limited, no auth required
+
+## Tool Categories (91 tools)
+- Navigation (1): navigate
+- Interaction (5): click, smart_click, fill, scroll, press_key
+- Analysis (4): analyze_page, extract, find_element_by_intent, assert
+- Visual Testing (6): visual_baseline, visual_regression, cross_browser_test, responsive_test, ab_comparison
+- Cognitive (3): cognitive_journey_init, cognitive_journey_update_state, list_cognitive_personas
+- Personas (10): compare_personas_init, persona_create, persona_traits_list, etc.
+- Testing (5): nl_test_file, nl_test_inline, repair_test, detect_flaky_tests, coverage_map
+- Audit (4): agent_ready_audit, competitive_benchmark, empathy_audit, webmcp_ready_audit
+- Session (4): save_session, load_session, list_sessions, delete_session
+- Browser (4): browser_health, browser_recover, reset_browser, status
+
+## Links
+- Documentation: https://cbrowser.ai/docs
+- GitHub: https://github.com/alexandriashai/cbrowser
+- npm: https://npmjs.com/package/cbrowser
+
+## Version
+${VERSION}
+`);
+      return;
+    }
+
+    // Documentation endpoint
+    if (url.pathname === "/docs" || url.pathname === "/README") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CBrowser MCP Server Documentation</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background: #0a0a0a; color: #e5e5e5; }
+    h1 { color: #fff; }
+    h2 { color: #3b82f6; border-bottom: 1px solid #333; padding-bottom: 8px; }
+    code { background: #1e1e1e; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+    pre { background: #1e1e1e; padding: 16px; border-radius: 8px; overflow-x: auto; }
+    a { color: #60a5fa; }
+    .badge { display: inline-block; background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h1>CBrowser MCP Server <span class="badge">v${VERSION}</span></h1>
+  <p>AI-powered browser automation with cognitive user simulation.</p>
+
+  <h2>Quick Start</h2>
+  <p>Connect to this MCP server from Claude Desktop or claude.ai:</p>
+  <pre><code># Claude Desktop config
+{
+  "mcpServers": {
+    "cbrowser": {
+      "command": "npx",
+      "args": ["cbrowser", "mcp-server"]
+    }
+  }
+}</code></pre>
+
+  <h2>Available Tools (91)</h2>
+  <p>This server provides 91 MCP tools for browser automation, testing, and analysis.</p>
+  <ul>
+    <li><strong>Navigation:</strong> navigate, screenshot</li>
+    <li><strong>Interaction:</strong> click, smart_click, fill, scroll, press_key</li>
+    <li><strong>Cognitive:</strong> cognitive_journey_init, compare_personas, empathy_audit</li>
+    <li><strong>Visual Testing:</strong> visual_baseline, visual_regression, cross_browser_test</li>
+    <li><strong>Analysis:</strong> hunt_bugs, agent_ready_audit, chaos_test</li>
+  </ul>
+
+  <h2>Links</h2>
+  <ul>
+    <li><a href="https://cbrowser.ai/docs">Full Documentation</a></li>
+    <li><a href="https://github.com/alexandriashai/cbrowser">GitHub Repository</a></li>
+    <li><a href="https://npmjs.com/package/cbrowser">npm Package</a></li>
+    <li><a href="/llms.txt">llms.txt (AI-readable docs)</a></li>
+    <li><a href="/info">Server Info (JSON)</a></li>
+    <li><a href="/health">Health Check</a></li>
+  </ul>
+
+  <h2>Authentication</h2>
+  <p>Demo server: No authentication required (rate-limited)</p>
+  <p>Self-hosted: Supports OAuth 2.1 and API Key authentication</p>
+</body>
+</html>`);
+      return;
+    }
+
     // Protected Resource Metadata (RFC 9728) - required for OAuth
     if (url.pathname === "/.well-known/oauth-protected-resource") {
       const metadata = getProtectedResourceMetadata();
