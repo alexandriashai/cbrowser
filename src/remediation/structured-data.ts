@@ -14,6 +14,7 @@
  */
 
 import { chromium, type Page, type Browser } from "playwright";
+import { launchBrowserWithFallback } from "../browser.js";
 
 /**
  * Detected page type
@@ -433,7 +434,7 @@ export async function suggestStructuredData(
 
   let browser: Browser | null = null;
   try {
-    browser = await chromium.launch({ headless });
+    browser = await launchBrowserWithFallback(chromium, { headless });
     const context = await browser.newContext();
     const page = await context.newPage();
 

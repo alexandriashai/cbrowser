@@ -13,6 +13,7 @@
  */
 
 import { chromium, type Page, type Browser } from "playwright";
+import { launchBrowserWithFallback } from "../browser.js";
 import type {
   AgentReadyAuditResult,
   AgentReadyIssue,
@@ -1613,7 +1614,7 @@ export async function runAgentReadyAudit(
 
   const auditPromise = async (): Promise<AgentReadyAuditResult> => {
     try {
-      browser = await chromium.launch({ headless: options.headless ?? true });
+      browser = await launchBrowserWithFallback(chromium, { headless: options.headless ?? true });
       const context = await browser.newContext({
         viewport: { width: 1920, height: 1080 },
       });

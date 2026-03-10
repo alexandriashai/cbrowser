@@ -19,7 +19,7 @@
  * ```
  */
 
-export { CBrowser } from "./browser.js";
+export { CBrowser, launchBrowserWithFallback, isBrowserNotInstalledError, installPlaywrightBrowsers, getBrowserInstallErrorMessage } from "./browser.js";
 export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./config.js";
 export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export * from "./types.js";

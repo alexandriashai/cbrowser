@@ -34,6 +34,7 @@
  */
 
 import { chromium, type Browser, type Page } from "playwright";
+import { launchBrowserWithFallback } from "../browser.js";
 import type {
   EmpathyAuditResult,
   EmpathyAuditOptions,
@@ -1894,7 +1895,7 @@ export async function runEmpathyAudit(
 
     let browser: Browser | null = null;
     try {
-      browser = await chromium.launch({ headless });
+      browser = await launchBrowserWithFallback(chromium, { headless });
       const context = await browser.newContext({
         viewport: { width: 1920, height: 1080 },
       });

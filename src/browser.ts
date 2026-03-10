@@ -128,6 +128,112 @@ export interface ScreenshotOptions {
   fullPage?: boolean;
 }
 
+// =========================================================================
+// Standalone Browser Launch Utilities (for use outside CBrowser class)
+// =========================================================================
+
+/**
+ * Check if an error indicates missing Playwright browsers.
+ */
+export function isBrowserNotInstalledError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("executable doesn't exist") ||
+    message.includes("executable does not exist") ||
+    message.includes("browsertype.launch") ||
+    message.includes("no usable browser") ||
+    message.includes("browser was not found")
+  );
+}
+
+/**
+ * Attempt to install Playwright browsers automatically.
+ * Returns true if installation succeeded, false otherwise.
+ */
+export async function installPlaywrightBrowsers(browserName?: string): Promise<boolean> {
+  console.log("🔧 Playwright browsers not found. Installing automatically...");
+  console.log("   This may take a few minutes on first run.\n");
+
+  try {
+    // Install specific browser or all browsers
+    const browsers = browserName || "chromium firefox webkit";
+    execSync(`npx playwright install ${browsers}`, {
+      stdio: "inherit",
+      timeout: 300000, // 5 minute timeout
+    });
+    console.log("\n✅ Playwright browsers installed successfully.\n");
+    return true;
+  } catch {
+    console.error("\n❌ Automatic browser installation failed.\n");
+    return false;
+  }
+}
+
+/**
+ * Get actionable error message for browser installation failure.
+ */
+export function getBrowserInstallErrorMessage(browserName: string = "chromium"): string {
+  return `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  Playwright browsers are not installed                                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+CBrowser requires Playwright browsers to run. Automatic installation failed.
+
+To fix this, run one of these commands:
+
+  npx playwright install                    # Install all browsers
+  npx playwright install ${browserName.padEnd(20)} # Install ${browserName} only
+
+Common issues:
+  • Corporate network blocking downloads → Contact IT or use a VPN
+  • Permission errors → Try with sudo or check write permissions
+  • PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 → Unset this environment variable
+
+For more help: https://playwright.dev/docs/browsers
+`;
+}
+
+/**
+ * Launch a Playwright browser with automatic installation fallback.
+ * Use this instead of direct chromium.launch() / firefox.launch() / webkit.launch()
+ * to ensure browsers are installed on first run.
+ */
+export async function launchBrowserWithFallback(
+  browserType: typeof chromium | typeof firefox | typeof webkit = chromium,
+  options: Parameters<typeof chromium.launch>[0] = {}
+): Promise<Browser> {
+  const browserName = browserType === chromium ? "chromium" : browserType === firefox ? "firefox" : "webkit";
+
+  try {
+    return await browserType.launch(options);
+  } catch (error) {
+    if (isBrowserNotInstalledError(error)) {
+      // Attempt automatic installation
+      const installed = await installPlaywrightBrowsers(browserName);
+      if (installed) {
+        // Retry launch after installation
+        try {
+          return await browserType.launch(options);
+        } catch (retryError) {
+          throw new Error(
+            `Browser launch failed after installation. ` +
+            `This may indicate a system configuration issue.\n\n` +
+            `Original error: ${retryError instanceof Error ? retryError.message : String(retryError)}`
+          );
+        }
+      } else {
+        // Installation failed - provide actionable instructions
+        throw new Error(getBrowserInstallErrorMessage(browserName));
+      }
+    } else {
+      // Not a browser installation error - re-throw
+      throw error;
+    }
+  }
+}
+
 export class CBrowser {
   private config: CBrowserConfig;
   private paths: CBrowserPaths;
