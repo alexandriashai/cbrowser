@@ -14,6 +14,7 @@
 import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
+import { execSync } from "child_process";
 
 import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths } from "./config.js";
 import { BUILTIN_PERSONAS, getPersona } from "./personas.js";
@@ -257,6 +258,72 @@ export class CBrowser {
   }
 
   // =========================================================================
+  // Browser Installation
+  // =========================================================================
+
+  /**
+   * Check if an error indicates missing Playwright browsers.
+   */
+  private isBrowserNotInstalledError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const message = error.message.toLowerCase();
+    return (
+      message.includes("executable doesn't exist") ||
+      message.includes("executable does not exist") ||
+      message.includes("browsertype.launch") ||
+      message.includes("no usable browser") ||
+      message.includes("browser was not found")
+    );
+  }
+
+  /**
+   * Attempt to install Playwright browsers automatically.
+   * Returns true if installation succeeded, false otherwise.
+   */
+  private async installPlaywrightBrowsers(): Promise<boolean> {
+    console.log("🔧 Playwright browsers not found. Installing automatically...");
+    console.log("   This may take a few minutes on first run.\n");
+
+    try {
+      // Install all browsers to avoid future issues
+      execSync("npx playwright install chromium firefox webkit", {
+        stdio: "inherit",
+        timeout: 300000, // 5 minute timeout
+      });
+      console.log("\n✅ Playwright browsers installed successfully.\n");
+      return true;
+    } catch (installError) {
+      console.error("\n❌ Automatic browser installation failed.\n");
+      return false;
+    }
+  }
+
+  /**
+   * Get actionable error message for browser installation failure.
+   */
+  private getBrowserInstallErrorMessage(browserName: string): string {
+    return `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  Playwright browsers are not installed                                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+CBrowser requires Playwright browsers to run. Automatic installation failed.
+
+To fix this, run one of these commands:
+
+  npx playwright install                    # Install all browsers
+  npx playwright install ${browserName.padEnd(20)} # Install ${browserName} only
+
+Common issues:
+  • Corporate network blocking downloads → Contact IT or use a VPN
+  • Permission errors → Try with sudo or check write permissions
+  • PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 → Unset this environment variable
+
+For more help: https://playwright.dev/docs/browsers
+`;
+  }
+
+  // =========================================================================
   // Lifecycle
   // =========================================================================
 
@@ -368,34 +435,66 @@ export class CBrowser {
       },
     } : {};
 
-    if (this.config.persistent) {
-      const browserStateDir = join(this.paths.dataDir, "browser-state");
-      if (!existsSync(browserStateDir)) {
-        mkdirSync(browserStateDir, { recursive: true });
-      }
-      this.context = await browserType.launchPersistentContext(browserStateDir, {
-        headless: this.config.headless,
-        args: launchArgs,
-        ...contextOptions,
-        ...proxyOptions,
-      });
-      this.page = this.context.pages()[0] || await this.context.newPage();
-      if (this.config.verbose) {
-        console.log(`🔄 Using persistent browser context: ${browserStateDir}`);
-        if (this.config.proxy) {
+    // Helper to perform the actual browser launch
+    const performLaunch = async (): Promise<void> => {
+      if (this.config.persistent) {
+        const browserStateDir = join(this.paths.dataDir, "browser-state");
+        if (!existsSync(browserStateDir)) {
+          mkdirSync(browserStateDir, { recursive: true });
+        }
+        this.context = await browserType.launchPersistentContext(browserStateDir, {
+          headless: this.config.headless,
+          args: launchArgs,
+          ...contextOptions,
+          ...proxyOptions,
+        });
+        this.page = this.context.pages()[0] || await this.context.newPage();
+        if (this.config.verbose) {
+          console.log(`🔄 Using persistent browser context: ${browserStateDir}`);
+          if (this.config.proxy) {
+            console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
+          }
+        }
+      } else {
+        this.browser = await browserType.launch({
+          headless: this.config.headless,
+          args: launchArgs,
+          ...proxyOptions,
+        });
+        this.context = await this.browser.newContext(contextOptions);
+        this.page = await this.context.newPage();
+        if (this.config.verbose && this.config.proxy) {
           console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
         }
       }
-    } else {
-      this.browser = await browserType.launch({
-        headless: this.config.headless,
-        args: launchArgs,
-        ...proxyOptions,
-      });
-      this.context = await this.browser.newContext(contextOptions);
-      this.page = await this.context.newPage();
-      if (this.config.verbose && this.config.proxy) {
-        console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
+    };
+
+    // Attempt launch with automatic browser installation fallback
+    try {
+      await performLaunch();
+    } catch (error) {
+      if (this.isBrowserNotInstalledError(error)) {
+        // Attempt automatic installation
+        const installed = await this.installPlaywrightBrowsers();
+        if (installed) {
+          // Retry launch after installation
+          try {
+            await performLaunch();
+          } catch (retryError) {
+            // Installation succeeded but launch still failed
+            throw new Error(
+              `Browser launch failed after installation. ` +
+              `This may indicate a system configuration issue.\n\n` +
+              `Original error: ${retryError instanceof Error ? retryError.message : String(retryError)}`
+            );
+          }
+        } else {
+          // Installation failed - provide actionable instructions
+          throw new Error(this.getBrowserInstallErrorMessage(this.config.browser));
+        }
+      } else {
+        // Not a browser installation error - re-throw
+        throw error;
       }
     }
 
