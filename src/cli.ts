@@ -14,7 +14,7 @@
 import { CBrowser } from "./browser.js";
 
 // Analysis module imports
-import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport, runWebMCPReadyAudit, generateWebMCPReadyHtmlReport } from "./analysis/index.js";
+import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport, runWebMCPReadyAudit, generateWebMCPReadyHtmlReport, runAIReadinessBenchmark } from "./analysis/index.js";
 
 // Testing module imports
 import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestReport, dryRunNLTestSuite, repairTestSuite, formatRepairReport, exportRepairedTest, detectFlakyTests, formatFlakyTestReport, generateCoverageMap, formatCoverageReport, generateCoverageHtmlReport, type NLTestSuiteOptions, type RepairTestOptions, type FlakyTestOptions } from "./testing/index.js";
@@ -430,60 +430,77 @@ A/B VISUAL COMPARISON (v7.3.0)
       "options": { "sensitivity": "medium" }
     }
 
-ACCESSIBILITY (v2.5.0)
-  a11y audit                  Run WCAG accessibility audit
-    --url <url>               Navigate to URL first
-  a11y audit [url]            Audit a specific URL
+AI FRIENDLINESS - Audit sites for AI agent compatibility
+══════════════════════════════════════════════════════════════════════════════
 
-AGENT-READY AUDIT (v8.0.0)
-  agent-ready-audit <url>     Audit site for AI-agent friendliness
+  agent-ready-audit <url>     Audit site for AI-agent friendliness (A-F grade)
+    --headless                Run in headless mode (default: true)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
+    Grades sites on: Findability (35%), Stability (30%),
+                     Accessibility (20%), Semantics (15%)
     Examples:
       cbrowser agent-ready-audit "https://example.com"
       cbrowser agent-ready-audit "https://example.com" --html --output report.json
 
-COMPETITIVE UX BENCHMARK (v8.0.0)
-  competitive-benchmark       Compare UX across competitor sites
-    --sites <list>            Comma-separated site URLs (required)
-    --goal <goal>             Task goal (required)
-    --persona <name>          Persona to use (default: first-timer)
-    --max-steps <n>           Max steps per site (default: 30)
-    --max-time <sec>          Max time per site in seconds (default: 180)
+  ai-benchmark                Compare AI-friendliness across multiple sites
+    --urls <list>             Comma-separated URLs to benchmark (required)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
+    Runs agent-ready-audit on each URL and produces ranked comparison.
     Examples:
-      cbrowser competitive-benchmark \\
-        --sites "https://yoursite.com,https://competitor-a.com" \\
-        --goal "sign up for free trial" \\
-        --html
+      cbrowser ai-benchmark --urls "https://site1.com,https://site2.com,https://site3.com"
+      cbrowser ai-benchmark --urls "https://amazon.com,https://ebay.com" --html
 
-ACCESSIBILITY EMPATHY AUDIT (v8.0.0)
   empathy-audit <url>         Simulate disability experience on site
     --goal <goal>             Task goal (required)
-    --disabilities <list>     Disability personas (comma-separated)
+    --personas <list>         Disability personas (comma-separated)
     --wcag-level <level>      WCAG level: A, AA, AAA (default: AA)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
-    Available disability personas:
+    Available personas:
       motor-impairment-tremor, low-vision-magnified, cognitive-adhd,
       dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia
     Examples:
       cbrowser empathy-audit "https://example.com" \\
         --goal "complete checkout" \\
-        --disabilities "motor-impairment-tremor,low-vision-magnified" \\
-        --html
+        --personas "motor-impairment-tremor,cognitive-adhd" --html
 
-WEBMCP READINESS AUDIT (v18.15.0)
-  webmcp-ready <url>          Audit MCP server for Claude in Chrome compatibility
+  webmcp-ready <url>          Audit MCP server for WebMCP compatibility
     --api-key <key>           API key for authenticated servers
     --oauth-token <token>     OAuth token for OAuth-protected servers
-    --timeout <ms>            Request timeout in milliseconds (default: 30000)
+    --timeout <ms>            Request timeout (default: 30000)
+    --output <file>           Save JSON report to file
+    --html                    Generate HTML report
+    6-tier evaluation: Server (25%), Tools (20%), Instrumentation (15%),
+                       Consistency (15%), Agent Opts (15%), Docs (10%)
+    Examples:
+      cbrowser webmcp-ready "https://demo.cbrowser.ai/mcp"
+      cbrowser webmcp-ready "https://your-server.com/mcp" --api-key KEY --html
+
+  hunt-bugs <url>             Automatically find UX bugs on a page
+    --max-pages <n>           Max pages to crawl (default: 10)
+    --timeout <ms>            Timeout in ms (default: 60000)
+    Examples:
+      cbrowser hunt-bugs "https://example.com"
+
+  competitive-benchmark       Compare UX across competitor sites
+    --sites <list>            Comma-separated site URLs (required)
+    --goal <goal>             Task goal (required)
+    --persona <name>          Persona to use (default: first-timer)
+    --max-steps <n>           Max steps per site (default: 30)
+    --max-time <sec>          Max time per site (default: 180)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Examples:
-      cbrowser webmcp-ready "https://demo.cbrowser.ai/mcp"
-      cbrowser webmcp-ready "https://your-server.com/mcp" --api-key YOUR_KEY --html
+      cbrowser competitive-benchmark \\
+        --sites "https://yoursite.com,https://competitor.com" \\
+        --goal "sign up for free trial" --html
+
+ACCESSIBILITY (v2.5.0)
+  a11y audit                  Run WCAG accessibility audit
+    --url <url>               Navigate to URL first
+  a11y audit [url]            Audit a specific URL
 
 TEST RECORDING (v2.5.0)
   record start                Start recording interactions
@@ -4977,6 +4994,164 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (result.grade === "F") {
           process.exit(1);
         }
+        break;
+      }
+
+      case "ai-benchmark": {
+        const urlsOption = options.urls as string;
+        if (!urlsOption) {
+          console.error("Error: --urls required");
+          console.error("Usage: cbrowser ai-benchmark --urls <url1,url2,...> [--output <file>] [--html]");
+          process.exit(1);
+        }
+
+        const urls = urlsOption.split(",").map(u => u.trim());
+        if (urls.length < 2) {
+          console.error("Error: At least 2 URLs required for benchmark comparison");
+          process.exit(1);
+        }
+
+        console.log(`\n🏁 Running AI Readiness Benchmark on ${urls.length} sites...\n`);
+
+        const result = await runAIReadinessBenchmark({
+          urls,
+          headless: options.headless !== false,
+          maxConcurrency: options.concurrency ? parseInt(options.concurrency as string) : 3,
+        });
+
+        // Print ranking table
+        console.log(`╔══════════════════════════════════════════════════════════════════════════════╗`);
+        console.log(`║  AI Readiness Benchmark Results                                              ║`);
+        console.log(`╠══════════════════════════════════════════════════════════════════════════════╣`);
+        console.log(`║  Rank  Site                          Score   Grade   Find  Stab  A11y  Sem  ║`);
+        console.log(`╠══════════════════════════════════════════════════════════════════════════════╣`);
+
+        for (const site of result.sites) {
+          const rank = result.ranking.find(r => r.site === site.siteName)?.rank || "-";
+          const score = site.score !== null ? site.score.toString().padStart(3) : "ERR";
+          const grade = site.grade || "-";
+          const find = site.scoreBreakdown?.findability?.toString().padStart(3) || "-";
+          const stab = site.scoreBreakdown?.stability?.toString().padStart(3) || "-";
+          const a11y = site.scoreBreakdown?.accessibility?.toString().padStart(3) || "-";
+          const sem = site.scoreBreakdown?.semantics?.toString().padStart(3) || "-";
+          const siteName = site.siteName.substring(0, 32).padEnd(32);
+          console.log(`║  ${String(rank).padStart(2)}    ${siteName}  ${score}     ${grade.padEnd(2)}      ${find}   ${stab}   ${a11y}   ${sem}  ║`);
+        }
+
+        console.log(`╚══════════════════════════════════════════════════════════════════════════════╝`);
+        console.log(`\nDuration: ${result.duration}ms`);
+
+        // Print best-in-class
+        if (result.comparison.bestOverall) {
+          console.log(`\n🏆 Best Overall: ${result.comparison.bestOverall}`);
+        }
+        if (result.comparison.bestFindability) {
+          console.log(`🔍 Best Findability: ${result.comparison.bestFindability}`);
+        }
+        if (result.comparison.bestStability) {
+          console.log(`🔒 Best Stability: ${result.comparison.bestStability}`);
+        }
+        if (result.comparison.bestAccessibility) {
+          console.log(`♿ Best Accessibility: ${result.comparison.bestAccessibility}`);
+        }
+        if (result.comparison.bestSemantics) {
+          console.log(`📋 Best Semantics: ${result.comparison.bestSemantics}`);
+        }
+
+        // Print recommendations
+        if (result.recommendations.length > 0) {
+          console.log(`\n📝 Recommendations:`);
+          for (const rec of result.recommendations.slice(0, 5)) {
+            console.log(`  • ${rec}`);
+          }
+        }
+
+        // Save JSON output if requested
+        if (options.output) {
+          const fs = await import("fs");
+          fs.writeFileSync(options.output as string, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${options.output}`);
+        }
+
+        // Generate HTML report if requested
+        if (options.html) {
+          const fs = await import("fs");
+          const htmlPath = (options.output as string)?.replace(".json", ".html") || "ai-benchmark-report.html";
+
+          // Simple HTML table report
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Readiness Benchmark Report</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    h1 { color: #333; }
+    table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #f5f5f5; font-weight: 600; }
+    .grade-A { color: #22c55e; font-weight: bold; }
+    .grade-B { color: #84cc16; font-weight: bold; }
+    .grade-C { color: #eab308; font-weight: bold; }
+    .grade-D { color: #f97316; font-weight: bold; }
+    .grade-F { color: #ef4444; font-weight: bold; }
+    .best { background: #f0fdf4; }
+    .timestamp { color: #666; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <h1>🏁 AI Readiness Benchmark Report</h1>
+  <p class="timestamp">Generated: ${result.timestamp} | Duration: ${result.duration}ms</p>
+
+  <h2>Rankings</h2>
+  <table>
+    <thead>
+      <tr><th>Rank</th><th>Site</th><th>Score</th><th>Grade</th><th>Findability</th><th>Stability</th><th>Accessibility</th><th>Semantics</th></tr>
+    </thead>
+    <tbody>
+      ${result.sites.map(site => {
+        const rank = result.ranking.find(r => r.site === site.siteName)?.rank || "-";
+        const isBest = result.comparison.bestOverall === site.siteName;
+        return `<tr class="${isBest ? 'best' : ''}">
+          <td>${rank}</td>
+          <td>${site.siteName}</td>
+          <td>${site.score ?? 'ERR'}</td>
+          <td class="grade-${site.grade || 'F'}">${site.grade || '-'}</td>
+          <td>${site.scoreBreakdown?.findability ?? '-'}</td>
+          <td>${site.scoreBreakdown?.stability ?? '-'}</td>
+          <td>${site.scoreBreakdown?.accessibility ?? '-'}</td>
+          <td>${site.scoreBreakdown?.semantics ?? '-'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+
+  <h2>Best in Class</h2>
+  <ul>
+    ${result.comparison.bestOverall ? `<li>🏆 Overall: <strong>${result.comparison.bestOverall}</strong></li>` : ''}
+    ${result.comparison.bestFindability ? `<li>🔍 Findability: <strong>${result.comparison.bestFindability}</strong></li>` : ''}
+    ${result.comparison.bestStability ? `<li>🔒 Stability: <strong>${result.comparison.bestStability}</strong></li>` : ''}
+    ${result.comparison.bestAccessibility ? `<li>♿ Accessibility: <strong>${result.comparison.bestAccessibility}</strong></li>` : ''}
+    ${result.comparison.bestSemantics ? `<li>📋 Semantics: <strong>${result.comparison.bestSemantics}</strong></li>` : ''}
+  </ul>
+
+  ${result.recommendations.length > 0 ? `
+  <h2>Recommendations</h2>
+  <ul>
+    ${result.recommendations.map(r => `<li>${r}</li>`).join('')}
+  </ul>
+  ` : ''}
+
+  <footer style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ddd; color: #666; font-size: 0.875rem;">
+    Generated by <a href="https://cbrowser.ai">CBrowser</a> v${(await import("./version.js")).VERSION}
+  </footer>
+</body>
+</html>`;
+
+          fs.writeFileSync(htmlPath, html);
+          console.log(`🌐 HTML report saved: ${htmlPath}`);
+        }
+
         break;
       }
 
