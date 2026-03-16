@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * add launchBrowserWithFallback utility for MCPB context ([263e6c2](https://github.com/alexandriashai/cbrowser/commit/263e6c26d373a320baf894d1931e4b97d52e432e))
 * auto-install Playwright browsers on first run ([b756310](https://github.com/alexandriashai/cbrowser/commit/b75631036500654abe24340c6b13043103c920e2))
 * **lightpanda:** add high-performance headless browser integration ([0cd0253](https://github.com/alexandriashai/cbrowser/commit/0cd0253631d1516a1ac3e4c55d675b14d4c203e1))
+* **lightpanda:** add security guardrails for safe usage
+  - Make Lightpanda OPT-IN ONLY (requires explicit --lightpanda flag)
+  - Block sensitive operations (auth, login, payment, credentials)
+  - Add security warnings for cloud mode (data exposure to lightpanda.io)
+  - Show LIGHTPANDA_SECURITY_WARNING in status and setup commands
+  - Add isSensitiveOperation() function to detect unsafe operations
 * reorganize CLI with AI Friendliness section and add ai-benchmark ([0e12099](https://github.com/alexandriashai/cbrowser/commit/0e120990cb88d14f1c36948ea9fcbc4f0b5f2383))
 
 ## [18.20.0](https://github.com/alexandriashai/cbrowser/compare/v18.18.4...v18.20.0) (2026-03-16)
