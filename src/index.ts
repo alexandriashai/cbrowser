@@ -99,8 +99,9 @@ export type { ToolRegistrationContext } from "./mcp-tools/index.js";
 // Security module (v18.0.0) - Request signing and audit logging
 export * from "./security/index.js";
 
-// Lightpanda Integration (v18.19.0) - High-performance headless browser
+// Lightpanda Integration (v18.20.0) - High-performance headless browser
 // Uses CDP connection for 11x faster, 9x less memory headless browsing
+// ⚠️ SECURITY: Opt-in only, no security audit, never for sensitive ops
 export {
   connectToLightpanda,
   launchWithLightpandaFallback,
@@ -108,8 +109,10 @@ export {
   isLightpandaConfigured,
   shouldUseLightpanda,
   getLightpandaConfig,
+  isSensitiveOperation,
   LIGHTPANDA_SETUP_GUIDE,
+  LIGHTPANDA_SECURITY_WARNING,
   LIGHTPANDA_LOCAL_ENDPOINT,
   LIGHTPANDA_CLOUD_ENDPOINT,
 } from "./lightpanda.js";
-export type { LightpandaConfig, LightpandaConnectionResult } from "./lightpanda.js";
+export type { LightpandaConfig, LightpandaConnectionResult, SensitiveOperation } from "./lightpanda.js";

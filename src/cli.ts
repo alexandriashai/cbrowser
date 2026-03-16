@@ -48,11 +48,13 @@ import {
   isApiKeyConfigured,
 } from "./cognitive/index.js";
 
-// Lightpanda integration (v18.19.0)
+// Lightpanda integration (v18.20.0) - OPT-IN ONLY with security guardrails
 import {
   getLightpandaStatus,
   LIGHTPANDA_SETUP_GUIDE,
+  LIGHTPANDA_SECURITY_WARNING,
   isLightpandaConfigured,
+  isSensitiveOperation,
 } from "./lightpanda.js";
 
 // Version from package.json - single source of truth
@@ -635,17 +637,21 @@ API CONFIGURATION (v8.0.0)
   config remove-api-key       Remove stored API key
   config set-model <model>    Set Claude model (default: claude-sonnet-4-20250514)
 
-LIGHTPANDA (v18.19.0) - High-Performance Headless Browser
+LIGHTPANDA (v18.20.0) - High-Performance Headless Browser (OPT-IN ONLY)
   lightpanda-status           Check Lightpanda availability and configuration
-  lightpanda-setup            Show setup instructions for Lightpanda
-    Note: Lightpanda is 11x faster and uses 9x less memory than Chrome.
-          Set LIGHTPANDA_ENDPOINT or LIGHTPANDA_TOKEN to enable auto-use.
+  lightpanda-setup            Show setup instructions with security warnings
+    ⚠️ SECURITY NOTICE:
+      • Lightpanda is BETA software with no security audit
+      • Cloud mode exposes traffic to lightpanda.io servers
+      • NEVER use for auth, credentials, or payments
+      • Requires explicit --lightpanda flag (not automatic)
     Environment Variables:
       LIGHTPANDA_ENDPOINT     WebSocket endpoint (e.g., ws://127.0.0.1:9222)
-      LIGHTPANDA_TOKEN        Cloud API token (uses cloud.lightpanda.io)
+      LIGHTPANDA_TOKEN        Cloud API token (⚠️ data visible to lightpanda.io)
     Examples:
       cbrowser lightpanda-status
-      LIGHTPANDA_ENDPOINT=ws://127.0.0.1:9222 cbrowser screenshot https://example.com
+      cbrowser screenshot https://example.com --lightpanda
+      cbrowser agent-ready-audit https://example.com --lightpanda
 
 DIAGNOSTICS
   version, -v, --version      Show version number
@@ -4107,7 +4113,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       }
 
       // =========================================================================
-      // Lightpanda Integration (v18.19.0)
+      // Lightpanda Integration (v18.20.0) - OPT-IN ONLY
       // =========================================================================
 
       case "lightpanda-status": {
@@ -4119,16 +4125,27 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log("❌ Not configured");
           console.log("");
           console.log("To enable Lightpanda, set one of these environment variables:");
-          console.log("  LIGHTPANDA_ENDPOINT=ws://127.0.0.1:9222  (local)");
-          console.log("  LIGHTPANDA_TOKEN=your-api-token          (cloud)");
+          console.log("  LIGHTPANDA_ENDPOINT=ws://127.0.0.1:9222  (local, recommended)");
+          console.log("  LIGHTPANDA_TOKEN=your-api-token          (cloud, ⚠️ data exposure)");
           console.log("");
           console.log("Run 'cbrowser lightpanda-setup' for full setup instructions.");
         } else if (status.available) {
           console.log("✅ Available and connected");
           console.log(`   Endpoint: ${status.endpoint}`);
-          console.log(`   Mode: ${status.isCloud ? "Cloud (lightpanda.io)" : "Local"}`);
+          console.log(`   Mode: ${status.isCloud ? "Cloud ⚠️ (traffic via lightpanda.io)" : "Local (recommended)"}`);
           console.log("");
-          console.log("Lightpanda will be used automatically for headless chromium operations.");
+
+          // Show security warning for cloud mode
+          if (status.isCloud && status.securityWarning) {
+            console.log(status.securityWarning);
+            console.log("");
+          }
+
+          console.log("Usage (OPT-IN REQUIRED):");
+          console.log("  cbrowser screenshot https://example.com --lightpanda");
+          console.log("  cbrowser agent-ready-audit https://example.com --lightpanda");
+          console.log("");
+          console.log("Note: Lightpanda is NOT used automatically. The --lightpanda flag is required.");
         } else {
           console.log("⚠️  Configured but unavailable");
           console.log(`   Endpoint: ${status.endpoint}`);
@@ -4141,6 +4158,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log("Check your API token and network connection.");
           }
         }
+
+        // Always show security notice
+        console.log("");
+        console.log(LIGHTPANDA_SECURITY_WARNING);
         break;
       }
 
