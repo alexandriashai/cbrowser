@@ -1,7 +1,7 @@
 ---
 name: CBrowser
 description: Cognitive browser automation with 91 MCP tools. AI-friendliness audits, persona testing, empathy audits, WebMCP readiness. USE WHEN browser automation, screenshot, agent-ready audit, ai-benchmark, empathy audit, webmcp-ready, hunt bugs, cognitive journey, persona comparison, visual regression, cross-browser test.
-version: 18.18.4
+version: 18.20.0
 compatibility:
   min_claude_code: "1.0.0"
   features: ["mcp_servers"]
@@ -195,6 +195,7 @@ Download and install: [cbrowser-18.18.4.mcpb](https://github.com/alexandriashai/
 
 | Version | Features |
 |---------|----------|
+| v18.20.0 | Lightpanda integration for high-performance headless browsing |
 | v18.18.4 | Browser auto-install fallback for MCPB context |
 | v18.18.3 | WebMCP readiness audit, llms.txt endpoint |
 | v18.15.0 | AI Friendliness tools, competitive benchmark |

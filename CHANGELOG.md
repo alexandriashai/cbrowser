@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.20.0](https://github.com/alexandriashai/cbrowser/compare/v18.18.4...v18.20.0) (2026-03-16)
+
+### Added
+
+* **lightpanda:** Lightpanda integration for high-performance headless browsing
+  - 11x faster and 9x less memory than Chrome headless
+  - CDP-based connection via Playwright
+  - Auto-detection when LIGHTPANDA_ENDPOINT or LIGHTPANDA_TOKEN is set
+  - New CLI commands: `lightpanda-status`, `lightpanda-setup`
+  - New exports: `connectToLightpanda`, `launchWithLightpandaFallback`, `getLightpandaStatus`
+  - Ideal for agent-ready audits, empathy audits, and batch operations
+
 ## [18.18.4](https://github.com/alexandriashai/cbrowser/compare/v18.18.3...v18.18.4) (2026-03-08)
 
 ## [18.18.3](https://github.com/alexandriashai/cbrowser/compare/v18.18.2...v18.18.3) (2026-03-08)

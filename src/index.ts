@@ -98,3 +98,18 @@ export type { ToolRegistrationContext } from "./mcp-tools/index.js";
 
 // Security module (v18.0.0) - Request signing and audit logging
 export * from "./security/index.js";
+
+// Lightpanda Integration (v18.19.0) - High-performance headless browser
+// Uses CDP connection for 11x faster, 9x less memory headless browsing
+export {
+  connectToLightpanda,
+  launchWithLightpandaFallback,
+  getLightpandaStatus,
+  isLightpandaConfigured,
+  shouldUseLightpanda,
+  getLightpandaConfig,
+  LIGHTPANDA_SETUP_GUIDE,
+  LIGHTPANDA_LOCAL_ENDPOINT,
+  LIGHTPANDA_CLOUD_ENDPOINT,
+} from "./lightpanda.js";
+export type { LightpandaConfig, LightpandaConnectionResult } from "./lightpanda.js";

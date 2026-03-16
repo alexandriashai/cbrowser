@@ -48,6 +48,13 @@ import {
   isApiKeyConfigured,
 } from "./cognitive/index.js";
 
+// Lightpanda integration (v18.19.0)
+import {
+  getLightpandaStatus,
+  LIGHTPANDA_SETUP_GUIDE,
+  isLightpandaConfigured,
+} from "./lightpanda.js";
+
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
 
@@ -627,6 +634,18 @@ API CONFIGURATION (v8.0.0)
   config show-api-key         Show configured API key (masked)
   config remove-api-key       Remove stored API key
   config set-model <model>    Set Claude model (default: claude-sonnet-4-20250514)
+
+LIGHTPANDA (v18.19.0) - High-Performance Headless Browser
+  lightpanda-status           Check Lightpanda availability and configuration
+  lightpanda-setup            Show setup instructions for Lightpanda
+    Note: Lightpanda is 11x faster and uses 9x less memory than Chrome.
+          Set LIGHTPANDA_ENDPOINT or LIGHTPANDA_TOKEN to enable auto-use.
+    Environment Variables:
+      LIGHTPANDA_ENDPOINT     WebSocket endpoint (e.g., ws://127.0.0.1:9222)
+      LIGHTPANDA_TOKEN        Cloud API token (uses cloud.lightpanda.io)
+    Examples:
+      cbrowser lightpanda-status
+      LIGHTPANDA_ENDPOINT=ws://127.0.0.1:9222 cbrowser screenshot https://example.com
 
 DIAGNOSTICS
   version, -v, --version      Show version number
@@ -4084,6 +4103,49 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "reset": {
         await browser.reset();
         console.log("✓ Browser state reset (cookies, localStorage cleared)");
+        break;
+      }
+
+      // =========================================================================
+      // Lightpanda Integration (v18.19.0)
+      // =========================================================================
+
+      case "lightpanda-status": {
+        console.log("\n🐼 Lightpanda Status\n");
+
+        const status = await getLightpandaStatus();
+
+        if (!status.configured) {
+          console.log("❌ Not configured");
+          console.log("");
+          console.log("To enable Lightpanda, set one of these environment variables:");
+          console.log("  LIGHTPANDA_ENDPOINT=ws://127.0.0.1:9222  (local)");
+          console.log("  LIGHTPANDA_TOKEN=your-api-token          (cloud)");
+          console.log("");
+          console.log("Run 'cbrowser lightpanda-setup' for full setup instructions.");
+        } else if (status.available) {
+          console.log("✅ Available and connected");
+          console.log(`   Endpoint: ${status.endpoint}`);
+          console.log(`   Mode: ${status.isCloud ? "Cloud (lightpanda.io)" : "Local"}`);
+          console.log("");
+          console.log("Lightpanda will be used automatically for headless chromium operations.");
+        } else {
+          console.log("⚠️  Configured but unavailable");
+          console.log(`   Endpoint: ${status.endpoint}`);
+          console.log(`   Error: ${status.error}`);
+          console.log("");
+          if (!status.isCloud) {
+            console.log("Make sure Lightpanda is running:");
+            console.log("  docker run -d -p 9222:9222 lightpanda/browser:nightly");
+          } else {
+            console.log("Check your API token and network connection.");
+          }
+        }
+        break;
+      }
+
+      case "lightpanda-setup": {
+        console.log(LIGHTPANDA_SETUP_GUIDE);
         break;
       }
 
