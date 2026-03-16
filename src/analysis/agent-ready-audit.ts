@@ -14,6 +14,7 @@
 
 import { chromium, type Page, type Browser } from "playwright";
 import { launchBrowserWithFallback } from "../browser.js";
+import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
 import type {
   AgentReadyAuditResult,
   AgentReadyIssue,
@@ -1614,7 +1615,20 @@ export async function runAgentReadyAudit(
 
   const auditPromise = async (): Promise<AgentReadyAuditResult> => {
     try {
-      browser = await launchBrowserWithFallback(chromium, { headless: options.headless ?? true });
+      // Use Lightpanda if explicitly requested and configured
+      if (options.useLightpanda && isLightpandaConfigured()) {
+        const result = await launchWithLightpandaFallback({
+          headless: true,
+          explicitOptIn: true,
+          operation: "agent-ready-audit",
+        });
+        browser = result.browser;
+        if (result.isLightpanda) {
+          console.log("🐼 Using Lightpanda for audit (11x faster)");
+        }
+      } else {
+        browser = await launchBrowserWithFallback(chromium, { headless: options.headless ?? true });
+      }
       const context = await browser.newContext({
         viewport: { width: 1920, height: 1080 },
       });

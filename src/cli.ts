@@ -5043,14 +5043,22 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const url = args[0];
         if (!url) {
           console.error("Error: URL required");
-          console.error("Usage: cbrowser agent-ready-audit <url> [--html] [--output <file>]");
+          console.error("Usage: cbrowser agent-ready-audit <url> [--html] [--output <file>] [--lightpanda]");
           process.exit(1);
         }
 
-        console.log(`\n🤖 Running Agent-Ready Audit on ${url}...\n`);
+        const useLightpanda = options.lightpanda === true;
+        if (useLightpanda && !isLightpandaConfigured()) {
+          console.error("Error: --lightpanda flag requires LIGHTPANDA_ENDPOINT or LIGHTPANDA_TOKEN to be set");
+          console.error("Run 'cbrowser lightpanda-setup' for instructions.");
+          process.exit(1);
+        }
+
+        console.log(`\n🤖 Running Agent-Ready Audit on ${url}...${useLightpanda ? " (with Lightpanda)" : ""}\n`);
 
         const result = await runAgentReadyAudit(url, {
           headless,
+          useLightpanda,
         });
 
         // Print formatted report

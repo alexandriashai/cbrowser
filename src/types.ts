@@ -4485,6 +4485,8 @@ export interface AgentReadyAuditOptions {
   timeout?: number;
   /** Navigation timeout in milliseconds (default: 30000) */
   navigationTimeout?: number;
+  /** Use Lightpanda for high-performance headless browsing (opt-in, beta) */
+  useLightpanda?: boolean;
 }
 
 // ============================================================================
