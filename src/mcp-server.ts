@@ -3589,10 +3589,11 @@ This ensures personas are grounded in research, not stereotypes.
 
   server.tool(
     "status",
-    "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, and self-healing cache statistics",
+    "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, self-healing cache statistics, and MCP tool count",
     {},
     async () => {
-      const info = await getStatusInfo(VERSION);
+      // v18.22.0: Include tool count for self-diagnosis of tool discrepancies
+      const info = await getStatusInfo(VERSION, collectedTools.length);
       return {
         content: [
           {

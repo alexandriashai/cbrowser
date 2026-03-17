@@ -134,6 +134,120 @@ export function isBuiltinPersona(name: string): boolean {
 }
 
 // ============================================================================
+// Persona Validation & Cleanup (v18.22.0)
+// ============================================================================
+
+/**
+ * Known test artifact patterns that should be cleaned up.
+ */
+const TEST_ARTIFACT_PATTERNS = [
+  /^test-/i,
+  /^debug-/i,
+  /^temp-/i,
+  /multitasker/i,
+];
+
+/**
+ * Inappropriate content patterns (basic check).
+ */
+const INAPPROPRIATE_PATTERNS = [
+  /escort/i,
+  /adult\s*(content|entertainment|services)/i,
+];
+
+/**
+ * Check if a persona is invalid and should be filtered out.
+ *
+ * Detects:
+ * - Test artifacts (test-*, multitasker)
+ * - Personas with blank/default descriptions (just the slug name)
+ * - Personas with all traits at 0.5 (unset defaults)
+ * - Personas with inappropriate content
+ *
+ * @since 18.22.0
+ */
+export function isInvalidPersona(persona: Persona): { invalid: boolean; reason?: string } {
+  // Check for test artifact names
+  for (const pattern of TEST_ARTIFACT_PATTERNS) {
+    if (pattern.test(persona.name)) {
+      return { invalid: true, reason: `Test artifact pattern: ${persona.name}` };
+    }
+  }
+
+  // Check for blank description (matches the name exactly, or is generic)
+  const normalizedName = persona.name.toLowerCase().replace(/[-_]/g, "");
+  const normalizedDesc = (persona.description || "").toLowerCase().replace(/[-_]/g, "").trim();
+
+  if (!normalizedDesc || normalizedDesc === normalizedName || normalizedDesc === "custom persona") {
+    return { invalid: true, reason: "Blank or default description" };
+  }
+
+  // Check for inappropriate content in description
+  for (const pattern of INAPPROPRIATE_PATTERNS) {
+    if (pattern.test(persona.description || "")) {
+      return { invalid: true, reason: "Inappropriate content in description" };
+    }
+  }
+
+  // Check for all traits at 0.5 (default/unset) - suggests incomplete persona
+  if (persona.cognitiveTraits) {
+    const traits = persona.cognitiveTraits;
+    const traitValues = Object.values(traits).filter(v => typeof v === "number") as number[];
+    if (traitValues.length >= 5) {
+      const allDefault = traitValues.every(v => v === 0.5);
+      if (allDefault) {
+        return { invalid: true, reason: "All traits at default 0.5 (incomplete persona)" };
+      }
+    }
+  }
+
+  return { invalid: false };
+}
+
+/**
+ * Clean up invalid custom personas from disk.
+ *
+ * Returns the list of personas that were removed.
+ *
+ * @since 18.22.0
+ */
+export function cleanupInvalidPersonas(): Array<{ name: string; reason: string }> {
+  const customPersonas = loadCustomPersonas();
+  const removed: Array<{ name: string; reason: string }> = [];
+
+  for (const [name, persona] of Object.entries(customPersonas)) {
+    const { invalid, reason } = isInvalidPersona(persona);
+    if (invalid && reason) {
+      const deleted = deleteCustomPersona(name);
+      if (deleted) {
+        removed.push({ name, reason });
+      }
+    }
+  }
+
+  return removed;
+}
+
+/**
+ * List invalid custom personas without removing them (dry run).
+ *
+ * @since 18.22.0
+ */
+export function listInvalidPersonas(): Array<{ name: string; reason: string }> {
+  const customPersonas = loadCustomPersonas();
+  const invalid: Array<{ name: string; reason: string }> = [];
+
+  for (const [name, persona] of Object.entries(customPersonas)) {
+    const result = isInvalidPersona(persona);
+    if (result.invalid && result.reason) {
+      invalid.push({ name, reason: result.reason });
+    }
+  }
+
+  return invalid;
+}
+
+// ============================================================================
 // AI Persona Generation
 // ============================================================================
 

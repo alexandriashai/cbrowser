@@ -15,14 +15,15 @@ import { VERSION } from "../../version.js";
  */
 export function registerBrowserManagementTools(
   server: McpServer,
-  { getBrowser }: ToolRegistrationContext
+  { getBrowser, getToolCount }: ToolRegistrationContext
 ): void {
   server.tool(
     "status",
-    "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, and self-healing cache statistics",
+    "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, self-healing cache statistics, and MCP tool count",
     {},
     async () => {
-      const info = await getStatusInfo(VERSION);
+      const toolCount = getToolCount?.();
+      const info = await getStatusInfo(VERSION, toolCount);
       return {
         content: [
           {

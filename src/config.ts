@@ -498,6 +498,8 @@ export interface StatusInfo {
   suggestions: string[];
   /** Number of active screenshot sessions */
   screenshotSessions: number;
+  /** Number of registered MCP tools (v18.22.0, optional - only present when running as MCP server) */
+  toolCount?: number;
 }
 
 function countFiles(dir: string, ext?: string): number {
@@ -583,8 +585,10 @@ function countScreenshotSessions(baseDir: string): { sessions: number; files: nu
 
 /**
  * Gather environment status info for diagnostics.
+ * @param version CBrowser version string
+ * @param toolCount Optional number of registered MCP tools (v18.22.0)
  */
-export async function getStatusInfo(version: string): Promise<StatusInfo> {
+export async function getStatusInfo(version: string, toolCount?: number): Promise<StatusInfo> {
   const paths = getPaths();
   const config = getDefaultConfig();
 
@@ -675,6 +679,7 @@ export async function getStatusInfo(version: string): Promise<StatusInfo> {
     recordings,
     suggestions,
     screenshotSessions: screenshotStats.sessions,
+    ...(toolCount !== undefined && { toolCount }),
   };
 }
 
@@ -737,7 +742,12 @@ export function formatStatus(info: StatusInfo): string {
 
   // MCP
   lines.push("🔌 MCP Server:");
-  lines.push("   └── Ready to start: npx cbrowser mcp-server");
+  if (info.toolCount !== undefined) {
+    lines.push(`   ├── Tool count:    ${info.toolCount}`);
+    lines.push("   └── Status:        Running");
+  } else {
+    lines.push("   └── Ready to start: npx cbrowser mcp-server");
+  }
   lines.push("");
 
   // Suggestions

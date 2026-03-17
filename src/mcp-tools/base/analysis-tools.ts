@@ -105,6 +105,10 @@ export function registerAnalysisTools(
         maxConcurrency: 3,
       });
 
+      // Calculate audit success/failure counts for summary
+      const successCount = result.sites.filter((s) => s.auditStatus === "complete").length;
+      const failedCount = result.sites.filter((s) => s.auditStatus === "failed").length;
+
       return {
         content: [
           {
@@ -114,11 +118,14 @@ export function registerAnalysisTools(
                 timestamp: result.timestamp,
                 duration: `${(result.duration / 1000).toFixed(1)}s`,
                 sitesAnalyzed: result.sites.length,
+                sitesSucceeded: successCount,
+                sitesFailed: failedCount,
                 ranking: result.ranking.map((r) => ({
                   rank: r.rank,
                   site: r.site,
                   grade: r.grade,
                   score: r.score,
+                  auditStatus: r.auditStatus,
                 })),
                 comparison: {
                   bestOverall: result.comparison.bestOverall,
@@ -144,6 +151,14 @@ export function registerAnalysisTools(
                   strengths: s.strengths,
                   weaknesses: s.weaknesses,
                   topIssues: s.topIssues,
+                  // Include failure details for transparency (v18.22.0)
+                  auditStatus: s.auditStatus,
+                  ...(s.auditStatus === "failed" && {
+                    failureCategory: s.failureCategory,
+                    failureDetails: s.failureDetails,
+                    suggestion: s.suggestion,
+                    retryAttempts: s.retryAttempts,
+                  }),
                 })),
               },
               null,

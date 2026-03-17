@@ -2197,13 +2197,48 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             break;
           }
 
+          case "cleanup": {
+            // Import the cleanup functions
+            const { listInvalidPersonas, cleanupInvalidPersonas } = await import("./personas.js");
+
+            const dryRun = options["dry-run"] === true;
+
+            if (dryRun) {
+              const invalid = listInvalidPersonas();
+              if (invalid.length === 0) {
+                console.log("✓ No invalid personas found.");
+              } else {
+                console.log(`\n⚠️  Found ${invalid.length} invalid persona(s):\n`);
+                for (const { name, reason } of invalid) {
+                  console.log(`  • ${name}`);
+                  console.log(`    Reason: ${reason}`);
+                }
+                console.log("\nRun 'cbrowser persona cleanup' (without --dry-run) to remove them.");
+              }
+            } else {
+              const removed = cleanupInvalidPersonas();
+              if (removed.length === 0) {
+                console.log("✓ No invalid personas found.");
+              } else {
+                console.log(`\n🧹 Removed ${removed.length} invalid persona(s):\n`);
+                for (const { name, reason } of removed) {
+                  console.log(`  ✗ ${name}`);
+                  console.log(`    Reason: ${reason}`);
+                }
+              }
+            }
+            break;
+          }
+
           default:
-            console.error("Usage: cbrowser persona [list|create|show|delete|export|import]");
+            console.error("Usage: cbrowser persona [list|create|show|delete|export|import|cleanup]");
             console.error("\nExamples:");
             console.error("  cbrowser persona list");
             console.error("  cbrowser persona create \"impatient developer\" --name dev-persona");
             console.error("  cbrowser persona show power-user");
             console.error("  cbrowser persona delete my-custom-persona");
+            console.error("  cbrowser persona cleanup --dry-run    # Preview invalid personas");
+            console.error("  cbrowser persona cleanup              # Remove invalid personas");
         }
         break;
       }
