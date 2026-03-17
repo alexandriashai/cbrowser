@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.23.0](https://github.com/alexandriashai/cbrowser/compare/v18.21.0...v18.23.0) (2026-03-17)
+
+### Added
+
+* improve audit transparency and add persona cleanup (v18.22.0) ([cde443c](https://github.com/alexandriashai/cbrowser/commit/cde443cf8c5801d4bbf3c1b90adc0a0c5bd109c1))
+* **lightpanda:** add --lightpanda flag to agent-ready-audit ([ecefe21](https://github.com/alexandriashai/cbrowser/commit/ecefe21956e7a7b0796e69016c7b3a06c121b04d))
+* **lightpanda:** add security guardrails for safe usage ([0efa46e](https://github.com/alexandriashai/cbrowser/commit/0efa46ef051fefff62b005f7a608b017d88e1cf6))
+
 ## [18.21.0](https://github.com/alexandriashai/cbrowser/compare/v18.18.4...v18.21.0) (2026-03-16)
 
 ### Added
