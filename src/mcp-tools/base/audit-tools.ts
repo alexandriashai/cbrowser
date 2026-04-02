@@ -126,6 +126,13 @@ export function registerAuditTools(server: McpServer): void {
               disabilityType: r.disabilityType,
               goalAchieved: r.goalAchieved,
               empathyScore: r.empathyScore,
+              // v18.22.0: Added score context for transparency
+              scoreContext: r.scoreContext ? {
+                explanation: r.scoreContext.explanation,
+                deductionsByType: r.scoreContext.deductionsByType,
+                frictionDeduction: r.scoreContext.frictionDeduction,
+                goalDeduction: r.scoreContext.goalDeduction,
+              } : undefined,
               barrierTypeCount: uniqueTypes.size,
               barrierTypes: Array.from(uniqueTypes),
               affectedElements: r.barriers.length,

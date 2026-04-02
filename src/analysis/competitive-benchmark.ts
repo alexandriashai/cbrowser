@@ -1550,8 +1550,13 @@ export async function runAIReadinessBenchmark(
         const auditStartTime = Date.now();
 
         // Retry with exponential backoff
+        // v18.22.0: Enable SPA mode and user agent rotation for bot detection hardening
         const retryResult = await withRetry(
-          () => runAgentReadyAudit(url, { headless }),
+          () => runAgentReadyAudit(url, {
+            headless,
+            spaMode: true,
+            useRandomUserAgent: true,
+          }),
           { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 10000 }
         );
 

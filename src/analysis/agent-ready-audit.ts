@@ -1596,6 +1596,139 @@ export function generateAgentReadyHtmlReport(result: AgentReadyAuditResult): str
 }
 
 // ============================================================================
+// SPA Hydration Detection (v18.22.0)
+// ============================================================================
+
+/**
+ * Detected SPA framework
+ */
+type SpaFramework = "react" | "vue" | "angular" | "svelte" | "next" | "nuxt" | "unknown";
+
+/**
+ * Detect which SPA framework a page uses
+ */
+async function detectSpaFramework(page: import("playwright").Page): Promise<SpaFramework> {
+  return page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+
+    // React detection
+    if (
+      win.__REACT_DEVTOOLS_GLOBAL_HOOK__ ||
+      document.querySelector("[data-reactroot]") ||
+      document.querySelector("[data-react-helmet]") ||
+      document.getElementById("__next") // Next.js
+    ) {
+      return document.getElementById("__next") ? "next" : "react";
+    }
+
+    // Vue detection
+    if (
+      win.__VUE__ ||
+      document.querySelector("[data-v-]") ||
+      document.getElementById("__nuxt") // Nuxt
+    ) {
+      return document.getElementById("__nuxt") ? "nuxt" : "vue";
+    }
+
+    // Angular detection
+    if (
+      win.ng ||
+      document.querySelector("[ng-version]") ||
+      document.querySelector("app-root")
+    ) {
+      return "angular";
+    }
+
+    // Svelte detection
+    if (document.querySelector("[class^='svelte-']")) {
+      return "svelte";
+    }
+
+    return "unknown";
+  });
+}
+
+/**
+ * Wait for SPA framework to hydrate and render dynamic content
+ */
+async function waitForSpaHydration(
+  page: import("playwright").Page,
+  options: { timeout?: number } = {}
+): Promise<{ framework: SpaFramework; hydrationTime: number }> {
+  const startTime = Date.now();
+  const timeout = options.timeout ?? 5000;
+
+  const framework = await detectSpaFramework(page);
+
+  // Framework-specific hydration wait strategies
+  try {
+    switch (framework) {
+      case "react":
+      case "next":
+        // Wait for React to finish rendering (no pending state updates)
+        await page.waitForFunction(
+          () => {
+            // Check for loading indicators
+            const loadingElements = document.querySelectorAll(
+              '[class*="loading"], [class*="skeleton"], [class*="spinner"], [aria-busy="true"]'
+            );
+            return loadingElements.length === 0;
+          },
+          { timeout }
+        );
+        break;
+
+      case "vue":
+      case "nuxt":
+        // Wait for Vue to finish hydration
+        await page.waitForFunction(
+          () => {
+            // Vue adds data-v- attributes after hydration
+            const hydratedElements = document.querySelectorAll("[data-v-]");
+            // Also check for loading states
+            const loadingElements = document.querySelectorAll(
+              '[class*="loading"], [class*="skeleton"], [aria-busy="true"]'
+            );
+            return hydratedElements.length > 0 && loadingElements.length === 0;
+          },
+          { timeout }
+        );
+        break;
+
+      case "angular":
+        // Wait for Angular to stabilize
+        await page.waitForFunction(
+          () => {
+            // Angular removes ng-pending after hydration
+            const pending = document.querySelector("[ng-pending]");
+            return !pending;
+          },
+          { timeout }
+        );
+        break;
+
+      default:
+        // Generic SPA wait - wait for no network activity and no loading indicators
+        await page.waitForLoadState("networkidle", { timeout }).catch(() => {
+          // If networkidle times out, continue anyway
+        });
+    }
+  } catch {
+    // If framework-specific wait times out, fall back to basic wait
+    await page.waitForTimeout(Math.min(2000, timeout));
+  }
+
+  // Additional wait for dynamic content that might load after initial hydration
+  await page.waitForTimeout(500);
+
+  return {
+    framework,
+    hydrationTime: Date.now() - startTime,
+  };
+}
+
+// ============================================================================
 // Main Audit Function
 // ============================================================================
 
@@ -1629,8 +1762,26 @@ export async function runAgentReadyAudit(
       } else {
         browser = await launchBrowserWithFallback(chromium, { headless: options.headless ?? true });
       }
+
+      // v18.22.0: User agent rotation for bot detection hardening
+      const userAgents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      ];
+      const selectedUserAgent = options.useRandomUserAgent
+        ? userAgents[Math.floor(Math.random() * userAgents.length)]
+        : undefined;
+
+      // v18.22.0: Slight viewport variation to avoid detection
+      const viewportJitter = options.useRandomUserAgent
+        ? { width: 1920 + Math.floor(Math.random() * 40) - 20, height: 1080 + Math.floor(Math.random() * 40) - 20 }
+        : { width: 1920, height: 1080 };
+
       const context = await browser.newContext({
-        viewport: { width: 1920, height: 1080 },
+        viewport: viewportJitter,
+        ...(selectedUserAgent && { userAgent: selectedUserAgent }),
       });
       const page = await context.newPage();
 
@@ -1638,8 +1789,13 @@ export async function runAgentReadyAudit(
       // networkidle can hang on sites with continuous network activity
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: navigationTimeout });
 
-      // Brief wait for initial JS execution (reduced from 2s)
-      await page.waitForTimeout(1000);
+      // v18.22.0: SPA mode - detect framework and wait for hydration
+      if (options.spaMode) {
+        await waitForSpaHydration(page, { timeout: 5000 });
+      } else {
+        // Brief wait for initial JS execution (reduced from 2s)
+        await page.waitForTimeout(1000);
+      }
 
     // Initialize detection context
     const issues: AgentReadyIssue[] = [];

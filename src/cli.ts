@@ -99,6 +99,7 @@ function showHelp(): void {
 NAVIGATION
   navigate <url>              Navigate and take screenshot
   screenshot [path]           Take screenshot of current page
+    --no-restore                Don't reload saved URL (capture current state after interactions)
 
 INTERACTION
   click <selector>            Click element (tries text, label, role, CSS)
@@ -677,6 +678,7 @@ OPTIONS
   --force                     Bypass red zone safety checks
   --headless                  Run browser in headless mode
   --no-persistent             Disable persistent browser context (default: enabled)
+  --no-restore                Skip session URL restoration (preserves page state after interactions)
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
@@ -1400,6 +1402,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   // Default to headless for CLI usage, unless explicitly set to false
   const headless = options.headless !== false && options.headless !== "false";
 
+  // --no-restore: skip session URL restoration (preserves page state after interactions)
+  const skipRestore = options.restore === false || options.restore === "false";
+
   const browser = new CBrowser({
     browser: browserType,
     headless,
@@ -1409,6 +1414,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     timezone: options.timezone as string,
     recordVideo: options["record-video"] === true,
     persistent: persistentMode,
+    skipSessionRestore: skipRestore,
     verbose: true,
   });
 

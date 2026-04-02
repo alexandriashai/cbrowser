@@ -189,6 +189,32 @@ Sessions are automatically cleaned up:
 
 ---
 
+## Preserving Page State (`--no-restore`)
+
+By default, each CLI command restores the last saved URL by navigating to it. This resets SPA state — open modals, dialogs, dropdowns, and form inputs are lost.
+
+Use `--no-restore` to skip URL restoration and capture the page in its current state:
+
+```bash
+# Step 1: Navigate and interact
+npx cbrowser click "[data-testid='search-trigger']" --url "https://cbrowser.ai"
+
+# Step 2: Capture the current state (dialog still open)
+npx cbrowser screenshot --no-restore --output /tmp/dialog-open.png
+```
+
+**When to use `--no-restore`:**
+- Screenshotting after clicking a button (modal/dialog open)
+- Capturing form state mid-fill
+- Visual regression of specific UI states
+- Documenting interactive elements in their active state
+
+**When NOT to use it:**
+- First command in a session (no prior state to preserve)
+- After a browser crash or reset
+
+---
+
 ## Troubleshooting
 
 ### Session Won't Load

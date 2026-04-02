@@ -1203,8 +1203,12 @@ async function simulateAccessibilityJourney(
     });
   }
 
-  // Calculate empathy score
-  const empathyScore = calculateEmpathyScore(ctx.barriers, ctx.frictionPoints, goalAchieved);
+  // Calculate empathy score with context (v18.22.0)
+  const { score: empathyScore, context: scoreContext } = calculateEmpathyScoreWithContext(
+    ctx.barriers,
+    ctx.frictionPoints,
+    goalAchieved
+  );
 
   // Generate remediation priorities
   const remediationPriority = generateRemediationPriority(ctx.barriers);
@@ -1219,6 +1223,7 @@ async function simulateAccessibilityJourney(
     wcagViolations: Array.from(ctx.wcagViolations),
     remediationPriority,
     empathyScore,
+    scoreContext, // v18.22.0: Added score breakdown
     duration: Date.now() - startTime,
     finalEmotionalState,
     emotionalEvents,
@@ -1235,7 +1240,16 @@ function getDisabilityType(persona: AccessibilityPersona): string {
 }
 
 /**
+ * Score calculation result with context (v18.22.0)
+ */
+interface ScoreResult {
+  score: number;
+  context: import("../types.js").EmpathyScoreContext;
+}
+
+/**
  * v11.10.0: Improved scoring with deduplication and capped deductions (issue #86)
+ * v18.22.0: Added score context for transparency
  *
  * Previous issues:
  * - 10 small touch targets = -30 to -200 points (too harsh)
@@ -1247,12 +1261,14 @@ function getDisabilityType(persona: AccessibilityPersona): string {
  * - Scale by unique issues, not total element count
  * - Base score on accessibility, not just barrier count
  */
-function calculateEmpathyScore(
+function calculateEmpathyScoreWithContext(
   barriers: AccessibilityBarrier[],
   frictionPoints: AccessibilityFrictionPoint[],
   goalAchieved: boolean
-): number {
-  let score = 100;
+): ScoreResult {
+  const baseScore = 100;
+  let score = baseScore;
+  const deductionsByType: Record<string, number> = {};
 
   // v11.10.0: Group barriers by type to avoid over-penalizing repeated issues
   const barriersByType = new Map<AccessibilityBarrierType, AccessibilityBarrier[]>();
@@ -1264,6 +1280,7 @@ function calculateEmpathyScore(
 
   // Deduct per barrier TYPE with caps
   // Max deduction per type: critical=25, major=15, minor=8
+  let totalBarrierDeduction = 0;
   for (const [type, typeBarriers] of barriersByType) {
     const criticalCount = typeBarriers.filter(b => b.severity === "critical").length;
     const majorCount = typeBarriers.filter(b => b.severity === "major").length;
@@ -1274,22 +1291,29 @@ function calculateEmpathyScore(
     const majorDeduct = Math.min(15, majorCount > 0 ? 8 + Math.min(majorCount - 1, 2) * 3 : 0);
     const minorDeduct = Math.min(8, minorCount > 0 ? 3 + Math.min(minorCount - 1, 3) * 1.5 : 0);
 
-    score -= criticalDeduct + majorDeduct + minorDeduct;
+    const typeDeduction = criticalDeduct + majorDeduct + minorDeduct;
+    if (typeDeduction > 0) {
+      deductionsByType[type] = -typeDeduction;
+      totalBarrierDeduction += typeDeduction;
+    }
+    score -= typeDeduction;
   }
 
   // Deduct for friction points (capped at 25 total)
-  let frictionDeduct = 0;
+  let rawFrictionDeduct = 0;
   for (const fp of frictionPoints) {
     switch (fp.impact) {
-      case "high": frictionDeduct += 8; break;
-      case "medium": frictionDeduct += 4; break;
-      case "low": frictionDeduct += 2; break;
+      case "high": rawFrictionDeduct += 8; break;
+      case "medium": rawFrictionDeduct += 4; break;
+      case "low": rawFrictionDeduct += 2; break;
     }
   }
-  score -= Math.min(25, frictionDeduct);
+  const frictionDeduction = Math.min(25, rawFrictionDeduct);
+  score -= frictionDeduction;
 
   // Goal achievement affects score but doesn't zero it
   // v11.10.0: Reduced penalty, page can still be partially accessible
+  const goalDeduction = goalAchieved ? 0 : 15;
   if (!goalAchieved) score -= 15;
 
   // Ensure minimum score of 10 if there are any working elements
@@ -1299,7 +1323,51 @@ function calculateEmpathyScore(
     score = 10;
   }
 
-  return Math.max(0, Math.round(score));
+  const finalScore = Math.max(0, Math.round(score));
+
+  // Generate human-readable explanation
+  const explanationParts: string[] = [];
+  if (Object.keys(deductionsByType).length > 0) {
+    const topDeductions = Object.entries(deductionsByType)
+      .sort(([, a], [, b]) => a - b) // Most negative first
+      .slice(0, 3)
+      .map(([type, deduction]) => `${type.replace(/_/g, " ")} (${deduction})`)
+      .join(", ");
+    explanationParts.push(`Main barrier deductions: ${topDeductions}`);
+  }
+  if (frictionDeduction > 0) {
+    explanationParts.push(`Friction deduction: -${frictionDeduction} (${frictionPoints.length} friction points)`);
+  }
+  if (goalDeduction > 0) {
+    explanationParts.push(`Goal not achieved: -${goalDeduction}`);
+  }
+  if (explanationParts.length === 0) {
+    explanationParts.push("No significant deductions - page is highly accessible");
+  }
+
+  return {
+    score: finalScore,
+    context: {
+      baseScore,
+      deductionsByType,
+      totalBarrierDeduction,
+      frictionDeduction,
+      goalDeduction,
+      finalScore,
+      explanation: explanationParts.join(". ") + ".",
+    },
+  };
+}
+
+/**
+ * Legacy wrapper for backward compatibility
+ */
+function calculateEmpathyScore(
+  barriers: AccessibilityBarrier[],
+  frictionPoints: AccessibilityFrictionPoint[],
+  goalAchieved: boolean
+): number {
+  return calculateEmpathyScoreWithContext(barriers, frictionPoints, goalAchieved).score;
 }
 
 function generateRemediationPriority(barriers: AccessibilityBarrier[]): RemediationItem[] {

@@ -8,7 +8,7 @@
 
 **Stop writing brittle test scripts. Start having conversations with your browser.**
 
-CBrowser provides 82 MCP tools that let Claude automate browsers using natural language. No CSS selectors. No XPath. No "element not found" errors at 3am. Just describe what you want to do, and CBrowser figures out the rest.
+CBrowser provides 91 MCP tools that let Claude automate browsers using natural language. No CSS selectors. No XPath. No "element not found" errors at 3am. Just describe what you want to do, and CBrowser figures out the rest.
 
 ---
 
@@ -32,8 +32,8 @@ CBrowser fixes this with AI-powered automation that:
 
 | Tier | Tools | Access | Best For |
 |------|-------|--------|----------|
-| **Demo** | 63 real tools | Free at `demo.cbrowser.ai/mcp` | Evaluation, small projects, learning |
-| **Enterprise** | 82 tools (all Demo + 19 exclusive) | Self-hosted or authenticated | Production use, marketing intelligence, stealth testing |
+| **Demo** | 91 tools (72 real + 19 stubs) | Free at `demo.cbrowser.ai/mcp` | Evaluation, small projects, learning |
+| **Enterprise** | 91 tools (all real) | Self-hosted or authenticated | Production use, marketing intelligence, stealth testing |
 
 The Demo tier gives you everything you need to automate browsers, run tests, and simulate users. Enterprise adds autonomous AI execution, marketing campaign analysis, and bot detection bypass for authorized testing.
 
@@ -127,10 +127,23 @@ Enterprise adds capabilities that require either:
 | Stealth Mode | Constitutional bypass requires signed authorization |
 | Cloudflare Handling | Challenge bypass for authorized domains only |
 
+### Enterprise-Only Tools (19 total)
+
+These tools return "Enterprise feature" stubs in Demo and work fully in Enterprise:
+
+| Category | Tools | Why Enterprise |
+|----------|-------|----------------|
+| **API Key Management** (4) | `set_api_key`, `clear_api_key`, `api_key_status`, `get_api_key_prompt` | Manages Anthropic API credentials for server-side AI |
+| **Autonomous Journey** (1) | `cognitive_journey_autonomous` | AI drives browser without human orchestration |
+| **Marketing Execution** (5) | `marketing_campaign_run`, `marketing_influence_matrix`, `marketing_lever_analysis`, `marketing_funnel_analyze`, `marketing_compete` | Runs campaigns with real cognitive journeys |
+| **Marketing Discovery** (2) | `marketing_audience_discover`, `marketing_discover_status` | Long-running audience discovery jobs |
+| **Stealth Mode** (5) | `stealth_status`, `stealth_enable`, `stealth_check`, `stealth_disable`, `stealth_diagnose` | Bot detection bypass requires authorization |
+| **Cloudflare Handling** (2) | `cloudflare_detect`, `cloudflare_wait` | Challenge bypass for authorized domains |
+
 **Demo users can still:**
 - Set up marketing campaigns and report results manually
 - Run cognitive journeys with Claude orchestrating (no server-side autonomy)
-- Use all 63 core automation, testing, and persona tools
+- Use all 72 core automation, testing, and persona tools
 
 [Contact for Enterprise →](mailto:alexandria.shai.eden@gmail.com)
 
@@ -146,4 +159,4 @@ Enterprise adds capabilities that require either:
 
 ---
 
-*Last updated: v17.6.0*
+*Last updated: v18.22.0*

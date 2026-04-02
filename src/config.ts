@@ -92,6 +92,8 @@ export interface CBrowserConfig {
   userAgent?: string;
   /** Enable persistent browser context (cookies/localStorage survive between sessions) */
   persistent?: boolean;
+  /** Skip session URL restoration on launch (preserves current page state for screenshots after interactions) */
+  skipSessionRestore?: boolean;
   /** Proxy configuration for residential/datacenter proxies */
   proxy?: ProxyConfig;
 }

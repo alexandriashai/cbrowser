@@ -52,6 +52,17 @@ export interface PageSignals {
   isHomepage: boolean;
   ogType?: string;
   existingSchema: string[];
+  // Extracted values (v18.22.0)
+  description?: string;
+  authorName?: string;
+  publishDate?: string;
+  modifiedDate?: string;
+  price?: string;
+  priceCurrency?: string;
+  imageUrl?: string;
+  logoUrl?: string;
+  phone?: string;
+  faqItems?: Array<{ question: string; answer: string }>;
 }
 
 /**
@@ -157,6 +168,108 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
     // Check if homepage
     const isHomepage = window.location.pathname === "/" || window.location.pathname === "";
 
+    // ========== EXTRACT VALUES (v18.22.0) ==========
+
+    // Description: meta description or og:description
+    const description = (
+      document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+      document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+      ""
+    ).trim();
+
+    // Author name
+    const authorName = (
+      document.querySelector('meta[name="author"]')?.getAttribute("content") ||
+      document.querySelector('[rel="author"]')?.textContent ||
+      document.querySelector('[class*="author"] a, [class*="byline"] a, .author, .byline')?.textContent ||
+      ""
+    ).trim();
+
+    // Publish date
+    const publishDateEl = document.querySelector('time[datetime]') ||
+      document.querySelector('meta[property="article:published_time"]');
+    const publishDate = publishDateEl?.getAttribute("datetime") ||
+      publishDateEl?.getAttribute("content") || "";
+
+    // Modified date
+    const modifiedDate = (
+      document.querySelector('meta[property="article:modified_time"]')?.getAttribute("content") ||
+      ""
+    );
+
+    // Price extraction
+    const priceEl = document.querySelector('[itemprop="price"], [class*="price"]:not([class*="original"]):not([class*="old"])');
+    const priceText = priceEl?.textContent?.trim() || "";
+    const priceMatch = priceText.match(/[\d,.]+/);
+    const price = priceMatch ? priceMatch[0].replace(/,/g, "") : "";
+
+    // Currency detection
+    const currencyEl = document.querySelector('[itemprop="priceCurrency"]');
+    let priceCurrency = currencyEl?.getAttribute("content") || "";
+    if (!priceCurrency && priceText) {
+      if (priceText.includes("$")) priceCurrency = "USD";
+      else if (priceText.includes("€")) priceCurrency = "EUR";
+      else if (priceText.includes("£")) priceCurrency = "GBP";
+      else if (priceText.includes("¥")) priceCurrency = "JPY";
+    }
+
+    // Image URL
+    const imageUrl = (
+      document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
+      document.querySelector('[itemprop="image"]')?.getAttribute("src") ||
+      document.querySelector('article img')?.getAttribute("src") ||
+      ""
+    );
+
+    // Logo URL
+    const logoUrl = (
+      document.querySelector('[itemprop="logo"]')?.getAttribute("src") ||
+      document.querySelector('a[href="/"] img, header img, .logo img')?.getAttribute("src") ||
+      ""
+    );
+
+    // Phone number
+    const phoneEl = document.querySelector('a[href^="tel:"]');
+    const phone = phoneEl ? phoneEl.getAttribute("href")?.replace("tel:", "") || "" : (
+      document.querySelector('[itemprop="telephone"]')?.textContent?.trim() || ""
+    );
+
+    // FAQ items extraction
+    const faqItems: Array<{ question: string; answer: string }> = [];
+
+    // Try <details> elements
+    document.querySelectorAll("details").forEach((detail) => {
+      const summary = detail.querySelector("summary");
+      if (summary) {
+        const question = summary.textContent?.trim() || "";
+        const answerParts: string[] = [];
+        detail.childNodes.forEach((node) => {
+          if (node !== summary && node.textContent?.trim()) {
+            answerParts.push(node.textContent.trim());
+          }
+        });
+        const answer = answerParts.join(" ").trim();
+        if (question && answer) {
+          faqItems.push({ question, answer });
+        }
+      }
+    });
+
+    // Try FAQ class patterns if no details found
+    if (faqItems.length === 0) {
+      document.querySelectorAll('[class*="faq-item"], [class*="accordion-item"]').forEach((item) => {
+        const questionEl = item.querySelector('[class*="question"], [class*="header"], h3, h4');
+        const answerEl = item.querySelector('[class*="answer"], [class*="content"], [class*="body"], p');
+        if (questionEl && answerEl) {
+          const question = questionEl.textContent?.trim() || "";
+          const answer = answerEl.textContent?.trim() || "";
+          if (question && answer) {
+            faqItems.push({ question, answer });
+          }
+        }
+      });
+    }
+
     return {
       title,
       hasArticleTag,
@@ -173,6 +286,17 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
       isHomepage,
       ogType,
       existingSchema,
+      // Extracted values (v18.22.0)
+      description,
+      authorName,
+      publishDate,
+      modifiedDate,
+      price,
+      priceCurrency,
+      imageUrl,
+      logoUrl,
+      phone,
+      faqItems: faqItems.length > 0 ? faqItems : undefined,
     };
   });
 
@@ -250,13 +374,14 @@ export function detectPageType(signals: PageSignals): { type: PageType; confiden
  */
 function generateOrganizationSchema(signals: PageSignals): object {
   const url = new URL(signals.url);
+  const baseUrl = `${url.protocol}//${url.hostname}`;
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: signals.title.split("|")[0].split("-")[0].trim(),
-    url: `${url.protocol}//${url.hostname}`,
-    description: "", // To be filled
-    logo: "", // To be filled
+    url: baseUrl,
+    description: signals.description || "", // Extracted or to be filled
+    logo: signals.logoUrl ? new URL(signals.logoUrl, baseUrl).href : "", // Extracted or to be filled
     sameAs: [], // Social links to be added
   };
 }
@@ -265,26 +390,28 @@ function generateOrganizationSchema(signals: PageSignals): object {
  * Generate Article schema
  */
 function generateArticleSchema(signals: PageSignals): object {
+  const url = new URL(signals.url);
+  const baseUrl = `${url.protocol}//${url.hostname}`;
   return {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: signals.title,
-    description: "", // To be filled
+    description: signals.description || "", // Extracted or to be filled
     author: {
       "@type": "Person",
-      name: "", // To be filled
+      name: signals.authorName || "", // Extracted or to be filled
     },
-    datePublished: "", // To be filled from time[datetime]
-    dateModified: "", // To be filled
+    datePublished: signals.publishDate || "", // Extracted or to be filled
+    dateModified: signals.modifiedDate || signals.publishDate || "", // Extracted or to be filled
     publisher: {
       "@type": "Organization",
       name: "", // To be filled
       logo: {
         "@type": "ImageObject",
-        url: "", // To be filled
+        url: signals.logoUrl ? new URL(signals.logoUrl, baseUrl).href : "", // Extracted or to be filled
       },
     },
-    image: "", // To be filled
+    image: signals.imageUrl ? new URL(signals.imageUrl, baseUrl).href : "", // Extracted or to be filled
   };
 }
 
@@ -292,20 +419,22 @@ function generateArticleSchema(signals: PageSignals): object {
  * Generate Product schema
  */
 function generateProductSchema(signals: PageSignals): object {
+  const url = new URL(signals.url);
+  const baseUrl = `${url.protocol}//${url.hostname}`;
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     name: signals.title,
-    description: "", // To be filled
-    image: "", // To be filled
+    description: signals.description || "", // Extracted or to be filled
+    image: signals.imageUrl ? new URL(signals.imageUrl, baseUrl).href : "", // Extracted or to be filled
     brand: {
       "@type": "Brand",
       name: "", // To be filled
     },
     offers: {
       "@type": "Offer",
-      price: "", // To be filled
-      priceCurrency: "USD",
+      price: signals.price || "", // Extracted or to be filled
+      priceCurrency: signals.priceCurrency || "USD", // Extracted or default USD
       availability: "https://schema.org/InStock",
       url: signals.url,
     },
@@ -315,21 +444,33 @@ function generateProductSchema(signals: PageSignals): object {
 /**
  * Generate FAQ schema
  */
-function generateFaqSchema(_signals: PageSignals): object {
+function generateFaqSchema(signals: PageSignals): object {
+  // Use extracted FAQ items if available
+  const mainEntity = signals.faqItems && signals.faqItems.length > 0
+    ? signals.faqItems.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.answer,
+        },
+      }))
+    : [
+        {
+          "@type": "Question",
+          name: "Question 1?", // To be filled from FAQ content
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Answer 1", // To be filled
+          },
+        },
+        // Add more Q&A pairs
+      ];
+
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: [
-      {
-        "@type": "Question",
-        name: "Question 1?", // To be filled from FAQ content
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "Answer 1", // To be filled
-        },
-      },
-      // Add more Q&A pairs
-    ],
+    mainEntity,
   };
 }
 
@@ -342,6 +483,7 @@ function generateLocalBusinessSchema(signals: PageSignals): object {
     "@type": "LocalBusiness",
     name: signals.title.split("|")[0].split("-")[0].trim(),
     url: signals.url,
+    description: signals.description || "", // Extracted or to be filled
     address: {
       "@type": "PostalAddress",
       streetAddress: "", // To be filled
@@ -350,7 +492,7 @@ function generateLocalBusinessSchema(signals: PageSignals): object {
       postalCode: "", // To be filled
       addressCountry: "", // To be filled
     },
-    telephone: "", // To be filled
+    telephone: signals.phone || "", // Extracted or to be filled
     openingHours: "", // To be filled
   };
 }
@@ -381,7 +523,7 @@ export function generateStructuredData(
         "@type": "WebPage",
         name: signals.title,
         url: signals.url,
-        description: "", // To be filled
+        description: signals.description || "", // Extracted or to be filled
       };
   }
 }

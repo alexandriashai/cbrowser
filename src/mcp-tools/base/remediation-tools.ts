@@ -137,7 +137,7 @@ export function registerRemediationTools(
                   : "None detected",
                 suggestedSchema: suggestion.suggestedSchema,
                 implementation: `Add this to your page's <head>:\n\n<script type="application/ld+json">\n${suggestion.suggestedSchemaString}\n</script>`,
-                note: "Fill in the empty string fields with your actual content",
+                note: "Many fields are auto-extracted from the page. Fill in any remaining empty strings with your actual content.",
               },
               null,
               2

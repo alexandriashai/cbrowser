@@ -245,7 +245,7 @@ export class CBrowser {
   private networkResponses: Map<string, NetworkResponse> = new Map();
   private harEntries: HAREntry[] = [];
   private isRecordingHar = false;
-  private skipSessionRestore = false;
+  private skipSessionRestore: boolean;
 
   // Modular components (extracted for maintainability)
   private sessionManager: SessionManager;
@@ -257,6 +257,7 @@ export class CBrowser {
 
   constructor(userConfig: Partial<CBrowserConfig> = {}) {
     this.config = mergeConfig(userConfig);
+    this.skipSessionRestore = userConfig.skipSessionRestore ?? false;
     this.paths = ensureDirectories(getPaths(this.config.dataDir));
 
     // Initialize modular components
@@ -1639,9 +1640,10 @@ For more help: https://playwright.dev/docs/browsers
    */
   async navigate(url: string, options: NavigateOptions = {}): Promise<NavigationResult> {
     // Skip session restore since we're explicitly navigating to a new URL
+    const prevSkip = this.skipSessionRestore;
     this.skipSessionRestore = true;
     const page = await this.getPage();
-    this.skipSessionRestore = false;
+    this.skipSessionRestore = prevSkip;
     const startTime = Date.now();
 
     const errors: string[] = [];

@@ -4487,6 +4487,18 @@ export interface AgentReadyAuditOptions {
   navigationTimeout?: number;
   /** Use Lightpanda for high-performance headless browsing (opt-in, beta) */
   useLightpanda?: boolean;
+  /**
+   * Enable SPA mode for sites with heavy JavaScript.
+   * Waits for React/Vue/Angular hydration and dynamic content to load.
+   * @since v18.22.0
+   */
+  spaMode?: boolean;
+  /**
+   * Use randomized realistic user agents to reduce bot detection.
+   * Rotates through Chrome/Firefox/Safari user agents.
+   * @since v18.22.0
+   */
+  useRandomUserAgent?: boolean;
 }
 
 // ============================================================================
@@ -4818,6 +4830,26 @@ export interface RemediationItem {
   effort: AgentReadyEffort;
 }
 
+/**
+ * Score context explaining how the empathy score was calculated (v18.22.0)
+ */
+export interface EmpathyScoreContext {
+  /** Starting score before deductions */
+  baseScore: number;
+  /** Deductions by barrier type (e.g., {touch_target: -15, contrast: -8}) */
+  deductionsByType: Record<string, number>;
+  /** Total deduction from barriers */
+  totalBarrierDeduction: number;
+  /** Deduction from friction points */
+  frictionDeduction: number;
+  /** Deduction from goal failure (0 if achieved, -15 if failed) */
+  goalDeduction: number;
+  /** Final computed score */
+  finalScore: number;
+  /** Human-readable explanation of major scoring factors */
+  explanation: string;
+}
+
 /** Result of accessibility empathy audit for a single persona */
 export interface AccessibilityEmpathyResult {
   /** URL tested */
@@ -4838,6 +4870,8 @@ export interface AccessibilityEmpathyResult {
   remediationPriority: RemediationItem[];
   /** Empathy score 0-100 */
   empathyScore: number;
+  /** Score context explaining deductions (v18.22.0) */
+  scoreContext?: EmpathyScoreContext;
   /** Duration in ms */
   duration: number;
   /** Final emotional state (v13.1.0) */
