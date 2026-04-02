@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [18.24.0](https://github.com/alexandriashai/cbrowser/compare/v18.23.0...v18.24.0) (2026-04-02)
+
+### Added
+
+* **cli:** add --no-restore flag to preserve page state after interactions ([#106](https://github.com/alexandriashai/cbrowser/issues/106)) ([9ea720f](https://github.com/alexandriashai/cbrowser/commit/9ea720f7216cf1f99375c9bf04d07446e38370b1))
+
 ## [18.23.0](https://github.com/alexandriashai/cbrowser/compare/v18.21.0...v18.23.0) (2026-03-17)
 
 ### Added
