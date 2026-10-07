@@ -932,6 +932,7 @@ function mostRecentFinished(): FinishedCapture | undefined {
 /** Shared error envelope, matching the house shape for tool failures. */
 function errorContent(error: unknown) {
   return {
+    isError: true,
     content: [
       {
         type: "text" as const,

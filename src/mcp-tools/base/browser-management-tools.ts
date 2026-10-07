@@ -207,7 +207,7 @@ export function registerBrowserManagementTools(
     const { b } = await resolve(_browserToken);
     const context = (b as any).context;
     if (!context) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "No browser context. Navigate to a URL first." }) }] };
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: "No browser context. Navigate to a URL first." }) }] };
     }
 
     if (action === "list") {
@@ -232,7 +232,7 @@ export function registerBrowserManagementTools(
     if (action === "switch" && index !== undefined) {
       const pages = context.pages();
       if (index < 0 || index >= pages.length) {
-        return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Tab ${index} doesn't exist. ${pages.length} tabs open (0-${pages.length - 1}).` }) }] };
+        return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: `Tab ${index} doesn't exist. ${pages.length} tabs open (0-${pages.length - 1}).` }) }] };
       }
       (b as any).page = pages[index];
       const title = await pages[index].title().catch(() => "");
@@ -242,10 +242,10 @@ export function registerBrowserManagementTools(
     if (action === "close" && index !== undefined) {
       const pages = context.pages();
       if (index < 0 || index >= pages.length) {
-        return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Tab ${index} doesn't exist.` }) }] };
+        return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: `Tab ${index} doesn't exist.` }) }] };
       }
       if (pages.length <= 1) {
-        return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Can't close the last tab." }) }] };
+        return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: "Can't close the last tab." }) }] };
       }
       await pages[index].close();
       // If we closed the active tab, switch to first remaining
@@ -254,6 +254,6 @@ export function registerBrowserManagementTools(
       return { content: [{ type: "text" as const, text: JSON.stringify({ closed: index, remainingTabs: remaining.length }) }] };
     }
 
-    return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid params. 'switch'/'close' require index, 'create' optionally takes url." }) }] };
+    return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid params. 'switch'/'close' require index, 'create' optionally takes url." }) }] };
   });
 }

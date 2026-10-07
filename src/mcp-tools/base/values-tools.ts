@@ -1291,6 +1291,7 @@ _meta: { ui: { resourceUri: "ui://cbrowser/trait-v2" } },
 
       if (!reference) {
         return {
+          isError: true,
           content: [
             {
               type: "text",
@@ -1349,6 +1350,7 @@ _meta: { ui: { resourceUri: "ui://cbrowser/trait-v2" } },
 
       if (!preset) {
         return {
+          isError: true,
           content: [
             {
               type: "text",

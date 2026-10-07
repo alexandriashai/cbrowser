@@ -40,6 +40,7 @@ export function registerLlmsTxtTools(
   }, async ({ content, url, validateLinks, maxLinksToValidate }) => {
       if (!content && !url) {
         return {
+          isError: true,
           content: [
             {
               type: "text",

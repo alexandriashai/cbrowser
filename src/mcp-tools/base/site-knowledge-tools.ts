@@ -186,6 +186,7 @@ export function registerSiteKnowledgeTools(
         };
       } catch (err) {
         return {
+          isError: true,
           content: [
             {
               type: "text" as const,
@@ -238,6 +239,7 @@ export function registerSiteKnowledgeTools(
         };
       } catch (err) {
         return {
+          isError: true,
           content: [
             {
               type: "text" as const,
@@ -330,7 +332,7 @@ export function registerSiteKnowledgeTools(
           };
         }
         if (!resolvedType) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({
+          return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
             error: "goal_or_goalType_required",
             message: "Pass `goal` (natural language, preferred) or `goalType` (enum).",
           }, null, 2) }] };
@@ -395,6 +397,7 @@ export function registerSiteKnowledgeTools(
         };
       } catch (err) {
         return {
+          isError: true,
           content: [
             {
               type: "text" as const,
@@ -460,6 +463,7 @@ export function registerSiteKnowledgeTools(
         };
       } catch (err) {
         return {
+          isError: true,
           content: [
             {
               type: "text" as const,
@@ -521,6 +525,7 @@ export function registerSiteKnowledgeTools(
         };
       } catch (err) {
         return {
+          isError: true,
           content: [
             {
               type: "text" as const,
@@ -573,6 +578,7 @@ export function registerSiteKnowledgeTools(
         };
       } catch (err) {
         return {
+          isError: true,
           content: [
             {
               type: "text" as const,
@@ -627,6 +633,7 @@ export function registerSiteKnowledgeTools(
 
       if (!res.ok) {
         return {
+          isError: true,
           content: [{ type: "text" as const, text: JSON.stringify({ error: `Knowledge base query failed (${res.status})`, question }, null, 2) }],
         };
       }
@@ -646,6 +653,7 @@ export function registerSiteKnowledgeTools(
       };
     } catch (err) {
       return {
+        isError: true,
         content: [{ type: "text" as const, text: JSON.stringify({
           error: "Could not reach CBrowser knowledge base",
           question,

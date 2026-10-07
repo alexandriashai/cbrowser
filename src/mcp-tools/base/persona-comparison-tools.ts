@@ -791,6 +791,7 @@ Begin with the first persona: ${personas[0]}
 
       if (isBlocked) {
         return {
+          isError: true,
           content: [{
             type: "text" as const,
             text: JSON.stringify({
@@ -1608,6 +1609,7 @@ Begin with the first persona: ${personas[0]}
       return { content };
     } catch (err) {
       return {
+        isError: true,
         content: [{
           type: "text" as const,
           text: JSON.stringify({

@@ -1162,6 +1162,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       }
     } catch (err) {
       return {
+        isError: true,
         content: [{
           type: "text" as const,
           text: JSON.stringify({ error: err instanceof Error ? err.message : String(err), url, persona }, null, 2),

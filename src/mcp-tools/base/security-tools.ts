@@ -109,6 +109,7 @@ export function registerSecurityTools(server: McpServer): void {
 
           if (tools.length === 0) {
             return {
+              isError: true,
               content: [{
                 type: "text" as const,
                 text: JSON.stringify({ error: "No tools found at " + mcp_url, suggestion: "Verify the URL is a valid MCP endpoint" }, null, 2),
@@ -133,6 +134,7 @@ export function registerSecurityTools(server: McpServer): void {
           return await securityAuditHandler(options);
         } catch (err) {
           return {
+            isError: true,
             content: [{
               type: "text" as const,
               text: JSON.stringify({

@@ -204,6 +204,7 @@ export function registerGifTools(
 
       if (frames.length < 2) {
         return {
+          isError: true,
           content: [{ type: "text" as const, text: JSON.stringify({ error: "Not enough frames captured", framesCollected: frames.length }) }],
         };
       }
@@ -255,6 +256,7 @@ export function registerGifTools(
       return { content };
     } catch (e) {
       return {
+        isError: true,
         content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) }],
       };
     }

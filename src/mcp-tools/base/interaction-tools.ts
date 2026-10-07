@@ -332,6 +332,7 @@ export function registerInteractionTools(
         };
       } catch (error) {
         return {
+          isError: true,
           content: [
             {
               type: "text",

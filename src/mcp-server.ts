@@ -914,6 +914,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
         };
       } catch (error) {
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -1011,6 +1012,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
         };
       } catch (error) {
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -1035,6 +1037,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
         };
       } catch (error) {
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -1504,7 +1507,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
     async ({ filepath, dryRun, fuzzyMatch }) => {
       const fs = await import("fs");
       if (!fs.existsSync(filepath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Test file not found: ${filepath}` }) }] };
+        return {isError: true,  content: [{ type: "text", text: JSON.stringify({ error: `Test file not found: ${filepath}` }) }] };
       }
       const fileContent = fs.readFileSync(filepath, "utf-8");
       const suiteName = filepath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Test Suite";
@@ -1915,6 +1918,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
       // v17.0.0: Check for agent personas - cognitive journeys don't support them yet
       if (existingPersona && isAgentPersonaObject(existingPersona)) {
         return {
+          isError: true,
           content: [{
             type: "text" as const,
             text: JSON.stringify({
@@ -2437,6 +2441,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const session = comparisonSessions.get(sessionId);
       if (!session) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "Session not found", sessionId }) }],
         };
       }
@@ -2496,12 +2501,14 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const session = comparisonSessions.get(sessionId);
       if (!session) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "Session not found", sessionId }) }],
         };
       }
 
       if (session.results.length === 0) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "No results recorded yet", sessionId }) }],
         };
       }
@@ -2706,6 +2713,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const session = empathyAuditSessions.get(sessionId);
       if (!session) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "Session not found. Call empathy_audit_init first." }) }],
         };
       }
@@ -2765,6 +2773,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const session = empathyAuditSessions.get(sessionId);
       if (!session) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "Session not found." }) }],
         };
       }
@@ -2831,12 +2840,14 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const session = empathyAuditSessions.get(sessionId);
       if (!session) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "Session not found." }) }],
         };
       }
 
       if (session.personaResults.length === 0) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: "No persona results recorded. Complete at least one persona journey first." }) }],
         };
       }
@@ -3238,6 +3249,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const personaData = getPersona(persona);
       if (!personaData) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: `Persona not found: ${persona}` }) }],
         };
       }
@@ -3277,6 +3289,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const personaData = getPersona(persona);
       if (!personaData) {
         return {
+          isError: true,
           content: [{ type: "text", text: JSON.stringify({ error: `Persona not found: ${persona}` }) }],
         };
       }

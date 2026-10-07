@@ -315,6 +315,7 @@ export function registerMarketingTools(server: McpServer): void {
       // Check if campaign already exists
       if (store.campaigns[name]) {
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -410,6 +411,7 @@ export function registerMarketingTools(server: McpServer): void {
       if (!store.campaigns[campaign_name]) {
         const availableCampaigns = Object.keys(store.campaigns);
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -521,6 +523,7 @@ export function registerMarketingTools(server: McpServer): void {
       if (!store.campaigns[campaign_name]) {
         const availableCampaigns = Object.keys(store.campaigns);
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -549,6 +552,7 @@ export function registerMarketingTools(server: McpServer): void {
 
       if (selectedPersonas.length === 0) {
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({

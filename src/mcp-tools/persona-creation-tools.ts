@@ -401,6 +401,7 @@ IMPORTANT: Use AskUserQuestion - do NOT just display this text.`,
 
       if (!session) {
         return {
+          isError: true,
           content: [{
             type: "text",
             text: JSON.stringify({
@@ -686,6 +687,7 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
       const completeness = assessTraitCompleteness(traits, unsupportedTraits, traitProvenance);
       if (!completeness.ok) {
         return {
+          isError: true,
           content: [{ type: "text" as const, text: JSON.stringify({
             error: "incomplete_persona",
             message: completeness.message,

@@ -39,7 +39,7 @@ export function registerTestingTools(server: McpServer): void {
   }, async ({ filepath, dryRun, fuzzyMatch }) => {
       const fs = await import("fs");
       if (!fs.existsSync(filepath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Test file not found: ${filepath}` }) }] };
+        return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: `Test file not found: ${filepath}` }) }] };
       }
       const fileContent = fs.readFileSync(filepath, "utf-8");
       const suiteName = filepath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Test Suite";

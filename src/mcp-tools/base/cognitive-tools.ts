@@ -130,6 +130,7 @@ export function registerCognitiveTools(
       // v17.0.0: Check for agent personas - cognitive journeys don't support them yet
       if (existingPersona && isAgentPersonaObject(existingPersona)) {
         return {
+          isError: true,
           content: [{
             type: "text" as const,
             text: JSON.stringify({

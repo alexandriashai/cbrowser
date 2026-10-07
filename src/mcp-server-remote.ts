@@ -59,6 +59,7 @@ import {
 // is per-session rather than per-charge.
 import { registerAllPublicTools, setRemoteMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
 import { withPersonaScope } from "./persona-scope.js";
+import { withChargeScope } from "./charge-scope.js";
 
 /**
  * keyHash -> accountId, so a request can be scoped to the tenant that owns it.
@@ -1410,6 +1411,13 @@ async function handleMcpRequest(
     const method = (parsedBody?.method as string) || "unknown";
     let logLine = `← ${method}`;
     const params = parsedBody?.params as Record<string, unknown> | undefined;
+    // Set inside the tools/call branch below, read at dispatch time (after that
+    // branch's own block scope has closed) to decide whether this request's
+    // tool call runs inside withChargeScope. Declared out here, not inside,
+    // because `keyHash`/`toolName` are block-scoped to the tools/call branch
+    // and the dispatch call is after it closes. (P-09, 2026-09-17)
+    let chargedKeyHash: string | null = null;
+    let chargedTool: string | null = null;
     if (method === "tools/call" && params?.name) {
       logLine += ` [${params.name}]`;
 
@@ -1448,6 +1456,12 @@ async function handleMcpRequest(
       if (resolvedNote) logLine += resolvedNote;
       // Derived from THIS request, not from the module global — see resolveRequestKeyHash.
       const keyHash = await resolveRequestKeyHash(req);
+      // chargedKeyHash/chargedTool (outer scope) get set ONLY when a real deduct
+      // succeeded below (creditRes.ok AND an explicit allowed:true) — never on
+      // the fail-open paths (CMS unreachable, a non-2xx status, a response
+      // missing `allowed`). Those ran the tool UNBILLED, and entering a charge
+      // scope for them would let a later isError refund credits the caller
+      // never paid. (P-09, 2026-09-17)
 
       // GATE BEFORE CHARGE. The CMS credit catalog and the package's tier catalog
       // are two independent lists, and they disagree: CMS lists
@@ -1522,6 +1536,14 @@ async function handleMcpRequest(
               }));
               return;
             }
+            // Reached only on a genuine deduct success. The 402/403 statuses
+            // above either returned already (allowed:false) or are fail-open
+            // (a response with no `allowed` field at all, e.g. an internal-auth
+            // failure) — neither charged the account, so neither sets this.
+            if (creditRes.ok && data.allowed === true) {
+              chargedKeyHash = keyHash;
+              chargedTool = toolName;
+            }
           }
         } catch (err) {
           // CMS unreachable — allow tool execution (fail open). Deliberate: a CMS blip
@@ -1559,10 +1581,21 @@ async function handleMcpRequest(
     // enter no scope and fall back to the process default, which is the
     // behaviour every local install already has. (2026-08-01)
     const scopeAccountId = await resolveRequestAccountId(req);
-    if (scopeAccountId !== null) {
-      await withPersonaScope(scopeAccountId, () => transport.handleRequest(req, res, parsedBody));
+    const dispatch = () =>
+      scopeAccountId !== null
+        ? withPersonaScope(scopeAccountId, () => transport.handleRequest(req, res, parsedBody))
+        : transport.handleRequest(req, res, parsedBody);
+
+    // Charge scope: entered ONLY when this request's tool call was actually
+    // billed (chargedKeyHash/chargedTool set above, on a real deduct success).
+    // The tier-gate wrapper (createGatedServer) reads currentCharge() after the
+    // handler returns and refunds when the result carries isError: true. An
+    // unbilled call (no key, or the fail-open path) enters no scope, so nothing
+    // downstream can refund money that was never taken. (P-09, 2026-09-17)
+    if (chargedKeyHash !== null && chargedTool !== null) {
+      await withChargeScope(chargedKeyHash, chargedTool, dispatch);
     } else {
-      await transport.handleRequest(req, res, parsedBody);
+      await dispatch();
     }
 
     const duration = Date.now() - start;

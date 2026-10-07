@@ -217,7 +217,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
     const { getAnyPersona, isBuiltinPersona, saveCustomPersona, registerPersonas } = await import("../personas.js");
 
     if (isBuiltinPersona(persona_name)) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
         error: "builtin_persona",
         message: `"${persona_name}" is built into the package. Built-ins are shared by every install and are not editable; create a custom persona instead.`,
         written: false,
@@ -226,7 +226,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
 
     const existing = getAnyPersona(persona_name) as unknown as Record<string, unknown> | undefined;
     if (!existing) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
         error: "not_found",
         message: `No persona named "${persona_name}". list_cognitive_personas returns the roster.`,
         written: false,
@@ -286,7 +286,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
           (existing.description as string | undefined),
         );
         if (!verdict.ok) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({
+          return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
             error: "unverified_big_five", message: verdict.reason, written: false,
           }, null, 2) }] };
         }
@@ -308,7 +308,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
     }
 
     if (!changed.length) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
         error: "nothing_to_update",
         message: "No updatable field was supplied. Pass at least one of: traits, description, attentionPattern, accessibilityTraits, bigFive, ageRange, techLevel.",
         written: false,
@@ -378,7 +378,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
     const { getAnyPersona, isBuiltinPersona, deleteCustomPersona } = await import("../personas.js");
 
     if (isBuiltinPersona(persona_name)) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
         error: "builtin_persona",
         message: `"${persona_name}" is built into the package and is shared by every install. Built-ins are not deletable.`,
         deleted: false,
@@ -396,7 +396,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
       }, null, 2) }] };
     }
     if (!getAnyPersona(persona_name)) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
         error: "not_found", message: `No persona named "${persona_name}".`, deleted: false,
       }, null, 2) }] };
     }

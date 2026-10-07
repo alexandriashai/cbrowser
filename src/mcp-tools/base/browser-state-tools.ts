@@ -36,7 +36,7 @@ export function registerBrowserStateTools(
       const result = await page.evaluate(script);
       return { content: [{ type: "text" as const, text: JSON.stringify({ result, _browserToken: token }, null, 2) }] };
     } catch (e) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message, _browserToken: token }, null, 2) }] };
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message, _browserToken: token }, null, 2) }] };
     }
   });
 
@@ -169,7 +169,7 @@ export function registerBrowserStateTools(
       await b.clearCookies();
       return { content: [{ type: "text" as const, text: JSON.stringify({ cleared: true, _browserToken: token }, null, 2) }] };
     }
-    return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid params. 'set' requires name+value, 'delete' requires name." }, null, 2) }] };
+    return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid params. 'set' requires name+value, 'delete' requires name." }, null, 2) }] };
   });
 
   // ── manage_storage ──
@@ -213,6 +213,6 @@ export function registerBrowserStateTools(
       await page.evaluate((st) => { (window as any)[st].clear(); }, storage);
       return { content: [{ type: "text" as const, text: JSON.stringify({ storage: storageType, cleared: true, _browserToken: token }, null, 2) }] };
     }
-    return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid params" }, null, 2) }] };
+    return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid params" }, null, 2) }] };
   });
 }
