@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.1.6](https://github.com/alexandriashai/cbrowser/compare/v19.1.5...v19.1.6) (2026-10-07)
+
+### Fixed
+
+* **agent-ready-audit:** remediation keeps real accessible names (BUG-04) ([c35375d](https://github.com/alexandriashai/cbrowser/commit/c35375de46985a87b6fdab1e535059fbfe6bd40f))
+* **billing:** bill only what ran (P-09) - refund isError results, flag every error return ([6da7718](https://github.com/alexandriashai/cbrowser/commit/6da7718aa48c009ede2776aa8a90ba05ba98d319))
+* **empathy:** real persona names, wcag 2.2.2 only, declared disability labels (LOW-01..06,08) ([5d1126b](https://github.com/alexandriashai/cbrowser/commit/5d1126b28af422084492f7b709335f27cd3da107))
+* **screenshot:** fit the byte budget in memory, never resize the live viewport (BUG-02) ([04776bd](https://github.com/alexandriashai/cbrowser/commit/04776bdf924215dc9ace2a02d211aac04bcdf09c))
+
 ## [19.1.5](https://github.com/alexandriashai/cbrowser/compare/v19.1.4...v19.1.5) (2026-09-18)
 
 ### Fixed
