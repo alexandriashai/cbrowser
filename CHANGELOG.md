@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.1.7](https://github.com/alexandriashai/cbrowser/compare/v19.1.6...v19.1.7) (2026-10-07)
+
+### Fixed
+
+* **empathy:** do not flag hover on elements that are themselves keyboard paths (BUG-03) ([7e08496](https://github.com/alexandriashai/cbrowser/commit/7e08496af12b15011e9ad52e3d5e7ca3e7f7de88))
+* **find-element:** round confidence to 2 decimals (BUG-01, LOW-07) ([10598a1](https://github.com/alexandriashai/cbrowser/commit/10598a1050a66c9b518769e73c5f023910efcc96))
+
 ## [19.1.6](https://github.com/alexandriashai/cbrowser/compare/v19.1.5...v19.1.6) (2026-10-07)
 
 ### Fixed
