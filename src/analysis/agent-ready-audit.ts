@@ -622,6 +622,103 @@ async function detectBadLinks(ctx: DetectionContext): Promise<void> {
   }
 }
 
+/** Fill-in label, used ONLY for an element that has no accessible name at all. */
+const NAMELESS_LABEL_PLACEHOLDER = "Describe the action";
+
+/** Elements with no closing tag; [role="button"] can land on any of them. */
+const VOID_ELEMENTS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr",
+]);
+
+/**
+ * Attribute values longer than this are elided in a suggested example, keeping
+ * the first EXAMPLE_ATTR_HEAD characters and saying how many were left out.
+ * Copying every value verbatim turned one <a href="data:text/csv;base64,..."> on
+ * a fixture into a 200,092-char codeExample, sent three times over (example,
+ * recommendation snippet, patch "after"): the audit JSON went from 6,292 to
+ * 406,336 bytes. elementHtml is capped at 600 for the same reason. (2026-10-07)
+ */
+const EXAMPLE_ATTR_MAX = 200;
+const EXAMPLE_ATTR_HEAD = 80;
+
+/** What detectLowFindabilityElements captures about an element to suggest markup for it. */
+interface FindabilityElement {
+  tag: string;
+  /** The element's own attributes, in document order, exactly as the page has them. */
+  attributes: Array<[string, string]>;
+  /**
+   * aria-label > aria-labelledby text > rendered text > img alt > input value >
+   * text > title; "" when it has none.
+   */
+  accessibleName: string;
+  fullText: string;
+  textTruncated: boolean;
+  hasElementChildren: boolean;
+}
+
+/**
+ * Suggested markup for a findability finding: the element's REAL opening tag
+ * with one attribute added, data-testid.
+ *
+ * Measured 2026-10-06 on cbrowser.ai: this example was built from textContent
+ * alone, so an icon button named aria-label="Previous slide" came back as
+ *   <button data-testid="button" aria-label="button action">...</button>
+ * which deletes the real name and every other attribute. remediation_patches
+ * then shipped that as the fix. Now nothing the element already has is
+ * dropped or overridden. An aria-label is added only when the element has no
+ * accessible name from any source, because a placeholder aria-label on a link
+ * named by its <img alt> or title REPLACES that name. (2026-10-07)
+ */
+function buildFindabilityCodeExample(el: FindabilityElement, usedTestIds: Set<string>): string {
+  // Attribute values are quoted, so any quote or angle bracket in the page
+  // text would otherwise emit malformed HTML.
+  const attr = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // A testid is a slug, so truncating THIS is correct and expected.
+  const slug = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').substring(0, 40).replace(/-+$/, '');
+
+  const name = el.accessibleName.trim();
+  // Two elements that share a name are flagged precisely because they are
+  // ambiguous; giving both the same testid would leave them ambiguous.
+  const base = slug(name) || slug(NAMELESS_LABEL_PLACEHOLDER);
+  let testId = base;
+  for (let n = 2; usedTestIds.has(testId); n++) testId = `${base}-${n}`;
+  usedTestIds.add(testId);
+
+  // The marker is plain text inside the quotes, so the example stays valid
+  // markup and nobody mistakes the cut value for the real one.
+  const shown = (v: string) => v.length > EXAMPLE_ATTR_MAX
+    ? `${v.slice(0, EXAMPLE_ATTR_HEAD)}[...${v.length - EXAMPLE_ATTR_HEAD} more characters unchanged]`
+    : v;
+
+  let hasAriaLabelAttr = false;
+  const kept = el.attributes.map(([attrName, value]) => {
+    if (attrName === 'aria-label') {
+      hasAriaLabelAttr = true;
+      // aria-label="   " names nothing. Fill it in place rather than appending
+      // a second aria-label, which is invalid markup.
+      if (!value.trim() && !name) return ` aria-label="${attr(NAMELESS_LABEL_PLACEHOLDER)}"`;
+    }
+    return ` ${attrName}="${attr(shown(value))}"`;
+  }).join('');
+  const addedLabel = !name && !hasAriaLabelAttr ? ` aria-label="${attr(NAMELESS_LABEL_PLACEHOLDER)}"` : '';
+  const open = `<${el.tag} data-testid="${attr(testId)}"${kept}${addedLabel}>`;
+  if (VOID_ELEMENTS.has(el.tag)) return open;
+
+  // Built from fullText, not the 30-char display copy. Using the truncated
+  // text here produced a patch that REWROTE the element's visible content:
+  //   <a data-testid="sign-up-for-pro-and-get-500-bo"
+  //      aria-label="Sign up for Pro and get 500 bo">Sign up for Pro and get 500 bo</a>
+  // Applying that silently amputates the link label on the live page. The
+  // recommendation is "add a data-testid", so the example must leave the
+  // content exactly as it is. (2026-07-29) Content with child elements (an
+  // icon, an <img>, a card's heading + paragraph) is not flattened to text
+  // either; it is left alone. (2026-10-07)
+  const body = el.hasElementChildren || el.textTruncated
+    ? '<!-- existing content unchanged -->'
+    : el.fullText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `${open}${body}</${el.tag}>`;
+}
+
 /**
  * Detect elements only findable by fuzzy/visual match
  */
@@ -631,44 +728,133 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
   // Check for buttons/links that lack good selectors
   const poorSelectors = await page.$$eval(
     'button, a, [role="button"]',
-    (elements) => elements.map(el => {
-      const hasId = !!el.id;
-      const hasTestId = el.hasAttribute('data-testid') || el.hasAttribute('data-test') || el.hasAttribute('data-cy');
-      const hasAriaLabel = el.hasAttribute('aria-label');
-      const hasName = el.hasAttribute('name');
-      const hasGoodClass = el.className && typeof el.className === 'string' &&
-        /btn|button|cta|submit|action/i.test(el.className);
-      const text = el.textContent?.trim() || '';
-
-      // Score how findable this element is
-      const findabilityScore =
-        (hasId ? 3 : 0) +
-        (hasTestId ? 3 : 0) +
-        (hasAriaLabel ? 2 : 0) +
-        (hasName ? 2 : 0) +
-        (hasGoodClass ? 1 : 0) +
-        (text.length > 0 && text.length < 50 ? 2 : 0);
-
-      return {
-        selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
-        // Truncated copy, for human-readable descriptions ONLY. Never build
-        // suggested markup from this — see fullText. (2026-07-29)
-        text: text.slice(0, 30),
-        // The real text, for code examples. Capped generously to bound payload
-        // size without amputating a normal link label.
-        fullText: text.slice(0, 200),
-        outerHTML: (el.outerHTML || '').slice(0, 600),
-        outerHTMLTruncated: (el.outerHTML || '').length > 600,
-        findabilityScore,
-        suggestions: {
-          needsId: !hasId,
-          needsTestId: !hasTestId,
-          needsAriaLabel: !hasAriaLabel && !text,
-        },
+    (elements) => {
+      // Trimmed: aria-label="   " is not a name and is not a hook.
+      const ariaLabel = (e: Element) => (e.getAttribute('aria-label') || '').trim();
+      // aria-labelledby ids resolve in the element's OWN tree: a button in an
+      // open shadow root is labelled by an id in that shadow root, which
+      // document.getElementById cannot see. (2026-10-07)
+      const byId = (e: Element, id: string): Element | null => {
+        const root = e.getRootNode() as Document | DocumentFragment;
+        return typeof root.getElementById === 'function' ? root.getElementById(id) : null;
       };
-    }).filter(el => el.findabilityScore < 3)
+      // aria-label first, then aria-labelledby resolved to text: the order
+      // find_element_by_intent tries them (natural-language.ts SELECTOR_PRIORITY).
+      const ariaName = (e: Element): string => {
+        const label = ariaLabel(e);
+        if (label) return label;
+        const ids = (e.getAttribute('aria-labelledby') || '').trim();
+        if (!ids) return '';
+        return ids.split(/\s+/)
+          .map(id => byId(e, id)?.textContent || '')
+          .join(' ').replace(/\s+/g, ' ').trim();
+      };
+      const nameKey = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+      // An ARIA name is a stable hook only when it picks out ONE element:
+      // two buttons both labelled "Add to cart" match [aria-label="Add to cart"]
+      // twice, which is exactly the ambiguity this check exists to report.
+      // Counted across open shadow roots too: the elements scored here come
+      // from $$eval, which pierces them, and so does a Playwright
+      // [aria-label="..."] lookup, so a light-DOM and a shadow-DOM "Open menu"
+      // are ambiguous to an agent. (2026-10-07)
+      const ariaNameCounts = new Map<string, number>();
+      const countAriaNames = (root: Document | ShadowRoot) => {
+        for (const e of Array.from(root.querySelectorAll('[aria-label], [aria-labelledby]'))) {
+          const k = nameKey(ariaName(e));
+          if (k) ariaNameCounts.set(k, (ariaNameCounts.get(k) || 0) + 1);
+        }
+        for (const host of Array.from(root.querySelectorAll('*'))) {
+          if (host.shadowRoot) countAriaNames(host.shadowRoot);
+        }
+      };
+      countAriaNames(document);
+
+      return elements.map(el => {
+        const hasId = !!el.id;
+        const hasTestId = el.hasAttribute('data-testid') || el.hasAttribute('data-test') || el.hasAttribute('data-cy');
+        const aria = ariaName(el);
+        const ariaIsUnique = !!aria && ariaNameCounts.get(nameKey(aria)) === 1;
+        const hasName = el.hasAttribute('name');
+        const hasGoodClass = el.className && typeof el.className === 'string' &&
+          /btn|button|cta|submit|action/i.test(el.className);
+        const text = el.textContent?.trim() || '';
+
+        // Score how findable this element is.
+        // A unique aria-label weighs the same as id and data-testid. It was 2,
+        // so an icon button named aria-label="Previous slide" scored 2/10 and
+        // was flagged, while find_element_by_intent resolves it FIRST, at 0.95
+        // confidence (natural-language.ts SELECTOR_PRIORITY), and browser.ts
+        // ranks aria-label above both testid and id. A name shared with another
+        // element keeps its OLD weight, aria-label 2 and aria-labelledby 0 (it
+        // was never scored), so a duplicate is flagged exactly as before.
+        // Giving a shared aria-labelledby 2 stopped flagging two text buttons
+        // labelled by the same "Edit profile" span. (2026-10-07)
+        const findabilityScore =
+          (hasId ? 3 : 0) +
+          (hasTestId ? 3 : 0) +
+          (ariaIsUnique ? 3 : ariaLabel(el) ? 2 : 0) +
+          (hasName ? 2 : 0) +
+          (hasGoodClass ? 1 : 0) +
+          (text.length > 0 && text.length < 50 ? 2 : 0);
+
+        // The element's accessible name from every source, so the suggested
+        // markup never invents a name for an element that already has one.
+        const imgAlt = [el, ...Array.from(el.querySelectorAll('img'))]
+          .filter(e => e.tagName === 'IMG')
+          .map(e => (e.getAttribute('alt') || '').trim())
+          .find(Boolean) || '';
+        const title = (el.getAttribute('title') || '').trim();
+        // <input type="submit" value="Send feedback"> is named by its value, a
+        // submit or reset input without one by the browser's default label,
+        // and an image input by its alt. Missing this put a placeholder
+        // aria-label over value="Send feedback". (2026-10-07)
+        const inputName = (() => {
+          if (el.tagName !== 'INPUT') return '';
+          const type = (el.getAttribute('type') || '').toLowerCase();
+          if (type === 'image') return (el.getAttribute('alt') || '').trim();
+          if (type !== 'submit' && type !== 'reset' && type !== 'button') return '';
+          return (el.getAttribute('value') || '').trim() ||
+            (type === 'submit' ? 'Submit' : type === 'reset' ? 'Reset' : '');
+        })();
+        // innerText keeps a card's "Heading" and "Description" apart, where
+        // textContent glues them into "HeadingDescription".
+        const rendered = ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim();
+        // Rendered text beats img alt: in a list of user cards every
+        // <a><img alt="Avatar"> Jane Doe</a> has the same alt, so ranking alt
+        // first made every testid "avatar", "avatar-2", ... where base gave
+        // "jane-doe". alt still names a link that has no text (a logo).
+        // title is last, as in the accessible-name computation: it names an
+        // element only when the content does not. <a title="a > b">Short link</a>
+        // is "Short link", and its testid must be "short-link", not "a-b".
+        const accessibleName = aria || rendered || imgAlt || inputName || text || title;
+
+        return {
+          selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
+          tag: el.tagName.toLowerCase(),
+          attributes: Array.from(el.attributes).map(a => [a.name, a.value] as [string, string]),
+          accessibleName: accessibleName.slice(0, 200),
+          hasElementChildren: el.children.length > 0,
+          // Truncated copy, for human-readable descriptions ONLY. Never build
+          // suggested markup from this — see fullText. (2026-07-29)
+          text: text.slice(0, 30),
+          // The real text, for code examples. Capped generously to bound payload
+          // size without amputating a normal link label.
+          fullText: text.slice(0, 200),
+          textTruncated: text.length > 200,
+          outerHTML: (el.outerHTML || '').slice(0, 600),
+          outerHTMLTruncated: (el.outerHTML || '').length > 600,
+          findabilityScore,
+          suggestions: {
+            needsId: !hasId,
+            needsTestId: !hasTestId,
+            needsAriaLabel: !accessibleName,
+          },
+        };
+      }).filter(el => el.findabilityScore < 3);
+    }
   );
 
+  const usedTestIds = new Set<string>();
   for (const el of poorSelectors.slice(0, 10)) { // Limit to avoid noise
     issues.push({
       category: "findability",
@@ -683,24 +869,7 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
         : el.suggestions.needsAriaLabel
           ? "Add aria-label for accessibility and findability"
           : "Add unique id or data-testid",
-      // Built from fullText, not the 30-char display copy. Using the truncated
-      // text here produced a patch that REWROTE the element's visible content:
-      //   <a data-testid="sign-up-for-pro-and-get-500-bo"
-      //      aria-label="Sign up for Pro and get 500 bo">Sign up for Pro and get 500 bo</a>
-      // Applying that silently amputates the link label on the live page. The
-      // recommendation is "add a data-testid / aria-label", so the example must
-      // leave the text exactly as it is. (2026-07-29)
-      codeExample: (() => {
-        const tag = el.selector.split('#')[0].split('.')[0] || 'button';
-        const full = el.fullText || '';
-        // A testid is a slug, so truncating THIS is correct and expected.
-        const testId = (full || tag).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 40) || tag;
-        const label = full || `${tag} action`;
-        // Attribute values are quoted, so any quote or angle bracket in the page
-        // text would otherwise emit malformed HTML.
-        const attr = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<${tag} data-testid="${attr(testId)}" aria-label="${attr(label)}">${full || '...'}</${tag}>`;
-      })(),
+      codeExample: buildFindabilityCodeExample(el, usedTestIds),
     });
   }
 
@@ -997,20 +1166,43 @@ async function detectActionableElements(ctx: DetectionContext): Promise<void> {
   const actionAnalysis = await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], input[type="button"]'));
 
-    // Generic/weak button labels
-    const genericLabels = ['submit', 'click', 'ok', 'yes', 'no', 'go', 'next', 'back', 'continue', 'send', 'done'];
-    // Strong action verbs
-    const actionVerbs = ['add', 'create', 'save', 'delete', 'remove', 'edit', 'update', 'download', 'upload', 'share', 'copy', 'search', 'filter', 'sort', 'buy', 'subscribe', 'register', 'login', 'logout', 'sign'];
+    // A label is generic only when EVERY word in it is. Matching ANY word
+    // called "next slide" generic on cbrowser.ai because it contains "next",
+    // and suggested "Save Changes" for a carousel arrow. "slide" names the
+    // thing acted on, so the label is specific. "click here", "go back" and
+    // "OK, got it" are generic through and through. So is "submit form":
+    // "form" and "button" name the widget, not the outcome, and two forms'
+    // "Submit form" buttons give an agent nothing to choose by.
+    // Filler words (me, now, to, the, please, thanks) are generic too. Without
+    // them "Click me", "Submit now", "Send now", "Go now" and "Yes please",
+    // all flagged by the old any-word rule, stopped being flagged. They add no
+    // information, so "Click to copy" and "Go to the dashboard" stay specific.
+    // show/see/view join read/learn so "Show more" is as generic as "Read
+    // more", while "Show details" is not. (2026-10-07)
+    const genericWords = new Set([
+      'click', 'tap', 'press', 'here', 'this', 'go', 'back', 'next', 'more', 'read', 'learn',
+      'show', 'see', 'view',
+      'continue', 'done', 'submit', 'send', 'ok', 'okay', 'got', 'it', 'yes', 'no',
+      'button', 'link', 'form',
+      'me', 'now', 'to', 'the', 'please', 'thanks',
+    ]);
 
     const weakButtons: Array<{ selector: string; text: string }> = [];
     let elementsWithDescribedBy = 0;
 
     buttons.forEach(btn => {
-      const text = (btn.textContent?.trim() || btn.getAttribute('value') || btn.getAttribute('aria-label') || '').toLowerCase();
-      const words = text.split(/\s+/);
+      // The accessible name, in the order a screen reader or role+name lookup
+      // resolves it: aria-label="Next slide" names the button even when its
+      // visible (aria-hidden) glyph text says "Next". (2026-10-07)
+      const labelledBy = (btn.getAttribute('aria-labelledby') || '').trim().split(/\s+/).filter(Boolean)
+        .map(id => document.getElementById(id)?.textContent || '').join(' ').trim();
+      const text = ((btn.getAttribute('aria-label') || '').trim() || labelledBy || btn.textContent?.trim() || btn.getAttribute('value') || '')
+        .replace(/\s+/g, ' ').toLowerCase();
+      // Punctuation and arrows are not words: "Next →" is "next", "OK, got it" is "ok got it".
+      const words = text.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
 
-      // Check if button uses generic label without action verb
-      const isGeneric = words.some(w => genericLabels.includes(w)) && !words.some(w => actionVerbs.some(v => w.startsWith(v)));
+      // `every` over zero words is true, so an unnamed icon button needs the length guard.
+      const isGeneric = words.length > 0 && words.every(w => genericWords.has(w));
 
       if (isGeneric && text.length < 20) {
         weakButtons.push({
@@ -1394,6 +1586,92 @@ async function detectCaptcha(ctx: DetectionContext): Promise<void> {
 // Report Generation
 // ============================================================================
 
+/**
+ * How to say "N of these" for detections whose per-element description carries
+ * that element's own figures.
+ *
+ * The aggregate line used to be `${count} ${typeIssues[0].description}`, so one
+ * element's details were printed as if they described all of them. Measured
+ * 2026-10-06 on cbrowser.ai: "10 elements lack stable selectors (score: 0/10)"
+ * over per-element scores [0,2,2,2,2,2,0,0,0,0]. On the triage fixture:
+ * "2 sticky element may intercept clicks (z-index: 50, 1264x40px, ...)" over a
+ * sticky bar AND a 300x60 fixed dock at z-index 10, and
+ * "3 Button with generic label: "go"" over "go", "done" and "click here".
+ * Each summary below is true of every issue it counts. The per-issue
+ * descriptions are unchanged; competitive-benchmark matches on them. (2026-10-07)
+ */
+const GROUP_SUMMARIES: Record<string, {
+  pattern: RegExp;
+  summarize: (count: number, matches: RegExpExecArray[]) => string;
+}> = {
+  "findability-score-check": {
+    pattern: /^Element lacks stable selectors \(score: (\d+)\/10\)$/,
+    summarize: (count, m) => {
+      const scores = m.map(x => Number(x[1]));
+      const lo = Math.min(...scores), hi = Math.max(...scores);
+      return `${count} elements lack stable selectors (${lo === hi ? `score: ${lo}/10` : `scores: ${lo}-${hi}/10`})`;
+    },
+  },
+  "sticky-element-check": {
+    pattern: /^(\w+) element may intercept clicks \(z-index: (-?\d+)/,
+    summarize: (count, m) => {
+      const positions = [...new Set(m.map(x => x[1]))].join(" or ");
+      const z = m.map(x => Number(x[2]));
+      const lo = Math.min(...z), hi = Math.max(...z);
+      return `${count} ${positions} elements may intercept clicks (z-index: ${lo === hi ? lo : `${lo}-${hi}`})`;
+    },
+  },
+  "action-verb-check": {
+    pattern: /^Button with generic label: "(.*)"$/,
+    summarize: (count, m) => {
+      // Repeats collapse: cbrowser.ai's two nav "More" triggers read "more" x2.
+      const seen = new Map<string, number>();
+      for (const x of m) seen.set(x[1], (seen.get(x[1]) || 0) + 1);
+      const labels = [...seen].map(([label, n]) => `"${label}"${n > 1 ? ` x${n}` : ""}`);
+      return `${count} buttons with generic labels: ${labels.join(", ")}`;
+    },
+  },
+  "clickable-div-check": {
+    pattern: /^Clickable (\S+) without button role$/,
+    // Element types only, at most five. The selector carries the element's id,
+    // so listing selectors printed all 60 ids of a grid of
+    // <div id="cell-N" onclick>, 812 chars in a top recommendation. (2026-10-07)
+    summarize: (count, m) => {
+      const tags = [...new Set(m.map(x => x[1].split("#")[0]))];
+      const more = tags.length > 5 ? `, +${tags.length - 5} more` : "";
+      return `${count} clickable elements without button role (${tags.slice(0, 5).join(", ")}${more})`;
+    },
+  },
+  "link-href-check": {
+    pattern: /^Link with (javascript:|no) href acts as button$/,
+    summarize: (count, m) => `${count} links with ${[...new Set(m.map(x => x[1]))].join(" or ")} href act as buttons`,
+  },
+};
+
+/** One line for a group of same-detection issues that is true of every one of them. */
+function summarizeIssueGroup(typeIssues: AgentReadyIssue[]): string {
+  const representative = typeIssues[0];
+  const count = typeIssues.length;
+  if (count === 1) return representative.description;
+
+  const summary = GROUP_SUMMARIES[representative.detectionMethod];
+  if (summary) {
+    const matches = typeIssues.map(i => summary.pattern.exec(i.description));
+    if (matches.every((m): m is RegExpExecArray => m !== null)) return summary.summarize(count, matches);
+  }
+
+  if (typeIssues.every(i => i.description === representative.description)) {
+    // v14.2.4: Fix grammar - "10 elements lack" not "10 Elements lacks"
+    const issueText = representative.description
+      .replace(/^Element /, "elements ")
+      .replace(/ lacks /, " lack ");
+    return `${count} ${issueText}`;
+  }
+  // Descriptions differ and there is no summary for this detection: say the
+  // quoted one is an example rather than present it as all of them.
+  return `${count} similar issues, for example: ${representative.description}`;
+}
+
 function generateRecommendations(issues: AgentReadyIssue[]): AgentReadyRecommendation[] {
   // Group issues by category and sort by severity
   const grouped = issues.reduce((acc, issue) => {
@@ -1425,17 +1703,7 @@ function generateRecommendations(issues: AgentReadyIssue[]): AgentReadyRecommend
 
         for (const [_type, typeIssues] of issueTypes) {
           const representative = typeIssues[0];
-          const count = typeIssues.length;
-
-          // v14.2.4: Fix grammar - "10 elements lack" not "10 Elements lacks"
-          let issueText = representative.description;
-          if (count > 1) {
-            // Replace "Element lacks" with "elements lack" for proper grammar
-            issueText = representative.description
-              .replace(/^Element /, "elements ")
-              .replace(/ lacks /, " lack ");
-            issueText = `${count} ${issueText}`;
-          }
+          const issueText = summarizeIssueGroup(typeIssues);
 
           recommendations.push({
             priority: priority++,

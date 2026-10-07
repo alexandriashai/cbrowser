@@ -273,24 +273,21 @@ function createDefaultPatch(issue: AgentReadyIssue): RemediationPatch {
     issue.category === "agentPerceivability" && issue.detectionMethod?.includes("aria") ? "trivial" :
     "medium";
 
-  // Use the audit's codeExample if it's contextual (contains actual text, not just boilerplate).
-  // The agent_ready_audit generator already produces good examples like:
-  //   <a data-testid="learn-more" aria-label="Learn more">Learn more</a>
-  // Only generate a new one if the existing example is missing or generic.
-  let after = issue.codeExample || "";
-  const isGenericExample = !after || after.includes('>...</') || after === "<!-- See recommendation below -->";
-
-  if (isGenericExample && issue.category === "findability" && issue.element) {
-    const tag = issue.element.split(/[#.[]/)[0] || "div";
-    const textMatch = issue.description?.match(/["']([^"']+)["']/);
-    const elementText = textMatch?.[1] || issue.element.split("#")[1] || "";
-    const testId = elementText
-      ? elementText.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 40)
-      : `${tag}-${Math.random().toString(36).substring(2, 6)}`;
-    const ariaLabel = elementText || `${tag} action`;
-    after = `<${tag} data-testid="${testId}" aria-label="${ariaLabel}">${elementText || "..."}</${tag}>`;
-  }
-  if (!after) after = "<!-- See recommendation below -->";
+  // Use the audit's codeExample. For a findability finding it is the element's
+  // real opening tag plus a data-testid, e.g.
+  //   <button data-testid="previous-slide" class="p-2" aria-label="Previous slide">
+  //
+  // This used to SYNTHESISE markup for any findability issue whose example was
+  // missing or contained ">...</":
+  //   <${tag} data-testid="${tag}-<random>" aria-label="${tag} action">...</${tag}>
+  // Measured 2026-10-06, that replaced aria-label="Previous slide" on
+  // cbrowser.ai's carousel with "button action", and for page-level findings,
+  // which have no element to patch, it produced
+  //   <title data-testid="title-l6c1" aria-label="title action">...</title>
+  // and <document ... aria-label="document action">. A guessed tag with an
+  // invented name is never a correct patch, so when the audit has no markup
+  // fix the patch says so and points at the recommendation. (2026-10-07)
+  const after = issue.codeExample || "<!-- See recommendation below -->";
 
   return {
     issueId: `issue-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
