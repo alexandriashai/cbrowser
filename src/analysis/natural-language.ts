@@ -311,7 +311,9 @@ function buildElementResult(
 
   // v14.2.4: Clamp confidence to [0, 1] range to avoid invalid values
   const rawConfidence = Math.max(best.confidence, baseConfidence);
-  const clampedConfidence = Math.max(0, Math.min(1, rawConfidence));
+  // Rounded to 2 decimals (2026-10-07): float sums surfaced as 0.9999999999999999
+  // and 0.7749999999999999 in tool output. Display only - ranking is unaffected.
+  const clampedConfidence = Math.round(Math.max(0, Math.min(1, rawConfidence)) * 100) / 100;
 
   return {
     selector: best.selector,
