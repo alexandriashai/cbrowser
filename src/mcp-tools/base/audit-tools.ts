@@ -1207,7 +1207,11 @@ export function registerEmpathyAuditTool(server: McpServer): void {
       includeScreenshots: z.boolean().optional().default(false).describe("Inline base64 page screenshots in the response. Off by default because they are large enough to overflow an MCP client's context; when off, screenshots are written to disk and screenshotPath is returned instead."),
       scope: z.enum(["viewport", "full_page"]).optional().default("viewport").describe("What to score: 'viewport' (first impression, above-the-fold only — default) or 'full_page' (scroll through entire page, all barriers). Use 'viewport' for landing page optimization; 'full_page' for WCAG compliance audits."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15', 'Pixel 7'. Essential for mobile WCAG audits — touch targets, viewport sizing, and responsive barriers differ significantly on mobile."),
-      uiResource: z.boolean().optional().default(true).describe("Return an interactive HTML report as an MCP UI resource alongside the JSON. Hosts that support MCP Apps render it inline; others ignore it. Set false for scripted callers that diff whole responses."),
+      // Description only, behaviour unchanged. The view is declared on the tool
+      // (_meta.ui above), so the host renders it whatever this flag says; the
+      // old text told scripted callers to set it false, which did nothing.
+      // (2026-10-07)
+      uiResource: z.boolean().optional().default(true).describe("Deprecated; has no effect. The interactive report is declared on this tool (ui://cbrowser/empathy), so hosts that support MCP Apps render the view regardless of this value, and hosts that do not simply show the JSON. The JSON text block is the same either way. Accepted only so existing callers do not break."),
     },
     annotations: {
       title: "Empathy Accessibility Audit",

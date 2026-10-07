@@ -725,16 +725,24 @@ export function calculatePerceptualScore(
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   // Build explanation
+  //
+  // Every bucket is named, largest first. `.slice(0, 3)` dropped the rest, so
+  // on a four-bucket tremor audit the prose summed to -46.1 beside a
+  // deductionsByType totalling -50 (color_only -3.9 went unmentioned). There
+  // are only a handful of weight keys, so naming all of them costs a few words
+  // and lets a reader add the sentence up to the number. (2026-10-07)
   const topDeductions = Object.entries(deductions)
     .sort(([, a], [, b]) => a - b)
-    .slice(0, 3)
     .map(([type, d]) => `${type.replace(/_/g, ' ')} (${d})`)
     .join(', ');
 
   const explanation = [
     topDeductions ? `Weighted barrier deductions: ${topDeductions}` : '',
     frictionDeduction > 0 ? `Friction (${filter.processingSpeed}x speed): -${frictionDeduction.toFixed(1)}` : '',
-    goalDeduction > 0 ? `Goal penalty (${filter.motorCostMultiplier}x motor): -${goalDeduction.toFixed(1)}` : '',
+    // The capped figure -- the one subtracted above and returned as
+    // goalDeduction. The raw value printed "-45.0" for tremor (3.0x) beside a
+    // 25-point deduction. (2026-10-07)
+    goalDeduction > 0 ? `Goal penalty (${filter.motorCostMultiplier}x motor): -${Math.min(25, goalDeduction).toFixed(1)}` : '',
     cognitiveOverloadPenalty > 0 ? `Cognitive overload (${filter.noiseTolerance} tolerance): -${cognitiveOverloadPenalty.toFixed(1)}` : '',
     informationLoss > 0.05 ? `Visual info loss: ${(informationLoss * 100).toFixed(0)}%` : '',
   ].filter(Boolean).join('. ');

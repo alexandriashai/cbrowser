@@ -15,7 +15,7 @@ import {
   createCognitivePersona,
   isAgentPersonaObject,
 } from "../../personas.js";
-import { listAccessibilityPersonas, getAccessibilityPersona } from "../../personas.js";
+import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibilityPersona } from "../../personas.js";
 import { getPersonaValues, rankInfluencePatternsForProfile, resolveValuesForPersona } from "../../values/index.js";
 import { resolvePersonaValues } from "./values-tools.js";
 import type {
@@ -815,38 +815,9 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const accessibilityPersonas = accessibilityNames.map(name => {
         const p = getAccessibilityPersona(name);
         if (!p) return null;
-        const traits = p.accessibilityTraits;
-        let disabilityType = "General accessibility";
-        const barrierTypes: string[] = [];
-
-        if (traits?.tremor) {
-          disabilityType = "Motor impairment (tremor)";
-          barrierTypes.push("motor_precision", "touch_target");
-        }
-        if (traits?.visionLevel !== undefined && traits.visionLevel < 0.5) {
-          disabilityType = "Low vision";
-          barrierTypes.push("visual_clarity", "contrast");
-        }
-        if (traits?.colorBlindness) {
-          disabilityType = `Color blindness (${traits.colorBlindness})`;
-          barrierTypes.push("sensory");
-        }
-        if (traits?.processingSpeed !== undefined && traits.processingSpeed < 0.6) {
-          disabilityType = "Cognitive (Processing)";
-          barrierTypes.push("cognitive_load", "temporal");
-        }
-        if (traits?.attentionSpan !== undefined && traits.attentionSpan < 0.5) {
-          if (!disabilityType.includes("Cognitive")) {
-            disabilityType = "Cognitive (ADHD/Attention)";
-          }
-          barrierTypes.push("cognitive_load");
-        }
-        if (disabilityType === "General accessibility") {
-          if (p.name.includes("deaf") || p.name.includes("hearing")) disabilityType = "Hearing impairment";
-          else if (p.name.includes("motor")) disabilityType = "Motor impairment";
-          else if (p.name.includes("vision") || p.name.includes("blind")) disabilityType = "Vision impairment";
-          else if (p.name.includes("cognitive") || p.name.includes("adhd")) disabilityType = "Cognitive";
-        }
+        // Shared with the stdio roster; a declared label wins over inference.
+        // (2026-10-07)
+        const { disabilityType, barrierTypes } = describeAccessibilityPersona(p);
 
         const values = resolveValuesForPersona(p.name);
         return {
@@ -856,7 +827,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
           disabilityType,
           demographics: p.demographics,
           cognitiveTraits: p.cognitiveTraits || {},
-          barrierTypes: [...new Set(barrierTypes)],
+          barrierTypes,
           values: values ? {
             schwartz: {
               selfDirection: values.selfDirection,

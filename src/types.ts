@@ -5418,6 +5418,18 @@ export interface AccessibilityPersona extends Omit<Persona, 'cognitiveTraits'> {
   accessibilityTraits: AccessibilityTraits;
   /** Cognitive traits (optional partial override) */
   cognitiveTraits?: Partial<CognitiveTraits>;
+  /**
+   * Disability category, as the persona's description states it.
+   *
+   * Declared rather than inferred. Inference from traits ran last-match-wins
+   * and knew nothing of hearing or numeracy, so elderly-low-vision listed as
+   * "Cognitive (Processing)" and dyscalculia as "General accessibility" -- and
+   * four call sites inferred it four ways. Custom personas may omit it and
+   * fall back to inference. (2026-10-07)
+   */
+  disabilityType?: string;
+  /** Barrier types this persona is most exposed to, from the same description. */
+  barrierTypes?: AccessibilityBarrierType[];
 }
 
 // ============================================================================

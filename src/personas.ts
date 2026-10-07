@@ -1869,6 +1869,10 @@ import type { AccessibilityPersona } from "./types.js";
 /**
  * Built-in accessibility personas for empathy testing.
  * These simulate how people with different disabilities experience websites.
+ *
+ * Each declares `disabilityType` and `barrierTypes` from its description, so
+ * the roster, the empathy audit and the stdio session all read one label
+ * instead of inferring three. (2026-10-07)
  */
 export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
   "motor-impairment-tremor": {
@@ -1877,6 +1881,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // SteadyMouse/anti-tremor tools filter 1-15Hz tremor frequencies
     // Cursor jitter and misclicks are primary computer use barriers
     description: "User with essential tremor affecting fine motor control",
+    disabilityType: "Motor impairment (tremor)",
+    barrierTypes: ["motor_precision", "touch_target"],
     demographics: {
       age_range: "40-65",
       tech_level: "intermediate",
@@ -1981,6 +1987,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // 3x magnification = effectively sees 1/9th of screen at once
     // Causes "tunnel vision" effect and frequent scrolling/panning
     description: "User with low vision using 3x screen magnification",
+    disabilityType: "Low vision",
+    barrierTypes: ["visual_clarity", "contrast"],
     demographics: {
       age_range: "45-75",
       tech_level: "intermediate",
@@ -2081,6 +2089,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // Research: 75-81% of ADHD cases show central executive WM impairment (PMC7483636)
     // Impulsivity affects persistence and patience significantly
     description: "User with ADHD affecting focus and working memory",
+    disabilityType: "Cognitive (ADHD/Attention)",
+    barrierTypes: ["cognitive_load"],
     demographics: {
       age_range: "18-45",
       tech_level: "intermediate",
@@ -2208,6 +2218,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // Research: Dyslexic adults read ~178 WPM vs 248 WPM controls (Scientific Reports 2021)
     // About 72% of typical speed, with more fixations and regressions
     description: "User with dyslexia affecting reading and text processing",
+    disabilityType: "Cognitive (Dyslexia/Reading)",
+    barrierTypes: ["cognitive_load", "temporal"],
     demographics: {
       age_range: "18-55",
       tech_level: "intermediate",
@@ -2331,6 +2343,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
   "deaf-user": {
     name: "deaf-user",
     description: "Deaf user who relies on visual content and captions",
+    disabilityType: "Hearing (deaf/hard of hearing)",
+    barrierTypes: ["sensory"],
     demographics: {
       age_range: "18-65",
       tech_level: "intermediate",
@@ -2413,6 +2427,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // Cognitive decline accelerates after age 70 (Nature Communications 2026)
     // Working memory declines due to inhibitory control changes (PMC review)
     description: "Elderly user (75+) with age-related vision and motor decline",
+    disabilityType: "Low vision (age-related, with motor decline)",
+    barrierTypes: ["visual_clarity", "contrast", "touch_target", "cognitive_load", "temporal"],
     demographics: {
       age_range: "75+",
       tech_level: "beginner",
@@ -2514,6 +2530,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // Affects ~8% of males, ~0.5% of females
     // Cannot distinguish red-green (e.g., error/success states)
     description: "User with red-green color blindness (deuteranopia)",
+    disabilityType: "Color blindness (red-green)",
+    barrierTypes: ["sensory"],
     demographics: {
       age_range: "18-65",
       tech_level: "intermediate",
@@ -2623,6 +2641,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // be generalized to the full spectrum. Sensory sensitivity profiles vary enormously. Many
     // autistic users are power users who need predictability and consistency, not simplification.
     description: "Autistic adult user — needs predictable layouts, clear labels, reduced visual noise. Based on Yaneva et al. eye tracking research.",
+    disabilityType: "Cognitive (Processing)",
+    barrierTypes: ["cognitive_load", "temporal"],
     demographics: {
       age_range: "18-45",
       tech_level: "intermediate",
@@ -2710,6 +2730,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // studied this range. Visual memory can be above average even when judgment is impaired.
     // Do NOT assume users cannot learn — they can, with consistent, simple interfaces.
     description: "User with mild intellectual disability — needs simple navigation, plain language, image support. Based on Karreman et al. and W3C COGA research.",
+    disabilityType: "Cognitive (Intellectual disability)",
+    barrierTypes: ["cognitive_load", "temporal"],
     demographics: {
       age_range: "18-55",
       tech_level: "beginner",
@@ -2796,6 +2818,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // language. Expressive aphasia (Broca's) has different barriers (text input, not comprehension).
     // Aphasia does NOT imply intellectual impairment — reasoning and judgment are intact.
     description: "User with receptive aphasia — struggles with text-heavy navigation, needs visual cues and simple sentences. Language comprehension is impaired, intelligence is not.",
+    disabilityType: "Cognitive (Language comprehension)",
+    barrierTypes: ["cognitive_load", "temporal"],
     demographics: {
       age_range: "35-75",
       tech_level: "intermediate",
@@ -2883,6 +2907,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // language, and spatial skills are typically normal or above. Users may be highly skilled
     // with technology except when numbers are involved.
     description: "User with dyscalculia — struggles with pricing, quantities, dates, percentages, and reference numbers. Non-numerical skills are normal.",
+    disabilityType: "Cognitive (Numeracy)",
+    barrierTypes: ["cognitive_load"],
     demographics: {
       age_range: "18-55",
       tech_level: "intermediate",
@@ -2994,6 +3020,59 @@ export function getAccessibilityPersona(name: string): AccessibilityPersona | un
  */
 export function listAccessibilityPersonas(): string[] {
   return Object.keys(ACCESSIBILITY_PERSONAS);
+}
+
+/**
+ * The disability label and barrier types the roster shows for a persona.
+ *
+ * One implementation for both list_cognitive_personas copies (remote and
+ * stdio), which each carried this inference verbatim. A declared label wins;
+ * every built-in declares one. The inference below survives only for custom
+ * accessibility personas, and it ran last-match-wins: elderly-low-vision came
+ * out "Cognitive (Processing)" because processingSpeed < 0.6 overwrote "Low
+ * vision", and the name fallback set a label but never a barrier type, so
+ * deaf-user listed barrierTypes []. (2026-10-07)
+ */
+export function describeAccessibilityPersona(p: AccessibilityPersona): { disabilityType: string; barrierTypes: string[] } {
+  if (p.disabilityType) {
+    return { disabilityType: p.disabilityType, barrierTypes: [...(p.barrierTypes ?? [])] };
+  }
+
+  const traits = p.accessibilityTraits;
+  let disabilityType = "General accessibility";
+  const barrierTypes: string[] = [];
+
+  if (traits?.tremor) {
+    disabilityType = "Motor impairment (tremor)";
+    barrierTypes.push("motor_precision", "touch_target");
+  }
+  if (traits?.visionLevel !== undefined && traits.visionLevel < 0.5) {
+    disabilityType = "Low vision";
+    barrierTypes.push("visual_clarity", "contrast");
+  }
+  if (traits?.colorBlindness) {
+    disabilityType = `Color blindness (${traits.colorBlindness})`;
+    barrierTypes.push("sensory");
+  }
+  if (traits?.processingSpeed !== undefined && traits.processingSpeed < 0.6) {
+    disabilityType = "Cognitive (Processing)";
+    barrierTypes.push("cognitive_load", "temporal");
+  }
+  if (traits?.attentionSpan !== undefined && traits.attentionSpan < 0.5) {
+    if (!disabilityType.includes("Cognitive")) {
+      disabilityType = "Cognitive (ADHD/Attention)";
+    }
+    barrierTypes.push("cognitive_load");
+  }
+  // Name-based fallback
+  if (disabilityType === "General accessibility") {
+    if (p.name.includes("deaf") || p.name.includes("hearing")) disabilityType = "Hearing impairment";
+    else if (p.name.includes("motor")) disabilityType = "Motor impairment";
+    else if (p.name.includes("vision") || p.name.includes("blind")) disabilityType = "Vision impairment";
+    else if (p.name.includes("cognitive") || p.name.includes("adhd")) disabilityType = "Cognitive";
+  }
+
+  return { disabilityType, barrierTypes: [...new Set(barrierTypes)] };
 }
 
 // ============================================================================

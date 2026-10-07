@@ -11,6 +11,22 @@ import { getStatusInfo } from "../../config.js";
 import { VERSION } from "../../version.js";
 
 /**
+ * Number of tools this server will return from tools/list.
+ *
+ * Reads the SDK's registry and counts the ENABLED entries, which is exactly the
+ * filter its tools/list handler applies, so status and tools/list cannot
+ * disagree. Every registration path lands here -- registerTool, the deprecated
+ * tool(), and the tier/security wrappers, which patch the same instance in
+ * place. Undefined when the object is not an SDK server, so the status payload
+ * omits the count rather than inventing one. (2026-10-07)
+ */
+export function countRegisteredTools(server: unknown): number | undefined {
+  const registry = (server as { _registeredTools?: Record<string, { enabled?: boolean }> } | null)?._registeredTools;
+  if (!registry || typeof registry !== "object") return undefined;
+  return Object.values(registry).filter((t) => t?.enabled !== false).length;
+}
+
+/**
  * Register browser management tools (4 tools: status, browser_health, browser_recover, reset_browser)
  */
 export function registerBrowserManagementTools(
@@ -51,7 +67,12 @@ export function registerBrowserManagementTools(
       openWorldHint: false,
     },
   }, async () => {
-      const toolCount = getToolCount?.();
+      // The description promises an MCP tool count. No server ever supplied
+      // getToolCount (the remote context was { getBrowser, getBrowserByToken }),
+      // so the optional call was always undefined and the field never shipped.
+      // Count the server this tool is registered on when no provider is given.
+      // (2026-10-07)
+      const toolCount = getToolCount?.() ?? countRegisteredTools(server);
       const info = await getStatusInfo(VERSION, toolCount);
       // The host fetches the declared ui:// resource itself and pushes THIS
       // result into the iframe, where the view renders from it. Returning HTML

@@ -615,7 +615,11 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
     const wcagMap: Record<string, { criteria: string[]; violation: string | null }> = {
       "long-form": { criteria: ["3.3.2"], violation: "3.3.2" }, // Labels or Instructions
       "text-wall": { criteria: ["1.3.1"], violation: null }, // Info and Relationships (recommendation, not violation)
-      "animation": { criteria: ["2.2.2", "2.3.1"], violation: "2.2.2" }, // Pause Stop Hide
+      // Pause, Stop, Hide only. 2.3.1 (Three Flashes) is a seizure-safety
+      // criterion about flash RATE, and nothing here measures flashing -- this
+      // is a class-name match. Citing it published a Level A violation for
+      // every page with an animate-* utility. (2026-10-07)
+      "animation": { criteria: ["2.2.2"], violation: "2.2.2" },
       "complex-nav": { criteria: [], violation: null }, // No WCAG criterion for nav item count — UX recommendation only
     };
     const mapping = wcagMap[issue.type] || { criteria: [], violation: null };
@@ -1316,7 +1320,11 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
         type: "cognitive_load",
         element: form.selector,
         description: `Form with ${form.fieldCount} fields lacks progress indicator - users with memory impairment may lose track of progress`,
-        affectedPersonas: ["cognitive-adhd", "cognitive-memory-impairment"],
+        // "cognitive-memory-impairment" is not a persona -- naming it sent
+        // readers to a name that throws UnknownPersonaError. These are the two
+        // registry personas with the lowest workingMemory (0.3 and 0.2), which
+        // is the trait this barrier taxes. (2026-10-07)
+        affectedPersonas: ["cognitive-adhd", "intellectual-disability"],
         wcagCriteria: ["3.3.4"],
         severity: "major",
         remediation: "Add progress indicator showing steps completed and remaining, or break form into clearly numbered sections",
@@ -2054,6 +2062,13 @@ async function simulateAccessibilityJourney(
 }
 
 function getDisabilityType(persona: AccessibilityPersona): string {
+  // A label the persona declares wins. The built-in accessibility personas all
+  // declare one, because four sites inferred it four ways and disagreed:
+  // dyslexic-user was "Cognitive (Processing)" in the roster and "Cognitive
+  // (ADHD/Memory)" in its own audit. Inference below is for custom personas,
+  // which declare nothing. (2026-10-07)
+  if (persona.disabilityType) return persona.disabilityType;
+
   // Hearing first, and by name as well as by trait.
   //
   // Every other branch keys off a visual, motor or cognitive trait, and

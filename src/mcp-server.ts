@@ -35,6 +35,7 @@ import { registerPersonaComparisonTools } from "./mcp-tools/base/persona-compari
 import { registerPersonaCreationTools } from "./mcp-tools/persona-creation-tools.js";
 import { registerPersonaLifecycleTools } from "./mcp-tools/persona-lifecycle-tools.js";
 import { registerUiResources } from "./mcp-tools/ui-resources.js";
+import { countRegisteredTools } from "./mcp-tools/base/browser-management-tools.js";
 import { applySecurityLayer } from "./mcp-tools/security-layer.js";
 
 // Visual module imports
@@ -69,7 +70,7 @@ import {
   runCompetitiveBenchmark,
   runEmpathyAudit,
 } from "./analysis/index.js";
-import { listAccessibilityPersonas, getAccessibilityPersona } from "./personas.js";
+import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibilityPersona } from "./personas.js";
 
 // Persona imports for cognitive journey
 import {
@@ -2294,40 +2295,11 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const accessibilityPersonas = accessibilityNames.map(name => {
         const p = getAccessibilityPersona(name);
         if (!p) return null;
-        // v16.11.0: Compute disabilityType and barrierTypes from accessibilityTraits
-        const traits = p.accessibilityTraits;
-        let disabilityType = "General accessibility";
-        const barrierTypes: string[] = [];
-
-        if (traits?.tremor) {
-          disabilityType = "Motor impairment (tremor)";
-          barrierTypes.push("motor_precision", "touch_target");
-        }
-        if (traits?.visionLevel !== undefined && traits.visionLevel < 0.5) {
-          disabilityType = "Low vision";
-          barrierTypes.push("visual_clarity", "contrast");
-        }
-        if (traits?.colorBlindness) {
-          disabilityType = `Color blindness (${traits.colorBlindness})`;
-          barrierTypes.push("sensory");
-        }
-        if (traits?.processingSpeed !== undefined && traits.processingSpeed < 0.6) {
-          disabilityType = "Cognitive (Processing)";
-          barrierTypes.push("cognitive_load", "temporal");
-        }
-        if (traits?.attentionSpan !== undefined && traits.attentionSpan < 0.5) {
-          if (!disabilityType.includes("Cognitive")) {
-            disabilityType = "Cognitive (ADHD/Attention)";
-          }
-          barrierTypes.push("cognitive_load");
-        }
-        // Name-based fallback
-        if (disabilityType === "General accessibility") {
-          if (p.name.includes("deaf") || p.name.includes("hearing")) disabilityType = "Hearing impairment";
-          else if (p.name.includes("motor")) disabilityType = "Motor impairment";
-          else if (p.name.includes("vision") || p.name.includes("blind")) disabilityType = "Vision impairment";
-          else if (p.name.includes("cognitive") || p.name.includes("adhd")) disabilityType = "Cognitive";
-        }
+        // Shared with the remote roster (personas.ts); a declared label wins
+        // over inference. This copy and that one were identical inference
+        // blocks, so a fix to one could only ever reach half the users.
+        // (2026-10-07)
+        const { disabilityType, barrierTypes } = describeAccessibilityPersona(p);
 
         // v16.12.0: Include Schwartz values for accessibility personas
         const values = resolveValuesForPersona(p.name);
@@ -2338,7 +2310,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
           disabilityType,
           demographics: p.demographics,
           cognitiveTraits: p.cognitiveTraits || {},
-          barrierTypes: [...new Set(barrierTypes)], // Deduplicate
+          barrierTypes,
           values: values ? {
             schwartz: {
               selfDirection: values.selfDirection,
@@ -2646,8 +2618,11 @@ Begin the simulation now. Narrate your thoughts as this persona.
           accessibilityTraits: persona.accessibilityTraits,
           cognitiveTraits: persona.cognitiveTraits,
         };
-        // Compute disability type from traits
-        sessionPersona.disabilityType = getDisabilityTypeFromPersona(sessionPersona);
+        // A declared label wins; traits are inferred only for personas that
+        // declare none. Inferring here gave dyslexic-user "Cognitive
+        // (ADHD/Memory)" in this session and "Cognitive (Processing)" in the
+        // roster. (2026-10-07)
+        sessionPersona.disabilityType = persona.disabilityType ?? getDisabilityTypeFromPersona(sessionPersona);
         return sessionPersona;
       });
 
@@ -3155,8 +3130,12 @@ Begin the simulation now. Narrate your thoughts as this persona.
     "Get CBrowser environment status and diagnostics including data directories, installed browsers, configuration, self-healing cache statistics, and MCP tool count",
     {},
     async () => {
-      // v18.22.0: Include tool count for self-diagnosis of tool discrepancies
-      const info = await getStatusInfo(VERSION, collectedTools.length);
+      // v18.22.0: Include tool count for self-diagnosis of tool discrepancies.
+      // collectedTools sees only server.tool(...) calls, so every family this
+      // server registers through registerTool (empathy_audit, values, persona
+      // comparison/creation/lifecycle) was missing: 55 reported, 82 listed.
+      // Count what tools/list actually serves. (2026-10-07)
+      const info = await getStatusInfo(VERSION, countRegisteredTools(server) ?? collectedTools.length);
       return {
         content: [
           {
