@@ -47,7 +47,9 @@ const REGISTRY = new Set<string>([
  * sites with ["motor-impairment-tremor", "elderly-low-vision"] (the two
  * registry personas with motor decline) and empty this list in the same step.
  */
-const PENDING_OUTSIDE_THIS_CHANGE: Array<{ name: string; fn: string }> = [{ name: "motor-impairment-limited-mobility", fn: "detectMotorBarriers" }];
+// 2026-10-07 batch 2: BUG-03 replaced the phantom at both detectMotorBarriers sites
+// with ["motor-impairment-tremor", "elderly-low-vision"], so the exemption is empty.
+const PENDING_OUTSIDE_THIS_CHANGE: Array<{ name: string; fn: string }> = [];
 
 const isPending = (s: { name: string; fn: string | null }) =>
   PENDING_OUTSIDE_THIS_CHANGE.some((p) => p.name === s.name && p.fn === s.fn);
