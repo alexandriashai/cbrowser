@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { buildContentWithScreenshots } from "../screenshot-utils.js";
+import { buildContentWithScreenshots, describeDownscale } from "../screenshot-utils.js";
 import { describeContentIntegrity } from "../../content-integrity.js";
 
 /**
@@ -98,6 +98,7 @@ export function registerNavigationTools(
             title: result.title,
             loadTime: result.loadTime,
             screenshot: result.screenshot,
+            ...describeDownscale(b.lastScreenshotInfo, result.screenshot),
             ...(result.waitSelectorTimedOut ? { waitSelectorTimedOut: true, waitWarning: `waitForSelector timed out — the expected element never appeared` } : {}),
             ...(result.warnings.length > 0 ? { warnings: result.warnings } : {}),
             ...(result.errors && result.errors.length > 0 ? { errors: result.errors } : {}),

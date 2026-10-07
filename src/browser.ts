@@ -14,7 +14,7 @@
 import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync, readlinkSync } from "fs";
 import { isStaleSingletonLock } from "./utils.js";
-import { join } from "path";
+import { join, dirname } from "path";
 import { execSync } from "child_process";
 
 import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths } from "./config.js";
@@ -124,17 +124,21 @@ export interface ScreenshotOptions {
   compress?: boolean;
   /** JPEG quality 0-100 (default: 85, only used when compress=true) */
   quality?: number;
-  /** Scale factor 0-1 (default: 1.0, only used when compress=true) */
+  /**
+   * Not applied. It only ever fed the old compression loop's skip guard and
+   * never set a size; since 2026-10-07 (BUG-02) the image is downscaled only
+   * as far as `maxSize` requires. Kept so existing callers still compile.
+   */
   scale?: number;
   /** Target max file size in bytes - will auto-adjust quality/scale if needed */
   maxSize?: number;
   /**
-   * Never resize the viewport to hit the size budget; drop quality instead.
+   * Never resize the viewport to hit the size budget.
    *
-   * The compression loop shrinks files by calling setViewportSize, which
-   * reflows the page for real -- it can cross responsive breakpoints, and
-   * during a screen capture it puts a resize into the recording. Callers that
-   * own the viewport (a running capture) set this so the page is left alone.
+   * Since 2026-10-07 (BUG-02) this is how compression always behaves: the
+   * budget is met by re-encoding and downscaling the captured image in memory,
+   * and the live viewport is never touched. The option is kept so the callers
+   * that own the viewport (a running capture) still state that they do.
    */
   noResize?: boolean;
   /** Full page screenshot (default: false) */
@@ -145,6 +149,45 @@ export interface ScreenshotOptions {
    * a rect that clamps to zero area throws.
    */
   clip?: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * What a compressed screenshot actually is, once it has been fitted to its
+ * byte budget. Read it from `CBrowser.lastScreenshotInfo`.
+ *
+ * The budget can now be met by downscaling the image rather than the viewport
+ * (BUG-02, 2026-10-07), so a picture can be smaller than the page it shows.
+ * A caller that maps what it sees back onto the page -- coordinates, text
+ * size, "is that the mobile layout?" -- needs to know that, and the file name
+ * alone does not say.
+ */
+export interface ScreenshotInfo {
+  /** The file written. */
+  path: string;
+  /** Pixel size of the image in the file. */
+  width: number;
+  height: number;
+  /** Pixel size the browser captured, before any in-memory downscale. */
+  sourceWidth: number;
+  sourceHeight: number;
+  /** True when the image is smaller than the capture. */
+  downscaled: boolean;
+  /** JPEG quality of the file. */
+  quality: number;
+  /** Size of the file in bytes. */
+  bytes: number;
+  /** The byte budget it was fitted to; `bytes` exceeds it only when nothing fitted. */
+  maxSize: number;
+}
+
+/** One encoded candidate in CBrowser.fitJpegToBudget. */
+interface FittedJpeg {
+  buffer: Buffer;
+  width: number;
+  height: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  quality: number;
 }
 
 /**
@@ -309,6 +352,18 @@ export class CBrowser {
 
   // Track last filled input for Enter key fallback when submit buttons are hidden
   private lastFilledInputSelector: string | null = null;
+
+  /** Set by every compressed screenshot; cleared by every screenshot(). */
+  private _lastScreenshotInfo: ScreenshotInfo | undefined;
+
+  /**
+   * Size, quality and source size of the last compressed screenshot, or
+   * undefined when the last screenshot was not compressed or could not be
+   * measured. Compare `path` with the file you hold before trusting it.
+   */
+  get lastScreenshotInfo(): ScreenshotInfo | undefined {
+    return this._lastScreenshotInfo;
+  }
 
   constructor(userConfig: Partial<CBrowserConfig> = {}) {
     this.config = mergeConfig(userConfig);
@@ -5351,6 +5406,8 @@ For more help: https://playwright.dev/docs/browsers
   async screenshot(path?: string, options?: ScreenshotOptions): Promise<string> {
     const page = await this.getPage();
     const opts = options || {};
+    // A stale record must never describe a newer file.
+    this._lastScreenshotInfo = undefined;
 
     // In remote mode, auto-enable compression to stay under Claude.ai's 200KB limit
     // unless explicitly disabled
@@ -5407,8 +5464,11 @@ For more help: https://playwright.dev/docs/browsers
   }
 
   /**
-   * Take a compressed JPEG screenshot.
-   * Automatically adjusts quality and scale to stay under maxSize.
+   * Take a compressed JPEG screenshot that fits `maxSize` bytes.
+   *
+   * The page is captured once, at its current viewport, and the budget is met
+   * in memory -- lower JPEG quality first, then a smaller image. The viewport
+   * is never resized. `lastScreenshotInfo` says what came out.
    *
    * @param path - Output path (will use .jpg extension)
    * @param options - Compression options
@@ -5418,24 +5478,7 @@ For more help: https://playwright.dev/docs/browsers
     const page = await this.getPage();
     const maxSize = options?.maxSize || 110000; // ~150KB after base64 (110KB raw = ~150KB base64)
     const fullPage = options?.fullPage || false;
-
-    // Quality and scale steps to try
-    const qualitySteps = [85, 70, 55, 45, 35, 25];
-    // Viewport scaling is skipped for two cases.
-    //
-    // noResize: the caller owns the viewport (a capture is running) and a
-    // resize would reflow the page into the recording.
-    //
-    // fullPage: shrinking the viewport does not shrink a full-page capture,
-    // it just makes the page taller and narrower. Measured on a marketing
-    // page: stepping the viewport down to 0.3 moved the file from 645KB to
-    // 580KB against an 87KB target, and left a 384px-wide picture of a whole
-    // page that no one could read. The image downscale below does the work
-    // instead, from a full-width capture.
-    const scaleSteps = (options?.noResize || fullPage) ? [1.0] : [1.0, 0.75, 0.5, 0.4, 0.3];
-
-    let quality = options?.quality || 85;
-    let scale = options?.scale || 1.0;
+    const startQuality = options?.quality || 85;
 
     // Generate filename with .jpg extension
     const baseFilename = path || join(this.paths.screenshotsDir, `screenshot-${Date.now()}`);
@@ -5443,121 +5486,140 @@ For more help: https://playwright.dev/docs/browsers
       ? baseFilename
       : baseFilename.replace(/\.png$/, '') + '.jpg';
 
-    // Get viewport size for scaling
-    const viewport = page.viewportSize() || { width: 1280, height: 800 };
+    const clip = options?.clip ? await this.resolveClip(options) : undefined;
 
-    // Clip is expressed in unscaled CSS pixels, so it has to scale with the viewport
-    const baseClip = options?.clip ? await this.resolveClip(options) : undefined;
+    // BUG-02 (2026-10-07): the budget is met by the IMAGE, never the viewport.
+    //
+    // This used to call page.setViewportSize on the caller's live page at
+    // 0.75 / 0.5 / 0.4 / 0.3 of its size and back. That reflowed the page for
+    // real: navigate on cbrowser.ai fired resizes ["960x600","1280x800",
+    // "640x400","1280x800"] and returned a 640px picture of the hamburger nav,
+    // a layout the DOM tools never saw, and anything that reacts to resize
+    // (open menus, carousels) reacted. The quality ladder meant to run first
+    // was dead behind an inverted skip guard, so a page over budget at q85 went
+    // straight to 960px even when q55 fitted at full size.
+    //
+    // So: one capture, at the caller's viewport, then fit it in memory.
+    const source = await page.screenshot({
+      fullPage,
+      type: 'jpeg',
+      quality: startQuality,
+      ...(clip ? { clip } : {}),
+    });
 
-    // Try different quality/scale combinations
-    for (const tryScale of scaleSteps) {
-      for (const tryQuality of qualitySteps) {
-        // Skip if we'd make quality worse than needed
-        if (tryQuality < quality && tryScale >= scale) continue;
+    let fitted: FittedJpeg | undefined;
+    try {
+      fitted = await this.fitJpegToBudget(source, maxSize, startQuality);
+    } catch { /* sharp failed: an oversized screenshot still beats no screenshot */ }
+    const out = fitted?.buffer ?? source;
 
-        const scaledWidth = Math.round(viewport.width * tryScale);
-        const scaledHeight = Math.round(viewport.height * tryScale);
+    // page.screenshot({ path }) created missing directories; keep that for
+    // callers that pass a path of their own.
+    mkdirSync(dirname(filename), { recursive: true });
+    writeFileSync(filename, out);
 
-        // Set viewport to scaled size temporarily if scaling down
-        if (tryScale < 1.0) {
-          await page.setViewportSize({ width: scaledWidth, height: scaledHeight });
-        }
-
-        try {
-          const scaledClip = baseClip && {
-            x: Math.round(baseClip.x * tryScale),
-            y: Math.round(baseClip.y * tryScale),
-            width: Math.max(1, Math.round(baseClip.width * tryScale)),
-            height: Math.max(1, Math.round(baseClip.height * tryScale)),
-          };
-
-          await page.screenshot({
-            path: filename,
-            fullPage,
-            type: 'jpeg',
-            quality: tryQuality,
-            ...(scaledClip ? { clip: scaledClip } : {})
-          });
-
-          // Check file size
-          const stats = await import('node:fs').then(fs => fs.statSync(filename));
-          const fileSize = stats.size;
-
-          if (this.config.verbose) {
-            console.log(`  Screenshot: ${fileSize} bytes (quality=${tryQuality}, scale=${tryScale})`);
-          }
-
-          // Restore viewport if we scaled
-          if (tryScale < 1.0) {
-            await page.setViewportSize(viewport);
-          }
-
-          // If under limit, we're done
-          if (fileSize <= maxSize) {
-            return filename;
-          }
-
-          // Continue to next quality level
-          quality = tryQuality;
-          scale = tryScale;
-        } catch (err) {
-          // Restore viewport on error
-          if (tryScale < 1.0) {
-            await page.setViewportSize(viewport);
-          }
-          throw err;
-        }
-      }
+    if (fitted) {
+      this._lastScreenshotInfo = {
+        path: filename,
+        width: fitted.width,
+        height: fitted.height,
+        sourceWidth: fitted.sourceWidth,
+        sourceHeight: fitted.sourceHeight,
+        downscaled: fitted.width < fitted.sourceWidth,
+        quality: fitted.quality,
+        bytes: out.length,
+        maxSize,
+      };
+    }
+    if (this.config.verbose) {
+      const dims = fitted ? ` ${fitted.width}x${fitted.height} of ${fitted.sourceWidth}x${fitted.sourceHeight}, quality=${fitted.quality},` : '';
+      console.log(`  Screenshot:${dims} ${out.length} bytes (target ${maxSize})`);
     }
 
-    // Viewport scaling cannot shrink a full-page capture: making the viewport
-    // narrower just makes the page taller, so the loop above exhausts every
-    // step and still returns something far over budget. Measured: a full-page
-    // shot of a marketing page came back at 567KB against an ~89KB target,
-    // which then could not be delivered inline at all.
-    //
-    // So the last resort resizes the IMAGE rather than the viewport. A smaller
-    // picture of the whole page is still readable and still shows the layout;
-    // no picture at all is what the caller was getting.
-    try {
-      const sharp = (await import("sharp")).default;
-      let current = statSync(filename).size;
-      if (current > maxSize) {
-        const meta = await sharp(filename).metadata();
-        if (meta.width) {
-          // Width is computed from the size ratio rather than stepped through
-          // fixed factors. Stepping overshot badly -- it landed on a 211px-wide
-          // picture of a whole page, which meets the byte target and cannot be
-          // read, and it also stalled when re-encoding a quality-25 input at a
-          // higher quality made the file grow instead of shrink.
-          //
-          // File size scales roughly with area, so width scales with the square
-          // root of the ratio. MIN_READABLE_WIDTH is the floor: past it the
-          // screenshot stops being something a reader can use, and an honest
-          // omission beats an unreadable thumbnail.
-          const MIN_READABLE_WIDTH = 700;
-          const ratio = Math.sqrt(maxSize / current) * 0.92;
-          const target = Math.max(MIN_READABLE_WIDTH, Math.round(meta.width * ratio));
-          if (target < meta.width) {
-            const buf = await sharp(filename)
-              .resize({ width: target })
-              .jpeg({ quality: 62 })
-              .toBuffer();
-            // Only keep it if it actually helped; a re-encode that grew the file
-            // is worse than the original on every axis.
-            if (buf.length < current) {
-              writeFileSync(filename, buf);
-              current = buf.length;
-            }
-          }
+    return filename;
+  }
+
+  /**
+   * Fit a JPEG into `maxSize` bytes without going back to the page.
+   *
+   * Every candidate is encoded from the pixels of `source`, the one
+   * high-quality capture. The old last resort re-encoded an already-degraded
+   * q25 file at q62; the result came out larger, was discarded, and the
+   * over-budget file shipped (measured: 2560x1440 at 91.9KB and a 1280x800
+   * noise canvas at 96KB, both against 89KB). A single pass with a fixed
+   * floor cannot promise the budget either, so this loops until it fits.
+   *
+   * Order, each step tried only when the one before did not fit:
+   *   1. full size, q70 then q55 -- the floor where text stays clean;
+   *   2. narrower, q70 then q55, down to READABLE_WIDTH;
+   *   3. at that width, q45 then q35 -- below it text stops being readable,
+   *      so quality is the cheaper thing to give up first;
+   *   4. narrower still at the floor quality, down to MIN_WIDTH;
+   *   5. at MIN_WIDTH, q45 / q35 / q25.
+   * If nothing fits, the smallest candidate comes back over budget, and the
+   * inline budget check in buildContentWithScreenshots reports it omitted.
+   */
+  private async fitJpegToBudget(source: Buffer, maxSize: number, startQuality: number): Promise<FittedJpeg> {
+    const sharp = (await import("sharp")).default;
+    const meta = await sharp(source).metadata();
+    const sourceWidth = meta.width ?? 0;
+    const sourceHeight = meta.height ?? 0;
+    let best: FittedJpeg = { buffer: source, width: sourceWidth, height: sourceHeight, sourceWidth, sourceHeight, quality: startQuality };
+    if (source.length <= maxSize || !sourceWidth) return best;
+
+    const QUALITY_FLOOR = 55;
+    const READABLE_WIDTH = 700;
+    const MIN_WIDTH = 200;
+
+    // Decoded once; no attempt starts from another attempt's output.
+    const { data, info } = await sharp(source).raw().toBuffer({ resolveWithObject: true });
+    const raw = { width: info.width, height: info.height, channels: info.channels };
+    const attempt = async (width: number, quality: number): Promise<FittedJpeg> => {
+      let img = sharp(data, { raw });
+      if (width < sourceWidth) img = img.resize({ width });
+      const enc = await img.jpeg({ quality }).toBuffer({ resolveWithObject: true });
+      const result = { buffer: enc.data, width: enc.info.width, height: enc.info.height, sourceWidth, sourceHeight, quality };
+      if (result.buffer.length < best.buffer.length) best = result;
+      return result;
+    };
+
+    let width = sourceWidth;
+    let lastBytes = source.length;
+    const atThisWidth = async (qualities: number[]): Promise<FittedJpeg | undefined> => {
+      for (const q of qualities) {
+        const r = await attempt(width, q);
+        if (r.buffer.length <= maxSize) return r;
+      }
+      return undefined;
+    };
+    const narrower = async (floor: number, qualities: number[]): Promise<FittedJpeg | undefined> => {
+      while (width > floor) {
+        // Bytes scale roughly with area, so width with the square root of the
+        // overshoot. At least 10% narrower each pass, so the loop always ends.
+        const target = Math.floor(width * Math.sqrt(maxSize / lastBytes) * 0.95);
+        width = Math.max(floor, Math.min(Math.floor(width * 0.9), target));
+        for (const q of qualities) {
+          const r = await attempt(width, q);
+          if (r.buffer.length <= maxSize) return r;
+          lastBytes = r.buffer.length;
         }
       }
-      if (this.config.verbose) {
-        console.log(`  Screenshot final size ${(current / 1024).toFixed(0)}KB (target ${(maxSize / 1024).toFixed(0)}KB)`);
-      }
-    } catch { /* an oversized screenshot still beats no screenshot */ }
+      return undefined;
+    };
 
-    return filename;
+    const fullSize = [70, QUALITY_FLOOR].filter((q) => q < startQuality);
+    const ladder = fullSize.length > 0 ? fullSize : [startQuality];
+    const floorQuality = ladder[ladder.length - 1]!;
+    if (fullSize.length > 0) {
+      const r = await atThisWidth(fullSize);
+      if (r) return r;
+      lastBytes = best.buffer.length;
+    }
+    return (await narrower(Math.min(READABLE_WIDTH, width), ladder))
+      ?? (await atThisWidth([45, 35].filter((q) => q < floorQuality)))
+      ?? (await narrower(Math.min(MIN_WIDTH, width), [floorQuality]))
+      ?? (await atThisWidth([45, 35, 25].filter((q) => q < floorQuality)))
+      ?? best;
   }
 
   // =========================================================================

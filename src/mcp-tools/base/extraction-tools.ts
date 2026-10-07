@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { buildContentWithScreenshots } from "../screenshot-utils.js";
+import { buildContentWithScreenshots, describeDownscale } from "../screenshot-utils.js";
 import { activeRecordingViewport } from "./capture-tools.js";
 import { refuseUnboundSession } from "../session-policy.js";
 
@@ -63,15 +63,16 @@ export function registerExtractionTools(
         }
       } catch { /* never let viewport matching break a screenshot */ }
 
-      // Forcing the viewport before the shot is not enough on its own: the
-      // compression path shrinks oversized files by resizing the viewport, which
-      // would undo the match and put a reflow into the recording. noResize makes
-      // it hit the budget with quality instead.
+      // noResize states that a capture owns the viewport. Since 2026-10-07
+      // (BUG-02) compression never resizes the viewport for anyone -- it
+      // shrinks the image in memory -- so this is now a statement of intent,
+      // not the only thing keeping a reflow out of the recording.
       const file = recording
         ? await b.screenshot(path, { noResize: true })
         : await b.screenshot(path);
       return {
         content: buildContentWithScreenshots({ screenshot: file,
+          ...describeDownscale(b.lastScreenshotInfo, file),
           ...(viewportForced
             ? { viewport_forced: `${viewportForced.width}x${viewportForced.height}`, viewport_forced_reason: "matched to the capture in progress" }
             : {}), ...(token ? { _browserToken: token } : {}) }, file),

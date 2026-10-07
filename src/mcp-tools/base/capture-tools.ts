@@ -558,7 +558,8 @@ export async function startCapture(
   // the same compression budget every other screenshot does. A raw grab here was
   // returning a full-size frame while the screenshot tool returned a compressed
   // one, so the two disagreed on size within a single session. noResize because
-  // a capture is now running and the viewport is not the budget's to spend.
+  // a capture is now running and the viewport is not the budget's to spend
+  // (since 2026-10-07, BUG-02, compression never resizes the viewport at all).
   let openingFrame: string | undefined;
   try {
     const shotPath = await browser.screenshot(undefined, { compress: true, noResize: true });

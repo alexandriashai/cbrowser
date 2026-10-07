@@ -14,6 +14,7 @@ import { readFileSync, existsSync, writeFileSync, unlinkSync, createReadStream }
 import { join, dirname } from "node:path";
 import { basename } from "node:path";
 import { writeArtifact } from "../artifact-store.js";
+import type { ScreenshotInfo } from "../browser.js";
 
 /**
  * Maximum allowed size for tool responses in bytes.
@@ -244,6 +245,27 @@ export function setRemoteMode(enabled: boolean): void {
 
 export function getRemoteMode(): boolean {
   return remoteMode;
+}
+
+/**
+ * Fields naming an in-memory downscale, for a tool result that carries the
+ * screenshot at `file`. Empty when the image is the size it was captured at,
+ * or when `info` describes some other file.
+ *
+ * BUG-02 (2026-10-07): the byte budget is now met by shrinking the image, not
+ * the viewport, so a picture can be smaller than the page it shows. A caller
+ * reading coordinates or text size off it has to be told; absence of these
+ * fields means the image is the capture's own size.
+ */
+export function describeDownscale(
+  info: ScreenshotInfo | undefined,
+  file: string | undefined,
+): { screenshotSize?: string; screenshotDownscaledFrom?: string } {
+  if (!info || !file || info.path !== file || !info.downscaled) return {};
+  return {
+    screenshotSize: `${info.width}x${info.height}`,
+    screenshotDownscaledFrom: `${info.sourceWidth}x${info.sourceHeight}`,
+  };
 }
 
 /**

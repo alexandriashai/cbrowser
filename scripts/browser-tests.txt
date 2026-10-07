@@ -25,6 +25,7 @@ tests/recording-engine.test.ts
 tests/recording-journey-capture.test.ts
 tests/recording-mcp-session.test.ts
 tests/recording-pure.test.ts
+tests/screenshot-no-viewport-resize.test.ts
 tests/selector-escape.test.ts
 tests/sticky-overlay-threshold.test.ts
 tests/svg-classname.test.ts
