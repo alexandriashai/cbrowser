@@ -1132,10 +1132,38 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
   const { page, barriers } = ctx;
 
   // Check for hover-dependent interactions (no click alternative)
+  //
+  // BUG-03 (2026-10-07). Only DESCENDANTS were checked for a click path, never
+  // the element itself, so every <a href> and <button> carrying a Tailwind
+  // `hover:` utility was flagged: on cbrowser.ai a promo link, the Docs nav
+  // link and a Radix aria-expanded trigger, charged hover_dependent -20.7 and
+  // WCAG 2.1.1. An element that is itself a keyboard path is now excused.
+  //
+  // A keyboard path is an element the keyboard can operate. It must be
+  // rendered (not display:none or visibility:hidden), it must not be
+  // :disabled, and it must be focusable: a native control (a[href], button,
+  // input other than type=hidden, select, textarea, summary) with no negative
+  // tabindex, any element with tabindex >= 0, or a tab or menuitem at
+  // tabindex=-1, which is APG roving focus. role=button|link|switch,
+  // aria-expanded and aria-haspopup on a div count only once a tabindex makes
+  // the div focusable. ARIA describes a control but does not make one, and a
+  // div that no keyboard can reach fails 2.1.1 whatever its hover does. The
+  // element's own onclick was already excused by the test below.
+  //
+  // The excuse is applied to the detector's OWN five, after slice(0, 20) and
+  // slice(0, 5), so this fix can only remove a finding the detector already
+  // made. Excusing before the caps was tried and rejected on measurement. It
+  // let the unchanged candidate selector reach elements it had never examined
+  // (two shadcn badges on cbrowser.ai, a decorative card after a 22-item
+  // WordPress menu), and every excused element freed a slot for one the
+  // detector had never reported. Scope is still applied once, after every
+  // detector, by filterBarriersToViewport.
   const hoverOnlyElements = await page.$$eval(
     '[class*="hover"], [class*="dropdown"], [class*="menu"], [class*="tooltip"]',
     (elements) => {
-      const results: Array<{ selector: string; hasClickAlternative: boolean; text: string;
+      const NATIVE_CONTROL = 'a[href], button, input:not([type="hidden"]), select, textarea, summary';
+      const ROVING_ITEM = '[role="tab"], [role="menuitem"]';
+      const results: Array<{ selector: string; hasClickAlternative: boolean; isKeyboardPath: boolean; text: string;
         x: number; y: number; width: number; height: number }> = [];
 
       for (const el of elements.slice(0, 20)) {
@@ -1144,10 +1172,24 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
                          el.querySelector('[onclick]') !== null ||
                          el.querySelector('a, button') !== null;
 
+        // BUG-03: is the element itself a keyboard path? .tabIndex is the
+        // browser's own parse of the attribute ("0abc" is 0, "x" is ignored).
+        // Only a rendered element can take focus, and in a CSS-only hover
+        // sub-menu the hidden links are what the keyboard cannot reach.
+        let isKeyboardPath = false;
+        try {
+          isKeyboardPath = el.getClientRects().length > 0 &&
+            getComputedStyle(el).visibility === 'visible' &&
+            !el.matches(':disabled') && (el.hasAttribute('tabindex')
+              ? (el as HTMLElement).tabIndex >= 0 || el.matches(ROVING_ITEM)
+              : el.matches(NATIVE_CONTROL));
+        } catch { isKeyboardPath = false; }
+
         const r = el.getBoundingClientRect();
         results.push({
           selector: el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
           hasClickAlternative: hasClick,
+          isKeyboardPath,
           text: el.textContent?.trim().slice(0, 30) || '',
           x: Math.round(r.left + window.scrollX),
           y: Math.round(r.top + window.scrollY),
@@ -1161,11 +1203,17 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
   );
 
   for (const el of hoverOnlyElements.slice(0, 5)) {
+    if (el.isKeyboardPath) continue; // BUG-03: after the caps, see above
     barriers.push({
       type: "motor_precision",
       element: el.selector,
       description: `Hover-dependent interaction without click alternative may be inaccessible for users with tremors`,
-      affectedPersonas: ["motor-impairment-tremor", "motor-impairment-limited-mobility"],
+      // The second name used to be a "limited mobility" persona that does not
+      // exist: asking an audit for it throws UnknownPersonaError. These are
+      // the only two registry personas that declare motorControl, lowest
+      // first: tremor 0.3, elderly-low-vision 0.5. The same pair LOW-01
+      // chose. (2026-10-07)
+      affectedPersonas: ["motor-impairment-tremor", "elderly-low-vision"],
       wcagCriteria: ["2.1.1", "2.5.1"],
       severity: "major",
       remediation: "Add click/tap alternative to hover interactions, or make hover content accessible via keyboard focus",
@@ -1190,7 +1238,8 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
         type: "motor_precision",
         element: el.selector,
         description: `Drag-and-drop element lacks keyboard alternative`,
-        affectedPersonas: ["motor-impairment-tremor", "motor-impairment-limited-mobility"],
+        // Real registry personas; see the hover barrier above. (2026-10-07)
+        affectedPersonas: ["motor-impairment-tremor", "elderly-low-vision"],
         wcagCriteria: ["2.1.1", "2.5.7"],
         severity: "critical",
         remediation: "Provide keyboard-accessible alternative for drag-and-drop (arrow keys, or explicit move buttons)",
