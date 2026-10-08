@@ -72,15 +72,21 @@ export function registerAdvancedInteractionTools(
     inputSchema: {
       text: z.string().describe("Text to type"),
       delay: z.number().optional().default(50).describe("Delay between keystrokes in ms (default 50)"),
+      force: z.boolean().optional().describe("Type even when a newline or space in the text would activate a red-zone control"),
       _browserToken: z.string().optional().describe("Browser session token"),
     },
     annotations: { title: "Type Text", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async ({ text, delay, _browserToken }) => {
+  }, async ({ text, delay, force, _browserToken }) => {
     let b, token;
     try {
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
     const page = await b.getPage();
+    // A newline is Enter: "4242\n" in a card field submits the checkout form. Same gate as press_key.
+    const refusal = await b.keystrokeRedZone({ text }, force);
+    if (refusal) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, typed: null, zone: "red", message: refusal, _browserToken: token }, null, 2) }] };
+    }
     await page.keyboard.type(text, { delay: delay || 50 });
     return { content: [{ type: "text" as const, text: JSON.stringify({ typed: text, characters: text.length, _browserToken: token }, null, 2) }] };
   } catch (err) {

@@ -2466,6 +2466,17 @@ For more help: https://playwright.dev/docs/browsers
         console.log('Removed target="_blank" to navigate in same tab');
       }
 
+      // Re-judge what is about to be clicked, immediately before dispatch. The first gate ran when the
+      // selector resolved; since then clickTarget may have moved to an ancestor anchor and a re-rendering
+      // page may have swapped the node a locator resolves to. One round trip remains between this check
+      // and Playwright's own resolution at click time.
+      {
+        const gate = await this.gateElement("click", selector, clickTarget, zone, options.force);
+        if (gate.refusal) return gate.refusal;
+        zone = gate.zone;
+        target = gate.target ?? target;
+      }
+
       // Check for sticky element interception before clicking
       const interception = await this.checkForInterception(clickTarget);
 
@@ -6186,9 +6197,12 @@ For more help: https://playwright.dev/docs/browsers
           const isControl = (el === control && !!node.closest(INTERACTIVE)) || el === hitControl;
           pushControl(el);
           if (!isField(el)) {
-            // Visible text: a control's whole label, or a short leaf's text. A container's text is not a label.
+            // Visible text: a control's whole label, or a short leaf's text. A container's text is not a
+            // label, and neither is the text of a card or row that holds controls of its own: clicking a
+            // product card is not pressing its "Buy" button (the centre hit-test above catches the case
+            // where it is).
             const text = norm((el as HTMLElement).innerText, 300);
-            if (isControl || text.length <= 120) push(text, 300);
+            if (isControl || (text.length <= 120 && !el.querySelector(INTERACTIVE))) push(text, 300);
             const img = el.querySelector("img[alt]") as HTMLImageElement | null;
             if (img) push(img.alt);
           }
@@ -6278,6 +6292,32 @@ For more help: https://playwright.dev/docs/browsers
     }
     const el = await this.classifyElement(focused, { implicitSubmit: isEnter });
     return el ? { zone: el.zone, tag: el.tag, label: el.label } : null;
+  }
+
+  /**
+   * Refusal message when a keystroke would activate a red-zone control, else null. A key press is
+   * checked as itself; typed text is checked for the activating characters it contains (a newline is
+   * Enter, a space is Space). Every user-directed keyboard path calls this: the press_key and type_text
+   * MCP tools, the CLI's press / type / keyboard commands and the daemon's equivalents.
+   * Checked against what has focus now; a Tab inside typed text that moves focus first is not followed.
+   */
+  async keystrokeRedZone(input: { key?: string; text?: string }, force?: boolean): Promise<string | null> {
+    if (force) return null;
+    const keys: string[] = [];
+    if (input.key) keys.push(input.key);
+    if (input.text !== undefined) {
+      if (/[\r\n]/.test(input.text)) keys.push("Enter");
+      if (input.text.includes(" ")) keys.push(" ");
+    }
+    for (const key of keys) {
+      const a = await this.classifyKeyActivation(key);
+      if (a?.zone === "red") {
+        const what = input.key ? key : key === "Enter" ? "a newline in the typed text" : "a space in the typed text";
+        this.audit("keyboard", input.key ?? JSON.stringify(input.text), "red", "blocked");
+        return `Red zone action requires --force: ${what} would activate <${a.tag}> "${a.label}"`;
+      }
+    }
+    return null;
   }
 
   /** The more severe of two zones (green < yellow < red < black). */

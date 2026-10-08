@@ -312,8 +312,8 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
 
         case "click": {
           const selector = req.args.selector as string;
-          // Use hoverClick for better dropdown menu support
-          const result = await b.hoverClick(selector);
+          // Use hoverClick for better dropdown menu support (it carries the same red-zone gate as click)
+          const result = await b.hoverClick(selector, { force: req.args.force === true });
           return { success: true, result };
         }
 
@@ -326,7 +326,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
         case "hoverClick": {
           const selector = req.args.selector as string;
           const hoverParent = req.args.hoverParent as string | undefined;
-          const result = await b.hoverClick(selector, { hoverParent });
+          const result = await b.hoverClick(selector, { hoverParent, force: req.args.force === true });
           return { success: true, result };
         }
 
@@ -387,6 +387,8 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
           try {
             for (let pass = 0; pass < repeat; pass++) {
               for (const step of steps) {
+                const refusal = await b.keystrokeRedZone(step.kind === "text" ? { text: step.text ?? "" } : { key: step.key ?? "" }, req.args.force === true);
+                if (refusal) return { success: false, error: refusal };
                 if (step.kind === "text") {
                   await page.keyboard.type(step.text ?? "", { delay: Math.min(delay, 50) });
                 } else {
@@ -403,12 +405,16 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
 
         case "press": {
           const page = await b.getPage();
+          const refusal = await b.keystrokeRedZone({ key: req.args.key as string }, req.args.force === true);
+          if (refusal) return { success: false, error: refusal };
           await page.keyboard.press(req.args.key as string);
           return { success: true, result: { key: req.args.key } };
         }
 
         case "type": {
           const page = await b.getPage();
+          const refusal = await b.keystrokeRedZone({ text: req.args.text as string }, req.args.force === true);
+          if (refusal) return { success: false, error: refusal };
           await page.keyboard.type(req.args.text as string, { delay: (req.args.delay as number) ?? 50 });
           return { success: true, result: { length: (req.args.text as string).length } };
         }

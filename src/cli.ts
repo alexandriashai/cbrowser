@@ -1072,7 +1072,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   uninstall: ["yes", "keep-config"],
   evaluate: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy"],
   eval: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy"],
-  keyboard: ["delay", "selector", "hold", "repeat", "text"],
+  keyboard: ["delay", "selector", "hold", "repeat", "text", "force"],
   "test-suite": [
     "capture", "capture-fps", "capture-format", "capture-out",
     "api-key", "auto-apply", "comprehensive", "concurrency", "continue-on-failure",
@@ -2264,7 +2264,7 @@ function parseKeyboardToken(token: string, literal = false): KeyboardStep {
 
 /** Flags `keyboard` understands. */
 const KEYBOARD_FLAGS = new Set([
-  "delay", "selector", "hold", "repeat", "text",
+  "delay", "selector", "hold", "repeat", "text", "force",
   "url", "browser", "device", "headless", "persistent", "restore",
   "locale", "timezone", "geo", "verbose",
 ]);
@@ -2338,6 +2338,12 @@ async function runKeyboard(
   try {
     for (let pass = 0; pass < repeat; pass++) {
       for (const step of steps) {
+        const refusal = await browser.keystrokeRedZone(step.kind === "text" ? { text: step.text } : { key: step.key }, options.force === true);
+        if (refusal) {
+          console.error(`✗ ${refusal}`);
+          process.exitCode = 1;
+          return;
+        }
         if (step.kind === "text") {
           await page.keyboard.type(step.text, { delay: Math.min(delay, 50) });
         } else {
@@ -3172,7 +3178,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         daemonArgs = { url: args[0] || options.url };
         break;
       case "click":
-        daemonArgs = { selector: args[0] };
+        daemonArgs = { selector: args[0], force: options.force === true };
         break;
       case "hover":
         daemonArgs = { selector: args[0] };
@@ -3206,14 +3212,15 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           delay: options.delay !== undefined ? Number(options.delay) : 50,
           repeat: options.repeat !== undefined ? Number(options.repeat) : 1,
           selector: typeof options.selector === "string" ? options.selector : undefined,
+          force: options.force === true,
         };
         break;
       }
       case "press":
-        daemonArgs = { key: args[0] };
+        daemonArgs = { key: args[0], force: options.force === true };
         break;
       case "type":
-        daemonArgs = { text: args[0], delay: options.delay !== undefined ? Number(options.delay) : 50 };
+        daemonArgs = { text: args[0], delay: options.delay !== undefined ? Number(options.delay) : 50, force: options.force === true };
         break;
       case "eval":
       case "evaluate": {
@@ -3428,6 +3435,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.url) await browser.navigate(options.url as string);
         const page = await browser.getPage();
         const delay = typeof options.delay === "number" ? options.delay : 50;
+        const refusal = await browser.keystrokeRedZone({ text }, options.force === true);
+        if (refusal) {
+          console.error(`✗ ${refusal}`);
+          process.exit(1);
+        }
         await page.keyboard.type(text, { delay });
         console.log(`✓ Typed ${text.length} characters`);
         break;
@@ -3441,6 +3453,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
         if (options.url) await browser.navigate(options.url as string);
         const page = await browser.getPage();
+        const refusal = await browser.keystrokeRedZone({ key }, options.force === true);
+        if (refusal) {
+          console.error(`✗ ${refusal}`);
+          process.exit(1);
+        }
         await page.keyboard.press(key);
         console.log(`✓ Pressed ${key}`);
         break;

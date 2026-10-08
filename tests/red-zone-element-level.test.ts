@@ -134,9 +134,14 @@ describe("smart_click bypass and cache poisoning (live repro, 2026-10-08)", () =
     expect(r.attempts.length).toBe(1);
     expect(await fired()).toBeNull();
   });
-  test("a later forced click still reaches the button it names (no poisoned heal)", async () => {
+  test("a later forced smart_click still reaches the button it names (no poisoned heal)", async () => {
+    // Regression guard for the heal cache: a refused attempt must leave nothing behind that steers a later
+    // forced smart_click away from the button it names. (The bypass itself is the test above, which fails
+    // on 19.1.7; this one also passes there on this page shape.)
     await page.setContent(PAGE_ARIA); await fired();
-    const r = await b.click("Delete account", { force: true });
+    await b.smartClick("Delete account", { retryDelay: 10 });
+    await page.setContent(PAGE_ARIA); await fired();
+    const r = await b.smartClick("Delete account", { retryDelay: 10, force: true });
     expect(r.success).toBe(true);
     expect(await fired()).toBe("DELETE");
   });
@@ -280,5 +285,33 @@ describe("a container click is judged by the control it lands on", () => {
     expect(r.success).toBe(true);
     expect(r.zone).toBe("yellow");
     expect(await fired()).toBe("INFO");
+  });
+});
+
+describe("typed text: a newline is Enter, a space is Space", () => {
+  const CHECKOUT = `<form action="/checkout" onsubmit="window.__c='PAID';return false"><input id="card" aria-label="Card number"><button>Pay now</button></form>
+<button id="del" onclick="window.__c='DELETE'">Delete account</button>`;
+  test("a newline typed into a /checkout card field is refused; plain digits are not", async () => {
+    await page.setContent(CHECKOUT); await page.focus("#card");
+    expect(await b.keystrokeRedZone({ text: "4242424242424242\n" })).toMatch(/^Red zone action requires --force: a newline/);
+    expect(await b.keystrokeRedZone({ text: "4242424242424242" })).toBeNull();
+    expect(await b.keystrokeRedZone({ text: "4242\n" }, true)).toBeNull();
+  });
+  test("a space typed while a red button has focus is refused", async () => {
+    await page.setContent(CHECKOUT); await page.focus("#del");
+    expect(await b.keystrokeRedZone({ text: "x y" })).toMatch(/a space in the typed text would activate <button> "Delete account"/);
+    expect(await b.keystrokeRedZone({ key: "Enter" })).toMatch(/Enter would activate <button> "Delete account"/);
+  });
+});
+
+describe("a card or row is not judged by the controls inside it", () => {
+  test("clicking a product card whose Buy button is off-centre proceeds", async () => {
+    await page.setContent(`<div id="card" style="position:relative;width:400px;height:300px" onmousedown="window.__c='CARD'">
+  <h3 style="margin:0">Grey jacket</h3><p>$49</p>
+  <button style="position:absolute;right:0;bottom:0" onclick="window.__c='BUY'">Buy now</button></div>`); await fired();
+    const r = await b.click("#card", {});
+    expect(r.success).toBe(true);
+    expect(r.zone).toBe("yellow");
+    expect(await fired()).toBe("CARD");
   });
 });
