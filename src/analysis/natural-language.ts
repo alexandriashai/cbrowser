@@ -645,6 +645,7 @@ type ParsedIntent = {
   kindWord: string;               // the trailing word the kind came from ("card", "tile"), "" when none
   landmark: { kind: LandmarkKind; qualifiers: string[] } | null;
   special: "cheapest" | "expensive" | "submit" | "logo" | "home" | "search" | "menu" | "language" | "theme" | "close" | null;
+  brand?: string[];               // "GOV.UK logo": the words the logo link's name must carry
 };
 
 const ORDINALS: Record<string, number> = {
@@ -799,6 +800,11 @@ function parseIntent(raw: string): ParsedIntent {
   if (!out.special) {
     if (/^(?:submit|submission)$/.test(ph) && (out.kind === "button" || out.kind === "any")) out.special = "submit";
     else if (/^(?:site |store |company |brand |page )?(?:logo|brand|logotype|wordmark|brand logo|logo image|logo link)$/.test(ph) && out.kind !== "field") out.special = "logo";
+    else if (/^\S+(?:\s+\S+)?\s+logo$/.test(ph) && out.kind !== "field") {
+      // "GOV.UK logo", "Acme Corp logo": the logo special, with the brand words to look for in the link's name
+      out.special = "logo";
+      out.brand = ph.replace(/\s+logo$/, "").split(/[^\p{L}\p{N}]+/u).filter(w => w && !STOP.has(w));
+    }
     else if (/^(?:home|homepage|home page)$/.test(ph) && out.kind !== "field" && out.kind !== "button") out.special = "home";
     else if (/^(?:search|site search|search bar|search box|search input|search field)$/.test(ph) && (out.kind === "any" || out.kind === "field") && !out.clickVerb) out.special = "search";
     else if (/^(?:menu|hamburger|hamburger menu|burger|burger menu|mobile menu|navigation toggle|menu toggle|nav toggle)$/.test(ph)
@@ -1448,6 +1454,14 @@ export async function findElementByIntent(
       const rn = await tryPool(poolCss, `landmark:${kind}`, { dedupeNested: false });
       if (rn && "selector" in rn) return rn;
       if (!fallbackToControl) return options.verbose ? await verboseMiss(page, intent) : null;
+      // A navigation whose links are collapsed behind a toggle is still the navigation landmark: take a nav that is
+      // showing (its toggle or heading is), holds links in the DOM, and is not in the footer. The toggle is a control, not a landmark.
+      // ("menu" alone still means the control that opens it, which the corpus and common usage agree on.)
+      if (parsed.words[parsed.words.length - 1] !== "menu") {
+        const reqCollapsed: PickFilter[] = [...req.filter(f => !f.anyOf && !f.hasVisibleCss), { hasCss: "a[href], [role='link'], [role='menuitem']" }];
+        const rc = await run("landmark:nav-collapsed", page.locator(poolCss), { container: true, mode, require: reqCollapsed, prefer: pref, dedupeNested: true });
+        if (rc && rc.chosen) return build(rc, "landmark:nav-collapsed", parsed.ordinal !== null ? 0.85 : (rc.ambiguous ? 0.6 : 0.85), "Landmark");
+      }
     } else {
       const r1 = await tryPool(css.primary, `landmark:${kind}`);
       if (r1 && "selector" in r1) return r1;
@@ -1494,20 +1508,29 @@ export async function findElementByIntent(
 
   if (parsed.special === "logo") {
     // A logo/brand/home link in the header; else the first header link; else a site-root link; else a logo image lifted to its link.
+    // "GOV.UK logo": the link must also carry the brand words somewhere a name comes from (aria-label, alt, title, text, id/class).
+    const brandRe = parsed.brand?.length ? parsed.brand.map(w => `(?=.*(?:^|[^\\p{L}\\p{N}])${escRe(w)})`).join("") + ".*" : null;
+    const brandReq: PickFilter[] = brandRe ? [{ anyOf: [{ nameRe: brandRe }, { attrRe: brandRe }] }] : [];
     const hdr = page.locator(scopeCss("header"));
     const r = await run("logo", hdr.locator("a[href]"), {
-      container: false, mode: "first", require: [{ attrRe: "logo|brand|home|^$" }],
+      container: false, mode: "first", require: [{ attrRe: "logo|brand|home|^$" }, ...brandReq],
       prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg" }, { attrRe: "home" }],
     });
     if (r && r.chosen) return build(r, "logo", r.ambiguous ? 0.75 : 0.9, "Logo");
+    if (brandRe) {
+      // the header's first link to the site root, named by the brand
+      const r1 = await run("logo-brand", hdr.locator("a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html']"),
+        { container: false, mode: "first", require: brandReq, prefer: [{ hasCss: "img, svg, picture" }] });
+      if (r1 && r1.chosen) return build(r1, "logo-brand", r1.ambiguous ? 0.7 : 0.85, "Logo");
+    }
     const ROOT_LINKS = "a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i], "
       + "a[aria-label*='logo' i], a[class*='logo' i], a[id*='logo' i], a[class*='brand' i], [class*='logo' i] a[href]";
     const r2 = await run("logo-root", page.locator(ROOT_LINKS), {
-      container: false, mode: "first", require: [], prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }],
+      container: false, mode: "first", require: brandReq, prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }],
     });
     if (r2 && r2.chosen) return build(r2, "logo-root", 0.8, "Logo");
     const r3 = await run("logo-img", page.locator("img[alt*='logo' i], img[class*='logo' i], [class*='logo' i] img, svg[aria-label*='logo' i]"),
-      { container: false, mode: "first", require: [], prefer: [], liftToControl: true });
+      { container: false, mode: "first", require: brandReq, prefer: [], liftToControl: true });
     if (r3 && r3.chosen) return build(r3, "logo-img", 0.75, "Logo");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
@@ -1570,12 +1593,20 @@ export async function findElementByIntent(
     const r = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^button$" }] },
       { unique: 0.9, ordinal: 0.9, ambiguous: 0.6 }, "Menu control");
     if (r && r.res) return r.res;
-    if (r && r.r.hiddenOnly) return options.verbose ? await verboseMiss(page, intent) : null;
+    // an exactly-named "Menu" control that is hidden at this width (a desktop toggle at 393, or the reverse)
+    // does not rule out the one named "Show navigation menu" that is showing: continue, capped
+    const hiddenExact = !!(r && r.r.hiddenOnly);
+    const capped = (res: ReturnType<typeof build> | null) => res && hiddenExact ? { ...res, confidence: red2(Math.min(res.confidence, 0.7)) } : res;
     const ctl2 = unionRole(root, ["button"], containsRe(["menu", "navigation", "hamburger"]))!;
     const r2 = await take("menu-control-fuzzy", ctl2,
       { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
       { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
-    if (r2 && r2.res) return r2.res;
+    if (r2 && r2.res) return capped(r2.res);
+    // the visible text says Menu even though the accessible name (an aria-label) says something else
+    const rt = await run("menu-text", root.locator(BUTTON_CSS), {
+      container: false, mode: "first", require: [{ textRe: "^\\s*(?:menu|hamburger|burger|navigation)\\s*$" }], prefer: [],
+    });
+    if (rt && rt.chosen) return capped(build(rt, "menu-text", rt.ambiguous ? 0.5 : 0.8, "Menu control"));
     const MENU_CSS = "button[class*='hamburger' i], button[class*='burger' i], button[class*='menu-toggle' i], button[class*='navbar-toggle' i], "
       + "button[class*='nav-toggle' i], .hamburger, [aria-controls*='menu' i][aria-expanded], [aria-controls*='nav' i][aria-expanded]";
     const r3 = await run("menu-css", root.locator(MENU_CSS), { container: false, mode: "first", require: [], prefer: [] });

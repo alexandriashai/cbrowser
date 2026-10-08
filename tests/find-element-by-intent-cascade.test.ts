@@ -224,6 +224,104 @@ describe("(d) the stem rung reaches links and buttons by inflection only", () =>
   });
 });
 
+// ---------------------------------------------------------------------------
+// (g)-(j): a GOV.UK-shaped header (super-navigation: labelled <nav>, toggle named by aria-label,
+// logo link named only by aria-label) and a marketing header collapsed at 393
+// ---------------------------------------------------------------------------
+const GOVUK = doc(`
+  <header class="govuk-header"><div class="govuk-header__container">
+    <a id="logo" href="/" aria-label="Go to the GOV.UK homepage" class="govuk-header__link--homepage">
+      <svg aria-hidden="true" focusable="false" width="32" height="30" viewBox="0 0 32 30"><path d="M0 0h32v30H0z"/></svg></a>
+    <nav aria-labelledby="super-navigation-menu-heading" class="app-navigation js-app-navigation">
+      <h2 id="super-navigation-menu-heading" class="visually-hidden">Navigation menu</h2>
+      <div class="app-navigation__container">
+        <button type="button" class="app-navigation__toggle" id="super-navigation-menu-toggle" aria-controls="super-navigation-menu"
+          aria-label="Show navigation menu" aria-expanded="false">Menu</button>
+        <ul id="super-navigation-menu" class="app-navigation__list" hidden>
+          <li><a href="/services">Services</a></li><li><a href="/guidance">Guidance</a></li><li><a href="/departments">Departments</a></li>
+        </ul>
+      </div></nav></div></header>
+  <main><h1>Welcome</h1><p>Body</p></main>`,
+  `<style>.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}</style>`);
+
+const MARKETING = doc(`
+  <header><a href="/" class="brand"><img src="data:," alt="Acme" width="80" height="24"></a>
+    <nav id="navigation-menu" aria-label="Main">
+      <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-list"><span class="bar"></span></button>
+      <ul id="nav-list"><li><a href="/product">Product</a></li><li><a href="/pricing">Pricing</a></li><li><a href="/docs">Docs</a></li></ul>
+    </nav></header>
+  <main><h1>Acme</h1><p>Body</p></main>
+  <footer><nav aria-label="Footer"><a href="/legal">Legal</a></nav></footer>`,
+  `<style>.bar{display:block;width:20px;height:2px;background:#000}.nav-toggle{display:none;padding:8px}
+   @media (max-width: 600px){ #nav-list{display:none} .nav-toggle{display:inline-block} }</style>`);
+
+describe("(g) a menu toggle named by an aria-label with extra words", () => {
+  test("'Menu button' reaches the GOV.UK super-navigation toggle", async () => {
+    const r = await find(GOVUK, "Menu button");
+    await resolvesTo(r, "#super-navigation-menu-toggle");
+    expect(r!.confidence).toBeGreaterThanOrEqual(0.8);
+  });
+
+  test("'menu' and 'hamburger menu' at 393 reach the same toggle", async () => {
+    await resolvesTo(await find(GOVUK, "menu", { width: 393 }), "#super-navigation-menu-toggle");
+    await resolvesTo(await find(GOVUK, "hamburger menu", { width: 393 }), "#super-navigation-menu-toggle");
+  });
+
+  test("a Stripe-style 'Toggle navigation menu' toggle at 393", async () => {
+    await resolvesTo(await find(MARKETING, "Menu button", { width: 393 }), "button.nav-toggle");
+  });
+
+  test("the visible text Menu alone qualifies when the aria-label says something else", async () => {
+    const T = doc(`<header><button id="t" aria-label="Open site drawer" aria-expanded="false">Menu</button><nav hidden><a href="/a">A</a></nav></header>`);
+    await resolvesTo(await find(T, "Menu button"), "#t");
+  });
+});
+
+describe("(h) a logo link named only by its aria-label", () => {
+  test("'GOV.UK logo' reaches the header's homepage link", async () => {
+    const r = await find(GOVUK, "GOV.UK logo");
+    await resolvesTo(r, "#logo");
+    expect(r!.confidence).toBeGreaterThanOrEqual(0.8);
+  });
+
+  test("'logo' and 'site logo' reach it too; a brand word the page does not carry is null", async () => {
+    await resolvesTo(await find(GOVUK, "logo"), "#logo");
+    await resolvesTo(await find(GOVUK, "site logo"), "#logo");
+    expect(await find(GOVUK, "Contoso logo")).toBeNull();
+  });
+
+  test("'Acme logo' on the marketing header reaches the brand link by its image alt", async () => {
+    await resolvesTo(await find(MARKETING, "Acme logo"), "a.brand");
+  });
+});
+
+describe("(i)/(j) a bare landmark intent returns the nav landmark even when its links are collapsed", () => {
+  test("'navigation' on the GOV.UK header is the labelled <nav>, not the toggle", async () => {
+    const r = await find(GOVUK, "navigation");
+    await resolvesTo(r, "nav.app-navigation");
+    expect(r!.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
+  test("'main navigation' on the GOV.UK header is the <nav> at both widths", async () => {
+    await resolvesTo(await find(GOVUK, "main navigation"), "nav.app-navigation");
+    await resolvesTo(await find(GOVUK, "main navigation", { width: 393 }), "nav.app-navigation");
+  });
+
+  test("'main navigation' at 393 on the marketing header is <nav id=navigation-menu>, not the toggle", async () => {
+    const r = await find(MARKETING, "main navigation", { width: 393 });
+    await resolvesTo(r, "#navigation-menu");
+    expect(r!.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
+  test("'navigation' at 1280 on the marketing header is the same <nav>", async () => {
+    await resolvesTo(await find(MARKETING, "navigation"), "#navigation-menu");
+  });
+
+  test("'menu' at 393 on the marketing header is still the toggle (the control, not the landmark)", async () => {
+    await resolvesTo(await find(MARKETING, "menu", { width: 393 }), "button.nav-toggle");
+  });
+});
+
 describe("rungs that reach beyond the kind pool still run", () => {
   test("'Talk tab' on a page whose tabs are plain links in a list (no role=tab) lifts the text match", async () => {
     const WIKI = doc(`<nav><ul><li><a href="/w" title="View the content page">Article</a></li>
