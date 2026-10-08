@@ -6126,8 +6126,25 @@ For more help: https://playwright.dev/docs/browsers
           (el.tagName === "INPUT" && !BUTTON_INPUT.test((el as HTMLInputElement).type || "") &&
             !/^(checkbox|radio)$/i.test((el as HTMLInputElement).type || ""));
         const control = (node.closest(INTERACTIVE) as Element | null) || node;
-        const nodes = control === node ? [node] : [node, control];
         const root = node.getRootNode() as Document | ShadowRoot;
+        // What a click on this element lands on. Playwright clicks the centre of the element's box and the
+        // topmost element there receives the event, so clicking a pricing <section> whose centre is a
+        // "Buy Credits" button activates that button. Not computed for a key press (no pointer).
+        const hitControl = ((): Element | null => {
+          if (implicitSubmit) return null;
+          let r = node.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) return null;
+          if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) {
+            node.scrollIntoView({ block: "center", inline: "center" });
+            r = node.getBoundingClientRect();
+          }
+          const at = (root as Document).elementFromPoint ? (root as Document) : document;
+          const hit = at.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (!hit || hit === node || !node.contains(hit)) return null;
+          const c = hit.closest(INTERACTIVE);
+          return c && c !== node && c !== control && node.contains(c) ? c : null;
+        })();
+        const nodes = [node, control, hitControl].filter((e, i, a): e is Element => !!e && a.indexOf(e) === i);
         const byId = (id: string): Element | null => (root as Document).getElementById ? (root as Document).getElementById(id) : document.getElementById(id);
         const labelledBy = (el: Element) => (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean)
           .map(byId).filter(Boolean).map(n => (n as HTMLElement).innerText || n!.textContent || "").join(" ");
@@ -6166,7 +6183,7 @@ For more help: https://playwright.dev/docs/browsers
           return norm(el.getAttribute("title"), 200);
         };
         for (const el of nodes) {
-          const isControl = el === control && !!node.closest(INTERACTIVE);
+          const isControl = (el === control && !!node.closest(INTERACTIVE)) || el === hitControl;
           pushControl(el);
           if (!isField(el)) {
             // Visible text: a control's whole label, or a short leaf's text. A container's text is not a label.
@@ -6194,6 +6211,7 @@ For more help: https://playwright.dev/docs/browsers
           if (!label) label = nameOf(el);
         }
         if (submitsVia) label = `${label} (Enter submits "${submitsVia}")`;
+        if (hitControl) label = `${label} (click lands on <${hitControl.tagName.toLowerCase()}> "${nameOf(hitControl)}")`;
         return { tag: control.tagName.toLowerCase(), label, descriptors };
       }, !!options.implicitSubmit, { timeout: 3000 });
     } catch {

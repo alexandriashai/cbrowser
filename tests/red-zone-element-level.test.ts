@@ -261,3 +261,24 @@ describe("no false reds from field content or black-zone words", () => {
     expect(await fired()).toBeNull();
   });
 });
+
+describe("a container click is judged by the control it lands on", () => {
+  const box = (inner: string) => `<!doctype html><html lang="en"><body>
+<section id="plans" style="position:relative;width:600px;height:300px"><p style="position:absolute;top:0;margin:0">Simple, transparent pricing for teams of every size. Start free, upgrade when you need more runs, and top up credits whenever you like.</p><div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">${inner}</div></section>
+</body></html>`;
+  test("clicking a section whose centre is a Buy Credits button is refused", async () => {
+    await page.setContent(box(`<button onclick="window.__c='BUY'">Buy Credits</button>`)); await fired();
+    const r = await b.click("#plans", {});
+    expect(r.success).toBe(false);
+    expect(r.zone).toBe("red");
+    expect(r.message).toMatch(/click lands on <button> "Buy Credits"/);
+    expect(await fired()).toBeNull();
+  });
+  test("clicking a section whose centre is a benign button proceeds", async () => {
+    await page.setContent(box(`<button onclick="window.__c='INFO'">Learn more</button>`)); await fired();
+    const r = await b.click("#plans", {});
+    expect(r.success).toBe(true);
+    expect(r.zone).toBe("yellow");
+    expect(await fired()).toBe("INFO");
+  });
+});
