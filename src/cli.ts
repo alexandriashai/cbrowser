@@ -3472,6 +3472,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
         if (options.url) await browser.navigate(options.url as string);
         const page = await browser.getPage();
+        const refusal = await browser.dragRedZone(source, target, options.force === true);
+        if (refusal) {
+          console.error(`✗ ${refusal}`);
+          process.exit(1);
+        }
         await page.dragAndDrop(source, target);
         console.log(`✓ Dragged ${source} → ${target}`);
         break;

@@ -315,3 +315,104 @@ describe("a card or row is not judged by the controls inside it", () => {
     expect(await fired()).toBe("CARD");
   });
 });
+
+describe("cross-vendor audit findings (Forge, 2026-10-08)", () => {
+  const H = (body: string) => `<!doctype html><html lang="en"><body>${body}<script>
+document.addEventListener('submit', e => { window.__c = 'SUBMIT'; e.preventDefault(); }, true);
+</script></body></html>`;
+  const refused = async (html: string, sel = "#x") => {
+    await page.setContent(html); await fired();
+    const r = await b.click(sel, {});
+    return { success: r.success, zone: r.zone, fired: await fired(), label: r.target?.label };
+  };
+  test("F3: icon button named by its svg aria-label is refused", async () => {
+    const r = await refused(H(`<button id="x" onclick="window.__c='FIRED'"><svg aria-label="Delete account" role="img" width="16" height="16"><rect width="16" height="16"/></svg></button>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F3: icon button named by an svg <title> is refused", async () => {
+    const r = await refused(H(`<button id="x" onclick="window.__c='FIRED'"><svg width="16" height="16"><title>Delete account</title><rect width="16" height="16"/></svg></button>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F3: an image input named by alt is refused", async () => {
+    const r = await refused(H(`<form action="/process"><input id="x" type="image" alt="Place order" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="80" height="30"></form>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F3: a custom element whose label is in its open shadow root is refused", async () => {
+    const r = await refused(H(`<del-btn id="x" style="display:inline-block"></del-btn><script>
+customElements.define('del-btn', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({mode:'open'});
+s.innerHTML = '<button>Delete account</button>'; s.querySelector('button').onclick = () => { window.__c = 'FIRED'; }; } });</script>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F3: a checkbox named by its <label for> carries the label's zone", async () => {
+    const r = await refused(H(`<input id="x" type="checkbox" onclick="window.__c='FIRED'"><label for="x">Delete all my data</label>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F4: a submit button's formaction overrides a benign form action", async () => {
+    const r = await refused(H(`<form action="/settings"><button id="x" formaction="/account/delete">Save</button></form>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F7: a long div-button with no role is judged by its opening text", async () => {
+    const r = await refused(H(`<div id="x" style="cursor:pointer;padding:8px" onmouseup="window.__c='FIRED'">Delete account - this permanently removes your profile, reviews, saved searches and billing history, and it cannot be undone once you confirm it here.</div>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F2: a container taller than the viewport is judged at the point the click lands", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const r = await refused(H(`<section id="plans" style="height:2400px;position:relative"><p style="margin:0;padding:8px">Plans and pricing for teams of every size, with credits you can top up whenever you need more runs.</p>
+<div style="position:absolute;top:300px;left:0;right:0"><button style="width:100%;height:200px" onclick="window.__c='BUY'">Buy now</button></div></section>`), "#plans");
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F2: a tall benign container still clicks, at the point that was judged", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const r = await refused(H(`<section id="plans" style="height:2400px;position:relative" onclick="window.__c='SECTION'"><p style="margin:0;padding:8px">Plans and pricing for teams of every size, with credits you can top up whenever you need more runs.</p>
+<div style="position:absolute;top:1800px;left:0;right:0"><button style="width:100%;height:200px" onclick="event.stopPropagation();window.__c='BUY'">Buy now</button></div></section>`), "#plans");
+    expect(r).toMatchObject({ success: true, zone: "yellow", fired: "SECTION" });
+  });
+  test("F2: a container whose centre is a red button inside a custom element's shadow root is refused", async () => {
+    const r = await refused(H(`<section id="plans" style="position:relative;width:600px;height:300px"><p style="margin:0">Simple, transparent pricing for teams of every size. Start free, upgrade when you need more runs, top up whenever.</p>
+<buy-btn style="position:absolute;left:200px;top:100px;width:200px;height:100px;display:block"></buy-btn></section><script>
+customElements.define('buy-btn', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({mode:'open'});
+s.innerHTML = '<button style="width:200px;height:100px">Buy credits</button>'; s.querySelector('button').onclick = () => { window.__c = 'BUY'; }; } });</script>`), "#plans");
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("F5: dragging a red control onto itself is refused; onto something else is not a click", async () => {
+    await page.setContent(`<button id="delete-account" onclick="window.__c='DELETE'">Delete account</button><p id="p">elsewhere</p>`);
+    expect(await b.dragRedZone("#delete-account", "#delete-account")).toMatch(/^Red zone action requires --force: dragging/);
+    expect(await b.dragRedZone("#delete-account", "#p")).toBeNull();
+    expect(await b.dragRedZone("#delete-account", "#delete-account", true)).toBeNull();
+  });
+  test("F1: a coordinate click on a red control is refused; on empty space it is not", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(`<body style="margin:0"><button style="position:absolute;left:0;top:0;width:400px;height:300px" onclick="window.__c='DELETE'">Delete account</button></body>`);
+    expect(await b.pointRedZone(200, 150)).toMatch(/click at 200,150 lands on <button> "Delete account"/);
+    expect(await b.pointRedZone(900, 600)).toBeNull();
+  });
+});
+
+describe("F1: the NL test runner's 'click at X, Y' is gated", () => {
+  test("a coordinate click on Delete account fails the step and fires nothing", async () => {
+    const { parseNLTestSuite, runNLTestSuite } = await import("../src/testing/index.js");
+    const hits: string[] = [];
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch(req) {
+      const u = new URL(req.url);
+      if (u.pathname === "/fired") { hits.push(u.searchParams.get("what") ?? "?"); return new Response("ok"); }
+      return new Response(`<!doctype html><html lang="en"><body style="margin:0"><button style="position:absolute;left:0;top:0;width:400px;height:300px" onclick="fetch('/fired?what=DELETE')">Delete account</button></body></html>`, { headers: { "content-type": "text/html" } });
+    } });
+    try {
+      const suite = parseNLTestSuite(`# coordinate\ngo to http://127.0.0.1:${server.port}/\nclick at 200, 150\nwait 1 second\n`, "coordinate");
+      const r: any = await runNLTestSuite(suite, { headless: true, screenshotOnFailure: false });
+      const t = r.testResults?.[0] ?? r.tests?.[0];
+      expect(t?.passed).toBe(false);
+      expect(hits).toEqual([]);
+    } finally { server.stop(true); }
+  }, 60000);
+});
+
+describe("a clickable row is labelled by its own text, not its nested controls", () => {
+  test("clicking a row with onclick that contains a Delete account link proceeds", async () => {
+    await page.setContent(`<div id="row" onclick="window.__c='ROW'" style="padding:8px;width:600px">Order #1042, shipped March 3 <a href="#" style="margin-left:400px" onclick="event.stopPropagation();window.__c='DEL';return false">Delete account</a></div>`); await fired();
+    const r = await b.click("#row", {});
+    expect(r.success).toBe(true);
+    expect(r.zone).toBe("yellow");
+    expect(await fired()).toBe("ROW");
+  });
+});

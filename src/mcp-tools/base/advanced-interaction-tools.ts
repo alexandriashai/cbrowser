@@ -220,19 +220,24 @@ export function registerAdvancedInteractionTools(
   // ── drag ──
   server.registerTool("drag", {
     title: "Drag and Drop",
-    description: "Drag an element to a target location. Simulates mouse press, move, and release.",
+    description: "Drag an element to a target location. Simulates mouse press, move, and release. A drag whose press and release land inside the same red-zone control clicks it, and is refused unless force is true.",
     inputSchema: {
       source: z.string().describe("CSS selector for the element to drag"),
       target: z.string().describe("CSS selector for the drop target"),
+      force: z.boolean().optional().describe("Drag even when the drag would click a red-zone control"),
       _browserToken: z.string().optional().describe("Browser session token"),
     },
     annotations: { title: "Drag and Drop", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async ({ source, target, _browserToken }) => {
+  }, async ({ source, target, force, _browserToken }) => {
     let b, token;
     try {
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
     const page = await b.getPage();
+    const refusal = await b.dragRedZone(source, target, force);
+    if (refusal) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, dragged: null, zone: "red", message: refusal, _browserToken: token }, null, 2) }] };
+    }
     await page.dragAndDrop(source, target);
     return { content: [{ type: "text" as const, text: JSON.stringify({ dragged: source, droppedOn: target, _browserToken: token }, null, 2) }] };
   } catch (err) {

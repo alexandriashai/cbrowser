@@ -492,6 +492,9 @@ export async function runNLTestSuite(
                 if (page) {
                   const x = parseInt(coordTarget[1], 10);
                   const y = parseInt(coordTarget[2], 10);
+                  // A coordinate click activates whatever control is at the point: same red-zone gate as click.
+                  const refusal = await browser.pointRedZone(x, y);
+                  if (refusal) throw new Error(refusal);
                   await page.mouse.move(x, y);
                   await page.mouse.down();
                   await page.mouse.up();

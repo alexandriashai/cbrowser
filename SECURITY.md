@@ -41,6 +41,8 @@ Every browser action is classified into one of four risk zones:
 | RED | Submit, delete, purchase | Requires verification |
 | BLACK | Bypass auth, inject scripts | Never executes |
 
+**How red is decided:** by the element an action would activate, not by how it is addressed. The same "Delete account" button is refused by its label, its id, its test id or a structural path; a click on a container is judged at the point it lands; and a refused click is never retried with a "healed" selector. Gated: `click`, `smart_click`, hover-click and the daemon's click, `press_key` / `type_text` / `keyboard` (Enter, a typed newline, or Space on a focused control, and Enter in a field whose form submits one), a `drag` that would click a control, and the NL test runner's `click at X, Y`. `force: true` (MCP) or `--force` (CLI) proceeds and reports the zone. Not gated: cognitive journeys and other engines that choose their own clicks, `evaluate_script`, and a confirmation button with neutral text ("Confirm", "OK") inside a dialog. Classification uses English keyword patterns.
+
 Classification is code-level and immutable. The AI cannot override it.
 
 ### Authentication
