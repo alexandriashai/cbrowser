@@ -2492,7 +2492,7 @@ For more help: https://playwright.dev/docs/browsers
         const handled = await this.handleStickyInterception(
           clickTarget,
           interception.interceptorSelector,
-          { verbose: options.verbose }
+          { verbose: options.verbose, position: clickPosition }
         );
 
         if (!handled.success) {
@@ -2745,8 +2745,10 @@ For more help: https://playwright.dev/docs/browsers
   async handleStickyInterception(
     element: Locator,
     interceptorSelector: string,
-    options: { verbose?: boolean } = {}
+    options: { verbose?: boolean; position?: { x: number; y: number } } = {}
   ): Promise<{ success: boolean; strategy?: string; error?: string }> {
+    // A container's click goes to the point the red-zone gate judged, whichever strategy clicks it.
+    const at = options.position ? { position: options.position } : undefined;
     const page = await this.getPage();
 
     // Strategy 1: Scroll element to viewport center (away from sticky headers/footers)
@@ -2765,7 +2767,7 @@ For more help: https://playwright.dev/docs/browsers
       // Check if still intercepted
       const recheck = await this.checkForInterception(element);
       if (!recheck.intercepted) {
-        await element.click();
+        await element.click(at);
         return { success: true, strategy: 'scroll-to-safe-zone' };
       }
     } catch {
@@ -2789,7 +2791,7 @@ For more help: https://playwright.dev/docs/browsers
       await page.waitForTimeout(50);
 
       // Click the element
-      await element.click();
+      await element.click(at);
 
       // Restore the interceptor
       await interceptor.evaluate((el: Element, original: string) => {
@@ -6113,47 +6115,94 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Classify a RESOLVED element by what it is, with the same patterns classifyAction applies to a
-   * string. Reads the control a click would act on (the element, or its nearest interactive ancestor,
-   * or the control under the point the click lands on) and runs classifyAction over every description
-   * of it: aria-label, resolved aria-labelledby, its <label>s, a button's value, title, visible text,
-   * names that live below it (an icon's aria-label or <title>, an image's alt, an image input's alt,
-   * open-shadow-root text), and the action - or the submitter's formaction - of the form it submits.
-   * The most severe zone wins. A field's own content (typed text, a select's option list) is not a
-   * description of the control: clicking into a search box that holds "checkout" is not a checkout.
+   * string. Reads the control a click would act on (the element, its nearest interactive ancestor in the
+   * composed tree, or the control under the point the click lands on) and runs classifyAction over every
+   * description of it: aria-label, resolved aria-labelledby, a button's value, title, its own visible
+   * text, names that live below it and belong to it (an icon's aria-label or <title>, an image's alt,
+   * an image input's alt, open-shadow-root and slotted text), and the action - or the submitter's
+   * formaction - of the form it submits. The most severe zone wins.
    *
-   * implicitSubmit: the element is a field and the caller is about to press Enter in it, which submits
-   * its form. The form's action and its default submit button are then the descriptions that matter.
+   * Not judged, because acting on them has no consequence of its own: a text field (typed text and the
+   * field's label are data; clicking into "Reason you want to close account" closes nothing) and a choice
+   * control (checkbox, radio, switch, select, option: choosing a value; the submit that commits it is
+   * judged when it is clicked).
+   *
+   * implicitSubmit: the caller is about to press Enter, which submits the focused field's form. The
+   * form's action and its default submit button are then the descriptions that matter.
+   * skipHit: the element is already the deepest element at a known point (a coordinate click, a drag
+   * endpoint, the focused element); do not hit-test its centre.
    *
    * position: for an element that is not itself a control (a section, a card, <main>), the point that was
-   * hit-tested, relative to the element's padding box. Callers pass it to the click so the point judged
-   * is the point clicked.
+   * judged, relative to the element's padding box. Callers pass it to the click so the point judged is the
+   * point clicked.
    *
    * Returns null when the element cannot be read (detached, frame gone); the caller keeps the string zone.
    */
   private async classifyElement(
     element: Locator | ElementHandle,
-    options: { implicitSubmit?: boolean } = {},
+    options: { implicitSubmit?: boolean; skipHit?: boolean } = {},
   ): Promise<{ zone: ActionZone; tag: string; label: string; descriptors: string[]; position?: { x: number; y: number } } | null> {
     type Info = { tag: string; label: string; descriptors: string[]; position: { x: number; y: number } | null };
-    const inPage = (node: Element, implicitSubmit: boolean): Info => {
+    type Arg = { implicitSubmit: boolean; skipHit: boolean };
+    const inPage = (node: Element, arg: Arg): Info => {
       const norm = (s: string | null | undefined, max: number) => (s || "").replace(/\s+/g, " ").trim().slice(0, max);
       const INTERACTIVE = "a,button,input,select,textarea,summary,label,[role='button'],[role='link'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='tab'],[role='option'],[role='checkbox'],[role='radio'],[role='switch'],[onclick]";
+      const CHOICE = "input[type=checkbox],input[type=radio],select,option,[role='checkbox'],[role='radio'],[role='switch'],[role='option'],[role='menuitemcheckbox'],[role='menuitemradio']";
       const BUTTON_INPUT = /^(submit|button|reset|image)$/i;
-      // Text-entry and choice fields: their content is data, not a label.
-      const isField = (el: Element) =>
-        el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
-        (el.tagName === "INPUT" && !BUTTON_INPUT.test((el as HTMLInputElement).type || "") &&
-          !/^(checkbox|radio)$/i.test((el as HTMLInputElement).type || ""));
-      const control = (node.closest(INTERACTIVE) as Element | null) || node;
-      const isContainer = !node.closest(INTERACTIVE);
-      const root = node.getRootNode() as Document | ShadowRoot;
+      const isTextField = (el: Element) => el.tagName === "TEXTAREA" ||
+        (el.tagName === "INPUT" && !BUTTON_INPUT.test((el as HTMLInputElement).type || "") && !/^(checkbox|radio)$/i.test((el as HTMLInputElement).type || ""));
+      const isData = (el: Element) => isTextField(el) || el.matches(CHOICE);
+      // Composed-tree walk: a slotted node's parent is its slot, a shadow root's parent is its host, and
+      // a same-origin frame's document hangs under its <iframe>.
+      const up = (e: Element): Element | null => {
+        const slot = (e as Element & { assignedSlot: HTMLSlotElement | null }).assignedSlot;
+        if (slot) return slot;
+        if (e.parentElement) return e.parentElement;
+        const r = e.getRootNode() as ShadowRoot | Document;
+        if ((r as ShadowRoot).host) return (r as ShadowRoot).host;
+        try { return (e.ownerDocument.defaultView?.frameElement as Element | null) ?? null; } catch { return null; }
+      };
+      const composedClosest = (e: Element | null): Element | null => { for (let n = e; n; n = up(n)) if (n.matches(INTERACTIVE)) return n; return null; };
+      const composedContains = (a: Element, b: Element) => { for (let n: Element | null = b; n; n = up(n)) if (n === a) return true; return false; };
+      // The element a pointer at viewport (x, y) actually reaches: beneath anything not inside `within`
+      // (a cookie bar, a loading overlay), into open shadow roots and same-origin frames.
+      const deepAt = (x: number, y: number, within: Element | null): Element | null => {
+        const stack = document.elementsFromPoint(x, y);
+        let e: Element | null = within ? (stack.find(s => composedContains(within, s)) ?? null) : (stack[0] ?? null);
+        let ox = 0, oy = 0;
+        for (let i = 0; e && i < 12; i++) {
+          const sr = (e as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
+          if (sr) {
+            const inner = sr.elementFromPoint(x - ox, y - oy);
+            if (inner && inner !== e) { e = inner; continue; }
+            // The point is on the host's own light-DOM text, rendered through a <slot>: that slot's control
+            // is what the click activates.
+            const host: Element = e;
+            const slot = Array.from(sr.querySelectorAll("slot")).find(s => (s as HTMLSlotElement).assignedNodes().some(n => n.parentNode === host));
+            if (slot) { e = slot; break; }
+          }
+          if (e.tagName === "IFRAME" || e.tagName === "FRAME") {
+            let d: Document | null = null;
+            try { d = (e as HTMLIFrameElement).contentDocument; } catch { d = null; }
+            if (d) {
+              const r = e.getBoundingClientRect();
+              ox += r.left + e.clientLeft; oy += r.top + e.clientTop;
+              const inner = d.elementFromPoint(x - ox, y - oy);
+              if (inner) { e = inner; continue; }
+            }
+          }
+          break;
+        }
+        return e;
+      };
+      const control = composedClosest(node) || node;
+      const isContainer = !composedClosest(node);
       // Where a click on this element lands: the centre of its first box clipped to the viewport (what
-      // Playwright clicks), after scrolling it into view if none of it is visible. The topmost element at
-      // that point receives the event, so clicking a pricing <section> or a tall <main> whose clicked
-      // point is a "Place order" button activates that button. Not computed for a key press (no pointer).
+      // Playwright clicks), after scrolling it into view if none of it is visible. Not computed for a key
+      // press or an element that is already the deepest one at a known point.
       let position: { x: number; y: number } | null = null;
       const hitControl = ((): Element | null => {
-        if (implicitSubmit) return null;
+        if (arg.implicitSubmit || arg.skipHit) return null;
         const firstBox = () => node.getClientRects()[0] ?? node.getBoundingClientRect();
         const clip = (b: DOMRect) => ({ l: Math.max(b.left, 0), t: Math.max(b.top, 0), r: Math.min(b.right, innerWidth), b: Math.min(b.bottom, innerHeight) });
         let box = firstBox();
@@ -6168,29 +6217,24 @@ For more help: https://playwright.dev/docs/browsers
         const px = (v.l + v.r) / 2;
         const py = (v.t + v.b) / 2;
         position = { x: px - box.left - node.clientLeft, y: py - box.top - node.clientTop };
-        const at = (root as Document).elementFromPoint ? (root as Document) : document;
-        const hit = at.elementFromPoint(px, py);
-        if (!hit || hit === node || !node.contains(hit)) return null;
-        // elementFromPoint stops at a shadow host; follow open shadow roots down to the real target.
-        let deep: Element = hit;
-        for (let i = 0; i < 8; i++) {
-          const sr = (deep as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
-          const inner = sr?.elementFromPoint(px, py);
-          if (!inner || inner === deep) break;
-          deep = inner;
-        }
-        const c = deep.closest(INTERACTIVE) ?? hit.closest(INTERACTIVE);
-        return c && c !== node && c !== control && (node.contains(c) || deep !== hit) ? c : null;
+        const deep = deepAt(px, py, node);
+        if (!deep || deep === node) return null;
+        const c = composedClosest(deep);
+        return c && c !== node && c !== control && composedContains(node, c) ? c : null;
       })();
       const nodes = [node, control, hitControl].filter((e, i, a): e is Element => !!e && a.indexOf(e) === i);
-      const byId = (id: string): Element | null => (root as Document).getElementById ? (root as Document).getElementById(id) : document.getElementById(id);
+      const root = node.getRootNode() as Document | ShadowRoot;
+      const byIdIn = (el: Element, id: string): Element | null => {
+        const r = el.getRootNode() as Document | ShadowRoot;
+        return (r as Document).getElementById ? (r as Document).getElementById(id) : (root as Document).getElementById?.(id) ?? null;
+      };
       const labelledBy = (el: Element) => (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean)
-        .map(byId).filter(Boolean).map(n => (n as HTMLElement).innerText || n!.textContent || "").join(" ");
+        .map(id => byIdIn(el, id)).filter(Boolean).map(n => (n as HTMLElement).innerText || n!.textContent || "").join(" ");
       const descriptors: string[] = [];
       const push = (s: string | null | undefined, max = 200) => { const v = norm(s, max); if (v && !descriptors.includes(v)) descriptors.push(v); };
       // A form's action names the consequence ("/checkout", "/account/close"). Paths name the object
       // first; the patterns read verb first ("close account"), so push both orders. A submitter's
-      // formaction overrides the form's action for that button, so it is read too.
+      // formaction overrides the form's action for that button.
       const pushPath = (path: string | null) => {
         if (!path) return;
         let p = path;
@@ -6203,32 +6247,45 @@ For more help: https://playwright.dev/docs/browsers
         pushPath(form.getAttribute("action"));
         if (submitter) pushPath(submitter.getAttribute("formaction"));
       };
+      // The DOM's own submit test: a <button> with no or an invalid type is a submit button.
+      const isSubmitter = (el: Element) =>
+        (el.tagName === "BUTTON" && (el as HTMLButtonElement).type === "submit") ||
+        (el.tagName === "INPUT" && /^(submit|image)$/.test((el as HTMLInputElement).type));
       const pushControl = (el: Element) => {
         push(el.getAttribute("aria-label"));
         push(labelledBy(el));
         if (el.tagName === "BUTTON" || (el.tagName === "INPUT" && BUTTON_INPUT.test((el as HTMLInputElement).type || ""))) {
           push((el as HTMLInputElement).value);
         }
-        if (el.tagName === "INPUT" && /^image$/i.test((el as HTMLInputElement).type || "")) push(el.getAttribute("alt"));
-        const labels = (el as HTMLInputElement).labels;
-        if (labels) for (const l of Array.from(labels)) push((l as HTMLElement).innerText);
+        if (el.tagName === "INPUT" && (el as HTMLInputElement).type === "image") push(el.getAttribute("alt"));
         push(el.getAttribute("title"));
       };
-      // Names that live below a control: an icon's aria-label or <title>, and text inside an open shadow
-      // root (a custom element's host text is empty, its label is in the shadow tree).
+      // A descendant's name belongs to `el` only when no other control sits between them: the icon inside
+      // a button labels the button; the icon button inside a clickable row does not label the row.
+      const owns = (el: Element, d: Element) => { const c = composedClosest(d); return !c || c === el || composedContains(c, el); };
       const pushBelow = (el: Element) => {
-        Array.from(el.querySelectorAll("[aria-label]")).slice(0, 5).forEach(d => push(d.getAttribute("aria-label")));
-        Array.from(el.querySelectorAll("svg title")).slice(0, 5).forEach(d => push(d.textContent));
+        Array.from(el.querySelectorAll("[aria-label]")).filter(d => owns(el, d)).slice(0, 5).forEach(d => push(d.getAttribute("aria-label")));
+        Array.from(el.querySelectorAll("svg title")).filter(d => owns(el, d)).slice(0, 5).forEach(d => push(d.textContent));
+        Array.from(el.querySelectorAll("img[alt]")).filter(d => owns(el, d)).slice(0, 5).forEach(d => push((d as HTMLImageElement).alt));
         const sr = (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
         if (sr) push(sr.textContent, 120);
+        // A control inside a shadow root shows its host's light-DOM text through a <slot>.
+        Array.from(el.querySelectorAll("slot")).slice(0, 5).forEach(s =>
+          push((s as HTMLSlotElement).assignedNodes({ flatten: true }).map(n => n.textContent || "").join(" "), 120));
       };
-      // A control's own text: its visible text, minus the text of controls nested inside it. A clickable
-      // row is not labelled by the "Remove" link it contains; the hit-test judges the nested control when
-      // the click lands on it.
+      // Something that is not an interactive element can still act as one: a <div> with a click listener
+      // shows it by a pointer cursor, a tabindex or an inline pointer handler. An inert heading
+      // ("<h1>Checkout</h1>") or a plain container shows none, and clicking it activates nothing.
+      const clickable = (el: Element) => {
+        if (el.hasAttribute("tabindex")) return true;
+        for (const a of Array.from(el.attributes)) if (/^on(click|mousedown|mouseup|pointerdown|pointerup|touchstart|touchend)$/i.test(a.name)) return true;
+        try { return (el.ownerDocument.defaultView || window).getComputedStyle(el).cursor === "pointer"; } catch { return false; }
+      };
+      // A control's own text: its visible text, minus the text of controls nested inside it.
       const ownText = (el: Element): string => {
         if (!el.querySelector(INTERACTIVE)) return (el as HTMLElement).innerText;
         const parts: string[] = [];
-        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        const walker = (el.ownerDocument || document).createTreeWalker(el, NodeFilter.SHOW_TEXT);
         for (let n = walker.nextNode(); n; n = walker.nextNode()) {
           const p = n.parentElement;
           if (p && p.closest(INTERACTIVE) === el) parts.push(n.textContent || "");
@@ -6243,11 +6300,16 @@ For more help: https://playwright.dev/docs/browsers
         const al = el.getAttribute("aria-label");
         if (al && al.trim()) return norm(al, 200);
         if (el.tagName === "INPUT" && (el as HTMLInputElement).value && BUTTON_INPUT.test((el as HTMLInputElement).type || "")) return norm((el as HTMLInputElement).value, 200);
-        if (el.tagName === "INPUT" && /^image$/i.test((el as HTMLInputElement).type || "") && el.getAttribute("alt")) return norm(el.getAttribute("alt"), 200);
-        if (isField(el)) return norm(el.getAttribute("placeholder") || el.getAttribute("name"), 200);
+        if (el.tagName === "INPUT" && (el as HTMLInputElement).type === "image" && el.getAttribute("alt")) return norm(el.getAttribute("alt"), 200);
+        if (isData(el)) {
+          const labels = (el as HTMLInputElement).labels;
+          const lt = labels ? Array.from(labels).map(l => (l as HTMLElement).innerText).join(" ") : "";
+          return norm(lt || el.getAttribute("placeholder") || el.getAttribute("name"), 200);
+        }
         const t = norm((el as HTMLElement).innerText, 200);
         if (t) return t;
-        const below = el.querySelector("[aria-label]")?.getAttribute("aria-label") || el.querySelector("svg title")?.textContent
+        const slotted = Array.from(el.querySelectorAll("slot")).map(s => (s as HTMLSlotElement).assignedNodes({ flatten: true }).map(n => n.textContent || "").join(" ")).join(" ");
+        const below = norm(slotted, 200) || el.querySelector("[aria-label]")?.getAttribute("aria-label") || el.querySelector("svg title")?.textContent
           || (el.querySelector("img[alt]") as HTMLImageElement | null)?.alt
           || (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot?.textContent;
         if (below && below.trim()) return norm(below, 200);
@@ -6255,35 +6317,31 @@ For more help: https://playwright.dev/docs/browsers
       };
       for (const el of nodes) {
         const isControl = (el === control && !isContainer) || el === hitControl;
-        const isLeaf = !el.querySelector(INTERACTIVE);
-        pushControl(el);
-        if (!isField(el)) {
-          // Visible text: a control's whole label, or the opening of a leaf's text (a <div> with a click
-          // listener and no role is a leaf however long its text). The text of a container that holds
-          // controls of its own is not a label: clicking a product card is not pressing its "Buy" button
-          // (the hit-test above catches the case where the click lands on it).
-          const text = norm(isControl ? ownText(el) : (el as HTMLElement).innerText, 300);
-          if (isControl) push(text, 300);
-          else if (isLeaf) push(text, 120);
-          if (isControl || isLeaf) pushBelow(el);
-          const img = el.querySelector("img[alt]") as HTMLImageElement | null;
-          if (img && (isControl || isLeaf)) push(img.alt);
-        }
-        const form = (el as HTMLButtonElement).form as HTMLFormElement | null | undefined;
-        const typeAttr = (el.getAttribute("type") || "").toLowerCase();
-        const submits = form && ((el.tagName === "BUTTON" && (typeAttr === "" || typeAttr === "submit")) || (el.tagName === "INPUT" && (typeAttr === "submit" || typeAttr === "image")));
-        if (submits) pushSubmit(form, el);
-        // Enter in a field submits its form through the form's default button.
-        if (implicitSubmit && form && isField(el) && el.tagName !== "TEXTAREA") {
-          const def = Array.from(form.elements).find(e =>
-            (e.tagName === "BUTTON" && /^(submit|)$/i.test(e.getAttribute("type") || "")) ||
-            (e.tagName === "INPUT" && /^(submit|image)$/i.test((e as HTMLInputElement).type || ""))) ?? null;
-          pushSubmit(form, def);
-          if (def) {
-            pushControl(def);
-            pushBelow(def);
-            push((def as HTMLElement).innerText);
-            submitsVia = nameOf(def);
+        if (!isData(el)) {
+          // Judged by its own names: a control, or something acting as one. A control's own text counts in
+          // full; an acting-as-control element's own text by its opening 120 characters (a long div-button is
+          // labelled by how it starts). A plain container or inert text is not a label: the hit-test above
+          // judges the control a click on it lands on.
+          const actsAsControl = isControl || clickable(el);
+          if (actsAsControl) {
+            pushControl(el);
+            push(norm(ownText(el), isControl ? 300 : 120), 300);
+            pushBelow(el);
+          }
+          const form = (el as HTMLButtonElement).form as HTMLFormElement | null | undefined;
+          if (form && isSubmitter(el)) pushSubmit(form, el);
+        } else if (arg.implicitSubmit && el.tagName !== "TEXTAREA") {
+          // Enter in a field submits its form through the form's default button.
+          const form = (el as HTMLInputElement).form;
+          if (form) {
+            const def = Array.from(form.elements).find(isSubmitter) ?? null;
+            pushSubmit(form, def);
+            if (def) {
+              pushControl(def);
+              pushBelow(def);
+              push((def as HTMLElement).innerText);
+              submitsVia = nameOf(def);
+            }
           }
         }
         if (!label) label = nameOf(el);
@@ -6292,11 +6350,12 @@ For more help: https://playwright.dev/docs/browsers
       if (hitControl) label = `${label} (click lands on <${hitControl.tagName.toLowerCase()}> "${nameOf(hitControl)}")`;
       return { tag: control.tagName.toLowerCase(), label, descriptors, position: isContainer ? position : null };
     };
+    const arg = { implicitSubmit: !!options.implicitSubmit, skipHit: !!options.skipHit };
     let info: Info | null = null;
     try {
       info = "count" in element
-        ? await (element as Locator).evaluate(inPage, !!options.implicitSubmit, { timeout: 3000 })
-        : await (element as ElementHandle).evaluate(inPage as (node: Node, arg: boolean) => Info, !!options.implicitSubmit);
+        ? await (element as Locator).evaluate(inPage, arg, { timeout: 3000 })
+        : await (element as ElementHandle).evaluate(inPage as (node: Node, a: Arg) => Info, arg);
     } catch {
       return null;
     }
@@ -6342,17 +6401,53 @@ For more help: https://playwright.dev/docs/browsers
   }
 
   /**
+   * The element a pointer at viewport (x, y) reaches: the topmost element there, followed into open shadow
+   * roots and same-origin frames. Cross-origin frames stop at the <iframe>. (classifyElement carries the
+   * same walk for a container's hit-test; the two are kept identical.)
+   */
+  private async deepElementAt(x: number, y: number): Promise<ElementHandle | null> {
+    const page = await this.getPage();
+    const h = await page.evaluateHandle(([px, py]) => {
+      let e: Element | null = document.elementFromPoint(px, py);
+      let ox = 0, oy = 0;
+      for (let i = 0; e && i < 12; i++) {
+        const sr = (e as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
+        if (sr) {
+          const inner = sr.elementFromPoint(px - ox, py - oy);
+          if (inner && inner !== e) { e = inner; continue; }
+          const host: Element = e;
+          const slot = Array.from(sr.querySelectorAll("slot")).find(s => (s as HTMLSlotElement).assignedNodes().some(n => n.parentNode === host));
+          if (slot) { e = slot; break; }
+        }
+        if (e.tagName === "IFRAME" || e.tagName === "FRAME") {
+          let d: Document | null = null;
+          try { d = (e as HTMLIFrameElement).contentDocument; } catch { d = null; }
+          if (d) {
+            const r = e.getBoundingClientRect();
+            ox += r.left + e.clientLeft; oy += r.top + e.clientTop;
+            const inner = d.elementFromPoint(px - ox, py - oy);
+            if (inner) { e = inner; continue; }
+          }
+        }
+        break;
+      }
+      return e;
+    }, [x, y]);
+    const el = h.asElement();
+    if (!el) await h.dispose();
+    return el;
+  }
+
+  /**
    * Refusal message when a click at viewport point (x, y) would activate a red-zone control, else null.
-   * The element at the point and its nearest control are judged like any resolved element. Used by the
-   * NL test runner's "click at X, Y".
+   * Used by the NL test runner's "click at X, Y".
    */
   async pointRedZone(x: number, y: number, force?: boolean): Promise<string | null> {
     if (force) return null;
-    const page = await this.getPage();
-    const handle = (await page.evaluateHandle(([px, py]) => document.elementFromPoint(px, py), [x, y])).asElement();
+    const handle = await this.deepElementAt(x, y);
     if (!handle) return null;
     try {
-      const el = await this.classifyElement(handle);
+      const el = await this.classifyElement(handle, { skipHit: true });
       if (el?.zone !== "red") return null;
       this.audit("click", `at:${x},${y}`, "red", "blocked");
       return `Red zone action requires --force: click at ${x},${y} lands on <${el.tag}> "${el.label}"`;
@@ -6363,37 +6458,56 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Refusal message when dragging `source` onto `target` would click a red-zone control, else null.
-   * A drag is a mousedown on the source and a mouseup on the target, and the browser fires click on
-   * their nearest common ancestor: dragging an element onto itself (or onto something inside the same
-   * button) clicks that control. Different controls with no control in common click nothing.
+   * A drag is a mousedown where the pointer is over the source's centre and a mouseup over the target's
+   * centre, and the browser fires click on the nearest common ancestor of the two elements actually under
+   * the pointer. So the press and release points are resolved the way the pointer reaches them (beneath
+   * nothing, into shadow roots and same-origin frames), each after scrolling its element into view as the
+   * drag itself does, and the control containing both is judged.
    */
   async dragRedZone(source: string, target: string, force?: boolean): Promise<string | null> {
     if (force) return null;
     const page = await this.getPage();
-    const s = await page.locator(source).first().elementHandle({ timeout: 3000 }).catch(() => null);
-    const t = await page.locator(target).first().elementHandle({ timeout: 3000 }).catch(() => null);
-    if (!s || !t) return null;
-    const common = (await page.evaluateHandle(([a, b]) => {
-      const INTERACTIVE = "a,button,input,select,textarea,summary,label,[role='button'],[role='link'],[role='menuitem'],[role='tab'],[role='option'],[role='checkbox'],[role='radio'],[role='switch'],[onclick]";
-      let n: Element | null = a as Element;
-      while (n && !n.contains(b as Element)) n = n.parentElement;
-      return n ? n.closest(INTERACTIVE) : null;
-    }, [s, t])).asElement();
+    const pointOf = async (sel: string) => {
+      const loc = page.locator(sel).first();
+      await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+      const b = await loc.boundingBox({ timeout: 3000 }).catch(() => null);
+      return b ? this.deepElementAt(b.x + b.width / 2, b.y + b.height / 2) : null;
+    };
+    const a = await pointOf(source);
+    const b = a ? await pointOf(target) : null;
+    if (!a || !b) { await a?.dispose(); return null; }
+    const common = (await page.evaluateHandle(([x, y]) => {
+      const up = (e: Element): Element | null => {
+        const slot = (e as Element & { assignedSlot: HTMLSlotElement | null }).assignedSlot;
+        if (slot) return slot;
+        if (e.parentElement) return e.parentElement;
+        const r = e.getRootNode() as ShadowRoot | Document;
+        if ((r as ShadowRoot).host) return (r as ShadowRoot).host;
+        try { return (e.ownerDocument.defaultView?.frameElement as Element | null) ?? null; } catch { return null; }
+      };
+      const chain = new Set<Element>();
+      for (let n: Element | null = x as Element; n; n = up(n)) chain.add(n);
+      let n: Element | null = y as Element;
+      while (n && !chain.has(n)) n = up(n);
+      return n;
+    }, [a, b])).asElement();
     try {
       if (!common) return null;
-      const el = await this.classifyElement(common);
+      const el = await this.classifyElement(common, { skipHit: true });
       if (el?.zone !== "red") return null;
       this.audit("drag", `${source} -> ${target}`, "red", "blocked");
       return `Red zone action requires --force: dragging "${source}" onto "${target}" clicks <${el.tag}> "${el.label}"`;
     } finally {
-      await Promise.all([s.dispose(), t.dispose(), common?.dispose()].map(p => p?.catch(() => {})));
+      await Promise.all([a.dispose(), b.dispose(), common?.dispose()].map(p => p?.catch(() => {})));
     }
   }
 
   /**
    * Zone of pressing `key` on whatever has focus. Enter activates the focused control or submits the
    * form of the focused field; Space activates a focused button-like control. Any other key, or nothing
-   * focused, returns null (no activation to gate). Used by the press_key MCP tool.
+   * focused, returns null (no activation to gate). Focus is followed into open shadow roots and
+   * same-origin frames (a design-system app shell's host is not what has focus). Used by the keyboard
+   * paths through keystrokeRedZone.
    */
   async classifyKeyActivation(key: string): Promise<{ zone: ActionZone; tag: string; label: string } | null> {
     const last = (key.split("+").pop() || "").trim();
@@ -6401,16 +6515,34 @@ For more help: https://playwright.dev/docs/browsers
     const isSpace = last === "" ? key.endsWith(" ") : /^(space|spacebar)$/i.test(last);
     if (!isEnter && !isSpace) return null;
     const page = await this.getPage();
-    const focused = page.locator("*:focus").first();
-    if ((await focused.count().catch(() => 0)) === 0) return null;
-    if (isSpace) {
-      const buttonLike = await focused.evaluate((el: Element) =>
-        el.matches("button,summary,input[type=submit],input[type=button],input[type=reset],input[type=image],input[type=checkbox],input[type=radio],[role=button],[role=checkbox],[role=switch],[role=menuitem],[role=tab],[role=option]"),
-      ).catch(() => false);
-      if (!buttonLike) return null;
+    const h = await page.evaluateHandle(() => {
+      let a: Element | null = document.activeElement;
+      for (let i = 0; a && i < 12; i++) {
+        const sr = (a as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
+        if (sr?.activeElement) { a = sr.activeElement; continue; }
+        if (a.tagName === "IFRAME" || a.tagName === "FRAME") {
+          let d: Document | null = null;
+          try { d = (a as HTMLIFrameElement).contentDocument; } catch { d = null; }
+          if (d?.activeElement && d.activeElement !== d.body) { a = d.activeElement; continue; }
+        }
+        break;
+      }
+      return a && a !== document.body && a !== document.documentElement ? a : null;
+    });
+    const focused = h.asElement();
+    if (!focused) { await h.dispose(); return null; }
+    try {
+      if (isSpace) {
+        const buttonLike = await focused.evaluate((el: Element) =>
+          el.matches("button,summary,input[type=submit],input[type=button],input[type=reset],input[type=image],[role=button],[role=menuitem],[role=tab]"),
+        ).catch(() => false);
+        if (!buttonLike) return null;
+      }
+      const el = await this.classifyElement(focused, { implicitSubmit: isEnter, skipHit: true });
+      return el ? { zone: el.zone, tag: el.tag, label: el.label } : null;
+    } finally {
+      await focused.dispose().catch(() => {});
     }
-    const el = await this.classifyElement(focused, { implicitSubmit: isEnter });
-    return el ? { zone: el.zone, tag: el.tag, label: el.label } : null;
   }
 
   /**

@@ -343,9 +343,9 @@ customElements.define('del-btn', class extends HTMLElement { connectedCallback()
 s.innerHTML = '<button>Delete account</button>'; s.querySelector('button').onclick = () => { window.__c = 'FIRED'; }; } });</script>`));
     expect(r).toMatchObject({ success: false, zone: "red", fired: null });
   });
-  test("F3: a checkbox named by its <label for> carries the label's zone", async () => {
+  test("a checkbox is choosing a value: its label does not make the click red (the submit is judged)", async () => {
     const r = await refused(H(`<input id="x" type="checkbox" onclick="window.__c='FIRED'"><label for="x">Delete all my data</label>`));
-    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+    expect(r).toMatchObject({ success: true, zone: "yellow", fired: "FIRED" });
   });
   test("F4: a submit button's formaction overrides a benign form action", async () => {
     const r = await refused(H(`<form action="/settings"><button id="x" formaction="/account/delete">Save</button></form>`));
@@ -414,5 +414,83 @@ describe("a clickable row is labelled by its own text, not its nested controls",
     expect(r.success).toBe(true);
     expect(r.zone).toBe("yellow");
     expect(await fired()).toBe("ROW");
+  });
+});
+
+describe("cross-vendor re-audit findings (Forge round 5)", () => {
+  const H = (body: string, bodyStyle = "margin:0") => `<!doctype html><html lang="en"><body style="${bodyStyle}">${body}</body></html>`;
+  const LONG = "Simple, transparent pricing for teams of every size. Start free, upgrade when you need more runs, and top up credits whenever you like.";
+  const run = async (html: string, sel = "#x") => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(html); await page.waitForTimeout(50); await fired();
+    const r = await b.click(sel, {});
+    await page.waitForTimeout(50);
+    return { success: r.success, zone: r.zone, fired: await fired() };
+  };
+  const XBTN = `<script>customElements.define('x-btn', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({mode:'open'});
+s.innerHTML = '<button style="width:200px;height:100px"><slot></slot></button>'; s.querySelector('button').onclick = () => { window.__c = 'DELETE'; }; } });</script>`;
+  test("W1: a container whose centre is a slotted design-system button is refused", async () => {
+    const r = await run(H(`<section id="x" style="position:relative;width:600px;height:300px"><p style="margin:0">${LONG}</p>
+<x-btn style="position:absolute;left:200px;top:100px;width:200px;height:100px;display:block">Delete account</x-btn></section>${XBTN}`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("W1: a container whose centre is under a fixed cookie bar is judged beneath the bar", async () => {
+    const r = await run(H(`<div style="position:fixed;left:0;top:300px;width:1280px;height:200px;background:#eee;z-index:10">Newsletter: sign up for updates.</div>
+<section id="x" style="position:absolute;top:250px;left:0;width:600px;height:300px"><p style="margin:0">${LONG}</p>
+<button style="position:absolute;left:200px;top:100px;width:200px;height:100px" onclick="window.__c='BUY'">Buy credits</button></section>`, "margin:0;height:3000px"));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("W1: a container whose centre is a same-origin iframe holding Pay now is refused", async () => {
+    const r = await run(H(`<section id="x" style="position:relative;width:600px;height:300px"><p style="margin:0">${LONG}</p>
+<iframe style="position:absolute;left:100px;top:50px;width:400px;height:200px;border:0" srcdoc="<body style='margin:0'><button style='width:400px;height:200px' onclick='parent.__c=&quot;PAY&quot;'>Pay now</button></body>"></iframe></section>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("W2: Enter with focus on a red button inside an app shell's shadow root is refused", async () => {
+    await page.setContent(H(`<app-root></app-root><script>customElements.define('app-root', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({mode:'open'});
+s.innerHTML = '<nav>' + 'Home Products Pricing Docs Blog Careers Support Status Community Partners Changelog Security Privacy Terms Contact '.repeat(2) + '</nav><button id="del">Delete account</button>'; } });</script>`));
+    await page.waitForTimeout(50);
+    await page.evaluate(() => (document.querySelector("app-root") as any).shadowRoot.querySelector("#del").focus());
+    const a = await b.classifyKeyActivation("Enter");
+    expect(a?.zone).toBe("red");
+    expect(a?.label).toBe("Delete account");
+  });
+  test("W3: a coordinate click on a red button inside a same-origin iframe is refused", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(H(`<iframe style="position:absolute;left:0;top:0;width:600px;height:400px;border:0" srcdoc="<body style='margin:0'><button style='width:600px;height:400px'>Delete account</button></body>"></iframe>`));
+    await page.waitForTimeout(100);
+    expect(await b.pointRedZone(200, 150)).toMatch(/lands on <button> "Delete account"/);
+  });
+  test("W4: dragging a container onto itself whose centre is a red button is refused", async () => {
+    await page.setContent(H(`<section id="plans" style="position:relative;width:600px;height:300px"><p style="margin:0">${LONG}</p>
+<button style="position:absolute;left:200px;top:100px;width:200px;height:100px">Buy credits</button></section>`));
+    expect(await b.dragRedZone("#plans", "#plans")).toMatch(/clicks <button> "Buy credits"/);
+  });
+  test("W5: a clickable row is not labelled by an icon button inside it", async () => {
+    const r = await run(H(`<div id="x" onclick="window.__c='ROW'" style="padding:8px;width:600px">jane@example.com, member since 2021
+<button style="margin-left:400px" aria-label="Delete account" onclick="event.stopPropagation();window.__c='DEL'"><svg width="12" height="12"></svg></button></div>`));
+    expect(r).toMatchObject({ success: true, zone: "yellow", fired: "ROW" });
+  });
+  test("W6: clicking a text field is not judged by its label", async () => {
+    for (const html of [
+      `<label for="x">Purchase order number</label><input id="x" onfocus="window.__c='FOCUS'">`,
+      `<label for="x">Buyer email</label><input id="x" type="email" onfocus="window.__c='FOCUS'">`,
+      `<input id="x" aria-label="Reason you want to close account" onfocus="window.__c='FOCUS'">`,
+    ]) {
+      const r = await run(H(html));
+      expect(r).toMatchObject({ success: true, zone: "yellow", fired: "FOCUS" });
+    }
+  });
+  test("W7: Space on a focused terms checkbox is choosing a value, not refused", async () => {
+    await page.setContent(H(`<input id="tos" type="checkbox"><label for="tos">I agree to the Terms of Service</label>`));
+    await page.focus("#tos");
+    expect(await b.keystrokeRedZone({ key: " " })).toBeNull();
+  });
+  test("L1: a <button type=bogus> (an invalid type is a submit button) in a /checkout form is refused", async () => {
+    const r = await run(H(`<form action="/checkout" onsubmit="window.__c='PAID';return false"><button id="x" type="bogus">Continue</button></form>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("an inert heading is not a control: <h1>Checkout</h1> clicked by id proceeds", async () => {
+    const r = await run(H(`<h1 id="x">Checkout</h1>`));
+    expect(r).toMatchObject({ success: true, zone: "yellow" });
   });
 });
