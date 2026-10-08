@@ -1028,9 +1028,98 @@ const PRIMARY_NAV_CSS = "header nav, [role='banner'] nav, header [role='navigati
   + "[role='navigation'][aria-label*='main' i], [role='navigation'][aria-label*='primary' i], nav[class*='main' i], nav[class*='primary' i], "
   + "nav[id*='main' i], nav[id*='primary' i], .main-menu, .primary-menu, .site-nav, .main-nav, #main-nav";
 
+// ============================================================================
+// Prefilter: the elements a kind's rungs can ever return, as one CSS pool
+// ============================================================================
+//
+// Wider than KIND_POOL where the role unions reach further (a "button" intent also tries plain links,
+// a "dropdown" tries every button). Checked in one round trip for a count and for any intent word.
+// What text-exact lifts a text match to (the same list the page-side picker uses): any non-container kind can land here.
+const LIFT_CSS = "a[href], button, [role='button'], [role='link'], [role='tab'], [role='menuitem'], summary, label, select, input";
+const PREFILTER_POOL: Record<Kind, string> = {
+  button: `${KIND_POOL.button}, ${LINK_CSS}, ${LIFT_CSS}`,
+  link: `${LINK_CSS}, ${LIFT_CSS}`,
+  tab: `${KIND_POOL.tab}, ${LIFT_CSS}`,
+  checkbox: `${KIND_POOL.checkbox}, ${LIFT_CSS}`,
+  radio: `${KIND_POOL.radio}, ${LIFT_CSS}`,
+  dropdown: `${KIND_POOL.dropdown}, ${BUTTON_CSS}, [role='menu'], ${LIFT_CSS}`,
+  field: `${FIELD_CSS}, [role='spinbutton'], [role='listbox'], ${LIFT_CSS}`,
+  textarea: `${FIELD_CSS}, [role='spinbutton'], [role='listbox'], ${LIFT_CSS}`,
+  menuitem: `${KIND_POOL.menuitem}, ${LIFT_CSS}`,
+  image: `${KIND_POOL.image}, [alt], ${LIFT_CSS}`,
+  card: KIND_POOL.card,
+  product: KIND_POOL.product,
+  heading: `${KIND_POOL.heading}, ${LIFT_CSS}`,
+  toggle: `${KIND_POOL.toggle}, ${BUTTON_CSS}, [role='checkbox'], ${LIFT_CSS}`,
+  section: KIND_POOL.section,
+  article: KIND_POOL.article,
+  form: KIND_POOL.form,
+  any: `${KIND_POOL.any}, ${LIFT_CSS}`,
+};
 // An intent that names one of these is asking for a structure, which no control named with its other words is.
 const STRUCTURE_WORDS = new Set(["table", "list", "grid", "chart", "map", "video", "gallery", "carousel", "sidebar", "section", "form", "dialog",
   "modal", "menu", "panel", "banner", "footer", "header", "nav", "navigation", "page", "sheet", "calendar", "editor", "player", "widget"]);
+
+type PrefilterNeed = {
+  literal: string[][];   // each literal phrase as tokens; a literal rung needs every token of one phrase in one element
+  syn: string[][];       // each synonym as tokens
+  cover: string[];       // the intent's own tokens; superset needs at least half of them in one element
+  any: string[];         // provider / menu-trigger need any token at all
+  container: boolean;    // container kinds match on their whole text
+};
+type PrefilterHit = { count: number; literal: boolean; syn: boolean; any: boolean; cover: number };
+
+/** Page-side: how many pool elements there are, and which token sets some element carries anywhere a name can come from. */
+const PREFILTER = (els: Element[], need: PrefilterNeed): PrefilterHit => {
+  const out: PrefilterHit = { count: els.length, literal: !need.literal.length, syn: !need.syn.length, any: !need.any.length, cover: 0 };
+  if (out.literal && out.syn && out.any) return { ...out, cover: need.cover.length };
+  const ATTRS = ["id", "class", "name", "aria-label", "title", "alt", "placeholder", "value", "data-testid", "href", "type"];
+  const cap = need.container ? 20000 : 3000;
+  for (const e of els) {
+    let blob = (e.textContent || "").slice(0, cap);
+    for (const a of ATTRS) { const v = e.getAttribute(a); if (v) blob += " " + v; }
+    const lb = e.getAttribute("aria-labelledby");
+    if (lb) for (const id of lb.split(/\s+/)) { const n = document.getElementById(id); if (n) blob += " " + (n.textContent || ""); }
+    const labels = (e as HTMLInputElement).labels;
+    if (labels) for (const l of Array.from(labels)) blob += " " + (l.textContent || "");
+    // an unassociated label is the text next to the box
+    if (e.tagName === "INPUT" && /^(checkbox|radio)$/i.test((e as HTMLInputElement).type) && e.parentElement) blob += " " + (e.parentElement.textContent || "").slice(0, 300);
+    const inner = e.querySelectorAll("[alt], [aria-label], [title]");
+    for (let i = 0; i < inner.length && i < 5; i++) {
+      blob += " " + (inner[i].getAttribute("alt") || "") + " " + (inner[i].getAttribute("aria-label") || "") + " " + (inner[i].getAttribute("title") || "");
+    }
+    blob = blob.toLowerCase();
+    const has = (t: string) => blob.includes(t);
+    if (!out.any && need.any.some(has)) out.any = true;
+    if (!out.literal && need.literal.some(alt => alt.every(has))) out.literal = true;
+    if (!out.syn && need.syn.some(alt => alt.every(has))) out.syn = true;
+    const c = need.cover.filter(has).length;
+    if (c > out.cover) out.cover = c;
+    if (out.literal && out.syn && out.any && out.cover >= need.cover.length) break;
+  }
+  return out;
+};
+
+/** The substrings each rung family needs to see: intent and synonym words, compound-split, stemmed loosely. */
+function prefilterNeed(q: { words: string[]; phrase: string; phraseFull: string }, syns: string[], container: boolean): PrefilterNeed {
+  const stem = (w: string) => w.replace(/(ies|ing|ed|es|s|er|ers|ion|ions|y)$/, "");
+  const tok = (s: string): string[] => {
+    const out = new Set<string>();
+    for (const w0 of s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w && !STOP.has(w))) {
+      for (const w of (COMPOUNDS[w0] ? COMPOUNDS[w0].split(" ") : [w0])) {
+        const st = stem(w);
+        const t = st.length >= 3 ? st : w;
+        if (t.length > 1 || /\d/.test(t)) out.add(t);
+      }
+    }
+    return [...out];
+  };
+  const literal = [...new Set([q.phraseFull, q.phrase])].filter(Boolean).map(tok).filter(a => a.length);
+  const syn = syns.map(tok).filter(a => a.length);
+  const cover = tok(q.words.join(" "));
+  const any = [...new Set([...literal.flat(), ...syn.flat()])];
+  return { literal, syn, cover, any, container };
+}
 
 // ============================================================================
 // Cascade
@@ -1750,10 +1839,24 @@ export async function findElementByIntent(
         pick: { ...pickBase, guard: guard(2, 4), preferLonger: true, minNameWords: Math.ceil(nameWords.length / 2) } });
     }
 
+    // One round trip before the rungs: an empty pool, or a pool none of whose elements carries the tokens a rung needs,
+    // cannot match that rung. Rungs that match by CSS alone (typed fields, search submits, citations) always run.
+    const pre = await root.locator(PREFILTER_POOL[kind]).evaluateAll(PREFILTER, prefilterNeed(q, syns, isContainerKind)).catch(() => null);
+    if (pre && pre.count === 0) return null;
+    const NEEDS_LITERAL = /^(exact|exact-link|contains|label-exact|label-contains|field-text|all-words|text-exact|attribute|stem)$/;
+    const NEEDS_SYN = /^(exact-synonym|exact-synonym-link|contains-synonym)$/;
+    const NEEDS_ANY = /^(provider|menu-trigger)$/;
+
     let sawHiddenExact = false;
     for (const rung of rungs) {
       // an exact match that is merely hidden makes the weak rungs guesses: skip them
       if (sawHiddenExact && /^(all-words|text-exact|attribute|stem|menu-trigger|superset)$/.test(rung.label)) continue;
+      if (pre) {
+        if (NEEDS_LITERAL.test(rung.label) && !pre.literal) continue;
+        if (NEEDS_SYN.test(rung.label) && !pre.syn) continue;
+        if (NEEDS_ANY.test(rung.label) && !pre.any) continue;
+        if (rung.label === "superset" && pre.cover < (rung.pick.minNameWords ?? 1)) continue;
+      }
       const r = await run(rung.label, rung.locator, rung.pick);
       if (!r) continue;
       if (r.chosen) {
