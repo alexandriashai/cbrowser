@@ -13,7 +13,6 @@
  */
 
 import type { CBrowser } from "../browser.js";
-import { idSelector, attrSelector, escapeAttrValue, escapeCssIdent } from "../selector-escape.js";
 
 /**
  * Natural language command patterns.
@@ -162,6 +161,11 @@ export interface FindByIntentOptions {
 import type { SelectorStrategyType } from "../types.js";
 import type { Locator, Page } from "playwright";
 
+/** Where a rung is resolved: the page, or the landmark locator the intent scopes to. */
+type Scope = Page | Locator;
+/** Playwright's own role union (not exported by name), so KIND_ROLES is checked against it. */
+type AriaRole = Parameters<Page["getByRole"]>[0];
+
 // ============================================================================
 // findElementByIntent - semantic locator cascade (BUG-01 redesign, design C)
 // ============================================================================
@@ -234,13 +238,19 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   const HASHED_CLASS = /^(css-|sc-|_|jsx-)|[_-][a-z0-9]{6,}$|\d{3,}/i;
 
   const q = (v: string) => String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  const esc = (s: string) => (window as any).CSS && (window as any).CSS.escape ? (window as any).CSS.escape(s) : s.replace(/([^\w-])/g, "\\$1");
+  const esc = (s: string) => (typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(s) : s.replace(/([^\w-])/g, "\\$1"));
+  // checkVisibility is missing from older engines; treat "unavailable" as "not hidden by it"
+  const cssVisible = (e: Element) => typeof e.checkVisibility !== "function" || e.checkVisibility({ visibilityProperty: true });
+  // SVG elements carry an SVGAnimatedString, not a string
+  const classNameOf = (e: Element): string => {
+    const c: string | SVGAnimatedString | undefined = (e as unknown as { className?: string | SVGAnimatedString }).className;
+    return typeof c === "string" ? c : (c?.baseVal ?? "");
+  };
 
   // ---- visibility: what a person can see at this width ----
   function leafVisible(e: Element): boolean {
     if (!e || !e.isConnected) return false;
-    const he = e as HTMLElement;
-    if (typeof (he as any).checkVisibility === "function" && !(he as any).checkVisibility({ visibilityProperty: true })) return false;
+    if (!cssVisible(e)) return false;
     const r = e.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return false;
     const sx = window.scrollX, sy = window.scrollY;
@@ -266,8 +276,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     if (leafVisible(e)) return true;
     if (!arg.container) return false;
     const contents = e.isConnected && getComputedStyle(e).display === "contents";
-    const he = e as any;
-    if (e.isConnected && CONTAINERS.has(e.tagName) && (contents || typeof he.checkVisibility !== "function" || he.checkVisibility({ visibilityProperty: true }))) {
+    if (e.isConnected && CONTAINERS.has(e.tagName) && (contents || cssVisible(e))) {
       const kids = e.querySelectorAll("a, button, input, select, textarea, img, svg, h1, h2, h3, h4, p, span, li, label");
       for (let i = 0; i < kids.length && i < 300; i++) if (leafVisible(kids[i])) return true;
     }
@@ -280,11 +289,11 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     return norm((e as HTMLElement).innerText || e.textContent || "");
   }
   function accName(e: Element): string {
-    const root: any = (e as any).getRootNode ? (e as any).getRootNode() : document;
-    const byId = (id: string) => (root.getElementById ? root.getElementById(id) : document.getElementById(id));
+    const rootNode: Node = typeof e.getRootNode === "function" ? e.getRootNode() : document;
+    const byId = (id: string) => ("getElementById" in rootNode ? (rootNode as Document | DocumentFragment).getElementById(id) : document.getElementById(id));
     const lb = e.getAttribute("aria-labelledby");
     if (lb) {
-      const t = lb.split(/\s+/).map(id => byId(id)).filter(Boolean).map(n => ownText(n)).join(" ").trim();
+      const t = lb.split(/\s+/).map(id => byId(id)).filter((n): n is HTMLElement => !!n).map(n => ownText(n)).join(" ").trim();
       if (t) return norm(t).slice(0, 200);
     }
     const al = e.getAttribute("aria-label");
@@ -296,7 +305,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
         if (ie.value) return norm(ie.value).slice(0, 200);
         const alt = e.getAttribute("alt"); if (alt) return norm(alt);
       }
-      const labels = (ie as any).labels as NodeListOf<HTMLLabelElement> | null;
+      const labels = ie.labels;
       if (labels && labels.length) {
         const t = Array.from(labels).map(l => ownText(l)).join(" ").trim();
         if (t) return norm(t).slice(0, 200);
@@ -367,8 +376,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     return id;
   }
   function stableClasses(e: Element): string[] {
-    const raw = typeof e.className === "string" ? e.className : ((e.className as any)?.baseVal ?? "");
-    return String(raw).split(/\s+/).filter(c => c && /^[a-zA-Z][\w-]*$/.test(c) && !STATE_CLASS.test(c) && !HASHED_CLASS.test(c)).slice(0, 3);
+    return classNameOf(e).split(/\s+/).filter(c => c && /^[a-zA-Z][\w-]*$/.test(c) && !STATE_CLASS.test(c) && !HASHED_CLASS.test(c)).slice(0, 3);
   }
   function part(e: Element): string {
     const tag = e.tagName.toLowerCase();
@@ -457,8 +465,10 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   // ---- filters ----
   const re = (s?: string) => (s ? new RegExp(s, "i") : null);
   function attrBlob(e: Element): string {
-    const cls = typeof e.className === "string" ? e.className : ((e.className as any)?.baseVal ?? "");
-    return [e.id, cls, e.getAttribute("aria-label"), e.getAttribute("name"), e.getAttribute("data-testid"), e.getAttribute("title"), e.getAttribute("role"), e.getAttribute("action"), e.getAttribute("type")].filter(Boolean).join(" ");
+    return [
+      e.id, classNameOf(e), e.getAttribute("aria-label"), e.getAttribute("name"), e.getAttribute("data-testid"),
+      e.getAttribute("title"), e.getAttribute("role"), e.getAttribute("action"), e.getAttribute("type"),
+    ].filter(Boolean).join(" ");
   }
   function passes(e: Element, f: PickFilter, name: string): boolean {
     if (f.anyOf) return f.anyOf.some(sub => passes(e, sub, name));
@@ -558,7 +568,9 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
 // Intent parsing
 // ============================================================================
 
-type Kind = "button" | "link" | "tab" | "checkbox" | "radio" | "dropdown" | "field" | "textarea" | "menuitem" | "image" | "card" | "product" | "heading" | "toggle" | "section" | "article" | "form" | "any";
+type Kind =
+  | "button" | "link" | "tab" | "checkbox" | "radio" | "dropdown" | "field" | "textarea" | "menuitem"
+  | "image" | "card" | "product" | "heading" | "toggle" | "section" | "article" | "form" | "any";
 
 type LandmarkKind = "header" | "footer" | "main" | "nav" | "aside" | "form" | "section" | "article" | "dialog" | "toc" | "pagination";
 
@@ -604,7 +616,12 @@ const LANDMARK_LAST: Record<string, LandmarkKind> = {
   contents: "toc", toc: "toc", pagination: "pagination",
 };
 // Words that are only landmark qualifiers (never a control name on their own).
-const LANDMARK_QUALIFIERS = new Set(["the", "main", "primary", "secondary", "global", "site", "page", "top", "bottom", "fixed", "fixed-position", "sticky", "header", "footer", "article", "post", "docs", "nav", "navigation", "menu", "login", "signin", "sign-in", "signup", "register", "registration", "newsletter", "contact", "search", "pricing", "left", "right", "of", "table", "contents", "content", "area", "bar", "hero", "features", "sidebar", "mobile", "desktop", "app", "shell", "web"]);
+const LANDMARK_QUALIFIERS = new Set([
+  "the", "main", "primary", "secondary", "global", "site", "page", "top", "bottom", "fixed", "fixed-position", "sticky",
+  "header", "footer", "article", "post", "docs", "nav", "navigation", "menu", "login", "signin", "sign-in", "signup",
+  "register", "registration", "newsletter", "contact", "search", "pricing", "left", "right", "of", "table", "contents",
+  "content", "area", "bar", "hero", "features", "sidebar", "mobile", "desktop", "app", "shell", "web",
+]);
 
 const KIND_WORDS: Array<[RegExp, Kind]> = [
   [/\b(?:button|btn|cta)$/, "button"],
@@ -639,7 +656,11 @@ function parseIntent(raw: string): ParsedIntent {
 
   // scope: "... in the header" / "... inside the navigation" / "... in nav"
   const scopeKeys = Object.keys(SCOPE_WORDS).sort((a, b) => b.length - a.length);
-  const scopeRe = new RegExp(`\\s*\\b(?:in|inside|within|on|at|from|of|under)\\s+(?:the\\s+|this\\s+)?(?:(?:main|primary|top|site|page|global)\\s+)?(${scopeKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b\\s*(?:area|bar|region|section)?\\s*$`);
+  const scopeAlts = scopeKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const scopeRe = new RegExp(
+    `\\s*\\b(?:in|inside|within|on|at|from|of|under)\\s+(?:the\\s+|this\\s+)?(?:(?:main|primary|top|site|page|global)\\s+)?` +
+    `(${scopeAlts})\\b\\s*(?:area|bar|region|section)?\\s*$`,
+  );
   const sm = s.match(scopeRe);
   if (sm && sm.index! > 0) { out.scope = SCOPE_WORDS[sm[1]]; s = s.slice(0, sm.index).trim(); }
 
@@ -718,7 +739,8 @@ function parseIntent(raw: string): ParsedIntent {
     else if (/^(?:site |store |company |brand |page )?(?:logo|brand|logotype|wordmark|brand logo|logo image|logo link)$/.test(ph) && out.kind !== "field") out.special = "logo";
     else if (/^(?:home|homepage|home page)$/.test(ph) && out.kind !== "field" && out.kind !== "button") out.special = "home";
     else if (/^(?:search|site search|search bar|search box|search input|search field)$/.test(ph) && (out.kind === "any" || out.kind === "field") && !out.clickVerb) out.special = "search";
-    else if (/^(?:menu|hamburger|hamburger menu|burger|burger menu|mobile menu|navigation toggle|menu toggle|nav toggle)$/.test(ph) && (out.kind === "button" || out.kind === "any" || out.kind === "toggle" || out.kind === "image")) out.special = "menu";
+    else if (/^(?:menu|hamburger|hamburger menu|burger|burger menu|mobile menu|navigation toggle|menu toggle|nav toggle)$/.test(ph)
+      && (out.kind === "button" || out.kind === "any" || out.kind === "toggle" || out.kind === "image")) out.special = "menu";
     else if (/^(?:language|languages|language selector|language switcher|locale|change language|select language|language picker)$/.test(ph)) out.special = "language";
     else if (/^(?:theme|dark mode|light mode|dark theme|color scheme|colour scheme|theme toggle|dark mode toggle|appearance)$/.test(ph)) out.special = "theme";
     else if (/^(?:close|dismiss|x|×|✕)$/.test(ph) && (out.kind === "button" || out.kind === "any" || out.kind === "image")) out.special = "close";
@@ -735,11 +757,13 @@ const COMPOUNDS: Record<string, string> = { login: "log in", logout: "log out", 
 const SYNONYM_GROUPS: string[][] = [
   ["log in", "login", "sign in", "signin", "log on", "logon"],
   ["log out", "logout", "sign out", "signout"],
-  ["sign up", "signup", "register", "create account", "create an account", "create your account", "create free account", "create a free account", "create one", "create one free", "create one now", "join", "join now", "start free trial"],
+  ["sign up", "signup", "register", "create account", "create an account", "create your account", "create free account",
+    "create a free account", "create one", "create one free", "create one now", "join", "join now", "start free trial"],
   ["search", "find", "look up", "lookup", "look for"],
   ["close", "dismiss", "exit", "x", "×", "✕", "✖", "close dialog", "close modal", "close window"],
   ["submit", "send", "go", "apply"],
-  ["menu", "hamburger", "hamburger menu", "open menu", "toggle menu", "toggle navigation", "toggle navigation menu", "navigation menu", "main menu", "open main menu", "open navigation", "show menu", "nav menu", "burger"],
+  ["menu", "hamburger", "hamburger menu", "open menu", "toggle menu", "toggle navigation", "toggle navigation menu",
+    "navigation menu", "main menu", "open main menu", "open navigation", "show menu", "nav menu", "burger"],
   ["home", "homepage", "home page", "start page"],
   ["docs", "documentation", "documents"],
   ["cart", "basket", "my cart", "shopping cart", "my basket", "shopping bag", "bag"],
@@ -777,7 +801,10 @@ const SYNONYM_GROUPS: string[][] = [
   ["terms", "terms of service", "terms and conditions", "terms of use"],
 ];
 // Groups where fuzzy (substring) matching over synonyms is too loose to trust.
-const NO_FUZZY_SYNONYMS = new Set(["remove", "delete", "edit", "open", "cancel", "close", "learn more", "continue", "save", "profile", "settings", "help", "contact", "about", "search", "submit", "account", "options", "view", "show", "change", "modify"]);
+const NO_FUZZY_SYNONYMS = new Set([
+  "remove", "delete", "edit", "open", "cancel", "close", "learn more", "continue", "save", "profile", "settings",
+  "help", "contact", "about", "search", "submit", "account", "options", "view", "show", "change", "modify",
+]);
 
 const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -828,23 +855,34 @@ const LANDMARK_CSS: Record<LandmarkKind, { primary: string; fallback: string }> 
   header: { primary: "header, [role='banner']", fallback: "#header, .header, .site-header, .page-header, .masthead, .topbar, .top-bar, #masthead, #top" },
   footer: { primary: "footer, [role='contentinfo']", fallback: "#footer, .footer, .site-footer, .page-footer, #colophon" },
   main: { primary: "main, [role='main']", fallback: "#main, #content, .main, .content, #main-content, .main-content, #primary" },
-  nav: { primary: "nav, [role='navigation'], [role='menubar']", fallback: ".navbar, .nav, #nav, .navigation, #navigation, .menu, #menu, .mobile-menu, .main-menu, .site-nav, .primary-menu, [role='menu']" },
+  nav: {
+    primary: "nav, [role='navigation'], [role='menubar']",
+    fallback: ".navbar, .nav, #nav, .navigation, #navigation, .menu, #menu, .mobile-menu, .main-menu, .site-nav, .primary-menu, [role='menu']",
+  },
   aside: { primary: "aside, [role='complementary'], nav[aria-label*='sidebar' i]", fallback: ".sidebar, #sidebar, .side-bar, #secondary, [class*='sidebar' i]" },
   form: { primary: "form, [role='form'], [role='search']", fallback: "" },
   section: { primary: "section", fallback: "" },
   article: { primary: "article", fallback: ".post, .article" },
   dialog: { primary: "dialog, [role='dialog'], [role='alertdialog']", fallback: ".modal, .dialog, .popup" },
-  toc: { primary: "nav[aria-label*='contents' i], [role='navigation'][aria-label*='contents' i], .toc, #toc, .table-of-contents, #table-of-contents, [class*='tableOfContents' i], nav[id*='toc' i], div[id*='toc' i], aside[id*='toc' i], nav[class*='toc' i], [role='navigation'][class*='toc' i]", fallback: "" },
+  toc: {
+    primary: "nav[aria-label*='contents' i], [role='navigation'][aria-label*='contents' i], .toc, #toc, .table-of-contents, #table-of-contents, "
+      + "[class*='tableOfContents' i], nav[id*='toc' i], div[id*='toc' i], aside[id*='toc' i], nav[class*='toc' i], [role='navigation'][class*='toc' i]",
+    fallback: "",
+  },
   pagination: { primary: "nav[aria-label*='pagination' i], nav[aria-label*='pages' i], .pagination, .pager, [role='navigation'].pagination", fallback: "" },
 };
 const scopeCss = (k: LandmarkKind) => [LANDMARK_CSS[k].primary, LANDMARK_CSS[k].fallback].filter(Boolean).join(", ");
 
 const BUTTON_CSS = "button, input[type='submit'], input[type='button'], input[type='reset'], input[type='image'], [role='button'], summary";
-const LINK_BUTTON_CSS = "a[href][role='button'], a[href][data-slot='button'], a[href].btn, a[href].button, a[href][class*='btn'], a[href][class*='button'], a[href][class*='cta' i]";
+const LINK_BUTTON_CSS = "a[href][role='button'], a[href][data-slot='button'], a[href].btn, a[href].button, a[href][class*='btn'], "
+  + "a[href][class*='button'], a[href][class*='cta' i]";
 const LINK_CSS = "a[href], [role='link']";
-const FIELD_CSS = "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='reset']):not([type='image']):not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']), textarea, select, [role='textbox'], [role='searchbox'], [role='combobox'], [contenteditable='true'], [contenteditable='']";
-const TEXT_FIELD_CSS = "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='reset']):not([type='image']):not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']), textarea, [role='textbox'], [role='searchbox'], [contenteditable='true']";
-const SUBMIT_CSS = "form button:not([type='button']):not([type='reset']), form input[type='submit'], form input[type='image'], button[type='submit'], input[type='submit'], form [role='button']:not(a)";
+// an <input> that takes typed or chosen input (not a button, not a check, not a file/range/color widget)
+const INPUT_FIELD_CSS = "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='reset']):not([type='image'])"
+  + ":not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color'])";
+const FIELD_CSS = `${INPUT_FIELD_CSS}, textarea, select, [role='textbox'], [role='searchbox'], [role='combobox'], [contenteditable='true'], [contenteditable='']`;
+const SUBMIT_CSS = "form button:not([type='button']):not([type='reset']), form input[type='submit'], form input[type='image'], "
+  + "button[type='submit'], input[type='submit'], form [role='button']:not(a)";
 
 const KIND_POOL: Record<Kind, string> = {
   button: `${BUTTON_CSS}, ${LINK_BUTTON_CSS}`,
@@ -864,9 +902,10 @@ const KIND_POOL: Record<Kind, string> = {
   section: "section",
   article: "article",
   form: "form, [role='form'], [role='search']",
-  any: `${BUTTON_CSS}, ${LINK_CSS}, ${FIELD_CSS}, input[type='checkbox'], input[type='radio'], [role='tab'], [role='menuitem'], [role='checkbox'], [role='radio'], [role='switch'], [role='option'], summary`,
+  any: `${BUTTON_CSS}, ${LINK_CSS}, ${FIELD_CSS}, input[type='checkbox'], input[type='radio'], [role='tab'], [role='menuitem'], `
+    + "[role='checkbox'], [role='radio'], [role='switch'], [role='option'], summary",
 };
-const KIND_ROLES: Record<Kind, string[]> = {
+const KIND_ROLES: Record<Kind, AriaRole[]> = {
   button: ["button"],
   link: ["link"],
   tab: ["tab"],
@@ -898,10 +937,10 @@ type Rung = {
   pick: Partial<PickArg>;
 };
 
-function unionRole(root: Page | Locator, roles: string[], name: RegExp | null): Locator | null {
+function unionRole(root: Scope, roles: AriaRole[], name: RegExp | null): Locator | null {
   let loc: Locator | null = null;
   for (const r of roles) {
-    const l = (root as any).getByRole(r, name ? { name, includeHidden: true } : { includeHidden: true }) as Locator;
+    const l = root.getByRole(r, name ? { name, includeHidden: true } : { includeHidden: true });
     loc = loc ? loc.or(l) : l;
   }
   return loc;
@@ -939,18 +978,20 @@ export async function findElementByIntent(
   matchedBy?: string;
   candidates?: number;
 } | null> {
-  const page: Page = await (browser as any).getPage();
+  const page: Page = await browser.getPage();
   const parsed = parseIntent(intent);
 
   // Element-level danger: classifyAction applied to the accessible name of what was found.
+  // It is private on CBrowser, so it is read structurally off the prototype.
   let classify: ((s: string) => string) | null = null;
   try {
-    const mod: any = await import("../browser.js");
-    const fn = mod?.CBrowser?.prototype?.classifyAction;
+    const mod = await import("../browser.js");
+    const proto = mod.CBrowser?.prototype as unknown as { classifyAction?: (action: string, target: string) => string } | undefined;
+    const fn = proto?.classifyAction;
     if (typeof fn === "function") classify = (s: string) => fn.call({}, "click", s);
   } catch { /* browser module unavailable (tests); zone stays undefined */ }
 
-  const root: Page | Locator = parsed.scope ? page.locator(scopeCss(parsed.scope)) : page;
+  const root: Scope = parsed.scope ? page.locator(scopeCss(parsed.scope)) : page;
   const basePick: PickArg = { ordinal: parsed.ordinal, mode: "first", container: false, require: [], prefer: [], maxOthers: 5 };
 
   const run = async (label: string, locator: Locator, pick: Partial<PickArg>): Promise<PickResult | null> => {
@@ -1000,7 +1041,8 @@ export async function findElementByIntent(
   // --------------------------------------------------------------------------
   if (parsed.special === "cheapest" || parsed.special === "expensive") {
     const wantMin = parsed.special === "cheapest";
-    const pool = (root as any).locator(".product, .card, [data-price], [data-product], article, li, a[href], tr, [class*='product' i], [class*='item' i], [class*='card' i], .price, [class*='price' i]") as Locator;
+    const PROD_CSS = ".product, .card, [data-price], [data-product], article, li, a[href], tr, [class*='product' i], [class*='item' i], [class*='card' i]";
+    const pool = root.locator(`${PROD_CSS}, .price, [class*='price' i]`);
     const r = await run("price", pool, {
       ordinal: null, container: true, mode: "first",
       require: [{ textRe: "(?:[$£€¥]\\s?\\d[\\d,]*(?:\\.\\d{2})?|\\d[\\d,]*\\.\\d{2}\\s?(?:usd|eur|gbp)?|\\d[\\d,]*\\s?[$£€¥])" }],
@@ -1008,15 +1050,25 @@ export async function findElementByIntent(
     });
     // The pool contains nested containers; choose by price in a second pass over the visible ones.
     if (r && r.visibleCount > 0) {
-      const ctlWords0 = parsed.words.filter(w => !["cheapest", "expensive", "most", "lowest", "highest", "least", "price", "priced", "product", "pack", "plan", "item", "button", "link", "one", "card", "tier", "option"].includes(w));
-      const ctlReSrc = ctlWords0.length ? (containsRe([ctlWords0.join(" ")])?.source ?? null) : null;
-      const chosen = await pool.evaluateAll((els: Element[], want: { min: boolean; container: boolean; ctlRe: string | null }) => {
-        const priceOf = (t: string) => { const m = t.match(/[$£€¥]\s?(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*\.\d{2})/); return m ? parseFloat((m[1] || m[2]).replace(/,/g, "")) : NaN; };
-        const vis = (e: Element) => { const he = e as any; if (typeof he.checkVisibility === "function" && !he.checkVisibility({ visibilityProperty: true })) return false; const b = e.getBoundingClientRect(); return b.width >= 2 && b.height >= 2; };
+      // "buy credits button for the cheapest pack": the words that name a control inside the chosen container
+      const PRICE_NOISE = ["cheapest", "expensive", "most", "lowest", "highest", "least", "price", "priced", "product", "pack", "plan",
+        "item", "button", "link", "one", "card", "tier", "option"];
+      const ctlWords = parsed.words.filter(w => !PRICE_NOISE.includes(w));
+      const ctlReSrc = ctlWords.length ? (containsRe([ctlWords.join(" ")])?.source ?? null) : null;
+      const chosen = await pool.evaluateAll((els: Element[], want: { min: boolean; container: boolean; ctlRe: string | null; prod: string }) => {
+        const priceOf = (t: string) => {
+          const m = t.match(/[$£€¥]\s?(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*\.\d{2})/);
+          return m ? parseFloat((m[1] || m[2]).replace(/,/g, "")) : NaN;
+        };
+        const vis = (e: Element) => {
+          if (typeof e.checkVisibility === "function" && !e.checkVisibility({ visibilityProperty: true })) return false;
+          const b = e.getBoundingClientRect();
+          return b.width >= 2 && b.height >= 2;
+        };
         // product = smallest container that holds exactly one price text node family
         const priceEls = els.filter(e => vis(e) && e.matches(".price, [class*='price' i]") && !isNaN(priceOf((e as HTMLElement).innerText || "")));
         const products: Element[] = [];
-        const PROD = ".product, .card, [data-price], [data-product], article, li, a[href], tr, [class*='product' i], [class*='item' i], [class*='card' i]";
+        const PROD = want.prod;
         if (priceEls.length) {
           for (const p of priceEls) { const c = p.closest(PROD); if (c && !products.includes(c)) products.push(c); }
         } else {
@@ -1028,25 +1080,30 @@ export async function findElementByIntent(
         }
         if (want.ctlRe) {
           const cr = new RegExp(want.ctlRe, "i");
-          const withCtl = products.filter(p => Array.from(p.querySelectorAll("button, a[href], input[type='submit']")).some(b => cr.test(((b as HTMLElement).innerText || b.getAttribute("aria-label") || (b as HTMLInputElement).value || "").trim())));
+          const ctlName = (b: Element) => ((b as HTMLElement).innerText || b.getAttribute("aria-label") || (b as HTMLInputElement).value || "").trim();
+          const withCtl = products.filter(p => Array.from(p.querySelectorAll("button, a[href], input[type='submit']")).some(b => cr.test(ctlName(b))));
           products.length = 0; products.push(...withCtl);
         }
         if (!products.length) return -1;
         let best = -1, bestP = want.min ? Infinity : -Infinity;
-        products.forEach((p, i) => { const v = priceOf((p as HTMLElement).innerText || ""); if (isNaN(v)) return; if (want.min ? v < bestP : v > bestP) { bestP = v; best = i; } });
+        products.forEach((p, i) => {
+          const v = priceOf((p as HTMLElement).innerText || "");
+          if (isNaN(v)) return;
+          if (want.min ? v < bestP : v > bestP) { bestP = v; best = i; }
+        });
         // return the element index in els so the caller can address it
         return best >= 0 ? els.indexOf(products[best]) : -1;
-      }, { min: wantMin, container: true, ctlRe: ctlReSrc }).catch(() => -1);
+      }, { min: wantMin, container: true, ctlRe: ctlReSrc, prod: PROD_CSS }).catch(() => -1);
       if (chosen >= 0) {
         const single = pool.nth(chosen);
-        // "buy credits button for the cheapest pack": the named control inside the cheapest container
-        const ctlWords = parsed.words.filter(w => !["cheapest", "expensive", "most", "lowest", "highest", "least", "price", "priced", "product", "pack", "plan", "item", "button", "link", "one", "card", "tier", "option"].includes(w));
         if (ctlWords.length) {
-          const cre = exactRe([ctlWords.join(" ")]) || containsRe([ctlWords.join(" ")]);
+          const ctlPhrase = ctlWords.join(" ");
+          const cre = exactRe([ctlPhrase]) || containsRe([ctlPhrase]);
           const ctl = single.getByRole("button", { name: cre!, includeHidden: true }).or(single.getByRole("link", { name: cre!, includeHidden: true }));
           const rc = await run("price-control", ctl, { ordinal: null, container: false, mode: "first", require: [], prefer: [] });
           if (rc && rc.chosen) return build(rc, "price-control", 0.85, wantMin ? "Cheapest" : "Most expensive");
-          const ctl2 = single.getByRole("button", { name: containsRe([ctlWords.join(" ")])!, includeHidden: true }).or(single.getByRole("link", { name: containsRe([ctlWords.join(" ")])!, includeHidden: true }));
+          const cre2 = containsRe([ctlPhrase])!;
+          const ctl2 = single.getByRole("button", { name: cre2, includeHidden: true }).or(single.getByRole("link", { name: cre2, includeHidden: true }));
           const rc2 = await run("price-control", ctl2, { ordinal: null, container: false, mode: "first", require: [], prefer: [] });
           if (rc2 && rc2.chosen) return build(rc2, "price-control", 0.8, wantMin ? "Cheapest" : "Most expensive");
           return options.verbose ? await verboseMiss(page, intent) : null;
@@ -1068,10 +1125,10 @@ export async function findElementByIntent(
     const inside = (k: LandmarkKind) => scopeCss(k);
     const req: PickFilter[] = [];
     const pref: PickFilter[] = [];
-    let mode: "first" | "unique" = "first";
-    let confUnique = 0.95, confAmb = 0.55;
+    const mode: "first" | "unique" = "first";
+    const confUnique = 0.95;
+    let confAmb = 0.55;
     let fallbackToControl = false;
-    let ordinalOverride: number | null = null;
     const FOOTERISH = "footer, [role='contentinfo'], #footer, .footer, .site-footer";
     const SIDEISH = "aside, [role='complementary']";
 
@@ -1090,7 +1147,8 @@ export async function findElementByIntent(
         confAmb = 0.5;
       } else {
         const LINKS = "a[href], [role='link'], [role='menuitem']";
-        const TOGGLE = "button[aria-expanded], button[aria-controls], button[aria-label*='menu' i], button[aria-label*='navigation' i], [class*='hamburger' i], [class*='burger' i], button[class*='toggle' i]";
+        const TOGGLE = "button[aria-expanded], button[aria-controls], button[aria-label*='menu' i], button[aria-label*='navigation' i], "
+          + "[class*='hamburger' i], [class*='burger' i], button[class*='toggle' i]";
         // a navigation has visible links; one link next to a visible menu toggle is a collapsed navigation, not a navigation
         if (quals.has("footer") || quals.has("sidebar") || quals.has("header") || quals.has("top")) req.push({ hasVisibleCss: LINKS });
         else req.push({ anyOf: [{ hasVisibleCss: LINKS, minVisible: 2 }, { hasVisibleCss: LINKS, notHasVisibleCss: TOGGLE }] });
@@ -1145,7 +1203,7 @@ export async function findElementByIntent(
     }
 
     const tryPool = async (selector: string, label: string, extra: Partial<PickArg> = {}) => {
-      const loc = (page as Page).locator(selector);
+      const loc = page.locator(selector);
       const r = await run(label, loc, { container: true, mode, require: req, prefer: pref, dedupeNested: false, ...extra });
       if (r && r.chosen) {
         const conf = parsed.ordinal !== null ? 0.92 : (r.ambiguous ? confAmb : confUnique);
@@ -1159,18 +1217,28 @@ export async function findElementByIntent(
       const poolCss = css.primary + ", " + css.fallback;
       if (quals.has("secondary")) {
         // "secondary": the nav labelled so; otherwise the second of exactly two navigations.
-        const probe = await run("landmark:nav-count", page.locator(poolCss), { container: true, mode: "unique", require: req, prefer: [{ tagRe: "^nav$" }], dedupeNested: true });
+        const probe = await run("landmark:nav-count", page.locator(poolCss), {
+          container: true, mode: "unique", require: req, prefer: [{ tagRe: "^nav$" }], dedupeNested: true,
+        });
+        const labelledSecondary = async () => {
+          const labelled = await run("landmark:nav-secondary", page.locator(poolCss), {
+            container: true, mode: "first", require: [...req, { attrRe: "\\b(secondary|sub|utility|aux)\\b" }], prefer: [],
+          });
+          return labelled && labelled.chosen ? build(labelled, "landmark:nav", 0.9, "Landmark") : null;
+        };
         if (probe && probe.chosen) {
-          const labelled = await run("landmark:nav-secondary", page.locator(poolCss), { container: true, mode: "first", require: [...req, { attrRe: "\\b(secondary|sub|utility|aux)\\b" }], prefer: [] });
-          if (labelled && labelled.chosen) return build(labelled, "landmark:nav", 0.9, "Landmark");
+          const labelled = await labelledSecondary();
+          if (labelled) return labelled;
         } else if (probe && probe.ambiguous && probe.others.length === 2) {
-          const labelled = await run("landmark:nav-secondary", page.locator(poolCss), { container: true, mode: "first", require: [...req, { attrRe: "\\b(secondary|sub|utility|aux)\\b" }], prefer: [] });
-          if (labelled && labelled.chosen) return build(labelled, "landmark:nav", 0.9, "Landmark");
-          const second = await run("landmark:nav-second", page.locator(poolCss), { container: true, mode: "first", ordinal: 1, require: req, prefer: [], dedupeNested: true });
+          const labelled = await labelledSecondary();
+          if (labelled) return labelled;
+          const second = await run("landmark:nav-second", page.locator(poolCss), {
+            container: true, mode: "first", ordinal: 1, require: req, prefer: [], dedupeNested: true,
+          });
           if (second && second.chosen) return build(second, "landmark:nav-second", 0.6, "Landmark");
         } else if (probe && probe.ambiguous) {
-          const labelled = await run("landmark:nav-secondary", page.locator(poolCss), { container: true, mode: "first", require: [...req, { attrRe: "\\b(secondary|sub|utility|aux)\\b" }], prefer: [] });
-          if (labelled && labelled.chosen) return build(labelled, "landmark:nav", 0.9, "Landmark");
+          const labelled = await labelledSecondary();
+          if (labelled) return labelled;
         }
         return options.verbose ? await verboseMiss(page, intent) : null;
       }
@@ -1193,13 +1261,15 @@ export async function findElementByIntent(
       return options.verbose ? await verboseMiss(page, intent) : null;
     }
     // "menu" / "navigation" with no visible nav: the control that opens it
-    void ordinalOverride;
     const menuRe = exactRe(["menu", ...synonymsOf("menu")]);
     const ctl = unionRole(root, ["button", "link"], menuRe)!;
-    const r = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^button$" }] }, { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
+    const r = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^button$" }] },
+      { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
     if (r && r.res) return r.res;
     const ctl2 = unionRole(root, ["button"], containsRe(["menu", "navigation"]))!;
-    const r2 = await take("menu-control-fuzzy", ctl2, { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } }, { unique: 0.7, ordinal: 0.7, ambiguous: 0.45 }, "Menu control");
+    const r2 = await take("menu-control-fuzzy", ctl2,
+      { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
+      { unique: 0.7, ordinal: 0.7, ambiguous: 0.45 }, "Menu control");
     if (r2 && r2.res) return r2.res;
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
@@ -1210,68 +1280,102 @@ export async function findElementByIntent(
   const kind = parsed.kind;
   const phrase = parsed.phrase.trim();
   const nameWords = parsed.words;
-  const loose = parsed.kind === "field" || parsed.kind === "textarea" || parsed.kind === "checkbox" || parsed.kind === "radio" || parsed.kind === "dropdown" || parsed.kind === "card" || parsed.kind === "product";
-  const guard = (maxExtra: number, prefixMaxExtra: number) => ({ words: nameWords.map(w => COMPOUNDS[w] ? COMPOUNDS[w].split(" ") : [w]).flat(), maxExtra: loose ? maxExtra + 6 : maxExtra, prefixMaxExtra: loose ? prefixMaxExtra + 8 : prefixMaxExtra, danger: true });
+  const loose = ["field", "textarea", "checkbox", "radio", "dropdown", "card", "product"].includes(parsed.kind);
+  // form labels are sentences, so the loose kinds tolerate longer names
+  const guard = (maxExtra: number, prefixMaxExtra: number) => ({
+    words: nameWords.map(w => COMPOUNDS[w] ? COMPOUNDS[w].split(" ") : [w]).flat(),
+    maxExtra: loose ? maxExtra + 6 : maxExtra,
+    prefixMaxExtra: loose ? prefixMaxExtra + 8 : prefixMaxExtra,
+    danger: true,
+  });
 
   if (parsed.special === "logo") {
+    // A logo/brand/home link in the header; else the first header link; else a site-root link; else a logo image lifted to its link.
     const hdr = page.locator(scopeCss("header"));
-    const pref: PickFilter[] = [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }];
-    const r = await run("logo", hdr.locator("a[href]"), { container: false, mode: "first", require: [{ attrRe: "logo|brand|home|^$" }], prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg" }, { attrRe: "home" }] });
-    if (r && r.chosen) {
-      // Prefer a logo/brand/home link; else the header's first link whose href is the site root.
-      const ok = /logo|brand|home/i.test(r.chosen.selector + " " + r.chosen.name) || true;
-      if (ok) return build(r, "logo", r.ambiguous ? 0.75 : 0.9, "Logo");
-    }
-    const r2 = await run("logo-root", page.locator("a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i], a[aria-label*='logo' i], a[class*='logo' i], a[id*='logo' i], a[class*='brand' i], [class*='logo' i] a[href]"), { container: false, mode: "first", require: [], prefer: pref });
+    const r = await run("logo", hdr.locator("a[href]"), {
+      container: false, mode: "first", require: [{ attrRe: "logo|brand|home|^$" }],
+      prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg" }, { attrRe: "home" }],
+    });
+    if (r && r.chosen) return build(r, "logo", r.ambiguous ? 0.75 : 0.9, "Logo");
+    const ROOT_LINKS = "a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i], "
+      + "a[aria-label*='logo' i], a[class*='logo' i], a[id*='logo' i], a[class*='brand' i], [class*='logo' i] a[href]";
+    const r2 = await run("logo-root", page.locator(ROOT_LINKS), {
+      container: false, mode: "first", require: [], prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }],
+    });
     if (r2 && r2.chosen) return build(r2, "logo-root", 0.8, "Logo");
-    const r3 = await run("logo-img", page.locator("img[alt*='logo' i], img[class*='logo' i], [class*='logo' i] img, svg[aria-label*='logo' i]"), { container: false, mode: "first", require: [], prefer: [], liftToControl: true });
+    const r3 = await run("logo-img", page.locator("img[alt*='logo' i], img[class*='logo' i], [class*='logo' i] img, svg[aria-label*='logo' i]"),
+      { container: false, mode: "first", require: [], prefer: [], liftToControl: true });
     if (r3 && r3.chosen) return build(r3, "logo-img", 0.75, "Logo");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "home") {
-    const r = await take("home-link", unionRole(root, ["link"], exactRe(["home", ...synonymsOf("home")]))!, { container: false, mode: "first", require: [], prefer: [{ withinCss: scopeCss("nav") }] }, { unique: 0.92, ordinal: 0.9, ambiguous: 0.6 }, "Home link");
+    const r = await take("home-link", unionRole(root, ["link"], exactRe(["home", ...synonymsOf("home")]))!,
+      { container: false, mode: "first", require: [], prefer: [{ withinCss: scopeCss("nav") }] },
+      { unique: 0.92, ordinal: 0.9, ambiguous: 0.6 }, "Home link");
     if (r && r.res) return r.res;
-    const r2 = await run("home-root", (root as any).locator("a[href='/'], a[href='./'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i]"), { container: false, mode: "first", require: [], prefer: [{ withinCss: scopeCss("header") }, { attrRe: "logo|brand|home" }] });
+    const r2 = await run("home-root", root.locator("a[href='/'], a[href='./'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i]"),
+      { container: false, mode: "first", require: [], prefer: [{ withinCss: scopeCss("header") }, { attrRe: "logo|brand|home" }] });
     if (r2 && r2.chosen) return build(r2, "home-root", 0.8, "Home link");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "search" && kind !== "button") {
     const NOT_BTN = ":not([type='submit']):not([type='button']):not([type='image']):not([type='hidden']):not([type='checkbox']):not([type='radio'])";
-    const inputs = (root as any).locator(`input[type='search'], [role='searchbox'], input[name='q']${NOT_BTN}, input[name='s']${NOT_BTN}, input[name*='search' i]${NOT_BTN}, input[id*='search' i]${NOT_BTN}, input[placeholder*='search' i]${NOT_BTN}, input[aria-label*='search' i]${NOT_BTN}, [role='search'] input${NOT_BTN}, form[action*='search' i] input${NOT_BTN}, input[class*='search' i]${NOT_BTN}, [role='search'] [contenteditable='true']`) as Locator;
-    const r = await run("search-input", inputs, { container: false, mode: "first", require: [], prefer: [{ matchCss: "input[type='search'], [role='searchbox']" }, { attrRe: "search" }, { tagRe: "^input$" }] });
+    const inputs = root.locator(
+      `input[type='search'], [role='searchbox'], input[name='q']${NOT_BTN}, input[name='s']${NOT_BTN}, input[name*='search' i]${NOT_BTN}, `
+      + `input[id*='search' i]${NOT_BTN}, input[placeholder*='search' i]${NOT_BTN}, input[aria-label*='search' i]${NOT_BTN}, `
+      + `[role='search'] input${NOT_BTN}, form[action*='search' i] input${NOT_BTN}, input[class*='search' i]${NOT_BTN}, [role='search'] [contenteditable='true']`,
+    );
+    const r = await run("search-input", inputs, {
+      container: false, mode: "first", require: [],
+      prefer: [{ matchCss: "input[type='search'], [role='searchbox']" }, { attrRe: "search" }, { tagRe: "^input$" }],
+    });
     if (r && r.chosen) return build(r, "search-input", r.ambiguous ? 0.7 : 0.92, "Search input");
     const trig = unionRole(root, ["button", "link"], containsRe(["search"]))!;
-    const r2 = await take("search-trigger", trig, { container: false, mode: "first", require: [], prefer: [], guard: guard(3, 3) }, { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Search control");
+    const r2 = await take("search-trigger", trig, { container: false, mode: "first", require: [], prefer: [], guard: guard(3, 3) },
+      { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Search control");
     if (r2 && r2.res) return r2.res;
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "submit") {
-    const pool = (root as any).locator(SUBMIT_CSS) as Locator;
-    const r = await run("submit", pool, { container: false, mode: "first", require: [], prefer: [{ withinCss: "form:has(input[type='password'])" }, { withinCss: "main, [role='main']" }], dedupeNested: true });
+    const r = await run("submit", root.locator(SUBMIT_CSS), {
+      container: false, mode: "first", require: [],
+      prefer: [{ withinCss: "form:has(input[type='password'])" }, { withinCss: "main, [role='main']" }], dedupeNested: true,
+    });
     if (r && r.chosen) return build(r, "submit", parsed.ordinal !== null ? 0.9 : (r.ambiguous ? 0.6 : 0.9), "Submit control");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "language") {
-    const loc = ((root as any).getByRole("combobox", { name: /lang|locale/i, includeHidden: true }) as Locator).or((root as any).getByRole("button", { name: /lang|locale/i, includeHidden: true })).or((root as any).getByRole("link", { name: /^\s*(lang|language|languages)\s*$/i, includeHidden: true })).or((root as any).locator("select[name*='lang' i], select[id*='lang' i], select[class*='lang' i], [class*='language' i] select, [class*='lang-switch' i], [aria-label*='language' i]"));
+    const loc = root.getByRole("combobox", { name: /lang|locale/i, includeHidden: true })
+      .or(root.getByRole("button", { name: /lang|locale/i, includeHidden: true }))
+      .or(root.getByRole("link", { name: /^\s*(lang|language|languages)\s*$/i, includeHidden: true }))
+      .or(root.locator("select[name*='lang' i], select[id*='lang' i], select[class*='lang' i], [class*='language' i] select, [class*='lang-switch' i], [aria-label*='language' i]"));
     const r = await run("language", loc, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^(select|button)$" }], dedupeNested: true });
     if (r && r.chosen) return build(r, "language", r.ambiguous ? 0.7 : 0.9, "Language control");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "theme") {
-    const loc = ((root as any).getByRole("button", { name: /theme|dark|light mode|colou?r scheme|appearance/i, includeHidden: true }) as Locator).or((root as any).getByRole("switch", { name: /theme|dark|light/i, includeHidden: true })).or((root as any).getByRole("checkbox", { name: /theme|dark|light/i, includeHidden: true })).or((root as any).locator("button[class*='theme' i], button[id*='theme' i], [data-theme-toggle], button[aria-label*='theme' i], button[aria-label*='dark' i]"));
+    const loc = root.getByRole("button", { name: /theme|dark|light mode|colou?r scheme|appearance/i, includeHidden: true })
+      .or(root.getByRole("switch", { name: /theme|dark|light/i, includeHidden: true }))
+      .or(root.getByRole("checkbox", { name: /theme|dark|light/i, includeHidden: true }))
+      .or(root.locator("button[class*='theme' i], button[id*='theme' i], [data-theme-toggle], button[aria-label*='theme' i], button[aria-label*='dark' i]"));
     const r = await run("theme", loc, { container: false, mode: "first", require: [], prefer: [], dedupeNested: true });
     if (r && r.chosen) return build(r, "theme", r.ambiguous ? 0.7 : 0.9, "Theme control");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "menu") {
     const ctl = unionRole(root, ["button", "link"], exactRe(["menu", ...synonymsOf("menu")]))!;
-    const r = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^button$" }] }, { unique: 0.9, ordinal: 0.9, ambiguous: 0.6 }, "Menu control");
+    const r = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^button$" }] },
+      { unique: 0.9, ordinal: 0.9, ambiguous: 0.6 }, "Menu control");
     if (r && r.res) return r.res;
     if (r && r.r.hiddenOnly) return options.verbose ? await verboseMiss(page, intent) : null;
     const ctl2 = unionRole(root, ["button"], containsRe(["menu", "navigation", "hamburger"]))!;
-    const r2 = await take("menu-control-fuzzy", ctl2, { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } }, { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
+    const r2 = await take("menu-control-fuzzy", ctl2,
+      { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
+      { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
     if (r2 && r2.res) return r2.res;
-    const r3 = await run("menu-css", (root as any).locator("button[class*='hamburger' i], button[class*='burger' i], button[class*='menu-toggle' i], button[class*='navbar-toggle' i], button[class*='nav-toggle' i], .hamburger, [aria-controls*='menu' i][aria-expanded], [aria-controls*='nav' i][aria-expanded]"), { container: false, mode: "first", require: [], prefer: [] });
+    const MENU_CSS = "button[class*='hamburger' i], button[class*='burger' i], button[class*='menu-toggle' i], button[class*='navbar-toggle' i], "
+      + "button[class*='nav-toggle' i], .hamburger, [aria-controls*='menu' i][aria-expanded], [aria-controls*='nav' i][aria-expanded]";
+    const r3 = await run("menu-css", root.locator(MENU_CSS), { container: false, mode: "first", require: [], prefer: [] });
     if (r3 && r3.chosen) return build(r3, "menu-css", 0.7, "Menu control");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
@@ -1281,36 +1385,41 @@ export async function findElementByIntent(
   // --------------------------------------------------------------------------
   if (!nameWords.length || (!phrase && kind !== "any")) {
     if (kind === "any") return options.verbose ? await verboseMiss(page, intent) : null;
-    const pool = (root as any).locator(KIND_POOL[kind]) as Locator;
-    const isField = kind === "field" || kind === "textarea" || kind === "dropdown" || kind === "checkbox" || kind === "radio";
+    const isField = ["field", "textarea", "dropdown", "checkbox", "radio"].includes(kind);
     const prefer: PickFilter[] = [];
-    if (kind === "button") prefer.push({ tagRe: "^(button|input|summary)$" }, { attrRe: "" });
     // judgment: "button" means a real button; a link-button counts only when it is the only button-like control
-    if (kind === "button") prefer[1] = { tagRe: "^(button|input|summary|span|div)$" };
+    if (kind === "button") prefer.push({ tagRe: "^(button|input|summary)$" }, { tagRe: "^(button|input|summary|span|div)$" });
     if (kind === "field") prefer.push({ tagRe: "^(input|textarea)$" });
     const mode: "first" | "unique" = isField || parsed.ordinal !== null ? "first" : "unique";
     const realOnly = kind === "button" && parsed.scope === "nav";
-    let pool2 = realOnly ? ((root as any).locator(BUTTON_CSS) as Locator) : pool;
+    let pool2 = realOnly ? root.locator(BUTTON_CSS) : root.locator(KIND_POOL[kind]);
     if (kind === "button" && !realOnly) {
       // "first button": real buttons; a link styled as a button counts only when no real button is visible
-      const rb = await run("kind:button", (root as any).locator(BUTTON_CSS), { container: false, mode, require: [], prefer: [] });
+      const rb = await run("kind:button", root.locator(BUTTON_CSS), { container: false, mode, require: [], prefer: [] });
       if (rb && rb.chosen) return build(rb, "kind:button", parsed.ordinal !== null ? 0.92 : (rb.ambiguous ? 0.6 : 0.9), "Button");
       if (rb && rb.ambiguous) return options.verbose ? await verboseMiss(page, intent) : null;
       if (rb && rb.visibleCount > 0) return options.verbose ? await verboseMiss(page, intent) : null;
-      pool2 = (root as any).locator(LINK_BUTTON_CSS) as Locator;
+      pool2 = root.locator(LINK_BUTTON_CSS);
     }
     const PRICE_RE = "(?:[$£€¥]\\s?\\d[\\d,]*(?:\\.\\d{2})?|\\d[\\d,]*\\.\\d{2}\\s?(?:usd|eur|gbp)?|\\d[\\d,]*\\s?[$£€¥])";
     const isProd = kind === "card" || kind === "product";
     let r = isProd ? await run(`kind:${kind}`, pool2, { container: true, mode, require: [{ textRe: PRICE_RE }], prefer, dedupeNested: true }) : null;
-    if (!r || !r.chosen) r = await run(`kind:${kind}`, pool2, { container: kind === "section" || kind === "article" || isProd || kind === "form", mode, require: [], prefer, dedupeOuter: isProd });
+    if (!r || !r.chosen) {
+      r = await run(`kind:${kind}`, pool2, {
+        container: kind === "section" || kind === "article" || isProd || kind === "form", mode, require: [], prefer, dedupeOuter: isProd,
+      });
+    }
     if (r && r.chosen) return build(r, `kind:${kind}`, parsed.ordinal !== null ? 0.92 : (r.ambiguous ? 0.6 : 0.9), kind[0].toUpperCase() + kind.slice(1));
     if (realOnly && parsed.ordinal === null && !(r && r.ambiguous)) {
       // "nav button" when the navigation is collapsed: the control that opens it
       const ctl = unionRole(page, ["button"], exactRe(["menu", ...synonymsOf("menu")]))!;
-      const rm = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [] }, { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
+      const rm = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [] },
+        { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
       if (rm && rm.res) return rm.res;
       const ctl2 = unionRole(page, ["button"], containsRe(["menu", "navigation"]))!;
-      const rm2 = await take("menu-control-fuzzy", ctl2, { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } }, { unique: 0.7, ordinal: 0.7, ambiguous: 0.45 }, "Menu control");
+      const rm2 = await take("menu-control-fuzzy", ctl2,
+        { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
+        { unique: 0.7, ordinal: 0.7, ambiguous: 0.45 }, "Menu control");
       if (rm2 && rm2.res) return rm2.res;
     }
     return options.verbose ? await verboseMiss(page, intent) : null;
@@ -1321,55 +1430,54 @@ export async function findElementByIntent(
   // --------------------------------------------------------------------------
   const literal = [...new Set([parsed.phraseFull.trim(), phrase].filter(Boolean))];
   const syns = synonymsOf(phrase);
-  const roles = KIND_ROLES[kind];
   const rungs: Rung[] = [];
 
   // What pool a kind resolves to, as a union of Playwright role locators plus CSS where ARIA roles fall short.
-  const roleUnion = (name: RegExp | null, whichRoles: string[]): Locator | null => unionRole(root, whichRoles, name);
-  const cssPoolFiltered = (css: string, name: RegExp | null): Locator => {
-    const base = (root as any).locator(css) as Locator;
-    return name ? base.filter({ has: page.locator(":scope") }).filter({ hasText: name }) : base;
-  };
+  const roleUnion = (name: RegExp | null, whichRoles: AriaRole[]): Locator | null => unionRole(root, whichRoles, name);
   // For links, anchors with role=button are still links.
   const linkPool = (name: RegExp | null): Locator => {
     const l1 = roleUnion(name, ["link"])!;
-    const l2 = (roleUnion(name, ["button"])!).and((root as any).locator("a[href]"));
+    const l2 = (roleUnion(name, ["button"])!).and(root.locator("a[href]"));
     return l1.or(l2);
   };
   const buttonPool = (name: RegExp | null): Locator => {
     const b = roleUnion(name, ["button"])!;
-    const lb = roleUnion(name, ["link"])!.and((root as any).locator(LINK_BUTTON_CSS));
+    const lb = roleUnion(name, ["link"])!.and(root.locator(LINK_BUTTON_CSS));
     return b.or(lb);
   };
   const buttonOrLinkPool = (name: RegExp | null): Locator => roleUnion(name, ["button", "link"])!;
   const fieldPool = (name: RegExp | null): Locator => {
     const r1 = roleUnion(name, ["textbox", "searchbox", "combobox", "spinbutton", "listbox"])!;
-    const lab = name ? ((root as any).getByLabel(name) as Locator).or((root as any).getByPlaceholder(name)) : null;
-    const base = (root as any).locator(FIELD_CSS) as Locator;
+    const lab = name ? root.getByLabel(name).or(root.getByPlaceholder(name)) : null;
+    const base = root.locator(FIELD_CSS);
     let u = r1;
     if (lab) u = u.or(lab.and(base));
     return u;
   };
+  // the role union, plus the labelled <input>/<select> of that css when a name is given
+  const roleOrLabelled = (name: RegExp | null, whichRoles: AriaRole[], css: string): Locator =>
+    roleUnion(name, whichRoles)!.or(name ? root.getByLabel(name).and(root.locator(css)) : root.locator(css));
   const poolFor = (name: RegExp | null): Locator => {
     switch (kind) {
       case "button": return buttonOrLinkPool(name);
       case "link": return linkPool(name);
       case "field": case "textarea": return fieldPool(name);
-      case "dropdown": return roleUnion(name, ["combobox", "listbox", "button", "menu"])!.or(name ? ((root as any).getByLabel(name) as Locator).and((root as any).locator("select")) : (root as any).locator("select"));
-      case "checkbox": return roleUnion(name, ["checkbox", "switch"])!.or(name ? ((root as any).getByLabel(name) as Locator).and((root as any).locator("input[type='checkbox']")) : (root as any).locator("input[type='checkbox']"));
-      case "radio": return roleUnion(name, ["radio"])!.or(name ? ((root as any).getByLabel(name) as Locator).and((root as any).locator("input[type='radio']")) : (root as any).locator("input[type='radio']"));
+      case "dropdown": return roleOrLabelled(name, ["combobox", "listbox", "button", "menu"], "select");
+      case "checkbox": return roleOrLabelled(name, ["checkbox", "switch"], "input[type='checkbox']");
+      case "radio": return roleOrLabelled(name, ["radio"], "input[type='radio']");
       case "tab": return roleUnion(name, ["tab"])!;
       case "menuitem": return roleUnion(name, ["menuitem", "menuitemcheckbox", "menuitemradio", "option"])!;
-      case "image": return name ? ((root as any).getByAltText(name) as Locator).or((root as any).getByRole("img", { name, includeHidden: true })) : (root as any).locator("img, [role='img']");
+      case "image": return name ? root.getByAltText(name).or(root.getByRole("img", { name, includeHidden: true })) : root.locator("img, [role='img']");
       case "heading": return roleUnion(name, ["heading"])!;
       case "toggle": return roleUnion(name, ["switch", "checkbox", "button"])!;
       case "card": case "product": case "section": case "article": case "form":
-        return name ? ((root as any).locator(KIND_POOL[kind]) as Locator).filter({ hasText: name }) : (root as any).locator(KIND_POOL[kind]);
+        return name ? root.locator(KIND_POOL[kind]).filter({ hasText: name }) : root.locator(KIND_POOL[kind]);
       default: return roleUnion(name, KIND_ROLES.any)!;
     }
   };
-  const isContainerKind = kind === "card" || kind === "product" || kind === "section" || kind === "article" || kind === "form";
-  const preferReal: PickFilter[] = kind === "button" ? [{ tagRe: "^(button|input|summary|span|div)$" }] : kind === "any" ? [{ tagRe: "^(a|button|input|select|textarea|summary)$" }] : [];
+  const isContainerKind = ["card", "product", "section", "article", "form"].includes(kind);
+  const preferReal: PickFilter[] = kind === "button" ? [{ tagRe: "^(button|input|summary|span|div)$" }]
+    : kind === "any" ? [{ tagRe: "^(a|button|input|select|textarea|summary)$" }] : [];
   const pickBase: Partial<PickArg> = { container: isContainerKind, mode: "first", require: [], prefer: preferReal, dedupeNested: isContainerKind };
 
   const exactLit = exactRe(literal);
@@ -1380,30 +1488,40 @@ export async function findElementByIntent(
   const allWords = allWordsRe(nameWords);
   const stems = stemWordsRe(nameWords);
 
+  const CONF_EXACT = { unique: 0.95, ordinal: 0.92, ambiguous: 0.65 };
+  const CONF_STRONG = { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 };
+  const CONF_GOOD = { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 };
+  const CONF_CONTAINS = { unique: 0.8, ordinal: 0.78, ambiguous: 0.55 };
+
   if (kind === "link" && /^(citation|cite|reference|footnote|ref)s?$/.test(phrase)) {
-    rungs.push({ label: "citation", locator: (root as any).locator("sup a[href], a[href^='#cite'], .reference a[href], a[href*='cite_note'], .citation a[href], a.citation, a[role='doc-noteref'], a[href^='#fn'], a[href^='#ref']"), conf: { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 }, pick: pickBase });
+    const CITE_CSS = "sup a[href], a[href^='#cite'], .reference a[href], a[href*='cite_note'], .citation a[href], a.citation, a[role='doc-noteref'], a[href^='#fn'], a[href^='#ref']";
+    rungs.push({ label: "citation", locator: root.locator(CITE_CSS), conf: CONF_GOOD, pick: pickBase });
   }
   if (kind === "button" && exactLit) {
     // Real buttons (and link-buttons) first: exact, synonyms, then a fuzzy real button beats an exact plain link.
-    rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: { unique: 0.95, ordinal: 0.92, ambiguous: 0.65 }, pick: pickBase });
-    if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 }, pick: pickBase });
-    if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: { unique: 0.8, ordinal: 0.78, ambiguous: 0.55 }, pick: { ...pickBase, guard: guard(2, 4) } });
-    rungs.push({ label: "exact-link", locator: linkPool(exactLit), conf: { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 }, pick: pickBase });
-    if (exactSyn) rungs.push({ label: "exact-synonym-link", locator: linkPool(exactSyn), conf: { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 }, pick: pickBase });
-  } else if (exactLit) rungs.push({ label: "exact", locator: poolFor(exactLit), conf: { unique: 0.95, ordinal: 0.92, ambiguous: 0.65 }, pick: pickBase });
+    rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: CONF_EXACT, pick: pickBase });
+    if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: CONF_STRONG, pick: pickBase });
+    if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
+    rungs.push({ label: "exact-link", locator: linkPool(exactLit), conf: CONF_STRONG, pick: pickBase });
+    if (exactSyn) rungs.push({ label: "exact-synonym-link", locator: linkPool(exactSyn), conf: CONF_GOOD, pick: pickBase });
+  } else if (exactLit) rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
+  if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: CONF_STRONG, pick: pickBase });
   // "search button" with no control named Search: the submit of the search form
-  const searchSubmit = kind === "button" && /^search$/.test(phrase);
-  if (false) {
-    rungs.push({ label: "search-submit", locator: (root as any).locator("[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], form[action*='search' i] button, form[action*='search' i] input[type='submit'], button[class*='search' i], button[id*='search' i], a[class*='search' i][href]"), conf: { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 }, pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
-  }
-  if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 }, pick: pickBase });
-  if (searchSubmit) {
-    rungs.push({ label: "search-submit", locator: (root as any).locator("[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], form[action*='search' i] button, form[action*='search' i] input[type='submit'], button[class*='search' i], button[id*='search' i], a[class*='search' i][href]"), conf: { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 }, pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
+  if (kind === "button" && /^search$/.test(phrase)) {
+    const SEARCH_SUBMIT_CSS = "[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], "
+      + "form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], "
+      + "form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], "
+      + "form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], "
+      + "form[action*='search' i] button, form[action*='search' i] input[type='submit'], "
+      + "button[class*='search' i], button[id*='search' i], a[class*='search' i][href]";
+    rungs.push({ label: "search-submit", locator: root.locator(SEARCH_SUBMIT_CSS), conf: CONF_GOOD,
+      pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
   }
   // Label / placeholder / title / alt for the exact phrase (fields and icon controls)
-  if (exactLit && (kind === "field" || kind === "textarea" || kind === "dropdown" || kind === "checkbox" || kind === "radio" || kind === "any")) {
-    const lab = ((root as any).getByLabel(exactLit) as Locator).or((root as any).getByPlaceholder(exactLit)).or((root as any).getByTitle(exactLit)).or((root as any).getByAltText(exactLit));
-    rungs.push({ label: "label-exact", locator: kind === "any" ? lab : lab.and((root as any).locator(FIELD_CSS)), conf: { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 }, pick: { ...pickBase, liftToControl: true } });
+  const isFieldKind = ["field", "textarea", "dropdown", "checkbox", "radio"].includes(kind);
+  if (exactLit && (isFieldKind || kind === "any")) {
+    const lab = root.getByLabel(exactLit).or(root.getByPlaceholder(exactLit)).or(root.getByTitle(exactLit)).or(root.getByAltText(exactLit));
+    rungs.push({ label: "label-exact", locator: kind === "any" ? lab : lab.and(root.locator(FIELD_CSS)), conf: CONF_STRONG, pick: { ...pickBase, liftToControl: true } });
   }
   // Typed fields: "email field", "password field", "search box", "url input"
   if (kind === "field" || kind === "textarea") {
@@ -1427,33 +1545,47 @@ export async function findElementByIntent(
     };
     const key = nameWords.find(w => typeMap[w]);
     if (key) {
-      rungs.push({ label: "field-type", locator: (root as any).locator(typeMap[key]), conf: { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 }, pick: { ...pickBase, prefer: [{ withinCss: "form:has(input[type='password'])" }] } });
+      rungs.push({ label: "field-type", locator: root.locator(typeMap[key]), conf: CONF_STRONG,
+        pick: { ...pickBase, prefer: [{ withinCss: "form:has(input[type='password'])" }] } });
     }
   }
-  if (containsLit) rungs.push({ label: "contains", locator: poolFor(containsLit), conf: { unique: 0.8, ordinal: 0.78, ambiguous: 0.55 }, pick: { ...pickBase, guard: guard(2, 4) } });
-  if (containsLit && (kind === "field" || kind === "textarea" || kind === "dropdown" || kind === "checkbox" || kind === "radio")) {
-    const lab = ((root as any).getByLabel(containsLit) as Locator).or((root as any).getByPlaceholder(containsLit));
-    rungs.push({ label: "label-contains", locator: lab.and((root as any).locator(FIELD_CSS)), conf: { unique: 0.8, ordinal: 0.78, ambiguous: 0.55 }, pick: { ...pickBase, guard: guard(3, 5) } });
+  if (containsLit) rungs.push({ label: "contains", locator: poolFor(containsLit), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
+  if (containsLit && isFieldKind) {
+    const lab = root.getByLabel(containsLit).or(root.getByPlaceholder(containsLit));
+    rungs.push({ label: "label-contains", locator: lab.and(root.locator(FIELD_CSS)), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(3, 5) } });
   }
-  if (containsLit && (kind === "checkbox" || kind === "radio" || kind === "field" || kind === "dropdown")) {
-    rungs.push({ label: "field-text", locator: (root as any).locator(KIND_POOL[kind]), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 }, pick: { ...pickBase, require: [{ nameRe: containsLit.source }], guard: guard(3, 5) } });
+  if (containsLit && isFieldKind && kind !== "textarea") {
+    rungs.push({ label: "field-text", locator: root.locator(KIND_POOL[kind]), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 },
+      pick: { ...pickBase, require: [{ nameRe: containsLit.source }], guard: guard(3, 5) } });
   }
   if (containsSyn) rungs.push({ label: "contains-synonym", locator: poolFor(containsSyn), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 3) } });
   // OAuth providers: "google sign in button", "continue with github"
-  const provider = nameWords.find(w => ["google", "github", "facebook", "apple", "microsoft", "twitter", "linkedin", "gitlab", "okta", "sso"].includes(w));
-  if (provider && nameWords.some(w => ["sign", "signin", "login", "log", "continue", "with", "auth", "oauth", "connect", "register", "signup"].includes(w) || w === provider)) {
-    rungs.push({ label: "provider", locator: buttonOrLinkPool(new RegExp(`(?:^|[^\\p{L}])${escRe(provider)}(?=$|[^\\p{L}])`, "iu")), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 }, pick: { ...pickBase, prefer: [{ nameRe: "sign|log|continue|with|auth" }, ...preferReal] } });
+  const PROVIDERS = ["google", "github", "facebook", "apple", "microsoft", "twitter", "linkedin", "gitlab", "okta", "sso"];
+  const AUTH_WORDS = ["sign", "signin", "login", "log", "continue", "with", "auth", "oauth", "connect", "register", "signup"];
+  const provider = nameWords.find(w => PROVIDERS.includes(w));
+  if (provider && nameWords.some(w => AUTH_WORDS.includes(w) || w === provider)) {
+    rungs.push({ label: "provider", locator: buttonOrLinkPool(new RegExp(`(?:^|[^\\p{L}])${escRe(provider)}(?=$|[^\\p{L}])`, "iu")),
+      conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 }, pick: { ...pickBase, prefer: [{ nameRe: "sign|log|continue|with|auth" }, ...preferReal] } });
   }
   if (allWords) rungs.push({ label: "all-words", locator: poolFor(allWords), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 4) } });
   // Text fallback: the phrase as visible text, lifted to the nearest control
   if (exactLit && !isContainerKind) {
-    rungs.push({ label: "text-exact", locator: (root as any).getByText(exactLit), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 }, pick: { ...pickBase, liftToControl: true, require: [{ anyOf: [{ tagRe: "^(a|button|input|select|textarea|summary|label)$" }, { matchCss: "[role='button'], [role='link'], [role='tab'], [role='menuitem']" }] }] } });
+    const isControl: PickFilter = { anyOf: [
+      { tagRe: "^(a|button|input|select|textarea|summary|label)$" },
+      { matchCss: "[role='button'], [role='link'], [role='tab'], [role='menuitem']" },
+    ] };
+    rungs.push({ label: "text-exact", locator: root.getByText(exactLit), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 },
+      pick: { ...pickBase, liftToControl: true, require: [isControl] } });
   }
   // Attribute fallback (ids / names / testids that carry the words): "wishlist button" -> button#wishlist
   const attrWords = nameWords.filter(w => !["button", "link", "icon"].includes(w));
   if (parsed.kindExplicit && attrWords.length && attrWords.every(w => w.length >= 4)) {
-    let attrLoc: Locator = (root as any).locator(kind === "any" ? KIND_POOL.any : KIND_POOL[kind]);
-    for (const w of attrWords) attrLoc = attrLoc.and((root as any).locator(`[id*="${w}" i], [name*="${w}" i], [data-testid*="${w}" i], [class*="${w}" i], [aria-label*="${w}" i], [title*="${w}" i], a[href*="${w}" i]`));
+    let attrLoc: Locator = root.locator(kind === "any" ? KIND_POOL.any : KIND_POOL[kind]);
+    for (const w of attrWords) {
+      attrLoc = attrLoc.and(root.locator(
+        `[id*="${w}" i], [name*="${w}" i], [data-testid*="${w}" i], [class*="${w}" i], [aria-label*="${w}" i], [title*="${w}" i], a[href*="${w}" i]`,
+      ));
+    }
     rungs.push({ label: "attribute", locator: attrLoc, conf: { unique: 0.6, ordinal: 0.6, ambiguous: 0.4 }, pick: { ...pickBase, guard: { ...guard(4, 6), words: [] } } });
   }
   if (stems && (loose || kind === "tab")) rungs.push({ label: "stem", locator: poolFor(stems), conf: { unique: 0.6, ordinal: 0.58, ambiguous: 0.4 }, pick: { ...pickBase, guard: guard(3, 5) } });
@@ -1461,7 +1593,10 @@ export async function findElementByIntent(
   if ((kind === "any" || kind === "button") && /\s+menu$/.test(phrase) && !parsed.special) {
     const stripped = phrase.replace(/\s+menu$/, "");
     const re1 = exactRe([stripped]);
-    if (re1) rungs.push({ label: "menu-trigger", locator: buttonOrLinkPool(re1), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 }, pick: { ...pickBase, prefer: [{ matchCss: "[aria-haspopup], [aria-expanded], [aria-controls], [data-state]" }, ...preferReal] } });
+    if (re1) {
+      rungs.push({ label: "menu-trigger", locator: buttonOrLinkPool(re1), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 },
+        pick: { ...pickBase, prefer: [{ matchCss: "[aria-haspopup], [aria-expanded], [aria-controls], [data-state]" }, ...preferReal] } });
+    }
   }
 
   let sawHiddenExact = false;
@@ -1485,7 +1620,8 @@ export async function findElementByIntent(
 async function verboseMiss(page: Page, intent: string) {
   let alternatives: Array<{ selector: string; text: string; tag: string; type: SelectorStrategyType; confidence: number }> = [];
   try {
-    const r = await page.locator(KIND_POOL.any).evaluateAll(PICK, { ordinal: null, mode: "first", container: false, require: [], prefer: [], maxOthers: 12 } as PickArg);
+    const arg: PickArg = { ordinal: null, mode: "first", container: false, require: [], prefer: [], maxOthers: 12 };
+    const r = await page.locator(KIND_POOL.any).evaluateAll(PICK, arg);
     const all = r.chosen ? [r.chosen, ...r.others] : r.others;
     const words = intent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     alternatives = all.filter(c => c.selector && (c.name || c.text)).map(c => {
