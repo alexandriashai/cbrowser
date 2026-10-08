@@ -30,17 +30,27 @@ const REPORT = doc(`<header><a href="/">Brand</a><button>Capabilities</button>
   <a data-testid="signup-button" data-slot="button" href="/account/register/">Sign up</a></header>
   <main><h1>Hello</h1><p>Body text</p><a href="/privacy">Privacy</a></main>`);
 
-async function confidence(html: string, intent: string): Promise<number | null> {
+async function find(html: string, intent: string) {
   await page.setContent(html);
-  const r = await findElementByIntent({ getPage: async () => page } as any, intent);
+  return findElementByIntent({ getPage: async () => page } as any, intent);
+}
+async function confidence(html: string, intent: string): Promise<number | null> {
+  const r = await find(html, intent);
   return r ? r.confidence : null;
 }
 
 const twoDecimals = (c: number) => Math.round(c * 100) / 100 === c;
 
 describe("find_element_by_intent confidence is rounded to 2 decimals", () => {
-  test("the reported 0.9999999999999999 case now reports 1", async () => {
-    expect(await confidence(REPORT, "sign up button in the header")).toBe(1);
+  test("the reported 0.9999999999999999 case resolves the Sign up link at a high, 2-decimal confidence", async () => {
+    // The cascade reports an exact, unique match at 0.95, not 1: the old pin of exactly 1 documented
+    // base's miscalibration (it rated the header's unrelated first <button> at 1 too).
+    const r = await find(REPORT, "sign up button in the header");
+    expect(r).not.toBeNull();
+    expect(r!.confidence).toBeGreaterThanOrEqual(0.9);
+    expect(twoDecimals(r!.confidence)).toBe(true);
+    expect(r!.selector).toBe('[data-testid="signup-button"]');
+    expect(await page.locator(r!.selector).count()).toBe(1);
   });
 
   test("every result is within (0,1] with at most 2 decimals", async () => {

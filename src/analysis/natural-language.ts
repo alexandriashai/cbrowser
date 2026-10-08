@@ -184,10 +184,12 @@ type CandidateInfo = {
   selector: string;
   selectorType: SelectorStrategyType;
   name: string;
+  names: string[];      // every name the element carries (aria-label, label, value, alt, title, visible text)
   text: string;
   tag: string;
   role: string;
   visible: boolean;
+  marked?: boolean;     // inside arg.markCss (when asked)
 };
 
 type PickFilter = {
@@ -215,6 +217,10 @@ type PickArg = {
   dedupeNested?: boolean;        // drop a candidate that contains another candidate
   dedupeOuter?: boolean;         // drop a candidate that is inside another candidate (keep the outer)
   liftToControl?: boolean;       // text matches: lift to the nearest interactive ancestor
+  preferLonger?: boolean;        // no ordinal: keep only the candidates whose name has the most words
+  minNameWords?: number;         // drop candidates whose name has fewer words than this
+  markCss?: string;              // report whether each candidate is inside this (CandidateInfo.marked)
+  countCss?: string;             // report how many visible elements match this document-wide (PickResult.countVisible)
   maxOthers?: number;
 };
 
@@ -225,6 +231,7 @@ type PickResult = {
   ambiguous: boolean;
   chosen: CandidateInfo | null;
   others: CandidateInfo[];
+  countVisible?: number;
 };
 
 /**
@@ -272,9 +279,9 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     }
     return true;
   }
-  function isVisible(e: Element): boolean {
+  function isVisible(e: Element, container: boolean = arg.container): boolean {
     if (leafVisible(e)) return true;
-    if (!arg.container) return false;
+    if (!container) return false;
     const contents = e.isConnected && getComputedStyle(e).display === "contents";
     if (e.isConnected && CONTAINERS.has(e.tagName) && (contents || cssVisible(e))) {
       const kids = e.querySelectorAll("a, button, input, select, textarea, img, svg, h1, h2, h3, h4, p, span, li, label");
@@ -364,6 +371,27 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     if (tag === "img") return "img";
     if (/^h[1-6]$/.test(tag)) return "heading";
     return "";
+  }
+
+  // Every name the element carries, for the zone: a testid selector says nothing, but "Pay with card" in
+  // the value, the title or the visible text does, and the most severe of them is the one that counts.
+  function allNames(e: Element): string[] {
+    const out = new Set<string>();
+    const add = (v: string | null | undefined) => { const t = norm(v || "").slice(0, 200); if (t) out.add(t); };
+    add(accName(e));
+    add(e.getAttribute("aria-label"));
+    add(e.getAttribute("title"));
+    add(e.getAttribute("alt"));
+    add(e.getAttribute("placeholder"));
+    if (e.tagName === "INPUT" || e.tagName === "SELECT" || e.tagName === "TEXTAREA") {
+      const ie = e as HTMLInputElement;
+      if (e.tagName === "INPUT" && /^(submit|button|reset|image)$/i.test(ie.type)) add(ie.value);
+      if (ie.labels) for (const l of Array.from(ie.labels).slice(0, 3)) add(ownText(l));
+    }
+    add(ownText(e));
+    const img = e.querySelector("img[alt], [aria-label], svg > title");
+    if (img) add(img.getAttribute("alt") || img.getAttribute("aria-label") || (img.tagName.toLowerCase() === "title" ? img.textContent : ""));
+    return [...out];
   }
 
   // ---- stable, verified-unique selector ----
@@ -517,6 +545,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   const named = els.map(e => ({ e, name: accName(e) }));
   let cands = named.filter(x => arg.require.every(f => passes(x.e, f, x.name)));
   cands = cands.filter(x => guardOk(x.name));
+  if (arg.minNameWords) cands = cands.filter(x => words(x.name).length >= arg.minNameWords!);
   // nesting is resolved among the candidates that survived the filters (a product card contains its image)
   if (arg.dedupeNested) {
     const set = new Set(cands.map(x => x.e));
@@ -539,12 +568,26 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
       const pre = pool.filter(x => isPrefix(x.name)), rest = pool.filter(x => !isPrefix(x.name));
       if (pre.length && rest.length) pool = [...pre, ...rest];
     }
+    if (arg.preferLonger && pool.length > 1) {
+      // "Hacker News" over "News": the name that covers the most intent words
+      const wc = (x: { name: string }) => words(x.name).length;
+      const most = Math.max(...pool.map(wc));
+      pool = pool.filter(x => wc(x) === most);
+    }
   }
   const info = (x: { e: Element; name: string }): CandidateInfo => {
     const u = uniqueSelector(x.e);
-    return { selector: u.selector, selectorType: u.type, name: x.name, text: ownText(x.e).slice(0, 100), tag: x.e.tagName.toLowerCase(), role: roleOf(x.e), visible: isVisible(x.e) };
+    const c: CandidateInfo = {
+      selector: u.selector, selectorType: u.type, name: x.name, names: allNames(x.e), text: ownText(x.e).slice(0, 100),
+      tag: x.e.tagName.toLowerCase(), role: roleOf(x.e), visible: isVisible(x.e),
+    };
+    if (arg.markCss) { try { c.marked = !!x.e.closest(arg.markCss); } catch { c.marked = false; } }
+    return c;
   };
   const out: PickResult = { total, visibleCount: visibleAll.length, hiddenOnly, ambiguous: false, chosen: null, others: [] };
+  if (arg.countCss) {
+    try { out.countVisible = Array.from(document.querySelectorAll(arg.countCss)).slice(0, 200).filter(e => isVisible(e, true)).length; } catch { /* unsupported selector: leave undefined */ }
+  }
   if (!pool.length) return out;
   let idx = 0;
   if (arg.ordinal !== null) {
@@ -584,6 +627,7 @@ type ParsedIntent = {
   scope: LandmarkKind | null;     // "... in the header"
   kind: Kind;
   kindExplicit: boolean;
+  kindWord: string;               // the trailing word the kind came from ("card", "tile"), "" when none
   landmark: { kind: LandmarkKind; qualifiers: string[] } | null;
   special: "cheapest" | "expensive" | "submit" | "logo" | "home" | "search" | "menu" | "language" | "theme" | "close" | null;
 };
@@ -647,7 +691,10 @@ const STOP = new Set(["the", "a", "an", "to", "for", "of", "on", "at", "is", "th
 
 function parseIntent(raw: string): ParsedIntent {
   let s = String(raw || "").toLowerCase().replace(/["'`“”‘’]/g, "").replace(/\s+/g, " ").trim();
-  const out: ParsedIntent = { raw, phrase: "", phraseFull: "", clickVerb: false, words: [], ordinal: null, scope: null, kind: "any", kindExplicit: false, landmark: null, special: null };
+  const out: ParsedIntent = {
+    raw, phrase: "", phraseFull: "", clickVerb: false, words: [], ordinal: null, scope: null,
+    kind: "any", kindExplicit: false, kindWord: "", landmark: null, special: null,
+  };
 
   // leading verbs
   const vm = s.match(/^(?:please\s+)?(click|clicking|press|tap|hit|go to|navigate to|take me to|jump to|focus|focus on|locate|where is|show me)\s+(?:on\s+)?(?:the\s+)?/);
@@ -717,7 +764,7 @@ function parseIntent(raw: string): ParsedIntent {
       const m = s.match(rx);
       if (m && m.index !== undefined) {
         // keep single-word intents like "button", "link", "input" as kind-only
-        out.kind = k; out.kindExplicit = true;
+        out.kind = k; out.kindExplicit = true; out.kindWord = m[0].trim();
         s = s.slice(0, m.index).trim().replace(/\s+(?:the|a|an)$/, "").trim();
         break;
       }
@@ -846,6 +893,39 @@ function stemWordsRe(words: string[]): RegExp | null {
     ? `(?=.*(?:^|[^\\p{L}\\p{N}])${escRe(stem(w).length >= 3 ? stem(w) : w)}\\p{L}*)`
     : `(?=.*(?:^|[^\\p{L}\\p{N}])${escRe(w)}(?=$|[^\\p{L}\\p{N}]))`).join("") + ".*", "iu");
 }
+/**
+ * Inflections only, for links and buttons: "category" matches "Categories", "story" matches "Stories",
+ * but "stor" never reaches "Store". A stem shorter than 4 letters is used verbatim ("news" stays "news").
+ */
+function inflections(w: string): string {
+  const e = escRe;
+  // the word itself, plus the base it was inflected from (settings -> setting, stories -> story, removed -> remove)
+  const bases = new Set<string>([w]);
+  if (/ies$/.test(w) && w.length >= 5) bases.add(w.slice(0, -3) + "y");
+  else if (/(ings|ers)$/.test(w) && w.length >= 6) bases.add(w.slice(0, -1));
+  else if (/ing$/.test(w) && w.length >= 6) { bases.add(w.slice(0, -3)); bases.add(w.slice(0, -3) + "e"); }
+  else if (/(ed|es)$/.test(w) && w.length >= 5) { bases.add(w.slice(0, -2)); bases.add(w.slice(0, -1)); }
+  else if (/[^s]s$/.test(w) && w.length >= 5) bases.add(w.slice(0, -1));
+  const alts = new Set<string>();
+  for (const b of bases) {
+    if (b.length < 4) { if (b === w) alts.add(e(w)); continue; }   // "news" stays "news", never "new"
+    if (b.endsWith("y")) alts.add(`${e(b.slice(0, -1))}(?:y|ies)`);
+    else if (b.endsWith("e")) { alts.add(`${e(b)}(?:s|d|r|rs)?`); alts.add(`${e(b.slice(0, -1))}(?:ing|er|ers|ion|ions)`); }
+    else alts.add(`${e(b)}(?:s|es|ed|ing|er|ers|ion|ions)?`);
+  }
+  return `(?:${[...alts].join("|")})`;
+}
+function inflectRe(words: string[]): RegExp | null {
+  const ws = words.filter(w => w.length > 1 || /\d/.test(w));
+  if (!ws.length || !ws.some(w => w.length >= 4)) return null;
+  return new RegExp(ws.map(w => `(?=.*(?:^|[^\\p{L}\\p{N}])${w.length >= 4 ? inflections(w) : escRe(w)}(?=$|[^\\p{L}\\p{N}]))`).join("") + ".*", "iu");
+}
+/** The whole accessible name is made of intent words: "purchase credits" reaches a control named "Purchase". */
+function supersetRe(words: string[]): RegExp | null {
+  const ws = words.filter(w => w.length > 1 || /\d/.test(w));
+  if (ws.length < 2) return null;
+  return new RegExp(`^${EDGE}(?:(?:${ws.map(escRe).join("|")})[\\s\\-_]*)+${EDGE}$`, "iu");
+}
 
 // ============================================================================
 // Scopes and pools (CSS)
@@ -926,6 +1006,17 @@ const KIND_ROLES: Record<Kind, AriaRole[]> = {
   any: ["link", "button", "tab", "menuitem", "checkbox", "radio", "switch", "combobox", "textbox", "searchbox", "option"],
 };
 
+const FOOTERISH_CSS = "footer, [role='contentinfo'], #footer, .footer, .site-footer";
+// A navigation that is the page's own: in the header, or labelled/classed as the main one.
+const PRIMARY_NAV_CSS = "header nav, [role='banner'] nav, header [role='navigation'], #header nav, .header nav, .site-header nav, .masthead nav, "
+  + "nav.navbar, .navbar, nav[aria-label*='main' i], nav[aria-label*='primary' i], nav[aria-label*='global' i], nav[aria-label*='site' i], "
+  + "[role='navigation'][aria-label*='main' i], [role='navigation'][aria-label*='primary' i], nav[class*='main' i], nav[class*='primary' i], "
+  + "nav[id*='main' i], nav[id*='primary' i], .main-menu, .primary-menu, .site-nav, .main-nav, #main-nav";
+
+// An intent that names one of these is asking for a structure, which no control named with its other words is.
+const STRUCTURE_WORDS = new Set(["table", "list", "grid", "chart", "map", "video", "gallery", "carousel", "sidebar", "section", "form", "dialog",
+  "modal", "menu", "panel", "banner", "footer", "header", "nav", "navigation", "page", "sheet", "calendar", "editor", "player", "widget"]);
+
 // ============================================================================
 // Cascade
 // ============================================================================
@@ -948,9 +1039,17 @@ function unionRole(root: Scope, roles: AriaRole[], name: RegExp | null): Locator
 
 const red2 = (n: number) => Math.round(Math.max(0, Math.min(1, n)) * 100) / 100;
 
-function dangerZone(name: string, classify: ((s: string) => string) | null): string | undefined {
+/** The most severe zone over every name the element carries (an aria-label can be benign while the value says "Pay"). */
+const ZONE_SEVERITY: Record<string, number> = { green: 0, yellow: 1, red: 2, black: 3 };
+function dangerZone(names: string[], classify: ((s: string) => string) | null): string | undefined {
   if (!classify) return undefined;
-  try { return classify(name); } catch { return undefined; }
+  let worst: string | undefined;
+  for (const n of names) {
+    let z: string;
+    try { z = classify(n); } catch { continue; }
+    if (worst === undefined || (ZONE_SEVERITY[z] ?? 0) > (ZONE_SEVERITY[worst] ?? 0)) worst = z;
+  }
+  return worst;
 }
 
 /**
@@ -1013,7 +1112,7 @@ export async function findElementByIntent(
 
   const build = (r: PickResult, label: string, conf: number, descriptionPrefix: string) => {
     const c = r.chosen!;
-    const zone = dangerZone(c.name || c.text, classify);
+    const zone = dangerZone(c.names.length ? c.names : [c.name || c.text], classify);
     return {
       selector: c.selector,
       confidence: red2(conf),
@@ -1129,7 +1228,7 @@ export async function findElementByIntent(
     const confUnique = 0.95;
     let confAmb = 0.55;
     let fallbackToControl = false;
-    const FOOTERISH = "footer, [role='contentinfo'], #footer, .footer, .site-footer";
+    const FOOTERISH = FOOTERISH_CSS;
     const SIDEISH = "aside, [role='complementary']";
 
     // container qualifiers: "footer navigation", "article header", "post footer", "header navigation", "sidebar navigation"
@@ -1428,191 +1527,263 @@ export async function findElementByIntent(
   // --------------------------------------------------------------------------
   // 5. Named controls: the cascade proper
   // --------------------------------------------------------------------------
-  const literal = [...new Set([parsed.phraseFull.trim(), phrase].filter(Boolean))];
-  const syns = synonymsOf(phrase);
-  const rungs: Rung[] = [];
-
-  // What pool a kind resolves to, as a union of Playwright role locators plus CSS where ARIA roles fall short.
-  const roleUnion = (name: RegExp | null, whichRoles: AriaRole[]): Locator | null => unionRole(root, whichRoles, name);
-  // For links, anchors with role=button are still links.
-  const linkPool = (name: RegExp | null): Locator => {
-    const l1 = roleUnion(name, ["link"])!;
-    const l2 = (roleUnion(name, ["button"])!).and(root.locator("a[href]"));
-    return l1.or(l2);
+  type Query = {
+    kind: Kind; phrase: string; phraseFull: string; words: string[]; kindExplicit: boolean;
+    footerOk?: boolean;   // nav scope: let footer navs in (the fallback pass)
+    cap?: number;         // ceiling on the confidence of anything this pass returns
   };
-  const buttonPool = (name: RegExp | null): Locator => {
-    const b = roleUnion(name, ["button"])!;
-    const lb = roleUnion(name, ["link"])!.and(root.locator(LINK_BUTTON_CSS));
-    return b.or(lb);
-  };
-  const buttonOrLinkPool = (name: RegExp | null): Locator => roleUnion(name, ["button", "link"])!;
-  const fieldPool = (name: RegExp | null): Locator => {
-    const r1 = roleUnion(name, ["textbox", "searchbox", "combobox", "spinbutton", "listbox"])!;
-    const lab = name ? root.getByLabel(name).or(root.getByPlaceholder(name)) : null;
-    const base = root.locator(FIELD_CSS);
-    let u = r1;
-    if (lab) u = u.or(lab.and(base));
-    return u;
-  };
-  // the role union, plus the labelled <input>/<select> of that css when a name is given
-  const roleOrLabelled = (name: RegExp | null, whichRoles: AriaRole[], css: string): Locator =>
-    roleUnion(name, whichRoles)!.or(name ? root.getByLabel(name).and(root.locator(css)) : root.locator(css));
-  const poolFor = (name: RegExp | null): Locator => {
-    switch (kind) {
-      case "button": return buttonOrLinkPool(name);
-      case "link": return linkPool(name);
-      case "field": case "textarea": return fieldPool(name);
-      case "dropdown": return roleOrLabelled(name, ["combobox", "listbox", "button", "menu"], "select");
-      case "checkbox": return roleOrLabelled(name, ["checkbox", "switch"], "input[type='checkbox']");
-      case "radio": return roleOrLabelled(name, ["radio"], "input[type='radio']");
-      case "tab": return roleUnion(name, ["tab"])!;
-      case "menuitem": return roleUnion(name, ["menuitem", "menuitemcheckbox", "menuitemradio", "option"])!;
-      case "image": return name ? root.getByAltText(name).or(root.getByRole("img", { name, includeHidden: true })) : root.locator("img, [role='img']");
-      case "heading": return roleUnion(name, ["heading"])!;
-      case "toggle": return roleUnion(name, ["switch", "checkbox", "button"])!;
-      case "card": case "product": case "section": case "article": case "form":
-        return name ? root.locator(KIND_POOL[kind]).filter({ hasText: name }) : root.locator(KIND_POOL[kind]);
-      default: return roleUnion(name, KIND_ROLES.any)!;
-    }
-  };
-  const isContainerKind = ["card", "product", "section", "article", "form"].includes(kind);
-  const preferReal: PickFilter[] = kind === "button" ? [{ tagRe: "^(button|input|summary|span|div)$" }]
-    : kind === "any" ? [{ tagRe: "^(a|button|input|select|textarea|summary)$" }] : [];
-  const pickBase: Partial<PickArg> = { container: isContainerKind, mode: "first", require: [], prefer: preferReal, dedupeNested: isContainerKind };
+  const navScoped = parsed.scope === "nav";
+  // "X in the navigation" never means the footer's links; a footer intent says footer.
+  const NAV_NOT_FOOTER_CSS = scopeCss("nav").split(", ").map(p => `${p}:not(${FOOTERISH_CSS.split(", ").map(f => `${f} *`).join(", ")})`).join(", ");
 
-  const exactLit = exactRe(literal);
-  const exactSyn = syns.length ? exactRe(syns) : null;
-  const containsLit = containsRe(literal);
-  const fuzzySyns = syns.filter(s => !NO_FUZZY_SYNONYMS.has(s) && s.length > 2);
-  const containsSyn = fuzzySyns.length && !NO_FUZZY_SYNONYMS.has(phrase) ? containsRe(fuzzySyns) : null;
-  const allWords = allWordsRe(nameWords);
-  const stems = stemWordsRe(nameWords);
+  const namedCascade = async (q: Query) => {
+    const kind = q.kind;
+    const phrase = q.phrase;
+    const nameWords = q.words;
+    const loose = ["field", "textarea", "checkbox", "radio", "dropdown", "card", "product"].includes(kind);
+    const guard = (maxExtra: number, prefixMaxExtra: number) => ({
+      words: nameWords.map(w => COMPOUNDS[w] ? COMPOUNDS[w].split(" ") : [w]).flat(),
+      maxExtra: loose ? maxExtra + 6 : maxExtra,
+      prefixMaxExtra: loose ? prefixMaxExtra + 8 : prefixMaxExtra,
+      danger: true,
+    });
+    const literal = [...new Set([q.phraseFull, phrase].filter(Boolean))];
+    const syns = synonymsOf(phrase);
+    const rungs: Rung[] = [];
 
-  const CONF_EXACT = { unique: 0.95, ordinal: 0.92, ambiguous: 0.65 };
-  const CONF_STRONG = { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 };
-  const CONF_GOOD = { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 };
-  const CONF_CONTAINS = { unique: 0.8, ordinal: 0.78, ambiguous: 0.55 };
-
-  if (kind === "link" && /^(citation|cite|reference|footnote|ref)s?$/.test(phrase)) {
-    const CITE_CSS = "sup a[href], a[href^='#cite'], .reference a[href], a[href*='cite_note'], .citation a[href], a.citation, a[role='doc-noteref'], a[href^='#fn'], a[href^='#ref']";
-    rungs.push({ label: "citation", locator: root.locator(CITE_CSS), conf: CONF_GOOD, pick: pickBase });
-  }
-  if (kind === "button" && exactLit) {
-    // Real buttons (and link-buttons) first: exact, synonyms, then a fuzzy real button beats an exact plain link.
-    rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: CONF_EXACT, pick: pickBase });
-    if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: CONF_STRONG, pick: pickBase });
-    if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
-    rungs.push({ label: "exact-link", locator: linkPool(exactLit), conf: CONF_STRONG, pick: pickBase });
-    if (exactSyn) rungs.push({ label: "exact-synonym-link", locator: linkPool(exactSyn), conf: CONF_GOOD, pick: pickBase });
-  } else if (exactLit) rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
-  if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: CONF_STRONG, pick: pickBase });
-  // "search button" with no control named Search: the submit of the search form
-  if (kind === "button" && /^search$/.test(phrase)) {
-    const SEARCH_SUBMIT_CSS = "[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], "
-      + "form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], "
-      + "form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], "
-      + "form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], "
-      + "form[action*='search' i] button, form[action*='search' i] input[type='submit'], "
-      + "button[class*='search' i], button[id*='search' i], a[class*='search' i][href]";
-    rungs.push({ label: "search-submit", locator: root.locator(SEARCH_SUBMIT_CSS), conf: CONF_GOOD,
-      pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
-  }
-  // Label / placeholder / title / alt for the exact phrase (fields and icon controls)
-  const isFieldKind = ["field", "textarea", "dropdown", "checkbox", "radio"].includes(kind);
-  if (exactLit && (isFieldKind || kind === "any")) {
-    const lab = root.getByLabel(exactLit).or(root.getByPlaceholder(exactLit)).or(root.getByTitle(exactLit)).or(root.getByAltText(exactLit));
-    rungs.push({ label: "label-exact", locator: kind === "any" ? lab : lab.and(root.locator(FIELD_CSS)), conf: CONF_STRONG, pick: { ...pickBase, liftToControl: true } });
-  }
-  // Typed fields: "email field", "password field", "search box", "url input"
-  if (kind === "field" || kind === "textarea") {
-    const typeMap: Record<string, string> = {
-      email: "input[type='email'], input[name*='email' i], input[id*='email' i], input[autocomplete='email']",
-      password: "input[type='password']",
-      search: "input[type='search'], [role='searchbox'], input[name='q'], input[name*='search' i], input[placeholder*='search' i]",
-      url: "input[type='url'], input[name*='url' i], input[id*='url' i], input[placeholder*='url' i]",
-      website: "input[type='url'], input[name*='url' i], input[name*='website' i], input[id*='website' i]",
-      phone: "input[type='tel'], input[name*='phone' i], input[autocomplete='tel']",
-      tel: "input[type='tel']",
-      telephone: "input[type='tel']",
-      username: "input[name='username'], input[autocomplete='username'], input[id*='user' i], input[name*='user' i], input[name='login'], input[id='login']",
-      user: "input[name='username'], input[autocomplete='username'], input[id*='user' i], input[name*='user' i]",
-      name: "input[name='name'], input[id='name'], input[autocomplete='name'], input[name*='name' i]:not([name*='user' i])",
-      date: "input[type='date']",
-      number: "input[type='number']",
-      message: "textarea",
-      comment: "textarea, input[name*='comment' i]",
-      query: "input[name='q'], input[name='query'], input[type='search']",
+    // What pool a kind resolves to, as a union of Playwright role locators plus CSS where ARIA roles fall short.
+    const roleUnion = (name: RegExp | null, whichRoles: AriaRole[]): Locator | null => unionRole(root, whichRoles, name);
+    // For links, anchors with role=button are still links.
+    const linkPool = (name: RegExp | null): Locator => {
+      const l1 = roleUnion(name, ["link"])!;
+      const l2 = (roleUnion(name, ["button"])!).and(root.locator("a[href]"));
+      return l1.or(l2);
     };
-    const key = nameWords.find(w => typeMap[w]);
-    if (key) {
-      rungs.push({ label: "field-type", locator: root.locator(typeMap[key]), conf: CONF_STRONG,
-        pick: { ...pickBase, prefer: [{ withinCss: "form:has(input[type='password'])" }] } });
-    }
-  }
-  if (containsLit) rungs.push({ label: "contains", locator: poolFor(containsLit), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
-  if (containsLit && isFieldKind) {
-    const lab = root.getByLabel(containsLit).or(root.getByPlaceholder(containsLit));
-    rungs.push({ label: "label-contains", locator: lab.and(root.locator(FIELD_CSS)), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(3, 5) } });
-  }
-  if (containsLit && isFieldKind && kind !== "textarea") {
-    rungs.push({ label: "field-text", locator: root.locator(KIND_POOL[kind]), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 },
-      pick: { ...pickBase, require: [{ nameRe: containsLit.source }], guard: guard(3, 5) } });
-  }
-  if (containsSyn) rungs.push({ label: "contains-synonym", locator: poolFor(containsSyn), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 3) } });
-  // OAuth providers: "google sign in button", "continue with github"
-  const PROVIDERS = ["google", "github", "facebook", "apple", "microsoft", "twitter", "linkedin", "gitlab", "okta", "sso"];
-  const AUTH_WORDS = ["sign", "signin", "login", "log", "continue", "with", "auth", "oauth", "connect", "register", "signup"];
-  const provider = nameWords.find(w => PROVIDERS.includes(w));
-  if (provider && nameWords.some(w => AUTH_WORDS.includes(w) || w === provider)) {
-    rungs.push({ label: "provider", locator: buttonOrLinkPool(new RegExp(`(?:^|[^\\p{L}])${escRe(provider)}(?=$|[^\\p{L}])`, "iu")),
-      conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 }, pick: { ...pickBase, prefer: [{ nameRe: "sign|log|continue|with|auth" }, ...preferReal] } });
-  }
-  if (allWords) rungs.push({ label: "all-words", locator: poolFor(allWords), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 4) } });
-  // Text fallback: the phrase as visible text, lifted to the nearest control
-  if (exactLit && !isContainerKind) {
-    const isControl: PickFilter = { anyOf: [
-      { tagRe: "^(a|button|input|select|textarea|summary|label)$" },
-      { matchCss: "[role='button'], [role='link'], [role='tab'], [role='menuitem']" },
-    ] };
-    rungs.push({ label: "text-exact", locator: root.getByText(exactLit), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 },
-      pick: { ...pickBase, liftToControl: true, require: [isControl] } });
-  }
-  // Attribute fallback (ids / names / testids that carry the words): "wishlist button" -> button#wishlist
-  const attrWords = nameWords.filter(w => !["button", "link", "icon"].includes(w));
-  if (parsed.kindExplicit && attrWords.length && attrWords.every(w => w.length >= 4)) {
-    let attrLoc: Locator = root.locator(kind === "any" ? KIND_POOL.any : KIND_POOL[kind]);
-    for (const w of attrWords) {
-      attrLoc = attrLoc.and(root.locator(
-        `[id*="${w}" i], [name*="${w}" i], [data-testid*="${w}" i], [class*="${w}" i], [aria-label*="${w}" i], [title*="${w}" i], a[href*="${w}" i]`,
-      ));
-    }
-    rungs.push({ label: "attribute", locator: attrLoc, conf: { unique: 0.6, ordinal: 0.6, ambiguous: 0.4 }, pick: { ...pickBase, guard: { ...guard(4, 6), words: [] } } });
-  }
-  if (stems && (loose || kind === "tab")) rungs.push({ label: "stem", locator: poolFor(stems), conf: { unique: 0.6, ordinal: 0.58, ambiguous: 0.4 }, pick: { ...pickBase, guard: guard(3, 5) } });
-  // "<name> menu": the control that opens a menu, named without the word
-  if ((kind === "any" || kind === "button") && /\s+menu$/.test(phrase) && !parsed.special) {
-    const stripped = phrase.replace(/\s+menu$/, "");
-    const re1 = exactRe([stripped]);
-    if (re1) {
-      rungs.push({ label: "menu-trigger", locator: buttonOrLinkPool(re1), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 },
-        pick: { ...pickBase, prefer: [{ matchCss: "[aria-haspopup], [aria-expanded], [aria-controls], [data-state]" }, ...preferReal] } });
-    }
-  }
+    const buttonPool = (name: RegExp | null): Locator => {
+      const b = roleUnion(name, ["button"])!;
+      const lb = roleUnion(name, ["link"])!.and(root.locator(LINK_BUTTON_CSS));
+      return b.or(lb);
+    };
+    const buttonOrLinkPool = (name: RegExp | null): Locator => roleUnion(name, ["button", "link"])!;
+    const fieldPool = (name: RegExp | null): Locator => {
+      const r1 = roleUnion(name, ["textbox", "searchbox", "combobox", "spinbutton", "listbox"])!;
+      const lab = name ? root.getByLabel(name).or(root.getByPlaceholder(name)) : null;
+      const base = root.locator(FIELD_CSS);
+      let u = r1;
+      if (lab) u = u.or(lab.and(base));
+      return u;
+    };
+    // the role union, plus the labelled <input>/<select> of that css when a name is given
+    const roleOrLabelled = (name: RegExp | null, whichRoles: AriaRole[], css: string): Locator =>
+      roleUnion(name, whichRoles)!.or(name ? root.getByLabel(name).and(root.locator(css)) : root.locator(css));
+    const poolFor = (name: RegExp | null): Locator => {
+      switch (kind) {
+        case "button": return buttonOrLinkPool(name);
+        case "link": return linkPool(name);
+        case "field": case "textarea": return fieldPool(name);
+        case "dropdown": return roleOrLabelled(name, ["combobox", "listbox", "button", "menu"], "select");
+        case "checkbox": return roleOrLabelled(name, ["checkbox", "switch"], "input[type='checkbox']");
+        case "radio": return roleOrLabelled(name, ["radio"], "input[type='radio']");
+        case "tab": return roleUnion(name, ["tab"])!;
+        case "menuitem": return roleUnion(name, ["menuitem", "menuitemcheckbox", "menuitemradio", "option"])!;
+        case "image": return name ? root.getByAltText(name).or(root.getByRole("img", { name, includeHidden: true })) : root.locator("img, [role='img']");
+        case "heading": return roleUnion(name, ["heading"])!;
+        case "toggle": return roleUnion(name, ["switch", "checkbox", "button"])!;
+        case "card": case "product": case "section": case "article": case "form":
+          return name ? root.locator(KIND_POOL[kind]).filter({ hasText: name }) : root.locator(KIND_POOL[kind]);
+        default: return roleUnion(name, KIND_ROLES.any)!;
+      }
+    };
+    const isContainerKind = ["card", "product", "section", "article", "form"].includes(kind);
+    const preferReal: PickFilter[] = kind === "button" ? [{ tagRe: "^(button|input|summary|span|div)$" }]
+      : kind === "any" ? [{ tagRe: "^(a|button|input|select|textarea|summary)$" }] : [];
+    const scopeRequire: PickFilter[] = navScoped && !q.footerOk ? [{ notWithinCss: FOOTERISH_CSS }] : [];
+    const pickBase: Partial<PickArg> = {
+      container: isContainerKind, mode: "first", require: scopeRequire, prefer: preferReal, dedupeNested: isContainerKind,
+      ...(navScoped ? { markCss: PRIMARY_NAV_CSS, countCss: NAV_NOT_FOOTER_CSS } : {}),
+    };
 
-  let sawHiddenExact = false;
-  for (const rung of rungs) {
-    // an exact match that is merely hidden makes the weak rungs guesses: skip them
-    if (sawHiddenExact && /^(all-words|text-exact|attribute|stem|menu-trigger)$/.test(rung.label)) continue;
-    const r = await run(rung.label, rung.locator, rung.pick);
-    if (!r) continue;
-    if (r.chosen) {
-      const conf = parsed.ordinal !== null ? rung.conf.ordinal : (r.ambiguous ? rung.conf.ambiguous : rung.conf.unique);
-      return build(r, rung.label, sawHiddenExact ? Math.min(conf, 0.7) : conf, rung.label === "exact" ? "Exact match" : `Match (${rung.label})`);
-    }
-    if (r.hiddenOnly && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) sawHiddenExact = true;
-    if (r.ambiguous && rung.pick.mode === "unique") break;
-  }
+    const exactLit = exactRe(literal);
+    const exactSyn = syns.length ? exactRe(syns) : null;
+    const containsLit = containsRe(literal);
+    const fuzzySyns = syns.filter(s => !NO_FUZZY_SYNONYMS.has(s) && s.length > 2);
+    const containsSyn = fuzzySyns.length && !NO_FUZZY_SYNONYMS.has(phrase) ? containsRe(fuzzySyns) : null;
+    const allWords = allWordsRe(nameWords);
+    const stems = stemWordsRe(nameWords);
 
+    const CONF_EXACT = { unique: 0.95, ordinal: 0.92, ambiguous: 0.65 };
+    const CONF_STRONG = { unique: 0.9, ordinal: 0.88, ambiguous: 0.6 };
+    const CONF_GOOD = { unique: 0.85, ordinal: 0.85, ambiguous: 0.6 };
+    const CONF_CONTAINS = { unique: 0.8, ordinal: 0.78, ambiguous: 0.55 };
+
+    if (kind === "link" && /^(citation|cite|reference|footnote|ref)s?$/.test(phrase)) {
+      const CITE_CSS = "sup a[href], a[href^='#cite'], .reference a[href], a[href*='cite_note'], .citation a[href], a.citation, a[role='doc-noteref'], a[href^='#fn'], a[href^='#ref']";
+      rungs.push({ label: "citation", locator: root.locator(CITE_CSS), conf: CONF_GOOD, pick: pickBase });
+    }
+    if (kind === "button" && exactLit) {
+      // Real buttons (and link-buttons) first: exact, synonyms, then a fuzzy real button beats an exact plain link.
+      rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: CONF_EXACT, pick: pickBase });
+      if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: CONF_STRONG, pick: pickBase });
+      if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
+      rungs.push({ label: "exact-link", locator: linkPool(exactLit), conf: CONF_STRONG, pick: pickBase });
+      if (exactSyn) rungs.push({ label: "exact-synonym-link", locator: linkPool(exactSyn), conf: CONF_GOOD, pick: pickBase });
+    } else if (exactLit) rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
+    if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: CONF_STRONG, pick: pickBase });
+    // "search button" with no control named Search: the submit of the search form
+    if (kind === "button" && /^search$/.test(phrase)) {
+      const SEARCH_SUBMIT_CSS = "[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], "
+        + "form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], "
+        + "form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], "
+        + "form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], "
+        + "form[action*='search' i] button, form[action*='search' i] input[type='submit'], "
+        + "button[class*='search' i], button[id*='search' i], a[class*='search' i][href]";
+      rungs.push({ label: "search-submit", locator: root.locator(SEARCH_SUBMIT_CSS), conf: CONF_GOOD,
+        pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
+    }
+    // Label / placeholder / title / alt for the exact phrase (fields and icon controls)
+    const isFieldKind = ["field", "textarea", "dropdown", "checkbox", "radio"].includes(kind);
+    if (exactLit && (isFieldKind || kind === "any")) {
+      const lab = root.getByLabel(exactLit).or(root.getByPlaceholder(exactLit)).or(root.getByTitle(exactLit)).or(root.getByAltText(exactLit));
+      rungs.push({ label: "label-exact", locator: kind === "any" ? lab : lab.and(root.locator(FIELD_CSS)), conf: CONF_STRONG, pick: { ...pickBase, liftToControl: true } });
+    }
+    // Typed fields: "email field", "password field", "search box", "url input"
+    if (kind === "field" || kind === "textarea") {
+      const typeMap: Record<string, string> = {
+        email: "input[type='email'], input[name*='email' i], input[id*='email' i], input[autocomplete='email']",
+        password: "input[type='password']",
+        search: "input[type='search'], [role='searchbox'], input[name='q'], input[name*='search' i], input[placeholder*='search' i]",
+        url: "input[type='url'], input[name*='url' i], input[id*='url' i], input[placeholder*='url' i]",
+        website: "input[type='url'], input[name*='url' i], input[name*='website' i], input[id*='website' i]",
+        phone: "input[type='tel'], input[name*='phone' i], input[autocomplete='tel']",
+        tel: "input[type='tel']",
+        telephone: "input[type='tel']",
+        username: "input[name='username'], input[autocomplete='username'], input[id*='user' i], input[name*='user' i], input[name='login'], input[id='login']",
+        user: "input[name='username'], input[autocomplete='username'], input[id*='user' i], input[name*='user' i]",
+        name: "input[name='name'], input[id='name'], input[autocomplete='name'], input[name*='name' i]:not([name*='user' i])",
+        date: "input[type='date']",
+        number: "input[type='number']",
+        message: "textarea",
+        comment: "textarea, input[name*='comment' i]",
+        query: "input[name='q'], input[name='query'], input[type='search']",
+      };
+      const key = nameWords.find(w => typeMap[w]);
+      if (key) {
+        rungs.push({ label: "field-type", locator: root.locator(typeMap[key]), conf: CONF_STRONG,
+          pick: { ...pickBase, prefer: [{ withinCss: "form:has(input[type='password'])" }] } });
+      }
+    }
+    if (containsLit) rungs.push({ label: "contains", locator: poolFor(containsLit), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
+    if (containsLit && isFieldKind) {
+      const lab = root.getByLabel(containsLit).or(root.getByPlaceholder(containsLit));
+      rungs.push({ label: "label-contains", locator: lab.and(root.locator(FIELD_CSS)), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(3, 5) } });
+    }
+    if (containsLit && isFieldKind && kind !== "textarea") {
+      rungs.push({ label: "field-text", locator: root.locator(KIND_POOL[kind]), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 },
+        pick: { ...pickBase, require: [...scopeRequire, { nameRe: containsLit.source }], guard: guard(3, 5) } });
+    }
+    if (containsSyn) rungs.push({ label: "contains-synonym", locator: poolFor(containsSyn), conf: { unique: 0.75, ordinal: 0.72, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 3) } });
+    // OAuth providers: "google sign in button", "continue with github"
+    const PROVIDERS = ["google", "github", "facebook", "apple", "microsoft", "twitter", "linkedin", "gitlab", "okta", "sso"];
+    const AUTH_WORDS = ["sign", "signin", "login", "log", "continue", "with", "auth", "oauth", "connect", "register", "signup"];
+    const provider = nameWords.find(w => PROVIDERS.includes(w));
+    if (provider && nameWords.some(w => AUTH_WORDS.includes(w) || w === provider)) {
+      rungs.push({ label: "provider", locator: buttonOrLinkPool(new RegExp(`(?:^|[^\\p{L}])${escRe(provider)}(?=$|[^\\p{L}])`, "iu")),
+        conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 }, pick: { ...pickBase, prefer: [{ nameRe: "sign|log|continue|with|auth" }, ...preferReal] } });
+    }
+    if (allWords) rungs.push({ label: "all-words", locator: poolFor(allWords), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 4) } });
+    // Text fallback: the phrase as visible text, lifted to the nearest control
+    if (exactLit && !isContainerKind) {
+      const isControl: PickFilter = { anyOf: [
+        { tagRe: "^(a|button|input|select|textarea|summary|label)$" },
+        { matchCss: "[role='button'], [role='link'], [role='tab'], [role='menuitem']" },
+      ] };
+      rungs.push({ label: "text-exact", locator: root.getByText(exactLit), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 },
+        pick: { ...pickBase, liftToControl: true, require: [...scopeRequire, isControl] } });
+    }
+    // Attribute fallback (ids / names / testids that carry the words): "wishlist button" -> button#wishlist
+    const attrWords = nameWords.filter(w => !["button", "link", "icon"].includes(w));
+    if (q.kindExplicit && attrWords.length && attrWords.every(w => w.length >= 4)) {
+      let attrLoc: Locator = root.locator(kind === "any" ? KIND_POOL.any : KIND_POOL[kind]);
+      for (const w of attrWords) {
+        attrLoc = attrLoc.and(root.locator(
+          `[id*="${w}" i], [name*="${w}" i], [data-testid*="${w}" i], [class*="${w}" i], [aria-label*="${w}" i], [title*="${w}" i], a[href*="${w}" i]`,
+        ));
+      }
+      rungs.push({ label: "attribute", locator: attrLoc, conf: { unique: 0.6, ordinal: 0.6, ambiguous: 0.4 }, pick: { ...pickBase, guard: { ...guard(4, 6), words: [] } } });
+    }
+    const CONF_STEM = { unique: 0.6, ordinal: 0.58, ambiguous: 0.4 };
+    if (stems && (loose || kind === "tab")) rungs.push({ label: "stem", locator: poolFor(stems), conf: CONF_STEM, pick: { ...pickBase, guard: guard(3, 5) } });
+    // "<name> menu": the control that opens a menu, named without the word
+    if ((kind === "any" || kind === "button") && /\s+menu$/.test(phrase) && !parsed.special) {
+      const stripped = phrase.replace(/\s+menu$/, "");
+      const re1 = exactRe([stripped]);
+      if (re1) {
+        rungs.push({ label: "menu-trigger", locator: buttonOrLinkPool(re1), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 },
+          pick: { ...pickBase, prefer: [{ matchCss: "[aria-haspopup], [aria-expanded], [aria-controls], [data-state]" }, ...preferReal] } });
+      }
+    }
+    // Links and buttons take inflections only ("category link" -> "Categories"); the promiscuous phrases stay out.
+    const inflect = (kind === "link" || kind === "button") && !NO_FUZZY_SYNONYMS.has(phrase) ? inflectRe(nameWords) : null;
+    // (the contains guard, not the field one: "Direct link to System requirements" is not "system requirements link")
+    if (inflect) rungs.push({ label: "stem", locator: poolFor(inflect), conf: CONF_STEM, pick: { ...pickBase, guard: guard(2, 4) } });
+    // Last: the name is a sub-phrase of the intent ("purchase credits" -> "Purchase", "hacker news home link" -> "Hacker News").
+    // The name must cover at least half of the intent's words, or "upvote button for the first story" becomes a guess at "upvote";
+    // and an intent that names a structure ("pricing table") is not asking for a control named with the rest of its words.
+    const superset = nameWords.some(w => STRUCTURE_WORDS.has(w)) ? null : supersetRe(nameWords);
+    if (superset) {
+      rungs.push({ label: "superset", locator: poolFor(superset), conf: { unique: 0.6, ordinal: 0.6, ambiguous: 0.4 },
+        pick: { ...pickBase, guard: guard(2, 4), preferLonger: true, minNameWords: Math.ceil(nameWords.length / 2) } });
+    }
+
+    let sawHiddenExact = false;
+    for (const rung of rungs) {
+      // an exact match that is merely hidden makes the weak rungs guesses: skip them
+      if (sawHiddenExact && /^(all-words|text-exact|attribute|stem|menu-trigger|superset)$/.test(rung.label)) continue;
+      const r = await run(rung.label, rung.locator, rung.pick);
+      if (!r) continue;
+      if (r.chosen) {
+        let conf = parsed.ordinal !== null ? rung.conf.ordinal : (r.ambiguous ? rung.conf.ambiguous : rung.conf.unique);
+        if (sawHiddenExact) conf = Math.min(conf, 0.7);
+        if (q.cap !== undefined) conf = Math.min(conf, q.cap);
+        // a fuzzy hit in a sidebar or breadcrumb nav, when the page has a primary one, is a guess
+        if (navScoped && /^contains/.test(rung.label) && r.chosen.marked === false && (r.countVisible ?? 0) > 1) conf = Math.min(conf, 0.6);
+        return build(r, rung.label, conf, rung.label === "exact" ? "Exact match" : `Match (${rung.label})`);
+      }
+      if (r.hiddenOnly && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) sawHiddenExact = true;
+      if (r.ambiguous && rung.pick.mode === "unique") break;
+    }
+    return null;
+  };
+
+  const q0: Query = { kind, phrase, phraseFull: parsed.phraseFull.trim(), words: nameWords, kindExplicit: parsed.kindExplicit };
+  const first = await namedCascade(q0);
+  if (first) return first;
+  // "X in the navigation" with X only in a footer nav: a guess, allowed only while the page's own navigation is visible
+  // (a header nav collapsed at this width means null, not the footer's copy).
+  if (navScoped) {
+    const primaryVisible = await page.locator(NAV_NOT_FOOTER_CSS).evaluateAll((els: Element[], primaryCss: string) => {
+      const box = (x: Element) => { const b = x.getBoundingClientRect(); return b.width >= 2 && b.height >= 2; };
+      const vis = (x: Element) => (typeof x.checkVisibility !== "function" || x.checkVisibility({ visibilityProperty: true })) && box(x);
+      const navVisible = (e: Element) => vis(e) && Array.from(e.querySelectorAll("a[href], [role='link'], [role='menuitem']")).slice(0, 50).some(vis);
+      const primary = els.filter(e => { try { return e.matches(primaryCss); } catch { return false; } });
+      // the page's own navigation is visible; a breadcrumb in main does not stand in for a collapsed header nav
+      return primary.length ? primary.some(navVisible) : els.some(navVisible);
+    }, PRIMARY_NAV_CSS).catch(() => false);
+    if (primaryVisible) {
+      const fb = await namedCascade({ ...q0, footerOk: true, cap: 0.6 });
+      if (fb) return fb;
+    }
+  }
+  // "pay with card": a trailing container word that named no container was part of the name all along
+  if (/^(card|tile|panel|product|item|listing)$/.test(parsed.kindWord) && !parsed.special && nameWords.length) {
+    const phrase2 = `${phrase} ${parsed.kindWord}`.trim();
+    const full = parsed.phraseFull.trim();
+    const again = await namedCascade({
+      kind: "any", phrase: phrase2, phraseFull: full.endsWith(parsed.kindWord) ? full : `${full} ${parsed.kindWord}`,
+      words: phrase2.split(/[^\p{L}\p{N}]+/u).filter(w => w && !STOP.has(w)), kindExplicit: false,
+    });
+    if (again) return again;
+  }
   return options.verbose ? await verboseMiss(page, intent) : null;
 }
 
