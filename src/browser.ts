@@ -2349,19 +2349,32 @@ For more help: https://playwright.dev/docs/browsers
   async click(selector: string, options: { force?: boolean; verbose?: boolean; debugDir?: string } = {}): Promise<ClickResult> {
     const page = await this.getPage();
 
-    // Classify action zone
-    const zone = this.classifyAction("click", selector);
+    // Classify action zone from the selector string (unchanged: a string that names a dangerous action
+    // is refused before anything is resolved, exactly as before).
+    let zone = this.classifyAction("click", selector);
     if (zone === "red" && !options.force) {
       return {
         success: false,
         screenshot: await this.screenshot(),
         message: `Red zone action requires --force: click "${selector}"`,
+        zone,
       };
     }
 
     try {
       // Try multiple selector strategies
       const element = await this.findElement(selector);
+
+      // Classify the ELEMENT, not only the string. A selector says how an element is addressed
+      // (#delete-account, [data-testid=...], button:nth-of-type(3)); the element says what it is
+      // ("Delete account"). The zone must be the same whichever way the element is addressed.
+      let target: ClickResult["target"];
+      if (element) {
+        const gate = await this.gateElement("click", selector, element, zone, options.force);
+        if (gate.refusal) return gate.refusal;
+        zone = gate.zone;
+        target = gate.target;
+      }
 
       if (!element) {
         const result: ClickResult = {
@@ -2493,6 +2506,8 @@ For more help: https://playwright.dev/docs/browsers
         success: true,
         screenshot: await this.screenshot(),
         message: `Clicked: ${selector}`,
+        zone,
+        target,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -2517,6 +2532,11 @@ For more help: https://playwright.dev/docs/browsers
           // Find the last filled input and press Enter on it
           const lastInput = await this.findElement(this.lastFilledInputSelector);
           if (lastInput) {
+            // Enter submits the input's form: gate on the form's action and default button, so a hidden
+            // "Pay now" cannot be reached by pressing Enter in the card-number field.
+            const gate = await this.gateElement("click", `${selector} (Enter-fallback)`, lastInput, zone, options.force, { implicitSubmit: true });
+            if (gate.refusal) return gate.refusal;
+            zone = gate.zone;
             await lastInput.focus();
             await page.keyboard.press('Enter');
 
@@ -2529,6 +2549,7 @@ For more help: https://playwright.dev/docs/browsers
               success: true,
               screenshot: await this.screenshot(),
               message: `Submitted via Enter key (button "${selector}" was not visible)`,
+              zone,
             };
           }
         } catch (enterError) {
@@ -3213,6 +3234,19 @@ For more help: https://playwright.dev/docs/browsers
   ): Promise<ClickResult> {
     const page = await this.getPage();
 
+    // Same gate as click(): the string first, then the element it resolves to. hoverClick is also the
+    // daemon's click path (daemon.ts), so without this every daemon-mode click skipped the red zone.
+    const stringZone = this.classifyAction("click", selector);
+    if (stringZone === "red" && !options.force) {
+      this.audit("hoverClick", selector, "red", "blocked");
+      return {
+        success: false,
+        screenshot: await this.screenshot(),
+        message: `Red zone action requires --force: hoverClick "${selector}"`,
+        zone: stringZone,
+      };
+    }
+
     try {
       // STEP 1: Detect the likely parent menu from selector text
       // e.g., "International Admissions" → parent is likely "Admissions"
@@ -3276,13 +3310,17 @@ For more help: https://playwright.dev/docs/browsers
               await page.waitForTimeout(400);
               const found = await this.findElement(selector);
               if (found) {
+                const gate = await this.gateElement("hoverClick", selector, found, stringZone, options.force);
+                if (gate.refusal) return gate.refusal;
                 await found.click();
                 await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-                this.audit("hoverClick", selector, "yellow", "success");
+                this.audit("hoverClick", selector, gate.zone, "success");
                 return {
                   success: true,
                   screenshot: await this.screenshot(),
                   message: `Hover-clicked (nav scan): ${selector}`,
+                  zone: gate.zone,
+                  target: gate.target,
                 };
               }
             } catch {
@@ -3299,15 +3337,19 @@ For more help: https://playwright.dev/docs/browsers
       }
 
       // STEP 4: Click the element (parent should still be hovered)
+      const gate = await this.gateElement("hoverClick", selector, element, stringZone, options.force);
+      if (gate.refusal) return gate.refusal;
       await element.click();
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
 
-      this.audit("hoverClick", selector, "yellow", "success");
+      this.audit("hoverClick", selector, gate.zone, "success");
 
       return {
         success: true,
         screenshot: await this.screenshot(),
         message: `Hover-clicked: ${selector}`,
+        zone: gate.zone,
+        target: gate.target,
       };
     } catch (error) {
       this.audit("hoverClick", selector, "yellow", "failure");
@@ -3684,6 +3726,13 @@ For more help: https://playwright.dev/docs/browsers
       };
     }
 
+    // A red-zone refusal is a request for --force, not a selector that needs healing. Retrying
+    // with a shorter alternative ("Delete" for "Delete account") used to route around the gate.
+    const refusedRed = (r: ClickResult) => !r.success && r.zone === "red" && !options.force;
+    if (refusedRed(result)) {
+      return { success: false, attempts, message: result.message, screenshot: result.screenshot, zone: "red" };
+    }
+
     // Try to find alternative selectors
     const alternatives = await this.findAlternativeSelectors(selector);
 
@@ -3701,6 +3750,10 @@ For more help: https://playwright.dev/docs/browsers
         alternativeUsed: alt.reason,
         screenshot: result.screenshot,
       });
+
+      if (refusedRed(result)) {
+        return { success: false, attempts, message: result.message, screenshot: result.screenshot, zone: "red" };
+      }
 
       if (result.success) {
         // v11.8.0: Gate success on confidence threshold
@@ -5920,11 +5973,14 @@ For more help: https://playwright.dev/docs/browsers
    * - YELLOW: Interactive actions (click, fill) - log and proceed
    * - GREEN: Read-only actions - auto-execute
    */
-  private classifyAction(action: string, target: string): ActionZone {
+  private classifyAction(action: string, target: string, options: { ignoreBlack?: boolean } = {}): ActionZone {
     const lowerTarget = target.toLowerCase();
 
     // =========================================================================
     // BLACK ZONE - Security violations, never execute
+    // ignoreBlack: the black patterns describe an INSTRUCTION ("bypass the login"), not a control on a
+    // page. classifyElement skips them so page text like "SQL injection course" is not a violation and a
+    // red label that happens to sit next to a black word still classifies red.
     // =========================================================================
     const blackPatterns = [
       /bypass/i,
@@ -5935,7 +5991,7 @@ For more help: https://playwright.dev/docs/browsers
       /xss/i,
     ];
 
-    if (blackPatterns.some(p => p.test(lowerTarget))) {
+    if (!options.ignoreBlack && blackPatterns.some(p => p.test(lowerTarget))) {
       return "black";
     }
 
@@ -6039,6 +6095,177 @@ For more help: https://playwright.dev/docs/browsers
     // This ensures we don't over-block; clicks are logged but proceed
     // =========================================================================
     return "yellow";
+  }
+
+  /**
+   * Classify a RESOLVED element by what it is, with the same patterns classifyAction applies to a
+   * string. Reads the control a click would act on (the element, or its nearest interactive ancestor)
+   * and runs classifyAction over every description of it: aria-label, resolved aria-labelledby, a
+   * button's value, title, visible text, image alt, and the action of the form it submits. The most
+   * severe zone wins. A field's own content (typed text, a select's option list) is not a description
+   * of the control: clicking into a search box that holds "checkout" is not a checkout.
+   *
+   * implicitSubmit: the element is a field and the caller is about to press Enter in it, which submits
+   * its form. The form's action and its default submit button are then the descriptions that matter.
+   *
+   * Returns null when the element cannot be read (detached, frame gone); the caller keeps the string zone.
+   */
+  private async classifyElement(
+    element: Locator,
+    options: { implicitSubmit?: boolean } = {},
+  ): Promise<{ zone: ActionZone; tag: string; label: string; descriptors: string[] } | null> {
+    let info: { tag: string; label: string; descriptors: string[] } | null = null;
+    try {
+      info = await element.evaluate((node: Element, implicitSubmit: boolean) => {
+        const norm = (s: string | null | undefined, max: number) => (s || "").replace(/\s+/g, " ").trim().slice(0, max);
+        const INTERACTIVE = "a,button,input,select,textarea,summary,label,[role='button'],[role='link'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='tab'],[role='option'],[role='checkbox'],[role='radio'],[role='switch'],[onclick]";
+        const BUTTON_INPUT = /^(submit|button|reset|image)$/i;
+        // Text-entry and choice fields: their content is data, not a label.
+        const isField = (el: Element) =>
+          el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
+          (el.tagName === "INPUT" && !BUTTON_INPUT.test((el as HTMLInputElement).type || "") &&
+            !/^(checkbox|radio)$/i.test((el as HTMLInputElement).type || ""));
+        const control = (node.closest(INTERACTIVE) as Element | null) || node;
+        const nodes = control === node ? [node] : [node, control];
+        const root = node.getRootNode() as Document | ShadowRoot;
+        const byId = (id: string): Element | null => (root as Document).getElementById ? (root as Document).getElementById(id) : document.getElementById(id);
+        const labelledBy = (el: Element) => (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean)
+          .map(byId).filter(Boolean).map(n => (n as HTMLElement).innerText || n!.textContent || "").join(" ");
+        const descriptors: string[] = [];
+        const push = (s: string | null | undefined, max = 200) => { const v = norm(s, max); if (v && !descriptors.includes(v)) descriptors.push(v); };
+        // A form's action names the consequence ("/checkout", "/account/close"). Paths name the object
+        // first; the patterns read verb first ("close account"), so push both orders.
+        const pushAction = (form: HTMLFormElement) => {
+          let action = form.getAttribute("action") || "";
+          try { action = decodeURIComponent(action); } catch { /* keep raw */ }
+          const words = norm(action.replace(/^[a-z]+:\/\/[^/]+/i, "").replace(/[/\-_.?=&+%#]+/g, " "), 120);
+          push(words);
+          push(words.split(" ").reverse().join(" "));
+        };
+        const pushControl = (el: Element) => {
+          push(el.getAttribute("aria-label"));
+          push(labelledBy(el));
+          if (el.tagName === "BUTTON" || (el.tagName === "INPUT" && BUTTON_INPUT.test((el as HTMLInputElement).type || ""))) {
+            push((el as HTMLInputElement).value);
+          }
+          push(el.getAttribute("title"));
+        };
+        let label = "";
+        let submitsVia = "";
+        const nameOf = (el: Element): string => {
+          const lb = norm(labelledBy(el), 200);
+          if (lb) return lb;
+          const al = el.getAttribute("aria-label");
+          if (al && al.trim()) return norm(al, 200);
+          if (el.tagName === "INPUT" && (el as HTMLInputElement).value && BUTTON_INPUT.test((el as HTMLInputElement).type || "")) return norm((el as HTMLInputElement).value, 200);
+          if (isField(el)) return norm(el.getAttribute("placeholder") || el.getAttribute("name"), 200);
+          const t = norm((el as HTMLElement).innerText, 200);
+          if (t) return t;
+          const img = el.querySelector("img[alt]") as HTMLImageElement | null;
+          if (img && img.alt.trim()) return norm(img.alt, 200);
+          return norm(el.getAttribute("title"), 200);
+        };
+        for (const el of nodes) {
+          const isControl = el === control && !!node.closest(INTERACTIVE);
+          pushControl(el);
+          if (!isField(el)) {
+            // Visible text: a control's whole label, or a short leaf's text. A container's text is not a label.
+            const text = norm((el as HTMLElement).innerText, 300);
+            if (isControl || text.length <= 120) push(text, 300);
+            const img = el.querySelector("img[alt]") as HTMLImageElement | null;
+            if (img) push(img.alt);
+          }
+          const form = (el as HTMLButtonElement).form as HTMLFormElement | null | undefined;
+          const typeAttr = (el.getAttribute("type") || "").toLowerCase();
+          const submits = form && ((el.tagName === "BUTTON" && (typeAttr === "" || typeAttr === "submit")) || (el.tagName === "INPUT" && (typeAttr === "submit" || typeAttr === "image")));
+          if (submits) pushAction(form);
+          // Enter in a field submits its form through the form's default button.
+          if (implicitSubmit && form && isField(el) && el.tagName !== "TEXTAREA") {
+            pushAction(form);
+            const def = Array.from(form.elements).find(e =>
+              (e.tagName === "BUTTON" && /^(submit|)$/i.test(e.getAttribute("type") || "")) ||
+              (e.tagName === "INPUT" && /^(submit|image)$/i.test((e as HTMLInputElement).type || "")));
+            if (def) {
+              pushControl(def);
+              push((def as HTMLElement).innerText);
+              submitsVia = nameOf(def);
+            }
+          }
+          if (!label) label = nameOf(el);
+        }
+        if (submitsVia) label = `${label} (Enter submits "${submitsVia}")`;
+        return { tag: control.tagName.toLowerCase(), label, descriptors };
+      }, !!options.implicitSubmit, { timeout: 3000 });
+    } catch {
+      return null;
+    }
+    if (!info) return null;
+    let zone: ActionZone = "yellow";
+    for (const d of info.descriptors) zone = this.maxZone(zone, this.classifyAction("click", d, { ignoreBlack: true }));
+    return { zone, tag: info.tag, label: info.label, descriptors: info.descriptors };
+  }
+
+  /**
+   * Gate a resolved element before it is activated. Returns a refusal when the element is red and the
+   * caller did not pass force; otherwise the effective zone (the more severe of the string zone and the
+   * element zone) and the element's tag and label for the result and the audit trail.
+   */
+  private async gateElement(
+    verb: string,
+    selector: string,
+    element: Locator,
+    stringZone: ActionZone,
+    force: boolean | undefined,
+    options: { implicitSubmit?: boolean } = {},
+  ): Promise<{ zone: ActionZone; target?: ClickResult["target"]; refusal?: ClickResult }> {
+    const el = await this.classifyElement(element, options);
+    if (!el) return { zone: stringZone };
+    const target = { tag: el.tag, label: el.label };
+    const zone = this.maxZone(stringZone, el.zone);
+    if (el.zone === "red" && !force) {
+      this.audit(verb, selector, "red", "blocked");
+      return {
+        zone,
+        target,
+        refusal: {
+          success: false,
+          screenshot: await this.screenshot(),
+          message: `Red zone action requires --force: ${verb} "${selector}" resolves to <${el.tag}> "${el.label}"`,
+          zone,
+          target,
+        },
+      };
+    }
+    return { zone, target };
+  }
+
+  /**
+   * Zone of pressing `key` on whatever has focus. Enter activates the focused control or submits the
+   * form of the focused field; Space activates a focused button-like control. Any other key, or nothing
+   * focused, returns null (no activation to gate). Used by the press_key MCP tool.
+   */
+  async classifyKeyActivation(key: string): Promise<{ zone: ActionZone; tag: string; label: string } | null> {
+    const last = (key.split("+").pop() || "").trim();
+    const isEnter = /^(enter|numpadenter)$/i.test(last);
+    const isSpace = last === "" ? key.endsWith(" ") : /^(space|spacebar)$/i.test(last);
+    if (!isEnter && !isSpace) return null;
+    const page = await this.getPage();
+    const focused = page.locator("*:focus").first();
+    if ((await focused.count().catch(() => 0)) === 0) return null;
+    if (isSpace) {
+      const buttonLike = await focused.evaluate((el: Element) =>
+        el.matches("button,summary,input[type=submit],input[type=button],input[type=reset],input[type=image],input[type=checkbox],input[type=radio],[role=button],[role=checkbox],[role=switch],[role=menuitem],[role=tab],[role=option]"),
+      ).catch(() => false);
+      if (!buttonLike) return null;
+    }
+    const el = await this.classifyElement(focused, { implicitSubmit: isEnter });
+    return el ? { zone: el.zone, tag: el.tag, label: el.label } : null;
+  }
+
+  /** The more severe of two zones (green < yellow < red < black). */
+  private maxZone(a: ActionZone, b: ActionZone): ActionZone {
+    const rank: Record<ActionZone, number> = { green: 0, yellow: 1, red: 2, black: 3 };
+    return rank[b] > rank[a] ? b : a;
   }
 
   /**

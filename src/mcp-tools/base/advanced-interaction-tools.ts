@@ -91,18 +91,31 @@ export function registerAdvancedInteractionTools(
   // ── press_key ──
   server.registerTool("press_key", {
     title: "Press Key",
-    description: "Press a keyboard key (Enter, Tab, Escape, ArrowDown, Backspace, etc). Supports modifier combos: 'Control+a', 'Shift+Enter', 'Meta+c'. Full list: https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values",
+    description: "Press a keyboard key (Enter, Tab, Escape, ArrowDown, Backspace, etc). Supports modifier combos: 'Control+a', 'Shift+Enter', 'Meta+c'. Full list: https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values. Enter or Space on a focused red-zone control (delete account, pay, checkout), or Enter in a field whose form submits one, is refused unless force is true - the same gate as click.",
     inputSchema: {
       key: z.string().describe("Key to press (e.g., 'Enter', 'Tab', 'Escape', 'ArrowDown', 'Control+a', 'Meta+c')"),
+      force: z.boolean().optional().describe("Press even when Enter/Space would activate a red-zone control"),
       _browserToken: z.string().optional().describe("Browser session token"),
     },
     annotations: { title: "Press Key", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async ({ key, _browserToken }) => {
+  }, async ({ key, force, _browserToken }) => {
     let b, token;
     try {
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
     const page = await b.getPage();
+    // Enter on a focused control is a click; gate it the way click() is gated.
+    const activation = await b.classifyKeyActivation(key);
+    if (activation?.zone === "red" && !force) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({
+        success: false,
+        pressed: null,
+        zone: "red",
+        target: { tag: activation.tag, label: activation.label },
+        message: `Red zone action requires force: ${key} would activate <${activation.tag}> "${activation.label}"`,
+        _browserToken: token,
+      }, null, 2) }] };
+    }
     await page.keyboard.press(key);
     return { content: [{ type: "text" as const, text: JSON.stringify({ pressed: key, _browserToken: token }, null, 2) }] };
   } catch (err) {

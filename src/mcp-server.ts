@@ -763,6 +763,8 @@ async function registerCBrowserTools(): Promise<McpServer> {
           message: result.message,
           screenshot: result.screenshot,
         };
+        if (result.zone) response.zone = result.zone;
+        if (result.target) response.target = result.target;
         if (verbose && !result.success) {
           if (result.availableElements) response.availableElements = result.availableElements;
           if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
@@ -800,6 +802,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
               confidence: result.confidence,
               healed: result.healed,
               healReason: result.healReason,
+              zone: result.zone,
             }, null, 2),
           },
         ],

@@ -48,6 +48,9 @@ export function registerInteractionTools(
         message: result.message,
         screenshot: result.screenshot,
       };
+      // The zone the click was judged in and what the selector resolved to, so a refused red names its target.
+      if (result.zone) response.zone = result.zone;
+      if (result.target) response.target = result.target;
       if (verbose && !result.success) {
         if (result.availableElements) response.availableElements = result.availableElements;
         if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
@@ -63,7 +66,8 @@ export function registerInteractionTools(
         const { SiteModelManager } = await import("../../site-model/manager.js");
         const siteModel = SiteModelManager.getInstance();
         siteModel.recordElementResult(domain, pageUrl, selector, result.success);
-        if (!result.success) {
+        // A red-zone refusal found the element; it is not a not-found failure.
+        if (!result.success && result.zone !== "red") {
           siteModel.recordFailure(domain, pageUrl, selector, "element_not_found", [result.message || ""]);
         }
       } catch {}
@@ -118,6 +122,7 @@ export function registerInteractionTools(
               confidence: result.confidence,
               healed: result.healed,
               healReason: result.healReason,
+              zone: result.zone,
               ...(token ? { _browserToken: token } : {}),
             }, null, 2),
           },

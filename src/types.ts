@@ -2439,6 +2439,14 @@ export interface ClickResult {
   aiSuggestion?: string;
   /** Debug screenshot with highlighted elements (verbose mode) */
   debugScreenshot?: string;
+  /**
+   * The zone the click was judged in. Red is decided from the resolved element (its accessible
+   * name, value, title, form action), not only from the selector string, so the same element gets the
+   * same zone however it is addressed. Present on refusals and on successful clicks.
+   */
+  zone?: ActionZone;
+  /** What the selector resolved to, when it resolved: tag and accessible name. */
+  target?: { tag: string; label: string };
 }
 
 /** Selector strategy type used for element finding */
@@ -3678,6 +3686,8 @@ export interface SmartRetryResult {
   healed?: boolean;
   /** v11.8.0: The reason the alternative was chosen (e.g., "Text match: Submit"). */
   healReason?: string;
+  /** Set when the click was refused by the red-zone gate. smartClick does not retry a refused red. */
+  zone?: ActionZone;
 }
 
 export interface AssertionResult {
