@@ -2473,7 +2473,7 @@ export interface FindByIntentResult {
   selectorType?: SelectorStrategyType;
   /** Accessibility score 0-1 based on ARIA/semantic attributes */
   accessibilityScore?: number;
-  /** Alternative selectors for the same element, ordered by priority */
+  /** Other visible elements the winning rung matched, each with its own unique selector (verbose miss: the first visible controls) */
   alternatives?: Array<{
     selector: string;
     text: string;
@@ -2485,6 +2485,16 @@ export interface FindByIntentResult {
   aiSuggestion?: string;
   /** Debug screenshot (verbose mode) */
   debugScreenshot?: string;
+  /** The element's accessible name as the locator engine computed it */
+  accessibleName?: string;
+  /** Whether a person can see the element at the current viewport */
+  visible?: boolean;
+  /** Most severe classifyAction zone over every name the element carries (green / yellow / red / black) */
+  zone?: string;
+  /** The cascade rung that produced the match (exact, exact-synonym, contains, all-words, stem, superset, ...) */
+  matchedBy?: string;
+  /** How many visible elements that rung matched (1 = unique) */
+  candidates?: number;
 }
 
 export interface ExtractResult {

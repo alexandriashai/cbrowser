@@ -66,6 +66,7 @@ import {
   runChaosTest,
   comparePersonas,
   findElementByIntent,
+  FIND_ELEMENT_BY_INTENT_DESCRIPTION,
   runAgentReadyAudit,
   runCompetitiveBenchmark,
   runEmpathyAudit,
@@ -1844,10 +1845,10 @@ async function registerCBrowserTools(): Promise<McpServer> {
 
   server.tool(
     "find_element_by_intent",
-    "AI-powered semantic element finding with ARIA-first selector strategy. Prioritizes aria-label > role > semantic HTML > ID > name > class. Returns selectorType, accessibilityScore (0-1), and alternatives. Use verbose=true for enriched failure responses.",
+    FIND_ELEMENT_BY_INTENT_DESCRIPTION,
     {
-      intent: z.string().describe("Natural language description like 'the cheapest product' or 'login form'"),
-      verbose: z.boolean().optional().describe("Include alternative matches with confidence scores and AI suggestions"),
+      intent: z.string().describe("Natural language description like 'sign up button in the header', 'email field', 'the cheapest product', 'login form', 'footer navigation'"),
+      verbose: z.boolean().optional().describe("On a miss, list the first visible links/buttons/fields with unique selectors so you can rephrase; on a hit, unchanged"),
     },
     async ({ intent, verbose }) => {
       const b = await getBrowser();

@@ -157,6 +157,21 @@ export interface FindByIntentOptions {
   debugDir?: string;
 }
 
+/** The MCP tool description, shared by both server registrations so they cannot drift. */
+export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
+  "Find ONE element from a natural-language intent by walking a cascade of accessible-name locators "
+  + "(exact name > synonym > label/placeholder/title/alt > contains > all words > visible text > attributes > stems > sub-phrase), "
+  + "scoped to a landmark when the intent says so ('in the header', 'in the navigation', 'in the footer'). "
+  + "Returns a CSS selector verified to match exactly that element, plus confidence (2 decimals; >= 0.9 exact and unique, 0.7-0.85 a strong fuzzy match, "
+  + "<= 0.6 a guess), accessibleName, visible, zone (the most severe green/yellow/red/black classification over every name the element carries: "
+  + "CHECK zone AND visible BEFORE clicking - a data-testid selector carries no words, so the click gate cannot see them), "
+  + "matchedBy (the rung), candidates (how many visible elements that rung matched), and alternatives (the other matches, each with its own unique selector). "
+  + "It returns null / found:false RATHER THAN GUESSING: when nothing qualifies, when the only exact match is hidden at this viewport, "
+  + "when 'X in the navigation' finds X only in a footer or the header nav is collapsed at this width, and for row-scoped intents on "
+  + "table-layout pages with no landmarks ('upvote button for the first story' - say 'first upvote link' instead). "
+  + "Ordinals count what a person can see ('third delete button'). verbose=true on a miss lists the first visible links, buttons and fields "
+  + "with unique selectors so you can rephrase.";
+
 
 import type { SelectorStrategyType } from "../types.js";
 import type { Locator, Page } from "playwright";

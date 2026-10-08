@@ -8,7 +8,7 @@
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseUnboundSession } from "../session-policy.js";
-import { findElementByIntent, runAIReadinessBenchmark } from "../../analysis/index.js";
+import { findElementByIntent, runAIReadinessBenchmark, FIND_ELEMENT_BY_INTENT_DESCRIPTION } from "../../analysis/index.js";
 
 /**
  * Register analysis tools (4 tools: analyze_page, generate_tests, find_element_by_intent, ai_benchmark)
@@ -150,10 +150,10 @@ export function registerAnalysisTools(
 
   server.registerTool("find_element_by_intent", {
     title: "Find Element by Intent",
-    description: "AI-powered semantic element finding with ARIA-first selector strategy. Prioritizes aria-label > role > semantic HTML > ID > name > class. Returns selectorType, accessibilityScore (0-1), and alternatives. Use verbose=true for enriched failure responses.",
+    description: FIND_ELEMENT_BY_INTENT_DESCRIPTION,
     inputSchema: {
-      intent: z.string().describe("Natural language description like 'the cheapest product' or 'login form'"),
-      verbose: z.boolean().optional().describe("Include alternative matches with confidence scores and AI suggestions"),
+      intent: z.string().describe("Natural language description like 'sign up button in the header', 'email field', 'the cheapest product', 'login form', 'footer navigation'"),
+      verbose: z.boolean().optional().describe("On a miss, list the first visible links/buttons/fields with unique selectors so you can rephrase; on a hit, unchanged"),
       // Without this, the tool searched a blank browser on the HTTP transport and
       // returned `confidence: 0, "No match found"` with empty alternatives — a
       // plausible "nothing here" that is indistinguishable from a real miss.
