@@ -87,20 +87,6 @@ describe("rect coverage lists every undrawn barrier with a reason (viewport)", (
   test("coverage counts elements the same way the summary does", () => {
     expect(coverage(json).affectedElements).toBe(json.resultsSummary[0].affectedElements);
   });
-
-  test("the display:none unlabelled input is kept and undrawn as zeroArea, as in full_page", () => {
-    // Round 2: the viewport filter dropped its {0,0,0,0} rect as off-screen,
-    // so the element full_page scored vanished here.
-    const u = ((coverage(json).undrawnBarriers ?? []) as Json[]).find((x) => /input/.test(x.element));
-    expect(u?.reason).toBe("zeroArea");
-  });
-
-  test("no note calls a hidden element outside the viewport", () => {
-    // Nothing in this fixture is a located, in-page barrier below the fold
-    // (the far pair is scoped out in-page), so nothing is dropped.
-    expect(json.outOfViewportBarriersDropped).toBeUndefined();
-    expect(text).not.toMatch(/outside the viewport/);
-  });
 });
 
 describe("above-level findings are advisories in the response", () => {

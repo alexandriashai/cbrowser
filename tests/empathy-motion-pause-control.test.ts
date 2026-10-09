@@ -258,9 +258,12 @@ describe("class-only motion (the JavaScript-timer fallback) is ONE page-level ba
   // No running animation, only a class name. One barrier per group turned four
   // bare .animate-pulse divs into four 2.2.2 barriers where main gave one, and
   // no fixture exercised the fallback at all: deleting it failed no test.
-  const bare = (ids: string[]) => ids.map((id) => `<div class="animate-pulse" id="${id}"></div>`).join("");
+  // Timer-driven widgets: a slider/carousel class and no running animation.
+  // (An `animate*` class with nothing running is not moving at all -- pinned
+  // below.)
+  const bare = (ids: string[]) => ids.map((id) => `<div class="slider" id="${id}" style="height:40px;margin:4px;background:#ddd"></div>`).join("");
 
-  test("four bare .animate-pulse divs: one barrier listing all four", async () => {
+  test("four bare timer-driven .slider divs: one barrier listing all four", async () => {
     const a = await audit(doc(`<main>${bare(["p1", "p2", "p3", "p4"])}</main>`));
     expect(a.barriers.length).toBe(1);
     const b = a.barriers[0];
@@ -268,6 +271,14 @@ describe("class-only motion (the JavaScript-timer fallback) is ONE page-level ba
     expect(b.affectedElementCount).toBe(4);
     expect((b.members ?? []).map((m) => a.idOf[m])).toEqual(["p1", "p2", "p3", "p4"]);
     expect(a.violations).toContain("2.2.2");
+  }, 60_000);
+
+  test("an animate* class with no running animation is not moving content", async () => {
+    // cbrowser.ai: 50 finished tailwindcss-animate entrance classes turned a
+    // one-element finding into "affects 53 elements".
+    const a = await audit(doc(`<main><div class="animate-in fade-in" id="a1">Hi</div><div class="animate-pulse" id="a2"></div></main>`));
+    expect(a.barriers).toEqual([]);
+    expect(a.violations).not.toContain("2.2.2");
   }, 60_000);
 
   test("animation-backed groups stay individual beside the class-only aggregate", async () => {

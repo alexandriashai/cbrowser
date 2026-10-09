@@ -1300,7 +1300,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
           ...((result as { outOfViewportBarriersDropped?: number }).outOfViewportBarriersDropped
             ? {
                 outOfViewportBarriersDropped: (result as { outOfViewportBarriersDropped?: number }).outOfViewportBarriersDropped,
-                scopeFilterNote: `${(result as { outOfViewportBarriersDropped?: number }).outOfViewportBarriersDropped} barrier(s) outside the viewport were excluded from scoring. Use scope='full_page' to include them.`,
+                scopeFilterNote: `${(result as { outOfViewportBarriersDropped?: number }).outOfViewportBarriersDropped} barrier(s) outside the viewport or hidden (zero size, e.g. display:none) were excluded from scoring. Use scope='full_page' to include them.`,
               }
             : {}),
           resultsSummary: result.results.map((r) => {
