@@ -111,14 +111,20 @@ describe("pageAgentReadyFindings pages like hunt_bugs", () => {
     expect(r.omittedNote).toBeUndefined();
   });
 
-  test("recommendations are paged too, and their cut is stated", () => {
+  test("recommendations are cut by limit, the cut is stated, and offset never skips them", () => {
     const r = pageAgentReadyFindings({ issues, recommendations }, { limit: 5 });
     expect((r.topRecommendations as AgentReadyRecommendation[]).map((x) => x.priority)).toEqual([1, 2, 3, 4, 5]);
     expect(r.recommendationsFound).toBe(8);
     expect(r.recommendationsOmitted).toBe(3);
-    expect(String(r.recommendationsNote)).toContain("offset=5");
+    expect(String(r.recommendationsNote)).toContain("Raise limit");
+    // page two of the ISSUES must not drop recommendations 1-5
     const p2 = pageAgentReadyFindings({ issues, recommendations }, { limit: 5, offset: 5 });
-    expect((p2.topRecommendations as AgentReadyRecommendation[]).map((x) => x.priority)).toEqual([6, 7, 8]);
+    expect((p2.topRecommendations as AgentReadyRecommendation[]).map((x) => x.priority)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  test("the pre-19.2.3 issuesNote field is still present when issues are cut", () => {
+    const r = pageAgentReadyFindings({ issues, recommendations });
+    expect(String(r.issuesNote)).toBe(String(r.omittedNote));
   });
 });
 

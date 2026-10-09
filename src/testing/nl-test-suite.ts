@@ -450,7 +450,9 @@ function generateRecommendations(testResults: NLTestCaseResult[]): string[] {
 
   for (const step of failedSteps) {
     if (step.error?.partialMatches && step.error.partialMatches.length > 0) {
-      recs.push(`Step "${step.instruction}" failed on exact match but found similar text. Consider using fuzzy matching.`);
+      // No quotes around the instruction: it usually carries its own ("verify
+      // page contains "X"") and wrapping it produced doubled quotes. (B13)
+      recs.push(`Step failed on exact match but found similar text: ${step.instruction}. Consider using fuzzy matching.`);
     }
     if (step.action === "click" && step.error?.reason?.includes("Failed to click")) {
       recs.push(`Click "${step.parsed?.target}" failed. Try using a more specific selector or check if an overlay is blocking.`);

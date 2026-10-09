@@ -1919,9 +1919,11 @@ export function pageAgentReadyFindings(
   }, {});
   const severityLine = Object.entries(bySeverity).map(([k, v]) => `${k} ${v}`).join(", ");
 
+  // Recommendations are NOT walked by `offset`: offset pages the issue list, and
+  // sharing it made page two of the issues silently skip recommendations 1-5.
   const recs = [...result.recommendations].sort((a, b) => a.priority - b.priority);
-  const recsShown = recs.slice(start, start + limit);
-  const recsOmitted = Math.max(0, recs.length - (start + recsShown.length));
+  const recsShown = recs.slice(0, limit);
+  const recsOmitted = Math.max(0, recs.length - recsShown.length);
 
   return {
     topIssues: shown,
@@ -1932,6 +1934,9 @@ export function pageAgentReadyFindings(
       ? {
           issuesOmitted: omitted,
           omittedNote: `Showing ${shown.length} of ${sorted.length} issues, worst first. Re-run with offset=${start + shown.length} for the next page, or raise limit. Severity counts across ALL findings: ${severityLine}.`,
+          // Pre-19.2.3 field name, kept so existing clients that read it still
+          // see the cut. Same text as omittedNote.
+          issuesNote: `Showing ${shown.length} of ${sorted.length} issues, worst first. Re-run with offset=${start + shown.length} for the next page, or raise limit. Severity counts across ALL findings: ${severityLine}.`,
         }
       : {}),
     bySeverity,
@@ -1940,7 +1945,7 @@ export function pageAgentReadyFindings(
     ...(recsOmitted > 0
       ? {
           recommendationsOmitted: recsOmitted,
-          recommendationsNote: `Showing recommendations ${start + 1}-${start + recsShown.length} of ${recs.length}, in priority order. Re-run with offset=${start + recsShown.length} for the next page, or raise limit.`,
+          recommendationsNote: `Showing the first ${recsShown.length} of ${recs.length} recommendations, in priority order. Raise limit to see more (offset pages the issues only).`,
         }
       : {}),
   };

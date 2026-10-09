@@ -102,6 +102,11 @@ verify contains "pERSONA tESTING"
     // The failure still points at the near-miss, so the reader sees why.
     const step = byName["wrong case, page"].stepResults.find((s) => s.action === "assert")!;
     expect(step.error?.partialMatches?.join(" ")).toContain("Persona Testing");
+
+    // B13 (skeptic finding): the partial-match recommendation wrapped the whole
+    // instruction in quotes, doubling the instruction's own.
+    expect(r.recommendations.length).toBeGreaterThan(0);
+    for (const rec of r.recommendations) expect(rec).not.toContain('""');
   }, 120_000);
 
   test("fuzzyMatch on: the wrong-case content checks pass", async () => {

@@ -424,7 +424,7 @@ export async function repairTest(
               stepPassed = true;
               break;
             case "assert":
-              const assertResult = await browser.assert(step.instruction);
+              const assertResult = await browser.assert(step.instruction, { caseSensitive: true });
               stepPassed = assertResult.passed;
               if (!stepPassed) lastError = assertResult.message;
               break;
@@ -486,7 +486,7 @@ export async function repairTest(
 
               // Strategy 3: If it looks like assertion, try assert
               if (lowerInstruction.includes("verify") || lowerInstruction.includes("assert") || lowerInstruction.includes("check")) {
-                const assertResult = await browser.assert(step.instruction);
+                const assertResult = await browser.assert(step.instruction, { caseSensitive: true });
                 stepPassed = assertResult.passed;
                 if (!stepPassed) lastError = assertResult.message;
                 break;
@@ -584,7 +584,7 @@ export async function repairTest(
                 await verifyBrowser.fill(step.target || "", step.value || "");
                 break;
               case "assert":
-                const assertResult = await verifyBrowser.assert(step.instruction);
+                const assertResult = await verifyBrowser.assert(step.instruction, { caseSensitive: true });
                 if (!assertResult.passed) allPassed = false;
                 break;
               case "wait":

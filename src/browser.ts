@@ -4521,7 +4521,9 @@ For more help: https://playwright.dev/docs/browsers
         // Form errors (common patterns)
         const formErrors: string[] = [];
         document.querySelectorAll('[role="alert"], .error-message, [aria-invalid="true"], .invalid-feedback, .form-error').forEach(el => {
-          const text = (el as HTMLElement).innerText?.trim().substring(0, 120);
+          // textContent fallback: innerText is "" inside content-visibility:auto
+          // sections, which hid below-fold alerts the same way it hid clickables.
+          const text = ((el as HTMLElement).innerText?.trim() || (el.textContent ?? "").replace(/\s+/g, " ").trim()).substring(0, 120);
           if (text && text.length > 3) formErrors.push(text);
         });
 
