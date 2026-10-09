@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.2.0](https://github.com/alexandriashai/cbrowser/compare/v19.1.9...v19.2.0) (2026-10-09)
+
+### Added
+
+* **intent:** port the locator cascade redesign of findElementByIntent (BUG-01) ([182db12](https://github.com/alexandriashai/cbrowser/commit/182db12001e13df47b603d298aa5fab7bc7b3993))
+* **mcp:** describe find_element_by_intent as the cascade it is and type its new fields ([0b9cf20](https://github.com/alexandriashai/cbrowser/commit/0b9cf2091d80ee9d0511892a384af18de098d6dd))
+
+### Fixed
+
+* **intent:** a hidden exact match of another kind does not block a menu toggle (D2 round 3b) ([29f8588](https://github.com/alexandriashai/cbrowser/commit/29f8588d71c8b33d29a316fc036e12e893e3fb81))
+* **intent:** close the cross-vendor audit findings on the cascade (D2 round 2) ([2671374](https://github.com/alexandriashai/cbrowser/commit/2671374fb1b7cf553fffedcd78fa7f487855b0ac))
+* **intent:** close the final pre-ship audit of the cascade (D2 round 4) ([89a1518](https://github.com/alexandriashai/cbrowser/commit/89a1518fa89558bed2e8e54ddca097d8982e150c))
+* **intent:** close the re-audit of round 2 (D2 round 3) ([0964c14](https://github.com/alexandriashai/cbrowser/commit/0964c1477d7246c9b3a1eac04e57ec7b57a00390)), closes [#sh](https://github.com/alexandriashai/cbrowser/issues/sh)
+* **intent:** menu toggles, brand logos and collapsed navigations from unseen sites ([d23f79f](https://github.com/alexandriashai/cbrowser/commit/d23f79fc3d1233fccc4be23a64505aa968771e98))
+* **intent:** must-fixes from the cascade review, each with its own fixture test ([e7c5edb](https://github.com/alexandriashai/cbrowser/commit/e7c5edb39782fc007cfba85db89c03846cdb53ba))
+* **intent:** report the click gate's own verdict as find_element_by_intent's zone ([058194e](https://github.com/alexandriashai/cbrowser/commit/058194e9b2c0af5991a2ea0c5b60d843ae1a29f5))
+
+### Changed
+
+* **intent:** behaviour-preserving cleanup of the locator cascade ([30ffc05](https://github.com/alexandriashai/cbrowser/commit/30ffc0573fc7b15c25ba8c3798c2150116fbb5b5))
+* **intent:** one prefilter round trip before the rungs ([b736c55](https://github.com/alexandriashai/cbrowser/commit/b736c55090c8d0031e80936a95bd65883b9eb31a))
+
 ## [19.1.9](https://github.com/alexandriashai/cbrowser/compare/v19.1.8...v19.1.9) (2026-10-09)
 
 ### Fixed
