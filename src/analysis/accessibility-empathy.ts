@@ -37,6 +37,7 @@ import { type Page } from "playwright";
 import { weightKeyFor, barrierWeightFor, weightedSeverity } from "../visual/perceptual-transport.js";
 import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
+import { navigationError as toNavigationError } from "../navigation-errors.js";
 import type {
   EmpathyAuditResult,
   EmpathyAuditOptions,
@@ -1651,8 +1652,10 @@ async function simulateAccessibilityJourney(
   let emotionalEvents: import("../types.js").EmotionalEvent[] | undefined;
 
   try {
-    // Navigate to URL
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
+    // Navigate to URL. A failed load is reported in plain words (unresolvable
+    // host, refused...) rather than Playwright's raw error and Call log.
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 })
+      .catch((e: unknown) => { throw toNavigationError(e, url); });
     await page.waitForTimeout(1500);
 
     // Scope-dependent page discovery

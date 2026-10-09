@@ -71,6 +71,7 @@ import { extractExpected, extractSubject, UNPARSEABLE_MESSAGE } from "./browser/
 import { OverlayHandler } from "./browser/overlay-handler.js";
 import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.js";
 import { clampRect } from "./recording/timing.js";
+import { navigationError } from "./navigation-errors.js";
 import type { Rect } from "./recording/types.js";
 
 // Browser-specific fast launch args for performance optimization
@@ -2021,7 +2022,10 @@ For more help: https://playwright.dev/docs/browsers
           `3. Use a sticky session proxy for sites that are sensitive to IP changes`
         );
       }
-      throw e;
+      // Everything else: a plain-language message for the known net:: codes
+      // (unresolvable host, refused, timed out, certificate...), without the
+      // Playwright Call log; anything unrecognised is rethrown unchanged.
+      throw navigationError(e, url);
     };
 
     try {

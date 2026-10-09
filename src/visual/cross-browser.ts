@@ -17,6 +17,7 @@ import { join } from "path";
 import { homedir } from "os";
 
 import { CBrowser } from "../browser.js";
+import { navigationError } from "../navigation-errors.js";
 import type {
   SupportedBrowser,
   BrowserScreenshot,
@@ -762,7 +763,8 @@ export async function crossBrowserDiff(
       const page = await browser.newPage();
 
       const startTime = Date.now();
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+        .catch((e: unknown) => { throw navigationError(e, url); });
       const loadTime = Date.now() - startTime;
 
       // Capture metrics

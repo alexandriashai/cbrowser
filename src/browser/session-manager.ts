@@ -15,6 +15,7 @@ import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkS
 import { join, resolve, sep } from "path";
 import type { Page, BrowserContext, Cookie } from "playwright";
 import type { SavedSession, LoadSessionResult, SessionMetadata } from "../types.js";
+import { navigationError } from "../navigation-errors.js";
 
 export interface SessionManagerConfig {
   sessionsDir: string;
@@ -175,8 +176,9 @@ export class SessionManager {
       await context.addCookies(session.cookies as Cookie[]);
     }
 
-    // Navigate to saved URL
-    await page.goto(session.url, { waitUntil: "networkidle" });
+    // Navigate to saved URL (a failed load in plain words, not the raw Playwright error)
+    await page.goto(session.url, { waitUntil: "networkidle" })
+      .catch((e: unknown) => { throw navigationError(e, session.url); });
 
     // Restore localStorage
     await page.evaluate((data) => {

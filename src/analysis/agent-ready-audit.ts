@@ -15,6 +15,7 @@
 import { type Page, type Browser } from "playwright";
 import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
+import { navigationError } from "../navigation-errors.js";
 import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
 import type {
   AgentReadyAuditResult,
@@ -2576,7 +2577,9 @@ export async function runAgentReadyAudit(
             `2. Re-run without the proxy to test from your direct IP`
           );
         }
-        throw navError;
+        // Unresolvable host, refused, timed out, bad certificate...: say so
+        // in plain words instead of Playwright's raw error and Call log.
+        throw navigationError(navError, url);
       }
 
       // v18.22.0: SPA mode - detect framework and wait for hydration

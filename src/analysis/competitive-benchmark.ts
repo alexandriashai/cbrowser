@@ -15,6 +15,7 @@
 import { type Page } from "playwright";
 import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
+import { navigationError } from "../navigation-errors.js";
 import type {
   CompetitiveBenchmarkResult,
   CompetitiveBenchmarkOptions,
@@ -118,8 +119,9 @@ async function simulateJourney(
   };
 
   try {
-    // Navigate to starting URL
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
+    // Navigate to starting URL (a failed load in plain words, not the raw Playwright error)
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 })
+      .catch((e: unknown) => { throw navigationError(e, url); });
     await page.waitForTimeout(1000);
 
     // Take start screenshot
