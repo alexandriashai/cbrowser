@@ -2491,16 +2491,29 @@ export interface FindByIntentResult {
    * It is what the rungs matched on; Playwright's own name computation can differ in edge cases.
    */
   accessibleName?: string;
-  /** Whether a person can see the element at the current viewport (not hidden, transparent, aria-hidden, inert, or behind an open modal) */
+  /**
+   * Whether a person can see the element at the current viewport: laid out with a box, not display:none or
+   * visibility:hidden, not clipped away by an overflow hidden/clip ancestor (body and html never clip vertically),
+   * not transparent unless a visible label stands for it, not aria-hidden or inert (self or ancestor), and not
+   * covered by an opaque on-screen modal. Content scrolled out of view, including inside an overflow:auto
+   * container, IS visible: a person can scroll to it.
+   */
   visible?: boolean;
   /**
    * The click gate's verdict on the element itself (CBrowser.elementZone: green / yellow / red), judged with no
    * hit-test. A real click is additionally judged where the pointer lands, so a container can read yellow here
-   * and still be refused when the control at its centre is red. Falls back to the most severe classifyAction
-   * zone over the element's names when no gate is available (black words ignored, as the gate does).
+   * and still be refused when the control at its centre is red; and click() consults its self-healing cache
+   * before resolving the selector, so a stale entry for the same string can steer it to another element. Falls
+   * back to the most severe classifyAction zone over the element's names when no gate is available (black
+   * words ignored, as the gate does).
    */
   zone?: string;
-  /** The cascade rung that produced the match (exact, exact-synonym, contains, all-words, stem, superset, ...) */
+  /**
+   * The cascade rung that produced the match. Confidence is the rung, not a probability: 0.95 exact name or a
+   * unique landmark; 0.88-0.92 exact-link, exact-badge ("Cart (2)"), exact-synonym, label-exact, field-type,
+   * ordinals, logo/home/search/menu specials; 0.7-0.85 contains, all-words, text-exact, search-submit;
+   * 0.65 exact-synonym-weak; 0.6 attribute, stem, superset, the footer-nav fallback; ambiguity lowers each.
+   */
   matchedBy?: string;
   /** How many visible elements that rung matched (1 = unique) */
   candidates?: number;

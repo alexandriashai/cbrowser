@@ -160,21 +160,30 @@ export interface FindByIntentOptions {
 /** The MCP tool description, shared by both server registrations so they cannot drift. */
 export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
   "Find ONE element from a natural-language intent by walking a cascade of accessible-name locators "
-  + "(exact name > synonym > label/placeholder/title/alt > contains > all words > visible text > attributes > stems > sub-phrase), "
+  + "(exact name > exact link > badge-count name > synonym > contains > label/placeholder > all words > visible text > attributes > stems > sub-phrase), "
   + "scoped to a landmark when the intent says so ('in the header', 'in the navigation', 'in the footer'). "
-  + "Returns a CSS selector that matches exactly that element and that cbrowser's click resolver will not read as page text, "
-  + "plus confidence (2 decimals): 0.95 is a unique match on the exact name; 0.9-0.92 is a unique match on a synonym, a label or placeholder, "
-  + "a typed field, or a recognised logo/home/search/menu control, which is strong but not exact; 0.7-0.85 is a fuzzy match (the name contains "
-  + "the phrase, or every word of it); <= 0.6 is a guess, and matchedBy says which rung made it. Also accessibleName, visible, zone, matchedBy, "
-  + "candidates (how many visible elements that rung matched), and alternatives (the other matches, each with its own unique selector). "
+  + "Returns a plain CSS selector that Playwright resolves to exactly that element (open shadow roots included) and that cbrowser's click "
+  + "resolver will not read as page text, plus confidence (2 decimals). Confidence is the rung, not a probability: "
+  + "0.95 = a unique match on the exact name, or a unique landmark ('header', 'footer navigation'); "
+  + "0.88-0.92 = a unique synonym, label/placeholder, typed field, badge-count name ('Cart (2)'), ordinal, or a recognised logo/home/search/menu control; "
+  + "0.7-0.85 = fuzzy (the name contains the phrase, or every word of it, or a search-form submit); "
+  + "0.65 = a weak synonym (exit -> Close); 0.6 = a guess (attributes carry the words, a stem, a sub-phrase of the intent, the only X under "
+  + "'in the navigation' sitting in a footer nav); several equally good matches drop to 0.5-0.65 and are listed in alternatives. matchedBy names the rung. "
+  + "Also accessibleName (the finder's own name computation, which can differ from Playwright's in edge cases), visible (not display:none, "
+  + "zero-size, clipped by an overflow-hidden ancestor, transparent without a visible label, aria-hidden, inert, or covered by an open modal; "
+  + "scrolled-away content IS visible), zone, candidates (how many visible elements that rung matched), and alternatives (each with its own unique selector). "
   + "zone is the click gate's verdict on the element itself (green/yellow/red; red is refused without force however it is addressed); "
   + "a click on a container is ADDITIONALLY judged where the pointer lands, so a card or section can read yellow and still be refused "
-  + "when its centre is a red control. CHECK zone AND visible BEFORE clicking. "
-  + "It returns null / found:false when nothing qualifies, when the only exact match is hidden at this viewport (or transparent, aria-hidden, "
-  + "inert, or behind an open modal), when an ordinal asks for more matches than exist, when 'X in the navigation' finds X only in a footer "
-  + "while the header nav is collapsed, and for row-scoped intents on table-layout pages with no landmarks ('upvote button for the first "
-  + "story' - say 'first upvote link' instead). It still guesses, at <= 0.6 and labelled, when a control's name is a sub-phrase of the intent "
-  + "or the only X under 'in the navigation' sits in a footer nav. Ordinals count what a person can see ('third delete button'). "
+  + "when its centre is a red control, and a stale self-healing cache entry for the same selector string can still steer click() elsewhere. "
+  + "CHECK zone AND visible BEFORE clicking. "
+  + "It returns null / found:false when nothing qualifies; when the only exact match is hidden at this viewport (one exception: an exact "
+  + "match display-hidden inside a folded navigation, header, menu or dropdown lets the search continue to the page's visible equivalent, "
+  + "capped at 0.7); when an ordinal asks for "
+  + "more matches than the first rung that matched has ('second remove button' with one Remove); when 'X in the navigation' finds X only in "
+  + "a footer while the header nav is collapsed; when a fuzzy match carries a destructive or financial verb the intent did not say (account "
+  + "button never reaches Delete account), or a bulk quantifier ('all', a count) the intent did not say; and for row-scoped intents on "
+  + "table-layout pages with no landmarks ('upvote button for the first story' - say 'first upvote link' instead). "
+  + "Ordinals count person-visible elements in DOM order, not visual order ('third delete button'; 'second cheapest product' ranks by price). "
   + "verbose=true on a miss lists the first visible links, buttons and fields with unique selectors so you can rephrase, and says when a "
   + "locator evaluation failed during the search.";
 
@@ -226,6 +235,9 @@ type PickFilter = {
   minVisible?: number;  // how many such descendants (default 1)
   notHasVisibleCss?: string; // must NOT contain a visible descendant matching this
   anyOf?: PickFilter[]; // passes when any sub-filter passes
+  iconLink?: boolean;   // a link whose only content is an image/svg (no visible text of its own)
+  rootLink?: boolean;   // a link to the site root (pathname "/", no query/hash, absolute or not), outside any nav or list, not named Home
+  notNameRe?: string;   // accessible name must NOT match (i)
 };
 
 type PickArg = {
@@ -234,12 +246,13 @@ type PickArg = {
   container: boolean;            // container visibility rule (a landmark is visible when a child is)
   require: PickFilter[];         // hard filters
   prefer: PickFilter[];          // soft filters, applied in order while something survives
-  guard?: { words: string[]; maxExtra: number; prefixMaxExtra: number; danger: boolean };
+  guard?: { words: string[]; maxExtra: number; prefixMaxExtra: number; danger: boolean; quant?: boolean; lettersOnlyExtra?: boolean };
   dedupeNested?: boolean;        // drop a candidate that contains another candidate
   dedupeOuter?: boolean;         // drop a candidate that is inside another candidate (keep the outer)
   liftToControl?: boolean;       // text matches: lift to the nearest interactive ancestor
   preferLonger?: boolean;        // no ordinal: keep only the candidates whose name has the most words
   minNameWords?: number;         // drop candidates whose name has fewer words than this
+  badge?: boolean;               // the name may end in a count only when it is "(2)" or sits in its own badge element
   markCss?: string;              // report whether each candidate is inside this (CandidateInfo.marked)
   countCss?: string;             // report how many visible elements match this document-wide (PickResult.countVisible)
   maxOthers?: number;
@@ -249,6 +262,7 @@ type PickResult = {
   total: number;
   visibleCount: number;
   hiddenOnly: boolean;
+  hiddenInCollapsedNav?: boolean; // every hidden match is display-hidden inside a nav/header/menu/dropdown
   ambiguous: boolean;
   chosen: CandidateInfo | null;
   others: CandidateInfo[];
@@ -264,7 +278,10 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   // The verbs that make a name destructive or financial. A fuzzy rung may only land on a name carrying one of
   // these when the intent itself says that verb: "account button" never reaches "Delete account".
   const DANGER_VERBS = ["delete", "remove", "cancel", "unsubscribe", "leave", "clear", "reset", "disconnect", "revoke", "erase",
-    "deactivate", "disable", "discard", "destroy", "terminate", "pay", "buy", "purchase", "checkout"];
+    "deactivate", "disable", "discard", "destroy", "terminate", "end", "empty", "wipe", "archive", "transfer", "upgrade", "place",
+    "confirm", "send", "approve", "pay", "buy", "purchase", "checkout"];
+  // A bulk quantifier in the name ("Delete all", "Remove everything", "Approve 12") needs the same in the intent.
+  const QUANTIFIERS = ["all", "everything", "every"];
   const GENERATED_ID = /^(radix-|:r|«r|_R_|:R|ember\d|mui-|headlessui-|react-aria|__|rc-|ant-|chakra-|downshift-|react-select)|[:«»]|^[a-z]{1,2}\d+$|^[0-9a-f]{8,}$/i;
   const STATE_CLASS = /^(active|open|opened|closed|hover|focus|focused|visible|hidden|show|shown|selected|current|expanded|collapsed|disabled|checked|is-|has-|js-)/;
   const HASHED_CLASS = /^(css-|sc-|_|jsx-)|[_-][a-z0-9]{6,}$|\d{3,}/i;
@@ -273,6 +290,13 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   const esc = (s: string) => (typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(s) : s.replace(/([^\w-])/g, "\\$1"));
   // checkVisibility is missing from older engines; treat "unavailable" as "not hidden by it"
   const cssVisible = (e: Element) => typeof e.checkVisibility !== "function" || e.checkVisibility({ visibilityProperty: true });
+  let bodyClipsXCache: boolean | undefined;
+  const bodyClipsX = (): boolean => {
+    if (bodyClipsXCache === undefined) {
+      bodyClipsXCache = [document.body, document.documentElement].some(n => n && /^(hidden|clip)$/.test(getComputedStyle(n).overflowX));
+    }
+    return bodyClipsXCache;
+  };
   // SVG elements carry an SVGAnimatedString, not a string
   const classNameOf = (e: Element): string => {
     const c: string | SVGAnimatedString | undefined = (e as unknown as { className?: string | SVGAnimatedString }).className;
@@ -280,19 +304,39 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   };
 
   // ---- visibility: what a person can see at this width ----
-  // The open modal, if one is showing: while it is up, nothing outside it is person-visible.
-  let modalCache: Element | null | undefined;
-  const activeModal = (): Element | null => {
-    if (modalCache !== undefined) return modalCache;
-    modalCache = null;
+  // Modals that can block the page: opaque, accepting pointer events, and on screen. A closed off-canvas
+  // drawer (translateX(-100%)), an opacity-0 closed modal, and a cookie banner that sits at the bottom are
+  // either not blocking at all or block only what they cover, which the hit-test below decides.
+  let modalsCache: Element[] | undefined;
+  const blockingModals = (): Element[] => {
+    if (modalsCache) return modalsCache;
+    modalsCache = [];
     try {
+      const vw = window.innerWidth, vh = window.innerHeight;
       for (const m of Array.from(document.querySelectorAll('[aria-modal="true"], dialog:modal'))) {
+        if (!cssVisible(m)) continue;
+        const cs = getComputedStyle(m);
+        if (cs.opacity === "0" || cs.pointerEvents === "none" || cs.visibility === "hidden") continue;
         const b = m.getBoundingClientRect();
-        if (cssVisible(m) && b.width >= 2 && b.height >= 2) modalCache = m;   // the last one in DOM order is on top
+        if (b.width < 2 || b.height < 2 || b.right <= 0 || b.bottom <= 0 || b.left >= vw || b.top >= vh) continue;
+        modalsCache.push(m);
       }
     } catch { /* :modal unsupported */ }
-    return modalCache;
+    return modalsCache;
   };
+  function coveredByModal(e: Element, r: DOMRect): boolean {
+    const modals = blockingModals();
+    if (!modals.length || modals.some(m => m.contains(e))) return false;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // a modal that covers the whole viewport blocks everything outside it, on screen or not
+    if (modals.some(m => { const b = m.getBoundingClientRect(); return b.left <= 0 && b.top <= 0 && b.right >= vw && b.bottom >= vh; })) return true;
+    // otherwise only what the modal actually covers: hit-test the element's centre when it is on screen
+    if (r.right <= 0 || r.bottom <= 0 || r.left >= vw || r.top >= vh) return false;
+    const cx = Math.min(Math.max(r.left + r.width / 2, 0), vw - 1), cy = Math.min(Math.max(r.top + r.height / 2, 0), vh - 1);
+    const hit = document.elementFromPoint(cx, cy);
+    if (!hit || hit === e || e.contains(hit)) return false;
+    return modals.some(m => m.contains(hit));
+  }
   function leafVisible(e: Element): boolean {
     if (!e || !e.isConnected) return false;
     if (!cssVisible(e)) return false;
@@ -301,6 +345,9 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     const sx = window.scrollX, sy = window.scrollY;
     const docW = Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth);
     if (r.right + sx <= 0 || r.bottom + sy <= 0 || r.left + sx >= docW) return false;
+    // body/html clip only horizontally: overflow-x:hidden on body is the off-canvas idiom (a drawer parked at
+    // left:100% is not on the page); vertical overflow on body is scrolling, never clipping
+    if (r.left >= window.innerWidth && bodyClipsX()) return false;
     const cs = getComputedStyle(e);
     if (cs.clip && cs.clip !== "auto" && /rect\((0|1)px?,?\s*(0|1)px?/.test(cs.clip)) return false;
     if (cs.clipPath && /inset\(50%\)/.test(cs.clipPath)) return false;
@@ -313,17 +360,21 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
       if (!labelled) return false;
     }
     if (e.closest('[aria-hidden="true"], [inert]')) return false;
-    const modal = activeModal();
-    if (modal && !modal.contains(e)) return false;
+    if (coveredByModal(e, r)) return false;
+    // Clipping ancestors: only overflow hidden/clip clips for good; auto/scroll can be scrolled to, so it is
+    // not clipping. Body and html are never clipping ancestors (html,body{height:100%} + overflow-x:hidden makes
+    // body's overflow-y compute to auto and would hide everything below the first screen).
     let p = e.parentElement;
-    while (p && p !== document.documentElement) {
+    while (p && p !== document.body && p !== document.documentElement) {
       const pcs = getComputedStyle(p);
       if (pcs.opacity === "0") return false;
       if (pcs.position === "fixed") break;
-      if (/(hidden|clip|auto|scroll)/.test(pcs.overflowX + " " + pcs.overflowY)) {
+      const clipX = /^(hidden|clip)$/.test(pcs.overflowX), clipY = /^(hidden|clip)$/.test(pcs.overflowY);
+      if (clipX || clipY) {
         const pr = p.getBoundingClientRect();
         if (pr.width < 1 || pr.height < 1) return false;
-        if (r.right <= pr.left || r.left >= pr.right || r.bottom <= pr.top || r.top >= pr.bottom) return false;
+        if (clipX && (r.right <= pr.left || r.left >= pr.right)) return false;
+        if (clipY && (r.bottom <= pr.top || r.top >= pr.bottom)) return false;
       }
       p = p.parentElement;
     }
@@ -445,8 +496,31 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   }
 
   // ---- stable, verified-unique selector ----
+  // Playwright's CSS pierces open shadow roots and cbrowser's click resolver uses Playwright, so uniqueness is
+  // counted across every open shadow root too, and a candidate inside one gets "<host path> <inner path>".
+  let rootsCache: ShadowRoot[] | null = null;
+  const shadowRoots = (): ShadowRoot[] => {
+    if (rootsCache) return rootsCache;
+    const out: ShadowRoot[] = [];
+    const walk = (root: Document | ShadowRoot) => {
+      const all = root.querySelectorAll("*");
+      for (let i = 0; i < all.length && out.length < 200; i++) { const sr = all[i].shadowRoot; if (sr) { out.push(sr); walk(sr); } }
+    };
+    try { walk(document); } catch { /* ignore */ }
+    rootsCache = out;
+    return out;
+  };
   function uniq(sel: string, el: Element): boolean {
-    try { const m = document.querySelectorAll(sel); return m.length === 1 && m[0] === el; } catch { return false; }
+    try {
+      const m = document.querySelectorAll(sel);
+      if (m.length > 1 || (m.length === 1 && m[0] !== el)) return false;
+      let n = m.length;
+      for (const sr of shadowRoots()) { const k = sr.querySelectorAll(sel); n += k.length; if (n > 1 || (k.length === 1 && k[0] !== el)) return false; }
+      return n === 1;
+    } catch { return false; }
+  }
+  function uniqWithin(sel: string, el: Element, scope: ShadowRoot): boolean {
+    try { const m = scope.querySelectorAll(sel); return m.length === 1 && m[0] === el; } catch { return false; }
   }
   function stableId(e: Element): string | null {
     const id = e.id;
@@ -483,16 +557,30 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   const haystack = (): string => {
     if (hayCache !== null) return hayCache;
     const parts: string[] = [norm(document.body ? document.body.textContent || "" : "")];
-    const named = document.querySelectorAll("[aria-label], [placeholder], [title], [alt], input[value]");
-    for (let i = 0; i < named.length && i < 3000; i++) {
-      for (const a of ["aria-label", "placeholder", "title", "alt", "value"]) { const v = named[i].getAttribute(a); if (v) parts.push(norm(v)); }
-    }
+    const addNamed = (root: Document | ShadowRoot) => {
+      const named = root.querySelectorAll("[aria-label], [placeholder], [title], [alt], input[value]");
+      for (let i = 0; i < named.length && i < 3000; i++) {
+        for (const a of ["aria-label", "placeholder", "title", "alt", "value"]) { const v = named[i].getAttribute(a); if (v) parts.push(norm(v)); }
+      }
+    };
+    addNamed(document);
+    // getByText sees into open shadow roots too
+    for (const sr of shadowRoots()) { parts.push(norm(sr.textContent || "")); addNamed(sr); }
     hayCache = parts.join(" \n ").toLowerCase();
     return hayCache;
   };
   const collides = (sel: string): boolean => haystack().includes(norm(sel).toLowerCase());
-  const usable = (sel: string, el: Element): boolean => uniq(sel, el) && !collides(sel);
   function uniqueSelector(e: Element): { selector: string; type: SelectorStrategyType } {
+    const root = e.getRootNode();
+    if (typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot) {
+      // "<host path> <inner path>": Playwright's CSS descends into the open shadow root of the host
+      const host = uniqueSelector(root.host);
+      const inner = uniqueSelectorWith(e, (sel, el) => uniqWithin(sel, el, root) && !collides(sel), root);
+      return host.selector && inner.selector ? { selector: `${host.selector} ${inner.selector}`, type: inner.type } : { selector: "", type: "nth-of-type" };
+    }
+    return uniqueSelectorWith(e, (sel, el) => uniq(sel, el) && !collides(sel), null);
+  }
+  function uniqueSelectorWith(e: Element, usable: (sel: string, el: Element) => boolean, scope: ShadowRoot | null): { selector: string; type: SelectorStrategyType } {
     const tag = e.tagName.toLowerCase();
     const tries: Array<[string, SelectorStrategyType]> = [];
     for (const a of ["data-testid", "data-test-id", "data-test", "data-cy", "data-qa"]) {
@@ -553,7 +641,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
       cur = cur.parentElement;
     }
     const full = parts.join(" > ");
-    if (uniq(full, e)) return { selector: full, type: "nth-of-type" };
+    if (scope ? uniqWithin(full, e, scope) : uniq(full, e)) return { selector: full, type: "nth-of-type" };
     return { selector: "", type: "nth-of-type" };
   }
 
@@ -577,6 +665,16 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     if (f.hasCss) { try { if (!e.querySelector(f.hasCss)) return false; } catch { return false; } }
     if (f.withinCss) { try { if (!e.closest(f.withinCss)) return false; } catch { return false; } }
     if (f.notWithinCss) { try { if (e.closest(f.notWithinCss)) return false; } catch { return false; } }
+    const nn = re(f.notNameRe); if (nn && nn.test(name)) return false;
+    if (f.iconLink && !(e.querySelector("img, svg, picture") && !norm(ownText(e)))) return false;
+    if (f.rootLink) {
+      if (e.tagName !== "A") return false;
+      const href = (e.getAttribute("href") || "").trim();
+      // literal roots first (location can be about:blank, where relative URLs do not parse), then an absolute wordmark href
+      let isRoot = /^(\/|\.\/|index\.html|\/index\.html)$/.test(href);
+      if (!isRoot) { try { const u = new URL(href); isRoot = u.pathname === "/" && !u.search && !u.hash; } catch { /* relative, not a root */ } }
+      if (!isRoot || e.closest("nav, [role='navigation'], ul, ol, [role='menu']") || /^\s*(home|homepage|home page)\s*$/i.test(name)) return false;
+    }
     return true;
   }
   const words = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(/\s+/).filter(Boolean);
@@ -589,6 +687,23 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
       // "Close account" is the one destructive name without a listed verb
       if (/\bclose\s+(?:my\s+|your\s+|the\s+)?account\b/.test(name.toLowerCase()) && !(iw.includes("close") && iw.includes("account"))) return false;
     }
+    // "all" / "everything" anywhere, or a count (1-3 digits, or a year) right after the phrase ("Delete 2",
+    // "Pricing 2025", "Call 988"); a longer number is an identifier ("Approve order 10002"). A container's text
+    // is not a control's name, so container kinds skip the number rule (a card's price follows its title).
+    if (g.quant !== false) {
+      // The quantifier is the phrase's object: "Remove all", "Delete everything", "Approve 12", "Delete 2", "Pricing 2025",
+      // "Call 988". Not "Unsubscribe from all emails" (all modifies emails), not "Try Free - 5 Tests" (the count is
+      // mid-name), not "Pay $12.00" (a price). A count is 1-3 digits or a year, and must end the name.
+      const lastIntent = iw[iw.length - 1];
+      const after = (i: number) => i > 0 && nw[i - 1] === lastIntent;
+      const priceLike = /[$£€¥]\s?\d|\b\d{1,3}[.,]\d{2}\b/.test(name);
+      const isCount = (w: string) => /^\d{1,3}$/.test(w) || /^(19|20)\d{2}$/.test(w);
+      const quantAfterPhrase = nw.some((w, i) => QUANTIFIERS.includes(w) && after(i));
+      const countEndsName = !priceLike && nw.length > 0 && isCount(nw[nw.length - 1]) && after(nw.length - 1);
+      if ((quantAfterPhrase && !iw.some(w => QUANTIFIERS.includes(w))) || (countEndsName && !iw.some(w => /^\d+$/.test(w)))) return false;
+    }
+    // "X plus one word": the extra must be a word ("Features tour"), not a number or a price ("Save $5", "Delete 2")
+    if (g.lettersOnlyExtra && nw.some(w => !iw.includes(w) && !/^\p{L}+$/u.test(w))) return false;
     const extra = nw.length - iw.length;
     if (extra <= g.maxExtra) return true;
     // prefix match: the name starts with the intent words
@@ -615,6 +730,17 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   let cands = named.filter(x => arg.require.every(f => passes(x.e, f, x.name)));
   cands = cands.filter(x => guardOk(x.name));
   if (arg.minNameWords) cands = cands.filter(x => words(x.name).length >= arg.minNameWords!);
+  if (arg.badge) {
+    // "Cart (2)" and "Star <span class=Counter>1.2k</span>" are the exact name with a badge; "Delete 2", "Call 988"
+    // and "Pricing 2025" are different names that happen to end in a number
+    cands = cands.filter(x => {
+      const m = x.name.match(/(\(\s*[\d.,]+k?\+?\s*\)|[\d.,]+k?\+?)[\s\W_]*$/i);
+      if (!m) return true;
+      if (m[1].startsWith("(")) return true;
+      const count = norm(m[1]);
+      return Array.from(x.e.querySelectorAll("span, b, i, em, strong, sup, small, div")).slice(0, 20).some(c => norm(c.textContent || "") === count);
+    });
+  }
   // nesting is resolved among the candidates that survived the filters (a product card contains its image)
   if (arg.dedupeNested) {
     const set = new Set(cands.map(x => x.e));
@@ -626,6 +752,11 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   }
   const visibleAll = cands.filter(x => isVisible(x.e));
   const hiddenOnly = cands.length > 0 && visibleAll.length === 0;
+  // Hidden how? A match display-hidden inside a navigation, header, menu or dropdown is a collapsed copy of a
+  // control the page shows elsewhere (the footer Documentation link when the header nav is folded at 393); a
+  // control hidden on its own (a display:none Save, an opacity-0 row action) is simply not there.
+  const COLLAPSIBLE = "nav, [role='navigation'], header, [role='banner'], [role='menu'], [role='menubar'], [class*='menu' i], [class*='nav' i], [class*='dropdown' i], [class*='drawer' i]";
+  const hiddenInCollapsedNav = hiddenOnly && cands.every(x => !cssVisible(x.e) && !!x.e.closest(COLLAPSIBLE));
   let pool = visibleAll;
   if (arg.ordinal === null) {
     for (const f of arg.prefer) {
@@ -653,7 +784,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     if (arg.markCss) { try { c.marked = !!x.e.closest(arg.markCss); } catch { c.marked = false; } }
     return c;
   };
-  const out: PickResult = { total, visibleCount: visibleAll.length, hiddenOnly, ambiguous: false, chosen: null, others: [] };
+  const out: PickResult = { total, visibleCount: visibleAll.length, hiddenOnly, hiddenInCollapsedNav, ambiguous: false, chosen: null, others: [] };
   if (arg.countCss) {
     try { out.countVisible = Array.from(document.querySelectorAll(arg.countCss)).slice(0, 200).filter(e => isVisible(e, true)).length; } catch { /* unsupported selector: leave undefined */ }
   }
@@ -963,8 +1094,16 @@ const EDGE = "[\\s\\W_]*";
 function exactRe(alts: string[]): RegExp | null {
   const parts = alts.map(phraseRe).filter(Boolean);
   if (!parts.length) return null;
-  // a trailing badge count is still the exact name: "Cart (2)", "Notifications 5", "Inbox (12)"
-  return new RegExp(`^${EDGE}(?:${parts.join("|")})${EDGE}(?:\\(?\\d{1,4}\\)?)?${EDGE}$`, "i");
+  return new RegExp(`^${EDGE}(?:${parts.join("|")})${EDGE}$`, "i");
+}
+/**
+ * The exact name followed by a badge count: "Cart (2)", "Inbox (12)", or "Star 1.2k" when the count sits in its own
+ * element (the picker checks that with `badge`). "Save $5", "Save 20%", "Delete 2" and "Call 988" are not this.
+ */
+function exactBadgeRe(alts: string[]): RegExp | null {
+  const parts = alts.map(phraseRe).filter(Boolean);
+  if (!parts.length) return null;
+  return new RegExp(`^${EDGE}(?:${parts.join("|")})(?:\\s*\\(\\s*[\\d.,]+k?\\+?\\s*\\)|\\s+[\\d.,]+k?\\+?)\\s*$`, "i");
 }
 function containsRe(alts: string[]): RegExp | null {
   const parts = alts.map(phraseRe).filter(Boolean);
@@ -1356,7 +1495,7 @@ async function findElementByIntentCore(
         "item", "button", "link", "one", "card", "tier", "option"];
       const ctlWords = parsed.words.filter(w => !PRICE_NOISE.includes(w));
       const ctlReSrc = ctlWords.length ? (containsRe([ctlWords.join(" ")])?.source ?? null) : null;
-      const chosen = await pool.evaluateAll((els: Element[], want: { min: boolean; container: boolean; ctlRe: string | null; prod: string }) => {
+      const chosen = await pool.evaluateAll((els: Element[], want: { min: boolean; container: boolean; ctlRe: string | null; prod: string; ordinal: number | null }) => {
         const priceOf = (t: string) => {
           const m = t.match(/[$£€¥]\s?(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*\.\d{2})/);
           return m ? parseFloat((m[1] || m[2]).replace(/,/g, "")) : NaN;
@@ -1405,15 +1544,14 @@ async function findElementByIntentCore(
           products.length = 0; products.push(...withCtl);
         }
         if (!products.length) return -1;
-        let best = -1, bestP = want.min ? Infinity : -Infinity;
-        products.forEach((p, i) => {
-          const v = priceOfEl(p);
-          if (isNaN(v)) return;
-          if (want.min ? v < bestP : v > bestP) { bestP = v; best = i; }
-        });
+        // rank by price; "second cheapest" is the ordinal into that ranking, out of range is null
+        const ranked = products.map(p => ({ p, v: priceOfEl(p) })).filter(x => !isNaN(x.v)).sort((a, b) => want.min ? a.v - b.v : b.v - a.v);
+        if (!ranked.length) return -1;
+        const k = want.ordinal === null ? 0 : (want.ordinal === -1 ? ranked.length - 1 : want.ordinal);
+        if (k < 0 || k >= ranked.length) return -1;
         // return the element index in els so the caller can address it
-        return best >= 0 ? els.indexOf(products[best]) : -1;
-      }, { min: wantMin, container: true, ctlRe: ctlReSrc, prod: PROD_CSS }).catch(() => -1);
+        return els.indexOf(ranked[k].p);
+      }, { min: wantMin, container: true, ctlRe: ctlReSrc, prod: PROD_CSS, ordinal: parsed.ordinal }).catch(() => -1);
       if (chosen >= 0) {
         const single = pool.nth(chosen);
         if (ctlWords.length) {
@@ -1622,25 +1760,26 @@ async function findElementByIntentCore(
     // "GOV.UK logo": the link must also carry the brand words somewhere a name comes from (aria-label, alt, title, text, id/class).
     const brandRe = parsed.brand?.length ? parsed.brand.map(w => `(?=.*(?:^|[^\\p{L}\\p{N}])${escRe(w)})`).join("") + ".*" : null;
     const brandReq: PickFilter[] = brandRe ? [{ anyOf: [{ nameRe: brandRe }, { attrRe: brandRe }] }] : [];
-    // Real logo evidence: an image/svg child, logo/brand in its id/class/aria-label, a link to the site root
-    // (the header's "Acme" home link is the brand link), or, with a brand word, the brand in its name. A "Sign in"
-    // link beside an unlinked logo image has none of these.
-    const evidence: PickFilter = { anyOf: [{ hasCss: "img, svg, picture" }, { attrRe: "logo|brand" }, ...(brandRe ? [{ nameRe: brandRe }] : [])] };
-    // inside the header, a link to the site root is the brand link even as plain text; elsewhere it is just a link home
-    const headerEvidence: PickFilter = { anyOf: [...evidence.anyOf!, { matchCss: "a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html']" }] };
+    // Real logo evidence: an icon-only link (an image/svg and no text of its own), logo/brand/wordmark in its
+    // id/class/aria-label, or, with a brand word, the brand in its name. "<svg/> Account" is a control with an
+    // icon, not a logo; a "Sign in" link beside an unlinked logo image has none of these.
+    const evidence: PickFilter = { anyOf: [{ iconLink: true }, { attrRe: "logo|brand|wordmark" }, ...(brandRe ? [{ nameRe: brandRe }] : [])] };
+    // inside the header, a text link to the site root ("Acme", an absolute wordmark href) is the brand link too,
+    // unless it sits in a nav or list or is named Home - that is the home link
+    const headerEvidence: PickFilter = { anyOf: [...evidence.anyOf!, { rootLink: true }] };
     const hdr = page.locator(scopeCss("header"));
     const r = await run("logo", hdr.locator("a[href]"), {
       container: false, mode: "first", require: [headerEvidence, ...brandReq],
-      prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg" }, { attrRe: "home" }, { matchCss: "a[href='/'], a[href='./'], a[href$='://']" }],
+      prefer: [{ attrRe: "logo|brand|wordmark" }, { hasCss: "img, svg" }, { rootLink: true }],
     });
     if (r && r.chosen) return build(r, "logo", r.ambiguous ? 0.75 : 0.9, "Logo");
     if (brandRe) {
-      // the header's first link to the site root, named by the brand
-      const r1 = await run("logo-brand", hdr.locator("a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html']"),
-        { container: false, mode: "first", require: brandReq, prefer: [{ hasCss: "img, svg, picture" }] });
+      // the header's link to the site root, named by the brand
+      const r1 = await run("logo-brand", hdr.locator("a[href]"),
+        { container: false, mode: "first", require: [{ rootLink: true }, ...brandReq], prefer: [{ hasCss: "img, svg, picture" }] });
       if (r1 && r1.chosen) return build(r1, "logo-brand", r1.ambiguous ? 0.7 : 0.85, "Logo");
     }
-    const ROOT_LINKS = "a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i], "
+    const ROOT_LINKS = "a[href='/'], a[href='./'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i], a[class*='wordmark' i], "
       + "a[aria-label*='logo' i], a[class*='logo' i], a[id*='logo' i], a[class*='brand' i], [class*='logo' i] a[href]";
     const r2 = await run("logo-root", page.locator(ROOT_LINKS), {
       container: false, mode: "first", require: [evidence, ...brandReq], prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }],
@@ -1712,9 +1851,9 @@ async function findElementByIntentCore(
       { unique: 0.9, ordinal: 0.9, ambiguous: 0.6 }, "Menu control");
     if (r && r.res) return r.res;
     // an exactly-named "Menu" control that is hidden at this width (a desktop toggle at 393, or the reverse)
-    // does not rule out the one named "Show navigation menu" that is showing: continue, capped
-    const hiddenExact = !!(r && r.r.hiddenOnly);
-    const capped = (res: ReturnType<typeof build> | null) => res && hiddenExact ? { ...res, confidence: red2(Math.min(res.confidence, 0.7)) } : res;
+    // means null: a hidden exact match is never traded for a fuzzy one
+    if (r && r.r.hiddenOnly) return options.verbose ? await verboseMiss(page, intent) : null;
+    const capped = (res: ReturnType<typeof build> | null) => res;
     const ctl2 = unionRole(root, ["button"], containsRe(["menu", "navigation", "hamburger"]))!;
     const r2 = await take("menu-control-fuzzy", ctl2,
       { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
@@ -1799,6 +1938,7 @@ async function findElementByIntentCore(
       maxExtra: loose ? maxExtra + 6 : maxExtra,
       prefixMaxExtra: loose ? prefixMaxExtra + 8 : prefixMaxExtra,
       danger: true,
+      quant: !["card", "product", "section", "article", "form"].includes(kind),
     });
     const literal = [...new Set([q.phraseFull, phrase].filter(Boolean))];
     const syns = synonymsOf(phrase);
@@ -1850,6 +1990,8 @@ async function findElementByIntentCore(
     const isContainerKind = ["card", "product", "section", "article", "form"].includes(kind);
     const preferReal: PickFilter[] = kind === "button" ? [{ tagRe: "^(button|input|summary|span|div)$" }]
       : kind === "any" ? [{ tagRe: "^(a|button|input|select|textarea|summary)$" }] : [];
+    // "close button" with a dialog open: the dialog's close, not a banner's or a web component's
+    if (/^(close|dismiss|x|×|✕)$/.test(phrase)) preferReal.unshift({ withinCss: "dialog, [role='dialog'], [role='alertdialog'], [aria-modal='true'], .modal" });
     const scopeRequire: PickFilter[] = navScoped && !q.footerOk ? [{ notWithinCss: FOOTERISH_CSS }] : [];
     const pickBase: Partial<PickArg> = {
       container: isContainerKind, mode: "first", require: scopeRequire, prefer: preferReal, dedupeNested: isContainerKind,
@@ -1882,18 +2024,31 @@ async function findElementByIntentCore(
       + "button[class*='search' i], button[id*='search' i], a[class*='search' i][href]";
     const searchSubmitRung = (): Rung => ({ label: "search-submit", locator: root.locator(SEARCH_SUBMIT_CSS), conf: CONF_GOOD,
       pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
+    const CONF_BADGE = { unique: 0.88, ordinal: 0.86, ambiguous: 0.6 };
+    const badgeLit = exactBadgeRe(literal);
     if (kind === "button" && exactLit) {
-      // Real buttons (and link-buttons) named exactly X first, then a link named exactly X, and only then a
-      // button that merely contains X: "cart button" is the Cart link, not Add to cart.
+      // A control named exactly X, button or link, beats everything fuzzy: "cart button" is the Cart link, not
+      // Empty cart; "settings button" is the Settings link, not the Options kebab. A real button that is X plus one
+      // word ("Features tour") wins only when no exact link exists.
       rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: CONF_EXACT, pick: pickBase });
-      if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: CONF_STRONG, pick: pickBase });
-      // ... except a real button that is X plus one word ("Features tour", "Download now"), which is X qualified
-      if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(1, 1) } });
+      // A real button that is X followed by ONE word is X qualified ("Features tour", "Download now") and beats a
+      // plain link named X; a verb-first name ("Edit profile", "Mute notifications") does not, and a paging word's
+      // exact link ("Next", "Previous") is always the canonical one.
+      const paging = /^(next|previous|prev|back|forward|first|last)$/.test(phrase);
+      if (containsLit && !paging) {
+        rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS,
+          pick: { ...pickBase, guard: { ...guard(0, 1), lettersOnlyExtra: true } } });
+      }
       rungs.push({ label: "exact-link", locator: linkPool(exactLit), conf: CONF_STRONG, pick: pickBase });
+      if (badgeLit) rungs.push({ label: "exact-badge", locator: buttonOrLinkPool(badgeLit), conf: CONF_BADGE, pick: { ...pickBase, badge: true } });
+      if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: CONF_STRONG, pick: pickBase });
       if (/^search$/.test(phrase)) rungs.push(searchSubmitRung());
       if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
       if (exactSyn) rungs.push({ label: "exact-synonym-link", locator: linkPool(exactSyn), conf: CONF_GOOD, pick: pickBase });
-    } else if (exactLit) rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
+    } else if (exactLit) {
+      rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
+      if (badgeLit && !isContainerKind) rungs.push({ label: "exact-badge", locator: poolFor(badgeLit), conf: CONF_BADGE, pick: { ...pickBase, badge: true } });
+    }
     if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: CONF_STRONG, pick: pickBase });
     if (kind === "button" && /^search$/.test(phrase) && !exactLit) rungs.push(searchSubmitRung());
     // Label / placeholder / title / alt for the exact phrase (fields and icon controls)
@@ -1924,8 +2079,9 @@ async function findElementByIntentCore(
       };
       const key = nameWords.find(w => typeMap[w]);
       if (key) {
+        // the entry's first selector is its strongest signal (input[type=email] over input[id*=email])
         rungs.push({ label: "field-type", locator: root.locator(typeMap[key]), conf: CONF_STRONG,
-          pick: { ...pickBase, prefer: [{ withinCss: "form:has(input[type='password'])" }] } });
+          pick: { ...pickBase, prefer: [{ withinCss: "form:has(input[type='password'])" }, { matchCss: typeMap[key].split(",")[0].trim() }] } });
       }
     }
     if (containsLit) rungs.push({ label: "contains", locator: poolFor(containsLit), conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
@@ -1980,7 +2136,8 @@ async function findElementByIntentCore(
           `[id*="${w}" i], [name*="${w}" i], [data-testid*="${w}" i], [class*="${w}" i], [aria-label*="${w}" i], [title*="${w}" i], a[href*="${w}" i]`,
         ));
       }
-      rungs.push({ label: "attribute", locator: attrLoc, conf: { unique: 0.6, ordinal: 0.6, ambiguous: 0.4 }, pick: { ...pickBase, guard: { ...guard(4, 6), words: [] } } });
+      // no length guard (the words are in the attributes, not the name), but the danger and quantifier rules still apply
+      rungs.push({ label: "attribute", locator: attrLoc, conf: { unique: 0.6, ordinal: 0.6, ambiguous: 0.4 }, pick: { ...pickBase, guard: guard(99, 99) } });
     }
     const CONF_STEM = { unique: 0.6, ordinal: 0.58, ambiguous: 0.4 };
     if (stems && (loose || kind === "tab")) rungs.push({ label: "stem", locator: poolFor(stems), conf: CONF_STEM, pick: { ...pickBase, guard: guard(3, 5) } });
@@ -2005,10 +2162,11 @@ async function findElementByIntentCore(
     const NEEDS_SYN = /^(exact-synonym|exact-synonym-link|contains-synonym)$/;
     const NEEDS_ANY = /^(provider|menu-trigger)$/;
 
-    let sawHiddenExact = false;
+    let sawCollapsedExact = false;
     for (const rung of rungs) {
-      // an exact match that is merely hidden makes the weak rungs guesses: skip them
-      if (sawHiddenExact && /^(all-words|text-exact|attribute|stem|menu-trigger|superset)$/.test(rung.label)) continue;
+      // the exact name exists only in a folded navigation: the visible equivalent elsewhere is a capped find,
+      // but the weak rungs would be guesses
+      if (sawCollapsedExact && /^(all-words|text-exact|attribute|stem|menu-trigger|superset)$/.test(rung.label)) continue;
       if (pre) {
         if (NEEDS_LITERAL.test(rung.label) && !pre.literal) continue;
         if (NEEDS_SYN.test(rung.label) && !pre.syn) continue;
@@ -2017,18 +2175,24 @@ async function findElementByIntentCore(
       }
       const r = await run(rung.label, rung.locator, rung.pick);
       if (!r) continue;
-      // "second remove button" with one visible Remove: the ordinal is the answer's shape, and a looser rung
-      // ("Remove payment method") is not the second Remove. Stop here.
-      if (r.ordinalOutOfRange && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) return null;
+      // "second remove button" with one visible Remove, "third approve button" with two "Approve request": the
+      // ordinal is the answer's shape, and a looser rung ("Remove payment method", "Approve all requests") is not
+      // the second or third of them. The first rung that had visible matches decides.
+      if (r.ordinalOutOfRange) return null;
       if (r.chosen) {
         let conf = parsed.ordinal !== null ? rung.conf.ordinal : (r.ambiguous ? rung.conf.ambiguous : rung.conf.unique);
-        if (sawHiddenExact) conf = Math.min(conf, 0.7);
+        if (sawCollapsedExact) conf = Math.min(conf, 0.7);
         if (q.cap !== undefined) conf = Math.min(conf, q.cap);
         // a fuzzy hit in a sidebar or breadcrumb nav, when the page has a primary one, is a guess
         if (navScoped && /^contains/.test(rung.label) && r.chosen.marked === false && (r.countVisible ?? 0) > 1) conf = Math.min(conf, 0.6);
         return build(r, rung.label, conf, rung.label === "exact" ? "Exact match" : `Match (${rung.label})`);
       }
-      if (r.hiddenOnly && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) sawHiddenExact = true;
+      if (r.hiddenOnly && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) {
+        // hidden in a folded navigation: the page shows the same control elsewhere, keep looking (capped);
+        // hidden on its own (display:none Save, opacity-0 row Remove): it means null, a fuzzy visible one is not it
+        if (r.hiddenInCollapsedNav) sawCollapsedExact = true;
+        else return null;
+      }
       if (r.ambiguous && rung.pick.mode === "unique") break;
     }
     return null;

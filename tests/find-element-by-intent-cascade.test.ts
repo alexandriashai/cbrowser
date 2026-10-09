@@ -410,7 +410,8 @@ describe("F2: 'X button' prefers a link named exactly X over a button that merel
     test(`'${intent}'`, async () => {
       const r = await find(doc(`${SITE(link)}<main><h1>Page</h1>${button}</main>`), intent);
       await resolvesTo(r, expected);
-      expect(r!.matchedBy).toBe("exact-link");
+      // "Cart (2)" is the exact name with a badge count (exact-badge); the rest are exact links
+      expect(["exact-link", "exact-badge"]).toContain(r!.matchedBy);
     });
   }
   test("a real button that is X plus one word still wins: 'features button' -> Features tour, not the nav link", async () => {
@@ -483,6 +484,193 @@ describe("F10: the cheapest product reads the price a person would pay", () => {
     const r = await find(doc(`<main><div class="product" id="a"><h2>Basic</h2><span class="price"><span style="text-decoration:line-through">$10.00</span> $8.00</span><button>Choose Basic</button></div>
       <div class="product" id="b"><h2>Standard</h2><span class="price">$9.00</span><button>Choose Standard</button></div></main>`), "most expensive product");
     await resolvesTo(r, "#b");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D2 round 3 (Forge re-audit): the shapes next to the round-2 fixes, and the BUG-01 class that survived them.
+// ---------------------------------------------------------------------------
+const TALL = `<div style="height:1400px" aria-hidden="true"></div>`;
+
+describe("R3-1: body and html never clip vertically; only overflow hidden/clip clips", () => {
+  const CLIP = `<style>html,body{height:100%;margin:0}body{overflow-x:hidden}</style>`;
+  test("a Subscribe below the fold under html,body{height:100%} + overflow-x:hidden is visible", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<main><h1>Blog</h1>${TALL}<form><label for="nl">Email</label><input id="nl" type="email"><button type="submit" id="sub">Subscribe</button></form></main>`, CLIP), "subscribe button"), "#sub");
+  });
+  test("a header Sign up link-button and a form Sign up below the fold: the form's real button, never the header alone", async () => {
+    const r = await find(doc(`${SITE(`<a href="/signup" class="btn">Sign up</a>`)}<main>${TALL}<form><button type="submit" id="fs">Sign up</button></form></main>`, CLIP), "sign up button");
+    await resolvesTo(r, "#fs");
+    expect(r!.candidates).toBe(2);
+  });
+  test("an inner overflow:auto list is scrollable, so Load more at its end is visible", async () => {
+    const rows = Array.from({ length: 40 }, (_, i) => `<div>Message ${i}</div>`).join("");
+    await resolvesTo(await find(doc(`<div class="shell"><main class="list"><h1>Inbox</h1>${rows}<button type="button" id="more">Load more</button></main></div>`,
+      `<style>html,body{margin:0;height:100%}.shell{display:flex;height:100vh}.list{flex:1;overflow-y:auto}</style>`), "load more button"), "#more");
+  });
+  test("a drawer parked at left:100% behind body overflow-x:hidden is still not on the page", async () => {
+    expect(await find(doc(`<header><button aria-label="Open menu">=</button></header><div class="drawer"><nav><a href="/about">About</a></nav></div><main><h1>Home</h1></main>`,
+      `<style>body{overflow-x:hidden;margin:0}.drawer{position:absolute;top:0;left:100%;width:280px}</style>`), "about link", { width: 393 })).toBeNull();
+  });
+});
+
+describe("R3-2: a trailing number is the exact name only as a '(2)' badge or a count in its own element", () => {
+  test("Cart (2) is exact-badge below 0.95; Delete 2, Save 20%, Save $5, Pricing 2025 and Call 988 are not exact", async () => {
+    const r = await find(doc(`${SITE(`<a href="/cart" id="c">Cart (2)</a>`)}<main><button>Add to cart</button></main>`), "cart button");
+    await resolvesTo(r, "#c");
+    expect(r!.matchedBy).toBe("exact-badge");
+    expect(r!.confidence).toBeLessThan(0.95);
+    expect(await find(doc(`<main><table><tr><td>Acme</td></tr></table><button id="b">Delete 2</button></main>`), "delete button")).toBeNull();
+    await resolvesTo(await find(doc(`${SITE()}<main><button>Save 20%</button><form><button type="submit" id="s">Save changes</button></form></main>`), "save button"), "#s");
+    await resolvesTo(await find(doc(`<main><button>Save $5</button> <a id="save" href="/save">Save</a></main>`), "save button"), "#save");
+    expect(await find(doc(`${SITE()}<main><aside><a href="/archive/pricing-2025">Pricing 2025</a></aside></main>`), "pricing link")).toBeNull();
+    await resolvesTo(await find(doc(`<div><a class="btn" href="tel:988">Call 988</a></div>${SITE()}<main><a class="btn" id="clinic" href="tel:+13035550100">Call the clinic</a></main>`), "call button"), "#clinic");
+  });
+  test("a count in its own badge element keeps the exact name: Star <span>1.2k</span>", async () => {
+    const r = await find(doc(`${SITE()}<main><button>Watch <span class="Counter">12</span></button><button id="star">Star <span class="Counter">1.2k</span></button></main>`), "star button");
+    await resolvesTo(r, "#star");
+    expect(r!.matchedBy).toBe("exact-badge");
+  });
+});
+
+describe("R3-3: a hidden exact match means null, unless it is a folded navigation's copy", () => {
+  test("display:none Save with a visible Save draft is null", async () => {
+    expect(await find(doc(`<main><button style="display:none">Save</button><button>Save draft</button></main>`), "save button")).toBeNull();
+  });
+  test("opacity-0-until-hover row Remove with a toolbar Remove all is null", async () => {
+    expect(await find(doc(`<main><div class="row">Sam <button class="act">Remove</button></div><div class="toolbar"><button>Remove all</button></div></main>`,
+      `<style>.row .act{opacity:0}.row:hover .act{opacity:1}</style>`), "remove button")).toBeNull();
+  });
+  test("a header nav Docs folded at 393 lets the footer Documentation link through, capped at 0.7", async () => {
+    const r = await find(doc(`<header><nav class="desk"><a href="/docs">Docs</a><a href="/pricing">Pricing</a></nav></header><main><h1>Acme</h1></main>
+      <footer><nav><a href="/docs" id="fd">Documentation</a><a href="/terms">Terms</a></nav></footer>`,
+      `<style>@media (max-width:600px){.desk{display:none}}</style>`), "docs link", { width: 393 });
+    await resolvesTo(r, "#fd");
+    expect(r!.confidence).toBeLessThanOrEqual(0.7);
+    // the same page at 393 with no visible equivalent is null
+    expect(await find(doc(`<header><nav class="desk"><a href="/docs">Docs</a></nav></header><main><h1>Acme</h1></main>`, `<style>@media (max-width:600px){.desk{display:none}}</style>`), "docs link", { width: 393 })).toBeNull();
+  });
+});
+
+describe("R3-6b: quantifiers are the phrase's object; prices, mid-name counts and badge counts are not", () => {
+  test("'unsubscribe button' -> Unsubscribe from all emails; 'pay button' -> Pay $12.00", async () => {
+    await resolvesTo(await find(doc(`<main><h1>Email</h1><button id="u">Unsubscribe from all emails</button></main>`), "unsubscribe button"), "#u");
+    await resolvesTo(await find(doc(`<main><h1>Balance</h1><button id="p">Pay $12.00</button></main>`), "pay button"), "#p");
+  });
+  test("'Browse all tools' -> Browse all tools (120+) by its badge; 'Try Free' -> Try Free - 5 Tests", async () => {
+    const r = await find(doc(`${SITE()}<main><a href="/tools" id="all">Browse all tools (120+)</a></main><footer><a href="/tools" data-testid="footer-all-tools">All tools</a></footer>`), "Browse all tools");
+    await resolvesTo(r, "#all");
+    expect(r!.matchedBy).toBe("exact-badge");
+    await resolvesTo(await find(doc(`<main><a href="/try" id="t">Try Free — 5 Tests</a><a href="/pro">Go Pro</a></main>`), "Try Free"), "#t");
+  });
+});
+
+describe("R3-4: only an opaque, on-screen modal blocks, and only what it covers", () => {
+  const BANNER = `<div role="dialog" aria-modal="true" aria-label="Cookie consent" style="position:fixed;left:0;right:0;bottom:0;background:#fff;padding:8px">We use cookies. <button type="button">Cookie settings</button> <button type="button">Allow all</button></div>`;
+  test("a bottom cookie banner with aria-modal does not hide the page", async () => {
+    await resolvesTo(await find(doc(`${SITE(`<a href="/settings" id="st">Settings</a>`)}<main><h1>Dashboard</h1><button id="np">New project</button></main>${BANNER}`), "settings button"), "#st");
+    await resolvesTo(await find(doc(`${SITE()}<main><h1>Dashboard</h1><button id="np">New project</button></main>${BANNER}`), "new project button"), "#np");
+  });
+  test("a closed off-canvas drawer and an opacity-0 closed modal do not block", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<div role="dialog" aria-modal="true" style="position:fixed;top:0;left:0;width:300px;height:100vh;background:#fff;transform:translateX(-100%)"><a href="/">Home</a></div><main><a href="/start" class="btn" id="go">Get started</a></main>`), "get started button"), "#go");
+    await resolvesTo(await find(doc(`${SITE()}<main><a href="/start" class="btn" id="go">Get started</a></main><div role="dialog" aria-modal="true" style="position:fixed;inset:0;opacity:0;pointer-events:none;background:#fff"><button>Subscribe</button></div>`), "get started button"), "#go");
+  });
+  test("a full-screen modal still blocks the page behind it; a stacked closed drawer does not hide the open dialog", async () => {
+    expect(await find(doc(`<main><button>Save</button></main><div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:#fff"><p>Expired</p><button>Log in</button></div>`), "save button")).toBeNull();
+    await resolvesTo(await find(doc(`${SITE()}<div role="dialog" aria-modal="true" style="position:fixed;top:20%;left:20%;width:60%;background:#fff"><button id="ok">Confirm</button></div>
+      <div role="dialog" aria-modal="true" style="position:fixed;top:0;right:0;width:300px;height:100vh;background:#fff;transform:translateX(100%)"><a href="/">Home</a></div>`), "confirm button"), "#ok");
+  });
+});
+
+describe("R3-5: an exact link named X beats every fuzzy or synonym button; X+1 wins only without one", () => {
+  const cases: Array<[string, string, string]> = [
+    ["cart button", `<a href="/cart" id="t">Cart</a>`, `<button>Empty cart</button>`],
+    ["settings button", `<a href="/settings" id="t">Settings</a>`, `<button aria-label="Options">&#8942;</button>`],
+    ["settings button", `<a href="/settings" id="t" aria-label="Settings"><svg width="18" height="18" aria-hidden="true"><circle cx="9" cy="9" r="7"/></svg></a>`, `<button class="ot-sdk-show-settings">Cookie settings</button>`],
+    ["profile button", `<a href="/u/me" id="t" aria-label="Profile"><img src="data:," alt="" width="24" height="24"></a>`, `<button>Edit profile</button>`],
+    ["notifications button", `<a href="/notifications" id="t">Notifications</a>`, `<button>Mute notifications</button>`],
+    ["next button", `<a href="?p=3" id="t">Next</a>`, `<button>Next month</button>`],
+    ["download button", `<a href="/dl/acme.dmg" id="t">Download</a>`, `<button>Get the app</button>`],
+  ];
+  for (const [intent, link, button] of cases) {
+    test(`'${intent}' -> the link, not '${button.replace(/<[^>]+>/g, "").trim() || "the icon button"}'`, async () => {
+      const r = await find(doc(`${SITE(link)}<main><h1>Page</h1>${button}</main>`), intent);
+      await resolvesTo(r, "#t");
+      expect(r!.matchedBy).toBe("exact-link");
+    });
+  }
+  test("'features button' with no exact link still takes the X+1 button", async () => {
+    await resolvesTo(await find(doc(`<nav><a href="/x">Products</a></nav><main><button id="real">Features tour</button></main>`), "features button"), "#real");
+  });
+});
+
+describe("R3-6: bulk quantifiers and the wider verb list", () => {
+  test("a name with all/everything/a count after the phrase needs it in the intent", async () => {
+    const r = await find(doc(`${SITE()}<main><div class="toolbar"><button>Delete all</button></div><table><tr><td><a href="#" id="d1">Delete</a></td></tr><tr><td><a href="#">Delete</a></td></tr></table></main>`), "delete button");
+    await resolvesTo(r, "#d1");
+    expect(r!.confidence).toBeLessThan(0.7);
+    expect(await find(doc(`<main><button>Approve 12</button></main>`), "approve button")).toBeNull();
+    await resolvesTo(await find(doc(`<main><button id="a">Approve all requests</button></main>`), "approve all button"), "#a");
+    await resolvesTo(await find(doc(`<main><button id="o" aria-label="Approve order 10002">Approve</button></main>`), "approve order button"), "#o");
+  });
+  test("end / empty / wipe / archive / transfer / upgrade / place / confirm / send / approve are danger verbs", async () => {
+    for (const [intent, name] of [["subscription button", "End subscription"], ["meeting button", "End meeting"], ["device button", "Wipe device"],
+      ["repository button", "Archive repository"], ["money button", "Transfer money"], ["cart button", "Empty cart"]]) {
+      expect(await find(doc(`<main><h1>Page</h1><button>${name}</button></main>`), intent), `${intent} -> ${name}`).toBeNull();
+    }
+    await resolvesTo(await find(doc(`${SITE(`<a href="/plan" id="p">Plan</a>`)}<main><button>Upgrade plan</button></main>`), "plan button"), "#p");
+    await resolvesTo(await find(doc(`<main><form role="search"><input type="search" aria-label="Search"><button id="c">Clear search</button></form></main>`), "clear search button"), "#c");
+  });
+});
+
+describe("R3-7: ordinals stop at the first rung with visible matches, and price intents honour them", () => {
+  test("'third approve button' with two Approve request buttons is null, not Approve all requests", async () => {
+    expect(await find(doc(`<main><button>Approve request</button><button>Approve request</button><div class="toolbar"><button>Approve all requests</button></div></main>`), "third approve button")).toBeNull();
+    expect(await find(doc(`<main><button>Delete file</button><button>Delete file</button><button>Delete all files</button></main>`), "third delete button")).toBeNull();
+  });
+  test("'second cheapest product' and 'third most expensive product'", async () => {
+    const PLANS = doc(`<main><section class="card" id="free"><h2>Free</h2><p class="price">$0.00</p></section><section class="card" id="starter"><h2>Starter</h2><p class="price">$9.00</p></section><section class="card" id="team"><h2>Team</h2><p class="price">$29.00</p></section></main>`);
+    await resolvesTo(await find(PLANS, "second cheapest product"), "#starter");
+    await resolvesTo(await find(PLANS, "third most expensive product"), "#free");
+    expect(await find(PLANS, "fourth cheapest product")).toBeNull();
+  });
+});
+
+describe("R3-8: logo evidence excludes icon-plus-text controls and a bare Home nav item", () => {
+  test("an unlinked logo beside '<svg/> Account' is null; so is a Home nav link alone", async () => {
+    const svg = `<svg width="18" height="18" aria-hidden="true"><circle cx="9" cy="9" r="7"/></svg>`;
+    expect(await find(doc(`<header><div class="logo"><img src="data:," alt="Acme" width="80" height="24"></div><a href="/account">${svg} Account</a> <a href="/cart">${svg} Cart</a></header>`), "logo")).toBeNull();
+    expect(await find(doc(`<header><nav><a id="home" href="/">Home</a> <a href="/pricing">Pricing</a></nav></header><main><h1>Pricing</h1></main>`), "logo")).toBeNull();
+  });
+  test("an absolute wordmark href is a site-root link; an icon-only link to the root is a logo", async () => {
+    await resolvesTo(await find(doc(`<header><a href="https://acme.example/" class="wordmark" id="w">Acme</a><nav><a href="/">Home</a></nav></header>`), "logo"), "#w");
+    await resolvesTo(await find(doc(`<header><a href="/" id="l"><svg width="32" height="30" aria-hidden="true"><path d="M0 0h32v30H0z"/></svg></a><a href="/signin">Sign in</a></header>`), "logo"), "#l");
+  });
+});
+
+describe("R3-9: open shadow roots count for uniqueness, text collisions and selectors", () => {
+  test("a light #email beside a shadow #email gets a selector Playwright resolves to the light one", async () => {
+    const r = await find(doc(`<div id="host"></div><script>document.getElementById('host').attachShadow({mode:"open"}).innerHTML='<input id="email" aria-label="Wrong shadow email">';</script><main><input id="email" type="email"></main>`), "email field");
+    await resolvesTo(r, "main input");
+    expect(r!.selector).not.toBe("#email");
+  });
+  test("text that lives only inside a shadow root still collides", async () => {
+    const r = await find(doc(`<code-sample id="cs"></code-sample><script>const t=['#','sub','mit'].join('');document.getElementById('cs').attachShadow({mode:"open"}).innerHTML='<pre>'+t+' button</pre>';</script>
+      <main><form onsubmit="return false"><label for="cc">Card</label><input id="cc"><button id="submit" type="button">Pay</button></form></main>`), "pay button");
+    await resolvesTo(r, "#submit");
+    expect(r!.selector).not.toBe("#submit");
+    await clickSafe(r!.selector);
+  });
+  test("a candidate inside a shadow root gets a host-anchored selector", async () => {
+    const r = await find(doc(`<site-header id="sh"></site-header><script>document.getElementById('sh').attachShadow({mode:'open'}).innerHTML='<header><a href="/">Acme</a> <button type="button">Sign in</button></header>';</script><main><button>Sign in with Google</button></main>`), "sign in button");
+    expect(r).not.toBeNull();
+    expect(r!.selector.startsWith("#sh ")).toBe(true);
+    expect(await page.locator(r!.selector).count()).toBe(1);
+    expect(await page.locator(r!.selector).evaluate(e => e.textContent)).toBe("Sign in");
+  });
+  test("'close button' prefers the open dialog's Close over a web component's", async () => {
+    const r = await find(doc(`<site-banner id="sb"></site-banner><script>document.getElementById('sb').attachShadow({mode:'open'}).innerHTML='<div><span>Sale</span><button aria-label="Close" type="button">x</button></div>';</script>
+      <main><div role="dialog" aria-label="Offer"><p>10% off</p><button type="button" aria-label="Close" id="dc">x</button></div></main>`), "close button");
+    await resolvesTo(r, "#dc");
   });
 });
 

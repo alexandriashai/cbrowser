@@ -6523,7 +6523,10 @@ For more help: https://playwright.dev/docs/browsers
    * hit-test, so nothing scrolls). find_element_by_intent reports it as `zone`. A real click is additionally
    * judged where the pointer lands, so a container (a card, a section) can read yellow here and still be
    * refused when the control at its centre is red. Resolves `selector` as CSS, not through the text-first
-   * click resolver or the self-healing cache; the finder's selectors are built so that both agree.
+   * click resolver or the self-healing cache. The finder's selectors are built so that the text-first resolver
+   * reaches the same element (no form that is also page text, no lone tag), but click() consults the self-healing
+   * cache before resolving, so a stale cache entry for the same selector string can still send click() to a
+   * different element than the one judged here.
    */
   async elementZone(selector: string): Promise<{ zone: ActionZone; label: string } | null> {
     const page = await this.getPage();
