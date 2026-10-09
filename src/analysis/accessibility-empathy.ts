@@ -966,24 +966,26 @@ async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
       const members = byRoot.get(root)!;
       const moving = members.filter((m) => animated.has(m));
       const counted = moving.length > 0 ? moving : [root];
-      const ids = new Set([root, ...members].map((e) => e.id).filter(Boolean));
-      // The parent counts only when it holds no OTHER motion group (one
-      // nested inside this container is part of it, not a rival). Any parent
-      // used to credit (body/html aside), so in <main> a carousel's own "Pause
-      // slides" button credited the marquee beside it and the page's real
-      // 2.2.2 failure disappeared.
-      const parent = root.parentElement;
-      const parentIsOnlyThisGroup = !isPageRoot(parent) &&
-        !roots.some((r) => r !== root && !root.contains(r) && parent!.contains(r));
-      // Inside: the control's innermost group is this one. A carousel's
-      // button inside a slider-classed page wrapper belongs to the carousel,
-      // not to the wrapper and whatever else moves in it.
-      const inside = (c: Element): boolean => root.contains(c) &&
-        !roots.some((r) => r !== root && root.contains(r) && r.contains(c));
+      // Credit needs evidence a control is FOR this motion, and a class name
+      // is not that evidence. Two rounds of class-based rules (nearest
+      // container, parent-holds-no-other-group, class-only merging) each let a
+      // carousel's own Pause button credit a ticker or a second carousel beside
+      // it, hiding a real Level A 2.2.2 failure. Hiding a violation costs more
+      // than reporting one that has a control, so credit only on the two
+      // explicit signals: aria-controls naming the moving content (or an
+      // ancestor of it), or the ARIA carousel pattern -- the control and the
+      // motion inside the same [aria-roledescription="carousel"] region.
+      // A class-named carousel with no ARIA is reported even when a pause
+      // button exists (named limit). (2026-10-09, round 3)
+      const ids = new Set<string>();
+      for (const m of [root, ...members]) if (m.id) ids.add(m.id);
+      for (let cur: Element | null = root.parentElement; !isPageRoot(cur); cur = cur!.parentElement) {
+        if (cur!.id) ids.add(cur!.id);
+      }
+      const region = root.closest('[aria-roledescription="carousel"]');
       const credit = pauseControls.find((c) =>
-        inside(c) ||
         (c.getAttribute("aria-controls") ?? "").split(/\s+/).some((id) => ids.has(id)) ||
-        (parentIsOnlyThisGroup && parent!.contains(c)));
+        (region !== null && region.contains(c)));
       return {
         selector: uniq(root),
         rect: docRect(root),

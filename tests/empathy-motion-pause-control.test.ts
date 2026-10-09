@@ -11,10 +11,14 @@
  *
  * Now: candidates from document.getAnimations() (infinite, or > 5 s) unioned
  * with the class match (timer-driven carousels never show up in
- * getAnimations), grouped by motion container; a visible, enabled
- * pause/stop/autoplay control inside the container or its parent, or naming it
- * in aria-controls, credits the group. An uncredited group is one barrier with a
- * unique selector, a document-space rect and its animated-member count.
+ * getAnimations), grouped by motion container. A visible, enabled
+ * pause/stop/autoplay control credits a group only on explicit evidence it is FOR
+ * that motion: aria-controls naming it (or an ancestor of it), or the ARIA
+ * carousel pattern -- control and motion inside the same
+ * [aria-roledescription="carousel"] region. Class-name containment never credits:
+ * two rounds of class-based rules each let one widget's button hide another's
+ * Level A failure (round 3, 2026-10-09). An uncredited group is one barrier with
+ * a unique selector, a document-space rect and its animated-member count.
  *
  * Fixtures run through the SHIPPED runEmpathyAudit.
  *
@@ -68,6 +72,8 @@ const hero = (insideHero = "", afterMain = "") => doc(
   `<main><div class="wrap"><section id="hero" class="carousel" aria-label="Featured">${slides}${insideHero}</section></div>` +
   `<p>Short body copy.</p></main><footer>${afterMain}</footer>`);
 const PAUSE_CONTROLS_HERO = `<button aria-label="Pause auto-play" aria-controls="hero">II</button>`;
+/** The ARIA carousel pattern's region attributes. */
+const ARIA = ` role="region" aria-roledescription="carousel"`;
 
 let browser: Browser;
 beforeAll(async () => { browser = await chromium.launch({ headless: true }); }, 60_000);
@@ -124,21 +130,29 @@ describe("an associated pause control credits the moving content", () => {
     expect(a.idOf[a.credited[0].content]).toBe("hero");
   }, 60_000);
 
-  test("a pause control inside the carousel credits it without aria-controls", async () => {
-    const a = await audit(hero(`<button>Pause</button>`));
+  test("a pause control inside an ARIA carousel region credits it without aria-controls", async () => {
+    const a = await audit(doc(
+      `<main><section id="hero"${ARIA} aria-label="Featured">${slides}<button>Pause</button></section><p>Copy.</p></main>`));
     expect(a.barriers).toEqual([]);
     expect(a.violations).not.toContain("2.2.2");
   }, 60_000);
+
+  test("named limit: inside a class-named carousel with no ARIA, the same button does not credit", async () => {
+    // A class name cannot say which motion a button controls; reporting a
+    // carousel that has a control is the safe direction (round 3).
+    const a = await audit(hero(`<button>Pause</button>`));
+    expect(a.barriers.length).toBe(1);
+    expect(a.idOf[a.barriers[0].element]).toBe("hero");
+  }, 60_000);
 });
 
-describe("a control credits only its own group (round 2)", () => {
-  // The verifier's fixture. The parent rule credited any group whose parent
-  // held a pause control, so the carousel's own button -- in <main>, the
-  // marquee's parent -- credited the marquee too, and main's real 2.2.2
-  // failure disappeared.
-  const neighbours = (mainClass = "") => doc(
+describe("a control credits only motion it is explicitly for (round 3)", () => {
+  // The verifier fixtures. Round 1's parent rule and round 2's class-only
+  // merge each let the carousel's own button credit the marquee beside it (or
+  // a second carousel), and main's real 2.2.2 failure disappeared.
+  const neighbours = (mainClass = "", heroAttrs = ARIA) => doc(
     `<main${mainClass ? ` class="${mainClass}"` : ""}>` +
-    `<section id="hero" class="carousel" aria-label="Featured">` +
+    `<section id="hero" class="carousel"${heroAttrs} aria-label="Featured">` +
     `<div class="slide" id="s1">One</div><div class="slide" id="s2">Two</div>` +
     `<button>Pause slides</button></section>` +
     `<p id="ticker" class="animate-marquee">Breaking: an endless ticker</p></main>`);
@@ -156,42 +170,63 @@ describe("a control credits only its own group (round 2)", () => {
   }, 60_000);
 
   test("a slider-classed page wrapper does not carry the carousel's credit to the marquee", async () => {
-    // Outermost-container grouping made <main class="slider-page"> one group
-    // holding every animation on the page, credited by the carousel's button.
     const a = await audit(neighbours("slider-page"));
-    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["hero"]);
-    expect(a.barriers.length).toBe(1);
-    expect((a.barriers[0].members ?? []).map((m) => a.idOf[m])).toEqual(["ticker"]);
+    expect(a.credited.map((c) => a.idOf[c.content])).not.toContain("ticker");
+    const reported = a.barriers.flatMap((b) => [b.element, ...(b.members ?? [])]).map((m) => a.idOf[m]);
+    expect(reported).toContain("ticker");
     expect(a.violations).toContain("2.2.2");
   }, 60_000);
 
-  test("a control in the container's parent credits it when the parent holds nothing else that moves", async () => {
+  test("verifier P1: a timer-driven carousel in a slider-classed wrapper does not credit the ticker", async () => {
+    const a = await audit(doc(
+      `<main class="slider-page"><section id="hero" class="carousel"><div class="carousel-item" style="height:120px">Slide</div>` +
+      `<button>Pause slides</button></section><p id="ticker" class="animate-marquee">Breaking: an endless ticker</p></main>`));
+    const reported = a.barriers.flatMap((b) => [b.element, ...(b.members ?? [])]).map((m) => a.idOf[m]);
+    expect(reported).toContain("ticker");
+    expect(a.violations).toContain("2.2.2");
+  }, 60_000);
+
+  test("verifier P2: one carousel's pause button does not credit a second carousel in the same wrapper", async () => {
+    const a = await audit(doc(
+      `<main><div class="carousels"><section id="first" class="carousel" style="height:120px">First<button>Pause</button></section>` +
+      `<section id="second" class="carousel" style="height:120px">Second, rotating on a timer</section></div></main>`));
+    expect(a.credited.map((c) => a.idOf[c.content])).not.toContain("second");
+    expect(a.barriers.length).toBeGreaterThan(0);
+    expect(a.violations).toContain("2.2.2");
+  }, 60_000);
+
+  test("named limit: a button in the carousel's parent does not credit without aria-controls", async () => {
     const a = await audit(doc(
       `<main><div class="wrap"><section id="hero" class="carousel" aria-label="Featured">${slides}</section>` +
       `<button>Pause</button></div></main>`));
+    expect(a.barriers.length).toBe(1);
+    expect(a.idOf[a.barriers[0].element]).toBe("hero");
+  }, 60_000);
+
+  test("...while the same button naming the carousel in aria-controls credits it", async () => {
+    const a = await audit(doc(
+      `<main><div class="wrap"><section id="hero" class="carousel" aria-label="Featured">${slides}</section>` +
+      `<button aria-controls="hero">Pause</button></div></main>`));
     expect(a.barriers).toEqual([]);
     expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["hero"]);
   }, 60_000);
 
-  test("a timer-driven Bootstrap carousel is one widget: its pause button in .carousel credits it", async () => {
-    // carousel-inner, carousel-item and carousel-control-* all match the
-    // container selector. As separate nearest-container groups, a button in
-    // .carousel could credit only the outer one; class-only parts join it.
+  test("a Bootstrap carousel marked up with the ARIA pattern is credited by its pause button", async () => {
     const a = await audit(doc(
-      `<main><div id="bs" class="carousel slide"><div class="carousel-inner">` +
+      `<main><div id="bs" class="carousel slide"${ARIA} aria-label="Offers"><div class="carousel-inner">` +
       `<div class="carousel-item active" style="height:120px">Slide 1</div></div>` +
       `<button class="carousel-control-prev">Previous</button><button class="carousel-control-next">Next</button>` +
       `<button>Pause</button></div><p>Copy.</p></main>`));
     expect(a.barriers).toEqual([]);
-    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["bs"]);
+    expect(a.violations).not.toContain("2.2.2");
   }, 60_000);
 
-  test("a bare carousel-classed wrapper does not claim the button beside its moving track", async () => {
+  test("verifier P4: a BEM marquee's controls div does not hide its moving track", async () => {
     const a = await audit(doc(
-      `<main><div class="carousel"><div id="track" class="carousel-track" style="height:120px;animation:slide 3s linear infinite">Track</div>` +
-      `<button>Pause</button></div><p>Copy.</p></main>`));
-    expect(a.barriers).toEqual([]);
-    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["track"]);
+      `<main><section class="logo-carousel"><div id="track" class="logo-carousel__track" style="height:60px;animation:slide 3s linear infinite">Logos</div>` +
+      `<div class="logo-carousel__controls"><button>Pause</button></div></section></main>`));
+    const reported = a.barriers.flatMap((b) => [b.element, ...(b.members ?? [])]).map((m) => a.idOf[m]);
+    expect(reported).toContain("track");
   }, 60_000);
 
   test("cbrowser.ai's structure: the in-carousel \"Pause auto-play\" credits the carousel, not the skeletons", async () => {
@@ -246,9 +281,9 @@ describe("class-only motion (the JavaScript-timer fallback) is ONE page-level ba
     expect((aggregate[0].members ?? []).map((m) => a.idOf[m])).toEqual(["p1", "p2"]);
   }, 60_000);
 
-  test("a class-only group with its own pause control is credited, not aggregated", async () => {
+  test("a class-only group in an ARIA carousel region with its pause control is credited, not aggregated", async () => {
     const a = await audit(doc(
-      `<main><div id="rot" class="slider" style="height:120px">Rotating offers<button>Pause</button></div>${bare(["p1"])}</main>`));
+      `<main><div id="rot" class="slider"${ARIA} aria-label="Offers" style="height:120px">Rotating offers<button>Pause</button></div>${bare(["p1"])}</main>`));
     expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["rot"]);
     expect(a.barriers.length).toBe(1);
     expect((a.barriers[0].members ?? []).map((m) => a.idOf[m])).toEqual(["p1"]);
