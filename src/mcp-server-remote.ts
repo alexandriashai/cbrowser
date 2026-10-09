@@ -73,7 +73,7 @@ import { withChargeScope } from "./charge-scope.js";
 const accountCache = new Map<string, { accountId: number; expiresAt: number }>();
 
 /** The account owning this request, or null when unauthenticated/unknown. */
-async function resolveRequestAccountId(req: IncomingMessage): Promise<number | null> {
+export async function resolveRequestAccountId(req: IncomingMessage): Promise<number | null> {
   const apiKey = extractApiKey(req);
   if (!apiKey) return null;
   const { createHash } = await import("crypto");
@@ -793,6 +793,7 @@ const AUTH_STALE_GRACE_MS = 5 * 60_000;
  */
 export function _clearTierCache(): void {
   tierCache.clear();
+  accountCache.clear();
 }
 
 /** Serve a previously-validated key during a backend outage, or reject. */
@@ -845,9 +846,9 @@ export async function validateAccountKey(
   }
   if (!res.ok) return staleServe(keyHash);
 
-  let data: { valid?: boolean; tier?: string };
+  let data: { valid?: boolean; tier?: string; accountId?: number };
   try {
-    data = await res.json() as { valid?: boolean; tier?: string };
+    data = await res.json() as { valid?: boolean; tier?: string; accountId?: number };
   } catch {
     return staleServe(keyHash);
   }
@@ -861,6 +862,16 @@ export async function validateAccountKey(
 
   const tier = (data.tier as PricingTier) || "free";
   tierCache.set(keyHash, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
+  // Record the account here too. This runs FIRST on every authenticated request
+  // and fills tierCache; resolveRequestAccountId then fell through to
+  // resolveApiKeyTier, hit that tier cache, returned early and never learned the
+  // account -- so no account key ever entered persona scope, from the day scoping
+  // shipped (2026-08-01). Custom personas resolved only because a process-global
+  // copy and the flat store papered over it; removing both in 19.2.1 made every
+  // custom persona unresolvable by the measurement tools (B16). (2026-10-09)
+  if (typeof data.accountId === "number") {
+    accountCache.set(keyHash, { accountId: data.accountId, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
+  }
   return { valid: true, tier };
 }
 

@@ -1297,7 +1297,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
         // Same resolver and alias table runEmpathyAudit used. (2026-10-09)
         const { resolvePersonaForTool } = await import("../../personas.js");
         const { EMPATHY_PERSONA_ALIASES } = await import("../../analysis/accessibility-empathy.js");
-        const resolution = resolvePersonaForTool(testedPersona, EMPATHY_PERSONA_ALIASES);
+        const resolution = resolvePersonaForTool(testedPersona, EMPATHY_PERSONA_ALIASES, true);
         const response: Record<string, unknown> = {
           url: result.url,
           goal: result.goal,
@@ -1695,6 +1695,13 @@ export function registerEmpathyAuditTool(server: McpServer): void {
                 errorType,
                 message: errorMessage,
                 suggestion,
+                // Same fields every persona tool uses for this condition, so a
+                // client checks one `code` instead of parsing three shapes.
+                ...(errorType === "unknown_persona" ? {
+                  code: "unknown_persona",
+                  persona: (error as { requested?: string }).requested,
+                  suggestions: (error as { suggestions?: string[] }).suggestions ?? [],
+                } : {}),
                 url,
                 goal,
                 disabilities: disabilities || "all",

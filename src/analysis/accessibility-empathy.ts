@@ -49,7 +49,7 @@ import type {
   AccessibilityPersona,
   AgentReadyEffort,
 } from "../types.js";
-import { getAccessibilityPersona } from "../personas.js";
+import { getAccessibilityPersona, PERSONA_ALIASES } from "../personas.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
@@ -2903,46 +2903,11 @@ function inferGoalType(goal: string): import("../site-model/types.js").GoalType 
 }
 
 /**
- * Map disability names to personas.
- * v14.2.5: Added elderly-user mapping (issue #190 - persona dropout)
+ * Disability shorthand -> roster name. One table for every tool now lives in
+ * src/personas.ts (PERSONA_ALIASES); kept under this name for existing
+ * importers. (2026-10-09)
  */
-export const EMPATHY_PERSONA_ALIASES: Record<string, string> = {
-  "motor-tremor": "motor-impairment-tremor",
-  "motor": "motor-impairment-tremor",
-  "tremor": "motor-impairment-tremor",
-  "low-vision": "low-vision-magnified",
-  "vision": "low-vision-magnified",
-  "magnified": "low-vision-magnified",
-  "adhd": "cognitive-adhd",
-  "cognitive": "cognitive-adhd",
-  "attention": "cognitive-adhd",
-  "dyslexia": "dyslexic-user",
-  "dyslexic": "dyslexic-user",
-  "reading": "dyslexic-user",
-  "deaf": "deaf-user",
-  "hearing": "deaf-user",
-  "elderly": "elderly-low-vision",
-  "elderly-user": "elderly-low-vision",  // v14.2.5: Added missing mapping
-  "elderly-low-vision": "elderly-low-vision",
-  "senior": "elderly-low-vision",
-  "old": "elderly-low-vision",  // v14.2.5: Additional synonym
-  "color-blind": "color-blind-deuteranopia",
-  "colorblind": "color-blind-deuteranopia",
-  "deuteranopia": "color-blind-deuteranopia",
-  // v18.35.0: New research-backed cognitive disability personas
-  "autism": "autism-spectrum",
-  "autistic": "autism-spectrum",
-  "asd": "autism-spectrum",
-  "autism-spectrum": "autism-spectrum",
-  "intellectual-disability": "intellectual-disability",
-  "intellectual": "intellectual-disability",
-  "learning-disability": "intellectual-disability",
-  "aphasia": "aphasia-receptive",
-  "aphasia-receptive": "aphasia-receptive",
-  "wernicke": "aphasia-receptive",
-  "dyscalculia": "dyscalculia",
-  "numeracy": "dyscalculia",
-};
+export const EMPATHY_PERSONA_ALIASES: Record<string, string> = PERSONA_ALIASES;
 
 /**
  * The published WCAG list, DERIVED from the barriers rather than accumulated
@@ -3025,7 +2990,7 @@ export async function runEmpathyAudit(
     await loadAccountPersonas(getSessionApiKey());
   } catch { /* falls back to disk and built-ins */ }
   const { resolvePersonaForTool } = await import("../personas.js");
-  const resolvedNames = disabilities.map((d) => resolvePersonaForTool(d, personaMap).name);
+  const resolvedNames = disabilities.map((d) => resolvePersonaForTool(d, personaMap, true).name);
 
   for (const [index, disability] of disabilities.entries()) {
     const personaName = resolvedNames[index];

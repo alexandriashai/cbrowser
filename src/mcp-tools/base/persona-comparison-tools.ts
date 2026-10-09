@@ -1633,6 +1633,12 @@ Begin with the first persona: ${personas[0]}
             error: err instanceof Error ? err.message : String(err),
             url,
             persona: personaName,
+            // The shared unknown-persona fields (same as attention_* and
+            // empathy_audit), so one `code` check covers every tool. (2026-10-09)
+            ...((err as { code?: string })?.code === "unknown_persona" ? {
+              code: "unknown_persona",
+              suggestions: (err as { suggestions?: string[] }).suggestions ?? [],
+            } : {}),
           }, null, 2),
         }],
       };

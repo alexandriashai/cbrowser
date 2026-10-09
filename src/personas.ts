@@ -3634,6 +3634,48 @@ export function resolvePersonaOrThrow(
 }
 
 /**
+ * Shorthand -> roster name, shared by every persona-accepting tool.
+ * v14.2.5: Added elderly-user mapping (issue #190 - persona dropout)
+ */
+export const PERSONA_ALIASES: Record<string, string> = {
+  "motor-tremor": "motor-impairment-tremor",
+  "motor": "motor-impairment-tremor",
+  "tremor": "motor-impairment-tremor",
+  "low-vision": "low-vision-magnified",
+  "vision": "low-vision-magnified",
+  "magnified": "low-vision-magnified",
+  "adhd": "cognitive-adhd",
+  "cognitive": "cognitive-adhd",
+  "attention": "cognitive-adhd",
+  "dyslexia": "dyslexic-user",
+  "dyslexic": "dyslexic-user",
+  "reading": "dyslexic-user",
+  "deaf": "deaf-user",
+  "hearing": "deaf-user",
+  "elderly": "elderly-low-vision",
+  "elderly-user": "elderly-low-vision",  // v14.2.5: Added missing mapping
+  "elderly-low-vision": "elderly-low-vision",
+  "senior": "elderly-low-vision",
+  "old": "elderly-low-vision",  // v14.2.5: Additional synonym
+  "color-blind": "color-blind-deuteranopia",
+  "colorblind": "color-blind-deuteranopia",
+  "deuteranopia": "color-blind-deuteranopia",
+  // v18.35.0: New research-backed cognitive disability personas
+  "autism": "autism-spectrum",
+  "autistic": "autism-spectrum",
+  "asd": "autism-spectrum",
+  "autism-spectrum": "autism-spectrum",
+  "intellectual-disability": "intellectual-disability",
+  "intellectual": "intellectual-disability",
+  "learning-disability": "intellectual-disability",
+  "aphasia": "aphasia-receptive",
+  "aphasia-receptive": "aphasia-receptive",
+  "wernicke": "aphasia-receptive",
+  "dyscalculia": "dyscalculia",
+  "numeracy": "dyscalculia",
+};
+
+/**
  * Resolve a persona name for a measuring tool, or refuse - the one resolver.
  *
  * Every tool that measures "as" a persona must call this BEFORE measuring.
@@ -3650,9 +3692,16 @@ export function resolvePersonaOrThrow(
  */
 export function resolvePersonaForTool(
   requested: string,
-  aliases?: Record<string, string>,
+  aliases: Record<string, string> = PERSONA_ALIASES,
+  aliasFirst = false,
 ): { name: string; persona: Persona | AccessibilityPersona | AgentPersona; resolvedFrom?: string } {
-  const aliased = aliases?.[requested.toLowerCase()] ?? requested;
+  // One alias table for every tool: "motor-tremor" resolved in empathy_audit
+  // and was refused by attention_analysis (report v2). Aliases are a FALLBACK by
+  // default, so an exact roster name always wins; empathy_audit passes
+  // aliasFirst because its table deliberately maps elderly-user to the
+  // elderly-low-vision accessibility persona. (2026-10-09)
+  const alias = aliases[requested.toLowerCase()];
+  const aliased = alias && (aliasFirst || !getAnyPersona(requested)) ? alias : requested;
   const persona = getAnyPersona(aliased);
   if (!persona) throw new UnknownPersonaError(requested, suggestPersonaNames(requested));
   const name = (persona as { name?: string }).name ?? aliased;
