@@ -6519,6 +6519,19 @@ For more help: https://playwright.dev/docs/browsers
   }
 
   /**
+   * The click gate's verdict on the element `selector` resolves to, judged on the element itself (no
+   * hit-test, so nothing scrolls). find_element_by_intent reports it as `zone`, so the zone an agent sees
+   * before clicking is the zone the click will be held to.
+   */
+  async elementZone(selector: string): Promise<{ zone: ActionZone; label: string } | null> {
+    const page = await this.getPage();
+    const loc = page.locator(selector).first();
+    if ((await loc.count().catch(() => 0)) === 0) return null;
+    const el = await this.classifyElement(loc, { skipHit: true });
+    return el ? { zone: el.zone, label: el.label } : null;
+  }
+
+  /**
    * Refusal message when a click at viewport point (x, y) would activate a red-zone control, else null.
    * Used by the NL test runner's "click at X, Y".
    */

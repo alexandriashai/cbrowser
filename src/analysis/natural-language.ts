@@ -163,8 +163,8 @@ export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
   + "(exact name > synonym > label/placeholder/title/alt > contains > all words > visible text > attributes > stems > sub-phrase), "
   + "scoped to a landmark when the intent says so ('in the header', 'in the navigation', 'in the footer'). "
   + "Returns a CSS selector verified to match exactly that element, plus confidence (2 decimals; >= 0.9 exact and unique, 0.7-0.85 a strong fuzzy match, "
-  + "<= 0.6 a guess), accessibleName, visible, zone (the most severe green/yellow/red/black classification over every name the element carries: "
-  + "CHECK zone AND visible BEFORE clicking - a data-testid selector carries no words, so the click gate cannot see them), "
+  + "<= 0.6 a guess), accessibleName, visible, zone (the click gate's verdict on the element, green/yellow/red: a red element is refused "
+  + "without force however it is addressed, and a click on a container is also judged where it lands; CHECK zone AND visible BEFORE clicking), "
   + "matchedBy (the rung), candidates (how many visible elements that rung matched), and alternatives (the other matches, each with its own unique selector). "
   + "It returns null / found:false RATHER THAN GUESSING: when nothing qualifies, when the only exact match is hidden at this viewport, "
   + "when 'X in the navigation' finds X only in a footer or the header nav is collapsed at this width, and for row-scoped intents on "
@@ -1172,6 +1172,23 @@ export async function findElementByIntent(
   browser: CBrowser,
   intent: string,
   options: FindByIntentOptions = {}
+): ReturnType<typeof findElementByIntentCore> {
+  const res = await findElementByIntentCore(browser, intent, options);
+  // The reported zone is the click gate's own verdict on the element when a real browser is behind the
+  // call; the name-based zone computed during the search is the fallback (e.g. the corpus scorer).
+  if (res && res.selector && res.confidence > 0) {
+    const gate = (browser as unknown as { elementZone?: (s: string) => Promise<{ zone: string } | null> }).elementZone;
+    if (typeof gate === "function") {
+      try { const z = await gate.call(browser, res.selector); if (z) res.zone = z.zone; } catch { /* keep the name-based zone */ }
+    }
+  }
+  return res;
+}
+
+async function findElementByIntentCore(
+  browser: CBrowser,
+  intent: string,
+  options: FindByIntentOptions = {}
 ): Promise<{
   selector: string;
   confidence: number;
@@ -1195,9 +1212,10 @@ export async function findElementByIntent(
   let classify: ((s: string) => string) | null = null;
   try {
     const mod = await import("../browser.js");
-    const proto = mod.CBrowser?.prototype as unknown as { classifyAction?: (action: string, target: string) => string } | undefined;
+    const proto = mod.CBrowser?.prototype as unknown as { classifyAction?: (action: string, target: string, o?: { ignoreBlack?: boolean }) => string } | undefined;
     const fn = proto?.classifyAction;
-    if (typeof fn === "function") classify = (s: string) => fn.call({}, "click", s);
+    // Black-zone words describe an instruction, not a page control (same rule as the click gate).
+    if (typeof fn === "function") classify = (s: string) => fn.call({}, "click", s, { ignoreBlack: true });
   } catch { /* browser module unavailable (tests); zone stays undefined */ }
 
   const root: Scope = parsed.scope ? page.locator(scopeCss(parsed.scope)) : page;
