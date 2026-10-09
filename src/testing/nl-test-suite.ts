@@ -29,7 +29,64 @@ import type {
   NLTestStepError,
   NLTestCaseResult,
   NLTestSuiteResult,
+  SmartRetryResult,
 } from "../types.js";
+
+/** Opening quote -> its closing partner. Typographic pairs included: pasted and model-written tests carry them. */
+const QUOTE_PAIRS: Record<string, string> = { '"': '"', "'": "'", "\u201C": "\u201D", "\u2018": "\u2019" };
+
+/**
+ * Strip ONE pair of enclosing quotes from a step target: `"Pricing"` -> `Pricing`.
+ *
+ * Only when the string both starts and ends with a matching pair and the inside
+ * holds no further quote of that kind, so a selector that merely contains
+ * quotes is left alone: `[data-testid="x"]` and `"a" or "b"` come back as given.
+ *
+ * Without this the quotes stayed in the target: smartClick searched for the
+ * literal text `"Pricing"`, and the recommendation wrapped it again as
+ * `Click ""Pricing"" failed`.
+ */
+export function unquote(text: string): string {
+  const t = text.trim();
+  if (t.length < 2) return t;
+  const open = t[0];
+  const close = QUOTE_PAIRS[open];
+  if (!close || t[t.length - 1] !== close) return t;
+  const inner = t.slice(1, -1);
+  if (inner.includes(open) || inner.includes(close) || inner.trim() === "") return t;
+  return inner;
+}
+
+/**
+ * Build the error for a click (or uninterpretable step) that smartClick could
+ * not complete. It used to be `throw new Error("Failed to click: X")`, which
+ * discarded the aiSuggestion and attempts smartClick had already worked out,
+ * and the catch below then substituted a generic "try a more specific
+ * selector". Now the step carries what was on the page and what was tried.
+ */
+async function clickFailure(browser: CBrowser, reason: string, result: SmartRetryResult): Promise<NLTestStepError> {
+  let availableElements: NLTestStepError["availableElements"];
+  try {
+    availableElements = (await browser.getAvailableClickables()).slice(0, 20).map((e) => ({
+      tag: e.tag,
+      text: e.text,
+      selector: e.selector,
+      ...(e.role ? { role: e.role } : {}),
+      ...(e.region ? { region: e.region } : {}),
+    }));
+  } catch {
+    // The failure is still reported, just without the element list.
+  }
+  return {
+    reason: result.message ? `${reason} (${result.message})` : reason,
+    suggestion: result.aiSuggestion
+      ?? (result.zone === "red"
+        ? "Refused as a red-zone action. NL test steps never pass force, so this step cannot run unattended."
+        : "Try using a more specific selector or check if an overlay is blocking."),
+    availableElements,
+    selectorsTried: result.attempts.map((a) => a.selector),
+  };
+}
 
 /**
  * Parse a single natural language instruction into an NLTestStep.
@@ -61,7 +118,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     return {
       instruction,
       action: "navigate",
-      target: originalMatch ? originalMatch[1].trim() : navigateMatch[1].trim(),
+      target: unquote(originalMatch ? originalMatch[1] : navigateMatch[1]),
     };
   }
 
@@ -82,7 +139,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     return {
       instruction,
       action: "click",
-      target: originalMatch ? originalMatch[1].trim() : clickMatch[1].trim(),
+      target: unquote(originalMatch ? originalMatch[1] : clickMatch[1]),
     };
   }
 
@@ -95,7 +152,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
       instruction,
       action: "fill",
       value: originalMatch ? originalMatch[1] : typeMatch[1],
-      target: originalMatch ? originalMatch[2].trim() : typeMatch[2].trim(),
+      target: unquote(originalMatch ? originalMatch[2] : typeMatch[2]),
     };
   }
 
@@ -105,7 +162,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     return {
       instruction,
       action: "fill",
-      target: originalMatch ? originalMatch[1].trim() : fillMatch[1].trim(),
+      target: unquote(originalMatch ? originalMatch[1] : fillMatch[1]),
       value: originalMatch ? originalMatch[2] : fillMatch[2],
     };
   }
@@ -118,7 +175,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
       instruction,
       action: "select",
       value: originalMatch ? originalMatch[1] : selectMatch[1],
-      target: originalMatch ? originalMatch[2].trim() : selectMatch[2].trim(),
+      target: unquote(originalMatch ? originalMatch[2] : selectMatch[2]),
     };
   }
 
@@ -509,7 +566,8 @@ export async function runNLTestSuite(
               }
               const result = await browser.smartClick(step.target || "");
               if (!result.success) {
-                throw new Error(`Failed to click: ${step.target}`);
+                stepPassed = false;
+                stepErrorObj = await clickFailure(browser, `Failed to click: ${step.target}`, result);
               }
               break;
             }
@@ -662,7 +720,8 @@ export async function runNLTestSuite(
               console.log(`   ⚠️ Unknown instruction, attempting smart interpretation...`);
               const result = await browser.smartClick(step.target || step.instruction);
               if (!result.success) {
-                throw new Error(`Could not interpret: ${step.instruction}`);
+                stepPassed = false;
+                stepErrorObj = await clickFailure(browser, `Could not interpret: ${step.instruction}`, result);
               }
               break;
             }
@@ -842,6 +901,15 @@ export function formatNLTestReport(result: NLTestSuiteResult): string {
           lines.push(`      Partial matches:`);
           for (const match of step.error.partialMatches) {
             lines.push(`        - "${match}"`);
+          }
+        }
+        if (step.error.selectorsTried && step.error.selectorsTried.length > 0) {
+          lines.push(`      Selectors tried: ${step.error.selectorsTried.map((s) => JSON.stringify(s)).join(", ")}`);
+        }
+        if (step.error.availableElements && step.error.availableElements.length > 0) {
+          lines.push(`      Available elements:`);
+          for (const el of step.error.availableElements.slice(0, 10)) {
+            lines.push(`        - ${el.tag} ${JSON.stringify(el.text)} -> ${el.selector}`);
           }
         }
         if (step.error.suggestion) {

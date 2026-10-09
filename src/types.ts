@@ -2662,6 +2662,20 @@ export interface NLTestStepError {
   partialMatches?: string[];
   /** AI-generated suggestion for fixing the test */
   suggestion?: string;
+  /**
+   * On a failed click (or an uninterpretable step): the clickable elements on
+   * the page when it failed, first 20 in page order, so the step can be
+   * rewritten against what is actually there.
+   */
+  availableElements?: Array<{
+    tag: string;
+    text: string;
+    selector: string;
+    role?: string;
+    region?: string;
+  }>;
+  /** On a failed click: every selector smartClick tried, in order. */
+  selectorsTried?: string[];
 }
 
 export interface NLTestStepResult {
