@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { evaluateScriptRefusal } from "../../security/script-gate.js";
 
 /**
  * Register browser state tools (5 tools)
@@ -19,24 +20,44 @@ export function registerBrowserStateTools(
 ): void {
 
   // ── evaluate_script ──
+  // Red zone, and refused without force (src/security/script-gate.ts). A
+  // script can click "Delete account" that click() refuses, so this was the
+  // way around the element-level gate: measured on 19.2.0, the refused click
+  // ran as one line of evaluate_script and the response named no zone.
   server.registerTool("evaluate_script", {
     title: "Execute JavaScript",
-    description: "Run JavaScript in the page context and return the result. The script is evaluated as an expression (return value is captured). For complex scripts, wrap in an IIFE: `(() => { ... return result; })()`",
+    description: "Run JavaScript in the page context and return the result. The script is evaluated as an expression (return value is captured). For complex scripts, wrap in an IIFE: `(() => { ... return result; })()`. Red zone: arbitrary page script can activate any control (click, submit, delete) without passing the element-level red-zone gate that click, press_key, type_text and drag apply, so it is refused unless force is true. A refused call runs nothing and returns zone \"red\"; a forced call runs and reports zone \"red\". For reading the page, prefer extract, analyze_page or get_console_messages, which need no force.",
     inputSchema: {
       script: z.string().describe("JavaScript to execute in the page context"),
+      force: z.boolean().optional().describe("Required to run any script: evaluate_script is red zone because a script can activate any control. Without it the call is refused and nothing runs."),
       _browserToken: z.string().optional().describe("Browser session token"),
     },
     annotations: { title: "Execute JavaScript", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-  }, async ({ script, _browserToken }) => {
+  }, async ({ script, force, _browserToken }) => {
+    // Refused before a browser is even resolved: nothing about this call may
+    // touch the page.
+    const refusal = evaluateScriptRefusal(force);
+    if (refusal) {
+      return {
+        isError: true,
+        content: [{ type: "text" as const, text: JSON.stringify({
+          success: false,
+          result: null,
+          zone: "red",
+          message: refusal,
+          ...(_browserToken ? { _browserToken } : {}),
+        }, null, 2) }],
+      };
+    }
     let b, token;
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
     const page = await b.getPage();
     try {
       const result = await page.evaluate(script);
-      return { content: [{ type: "text" as const, text: JSON.stringify({ result, _browserToken: token }, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify({ result, zone: "red", _browserToken: token }, null, 2) }] };
     } catch (e) {
-      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message, _browserToken: token }, null, 2) }] };
+      return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message, zone: "red", _browserToken: token }, null, 2) }] };
     }
   });
 

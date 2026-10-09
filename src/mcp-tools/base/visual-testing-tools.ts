@@ -9,17 +9,8 @@ import { z } from "zod";
 import { getDefaultConfig } from "../../config.js";
 import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
-
-/**
- * Largest heatmap returned inline, in base64 characters.
- *
- * Hosts truncate tool results near 150k characters and substitute a file
- * pointer in place of the payload, which downstream arrives as unparseable
- * text. Measured: a 1280x800 heatmap is ~738k characters, five times the cap,
- * so shipping it inline destroyed the JSON it accompanied. Anything above this
- * goes through artifact_fetch instead.
- */
-const INLINE_IMAGE_BUDGET = 100_000;
+import { buildContentWithPreviews } from "../inline-image.js";
+import type { ContentBlock } from "../screenshot-utils.js";
 
 /**
  * Resolve a persona before anything is measured, or return the tool's refusal.
@@ -58,6 +49,34 @@ import {
   crossBrowserDiff,
   captureVisualBaseline,
 } from "../../visual/index.js";
+
+/**
+ * attention_analysis's result: the JSON, then the heatmap as an image block.
+ *
+ * Hosts truncate tool results near 150k characters and substitute a file
+ * pointer for the payload, which downstream arrives as unparseable text.
+ * Measured: a 1280x800 heatmap PNG is ~738k characters of base64, five times
+ * the cap, so shipping it inline destroyed the JSON it accompanied (28e5786).
+ * That fix kept the cap by dropping the picture whenever it was over a fixed
+ * 100k budget -- which, at real page sizes, was always, so the tool whose
+ * finding IS the heatmap returned no heatmap.
+ *
+ * The picture now always rides along as a JPEG preview fitted to what the JSON
+ * leaves of the cap, `heatmapPreview` says exactly what was attached, and the
+ * full-resolution PNG stays at heatmapUrl / heatmapFile for artifact_fetch.
+ */
+export async function assembleAttentionContent(
+  data: Record<string, unknown>,
+  heatmapPng: Buffer | undefined,
+  fullResolution: string,
+): Promise<ContentBlock[]> {
+  if (!heatmapPng) return [{ type: "text", text: JSON.stringify(data, null, 2) }];
+  return buildContentWithPreviews(
+    data,
+    [{ name: "heatmap", png: heatmapPng, fullResolution }],
+    (p) => ({ heatmapPreview: p.heatmap }),
+  );
+}
 
 /**
  * Register visual testing tools (6 tools: visual_baseline, visual_regression, cross_browser_test, cross_browser_diff, responsive_test, ab_comparison)
@@ -465,7 +484,7 @@ export function registerVisualTestingTools(server: McpServer): void {
 
   server.registerTool("attention_analysis", {
     title: "Attention Saliency Analysis",
-    description: "Analyze where a persona's attention goes on a page. Two-layer model: (1) visual saliency via W₂ on CIE-Lab (what POPS), (2) DOM semantic analysis (what MATTERS — CTAs, headings, forms, nav). Blended 35/65 so a gray search bar a power-user prioritizes outweighs a flashy banner they ignore. Returns heatmap overlay, attention metrics, and quality score.",
+    description: "Analyze where a persona's attention goes on a page. Two-layer model: (1) visual saliency via W₂ on CIE-Lab (what POPS), (2) DOM semantic analysis (what MATTERS — CTAs, headings, forms, nav). Blended 35/65 so a gray search bar a power-user prioritizes outweighs a flashy banner they ignore. Returns attention metrics, a quality score, and the heatmap overlay: inline as a JPEG preview sized to fit the result (described in heatmapPreview), with the full-resolution PNG at heatmapUrl / artifact_fetch({ file: heatmapFile }).",
     inputSchema: {
       url: z.string().describe("URL to analyze"),
       persona: z.string().optional().default("first-timer").describe("Persona name"),
@@ -665,9 +684,7 @@ export function registerVisualTestingTools(server: McpServer): void {
           );
         } catch { /* annotation only; never block the result on it */ }
 
-        const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [{
-          type: "text" as const,
-          text: JSON.stringify({
+        const data: Record<string, unknown> = {
             persona: result.persona,
             ...(resolved.resolvedFrom ? { resolvedFrom: resolved.resolvedFrom } : {}),
             // Stated, because two tools silently rendering at different sizes is
@@ -750,10 +767,11 @@ export function registerVisualTestingTools(server: McpServer): void {
             },
             computeTimeMs: Math.round(result.computeTimeMs),
             hasHeatmap: heatmap !== false,
-          }, null, 2),
-        }];
+        };
 
         // Generate heatmap overlay and save as public URL
+        let heatmapPng: Buffer | undefined;
+        let heatmapFullResolution = "";
         if (heatmap !== false && result.saliencyMap) {
           try {
             const { generateHeatmapOverlay } = await import("../../visual/heatmap-overlay.js");
@@ -780,55 +798,29 @@ export function registerVisualTestingTools(server: McpServer): void {
             let savedPath = "";
             let publicUrl = "";
 
-            const written = writeArtifact(Buffer.from(heatmapBase64, "base64"), `${heatmapId}.png`);
+            const png = Buffer.from(heatmapBase64, "base64");
+            const written = writeArtifact(png, `${heatmapId}.png`);
             if (written) {
               savedPath = written.path;
               publicUrl = written.url;
+              heatmapFullResolution = "the PNG at heatmapUrl, or artifact_fetch({ file: heatmapFile })";
             } else {
               // Served store unavailable — keep the local copy, and return the
               // local path rather than a URL that would not resolve.
               if (!existsSync(cbrowserDir)) mkdirSync(cbrowserDir, { recursive: true });
               savedPath = join(cbrowserDir, `${heatmapId}.png`);
-              writeFileSync(savedPath, Buffer.from(heatmapBase64, "base64"));
+              writeFileSync(savedPath, png);
               publicUrl = savedPath;
+              heatmapFullResolution = "the PNG at the local path in heatmapUrl (the artifact store was unavailable, so artifact_fetch cannot serve it)";
             }
 
-            // Return both image content and URL
-            // The heatmap is 700KB+ of base64. Shipping it inline pushed the
-            // whole result past the host's ~150k cap, at which point the host
-            // substitutes a file pointer -- so the JSON above arrived as
-            // unparseable text and the view rendered nothing, while the image
-            // it was meant to show was the reason it broke.
-            //
-            // Small heatmaps still ride along, because a host with no view
-            // support should not lose the picture entirely. Anything larger is
-            // left to artifact_fetch, which is the channel built for it.
-            const inlineChars = heatmapBase64.length;
-            const inlineOk = inlineChars <= INLINE_IMAGE_BUDGET;
-            if (inlineOk) {
-              content.push({
-                type: "image" as const,
-                data: heatmapBase64,
-                mimeType: "image/png",
-              });
-            }
-
-            // Add URL to the text response
-            const firstBlock = content[0];
-            if (firstBlock.type === "text") {
-              const textContent = JSON.parse(firstBlock.text);
-              textContent.heatmapUrl = publicUrl;
-              if (!inlineOk) {
-                textContent.inlineHeatmapOmitted =
-                  `Heatmap is ${(inlineChars / 1024).toFixed(0)}KB of base64, over the ${(INLINE_IMAGE_BUDGET / 1024).toFixed(0)}KB inline budget. Fetch it with artifact_fetch using heatmapFile, or open heatmapUrl.`;
-              }
-              // The filename, not just the URL: the widget sandbox cannot fetch
-              // that URL, so the view asks artifact_fetch for these bytes over
-              // the MCP connection instead.
-              textContent.heatmapFile = `${heatmapId}.png`;
-              textContent.heatmapNote = "Show this heatmap image to the user. The red areas show where this persona's attention concentrates. Blue areas receive little attention.";
-              content[0] = { type: "text" as const, text: JSON.stringify(textContent, null, 2) };
-            }
+            data.heatmapUrl = publicUrl;
+            // The filename, not just the URL: the widget sandbox cannot fetch
+            // that URL, so the view asks artifact_fetch for these bytes over
+            // the MCP connection instead.
+            data.heatmapFile = `${heatmapId}.png`;
+            data.heatmapNote = "Show this heatmap image to the user. The red areas show where this persona's attention concentrates. Blue areas receive little attention.";
+            heatmapPng = png;
 
             // Auto-save to Visual Reports gallery
             try {
@@ -850,7 +842,7 @@ export function registerVisualTestingTools(server: McpServer): void {
 
         try { unlinkSync(screenshotPath); } catch {}
 
-        return { content };
+        return { content: await assembleAttentionContent(data, heatmapPng, heatmapFullResolution) };
       } finally {
         await browser.close();
       }
@@ -859,7 +851,7 @@ export function registerVisualTestingTools(server: McpServer): void {
 
   server.registerTool("attention_compare", {
     title: "Compare Persona Attention",
-    description: "Compare attention patterns between two personas on the same page. Shows where they look differently and the Wasserstein divergence between their saliency maps.",
+    description: "Compare attention patterns between two personas on the same page. Shows where they look differently and the Wasserstein divergence between their saliency maps. The comparison map comes back inline as a JPEG preview sized to fit the result (described in comparisonHeatmapPreview), with the full-resolution PNG at comparisonHeatmapUrl / artifact_fetch({ file: comparisonHeatmapFile }).",
     inputSchema: {
       url: z.string().describe("URL to analyze"),
       personaA: z.string().describe("First persona"),
@@ -918,8 +910,6 @@ export function registerVisualTestingTools(server: McpServer): void {
         const { compareAttention } = await import("../../visual/attention-transport.js");
         const result = await compareAttention(screenshotPath, personaA, personaB, 4, domEls);
 
-        const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [];
-
         const responseData: Record<string, unknown> = {
           personaA: {
             name: personaA,
@@ -945,6 +935,8 @@ export function registerVisualTestingTools(server: McpServer): void {
         };
 
         // Generate comparison heatmap overlay
+        let comparisonPng: Buffer | undefined;
+        let comparisonFullResolution = "";
         if (result.personaA.saliencyMap && result.personaB.saliencyMap) {
           try {
             const { generateComparisonHeatmap } = await import("../../visual/visual-overlays.js");
@@ -960,22 +952,37 @@ export function registerVisualTestingTools(server: McpServer): void {
 
             // Save to public URL
             const heatmapId = `cmp-${personaA}-${personaB}-${Date.now()}`;
-            const written = writeArtifact(Buffer.from(compBase64, "base64"), `${heatmapId}.png`);
+            comparisonPng = Buffer.from(compBase64, "base64");
+            const written = writeArtifact(comparisonPng, `${heatmapId}.png`);
             // Only advertise a URL when the artifact actually landed in the
             // served directory. A URL for a file that was not written is the
             // defect the artifact store exists to end.
-            if (written) responseData.comparisonHeatmapUrl = written.url;
+            if (written) {
+              responseData.comparisonHeatmapUrl = written.url;
+              responseData.comparisonHeatmapFile = `${heatmapId}.png`;
+              comparisonFullResolution = "the PNG at comparisonHeatmapUrl, or artifact_fetch({ file: comparisonHeatmapFile })";
+            } else {
+              comparisonFullResolution = "not available (the artifact store was unavailable, so the full-resolution PNG was not saved)";
+            }
             responseData.heatmapNote = `Blue = ${personaA} looks here more. Red = ${personaB} looks here more. Transparent = similar attention.`;
-
-            content.push({ type: "image" as const, data: compBase64, mimeType: "image/png" });
           } catch (e) {
             console.debug(`[attention_compare] Comparison heatmap failed: ${(e as Error).message}`);
           }
         }
 
-        content.unshift({ type: "text" as const, text: JSON.stringify(responseData, null, 2) });
-
         try { unlinkSync(screenshotPath); } catch {}
+
+        // The comparison map was pushed inline at full PNG size, ~500 KB of
+        // base64 against a ~150k result cap, so on a real page this tool
+        // blew the cap that attention_analysis was fixed for. Same remedy:
+        // a JPEG preview fitted to what the JSON leaves.
+        const content = comparisonPng
+          ? await buildContentWithPreviews(
+              responseData,
+              [{ name: "comparison", png: comparisonPng, fullResolution: comparisonFullResolution }],
+              (p) => ({ comparisonHeatmapPreview: p.comparison }),
+            )
+          : [{ type: "text" as const, text: JSON.stringify(responseData, null, 2) }];
 
         return { content };
       } finally {

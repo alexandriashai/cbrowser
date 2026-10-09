@@ -124,6 +124,7 @@ const TOOL_ZONES: Record<string, ActionZone> = {
   set_api_key: "red",
   clear_api_key: "red",
   ask_user: "red", // Can be used for phishing
+  evaluate_script: "red", // Caller-supplied page script; refused without force (security/script-gate.ts)
 
   // Marketing tools - yellow (external integrations)
   marketing_audience_discover: "yellow",

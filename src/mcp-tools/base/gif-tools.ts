@@ -10,6 +10,8 @@
 
 import { z } from "zod";
 import { writeArtifact } from "../../artifact-store.js";
+import { MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
+import { PREVIEW_RESULT_MARGIN, contentSize } from "../inline-image.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 
 /** Frame geometry of the heatmap GIF. Pinned — changing these changes output. */
@@ -64,6 +66,38 @@ export async function encodeJourneyHeatmapGif(
       loop: 0,
     })
     .toBuffer();
+}
+
+/**
+ * journey_heatmap_gif's result: the JSON, then the GIF inline only when it fits.
+ *
+ * The old gate compared RAW bytes to 190,000, and base64 is 4/3 of that: a
+ * 189 KB GIF went out as ~252k characters against a ~150k result cap, past
+ * which the host swaps the whole result for a file pointer. Measured against
+ * what the JSON leaves of the cap instead. Not re-encoded to fit like the still
+ * overlays (src/mcp-tools/inline-image.ts): a JPEG would drop the animation,
+ * which is the whole content. When it does not fit the result says so and
+ * points at gifUrl. (2026-10-09)
+ */
+export function journeyGifContent(
+  data: Record<string, unknown>,
+  gif: Buffer,
+): Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> {
+  const gifBase64 = gif.toString("base64");
+  const room = MAX_RESPONSE_SIZE - PREVIEW_RESULT_MARGIN
+    - contentSize([{ type: "text", text: JSON.stringify(data, null, 2) }]);
+  if (gifBase64.length <= room) {
+    return [
+      { type: "text", text: JSON.stringify(data, null, 2) },
+      { type: "image", data: gifBase64, mimeType: "image/gif" },
+    ];
+  }
+  const annotated = {
+    ...data,
+    gifInline: false,
+    gifNote: `The GIF is ${gifBase64.length} characters of base64, over the ${Math.max(0, room)} this result has room for, so it is NOT in this response. Open gifUrl.`,
+  };
+  return [{ type: "text", text: JSON.stringify(annotated, null, 2) }];
 }
 
 export function registerGifTools(
@@ -241,32 +275,18 @@ export function registerGifTools(
         rmSync(tmpDir, { recursive: true, force: true });
       } catch {}
 
-      const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [
-        {
-          type: "text" as const,
-          text: JSON.stringify({
-            url,
-            persona,
-            goal,
-            frames: frames.length,
-            steps: stepDescriptions,
-            gifUrl,
-            duration: `${elapsed}ms`,
-            frameDelay: `${frameDelay}ms`,
-          }, null, 2),
-        },
-      ];
+      const data: Record<string, unknown> = {
+        url,
+        persona,
+        goal,
+        frames: frames.length,
+        steps: stepDescriptions,
+        gifUrl,
+        duration: `${elapsed}ms`,
+        frameDelay: `${frameDelay}ms`,
+      };
 
-      // Also return the GIF as inline image
-      if (animatedGif.length < 190000) {
-        content.push({
-          type: "image" as const,
-          data: animatedGif.toString("base64"),
-          mimeType: "image/gif",
-        });
-      }
-
-      return { content };
+      return { content: journeyGifContent(data, animatedGif) };
     } catch (e) {
       return {
         isError: true,

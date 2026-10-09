@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
+import { buildContentWithPreviews } from "../inline-image.js";
 import { scopeProse } from "../../visual/scope-prose.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { comparePersonas } from "../../analysis/index.js";
@@ -34,6 +35,15 @@ import {
   estimateCognitiveLoad,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
+
+/**
+ * Most base64 characters cognitive_effort spends on its inline motor-overlay
+ * preview. The overlay is supporting evidence here, not the finding, and the
+ * chain widget fetches every overlay full-size on demand, so the result keeps
+ * the small inline footprint this tool already chose (2026-08-02) and fits the
+ * picture into it instead of dropping it.
+ */
+const MOTOR_PREVIEW_MAX_CHARS = 40_000;
 
 /**
  * Reference distribution of cognitive distances across the built-in persona set.
@@ -1452,7 +1462,8 @@ Begin with the first persona: ${personas[0]}
       };
 
       // Generate motor accessibility overlay
-      const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [];
+      let motorPng: Buffer | undefined;
+      let motorFullResolution = "";
       try {
         if (motorResult && motorResult.elements.length > 0) {
           const { join: joinPath } = await import("path");
@@ -1487,29 +1498,25 @@ Begin with the first persona: ${personas[0]}
           const motorBase64 = await generateMotorOverlay(ssPath, motorOverlayElements, personaName);
 
           const heatmapId = `motor-${personaName}-${Date.now()}`;
-          const written = writeArtifact(Buffer.from(motorBase64, "base64"), `${heatmapId}.png`);
+          motorPng = Buffer.from(motorBase64, "base64");
+          const written = writeArtifact(motorPng, `${heatmapId}.png`);
           if (written) response.motorOverlayUrl = written.url;
+          motorFullResolution = written
+            ? "the PNG at motorOverlayUrl, or artifact_fetch with the motor entry's file in layerOverlays"
+            : "not available (the artifact store was unavailable, so the full-resolution PNG was not saved)";
           response.motorOverlayNote = "Green = easy to click. Yellow = moderate difficulty. Red = motor barrier for this persona.";
 
-          // Inlined ONLY when small. A tool result is not an image transport.
+          // A tool result is not an image transport, so the full PNG is never
+          // carried: on a real page it was 309,296 of a 312,580-byte result --
+          // 99% image around 2,828 bytes of data -- and past the host's cap the
+          // widget does not degrade, it fails to load. The chain widget fetches
+          // every overlay on demand through artifact_fetch.
           //
-          // This pushed the full base64 overlay unconditionally, and on a real
-          // page that was 309,296 of a 312,580-byte result -- 99% image around
-          // 2,828 bytes of data. Hosts cap tool-result size, and past that cap
-          // the widget does not degrade, it fails to load. The MCP Apps guidance
-          // says heavy assets travel via callServerTool, which is exactly what
-          // the chain widget now does: every overlay, motor included, is written
-          // as an artifact and fetched on demand by the bar that shows it.
-          //
-          // A small overlay still rides along so the model can see it without a
-          // round trip. A large one is named, not carried. (2026-08-02)
-          const INLINE_IMAGE_MAX_B64 = 40_000;
-          if (motorBase64.length <= INLINE_IMAGE_MAX_B64) {
-            content.push({ type: "image" as const, data: motorBase64, mimeType: "image/png" });
-          } else {
-            response.motorOverlayInline = false;
-            response.motorOverlayNote = `${response.motorOverlayNote ?? ""} Overlay is ${Math.round(motorBase64.length / 1024)}KB, too large to inline in a tool result; fetch it with artifact_fetch using the filename in layerOverlays, or open it from the chain view.`.trim();
-          }
+          // It used to ride along only when the PNG happened to be under 40k of
+          // base64, which a real page never is, so the model never saw it. Now
+          // a JPEG preview is fitted into that same 40k (see the end of this
+          // handler), so the overlay is always visible without a round trip
+          // and the result stays small. (2026-10-09)
           // ssPath is deliberately NOT deleted here any more -- the other
           // layer overlays are drawn from the same screenshot below.
         }
@@ -1605,10 +1612,14 @@ Begin with the first persona: ${personas[0]}
         response.layerOverlayNote = "Each entry maps to a bar in the transport chain. Layers without an overlay say why.";
       }
 
-      content.unshift({
-        type: "text" as const,
-        text: JSON.stringify(response, null, 2),
-      });
+      const content = motorPng
+        ? await buildContentWithPreviews(
+            response,
+            [{ name: "motor", png: motorPng, fullResolution: motorFullResolution }],
+            (p) => ({ motorOverlayPreview: p.motor }),
+            { maxCharsPerImage: MOTOR_PREVIEW_MAX_CHARS },
+          )
+        : [{ type: "text" as const, text: JSON.stringify(response, null, 2) }];
 
       // Auto-save handled by tier-gate wrapper
 

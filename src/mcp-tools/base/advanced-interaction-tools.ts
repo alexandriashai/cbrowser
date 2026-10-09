@@ -189,7 +189,7 @@ export function registerAdvancedInteractionTools(
       armed: true,
       handledImmediately: false,
       action,
-      note: `Handler is registered and will ${action} the next dialog on this page. Trigger it with your next call (e.g. click, or evaluate_script running confirm()). No dialog was already pending, which is expected.`,
+      note: `Handler is registered and will ${action} the next dialog on this page. Trigger it with your next call (e.g. click, or evaluate_script with force: true running confirm()). No dialog was already pending, which is expected.`,
       _browserToken: token,
     }, null, 2) }] };
   });

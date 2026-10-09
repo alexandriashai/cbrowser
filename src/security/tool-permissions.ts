@@ -172,6 +172,10 @@ export const DEFAULT_ZONES: Record<string, ToolZone> = {
   set_api_key: "red",
   clear_api_key: "red",
   ask_user: "red", // Can be used for social engineering
+  // Runs caller-supplied page script, which can activate any control without
+  // passing the element-level gate. The handler itself refuses it without
+  // force (src/security/script-gate.ts); this records the zone it runs in.
+  evaluate_script: "red",
 };
 
 // Valid zone values for validation
