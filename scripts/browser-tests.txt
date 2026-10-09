@@ -17,9 +17,11 @@
 # Blank lines and #-comments are ignored.
 
 tests/agent-ready-findability-remediation.test.ts
+tests/agent-ready-snippets-paging.test.ts
 tests/alt-attribute-classification.test.ts
 tests/attention-heatmap-inline.test.ts
 tests/cli-evaluate-keyboard.test.ts
+tests/clickables-offscreen-text-region.test.ts
 tests/cognitive-effort-motor-preview.test.ts
 tests/daemon-evaluate-red-zone.test.ts
 tests/empathy-animation-criteria.test.ts
@@ -30,6 +32,10 @@ tests/find-element-by-intent-cascade.test.ts
 tests/find-element-by-intent-confidence.test.ts
 tests/find-element-zone-matches-gate.test.ts
 tests/freeze-animations.test.ts
+tests/hunt-bugs-crawl.test.ts
+tests/navigation-error-message.test.ts
+tests/nl-assert-case-sensitive.test.ts
+tests/nl-click-failure-context.test.ts
 tests/recording-autocapture.test.ts
 tests/recording-change-tiers.test.ts
 tests/recording-engine.test.ts

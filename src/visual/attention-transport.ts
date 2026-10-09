@@ -78,18 +78,185 @@ export interface AttentionComparisonResult {
   personaA: AttentionAnalysis;
   /** Persona B's attention analysis */
   personaB: AttentionAnalysis;
-  /** Wasserstein distance between the two saliency maps */
+  /**
+   * Distance between the two saliency maps: the L1 distance between the
+   * normalized maps (sum over cells of |pA - pB|), range 0..2.
+   *
+   * NOTE: the field was documented, and attention_compare still describes it,
+   * as a Wasserstein distance. It is not one: no mass is transported between
+   * cells, so moving a hotspot one cell scores the same as moving it across
+   * the page. Flagged 2026-10-09, not changed here.
+   */
   attentionDivergence: number;
-  /** Regions where attention differs most */
-  divergentRegions: Array<{
-    row: number;
-    col: number;
-    x: number;
-    y: number;
-    saliencyA: number;
-    saliencyB: number;
-    divergence: number;
-  }>;
+  /** Connected regions where attention differs most, largest share first (see rankDivergentRegions). */
+  divergentRegions: DivergentRegion[];
+}
+
+/**
+ * One connected area where two attention maps disagree, in one direction.
+ */
+export interface DivergentRegion {
+  /** Peak cell (largest |difference|) row/col, and its top-left in image pixels. Kept from the single-cell shape. */
+  row: number;
+  col: number;
+  x: number;
+  y: number;
+  /** Bounding box of the region in image pixels. */
+  bbox: { x: number; y: number; width: number; height: number };
+  /** Grid cells in the region. */
+  cellCount: number;
+  /** Which persona gives this region MORE of its attention (decided on attentionA vs attentionB). */
+  direction: "personaA" | "personaB";
+  /**
+   * Fraction of each persona's TOTAL attention that falls inside this region
+   * (0-1). This is what direction and divergence are computed from.
+   */
+  attentionA: number;
+  attentionB: number;
+  /**
+   * Mean raw saliency over the region's cells (0-1), per persona. Kept for
+   * compatibility. It can point the other way from direction: a persona whose
+   * map is bright everywhere has high raw saliency here and still a SMALLER
+   * share of its attention here. Read attentionA/attentionB for the comparison.
+   */
+  saliencyA: number;
+  saliencyB: number;
+  /**
+   * Share of attentionDivergence this region accounts for: sum of |pA - pB|
+   * over its cells divided by attentionDivergence. 0..1; the shares of all
+   * regions sum to at most 1, and a region that contributes more has a larger
+   * share.
+   */
+  divergence: number;
+}
+
+/**
+ * Locate where two attention maps differ, as regions rather than cells.
+ *
+ * Before 2026-10-09 attention_compare returned the top single cells ranked by
+ * |pA - pB|. Each map is normalized over ~16,000 cells at the tool's grid, so
+ * every value was ~1/16,000 and, rounded to 4 decimals, read 0.0001-0.0002:
+ * a constant column, presented as the "divergence" of each region. And the
+ * foveal smoothing makes neighbours near-identical, so the top five were five
+ * adjacent cells of one hotspot.
+ *
+ * Now, on the same normalized quantity the aggregate sums:
+ *   1. signed per-cell difference d = pA - pB;
+ *   2. keep cells whose |d| is at least the MEAN cell's contribution
+ *      (divergence / cells), falling back to every non-zero cell, so a
+ *      non-zero divergence never yields no region;
+ *   3. group kept cells into 8-neighbour connected components of the SAME
+ *      sign, so "A looks here more" and "B looks here more" never merge;
+ *   4. each region's divergence = its share of the total;
+ *   5. rank by share.
+ *
+ * Why the mean and not the "1% of the total" floor the single-cell version
+ * used: 1% of the total is the mean only at 100 cells. At the tool's grid
+ * (7,500 cells on an 800x600 capture, ~16,000 at 1280x800) no cell ever reaches
+ * it (measured: largest cell 0.4% of the total on a two-block fixture), so the
+ * fallback fired every time and kept every non-zero cell. Regions then became
+ * "everywhere A looks more" and "everywhere B looks more", each exactly half
+ * the divergence, because two normalized maps differ by equal mass in each
+ * direction. The mean scales with the grid.
+ *
+ * Pure: no image, no persona. `cellSize` is the cell's size in image pixels.
+ */
+export function rankDivergentRegions(
+  salA: ArrayLike<number>,
+  salB: ArrayLike<number>,
+  rows: number,
+  cols: number,
+  cellSize: number,
+): { divergence: number; regions: DivergentRegion[] } {
+  const n = Math.min(salA.length, salB.length, rows * cols);
+  let totalA = 0;
+  let totalB = 0;
+  for (let i = 0; i < n; i++) { totalA += salA[i]; totalB += salB[i]; }
+  totalA = totalA || 1;
+  totalB = totalB || 1;
+
+  const d = new Float64Array(n);
+  let divergence = 0;
+  for (let i = 0; i < n; i++) {
+    d[i] = salA[i] / totalA - salB[i] / totalB;
+    divergence += Math.abs(d[i]);
+  }
+  if (!(divergence > 0)) return { divergence: 0, regions: [] };
+
+  const floor = divergence / n;
+  let keep = Array.from({ length: n }, (_, i) => d[i] !== 0 && Math.abs(d[i]) >= floor);
+  if (!keep.some(Boolean)) keep = Array.from({ length: n }, (_, i) => d[i] !== 0);
+
+  const seen = new Uint8Array(n);
+  const regions: Array<DivergentRegion & { _sum: number; _peak: number; _peakIdx: number }> = [];
+  for (let start = 0; start < n; start++) {
+    if (!keep[start] || seen[start]) continue;
+    const positive = d[start] > 0;
+    const stack = [start];
+    seen[start] = 1;
+    let sum = 0, peak = -1, peakIdx = start, sumA = 0, sumB = 0, shareA = 0, shareB = 0, count = 0;
+    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+    while (stack.length > 0) {
+      const i = stack.pop()!;
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      const abs = Math.abs(d[i]);
+      sum += abs;
+      sumA += salA[i];
+      sumB += salB[i];
+      shareA += salA[i] / totalA;
+      shareB += salB[i] / totalB;
+      count++;
+      if (abs > peak || (abs === peak && i < peakIdx)) { peak = abs; peakIdx = i; }
+      if (r < minR) minR = r;
+      if (r > maxR) maxR = r;
+      if (c < minC) minC = c;
+      if (c > maxC) maxC = c;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr, nc = c + dc;
+          if (nr < 0 || nc < 0 || nc >= cols) continue;
+          const j = nr * cols + nc;
+          if (j >= n || seen[j] || !keep[j] || (d[j] > 0) !== positive) continue;
+          seen[j] = 1;
+          stack.push(j);
+        }
+      }
+    }
+    const peakRow = Math.floor(peakIdx / cols);
+    const peakCol = peakIdx % cols;
+    regions.push({
+      row: peakRow,
+      col: peakCol,
+      x: peakCol * cellSize,
+      y: peakRow * cellSize,
+      bbox: {
+        x: minC * cellSize,
+        y: minR * cellSize,
+        width: (maxC - minC + 1) * cellSize,
+        height: (maxR - minR + 1) * cellSize,
+      },
+      cellCount: count,
+      direction: positive ? "personaA" : "personaB",
+      attentionA: Math.round(shareA * 1000) / 1000,
+      attentionB: Math.round(shareB * 1000) / 1000,
+      saliencyA: Math.round((sumA / count) * 100) / 100,
+      saliencyB: Math.round((sumB / count) * 100) / 100,
+      divergence: Math.round((sum / divergence) * 1000) / 1000,
+      _sum: sum,
+      _peak: peak,
+      _peakIdx: peakIdx,
+    });
+  }
+
+  // Rank on the unrounded share; ties broken by peak, then position, so the
+  // order is deterministic.
+  regions.sort((a, b) => (b._sum - a._sum) || (b._peak - a._peak) || (a._peakIdx - b._peakIdx));
+  return {
+    divergence,
+    regions: regions.map(({ _sum: _s, _peak: _p, _peakIdx: _i, ...r }) => r),
+  };
 }
 
 // ── CIE-Lab Color Space Conversion ──
@@ -1277,8 +1444,9 @@ export async function analyzeAttention(
 
 /**
  * Compare attention patterns between two personas on the same screenshot.
- * Returns the Wasserstein divergence between their saliency maps and
- * identifies regions where attention differs most.
+ * Returns the L1 divergence between their normalized saliency maps (described
+ * elsewhere as Wasserstein; it is not, see attentionDivergence) and the
+ * connected regions where attention differs most.
  */
 export async function compareAttention(
   screenshotPath: string,
@@ -1293,63 +1461,25 @@ export async function compareAttention(
     analyzeAttention(screenshotPath, personaB, cellSize, undefined, domElements, goal),
   ]);
 
-  const salA = analysisA.saliencyMap.cells;
-  const salB = analysisB.saliencyMap.cells;
-  const n = Math.min(salA.length, salB.length);
-
-  // W₁ between the two saliency distributions
-  let divergence = 0;
-  const totalA = salA.reduce((a, b) => a + b, 0) || 1;
-  const totalB = salB.reduce((a, b) => a + b, 0) || 1;
-  for (let i = 0; i < n; i++) {
-    divergence += Math.abs(salA[i] / totalA - salB[i] / totalB);
-  }
-
-  // Find the most divergent regions.
-  //
-  // The aggregate above is computed on NORMALIZED saliency (salA/totalA vs
-  // salB/totalB); this loop used RAW values against a fixed 0.3 threshold. Two
-  // different scales for one concept, so on any page whose per-cell saliency is
-  // individually small — most pages, since the map is normalized across many
-  // cells — nothing cleared 0.3 and the list came back EMPTY while
-  // attentionDivergence read 0.2606 and the interpretation said "substantially
-  // different attention patterns". The report was describing a difference it
-  // then declined to locate.
-  //
-  // Ranking now uses the same normalized quantity the aggregate sums, so the
-  // regions are literally the largest contributors to the number reported
-  // beside them, and a non-zero divergence can no longer yield an empty list.
-  // (2026-07-29)
-  const contributions: Array<{ i: number; div: number }> = [];
-  for (let i = 0; i < n; i++) {
-    contributions.push({ i, div: Math.abs(salA[i] / totalA - salB[i] / totalB) });
-  }
-  contributions.sort((a, b) => b.div - a.div);
-
-  // Keep cells carrying a real share of the total divergence, but never return
-  // nothing when there IS divergence: at minimum the top contributors.
-  const shareFloor = divergence > 0 ? divergence * 0.01 : Infinity;
-  const significant = contributions.filter((c) => c.div > shareFloor);
-  const selected = significant.length > 0 ? significant : contributions.filter((c) => c.div > 0);
-
-  const divergentRegions: AttentionComparisonResult['divergentRegions'] = selected.map(({ i, div }) => {
-    const row = Math.floor(i / analysisA.saliencyMap.cols);
-    const col = i % analysisA.saliencyMap.cols;
-    return {
-      row, col,
-      x: col * analysisA.saliencyMap.cellSize,
-      y: row * analysisA.saliencyMap.cellSize,
-      saliencyA: Math.round(salA[i] * 100) / 100,
-      saliencyB: Math.round(salB[i] * 100) / 100,
-      // Share of the reported attentionDivergence this cell accounts for.
-      divergence: Math.round(div * 10000) / 10000,
-    };
-  });
+  // One pass computes the aggregate AND the regions from the same normalized
+  // maps, so the regions are by construction the contributors to the number
+  // reported beside them. History: until 2026-07-29 the regions used RAW
+  // saliency against a fixed 0.3 threshold and came back empty beside a
+  // divergence of 0.2606 (B18); until 2026-10-09 they were single cells whose
+  // per-cell values were ~1/16,000 and adjacent to each other (see
+  // rankDivergentRegions).
+  const { divergence, regions } = rankDivergentRegions(
+    analysisA.saliencyMap.cells,
+    analysisB.saliencyMap.cells,
+    analysisA.saliencyMap.rows,
+    analysisA.saliencyMap.cols,
+    analysisA.saliencyMap.cellSize,
+  );
 
   return {
     personaA: analysisA,
     personaB: analysisB,
     attentionDivergence: Math.round(divergence * 10000) / 10000,
-    divergentRegions: divergentRegions.slice(0, 10),
+    divergentRegions: regions.slice(0, 10),
   };
 }

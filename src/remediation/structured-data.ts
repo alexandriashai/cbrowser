@@ -15,6 +15,7 @@
 
 import { type Page } from "playwright";
 import { CBrowser } from "../browser.js";
+import { navigationError } from "../navigation-errors.js";
 
 /**
  * Detected page type
@@ -89,7 +90,8 @@ export interface StructuredDataOptions {
  * Extract signals from a page for type detection
  */
 async function extractPageSignals(page: Page, url: string): Promise<PageSignals> {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+    .catch((e: unknown) => { throw navigationError(e, url); });
 
   const signals = await page.evaluate(() => {
     const title =

@@ -54,6 +54,65 @@ export interface BugReport {
 }
 
 /**
+ * The crawl's identity for a URL: parsed, fragment dropped, trailing slash
+ * trimmed from a non-root path. `http://host` and `http://host/` and
+ * `http://host/#top` are one page; so are `/pricing` and `/pricing/`.
+ *
+ * Without it the start URL was stored as typed. cbrowser.ai's own `href="/"`
+ * resolves to `https://cbrowser.ai/`, which did not equal a start URL typed
+ * without the slash, so the home page was crawled a second time as a "new"
+ * page and pagesVisited counted it twice.
+ */
+export function normalizeCrawlUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    u.hash = "";
+    if (u.pathname.length > 1 && u.pathname.endsWith("/")) u.pathname = u.pathname.replace(/\/+$/, "") || "/";
+    return u.href;
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * Severity for a finding, the same on every page.
+ *
+ * The first page had this mapping; crawled pages used
+ * `a11y-violation ? "high" : "medium"`, so an alt="" image the first page
+ * graded "low" (a prompt to confirm a decorative image) was "medium" on page
+ * two. One function, both loops.
+ */
+export function severityFor(issue: { type: string; description?: string }): BugReport["severity"] {
+  const isPlaceholderOnly = (issue.description ?? "").includes("relies only on placeholder");
+  let severity: BugReport["severity"] = "medium";
+  if (isPlaceholderOnly) {
+    severity = "medium";
+  } else if (issue.type === "duplicate-id") {
+    severity = "high"; // Breaks functionality
+  } else if (issue.type === "missing-page-title" || issue.type === "missing-lang") {
+    severity = "high"; // WCAG Level A
+  } else if (issue.type === "autoplay-media") {
+    severity = "critical"; // Can cause seizures
+  } else if (issue.type === "missing-skip-link") {
+    severity = "low"; // WCAG Level A but common omission
+  } else if (issue.type === "contrast-violation") {
+    severity = "high"; // Affects readability
+  } else if (issue.type === "missing-aria") {
+    severity = "medium"; // Affects AT users
+  } else if (issue.type === "console-error") {
+    severity = "high";
+  } else if (issue.type === "a11y-violation") {
+    severity = "high";
+  } else if (issue.type === "a11y-verify") {
+    // A prompt to confirm an existing decision, not a violation. Grading it
+    // high is what made hunt_bugs contradict empathy_audit on the same six
+    // images — one calling it critical, the other minor.
+    severity = "low";
+  }
+  return severity;
+}
+
+/**
  * Autonomously explore a page and find bugs.
  */
 export async function huntBugs(
@@ -63,11 +122,17 @@ export async function huntBugs(
 ): Promise<{
   bugs: BugReport[];
   pagesVisited: number;
+  /** Every page analysed, as normalizeCrawlUrl of where the browser landed, in visit order. */
+  visitedUrls: string[];
   duration: number;
 }> {
   const startTime = Date.now();
   const bugs: BugReport[] = [];
-  const visited = new Set<string>();
+  // Requested and landed URLs, normalized: never request the same page twice.
+  const seen = new Set<string>();
+  // Pages actually analysed. pagesVisited is its length, so the count and the
+  // list cannot disagree.
+  const visitedUrls: string[] = [];
   const _maxPages = options.maxPages || 10;
   const _timeout = options.timeout || 60000;
 
@@ -81,9 +146,32 @@ export async function huntBugs(
     }
   });
 
-  // Start with initial URL
+  // Console errors collected since the last flush belong to `pageUrl`.
+  // Crawled pages' errors used to be collected and never reported: the only
+  // flush ran once, before the crawl started.
+  const flushConsoleErrors = (pageUrl: string) => {
+    const errorCounts = new Map<string, number>();
+    for (const error of consoleErrors.splice(0)) {
+      const key = error.slice(0, 200);
+      errorCounts.set(key, (errorCounts.get(key) || 0) + 1);
+    }
+    for (const [error, count] of errorCounts) {
+      bugs.push({
+        type: "console-error",
+        severity: severityFor({ type: "console-error", description: error }),
+        description: count > 1 ? `${error} (×${count})` : error,
+        url: pageUrl,
+      });
+    }
+  };
+
+  // Start with initial URL. The page is recorded where the browser LANDED,
+  // so a redirect is not visited twice under two names.
   await browser.navigate(url);
-  visited.add(url);
+  const startUrl = normalizeCrawlUrl(page.url() || url);
+  seen.add(normalizeCrawlUrl(url));
+  seen.add(startUrl);
+  visitedUrls.push(startUrl);
 
   // Check for issues on current page
   const pageIssues = await page.evaluate(() => {
@@ -353,57 +441,18 @@ export async function huntBugs(
 
   // Add page issues to bugs with severity mapping
   for (const issue of pageIssues) {
-    const isPlaceholderOnly = issue.description.includes("relies only on placeholder");
-
-    // Determine severity based on issue type
-    let severity: BugReport["severity"] = "medium";
-    if (isPlaceholderOnly) {
-      severity = "medium";
-    } else if (issue.type === "duplicate-id") {
-      severity = "high"; // Breaks functionality
-    } else if (issue.type === "missing-page-title" || issue.type === "missing-lang") {
-      severity = "high"; // WCAG Level A
-    } else if (issue.type === "autoplay-media") {
-      severity = "critical"; // Can cause seizures
-    } else if (issue.type === "missing-skip-link") {
-      severity = "low"; // WCAG Level A but common omission
-    } else if (issue.type === "contrast-violation") {
-      severity = "high"; // Affects readability
-    } else if (issue.type === "missing-aria") {
-      severity = "medium"; // Affects AT users
-    } else if (issue.type === "a11y-violation") {
-      severity = "high";
-    } else if (issue.type === "a11y-verify") {
-      // A prompt to confirm an existing decision, not a violation. Grading it
-      // high is what made hunt_bugs contradict empathy_audit on the same six
-      // images — one calling it critical, the other minor.
-      severity = "low";
-    }
-
     bugs.push({
       type: issue.type as BugReport["type"],
-      severity,
+      severity: severityFor(issue),
       description: issue.description,
-      url,
+      url: startUrl,
       selector: issue.selector,
       recommendation: issue.recommendation,
     });
   }
 
   // Add console errors (deduplicated with count)
-  const errorCounts = new Map<string, number>();
-  for (const error of consoleErrors) {
-    const key = error.slice(0, 200);
-    errorCounts.set(key, (errorCounts.get(key) || 0) + 1);
-  }
-  for (const [error, count] of errorCounts) {
-    bugs.push({
-      type: "console-error",
-      severity: "high",
-      description: count > 1 ? `${error} (×${count})` : error,
-      url,
-    });
-  }
+  flushConsoleErrors(startUrl);
 
   // v11.6.0: Actually implement link-following crawler for maxPages > 1
   if (_maxPages > 1) {
@@ -430,16 +479,38 @@ export async function huntBugs(
       }, baseDomain);
     };
 
-    const toVisit = await extractLinks();
+    const queued = new Set<string>();
+    const toVisit: string[] = [];
+    const enqueue = (links: string[]) => {
+      for (const link of links) {
+        const key = normalizeCrawlUrl(link);
+        if (seen.has(key) || queued.has(key)) continue;
+        queued.add(key);
+        toVisit.push(link);
+      }
+    };
+    enqueue(await extractLinks());
 
     // Visit additional pages up to maxPages
-    while (visited.size < _maxPages && toVisit.length > 0 && (Date.now() - startTime) < _timeout) {
+    while (visitedUrls.length < _maxPages && toVisit.length > 0 && (Date.now() - startTime) < _timeout) {
       const nextUrl = toVisit.shift();
-      if (!nextUrl || visited.has(nextUrl)) continue;
+      if (!nextUrl) continue;
+      const requested = normalizeCrawlUrl(nextUrl);
+      if (seen.has(requested)) continue;
+      seen.add(requested);
 
       try {
+        // Errors logged from here on belong to this page.
+        consoleErrors.length = 0;
         await browser.navigate(nextUrl);
-        visited.add(nextUrl);
+        const landed = normalizeCrawlUrl(page.url() || nextUrl);
+        if (landed !== requested && seen.has(landed)) {
+          // Redirected to a page already analysed.
+          consoleErrors.length = 0;
+          continue;
+        }
+        seen.add(landed);
+        visitedUrls.push(landed);
 
         // Check for issues on this page
         const pageIssues2 = await page.evaluate(() => {
@@ -477,30 +548,116 @@ export async function huntBugs(
         for (const issue of pageIssues2) {
           bugs.push({
             type: issue.type as BugReport["type"],
-            severity: issue.type === "a11y-violation" ? "high" : "medium",
+            severity: severityFor(issue),
             description: issue.description,
-            url: nextUrl,
+            url: landed,
             selector: issue.selector,
             recommendation: issue.recommendation,
           });
         }
+        flushConsoleErrors(landed);
 
         // Extract more links from this page
-        const newLinks = await extractLinks();
-        for (const link of newLinks) {
-          if (!visited.has(link) && !toVisit.includes(link)) {
-            toVisit.push(link);
-          }
-        }
+        enqueue(await extractLinks());
       } catch {
         // Navigation failed, skip this URL
+        consoleErrors.length = 0;
       }
     }
   }
 
   return {
     bugs,
-    pagesVisited: visited.size,
+    pagesVisited: visitedUrls.length,
+    visitedUrls,
     duration: Date.now() - startTime,
+  };
+}
+
+/**
+ * The hunt_bugs tool response, shared by the HTTP and stdio servers.
+ *
+ * Repeats of one finding on one page are collapsed with an occurrence count;
+ * findings are sorted worst first and paged (limit/offset) with the cut
+ * stated; byPage/byType/bySeverity describe ALL findings. byPage starts with
+ * every visited page at 0, so a clean page is listed rather than missing:
+ * pagesVisited said 5 while byPage named 3, and the reader could not tell
+ * "two clean pages" from "two pages lost". The stdio copy had none of this:
+ * crawl-order slice(0, 10), no paging, no breakdowns. (2026-10-09)
+ */
+export function huntBugsResponse(
+  result: { bugs: BugReport[]; pagesVisited: number; visitedUrls?: string[]; duration: number },
+  options: { limit?: number; offset?: number } = {},
+): Record<string, unknown> {
+  const all = result.bugs ?? [];
+
+  // Collapse repeats of the same finding on the same page.
+  //
+  // A carousel with duplicated slides reported the same five broken images
+  // twice, so ten "bugs" were five distinct assets. Counting the work
+  // rather than the DOM occurrences is the honest figure; occurrences are
+  // kept so nothing is lost. (2026-07-31)
+  type Group = BugReport & { occurrences: number; selectors: string[] };
+  const groups = new Map<string, Group>();
+  for (const bug of all) {
+    const key = `${bug.type}|${bug.url}|${bug.description}`;
+    const prior = groups.get(key);
+    if (prior) {
+      prior.occurrences += 1;
+      if (bug.selector && !prior.selectors.includes(bug.selector)) prior.selectors.push(bug.selector);
+    } else {
+      groups.set(key, { ...bug, occurrences: 1, selectors: bug.selector ? [bug.selector] : [] });
+    }
+  }
+  const distinct = [...groups.values()];
+
+  const SEV = (x: string) => ({ critical: 0, high: 1, major: 1, medium: 2, moderate: 2, low: 3, minor: 3, info: 4 }[String(x).toLowerCase()] ?? 5);
+  // Worst first. A plain slice took the first ten in crawl order, which is
+  // page one -- so a five-page crawl reported thirty-five bugs and showed
+  // ten, every one of them from the homepage, with nothing saying so.
+  distinct.sort((x, y) => SEV(x.severity) - SEV(y.severity));
+
+  const start = Math.max(0, options.offset ?? 0);
+  const shown = distinct.slice(start, start + Math.max(1, options.limit ?? 25));
+
+  const tally = (rows: Group[], key: "url" | "type" | "severity", seed: string[] = []) => rows.reduce((m: Record<string, number>, r) => {
+    const k = String(r[key] ?? "unknown"); m[k] = (m[k] ?? 0) + 1; return m;
+  }, Object.fromEntries(seed.map((u) => [u, 0])) as Record<string, number>);
+
+  const visitedUrls = result.visitedUrls ?? [];
+  return {
+    pagesVisited: result.pagesVisited,
+    visitedUrls,
+    // Raw DOM occurrences, and the distinct findings behind them.
+    bugsFound: all.length,
+    distinctBugs: distinct.length,
+    duration: result.duration,
+    returned: shown.length,
+    offset: start,
+    // Stated, not implied. The previous shape reported a count it did
+    // not deliver and gave no way to ask for the rest.
+    ...(start + shown.length < distinct.length
+      ? {
+          omitted: distinct.length - (start + shown.length),
+          omittedNote: `Showing ${shown.length} of ${distinct.length} distinct bugs, worst first. Re-run with offset=${start + shown.length} for the next page, or raise limit. The breakdowns below cover ALL findings, not just the ones shown.`,
+        }
+      : {}),
+    // Composition of everything found, so a truncated list cannot
+    // misrepresent the shape of the result. Every visited page is listed,
+    // clean ones at 0.
+    byPage: tally(distinct, "url", visitedUrls),
+    byType: tally(distinct, "type"),
+    bySeverity: tally(distinct, "severity"),
+    bugs: shown.map(bug => ({
+      type: bug.type,
+      severity: bug.severity,
+      description: bug.description,
+      url: bug.url,
+      selector: bug.selector,
+      ...(bug.occurrences > 1
+        ? { occurrences: bug.occurrences, allSelectors: bug.selectors }
+        : {}),
+      recommendation: bug.recommendation,
+    })),
   };
 }

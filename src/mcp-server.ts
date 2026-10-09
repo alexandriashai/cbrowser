@@ -63,11 +63,13 @@ import type { NLTestCase, NLTestStep } from "./types.js";
 // Analysis module imports
 import {
   huntBugs,
+  huntBugsResponse,
   runChaosTest,
   comparePersonas,
   findElementByIntent,
   FIND_ELEMENT_BY_INTENT_DESCRIPTION,
   runAgentReadyAudit,
+  pageAgentReadyFindings,
   runCompetitiveBenchmark,
   runEmpathyAudit,
 } from "./analysis/index.js";
@@ -1752,28 +1754,20 @@ async function registerCBrowserTools(): Promise<McpServer> {
     {
       url: z.string().url().describe("Starting URL to hunt from"),
       maxPages: z.number().optional().default(10).describe("Maximum pages to visit"),
+      limit: z.number().optional().default(25).describe("How many bugs to return, worst first. The full count and a per-page/per-type breakdown are always reported, so a truncated list never hides the shape of what was found."),
+      offset: z.number().optional().default(0).describe("Skip this many bugs before returning, for paging through a large result."),
       timeout: z.number().optional().default(60000).describe("Timeout in milliseconds"),
     },
-    async ({ url, maxPages, timeout }) => {
+    async ({ url, maxPages, timeout, limit, offset }) => {
       const b = await getBrowser();
       const result = await huntBugs(b, url, { maxPages, timeout });
+      // Same response as the HTTP tool. This copy returned the first ten bugs
+      // in crawl order, with no severity sort, paging or breakdowns.
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              pagesVisited: result.pagesVisited,
-              bugsFound: result.bugs.length,
-              duration: result.duration,
-              bugs: result.bugs.slice(0, 10).map(bug => ({
-                type: bug.type,
-                severity: bug.severity,
-                description: bug.description,
-                url: bug.url,
-                selector: bug.selector,
-                recommendation: bug.recommendation,
-              })),
-            }, null, 2),
+            text: JSON.stringify(huntBugsResponse(result, { limit, offset }), null, 2),
           },
         ],
       };
@@ -3033,8 +3027,10 @@ Begin the simulation now. Narrate your thoughts as this persona.
     "Audit a website for AI-agent friendliness. Analyzes findability, stability, accessibility, and semantics. Returns score (0-100), grade (A-F), issues, and remediation recommendations.",
     {
       url: z.string().url().describe("URL to audit"),
+      limit: z.number().optional().default(5).describe("How many issues (worst first) and recommendations (priority order) to return. Totals and severity counts always cover ALL findings."),
+      offset: z.number().optional().default(0).describe("Skip this many issues and recommendations before returning, for paging through a large result."),
     },
-    async ({ url }) => {
+    async ({ url, limit, offset }) => {
       const result = await runAgentReadyAudit(url, { headless: true });
       return {
         content: [
@@ -3045,8 +3041,9 @@ Begin the simulation now. Narrate your thoughts as this persona.
               score: result.score,
               grade: result.grade,
               summary: result.summary,
-              topIssues: result.issues.slice(0, 5),
-              topRecommendations: result.recommendations.slice(0, 5),
+              // Same paging as the HTTP tool. This copy sliced issues in
+              // detection order and never got the 2026-08-01 worst-first fix.
+              ...pageAgentReadyFindings(result, { limit, offset }),
               duration: result.duration,
             }, null, 2),
           },

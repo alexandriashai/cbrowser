@@ -16,6 +16,7 @@
 
 import { type Page } from "playwright";
 import { CBrowser } from "../browser.js";
+import { navigationError } from "../navigation-errors.js";
 
 /**
  * Extracted page data for llms.txt generation
@@ -73,7 +74,8 @@ export interface LlmsTxtOptions {
  * Extract data from a single page
  */
 async function extractPageData(page: Page, url: string): Promise<PageData> {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+    .catch((e: unknown) => { throw navigationError(e, url); });
 
   const data = await page.evaluate(() => {
     const title =

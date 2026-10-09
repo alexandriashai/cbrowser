@@ -15,6 +15,7 @@
 import { type Page, type Browser } from "playwright";
 import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
+import { navigationError } from "../navigation-errors.js";
 import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
 import type {
   AgentReadyAuditResult,
@@ -296,6 +297,8 @@ async function detectUnlabeledElements(ctx: DetectionContext): Promise<void> {
       selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + (el.className ? `.${String((el.className as unknown as { baseVal?: string })?.baseVal ?? el.className ?? "").split(' ')[0]}` : ''),
       text: el.textContent?.trim() || '',
       html: el.outerHTML.slice(0, 200),
+      tag: el.tagName.toLowerCase(),
+      attributes: Array.from(el.attributes).map(a => [a.name, a.value] as [string, string]),
     })).filter(el => !el.text) // Only those without visible text
   );
 
@@ -307,7 +310,12 @@ async function detectUnlabeledElements(ctx: DetectionContext): Promise<void> {
       description: `Button without accessible text or aria-label`,
       detectionMethod: "button-label-check",
       recommendation: "Add aria-label or visible text to the button",
-      codeExample: `<button aria-label="Describe action here">...</button>`,
+      // The flagged element's own tag, with the aria-label added. Was the
+      // literal `<button aria-label="Describe action here">...</button>` for
+      // every finding. (2026-10-09)
+      codeExample: VOID_ELEMENTS.has(btn.tag)
+        ? rebuildOpenTag(btn.tag, btn.attributes, { 'aria-label': NAMELESS_LABEL_PLACEHOLDER })
+        : `${rebuildOpenTag(btn.tag, btn.attributes, { 'aria-label': NAMELESS_LABEL_PLACEHOLDER })}<!-- existing content unchanged --></${btn.tag}>`,
     });
     summary.elementsWithoutText++;
   }
@@ -567,6 +575,7 @@ async function detectMissingAltText(ctx: DetectionContext): Promise<void> {
         selector: `img${imgEl.id ? `#${imgEl.id}` : ''}[src="${imgEl.src.slice(0, 50)}..."]`,
         src: imgEl.src,
         isDecorative: imgEl.width < 20 || imgEl.height < 20,
+        attributes: Array.from(el.attributes).map(a => [a.name, a.value] as [string, string]),
       };
     }).filter(el => !el.isDecorative)
   );
@@ -579,7 +588,8 @@ async function detectMissingAltText(ctx: DetectionContext): Promise<void> {
       description: "Image without alt text",
       detectionMethod: "img-alt-check",
       recommendation: "Add descriptive alt text, or alt=\"\" if decorative",
-      codeExample: `<img src="..." alt="Description of the image" />`,
+      // The flagged <img> as the page has it, with alt added. (2026-10-09)
+      codeExample: rebuildOpenTag("img", img.attributes, { alt: "Describe the image, or empty if decorative" }),
     });
     summary.missingAriaLabels++;
   }
@@ -641,6 +651,58 @@ const VOID_ELEMENTS = new Set([
 const EXAMPLE_ATTR_MAX = 200;
 const EXAMPLE_ATTR_HEAD = 80;
 
+/** Attribute values are quoted, so any quote or angle bracket in page text would otherwise emit malformed HTML. */
+const escapeAttr = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const escapeText = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** The marker is plain text inside the quotes, so the example stays valid markup and nobody mistakes the cut value for the real one. */
+const elideAttr = (v: string) => v.length > EXAMPLE_ATTR_MAX
+  ? `${v.slice(0, EXAMPLE_ATTR_HEAD)}[...${v.length - EXAMPLE_ATTR_HEAD} more characters unchanged]`
+  : v;
+
+/**
+ * An element's REAL opening tag, with the `set` attributes replaced in place
+ * (or appended when the element does not have them). Every other attribute is
+ * kept as the page has it, long values elided. Used by the examples that used
+ * to be canned literals: a finding about a specific element should show THAT
+ * element, not a generic <button>. (2026-10-09)
+ */
+function rebuildOpenTag(tag: string, attributes: Array<[string, string]>, set: Record<string, string> = {}): string {
+  const pending = new Map(Object.entries(set));
+  const parts = attributes.map(([name, value]) => {
+    if (pending.has(name)) {
+      const replacement = pending.get(name)!;
+      pending.delete(name);
+      return ` ${name}="${escapeAttr(replacement)}"`;
+    }
+    return ` ${name}="${escapeAttr(elideAttr(value))}"`;
+  });
+  for (const [name, value] of pending) parts.push(` ${name}="${escapeAttr(value)}"`);
+  return `<${tag}${parts.join('')}>`;
+}
+
+/** Longest suggested data-testid. */
+const TESTID_MAX = 40;
+
+/**
+ * A data-testid slug for an accessible name, at most TESTID_MAX characters,
+ * cut at a word boundary.
+ *
+ * It was a hard substring(0, 40), so "Sign up for Pro and get 500 bonus
+ * credits free" became "sign-up-for-pro-and-get-500-bonus-credit": a testid
+ * that names a word the page does not contain. Now the cut lands on the last
+ * hyphen inside the limit ("...-500-bonus"), and falls back to a hard cut only
+ * for a single word longer than the limit.
+ */
+export function slugifyTestId(text: string): string {
+  const s = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+  if (s.length <= TESTID_MAX) return s;
+  // One character past the limit: if it is a hyphen, the first TESTID_MAX
+  // characters already end on a whole word.
+  const head = s.slice(0, TESTID_MAX + 1);
+  const cut = head.lastIndexOf('-');
+  return (cut > 0 ? head.slice(0, cut) : s.slice(0, TESTID_MAX)).replace(/-+$/, '');
+}
+
 /** What detectLowFindabilityElements captures about an element to suggest markup for it. */
 interface FindabilityElement {
   tag: string;
@@ -670,11 +732,10 @@ interface FindabilityElement {
  * named by its <img alt> or title REPLACES that name. (2026-10-07)
  */
 function buildFindabilityCodeExample(el: FindabilityElement, usedTestIds: Set<string>): string {
-  // Attribute values are quoted, so any quote or angle bracket in the page
-  // text would otherwise emit malformed HTML.
-  const attr = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // A testid is a slug, so truncating THIS is correct and expected.
-  const slug = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').substring(0, 40).replace(/-+$/, '');
+  const attr = escapeAttr;
+  // A testid is a slug, so shortening THIS is correct and expected; it is cut
+  // at a word boundary (slugifyTestId).
+  const slug = slugifyTestId;
 
   const name = el.accessibleName.trim();
   // Two elements that share a name are flagged precisely because they are
@@ -684,11 +745,7 @@ function buildFindabilityCodeExample(el: FindabilityElement, usedTestIds: Set<st
   for (let n = 2; usedTestIds.has(testId); n++) testId = `${base}-${n}`;
   usedTestIds.add(testId);
 
-  // The marker is plain text inside the quotes, so the example stays valid
-  // markup and nobody mistakes the cut value for the real one.
-  const shown = (v: string) => v.length > EXAMPLE_ATTR_MAX
-    ? `${v.slice(0, EXAMPLE_ATTR_HEAD)}[...${v.length - EXAMPLE_ATTR_HEAD} more characters unchanged]`
-    : v;
+  const shown = elideAttr;
 
   let hasAriaLabelAttr = false;
   const kept = el.attributes.map(([attrName, value]) => {
@@ -1189,8 +1246,48 @@ async function detectActionableElements(ctx: DetectionContext): Promise<void> {
       'me', 'now', 'to', 'the', 'please', 'thanks',
     ]);
 
-    const weakButtons: Array<{ selector: string; text: string }> = [];
+    const weakButtons: Array<{
+      selector: string;
+      text: string;
+      /** The name with its original case, for the code example. */
+      label: string;
+      /** Where the name comes from, which decides what the example changes. */
+      nameSource: 'aria-label' | 'aria-labelledby' | 'content' | 'value';
+      labelledBy: string;
+      /** The element's own text content (whitespace collapsed), which may differ from its name. */
+      content: string;
+      tag: string;
+      attributes: Array<[string, string]>;
+      hasElementChildren: boolean;
+      /** What the button acts on, when the page says: its aria-controls target's name, or the nearest named container's. */
+      context: string;
+    }> = [];
     let elementsWithDescribedBy = 0;
+
+    const clean = (v: string | null | undefined) => (v || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    // A container's own name: aria-label, aria-labelledby text, or its first heading.
+    const nameOf = (el: Element): string => {
+      const own = clean(el.getAttribute('aria-label'));
+      if (own) return own;
+      const ids = (el.getAttribute('aria-labelledby') || '').trim().split(/\s+/).filter(Boolean);
+      const byIds = clean(ids.map(id => document.getElementById(id)?.textContent || '').join(' '));
+      if (byIds) return byIds;
+      return clean(el.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"], legend, caption')?.textContent);
+    };
+    const contextOf = (btn: Element): string => {
+      const controls = (btn.getAttribute('aria-controls') || '').trim().split(/\s+/)[0];
+      const target = controls ? document.getElementById(controls) : null;
+      if (target) {
+        const n = nameOf(target);
+        if (n) return n;
+      }
+      const containers = 'nav, form, section, article, aside, dialog, fieldset, [role="dialog"], [role="region"], [role="navigation"], [role="form"], [role="group"]';
+      for (let c = btn.closest(containers), hops = 0; c && hops < 4; c = c.parentElement?.closest(containers) ?? null, hops++) {
+        const n = nameOf(c);
+        if (n) return n;
+      }
+      return '';
+    };
 
     buttons.forEach(btn => {
       // The accessible name, in the order a screen reader or role+name lookup
@@ -1198,8 +1295,11 @@ async function detectActionableElements(ctx: DetectionContext): Promise<void> {
       // visible (aria-hidden) glyph text says "Next". (2026-10-07)
       const labelledBy = (btn.getAttribute('aria-labelledby') || '').trim().split(/\s+/).filter(Boolean)
         .map(id => document.getElementById(id)?.textContent || '').join(' ').trim();
-      const text = ((btn.getAttribute('aria-label') || '').trim() || labelledBy || btn.textContent?.trim() || btn.getAttribute('value') || '')
-        .replace(/\s+/g, ' ').toLowerCase();
+      const ariaLabel = (btn.getAttribute('aria-label') || '').trim();
+      const content = btn.textContent?.trim() || '';
+      const nameSource = ariaLabel ? 'aria-label' : labelledBy ? 'aria-labelledby' : content ? 'content' : 'value';
+      const raw = (ariaLabel || labelledBy || content || btn.getAttribute('value') || '').replace(/\s+/g, ' ');
+      const text = raw.toLowerCase();
       // Punctuation and arrows are not words: "Next →" is "next", "OK, got it" is "ok got it".
       const words = text.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
 
@@ -1210,6 +1310,14 @@ async function detectActionableElements(ctx: DetectionContext): Promise<void> {
         weakButtons.push({
           selector: btn.tagName.toLowerCase() + (btn.id ? `#${btn.id}` : ''),
           text: text.slice(0, 30),
+          label: raw.trim().slice(0, 80),
+          nameSource,
+          labelledBy: (btn.getAttribute('aria-labelledby') || '').trim(),
+          content: content.replace(/\s+/g, ' ').slice(0, 80),
+          tag: btn.tagName.toLowerCase(),
+          attributes: Array.from(btn.attributes).map(a => [a.name, a.value] as [string, string]),
+          hasElementChildren: btn.children.length > 0,
+          context: contextOf(btn),
         });
       }
 
@@ -1236,14 +1344,68 @@ async function detectActionableElements(ctx: DetectionContext): Promise<void> {
       description: `Button with generic label: "${btn.text}"`,
       detectionMethod: "action-verb-check",
       recommendation: "Use specific action verbs (e.g., 'Save Changes' instead of 'Submit')",
-      codeExample: `<!-- Instead of: -->
-<button>Submit</button>
-<!-- Use: -->
-<button>Save Changes</button>
-<button>Create Account</button>
-<button>Download Report</button>`,
+      codeExample: buildGenericLabelExample(btn),
     });
   }
+}
+
+/** What detectActionableElements captures about a generic-label button. */
+interface GenericLabelButton {
+  label: string;
+  nameSource: 'aria-label' | 'aria-labelledby' | 'content' | 'value';
+  labelledBy: string;
+  content: string;
+  tag: string;
+  attributes: Array<[string, string]>;
+  hasElementChildren: boolean;
+  context: string;
+}
+
+/**
+ * Code example for a generic-label finding, built from the flagged element.
+ *
+ * It was one literal for every finding (`<button>Submit</button>` -> "Save
+ * Changes" / "Create Account" / "Download Report"), so a carousel's "Next" and
+ * a newsletter form's "Submit" got the same advice about account creation, in
+ * markup that matched neither. Now: the element as it is, then the same
+ * element with the name changed where the name actually comes from (visible
+ * text, value, or aria-label), naming what the page says it acts on when it
+ * says so (aria-controls target, or nearest named nav/form/section).
+ * Without a context the suggestion is an explicit fill-in.
+ *
+ * Content with child elements (an icon beside the word) is not rewritten; it
+ * gets an aria-label that starts with the visible word, which keeps the
+ * visible label inside the accessible name (WCAG 2.5.3).
+ */
+function buildGenericLabelExample(b: GenericLabelButton): string {
+  const isVoid = VOID_ELEMENTS.has(b.tag);
+  // The element's content as it is: its text, or a marker when it holds other
+  // elements (an icon, a span), which an example must not flatten.
+  const body = b.hasElementChildren
+    ? (b.content ? `<!-- existing content, text "${escapeText(b.content)}" -->` : '<!-- existing content -->')
+    : escapeText(b.content);
+  const before = isVoid
+    ? rebuildOpenTag(b.tag, b.attributes)
+    : `${rebuildOpenTag(b.tag, b.attributes)}${body}</${b.tag}>`;
+
+  if (b.nameSource === 'aria-labelledby') {
+    return `<!-- Instead of: -->\n${before}\n<!-- Its name comes from aria-labelledby="${escapeAttr(b.labelledBy)}": change that element's text to say what this ${b.tag} does${b.context ? ` in "${escapeText(b.context)}"` : ''}. -->`;
+  }
+
+  const suggested = b.context ? `${b.label}: ${b.context}` : `${b.label} [what it acts on]`;
+  let after: string;
+  if (b.nameSource === 'value' || (isVoid && b.nameSource !== 'aria-label')) {
+    after = rebuildOpenTag(b.tag, b.attributes, { value: suggested });
+  } else if (b.nameSource === 'aria-label' || b.hasElementChildren) {
+    const open = rebuildOpenTag(b.tag, b.attributes, { 'aria-label': suggested });
+    after = isVoid ? open : `${open}${body}</${b.tag}>`;
+  } else {
+    after = `${rebuildOpenTag(b.tag, b.attributes)}${escapeText(suggested)}</${b.tag}>`;
+  }
+  const why = b.context
+    ? `<!-- Say what it does. The page names its context "${escapeText(b.context)}", so for example: -->`
+    : `<!-- Say what it does (verb + what it acts on), for example: -->`;
+  return `<!-- Instead of: -->\n${before}\n${why}\n${after}`;
 }
 
 /**
@@ -1722,6 +1884,71 @@ function generateRecommendations(issues: AgentReadyIssue[]): AgentReadyRecommend
   }
 
   return recommendations;
+}
+
+/**
+ * One page of an audit's findings for a tool response: issues worst-first,
+ * recommendations in priority order, with what was cut stated and a way to ask
+ * for the rest. Same contract as hunt_bugs (limit/offset, returned, offset,
+ * omitted + omittedNote "Re-run with offset=N").
+ *
+ * agent_ready_audit used a fixed slice(0, 5) for both lists: a page with 40
+ * findings returned five and the other 35 were unreachable, and the five
+ * recommendations were cut with no note at all. The stdio server's copy also
+ * sliced issues in DETECTION order, so a critical found sixth was dropped for
+ * five lows (the HTTP tool got the worst-first fix on 2026-08-01; this one
+ * never did). Both now call this. (2026-10-09)
+ */
+export function pageAgentReadyFindings(
+  result: Pick<AgentReadyAuditResult, "issues" | "recommendations">,
+  options: { limit?: number; offset?: number } = {},
+): Record<string, unknown> {
+  const limit = Math.max(1, Math.floor(options.limit ?? 5));
+  const start = Math.max(0, Math.floor(options.offset ?? 0));
+  const rank = (sev: string) =>
+    ({ critical: 0, high: 1, medium: 2, low: 3, info: 4 }[String(sev).toLowerCase()] ?? 5);
+  // Stable: equal severities keep detection order.
+  const sorted = result.issues
+    .map((issue, i) => ({ issue, i }))
+    .sort((a, b) => rank(a.issue.severity) - rank(b.issue.severity) || a.i - b.i)
+    .map(({ issue }) => issue);
+  const shown = sorted.slice(start, start + limit);
+  const omitted = Math.max(0, sorted.length - (start + shown.length));
+  const bySeverity = sorted.reduce((m: Record<string, number>, i) => {
+    const k = String(i.severity); m[k] = (m[k] ?? 0) + 1; return m;
+  }, {});
+  const severityLine = Object.entries(bySeverity).map(([k, v]) => `${k} ${v}`).join(", ");
+
+  // Recommendations are NOT walked by `offset`: offset pages the issue list, and
+  // sharing it made page two of the issues silently skip recommendations 1-5.
+  const recs = [...result.recommendations].sort((a, b) => a.priority - b.priority);
+  const recsShown = recs.slice(0, limit);
+  const recsOmitted = Math.max(0, recs.length - recsShown.length);
+
+  return {
+    topIssues: shown,
+    issuesFound: sorted.length,
+    returned: shown.length,
+    offset: start,
+    ...(omitted > 0
+      ? {
+          issuesOmitted: omitted,
+          omittedNote: `Showing ${shown.length} of ${sorted.length} issues, worst first. Re-run with offset=${start + shown.length} for the next page, or raise limit. Severity counts across ALL findings: ${severityLine}.`,
+          // Pre-19.2.3 field name, kept so existing clients that read it still
+          // see the cut. Same text as omittedNote.
+          issuesNote: `Showing ${shown.length} of ${sorted.length} issues, worst first. Re-run with offset=${start + shown.length} for the next page, or raise limit. Severity counts across ALL findings: ${severityLine}.`,
+        }
+      : {}),
+    bySeverity,
+    topRecommendations: recsShown,
+    recommendationsFound: recs.length,
+    ...(recsOmitted > 0
+      ? {
+          recommendationsOmitted: recsOmitted,
+          recommendationsNote: `Showing the first ${recsShown.length} of ${recs.length} recommendations, in priority order. Raise limit to see more (offset pages the issues only).`,
+        }
+      : {}),
+  };
 }
 
 export function formatAgentReadyReport(result: AgentReadyAuditResult): string {
@@ -2355,7 +2582,9 @@ export async function runAgentReadyAudit(
             `2. Re-run without the proxy to test from your direct IP`
           );
         }
-        throw navError;
+        // Unresolvable host, refused, timed out, bad certificate...: say so
+        // in plain words instead of Playwright's raw error and Call log.
+        throw navigationError(navError, url);
       }
 
       // v18.22.0: SPA mode - detect framework and wait for hydration

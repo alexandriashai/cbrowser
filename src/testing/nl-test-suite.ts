@@ -29,7 +29,64 @@ import type {
   NLTestStepError,
   NLTestCaseResult,
   NLTestSuiteResult,
+  SmartRetryResult,
 } from "../types.js";
+
+/** Opening quote -> its closing partner. Typographic pairs included: pasted and model-written tests carry them. */
+const QUOTE_PAIRS: Record<string, string> = { '"': '"', "'": "'", "\u201C": "\u201D", "\u2018": "\u2019" };
+
+/**
+ * Strip ONE pair of enclosing quotes from a step target: `"Pricing"` -> `Pricing`.
+ *
+ * Only when the string both starts and ends with a matching pair and the inside
+ * holds no further quote of that kind, so a selector that merely contains
+ * quotes is left alone: `[data-testid="x"]` and `"a" or "b"` come back as given.
+ *
+ * Without this the quotes stayed in the target: smartClick searched for the
+ * literal text `"Pricing"`, and the recommendation wrapped it again as
+ * `Click ""Pricing"" failed`.
+ */
+export function unquote(text: string): string {
+  const t = text.trim();
+  if (t.length < 2) return t;
+  const open = t[0];
+  const close = QUOTE_PAIRS[open];
+  if (!close || t[t.length - 1] !== close) return t;
+  const inner = t.slice(1, -1);
+  if (inner.includes(open) || inner.includes(close) || inner.trim() === "") return t;
+  return inner;
+}
+
+/**
+ * Build the error for a click (or uninterpretable step) that smartClick could
+ * not complete. It used to be `throw new Error("Failed to click: X")`, which
+ * discarded the aiSuggestion and attempts smartClick had already worked out,
+ * and the catch below then substituted a generic "try a more specific
+ * selector". Now the step carries what was on the page and what was tried.
+ */
+async function clickFailure(browser: CBrowser, reason: string, result: SmartRetryResult): Promise<NLTestStepError> {
+  let availableElements: NLTestStepError["availableElements"];
+  try {
+    availableElements = (await browser.getAvailableClickables()).slice(0, 20).map((e) => ({
+      tag: e.tag,
+      text: e.text,
+      selector: e.selector,
+      ...(e.role ? { role: e.role } : {}),
+      ...(e.region ? { region: e.region } : {}),
+    }));
+  } catch {
+    // The failure is still reported, just without the element list.
+  }
+  return {
+    reason: result.message ? `${reason} (${result.message})` : reason,
+    suggestion: result.aiSuggestion
+      ?? (result.zone === "red"
+        ? "Refused as a red-zone action. NL test steps never pass force, so this step cannot run unattended."
+        : "Try using a more specific selector or check if an overlay is blocking."),
+    availableElements,
+    selectorsTried: result.attempts.map((a) => a.selector),
+  };
+}
 
 /**
  * Parse a single natural language instruction into an NLTestStep.
@@ -61,7 +118,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     return {
       instruction,
       action: "navigate",
-      target: originalMatch ? originalMatch[1].trim() : navigateMatch[1].trim(),
+      target: unquote(originalMatch ? originalMatch[1] : navigateMatch[1]),
     };
   }
 
@@ -82,7 +139,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     return {
       instruction,
       action: "click",
-      target: originalMatch ? originalMatch[1].trim() : clickMatch[1].trim(),
+      target: unquote(originalMatch ? originalMatch[1] : clickMatch[1]),
     };
   }
 
@@ -95,7 +152,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
       instruction,
       action: "fill",
       value: originalMatch ? originalMatch[1] : typeMatch[1],
-      target: originalMatch ? originalMatch[2].trim() : typeMatch[2].trim(),
+      target: unquote(originalMatch ? originalMatch[2] : typeMatch[2]),
     };
   }
 
@@ -105,7 +162,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     return {
       instruction,
       action: "fill",
-      target: originalMatch ? originalMatch[1].trim() : fillMatch[1].trim(),
+      target: unquote(originalMatch ? originalMatch[1] : fillMatch[1]),
       value: originalMatch ? originalMatch[2] : fillMatch[2],
     };
   }
@@ -118,7 +175,7 @@ export function parseNLInstruction(instruction: string): NLTestStep {
       instruction,
       action: "select",
       value: originalMatch ? originalMatch[1] : selectMatch[1],
-      target: originalMatch ? originalMatch[2].trim() : selectMatch[2].trim(),
+      target: unquote(originalMatch ? originalMatch[2] : selectMatch[2]),
     };
   }
 
@@ -163,8 +220,10 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     };
   }
 
-  // Wait for text pattern
-  const waitForMatch = lower.match(/^wait\s+(?:for|until)\s+['"](.+?)['"]\s+(?:appears?|is visible|shows?)$/i);
+  // Wait for text pattern. Matched on `trimmed`, not `lower`: the pattern is
+  // already /i, and the captured text goes to waitForSelector and to an
+  // innerText.includes() fallback, both of which are case-sensitive.
+  const waitForMatch = trimmed.match(/^wait\s+(?:for|until)\s+['"](.+?)['"]\s+(?:appears?|is visible|shows?)$/i);
   if (waitForMatch) {
     return {
       instruction,
@@ -183,8 +242,9 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     };
   }
 
-  // v16.7.1: Wait for element pattern (more flexible)
-  const waitForElementMatch = lower.match(/^wait\s+(?:for|until)\s+(?:the\s+)?(.+?)\s+(?:to\s+)?(?:appear|load|exist|be\s+visible)$/i);
+  // v16.7.1: Wait for element pattern (more flexible). `trimmed` for the same
+  // reason: a selector like #SubmitBtn must not arrive as #submitbtn.
+  const waitForElementMatch = trimmed.match(/^wait\s+(?:for|until)\s+(?:the\s+)?(.+?)\s+(?:to\s+)?(?:appear|load|exist|be\s+visible)$/i);
   if (waitForElementMatch) {
     return {
       instruction,
@@ -216,8 +276,11 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:there\s+are\s+)?(\d+)\s+(.+?)$/i, type: "count" as const, assertType: "count" as const },
   ];
 
+  // Matched against `trimmed`, not `lower`: every pattern is /i already, and
+  // matching the lowercased copy returned a lowercased target, so an exact
+  // assertion could never be exact.
   for (const { pattern, type, assertType } of assertPatterns) {
-    const match = lower.match(pattern);
+    const match = trimmed.match(pattern);
     if (match) {
       return {
         instruction,
@@ -387,7 +450,9 @@ function generateRecommendations(testResults: NLTestCaseResult[]): string[] {
 
   for (const step of failedSteps) {
     if (step.error?.partialMatches && step.error.partialMatches.length > 0) {
-      recs.push(`Step "${step.instruction}" failed on exact match but found similar text. Consider using fuzzy matching.`);
+      // No quotes around the instruction: it usually carries its own ("verify
+      // page contains "X"") and wrapping it produced doubled quotes. (B13)
+      recs.push(`Step failed on exact match but found similar text: ${step.instruction}. Consider using fuzzy matching.`);
     }
     if (step.action === "click" && step.error?.reason?.includes("Failed to click")) {
       recs.push(`Click "${step.parsed?.target}" failed. Try using a more specific selector or check if an overlay is blocking.`);
@@ -503,7 +568,8 @@ export async function runNLTestSuite(
               }
               const result = await browser.smartClick(step.target || "");
               if (!result.success) {
-                throw new Error(`Failed to click: ${step.target}`);
+                stepPassed = false;
+                stepErrorObj = await clickFailure(browser, `Failed to click: ${step.target}`, result);
               }
               break;
             }
@@ -619,7 +685,9 @@ export async function runNLTestSuite(
                   }
                 }
               } else {
-                const assertResult = await browser.assert(step.instruction);
+                // Exact unless fuzzy matching was asked for: the fuzzy branch
+                // above is the case-insensitive one, so this one must not be.
+                const assertResult = await browser.assert(step.instruction, { caseSensitive: !fuzzyMatch });
                 stepPassed = assertResult.passed;
                 // v11.7.1: Don't stringify undefined to "undefined"
                 actualValue = assertResult.actual !== undefined ? String(assertResult.actual) : undefined;
@@ -654,7 +722,8 @@ export async function runNLTestSuite(
               console.log(`   ⚠️ Unknown instruction, attempting smart interpretation...`);
               const result = await browser.smartClick(step.target || step.instruction);
               if (!result.success) {
-                throw new Error(`Could not interpret: ${step.instruction}`);
+                stepPassed = false;
+                stepErrorObj = await clickFailure(browser, `Could not interpret: ${step.instruction}`, result);
               }
               break;
             }
@@ -834,6 +903,15 @@ export function formatNLTestReport(result: NLTestSuiteResult): string {
           lines.push(`      Partial matches:`);
           for (const match of step.error.partialMatches) {
             lines.push(`        - "${match}"`);
+          }
+        }
+        if (step.error.selectorsTried && step.error.selectorsTried.length > 0) {
+          lines.push(`      Selectors tried: ${step.error.selectorsTried.map((s) => JSON.stringify(s)).join(", ")}`);
+        }
+        if (step.error.availableElements && step.error.availableElements.length > 0) {
+          lines.push(`      Available elements:`);
+          for (const el of step.error.availableElements.slice(0, 10)) {
+            lines.push(`        - ${el.tag} ${JSON.stringify(el.text)} -> ${el.selector}`);
           }
         }
         if (step.error.suggestion) {

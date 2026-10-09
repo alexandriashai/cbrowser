@@ -71,6 +71,7 @@ import { extractExpected, extractSubject, UNPARSEABLE_MESSAGE } from "./browser/
 import { OverlayHandler } from "./browser/overlay-handler.js";
 import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.js";
 import { clampRect } from "./recording/timing.js";
+import { navigationError } from "./navigation-errors.js";
 import type { Rect } from "./recording/types.js";
 
 // Browser-specific fast launch args for performance optimization
@@ -2021,7 +2022,10 @@ For more help: https://playwright.dev/docs/browsers
           `3. Use a sticky session proxy for sites that are sensitive to IP changes`
         );
       }
-      throw e;
+      // Everything else: a plain-language message for the known net:: codes
+      // (unresolvable host, refused, timed out, certificate...), without the
+      // Playwright Call log; anything unrecognised is rethrown unchanged.
+      throw navigationError(e, url);
     };
 
     try {
@@ -4488,11 +4492,15 @@ For more help: https://playwright.dev/docs/browsers
         const maxScroll = Math.max(0, docHeight - vh);
         const pct = maxScroll > 0 ? scrollY / maxScroll : 0;
 
-        // Headings outline — including which are currently visible
+        // Headings outline — including which are currently visible.
+        // innerText is "" inside a render-skipped subtree (content-visibility:
+        // auto below the fold), which silently dropped every below-fold heading;
+        // textContent is layout-independent, so it is the fallback.
         const headings: Array<{ level: number; text: string; visible: boolean }> = [];
         document.querySelectorAll('h1, h2, h3, h4').forEach(el => {
           const r = el.getBoundingClientRect();
-          const text = (el as HTMLElement).innerText?.trim().substring(0, 100);
+          const text = ((el as HTMLElement).innerText?.trim()
+            || el.textContent?.replace(/\s+/g, ' ').trim() || '').substring(0, 100);
           if (text) {
             headings.push({
               level: parseInt(el.tagName.charAt(1)),
@@ -4513,7 +4521,9 @@ For more help: https://playwright.dev/docs/browsers
         // Form errors (common patterns)
         const formErrors: string[] = [];
         document.querySelectorAll('[role="alert"], .error-message, [aria-invalid="true"], .invalid-feedback, .form-error').forEach(el => {
-          const text = (el as HTMLElement).innerText?.trim().substring(0, 120);
+          // textContent fallback: innerText is "" inside content-visibility:auto
+          // sections, which hid below-fold alerts the same way it hid clickables.
+          const text = ((el as HTMLElement).innerText?.trim() || (el.textContent ?? "").replace(/\s+/g, " ").trim()).substring(0, 120);
           if (text && text.length > 3) formErrors.push(text);
         });
 
@@ -4571,8 +4581,15 @@ For more help: https://playwright.dev/docs/browsers
           // Order matters: most specific first.
           const classifyRegion = (el: Element, top: number, bottom: number): string => {
             const inside = (sel: string) => !!el.closest(sel);
-            if (inside('nav, [role="navigation"], header[role="banner"]') || inside('header')) return 'header-nav';
+            // Footer BEFORE nav: site footers hold their link groups in <nav>
+            // (cbrowser.ai: <footer><nav aria-label="Product links">), and
+            // testing nav first labelled every footer link header-nav.
             if (inside('footer, [role="contentinfo"]')) return 'footer';
+            if (inside('nav, [role="navigation"], header[role="banner"]')) return 'header-nav';
+            // A <header> is the page banner only outside article/aside/main/
+            // section (HTML-AAM); a card's or section's own header is not.
+            const header = el.closest('header');
+            if (header && !header.parentElement?.closest('article, aside, main, section')) return 'header-nav';
             if (inside('aside, [role="complementary"], [role="dialog"], [aria-modal="true"]')) {
               return inside('[role="dialog"], [aria-modal="true"]') ? 'modal' : 'sidebar';
             }
@@ -4581,6 +4598,25 @@ For more help: https://playwright.dev/docs/browsers
             if (top < vh * 0.15) return 'top-bar';
             if (top < vh) return 'main-visible';
             return 'below-fold';
+          };
+          // Accessible-ish text for an element. innerText is "" for anything in
+          // a render-skipped subtree (content-visibility:auto below the fold),
+          // so a below-fold "Hunt bugs" button used to be listed with no text.
+          // Order: rendered text, aria-label, value, textContent (layout-
+          // independent, whitespace collapsed), title.
+          const textOf = (el: Element): string => {
+            const candidates = [
+              (el as HTMLElement).innerText,
+              el.getAttribute("aria-label"),
+              el.getAttribute("value"),
+              el.textContent?.replace(/\s+/g, " "),
+              el.getAttribute("title"),
+            ];
+            for (const c of candidates) {
+              const t = c?.trim();
+              if (t) return t.substring(0, 80);
+            }
+            return "";
           };
           // Deduplicate, filter visible, sort by vertical position
           const seen = new Set<Element>();
@@ -4598,7 +4634,7 @@ For more help: https://playwright.dev/docs/browsers
               const aboveFold = r.top < vh && r.bottom > 0;
               return {
                 tag: el.tagName.toLowerCase(),
-                text: (el as HTMLElement).innerText?.trim().substring(0, 80) || el.getAttribute("aria-label") || el.getAttribute("value") || "",
+                text: textOf(el),
                 selector: el.getAttribute("data-testid")
                   ? `[data-testid="${el.getAttribute("data-testid")!.replace(/"/g, '\\"')}"]`
                   : el.id
@@ -4645,12 +4681,15 @@ For more help: https://playwright.dev/docs/browsers
 
           // Find associated label
           let label = "";
+          // textContent fallback: innerText is "" in a render-skipped subtree.
+          const labelText = (l: Element) =>
+            ((l as HTMLElement).innerText?.trim() || l.textContent?.replace(/\s+/g, " ").trim() || "").substring(0, 50);
           if (input.id) {
             const labelEl = document.querySelector(`label[for="${input.id}"]`);
-            if (labelEl) label = (labelEl as HTMLElement).innerText?.trim().substring(0, 50) || "";
+            if (labelEl) label = labelText(labelEl);
           }
           if (!label && input.closest("label")) {
-            label = (input.closest("label") as HTMLElement).innerText?.trim().substring(0, 50) || "";
+            label = labelText(input.closest("label")!);
           }
 
           // For hidden elements, try to find the visible trigger
@@ -4814,13 +4853,20 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Assert a condition using natural language.
+   *
+   * Text comparisons (title contains, page contains, quoted text) ignore case
+   * by default, which is what the standalone `assert` tool and CLI `assert`
+   * have always done. Pass `caseSensitive: true` to compare exactly: the NL
+   * test runner does that unless fuzzy matching was asked for, because a test
+   * step that says `verify page contains "Persona Testing"` must fail on a page
+   * that says "persona testing". Title-equals and URL checks were already exact.
    */
-  async assert(assertion: string): Promise<AssertionResult> {
+  async assert(assertion: string, options: { caseSensitive?: boolean } = {}): Promise<AssertionResult> {
     await this.getPage(); // Ensure page exists
 
     try {
       // Parse the assertion
-      const result = await this.evaluateAssertion(assertion);
+      const result = await this.evaluateAssertion(assertion, options.caseSensitive === true);
 
       this.audit("assert", assertion, "green", result.passed ? "success" : "failure");
 
@@ -4841,9 +4887,12 @@ For more help: https://playwright.dev/docs/browsers
   /**
    * Evaluate a natural language assertion.
    */
-  private async evaluateAssertion(assertion: string): Promise<Omit<AssertionResult, "screenshot">> {
+  private async evaluateAssertion(assertion: string, caseSensitive = false): Promise<Omit<AssertionResult, "screenshot">> {
     const page = await this.getPage();
     const lowerAssertion = assertion.toLowerCase();
+    // Lowercase both sides only when the caller did not ask for an exact compare.
+    const textContains = (haystack: string, needle: string): boolean =>
+      caseSensitive ? haystack.includes(needle) : haystack.toLowerCase().includes(needle.toLowerCase());
 
     // Page title assertions
     if (lowerAssertion.includes("title") && (lowerAssertion.includes("is") || lowerAssertion.includes("contains"))) {
@@ -4852,7 +4901,7 @@ For more help: https://playwright.dev/docs/browsers
       if (expected === null) return { passed: false, assertion, actual: title, message: UNPARSEABLE_MESSAGE };
 
       if (lowerAssertion.includes("contains")) {
-        const passed = title.toLowerCase().includes(expected.toLowerCase());
+        const passed = textContains(title, expected);
         return { passed, assertion, actual: title, expected, message: passed ? "Title contains expected text" : `Title "${title}" does not contain "${expected}"` };
       } else {
         const passed = title === expected;
@@ -4886,7 +4935,7 @@ For more help: https://playwright.dev/docs/browsers
         clone.querySelectorAll('script, style, noscript').forEach(el => el.remove());
         return clone.innerText || clone.textContent || "";
       }) || "";
-      const passed = content.toLowerCase().includes(expected.toLowerCase());
+      const passed = textContains(content, expected);
       // v11.7.1: Include actual content snippet for debugging (truncated to 200 chars)
       const actualSnippet = content.length > 200 ? content.substring(0, 200) + "..." : content;
 
@@ -4940,7 +4989,7 @@ For more help: https://playwright.dev/docs/browsers
         text = text.replace(/[\n\t\r]+/g, ' ').replace(/\s+/g, ' ').trim();
         return text;
       }) || "";
-      const passed = content.toLowerCase().includes(expected.toLowerCase());
+      const passed = textContains(content, expected);
 
       return { passed, assertion, expected, message: passed ? `Found "${expected}"` : `Did not find "${expected}"` };
     }

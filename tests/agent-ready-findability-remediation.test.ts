@@ -267,6 +267,9 @@ describe("the suggested markup keeps the element's real name and attributes", ()
     const ex = link.codeExample || "";
     expect(ex).toContain(">Sign up for Pro and get 500 bonus credits free, they never expire</a>");
     expect(ex).toContain(`href="/pricing/"`);
+    // The testid is cut at a word boundary: a hard 40-char cut gave
+    // "...-500-bonus-credit", a word the link does not contain. (2026-10-09)
+    expect(ex).toContain(`data-testid="sign-up-for-pro-and-get-500-bonus"`);
     expect(ex).not.toContain("aria-label=");
   });
 

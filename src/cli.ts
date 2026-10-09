@@ -6430,7 +6430,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                       await stepBrowser.fill(step.target || "", step.value || "");
                       break;
                     case "assert":
-                      const r = await stepBrowser.assert(step.instruction);
+                      // Same contract as runNLTestSuite: exact unless --fuzzy-match.
+                      const r = await stepBrowser.assert(step.instruction, { caseSensitive: options["fuzzy-match"] !== true });
                       if (!r.passed) throw new Error(r.message);
                       break;
                     case "screenshot":
