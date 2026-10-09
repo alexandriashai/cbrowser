@@ -1277,8 +1277,9 @@ export function registerEmpathyAuditTool(server: McpServer): void {
           // whatever order the analyzer happened to emit.
           const rank = (b: any) => {
             const { weight } = barrierWeightFor(
-              testedPersona, String(b.type ?? ""), b.wcagCriteria);
-            const { severity } = weightedSeverity(String(b.severity ?? "minor"), weight);
+              testedPersona, String(b.type ?? ""), b.wcagCriteria, b.weightKey);
+            const { severity } = weightedSeverity(String(b.severity ?? "minor"), weight,
+              { aboveAuditLevel: b.aboveAuditLevel });
             const order: Record<string, number> = {
               critical: 0, blocker: 0, high: 1, major: 1, serious: 1,
               medium: 2, moderate: 2, low: 3, minor: 3, info: 4, notice: 4 };
@@ -1289,7 +1290,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
         // Group keys in list order; a rect's key looked up here gives its
         // finding number.
         const findingKeys = chosenBarriers.map(
-          (b) => `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria) ?? ""}`);
+          (b) => `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria, b.weightKey) ?? ""}`);
 
         // The name that was measured, when it differs from the one asked for.
         // "motor-tremor" measured motor-impairment-tremor while testedPersona
@@ -1363,6 +1364,8 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               barrierTypes: Array.from(uniqueTypes),
               affectedElements: r.barriers.length,
               wcagViolationCount: r.wcagViolations.length,
+              // Above-level findings, listed in `advisories` and never scored.
+              ...(r.advisories?.length ? { advisoryCount: r.advisories.length } : {}),
               // v18.26.0: Perceptual transport metrics (Wasserstein-based)
               perceptualTransport: (r as any).perceptualTransport || undefined,
               empathyScoreBarrierOnly: (r as any).empathyScoreBarrierOnly || undefined,
@@ -1419,8 +1422,9 @@ export function registerEmpathyAuditTool(server: McpServer): void {
             // and the weight that separates them ships with them.
             return chosen.map((b, i) => {
               const { weight, key, defaulted } = barrierWeightFor(
-                testedPersona, String(b.type ?? ""), b.wcagCriteria);
-              const { severity, shifted } = weightedSeverity(String(b.severity ?? "minor"), weight);
+                testedPersona, String(b.type ?? ""), b.wcagCriteria, b.weightKey);
+              const { severity, shifted } = weightedSeverity(String(b.severity ?? "minor"), weight,
+                { aboveAuditLevel: b.aboveAuditLevel });
               return {
                 ...b,
                 // Same number the overlay draws on the matching boxes.
@@ -1437,6 +1441,24 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               };
             });
           })(),
+          // Findings above the audited WCAG level. Advisory by policy (Alexa,
+          // 2026-10-09): reported here so nothing is hidden, never scored,
+          // never escalated by persona weight, never "critical". (B6)
+          ...(result.advisories?.length
+            ? {
+                advisories: result.advisories.map((a) => {
+                  const { weight, key } = barrierWeightFor(
+                    testedPersona, String(a.type ?? ""), a.wcagCriteria, a.weightKey);
+                  return {
+                    ...a,
+                    severityForPersona: weightedSeverity(String(a.severity ?? "minor"), weight,
+                      { aboveAuditLevel: true }).severity,
+                    personaWeightKey: key,
+                  };
+                }),
+                advisoriesNote: `Findings whose WCAG level is above the audited level (${wcagLevel}). Advisory: reported for information, not scored, not counted in affectedElements, never escalated by persona weight. Re-run with wcagLevel set to their level to score them.`,
+              }
+            : {}),
           topBarriersNote:
             "Ordered worst-first by severityForPersona — the persona-weighted grade — so an entry can sit above a higher WCAG severity when this persona is more susceptible to it. Any entries after the fifth are included because they carry a WCAG criterion the top five do not.",
           // Asserting full coverage was itself a defect: the claim held only
@@ -1595,14 +1617,14 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               // the list -- two scales, no label saying which was which.
               // (2026-07-31)
               const { weight } = barrierWeightFor(
-                r.persona, String(b.type ?? ""), b.wcagCriteria);
+                r.persona, String(b.type ?? ""), b.wcagCriteria, b.weightKey);
               const { severity: weighted } = weightedSeverity(
-                String(b.severity ?? "minor"), weight);
+                String(b.severity ?? "minor"), weight, { aboveAuditLevel: b.aboveAuditLevel });
               // Which findings-list entry this box belongs to. Boxes are
               // per-element and findings are grouped by type+criterion, so
               // ten boxes can map to five findings; without the link there is
               // no way to tell which box the list is talking about.
-              const gk = `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria) ?? ""}`;
+              const gk = `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria, b.weightKey) ?? ""}`;
               const findingIndex = findingKeys.indexOf(gk);
               return {
                 type: b.type, severity: b.severity, element: b.element,

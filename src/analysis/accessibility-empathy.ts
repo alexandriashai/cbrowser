@@ -213,6 +213,111 @@ interface BarrierContext {
    * a false negative. This is the third option.
    */
   unverifiableMedia: Array<{ element: string; reason: string; checkAt: string }>;
+  /** Findings above the audited WCAG level, split out by splitAboveAuditLevel. */
+  advisories: AccessibilityBarrier[];
+}
+
+/**
+ * Runs IN THE PAGE. Installs `window.__cbrowserUniqueSelector(el)`, the one
+ * selector builder every detector uses.
+ *
+ * Detectors each built their own `tag + (#id)` string, so every id-less button
+ * on a page became "button": two different targets merged during
+ * deduplication, and a selector a reader could paste into querySelector
+ * resolved to neither. The only unique-selector code in the package lived
+ * inside two other modules' page scripts. (B6/B7, 2026-10-09)
+ *
+ * Order: a unique `tag#id`, then a unique `tag[aria-label="..."]`, then a
+ * structural `nth-of-type` path up to the nearest ancestor with a unique id.
+ * Every candidate is checked with querySelectorAll before it is returned.
+ */
+function installUniqueSelector(): void {
+  const esc = (s: string): string =>
+    (typeof CSS !== "undefined" && CSS.escape) ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`);
+  const isUnique = (sel: string, el: Element): boolean => {
+    try {
+      const m = document.querySelectorAll(sel);
+      return m.length === 1 && m[0] === el;
+    } catch {
+      return false;
+    }
+  };
+  (window as unknown as { __cbrowserUniqueSelector: (el: Element) => string }).__cbrowserUniqueSelector =
+    (el: Element): string => {
+      const tag = el.tagName.toLowerCase();
+      if (el.id) {
+        const s = `${tag}#${esc(el.id)}`;
+        if (isUnique(s, el)) return s;
+      }
+      const label = el.getAttribute("aria-label");
+      if (label) {
+        const s = `${tag}[aria-label="${label.replace(/["\\]/g, "\\$&")}"]`;
+        if (isUnique(s, el)) return s;
+      }
+      const parts: string[] = [];
+      let cur: Element | null = el;
+      while (cur) {
+        const t = cur.tagName.toLowerCase();
+        if (cur !== el && cur.id) {
+          const s = `${t}#${esc(cur.id)}`;
+          if (isUnique(s, cur)) { parts.unshift(s); break; }
+        }
+        const parent: Element | null = cur.parentElement;
+        if (!parent) { parts.unshift(t); break; }
+        const same = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
+        parts.unshift(same.length > 1 ? `${t}:nth-of-type(${same.indexOf(cur) + 1})` : t);
+        cur = parent;
+      }
+      return parts.join(" > ");
+    };
+}
+
+/** Lowest-to-highest WCAG level order. */
+const LEVEL_ORDER: Record<"A" | "AA" | "AAA", number> = { A: 1, AA: 2, AAA: 3 };
+
+/**
+ * Move findings ABOVE the audited WCAG level out of the scored set.
+ *
+ * Policy (Alexa, 2026-10-09): an above-level finding is advisory. It carries
+ * `aboveAuditLevel`, is reported in a separate `advisories` list, takes no
+ * score deduction, is never escalated by persona weight, and is never
+ * "critical".
+ *
+ * Before this an AAA-only 40x40 target in an AA audit was the largest single
+ * deduction on the reported page and showed severityForPersona "critical":
+ * adjustSeverityForLevel capped it at minor, and weightedSeverity -- which has
+ * no idea what level is being audited -- moved it up two steps at weight 3.0.
+ *
+ * Applied once, after every detector, for the same reason the viewport filter
+ * is: one rule in one place cannot be forgotten by a twelfth detector.
+ *
+ * A barrier with no KNOWN criterion is not a WCAG finding (navigation item
+ * count, the spacing heuristic before it related to 2.5.8) and so is not above
+ * any level; it stays scored. getBarrierWcagLevel treats [] as AAA for
+ * severity purposes, which is why it is not reused for this question as-is.
+ */
+export function splitAboveAuditLevel<T extends { wcagCriteria?: string[]; severity: AccessibilityBarrierSeverity }>(
+  barriers: T[],
+  auditLevel: "A" | "AA" | "AAA",
+): { scored: T[]; advisories: Array<T & { aboveAuditLevel: true; wcagLevelOfFinding: "A" | "AA" | "AAA" }> } {
+  const scored: T[] = [];
+  const advisories: Array<T & { aboveAuditLevel: true; wcagLevelOfFinding: "A" | "AA" | "AAA" }> = [];
+  for (const b of barriers) {
+    const known = (b.wcagCriteria ?? []).filter((c) => WCAG_CRITERIA[c]);
+    if (known.length === 0) { scored.push(b); continue; }
+    const level = getBarrierWcagLevel(known);
+    if (LEVEL_ORDER[level] > LEVEL_ORDER[auditLevel]) {
+      advisories.push({
+        ...b,
+        severity: adjustSeverityForLevel(b.severity, level, auditLevel),
+        aboveAuditLevel: true,
+        wcagLevelOfFinding: level,
+      });
+    } else {
+      scored.push(b);
+    }
+  }
+  return { scored, advisories };
 }
 
 /**
@@ -321,8 +426,11 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
           el.classList.contains('sr-only') || el.classList.contains('visually-hidden') ||
           el.classList.contains('screen-reader-text');
 
+        const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
         return {
-          selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
+          // Unique, not tag + #id: two id-less buttons were both "button" and
+          // merged into one finding. (B6, 2026-10-09)
+          selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
           width: rect.width,
           height: rect.height,
           // DOCUMENT coordinates. getBoundingClientRect is viewport-relative, and
@@ -340,44 +448,53 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
       }).filter(el => {
         if (el.area <= 0 || el.exempt) return false;
         if (vpOnly && !el.inViewport) return false;
-        // Only flag if the SMALLEST dimension is under the threshold
-        // A 1280x36px element is perfectly tappable — the 36px height is fine
-        // WCAG 2.5.8 AA: 24x24px minimum for the target area
-        const minDim = Math.min(el.width, el.height);
-        const maxDim = Math.max(el.width, el.height);
-        // Skip if the element is wide/tall enough to be easily tappable
-        // (one dimension >= 44px AND the other >= 24px = AA compliant)
-        if (minDim >= 24 && maxDim >= 44) return false;
-        // Flag if both dimensions are small
-        return minDim < 44;
+        // Candidates: anything under 44px on EITHER axis. Classified per axis
+        // below, in Node, on the rounded size the description prints.
+        return el.width < 44 || el.height < 44;
       });
     }, viewportOnly
   );
 
   // WCAG 2.5.8 (AA) minimum: 24x24px
   // WCAG 2.5.5 (AAA) target: 44x44px
+  //
+  // Checked PER AXIS. The old filter exempted anything whose larger side was
+  // >= 44 and smaller side >= 24 ("one axis rescues the other"), which is not
+  // what 2.5.5 says -- it asks for 44 on both axes. So a 51x28 "Change
+  // language" button passed while a 40x40 button failed, and of two targets
+  // that both miss 2.5.5 only one was reported. (B6, 2026-10-09)
   const aaMinimum = 24;
   const aaaTarget = 44;
+  const classified = smallTargets
+    .map((t) => {
+      const w = Math.round(t.width);
+      const h = Math.round(t.height);
+      return { ...t, w, h, failsAA: w < aaMinimum || h < aaMinimum, failsAAA: w < aaaTarget || h < aaaTarget };
+    })
+    .filter((t) => t.failsAAA);
+  // AA failures first, THEN the cap, so AAA-only candidates (now more numerous
+  // under the per-axis rule) cannot push an AA failure off the list.
+  // Array.prototype.sort is stable, so document order holds within each class.
+  classified.sort((a, b) => Number(b.failsAA) - Number(a.failsAA));
 
-  for (const target of smallTargets.slice(0, 10)) {
-    const w = Math.round(target.width);
-    const h = Math.round(target.height);
+  for (const target of classified.slice(0, 10)) {
+    const { w, h } = target;
 
     // Determine which WCAG criteria are violated
     const wcagCriteria: string[] = [];
     let description: string;
     let rawSeverity: AccessibilityBarrierSeverity;
 
-    if (w < aaMinimum || h < aaMinimum) {
+    if (target.failsAA) {
       // Fails WCAG 2.5.8 AA (24x24px minimum)
       wcagCriteria.push("2.5.8", "2.5.5");
       description = `Touch target too small (${w}x${h}px) — fails WCAG 2.5.8 AA minimum (24x24px)`;
       rawSeverity = w < 16 || h < 16 ? "critical" : "major";
       ctx.wcagViolations.add("2.5.8");
     } else {
-      // Passes AA but fails AAA (24-44px range)
+      // Passes AA but fails AAA: at least 24 on both axes, under 44 on one.
       wcagCriteria.push("2.5.5");
-      description = `Touch target below AAA target (${w}x${h}px) — passes AA (24px) but below AAA target (44px)`;
+      description = `Touch target below AAA target (${w}x${h}px) — passes AA (24x24px) but under 44px on at least one axis (2.5.5 asks for 44x44px)`;
       rawSeverity = "minor";
       ctx.wcagViolations.add("2.5.5");
     }
@@ -514,7 +631,12 @@ async function detectLowContrast(ctx: BarrierContext): Promise<void> {
 
   // AA threshold: 4.5:1 normal, 3:1 large text (WCAG 1.4.3)
   // AAA threshold: 7:1 normal, 4.5:1 large text (WCAG 1.4.6)
-  for (const el of lowContrastElements.slice(0, 8)) {
+  // AA failures before the cap, as for touch targets: an AAA-only shortfall
+  // earlier in the document must not push an AA failure off the list. Stable
+  // sort keeps document order within each class. (B6 sibling, 2026-10-09)
+  const failsAAFirst = [...lowContrastElements].sort((a, b) =>
+    Number(b.ratio < (b.isLargeText ? 3 : 4.5)) - Number(a.ratio < (a.isLargeText ? 3 : 4.5)));
+  for (const el of failsAAFirst.slice(0, 8)) {
     const aaThreshold = el.isLargeText ? 3 : 4.5;
     const failsAA = el.ratio < aaThreshold;
     const wcagCriteria = failsAA ? ["1.4.3", "1.4.6"] : ["1.4.6"];
@@ -1286,13 +1408,25 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
   );
 
   if (closeElements.length > 0) {
+    // Spacing is not 2.5.5. That criterion is Target SIZE, and citing it put
+    // this heuristic in the touch_target bucket, graded "major" and never
+    // level-adjusted: on the reported page it was most of a -20 touch_target
+    // deduction. Spacing RELATES to 2.5.8, whose exception lets an undersized
+    // target pass when it is far enough from its neighbours, but closeness on
+    // its own fails no criterion (two 44px targets 4px apart conform). So:
+    // 2.5.8 as a related, advisory criterion; minor, like the other
+    // relates-to findings; its own weight bucket; and run through
+    // adjustSeverityForLevel like every located finding. (B6, 2026-10-09)
+    const spacingCriteria = ["2.5.8"];
     barriers.push({
       type: "motor_precision",
       element: `${closeElements.length} element groups`,
-      description: `${closeElements.length} groups of interactive elements are very close together (< 8px spacing), making them difficult to target for users with tremors`,
+      description: `${closeElements.length} groups of interactive elements are very close together (< 8px spacing), making them difficult to target for users with tremors (relates to the WCAG 2.5.8 spacing exception; not a violation on its own)`,
       affectedPersonas: ["motor-impairment-tremor"],
-      wcagCriteria: ["2.5.5"],
-      severity: "major",
+      wcagCriteria: spacingCriteria,
+      wcagAdvisoryCriteria: spacingCriteria,
+      weightKey: "target_spacing",
+      severity: adjustSeverityForLevel("minor", getBarrierWcagLevel(spacingCriteria), ctx.wcagLevel),
       remediation: "Increase spacing between interactive elements to at least 8-12px",
     });
   }
@@ -1637,6 +1771,7 @@ async function simulateAccessibilityJourney(
     viewportOnly: scope === "viewport",
     wcagLevel,
     unverifiableMedia: [],
+    advisories: [],
   };
 
   // Named for what it is computed from. See EmpathyPersonaResult in types.ts:
@@ -1692,6 +1827,8 @@ async function simulateAccessibilityJourney(
         (window as any).__cbrowserViewportOnly = false;
       });
     }
+    // One selector builder for every detector. See installUniqueSelector.
+    await page.evaluate(installUniqueSelector);
 
     // Run barrier detection
     // v10.10.0: All general detectors run unconditionally regardless of persona
@@ -1746,6 +1883,15 @@ async function simulateAccessibilityJourney(
         ctx.barriers.push(...kept);
         ctx.outOfViewportDropped = dropped;
       }
+    }
+
+    // Above-level findings leave the scored set here, once, before scoring,
+    // friction and remediation read it. See splitAboveAuditLevel.
+    {
+      const { scored, advisories } = splitAboveAuditLevel(ctx.barriers, wcagLevel);
+      ctx.barriers.length = 0;
+      ctx.barriers.push(...scored);
+      ctx.advisories.push(...advisories);
     }
 
     // Use cognitive journey for realistic step tracking if API key available
@@ -2076,6 +2222,8 @@ async function simulateAccessibilityJourney(
     // Deprecated alias, one release only. See EmpathyPersonaResult.
     goalAchieved: noBlockingBarriers,
     barriers: ctx.barriers,
+    // Above the audited level: reported, never scored. See splitAboveAuditLevel.
+    ...(ctx.advisories.length > 0 ? { advisories: ctx.advisories } : {}),
     // Surfaced, not kept internal: a filter whose effect is invisible cannot be
     // told apart from a filter that never ran, and that is exactly the defect
     // this closes.
@@ -2292,8 +2440,8 @@ function generateRemediationPriority(
   const severityOrder: Record<string, number> = { critical: 0, major: 1, minor: 2 };
   const rank = (b: AccessibilityBarrier): number => {
     if (!personaName) return severityOrder[b.severity] ?? 3;
-    const { weight } = barrierWeightFor(personaName, b.type, b.wcagCriteria);
-    const { severity } = weightedSeverity(b.severity, weight);
+    const { weight } = barrierWeightFor(personaName, b.type, b.wcagCriteria, b.weightKey);
+    const { severity } = weightedSeverity(b.severity, weight, { aboveAuditLevel: b.aboveAuditLevel });
     return severityOrder[String(severity).toLowerCase()] ?? 3;
   };
   const sorted = [...barriers].sort((a, b) => rank(a) - rank(b));
@@ -2794,7 +2942,7 @@ function deduplicateBarriers(
       // matters most arrived bundled inside a colour barrier whose fix was
       // "add patterns alongside colour". Unioning the criteria made them
       // visible; separating the groups makes them actionable.
-      const groupKey = `${barrier.type}|${weightKeyFor(barrier.type, barrier.wcagCriteria) ?? ""}`;
+      const groupKey = `${barrier.type}|${weightKeyFor(barrier.type, barrier.wcagCriteria, barrier.weightKey) ?? ""}`;
       const existing = barriersByType.get(groupKey);
       // Use the barrier's OWN affectedPersonas (set by the detector — accurate)
       // rather than the test persona's name. Previously we overwrote with
@@ -2865,6 +3013,17 @@ function deduplicateBarriers(
       severityIsGroupMax: true,
       affectedElementCount: data.elements.size,
       remediation: representative.remediation,
+      // Every member of a group shares the key it was grouped under, so the
+      // representative's is the group's. Without it the deduplicated entry
+      // would re-resolve from its criteria and land in a different bucket.
+      ...(representative.weightKey ? { weightKey: representative.weightKey } : {}),
+      // Advisory-ness of the related criteria, unioned like wcagCriteria, so a
+      // relates-to criterion does not read as violated on the grouped entry.
+      ...(() => {
+        const adv = Array.from(new Set(data.barriers.flatMap((b) => b.wcagAdvisoryCriteria ?? [])))
+          .filter((c) => data.barriers.every((b) => !(b.wcagCriteria ?? []).includes(c) || (b.wcagAdvisoryCriteria ?? []).includes(c)));
+        return adv.length > 0 ? { wcagAdvisoryCriteria: adv } : {};
+      })(),
     });
   }
 
@@ -3334,6 +3493,21 @@ export async function runEmpathyAudit(
     ? Math.round(results.reduce((sum, r) => sum + r.empathyScore, 0) / results.length)
     : 0;
 
+  // Above-level findings across personas, one entry per finding: the same
+  // element seen by two personas is one advisory.
+  const advisories: AccessibilityBarrier[] = [];
+  {
+    const seen = new Set<string>();
+    for (const r of results) {
+      for (const a of r.advisories ?? []) {
+        const k = `${a.type}|${a.element}|${a.rect ? `${a.rect.x},${a.rect.y},${a.rect.width},${a.rect.height}` : ""}|${a.description}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        advisories.push(a);
+      }
+    }
+  }
+
   return {
     url,
     goal,
@@ -3342,6 +3516,7 @@ export async function runEmpathyAudit(
     allWcagViolations: filteredViolations,
     allBarriers,
     topBarriers: deduplicatedBarriers, // v11.11.0: Deduplicated barriers grouped by type
+    ...(advisories.length > 0 ? { advisories } : {}),
     combinedRemediation,
     overallScore,
     // Summed from the per-persona audits: a filter whose effect is invisible is
