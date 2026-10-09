@@ -175,8 +175,10 @@ describe("an element that is itself a keyboard path is not hover-dependent", () 
        <div class="menu-role-button-unfocusable" role="button">Open</div>
        <div class="dropdown" aria-expanded="false"><span>Products</span><div class="dropdown-content">Widgets and gadgets</div></div>`,
       `.tip,.dropdown-content{display:none}.tooltip-trigger:hover .tip{display:inline}.dropdown:hover .dropdown-content{display:block}${TOOLTIP_CSS}`,
-      // div.dropdown-content is display:none, so 0x0, and the viewport filter drops it.
-      ["button.tooltip-trigger", "a.tooltip", "div.menu-role-button-unfocusable", "div.dropdown"]],
+      // div.dropdown-content is display:none, so 0x0. The viewport filter
+      // used to drop it as off-screen while full_page scored it; a zero-area
+      // rect has no position, so both scopes keep it now (round 2, 2026-10-09).
+      ["button.tooltip-trigger", "a.tooltip", "div.menu-role-button-unfocusable", "div.dropdown", "div.dropdown-content"]],
     // A control inside a disabled fieldset is :disabled too; a hidden input is
     // not operable at all. 0x0, so full_page, where nothing drops it.
     ["disabled by its fieldset, and type=hidden", "full_page",
@@ -237,11 +239,15 @@ describe("the fix only removes findings: nothing past the detector's window is s
       `${hoverLinks(3)}<span class="hover:opacity-80 menu-icon" style="display:none"></span><span class="hover:opacity-80 menu-icon" style="display:none"></span>
        <h1>Title</h1><span data-slot="badge" class="inline-flex items-center rounded-md border px-2 [a&amp;]:hover:bg-secondary/90">Persona Testing for Product Teams</span>`,
       `${HOVER_CSS}.inline-flex{display:inline-flex}a.\\[a\\&\\]\\:hover\\:bg-secondary\\/90:hover{background:#ddd}`),
-      // full_page keeps the two 0x0 icons, exactly as the unfixed detector does.
+      // Both scopes keep the two 0x0 icons, exactly as the unfixed detector
+      // does in full_page; viewport used to drop them as off-screen, though a
+      // zero-area rect has no position (round 2, 2026-10-09). The badge, past
+      // the window, is surfaced in neither.
       // Named by unique selector since B7 (2026-10-09): both used to read
       // "span.hover:opacity-80", two different elements under one name, which
       // is how deduplication counted them as one.
-      { viewport: [], full_page: ["html > body > span:nth-of-type(1)", "html > body > span:nth-of-type(2)"] }],
+      { viewport: ["html > body > span:nth-of-type(1)", "html > body > span:nth-of-type(2)"],
+        full_page: ["html > body > span:nth-of-type(1)", "html > body > span:nth-of-type(2)"] }],
     ["decorative card after a 22-item menu", doc(
       `${wpMenu(22)}<main><div class="card hover-lift"><h3>Feature</h3><p>Plain text</p></div></main>`,
       `${WP_CSS}.hover-lift:hover{transform:translateY(-2px)}`),
