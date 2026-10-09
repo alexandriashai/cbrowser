@@ -916,7 +916,7 @@ export async function analyzePerceptualTransport(
     perceptualScore,
     weightedDeductions: {},
     transportDistance: transportResult.distance,
-    computeTimeMs: performance.now() - startTime,
+    computeTimeMs: Math.round(performance.now() - startTime),
   };
 }
 

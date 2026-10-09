@@ -54,6 +54,94 @@ export function getDescriptionScanSummary(): DescriptionScanSummary {
   return { scanned: lastScan.scanned, flagged: [...lastScan.flagged] };
 }
 
+/**
+ * Binary floating-point residue: a run of six or more 0s or 9s after the
+ * decimal point, followed by one more digit. `0.30000000000000004`,
+ * `29.299999999999997` and `0.43019999999999997` all match; `0.3`, `29.3`,
+ * `1e-9` and integers do not. A cheap gate so a clean payload is never parsed.
+ */
+const FLOAT_RESIDUE = /\d\.\d*(?:0{6,}|9{6,})\d/;
+
+/** Twelve significant digits: below every measurement this package makes, above the residue. */
+function cleanNumber(v: number): number {
+  return Number.isFinite(v) && !Number.isInteger(v) ? Number(v.toPrecision(12)) : v;
+}
+
+/** Deep copy of plain objects and arrays with every number cleaned; anything else is passed through. */
+function cleanDeep(v: unknown): unknown {
+  if (typeof v === "number") return cleanNumber(v);
+  if (Array.isArray(v)) return v.map(cleanDeep);
+  if (v && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) out[k] = cleanDeep(x);
+    return out;
+  }
+  return v;
+}
+
+/**
+ * Remove binary floating-point residue from a tool result, at the one boundary
+ * every tool on both surfaces passes through.
+ *
+ * Customers read `totalBarrierDeduction: 29.299999999999997`,
+ * `cognitiveLoad: 0.43019999999999997` and `0.30000000000000004` in JSON that
+ * was otherwise rounded. There are ~117 hand-written Math.round sites in src/
+ * and two private round3 copies, which is how a field gets missed: rounding at
+ * each producer depends on every producer remembering. Here it cannot be
+ * forgotten. (2026-10-09)
+ *
+ * - A "text" block is touched only if it contains residue AND parses as JSON;
+ *   it is re-serialized at its own indentation, and kept byte-identical when
+ *   no number actually changed. Non-JSON text and image blocks are untouched.
+ * - `structuredContent` gets the same treatment.
+ * - Strings are never edited: "0.30000000000000004" stays a string.
+ *
+ * 12 significant digits removes residue (it lives at the 16th-17th) without
+ * moving a real value; 1e-9 and integers pass through unchanged.
+ */
+export function cleanFloatResidue(result: unknown): unknown {
+  if (!result || typeof result !== "object") return result;
+  const r = result as { content?: unknown; structuredContent?: unknown };
+  let out: Record<string, unknown> | null = null;
+  const edit = (): Record<string, unknown> => (out ??= { ...(result as Record<string, unknown>) });
+
+  if (Array.isArray(r.content)) {
+    let changedAny = false;
+    const blocks = r.content.map((block) => {
+      const b = block as { type?: unknown; text?: unknown };
+      if (!b || b.type !== "text" || typeof b.text !== "string") return block;
+      const text = b.text;
+      const lead = text.trimStart()[0];
+      if ((lead !== "{" && lead !== "[") || !FLOAT_RESIDUE.test(text)) return block;
+      let parsed: unknown;
+      try { parsed = JSON.parse(text); } catch { return block; }
+      let changed = false;
+      const replacer = (_k: string, v: unknown) => {
+        if (typeof v !== "number") return v;
+        const c = cleanNumber(v);
+        if (c !== v) changed = true;
+        return c;
+      };
+      const indent = /\n( +)\S/.exec(text)?.[1].length ?? 0;
+      const next = JSON.stringify(parsed, replacer, indent || undefined);
+      if (!changed) return block;
+      changedAny = true;
+      return { ...(block as Record<string, unknown>), text: next };
+    });
+    if (changedAny) edit().content = blocks;
+  }
+
+  if (r.structuredContent && typeof r.structuredContent === "object") {
+    let serialized: string | undefined;
+    try { serialized = JSON.stringify(r.structuredContent); } catch { serialized = undefined; }
+    if (serialized && FLOAT_RESIDUE.test(serialized)) {
+      edit().structuredContent = cleanDeep(r.structuredContent);
+    }
+  }
+
+  return out ?? result;
+}
+
 /** Red-zone denial is opt-in; see the module comment for why. */
 function redZoneEnforced(): boolean {
   return process.env.CBROWSER_ENFORCE_RED_ZONE === "true" || process.env.CBROWSER_ENFORCE_RED_ZONE === "1";
@@ -125,7 +213,9 @@ export function applySecurityLayer(server: unknown, opts?: { audit?: AuditContex
           }],
         };
       }
-      return (handler as (...a: unknown[]) => Promise<unknown>)(...args);
+      // The one serialization boundary every tool passes through. See
+      // cleanFloatResidue.
+      return cleanFloatResidue(await (handler as (...a: unknown[]) => Promise<unknown>)(...args));
     };
 
     // Audit wraps the outermost call so a zone refusal is recorded too.

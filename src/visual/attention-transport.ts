@@ -1085,7 +1085,7 @@ export async function analyzeAttentionFromDOM(
       saliency: Math.round(h.saliency * 100) / 100,
     })),
     transportCost: 0,
-    computeTimeMs: performance.now() - startTime,
+    computeTimeMs: Math.round(performance.now() - startTime),
   };
 }
 
@@ -1271,7 +1271,7 @@ export async function analyzeAttention(
     concentration: Math.round(concentration * 1000) / 1000,
     attentionCompetitors,
     transportCost: Math.round(transportCost * 10000) / 10000,
-    computeTimeMs: performance.now() - startTime,
+    computeTimeMs: Math.round(performance.now() - startTime),
   };
 }
 
