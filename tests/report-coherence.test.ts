@@ -26,23 +26,23 @@
 
 import { describe, test, expect } from "bun:test";
 import fc from "fast-check";
+import * as attention from "../src/visual/attention-transport.js";
 
 describe("B18 — divergence and its regions share one scale", () => {
-  /** Mirrors the fixed selection: rank cells by NORMALIZED contribution. */
+  /**
+   * The SHIPPING function, not a mirror of it. This block used to re-implement
+   * the selection inline, so it would have kept passing if compareAttention
+   * drifted from it. Since 2026-10-09 compareAttention takes both the aggregate
+   * and the regions from rankDivergentRegions; a single row of n cells is the
+   * 1-D case. Read through the namespace so a missing export fails this block
+   * only.
+   */
   function analyse(salA: number[], salB: number[]) {
-    const totalA = salA.reduce((a, b) => a + b, 0) || 1;
-    const totalB = salB.reduce((a, b) => a + b, 0) || 1;
-    let divergence = 0;
-    for (let i = 0; i < salA.length; i++) {
-      divergence += Math.abs(salA[i] / totalA - salB[i] / totalB);
-    }
-    const contributions = salA
-      .map((_, i) => ({ i, div: Math.abs(salA[i] / totalA - salB[i] / totalB) }))
-      .sort((a, b) => b.div - a.div);
-    const floor = divergence > 0 ? divergence * 0.01 : Infinity;
-    const significant = contributions.filter((c) => c.div > floor);
-    const regions = significant.length > 0 ? significant : contributions.filter((c) => c.div > 0);
-    return { divergence, regions };
+    const rank = (attention as unknown as {
+      rankDivergentRegions: (a: number[], b: number[], rows: number, cols: number, cell: number) =>
+        { divergence: number; regions: unknown[] };
+    }).rankDivergentRegions;
+    return rank(salA, salB, 1, salA.length, 1);
   }
 
   test("the reported case: small per-cell values, non-zero divergence", () => {
