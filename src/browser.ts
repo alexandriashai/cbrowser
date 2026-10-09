@@ -6151,7 +6151,7 @@ For more help: https://playwright.dev/docs/browsers
       // menu items: command palettes (cmdk / shadcn Command) render every command as role=option and run it on click.
       const CHOICE = "input[type=checkbox],input[type=radio],select,option,[role='checkbox'],[role='radio'],[role='switch']";
       const BUTTON_INPUT = /^(submit|button|reset|image)$/i;
-      const isTextField = (el: Element) => el.tagName === "TEXTAREA" ||
+      const isTextField = (el: Element) => el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable ||
         (el.tagName === "INPUT" && !BUTTON_INPUT.test((el as HTMLInputElement).type || "") && !/^(checkbox|radio)$/i.test((el as HTMLInputElement).type || ""));
       const isData = (el: Element) => isTextField(el) || el.matches(CHOICE);
       // Composed-tree walk: a slotted node's parent is its slot, a shadow root's parent is its host, and
@@ -6198,8 +6198,58 @@ For more help: https://playwright.dev/docs/browsers
         }
         return e;
       };
-      const control = composedClosest(node) || node;
+      // Something that is not an interactive element can still act as one: a <div> with a click listener
+      // shows it by a pointer cursor, a tabindex or an inline pointer handler.
+      const clickable = (el: Element) => {
+        if (el.hasAttribute("tabindex")) return true;
+        for (const a of Array.from(el.attributes)) if (/^on(click|mousedown|mouseup|pointerdown|pointerup|touchstart|touchend)$/i.test(a.name)) return true;
+        // cursor is inherited: the clickable element is where a pointer cursor STARTS, not every child of it
+        // (the icon inside a pointer-cursor menu item is not the item).
+        try {
+          const cs = (n: Element) => (n.ownerDocument.defaultView || window).getComputedStyle(n).cursor;
+          if (cs(el) !== "pointer") return false;
+          const p = up(el);
+          return !p || cs(p) !== "pointer";
+        } catch { return false; }
+      };
+      // An element's own text: its visible text minus the text of controls nested inside it. A text node counts
+      // when no interactive element sits between it and `el` (el itself need not be an interactive element).
+      const ownText = (el: Element): string => {
+        if (!el.querySelector(INTERACTIVE)) return (el as HTMLElement).innerText;
+        const parts: string[] = [];
+        const walker = (el.ownerDocument || document).createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const p = n.parentElement;
+          if (!p) continue;
+          const c = p.closest(INTERACTIVE);
+          if (!c || c === el || !el.contains(c)) parts.push(n.textContent || "");
+        }
+        return parts.join(" ");
+      };
+      // What a pointer on `e` activates: its nearest interactive element; else the nearest ancestor that shows a
+      // click affordance (a pointer-cursor <div> menu item whose icon was hit); else the nearest element whose own
+      // text is label-sized (a listener-only item, "Delete account"), never a prose paragraph. Kept strictly inside
+      // `stopAt` when given.
+      const activatorOf = (e: Element, stopAt: Element | null): Element | null => {
+        const inside = (n: Element) => !stopAt || (n !== stopAt && composedContains(stopAt, n));
+        const c = composedClosest(e);
+        if (c) return inside(c) ? c : null;
+        for (let n: Element | null = e, i = 0; n && i < 8 && inside(n); n = up(n), i++) {
+          if (n === n.ownerDocument.body || n === n.ownerDocument.documentElement) break;
+          if (clickable(n)) return n;
+        }
+        for (let n: Element | null = e, i = 0; n && i < 3 && inside(n); n = up(n), i++) {
+          if (n === n.ownerDocument.body || n === n.ownerDocument.documentElement) break;
+          const tx = norm(ownText(n), 200);
+          if (tx && tx.length <= 60) return n;
+        }
+        return null;
+      };
+      // For an element that is already the deepest one at a known point (a coordinate click, a drag end, the
+      // focused element), the thing activated may be an ancestor without an interactive role.
+      const control = composedClosest(node) || (arg.skipHit ? activatorOf(node, null) : null) || node;
       const isContainer = !composedClosest(node);
+      const viaActivator = control !== node && isContainer;
       // Where a click on this element lands: the centre of its first box clipped to the viewport (what
       // Playwright clicks), after scrolling it into view if none of it is visible. Not computed for a key
       // press or an element that is already the deepest one at a known point.
@@ -6222,8 +6272,8 @@ For more help: https://playwright.dev/docs/browsers
         position = { x: px - box.left - node.clientLeft, y: py - box.top - node.clientTop };
         const deep = deepAt(px, py, node);
         if (!deep || deep === node) return null;
-        const c = composedClosest(deep);
-        return c && c !== node && c !== control && composedContains(node, c) ? c : null;
+        const c = activatorOf(deep, node);
+        return c && c !== control ? c : null;
       })();
       const nodes = [node, control, hitControl].filter((e, i, a): e is Element => !!e && a.indexOf(e) === i);
       const root = node.getRootNode() as Document | ShadowRoot;
@@ -6261,6 +6311,10 @@ For more help: https://playwright.dev/docs/browsers
           push((el as HTMLInputElement).value);
         }
         if (el.tagName === "INPUT" && (el as HTMLInputElement).type === "image") push(el.getAttribute("alt"));
+        if (el.tagName === "IMG") push((el as HTMLImageElement).alt);
+        // <label for> names a button or submit input too.
+        const labels = (el as HTMLInputElement).labels;
+        if (labels) for (const l of Array.from(labels)) push((l as HTMLElement).innerText);
         push(el.getAttribute("title"));
       };
       // A descendant's name belongs to `el` only when no other control sits between them: the icon inside
@@ -6271,29 +6325,13 @@ For more help: https://playwright.dev/docs/browsers
         Array.from(el.querySelectorAll("svg title")).filter(d => owns(el, d)).slice(0, 5).forEach(d => push(d.textContent));
         Array.from(el.querySelectorAll("img[alt]")).filter(d => owns(el, d)).slice(0, 5).forEach(d => push((d as HTMLImageElement).alt));
         const sr = (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
-        if (sr) push(sr.textContent, 120);
+        if (sr) {
+          push(sr.textContent, 120);
+          Array.from(sr.querySelectorAll("img[alt],[aria-label]")).slice(0, 5).forEach(d => push(d.getAttribute("alt") || d.getAttribute("aria-label")));
+        }
         // A control inside a shadow root shows its host's light-DOM text through a <slot>.
         Array.from(el.querySelectorAll("slot")).slice(0, 5).forEach(s =>
           push((s as HTMLSlotElement).assignedNodes({ flatten: true }).map(n => n.textContent || "").join(" "), 120));
-      };
-      // Something that is not an interactive element can still act as one: a <div> with a click listener
-      // shows it by a pointer cursor, a tabindex or an inline pointer handler. An inert heading
-      // ("<h1>Checkout</h1>") or a plain container shows none, and clicking it activates nothing.
-      const clickable = (el: Element) => {
-        if (el.hasAttribute("tabindex")) return true;
-        for (const a of Array.from(el.attributes)) if (/^on(click|mousedown|mouseup|pointerdown|pointerup|touchstart|touchend)$/i.test(a.name)) return true;
-        try { return (el.ownerDocument.defaultView || window).getComputedStyle(el).cursor === "pointer"; } catch { return false; }
-      };
-      // A control's own text: its visible text, minus the text of controls nested inside it.
-      const ownText = (el: Element): string => {
-        if (!el.querySelector(INTERACTIVE)) return (el as HTMLElement).innerText;
-        const parts: string[] = [];
-        const walker = (el.ownerDocument || document).createTreeWalker(el, NodeFilter.SHOW_TEXT);
-        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-          const p = n.parentElement;
-          if (p && p.closest(INTERACTIVE) === el) parts.push(n.textContent || "");
-        }
-        return parts.join(" ");
       };
       let label = "";
       let submitsVia = "";
@@ -6304,6 +6342,7 @@ For more help: https://playwright.dev/docs/browsers
         if (al && al.trim()) return norm(al, 200);
         if (el.tagName === "INPUT" && (el as HTMLInputElement).value && BUTTON_INPUT.test((el as HTMLInputElement).type || "")) return norm((el as HTMLInputElement).value, 200);
         if (el.tagName === "INPUT" && (el as HTMLInputElement).type === "image" && el.getAttribute("alt")) return norm(el.getAttribute("alt"), 200);
+        if (el.tagName === "IMG" && (el as HTMLImageElement).alt) return norm((el as HTMLImageElement).alt, 200);
         if (isData(el)) {
           const labels = (el as HTMLInputElement).labels;
           const lt = labels ? Array.from(labels).map(l => (l as HTMLElement).innerText).join(" ") : "";
@@ -6316,10 +6355,12 @@ For more help: https://playwright.dev/docs/browsers
           || (el.querySelector("img[alt]") as HTMLImageElement | null)?.alt
           || (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot?.textContent;
         if (below && below.trim()) return norm(below, 200);
+        const lbl = (el as HTMLInputElement).labels;
+        if (lbl && lbl.length) return norm(Array.from(lbl).map(l => (l as HTMLElement).innerText).join(" "), 200);
         return norm(el.getAttribute("title"), 200);
       };
       for (const el of nodes) {
-        const isControl = (el === control && !isContainer) || el === hitControl;
+        const isControl = (el === control && (!isContainer || viaActivator)) || el === hitControl;
         if (!isData(el)) {
           // Judged by its own names: a control, or something acting as one. A control's own text counts in
           // full; an acting-as-control element's own text by its opening 120 characters (a long div-button is
@@ -6333,6 +6374,9 @@ For more help: https://playwright.dev/docs/browsers
             pushControl(el);
             push(norm(ownText(el), isControl ? 300 : 120), 300);
             pushBelow(el);
+          } else if (el === node) {
+            // A listener-only row that also holds a help link or an info button: its own opening text.
+            push(norm(ownText(el), 120), 120);
           }
           const form = (el as HTMLButtonElement).form as HTMLFormElement | null | undefined;
           if (form && isSubmitter(el)) pushSubmit(form, el);
@@ -6340,9 +6384,10 @@ For more help: https://playwright.dev/docs/browsers
           // Enter in a field submits its form through the form's default button.
           const form = (el as HTMLInputElement).form;
           if (form) {
+            // The default button is the first submit button in tree order; if it is disabled, Enter submits nothing.
             const def = Array.from(form.elements).find(isSubmitter) ?? null;
-            pushSubmit(form, def);
-            if (def) {
+            if (!(def && (def as HTMLButtonElement).disabled)) pushSubmit(form, def);
+            if (def && !(def as HTMLButtonElement).disabled) {
               pushControl(def);
               pushBelow(def);
               push((def as HTMLElement).innerText);
@@ -6473,17 +6518,18 @@ For more help: https://playwright.dev/docs/browsers
   async dragRedZone(source: string, target: string, force?: boolean): Promise<string | null> {
     if (force) return null;
     const page = await this.getPage();
-    const vp = page.viewportSize() ?? (await page.evaluate(() => ({ width: innerWidth, height: innerHeight })));
     const pointOf = async (sel: string) => {
       const loc = page.locator(sel).first();
       await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-      const b = await loc.boundingBox({ timeout: 3000 }).catch(() => null);
-      let at: ElementHandle | null = null;
-      if (b) {
-        const l = Math.max(b.x, 0), r = Math.min(b.x + b.width, vp.width);
-        const tp = Math.max(b.y, 0), bt = Math.min(b.y + b.height, vp.height);
-        if (r > l && bt > tp) at = await this.deepElementAt((l + r) / 2, (tp + bt) / 2);
-      }
+      // Playwright presses the centre of the element's first box (a wrapped inline element's first line),
+      // clipped to the viewport.
+      const p = await loc.evaluate((el: Element) => {
+        const r = el.getClientRects()[0] ?? el.getBoundingClientRect();
+        const l = Math.max(r.left, 0), rr = Math.min(r.right, innerWidth);
+        const tp = Math.max(r.top, 0), bt = Math.min(r.bottom, innerHeight);
+        return rr > l && bt > tp ? { x: (l + rr) / 2, y: (tp + bt) / 2 } : null;
+      }, undefined, { timeout: 3000 }).catch(() => null);
+      const at = p ? await this.deepElementAt(p.x, p.y) : null;
       return at ?? (await loc.elementHandle({ timeout: 3000 }).catch(() => null));
     };
     const a = await pointOf(source);
@@ -6542,14 +6588,6 @@ For more help: https://playwright.dev/docs/browsers
         }
         break;
       }
-      // A combobox or listbox keeps focus on itself and points at the highlighted item with
-      // aria-activedescendant; Enter activates that item (a command palette runs it).
-      const ad = a?.getAttribute("aria-activedescendant");
-      if (a && ad) {
-        const r = a.getRootNode() as Document | ShadowRoot;
-        const item = ((r as Document).getElementById ? (r as Document).getElementById(ad) : null) ?? a.ownerDocument.getElementById(ad);
-        if (item) a = item;
-      }
       return a && a !== document.body && a !== document.documentElement ? a : null;
     });
     const focused = h.asElement();
@@ -6562,7 +6600,26 @@ For more help: https://playwright.dev/docs/browsers
         if (!buttonLike) return null;
       }
       const el = await this.classifyElement(focused, { implicitSubmit: isEnter, skipHit: true });
-      return el ? { zone: el.zone, tag: el.tag, label: el.label } : null;
+      // A combobox or listbox keeps focus on itself and points at the highlighted item with
+      // aria-activedescendant; Enter activates that item (a command palette runs it) and, in a form, may also
+      // submit the form. Both are judged and the more severe wins. The id is looked up only in the field's own
+      // root, so a same-id element elsewhere on the page is never the one judged.
+      let item: { zone: ActionZone; tag: string; label: string } | null = null;
+      if (isEnter) {
+        const ih = await focused.evaluateHandle((a: Element) => {
+          const ad = a.getAttribute("aria-activedescendant");
+          return ad ? (a.getRootNode() as Document | ShadowRoot).getElementById(ad) : null;
+        }).catch(() => null);
+        const ie = ih?.asElement() ?? null;
+        if (ie) {
+          const c = await this.classifyElement(ie, { skipHit: true });
+          if (c) item = { zone: c.zone, tag: c.tag, label: c.label };
+        }
+        await ih?.dispose().catch(() => {});
+      }
+      const own = el ? { zone: el.zone, tag: el.tag, label: el.label } : null;
+      if (own && item) return this.maxZone(own.zone, item.zone) === item.zone && item.zone !== own.zone ? item : own;
+      return own ?? item;
     } finally {
       await focused.dispose().catch(() => {});
     }

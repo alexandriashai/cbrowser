@@ -565,3 +565,75 @@ s.querySelector('button').onclick = () => { window.__c = 'BUY'; }; } });</script
     expect(r).toMatchObject({ success: true, zone: "yellow", fired: "SUBMIT /save-draft" });
   });
 });
+
+describe("cross-vendor re-audit findings (Forge round 7)", () => {
+  const H = (body: string) => `<!doctype html><html lang="en"><body style="margin:0">${body}<script>
+document.addEventListener('submit', e => { window.__c = 'SUBMIT ' + e.target.getAttribute('action'); e.preventDefault(); }, true);
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-act]'); if (t) window.__c = t.dataset.act; });
+</script></body></html>`;
+  const run = async (html: string, sel = "#x") => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(html); await page.waitForTimeout(50); await fired();
+    const r = await b.click(sel, {});
+    await page.waitForTimeout(50);
+    return { success: r.success, zone: r.zone, fired: await fired() };
+  };
+  test("M1: Enter in a /checkout combobox is judged on the form submit even with an active descendant", async () => {
+    await page.setContent(H(`<form action="/checkout"><input id="addr" role="combobox" aria-activedescendant="o1" aria-label="Address">
+<ul role="listbox" hidden><li role="option" id="o1">123 Main St</li></ul><button>Place order</button></form>`));
+    await page.focus("#addr");
+    expect((await b.classifyKeyActivation("Enter"))?.zone).toBe("red");
+    expect(await b.keystrokeRedZone({ text: "\n" })).toMatch(/^Red zone action requires --force/);
+  });
+  test("M1/X2: the active descendant is looked up in the field's own root, never a same-id element elsewhere", async () => {
+    await page.setContent(H(`<div id="o1" data-act="DELETE">Delete account</div><cmd-box></cmd-box><script>
+customElements.define('cmd-box', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({mode:'open'});
+s.innerHTML = '<input id="q" role="combobox" aria-activedescendant="o1" aria-label="Search"><div role="listbox"><div role="option" id="o1">Rename project</div></div>'; } });</script>`));
+    await page.waitForTimeout(50);
+    await page.evaluate(() => (document.querySelector("cmd-box") as any).shadowRoot.querySelector("#q").focus());
+    const a = await b.classifyKeyActivation("Enter");
+    expect(a?.zone).not.toBe("red");
+  });
+  test("M2: <label for> names a button and a submit input", async () => {
+    let r = await run(H(`<label for="x">Delete account</label><button id="x" data-act="DELETE"><svg width="12" height="12"></svg></button>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+    r = await run(H(`<form action="/pay"><label for="x">Pay now</label><input id="x" type="submit" value=""></form>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("M3: a clickable row holding a nested control is judged by its own text", async () => {
+    let r = await run(H(`<div data-testid="row" data-act="DELETE" style="cursor:pointer;padding:8px"><span>Delete account</span> <button aria-label="More info" onclick="event.stopPropagation()">i</button></div>`), '[data-testid="row"]');
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+    r = await run(H(`<div id="x" data-act="DELETE" style="padding:8px">Delete account <a href="#help" onclick="event.stopPropagation();return false">Help</a></div>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("M4: pointer paths reach a pointer-cursor menu item through its icon, and a listener-only item", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(H(`<div id="item" data-act="DELETE" style="position:absolute;left:0;top:0;width:400px;height:60px;cursor:pointer;display:flex;align-items:center">
+<svg id="icon" width="40" height="40"><rect width="40" height="40"/></svg><span>Delete account</span></div>`));
+    expect(await b.pointRedZone(20, 30)).toMatch(/^Red zone action requires --force/);
+    expect(await b.dragRedZone("#icon", "#icon")).toMatch(/^Red zone action requires --force/);
+    const r = await run(H(`<section id="x" style="position:relative;width:600px;height:300px"><p style="margin:0">Account settings and preferences for your workspace, including notifications, billing contacts and profile details.</p>
+<div data-act="DELETE" style="position:absolute;left:200px;top:100px;width:200px;height:100px">Delete account</div></section>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("L1: a contenteditable editor is a text field: clicking or typing into it is not refused", async () => {
+    const r = await run(H(`<div id="x" contenteditable="true" style="min-height:40px">Buy milk, eggs and bread</div>`));
+    expect(r.success).toBe(true);
+    await page.focus("#x");
+    expect(await b.keystrokeRedZone({ text: "x\ny" })).toBeNull();
+  });
+  test("L3: an <img> clicked directly is named by its alt", async () => {
+    const r = await run(H(`<img id="x" data-act="DELETE" alt="Delete account" width="40" height="40" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("L4: a drag presses the first line of a wrapped inline control", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(H(`<p style="width:200px;margin:0">Some lead-in text before the <span id="w" role="button" data-act="DELETE">Delete account now please</span> and after.</p>`));
+    expect(await b.dragRedZone("#w", "#w")).toMatch(/^Red zone action requires --force/);
+  });
+  test("L6: Enter is not refused when the form's only submit button is disabled", async () => {
+    await page.setContent(H(`<form action="/checkout"><input id="card" aria-label="Card"><button disabled>Pay now</button></form>`));
+    await page.focus("#card");
+    expect((await b.classifyKeyActivation("Enter"))?.zone).not.toBe("red");
+  });
+});
