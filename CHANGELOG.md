@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.1.9](https://github.com/alexandriashai/cbrowser/compare/v19.1.8...v19.1.9) (2026-10-09)
+
+### Fixed
+
+* **safety:** treat high-impact actions on named objects as red, not only on an account ([7eca417](https://github.com/alexandriashai/cbrowser/commit/7eca417c53802a96acdb3eba1e034aafb27b6853))
+
 ## [19.1.8](https://github.com/alexandriashai/cbrowser/compare/v19.1.7...v19.1.8) (2026-10-09)
 
 ### Fixed
