@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.1](https://github.com/alexandriashai/cbrowser/compare/v19.3.0...v19.3.1) (2026-10-09)
+
+### Fixed
+
+* **attention,testing:** close the v3 verifier's findings on b18, b19, b22, b23 ([6a4a876](https://github.com/alexandriashai/cbrowser/commit/6a4a876333ce012684ccf583729fdfd51c3edef9))
+* **attention:** interpretation says headings, never value prop (b18) ([0c85d45](https://github.com/alexandriashai/cbrowser/commit/0c85d456e5d73dad4ea2755ab58ff02abf571e60))
+* **attention:** say when the relevance judgement was replayed from cache (b23) ([c044d8e](https://github.com/alexandriashai/cbrowser/commit/c044d8e4f94f74b2950321254b956b1fa725839f))
+* **attention:** state what the attention narrative was computed over (b19) ([4a0d711](https://github.com/alexandriashai/cbrowser/commit/4a0d711850fcd51ecf158da2b39e1d2036d25693))
+* **testing:** suggest real page text for a failed page-contains assert (b22) ([6c03de3](https://github.com/alexandriashai/cbrowser/commit/6c03de305b95785bcbfd4404b32af88809ccf260))
+
 ## [19.3.0](https://github.com/alexandriashai/cbrowser/compare/v19.2.3...v19.3.0) (2026-10-09)
 
 ### Added
