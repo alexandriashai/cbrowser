@@ -24,6 +24,8 @@ tests/cognitive-effort-motor-preview.test.ts
 tests/daemon-evaluate-red-zone.test.ts
 tests/empathy-animation-criteria.test.ts
 tests/empathy-disability-label.test.ts
+tests/empathy-element-counts-full-page.test.ts
+tests/empathy-element-counts.test.ts
 tests/empathy-hover-self-interactive.test.ts
 tests/empathy-motion-pause-control.test.ts
 tests/empathy-touch-target-level.test.ts

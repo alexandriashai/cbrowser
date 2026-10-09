@@ -5286,6 +5286,14 @@ export interface AccessibilityBarrier {
    */
   members?: string[];
   /**
+   * A finding about the page as a whole -- navigation item count, a meta
+   * refresh, sound from autoplaying media -- or a page-wide aggregate with no
+   * single location (its elements are in `members`). Said explicitly so the
+   * coverage report can tell "nothing to draw" from "the detector forgot a
+   * rect". Counts as `affectedElementCount ?? 1` elements.
+   */
+  pageLevel?: boolean;
+  /**
    * Where the barrier is, in DOCUMENT coordinates.
    *
    * Written by the detectors and read by the overlay layer, and declared in

@@ -238,7 +238,10 @@ describe("the fix only removes findings: nothing past the detector's window is s
        <h1>Title</h1><span data-slot="badge" class="inline-flex items-center rounded-md border px-2 [a&amp;]:hover:bg-secondary/90">Persona Testing for Product Teams</span>`,
       `${HOVER_CSS}.inline-flex{display:inline-flex}a.\\[a\\&\\]\\:hover\\:bg-secondary\\/90:hover{background:#ddd}`),
       // full_page keeps the two 0x0 icons, exactly as the unfixed detector does.
-      { viewport: [], full_page: ["span.hover:opacity-80", "span.hover:opacity-80"] }],
+      // Named by unique selector since B7 (2026-10-09): both used to read
+      // "span.hover:opacity-80", two different elements under one name, which
+      // is how deduplication counted them as one.
+      { viewport: [], full_page: ["html > body > span:nth-of-type(1)", "html > body > span:nth-of-type(2)"] }],
     ["decorative card after a 22-item menu", doc(
       `${wpMenu(22)}<main><div class="card hover-lift"><h3>Feature</h3><p>Plain text</p></div></main>`,
       `${WP_CSS}.hover-lift:hover{transform:translateY(-2px)}`),

@@ -20,6 +20,8 @@ import {
   runWebMCPReadyAudit,
 } from "../../analysis/index.js";
 import { listAccessibilityPersonas } from "../../personas.js";
+import { barrierElementCount, countAffectedElements } from "../../analysis/accessibility-empathy.js";
+import type { AccessibilityBarrier } from "../../types.js";
 import { getDefaultConfig } from "../../config.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
@@ -1362,7 +1364,14 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               } : undefined,
               barrierTypeCount: uniqueTypes.size,
               barrierTypes: Array.from(uniqueTypes),
-              affectedElements: r.barriers.length,
+              // Barrier RECORDS and affected ELEMENTS are different numbers and
+              // both ship. affectedElements was barriers.length, so it could not
+              // be reconciled with topBarriers' per-entry counts. It is now the
+              // same sum topBarriers is built from: for a one-persona audit,
+              // sum(topBarriers[].affectedElementCount) +
+              // (topBarriersOmitted?.affectedElements ?? 0). (B7, 2026-10-09)
+              barrierCount: r.barriers.length,
+              affectedElements: countAffectedElements(r.barriers),
               wcagViolationCount: r.wcagViolations.length,
               // Above-level findings, listed in `advisories` and never scored.
               ...(r.advisories?.length ? { advisoryCount: r.advisories.length } : {}),
@@ -1459,6 +1468,19 @@ export function registerEmpathyAuditTool(server: McpServer): void {
                 advisoriesNote: `Findings whose WCAG level is above the audited level (${wcagLevel}). Advisory: reported for information, not scored, not counted in affectedElements, never escalated by persona weight. Re-run with wcagLevel set to their level to score them.`,
               }
             : {}),
+          // Groups not shown in topBarriers, so the shown entries plus this
+          // add up to resultsSummary.affectedElements. Dropped groups used to
+          // vanish from the sum without a trace. (B7)
+          ...(() => {
+            const shown = new Set(chosenBarriers);
+            const omitted = result.topBarriers.filter((b) => !shown.has(b));
+            return omitted.length > 0
+              ? { topBarriersOmitted: {
+                  groups: omitted.length,
+                  affectedElements: omitted.reduce((n, b) => n + (b.affectedElementCount ?? 0), 0),
+                } }
+              : {};
+          })(),
           topBarriersNote:
             "Ordered worst-first by severityForPersona — the persona-weighted grade — so an entry can sit above a higher WCAG severity when this persona is more susceptible to it. Any entries after the fifth are included because they carry a WCAG criterion the top five do not.",
           // Asserting full coverage was itself a defect: the claim held only
@@ -1525,25 +1547,58 @@ export function registerEmpathyAuditTool(server: McpServer): void {
             // is stated. Reported rather than papered over, the same way
             // cognitiveLoadReadings reports its disagreement.
             barrierRectCoverage: (() => {
-              // Counted the same way barrierRects is built below, from
-              // barriers that resolved to a rect. Reading r.barrierRects gave
-              // 0 every time: that field is this payload's OUTPUT name, not an
-              // input, so the coverage line reported drawn:0 beside ten
-              // populated rects.
-              // Zero-area rects draw nothing. They were counted as drawn, so
-              // coverage read 19 while only 16 boxes were visible -- an
-              // element that resolved to {0,0,0,0} (display:none, a collapsed
-              // menu item) is undrawn in every sense that matters.
-              const rects = (r.barriers ?? []).filter(
-                (b: any) => b.rect && b.rect.width > 0 && b.rect.height > 0).length;
-              const affected = (r.barriers ?? []).reduce(
-                (n: number, b: any) => n + (b.affectedElementCount ?? 1), 0);
+              // Per BARRIER, with the reason each undrawn one has no box.
+              //
+              // This subtracted drawn rects from affected elements and gave
+              // one hardcoded reason, "typically below the fold, hidden, or an
+              // unresolvable selector". In a viewport audit that reason is
+              // wrong by construction: located barriers below the fold were
+              // already dropped (outOfViewportBarriersDropped), so every
+              // undrawn one was a barrier that never had a rect at all. And
+              // elements minus boxes is not a count of anything a reader can
+              // list. (B7, 2026-10-09)
+              //
+              // Zero-area rects draw nothing and are undrawn: an element that
+              // resolved to {0,0,0,0} (display:none, a collapsed menu item)
+              // is undrawn in every sense that matters.
+              const origin = scope === "full_page"
+                ? { x: 0, y: 0 }
+                : (r.captureScroll ?? { x: 0, y: 0 });
+              const size = r.screenshotSize
+                ?? { width: r.viewportSize?.width ?? Infinity,
+                     height: scope === "full_page" ? (r.documentHeight ?? Infinity) : (r.viewportSize?.height ?? Infinity) };
+              const undrawnBarriers: Array<{ type: string; element: string; reason: string; affectedElementCount: number }> = [];
+              let drawn = 0;
+              for (const b of (r.barriers ?? []) as AccessibilityBarrier[]) {
+                let reason: string | null = null;
+                if (!b.rect) reason = b.pageLevel ? "pageLevel" : "notLocated";
+                else if (!(b.rect.width > 0 && b.rect.height > 0)) reason = "zeroArea";
+                else {
+                  const ix = b.rect.x - origin.x;
+                  const iy = b.rect.y - origin.y;
+                  if (iy + b.rect.height < 0 || ix + b.rect.width < 0 || iy > size.height || ix > size.width) {
+                    reason = "outsideCapture";
+                  }
+                }
+                if (reason === null) { drawn++; continue; }
+                undrawnBarriers.push({ type: b.type, element: b.element, reason,
+                  affectedElementCount: barrierElementCount(b) });
+              }
+              const legend: Record<string, string> = {
+                pageLevel: "A finding about the page as a whole, or a page-wide aggregate (its elements are in members), with no single location to outline.",
+                zeroArea: "The element resolved to a zero-size box at capture time (display:none, collapsed), so there is nothing to outline.",
+                outsideCapture: "The element's box lies outside the captured screenshot.",
+                notLocated: "The detector recorded no location for this barrier. A defect in the detector, not a property of the page.",
+              };
+              const present = Array.from(new Set(undrawnBarriers.map((u) => u.reason)));
               return {
-                drawn: rects,
-                affectedElements: affected,
-                ...(affected > rects
-                  ? { undrawn: affected - rects,
-                      undrawnReason: "Barriers whose element did not resolve to a bounding box at capture time — typically below the fold, hidden, or an unresolvable selector. They are counted in the score and listed in barriers, but the overlay cannot outline them." }
+                barriers: (r.barriers ?? []).length,
+                drawn,
+                affectedElements: countAffectedElements(r.barriers ?? []),
+                ...(undrawnBarriers.length > 0
+                  ? { undrawn: undrawnBarriers.length,
+                      undrawnBarriers,
+                      undrawnReasons: Object.fromEntries(present.map((p) => [p, legend[p]])) }
                   : {}),
               };
             })(),
