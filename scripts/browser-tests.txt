@@ -31,6 +31,7 @@ tests/recording-journey-capture.test.ts
 tests/recording-mcp-session.test.ts
 tests/recording-pure.test.ts
 tests/red-zone-element-level.test.ts
+tests/red-zone-high-impact-keywords.test.ts
 tests/screenshot-no-viewport-resize.test.ts
 tests/selector-escape.test.ts
 tests/sticky-overlay-threshold.test.ts

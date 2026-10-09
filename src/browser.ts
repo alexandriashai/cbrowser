@@ -6054,6 +6054,35 @@ For more help: https://playwright.dev/docs/browsers
       return "red";
     }
 
+    // High-impact actions on named objects: destroying something that is not an account, moving money out,
+    // revoking access, deploying to production, signing out everywhere. Verb then object, at most a few words
+    // apart ("Delete this repository"), so form paths read verb-first also match ("delete 12 projects").
+    const OWNED = "(?:repositor(?:y|ies)|repos?|projects?|workspaces?|organi[sz]ations?|orgs?|teams?|servers?|instances?|clusters?|databases?|buckets?|domains?|sites?|stores?|environments?|apps?|applications?|channels?|pipelines?|deployments?|volumes?|snapshots?|backups?)";
+    const highImpactPatterns = [
+      new RegExp(`\\b(?:delete|destroy|drop)\\b(?:\\s+[\\w.-]+){0,3}?\\s+(?:${OWNED}|users?|members?)\\b`, "i"),
+      // "remove" also means "take off a list": not when followed by "from" ("Remove project from favorites").
+      new RegExp(`\\bremove\\b(?:\\s+[\\w.-]+){0,3}?\\s+${OWNED}\\b(?!\\s+from\\b)`, "i"),
+      /\b(?:delete|remove|destroy|erase|wipe)\s+(?:everything|all\s+(?:data|files|items|projects|repositories|records|messages|users|members))\b/i,
+      /\bwipe\b(?:\s+\w+){0,2}?\s+(?:device|phone|disk|drive|data)\b/i,
+      /\bfactory\s*reset\b|\breset\s+(?:to\s+)?factory\b|\breset\s+(?:all\s+data|everything)\b/i,
+      /\bempty\s+(?:the\s+)?(?:trash|recycle\s+bin|bin)\b/i,
+      /\bterminate\b(?:\s+\w+){0,2}?\s+(?:instances?|servers?|subscriptions?|accounts?|contracts?|clusters?)\b/i,
+      /\b(?:cancel|end|terminate)\s+(?:my\s+|your\s+|the\s+)?(?:subscription|membership|plan|contract)\b/i,
+      /\brevoke\b(?:\s+\w+){0,2}?\s+(?:access|tokens?|keys?|certificates?|sessions?|permissions?|all)\b/i,
+      /\b(?:suspend|ban)\b(?:\s+\w+){0,2}?\s+(?:users?|members?|accounts?)\b/i,
+      /\b(?:transfer|withdraw|send|wire)\b(?:\s+\w+){0,2}?\s+(?:funds|money|payments?|ownership)\b(?!\s+(?:reminders?|requests?|links?|details|methods?|info|history|settings))/i,
+      /\brefund\b(?:\s+\w+){0,2}?\s+(?:orders?|payments?|charges?)\b|\bissue\s+(?:a\s+)?refund\b/i,
+      /\bmerge\s+(?:this\s+)?(?:pull\s+request|pr|branch)\b/i,
+      /\bdeploy\b(?:\s+\w+){0,2}?\s+to\s+(?:production|prod|live)\b/i,
+      /\b(?:sign|log)\s*out\s+(?:of\s+)?(?:all\s+(?:devices|sessions|browsers)|every\s*where|everywhere|all)\b/i,
+      /\bdisable\s+(?:two[- ]factor|2fa|mfa|multi[- ]factor)\b/i,
+      /\bleave\s+(?:the\s+|this\s+)?(?:organi[sz]ation|workspace)\b/i,
+    ];
+
+    if (highImpactPatterns.some(p => p.test(lowerTarget))) {
+      return "red";
+    }
+
     // Confirmation of dangerous actions
     const dangerousConfirmPatterns = [
       /\bconfirm\s*(purchase|order|payment|deletion|removal)/i,
