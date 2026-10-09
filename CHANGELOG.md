@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.0](https://github.com/alexandriashai/cbrowser/compare/v19.2.3...v19.3.0) (2026-10-09)
+
+### Added
+
+* **attention:** analyze a live browser session at a scroll offset ([9ce592d](https://github.com/alexandriashai/cbrowser/commit/9ce592d2d87fb06063a73f3fa4eafc20b37dbd0a))
+* **attention:** attention_compare takes a session token and scrollY too ([cc3c851](https://github.com/alexandriashai/cbrowser/commit/cc3c851cddb6ac1fbf7cd11ae74fc9d3e3557de8))
+
+### Fixed
+
+* **attention:** scroll instantly so smooth-scroll pages measure the asked offset ([1c493f9](https://github.com/alexandriashai/cbrowser/commit/1c493f9fadd322351e7b1e2e1aca5460b0ca52d4))
+* **mcp:** artifact_fetch fits still images under the host's result cap ([f866793](https://github.com/alexandriashai/cbrowser/commit/f866793c6da0e8fdb5a3f1779943d41746f4560c))
+
 ## [19.2.3](https://github.com/alexandriashai/cbrowser/compare/v19.2.2...v19.2.3) (2026-10-09)
 
 ### Fixed
