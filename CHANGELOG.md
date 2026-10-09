@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.2.3](https://github.com/alexandriashai/cbrowser/compare/v19.2.2...v19.2.3) (2026-10-09)
+
+### Fixed
+
+* **analysis:** hunt_bugs normalizes crawl urls, lists every visited page, one severity map ([cb4028d](https://github.com/alexandriashai/cbrowser/commit/cb4028dbd92d3f9a06ed1d6ab7fd693fe2c165f5))
+* **audit:** agent_ready_audit examples from the real element, word-boundary testids, paging ([c8c5216](https://github.com/alexandriashai/cbrowser/commit/c8c5216ce88edbbec4aa8198b1fca8c02fde6ee1))
+* **browser:** describe unresolvable-host and other net errors in plain words ([d30293a](https://github.com/alexandriashai/cbrowser/commit/d30293a96afcb9d44a204710a28a0cc6e8047d10))
+* **browser:** name below-fold clickables and classify footer navs as footer ([b2fcd6e](https://github.com/alexandriashai/cbrowser/commit/b2fcd6e0eb7a97dd0db37f135320d5e6624b9683))
+* **empathy:** credit a pause control only on explicit aria evidence ([5b3dd6c](https://github.com/alexandriashai/cbrowser/commit/5b3dd6cf44a0375725931759d0fe642c31f238b7))
+* **empathy:** credit a pause control only to its own motion group ([3fc90c9](https://github.com/alexandriashai/cbrowser/commit/3fc90c92c2ddbca899c0641113b4570d624402c2))
+* **empathy:** keep hidden elements out of viewport scope; class-only motion is slider/carousel ([66447b9](https://github.com/alexandriashai/cbrowser/commit/66447b994254af11cccd1db61417e536283f1315))
+* **empathy:** keep zero-area barriers in viewport scope, like full_page ([48770ff](https://github.com/alexandriashai/cbrowser/commit/48770ff4146feb094c21bdf178148c110585a0f1))
+* **empathy:** locate 2.2.2 moving content and credit an associated pause control ([70947fa](https://github.com/alexandriashai/cbrowser/commit/70947fa711c4459806a81fd4e28c954b4658f6b0))
+* **empathy:** make affected-element counts reconcile and say why a barrier is undrawn ([31f94b8](https://github.com/alexandriashai/cbrowser/commit/31f94b85c8ea054e394088c1786b05bbd64e5955))
+* **empathy:** per-axis target size, above-level findings advisory and unscored ([36555f3](https://github.com/alexandriashai/cbrowser/commit/36555f3317f9c2f80bd3d91e6f23be9d0defe82a))
+* **empathy:** render advisories in the cli text and html reports ([7a998c5](https://github.com/alexandriashai/cbrowser/commit/7a998c552e19a7f1fee8de8176c3544c1bce8f16))
+* **empathy:** report class-only motion groups as one page-level barrier ([46cfb98](https://github.com/alexandriashai/cbrowser/commit/46cfb986cafe598e49b33996c99c666fdb8a5737))
+* **mcp:** clean float residue only in computed analysis, token by token ([ee9fb8c](https://github.com/alexandriashai/cbrowser/commit/ee9fb8c27fd14978723034ba15eec276568a97e5))
+* **mcp:** count stdio empathy summary elements the way b7 does ([7b42c99](https://github.com/alexandriashai/cbrowser/commit/7b42c99b1ba38515d658f6ebc5a96f3a847a19db))
+* **mcp:** red refusals name force: true, not only the cli flag ([86af7e1](https://github.com/alexandriashai/cbrowser/commit/86af7e1757376dc6cdeb0714dfea9b1b9c419e05))
+* **mcp:** strip float residue at the one boundary every tool passes through ([d833558](https://github.com/alexandriashai/cbrowser/commit/d8335582a116941108f8c1fe5cba3c97a9014be7))
+* **testing:** close the skeptic's follow-ups on the b8-b14 batch ([e72d77f](https://github.com/alexandriashai/cbrowser/commit/e72d77fc2816e1b4982bf5a078e69a93e6a329d5))
+* **testing:** make nl test assertions exact unless fuzzy matching is on ([882d519](https://github.com/alexandriashai/cbrowser/commit/882d519c6fd6b7e8db8a2ce2ea35fd7beaf0c289)), closes [#SubmitBtn](https://github.com/alexandriashai/cbrowser/issues/SubmitBtn) [#submitbtn](https://github.com/alexandriashai/cbrowser/issues/submitbtn)
+* **testing:** unquote nl step targets and keep click failure context ([81fb9f0](https://github.com/alexandriashai/cbrowser/commit/81fb9f02f396592a832ebcf90ae7af7bb0a51c08))
+* **visual:** rank attention_compare divergence as connected regions with shares ([9556c31](https://github.com/alexandriashai/cbrowser/commit/9556c31e59cd76f547e6fa5d76e4904cd892cf12))
+
 ## [19.2.2](https://github.com/alexandriashai/cbrowser/compare/v19.2.1...v19.2.2) (2026-10-09)
 
 ### Fixed
