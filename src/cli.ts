@@ -41,6 +41,7 @@ import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
 import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
+import { evaluateScriptRefusal } from "./security/script-gate.js";
 import { getStatusInfo, formatStatus, getDataDir, getPaths } from "./config.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
@@ -152,6 +153,9 @@ EXTRACTION
 
 SCRIPTING
   evaluate "<js>"             Run JavaScript in the page and print the result
+    --force                   Required: page script is red zone (it can click,
+                              submit or delete without the element gate), so
+                              evaluate refuses and runs nothing without it
     --file <path>             Read the script from a file instead of argv
     --arg <json>              Argument for the script (repeatable, JSON-typed)
     --json                    Always print JSON
@@ -159,9 +163,9 @@ SCRIPTING
     --wait-for <selector>     Wait for the selector before evaluating
     --expect-truthy           Exit 1 when the result is falsy (CI assertion)
     Examples:
-      cbrowser evaluate "document.title"
-      cbrowser evaluate --file check.js --arg '"#main"' --expect-truthy
-      cbrowser evaluate "(sel) => !!document.querySelector(sel)" --arg '"nav"'
+      cbrowser evaluate "document.title" --force
+      cbrowser evaluate --file check.js --arg '"#main"' --expect-truthy --force
+      cbrowser evaluate "(sel) => !!document.querySelector(sel)" --arg '"nav"' --force
 
 KEYBOARD
   keyboard <token> [token...]  Send a key sequence: chords, keys and text
@@ -1070,8 +1074,8 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   // this command deletes credentials, so "--kep-config did nothing" is a bad
   // way to find out.
   uninstall: ["yes", "keep-config"],
-  evaluate: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy"],
-  eval: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy"],
+  evaluate: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force"],
+  eval: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force"],
   keyboard: ["delay", "selector", "hold", "repeat", "text", "force"],
   "test-suite": [
     "capture", "capture-fps", "capture-format", "capture-out",
@@ -1923,10 +1927,24 @@ function reportAutoCapture(capture: AutoCaptureResult | undefined): void {
 
 /** Flags `evaluate` understands; anything else is rejected rather than ignored. */
 const EVALUATE_FLAGS = new Set([
-  "file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy",
+  "file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force",
   "url", "browser", "device", "headless", "persistent", "restore",
   "locale", "timezone", "geo", "verbose",
 ]);
+
+/**
+ * `--force` is a bare flag, but the parser gives any flag the next non-flag
+ * word as its value, so `evaluate --force "document.title"` reads the SCRIPT as
+ * the value of --force and leaves no script. The gate would refuse it anyway
+ * (only `true` opens it); this says why instead of a confusing refusal.
+ */
+function rejectForceValue(options: Record<string, string | boolean>): void {
+  if (typeof options.force === "string") {
+    console.error(`Error: --force takes no value, so "${options.force}" was read as one.`);
+    console.error('  Put the script first: cbrowser evaluate "<javascript>" --force');
+    process.exit(1);
+  }
+}
 
 /**
  * Collect a repeatable flag's values.
@@ -2040,6 +2058,7 @@ async function runEvaluate(
     console.error("Error: --json and --raw are mutually exclusive - pick one");
     process.exit(1);
   }
+  rejectForceValue(options);
 
   const fromFile = typeof options.file === "string";
   if (fromFile && args[0]) {
@@ -2087,6 +2106,17 @@ async function runEvaluate(
       process.exit(1);
     }
   });
+
+  // Red zone, refused before the page is touched: no navigation, no wait, no
+  // script. A script can click what click refuses (src/security/script-gate.ts).
+  const refusal = evaluateScriptRefusal(options.force === true);
+  if (refusal) {
+    console.error(`✗ ${refusal}`);
+    console.error("  Re-run with --force to run it anyway.");
+    process.exit(1);
+  }
+  // Said on stderr so stdout stays exactly the result (--raw / --json pipes).
+  console.error("⚠ Red zone: running caller-supplied page script (--force)");
 
   if (options.url) await browser.navigate(options.url as string);
   const page = await browser.getPage();
@@ -3225,6 +3255,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "eval":
       case "evaluate": {
         validateCommandFlags(command, options);
+        rejectForceValue(options);
         const script = typeof options.file === "string"
           ? readFileSync(resolve(options.file), "utf-8")
           : args[0];
@@ -3232,7 +3263,15 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error('Usage: cbrowser evaluate "<javascript>" | --file <path>');
           process.exit(1);
         }
-        daemonArgs = { body: `return (function(){ ${/\breturn\b/.test(script) ? script : `return (${script});`} })();`, args: [] };
+        // Refused here, before the request leaves, and again daemon-side
+        // (anything on this machine can POST to the daemon).
+        const refusal = evaluateScriptRefusal(options.force === true);
+        if (refusal) {
+          console.error(`✗ ${refusal}`);
+          console.error("  Re-run with --force to run it anyway.");
+          process.exit(1);
+        }
+        daemonArgs = { body: `return (function(){ ${/\breturn\b/.test(script) ? script : `return (${script});`} })();`, args: [], force: true };
         break;
       }
       case "screenshot": {

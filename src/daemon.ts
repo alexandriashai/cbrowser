@@ -27,6 +27,7 @@ import { VideoCaptureSession, type VideoCaptureOptions, type VideoCaptureResult 
 import { CBrowser } from "./browser.js";
 import { executeNaturalLanguage } from "./analysis/index.js";
 import { getPaths, mergeConfig, type CBrowserConfig } from "./config.js";
+import { evaluateScriptRefusal } from "./security/script-gate.js";
 
 const DEFAULT_PORT = 9222;
 const DAEMON_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
@@ -47,6 +48,8 @@ interface DaemonResponse {
   success: boolean;
   result?: unknown;
   error?: string;
+  /** Set by commands that judge a zone; "red" on evaluate, refused or forced. */
+  zone?: string;
 }
 
 /**
@@ -420,6 +423,11 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
         }
 
         case "evaluate": {
+          // Gated here as well as in the CLI: anything on this machine can
+          // POST to the daemon, so the CLI's check is not the boundary.
+          // Refused before the page is touched (src/security/script-gate.ts).
+          const refusal = evaluateScriptRefusal(req.args.force);
+          if (refusal) return { success: false, error: refusal, zone: "red" };
           const page = await b.getPage();
           const result = await page.evaluate(
             (payload: { src: string; a: unknown[] }) => {
@@ -428,7 +436,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
             },
             { src: req.args.body as string, a: (req.args.args as unknown[]) ?? [] },
           );
-          return { success: true, result };
+          return { success: true, result, zone: "red" };
         }
 
         case "captureStart": {

@@ -21,9 +21,11 @@ tests/alt-attribute-classification.test.ts
 tests/attention-heatmap-inline.test.ts
 tests/cli-evaluate-keyboard.test.ts
 tests/cognitive-effort-motor-preview.test.ts
+tests/daemon-evaluate-red-zone.test.ts
 tests/empathy-animation-criteria.test.ts
 tests/empathy-disability-label.test.ts
 tests/empathy-hover-self-interactive.test.ts
+tests/evaluate-script-red-zone.test.ts
 tests/find-element-by-intent-cascade.test.ts
 tests/find-element-by-intent-confidence.test.ts
 tests/find-element-zone-matches-gate.test.ts

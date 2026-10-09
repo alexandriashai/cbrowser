@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red zone fixture</title>
+</head>
+<body>
+<main>
+<h1>Account settings</h1>
+<!-- The shape of the 19.2.0 live proof: click("Delete account") is refused as
+     red, and a script clicking #delete-account must be refused too. A click
+     is recorded in localStorage so a later invocation can read it back. -->
+<button type="button" id="delete-account">Delete account</button>
+</main>
+<script src="red-zone.js"></script>
+</body>
+</html>

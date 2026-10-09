@@ -1,6 +1,10 @@
 /**
  * CLI tests for `evaluate` and `keyboard`.
  *
+ * `evaluate` is red zone (it runs caller-supplied page script), so every call
+ * that is meant to run a script passes --force; the refusal itself is pinned in
+ * "evaluate is red zone" below.
+ *
  * These drive the real CLI as a subprocess against a real page, because both
  * commands are mostly argument handling and exit codes - the parts a direct
  * function call would skip. The keyboard tests assert the ACTUAL DOM event
@@ -9,17 +13,15 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createServer, type Server } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { AddressInfo } from "node:net";
+import { serveFixtures } from "./fixtures/serve-fixtures.js";
 
 const CLI = resolve(import.meta.dir, "..", "src", "cli.ts");
-const FIXTURES = resolve(import.meta.dir, "fixtures");
 const TIMEOUT = 60_000;
 
-let server: Server;
+let fixtures: Awaited<ReturnType<typeof serveFixtures>>;
 let baseUrl = "";
 let dataDir = "";
 /** Distinct output files per invocation, so concurrent reads never collide. */
@@ -96,7 +98,7 @@ async function keyLog(): Promise<{ type: string; key: string; shift: boolean; ct
     "evaluate",
     "localStorage.getItem('keyLog') || '[]'",
     "--url", `${baseUrl}/keyboard.html`,
-    "--raw",
+    "--raw", "--force",
   );
   const line = result.stdout.trim().split("\n").pop() ?? "[]";
   return JSON.parse(line);
@@ -104,7 +106,7 @@ async function keyLog(): Promise<{ type: string; key: string; shift: boolean; ct
 
 /** Clear the recorded events between scenarios. */
 async function clearKeyLog(): Promise<void> {
-  await cli("evaluate", "localStorage.removeItem('keyLog') || 'ok'", "--url", `${baseUrl}/keyboard.html`, "--raw");
+  await cli("evaluate", "localStorage.removeItem('keyLog') || 'ok'", "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
 }
 
 beforeAll(async () => {
@@ -113,53 +115,43 @@ beforeAll(async () => {
   // Served over HTTP rather than file://: Chromium gives file:// pages an
   // opaque origin with no localStorage, and the fixture needs storage to carry
   // its event log across CLI invocations.
-  server = createServer((req, res) => {
-    const name = (req.url ?? "/").split("?")[0].replace(/^\//, "") || "keyboard.html";
-    try {
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(readFileSync(join(FIXTURES, name)));
-    } catch {
-      res.writeHead(404);
-      res.end("not found");
-    }
-  });
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  fixtures = await serveFixtures();
+  baseUrl = fixtures.base.replace(/\/$/, "");
 });
 
 afterAll(async () => {
-  await new Promise<void>((r) => server.close(() => r()));
+  await fixtures.close();
   if (dataDir) rmSync(dataDir, { recursive: true, force: true });
 });
 
 describe("evaluate", () => {
   test("the original one-argument form still works", async () => {
-    const result = await cli("evaluate", "1 + 1", "--url", `${baseUrl}/keyboard.html`);
+    const result = await cli("evaluate", "1 + 1", "--url", `${baseUrl}/keyboard.html`, "--force");
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("2");
   }, TIMEOUT);
 
   test("a string result prints unquoted by default", async () => {
-    const result = await cli("evaluate", "document.title", "--url", `${baseUrl}/keyboard.html`);
+    const result = await cli("evaluate", "document.title", "--url", `${baseUrl}/keyboard.html`, "--force");
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("Keyboard fixture");
     expect(result.stdout).not.toContain('"Keyboard fixture');
   }, TIMEOUT);
 
   test("--json forces JSON for a string result", async () => {
-    const result = await cli("evaluate", "'plain'", "--url", `${baseUrl}/keyboard.html`, "--json");
+    const result = await cli("evaluate", "'plain'", "--url", `${baseUrl}/keyboard.html`, "--json", "--force");
     expect(result.stdout).toContain('"plain"');
   }, TIMEOUT);
 
   test("--raw prints the bare value", async () => {
-    const result = await cli("evaluate", "({a: 1}).a", "--url", `${baseUrl}/keyboard.html`, "--raw");
+    const result = await cli("evaluate", "({a: 1}).a", "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
     expect(result.stdout.trim().split("\n").pop()).toBe("1");
   }, TIMEOUT);
 
   test("--file runs a multi-line script that shell quoting would mangle", async () => {
     const scriptPath = join(dataDir, "script.js");
     writeFileSync(scriptPath, "const parts = ['a', 'b'];\nparts.join('-');\n");
-    const result = await cli("evaluate", "--file", scriptPath, "--url", `${baseUrl}/keyboard.html`, "--raw");
+    const result = await cli("evaluate", "--file", scriptPath, "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
     expect(result.code).toBe(0);
     expect(result.stdout.trim().split("\n").pop()).toBe("a-b");
   }, TIMEOUT);
@@ -168,7 +160,7 @@ describe("evaluate", () => {
     const result = await cli(
       "evaluate", "(sel, n) => document.querySelectorAll(sel).length + n",
       "--arg", '"input"', "--arg", "10",
-      "--url", `${baseUrl}/keyboard.html`, "--raw",
+      "--url", `${baseUrl}/keyboard.html`, "--raw", "--force",
     );
     expect(result.code).toBe(0);
     // One <input> in the fixture, plus the numeric argument: proves both the
@@ -177,28 +169,28 @@ describe("evaluate", () => {
   }, TIMEOUT);
 
   test("a malformed --arg is rejected by name, not passed to the page", async () => {
-    const result = await cli("evaluate", "x => x", "--arg", "not-json", "--url", `${baseUrl}/keyboard.html`);
+    const result = await cli("evaluate", "x => x", "--arg", "not-json", "--url", `${baseUrl}/keyboard.html`, "--force");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("--arg #1");
     expect(result.stderr).toContain("not valid JSON");
   }, TIMEOUT);
 
   test("--expect-truthy exits 1 on a falsy result and 0 on a truthy one", async () => {
-    const falsy = await cli("evaluate", "!!document.querySelector('#nope')", "--url", `${baseUrl}/keyboard.html`, "--expect-truthy");
+    const falsy = await cli("evaluate", "!!document.querySelector('#nope')", "--url", `${baseUrl}/keyboard.html`, "--expect-truthy", "--force");
     expect(falsy.code).toBe(1);
     expect(falsy.stderr).toContain("Expected a truthy result");
 
-    const truthy = await cli("evaluate", "!!document.querySelector('#field')", "--url", `${baseUrl}/keyboard.html`, "--expect-truthy");
+    const truthy = await cli("evaluate", "!!document.querySelector('#field')", "--url", `${baseUrl}/keyboard.html`, "--expect-truthy", "--force");
     expect(truthy.code).toBe(0);
   }, TIMEOUT);
 
   test("a falsy result without --expect-truthy still exits 0", async () => {
-    const result = await cli("evaluate", "false", "--url", `${baseUrl}/keyboard.html`);
+    const result = await cli("evaluate", "false", "--url", `${baseUrl}/keyboard.html`, "--force");
     expect(result.code).toBe(0);
   }, TIMEOUT);
 
   test("--wait-for waits for the selector before evaluating", async () => {
-    const result = await cli("evaluate", "!!document.querySelector('#notes')", "--url", `${baseUrl}/keyboard.html`, "--wait-for", "#notes", "--raw");
+    const result = await cli("evaluate", "!!document.querySelector('#notes')", "--url", `${baseUrl}/keyboard.html`, "--wait-for", "#notes", "--raw", "--force");
     expect(result.code).toBe(0);
     expect(result.stdout.trim().split("\n").pop()).toBe("true");
   }, TIMEOUT);
@@ -209,7 +201,7 @@ describe("evaluate", () => {
     // remaining half had to cover browser launch and teardown -- which it did
     // alone and did not once the full suite ran browsers in parallel. Bounding
     // the wait tests the same behaviour against a constant the test controls.
-    const result = await cli("evaluate", "1", "--url", `${baseUrl}/keyboard.html`, "--wait-for", "#never-there", "--timeout", "1500");
+    const result = await cli("evaluate", "1", "--url", `${baseUrl}/keyboard.html`, "--wait-for", "#never-there", "--timeout", "1500", "--force");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("Timed out waiting for selector");
     // The message names the bound, so a wait that ended early is distinguishable
@@ -218,13 +210,13 @@ describe("evaluate", () => {
   }, TIMEOUT);
 
   test("--timeout rejects a value that is not a positive number", async () => {
-    const result = await cli("evaluate", "1", "--url", `${baseUrl}/keyboard.html`, "--wait-for", "#never-there", "--timeout", "nope");
+    const result = await cli("evaluate", "1", "--url", `${baseUrl}/keyboard.html`, "--wait-for", "#never-there", "--timeout", "nope", "--force");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("--timeout must be a positive number");
   }, TIMEOUT);
 
   test("an error inside the page surfaces its stack and exits 1", async () => {
-    const result = await cli("evaluate", "throw new Error('boom from the page')", "--url", `${baseUrl}/keyboard.html`);
+    const result = await cli("evaluate", "throw new Error('boom from the page')", "--url", `${baseUrl}/keyboard.html`, "--force");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("boom from the page");
     // The stack is the part that says where in the script it broke.
@@ -232,7 +224,7 @@ describe("evaluate", () => {
   }, TIMEOUT);
 
   test("an unsupported flag is rejected rather than ignored", async () => {
-    const result = await cli("evaluate", "1", "--url", `${baseUrl}/keyboard.html`, "--fps", "10");
+    const result = await cli("evaluate", "1", "--url", `${baseUrl}/keyboard.html`, "--fps", "10", "--force");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("--fps");
   }, TIMEOUT);
@@ -240,7 +232,7 @@ describe("evaluate", () => {
   test("--file runs a statement body with an explicit return", async () => {
     const scriptPath = join(dataDir, "explicit-return.js");
     writeFileSync(scriptPath, "return document.title;\n");
-    const result = await cli("evaluate", "--file", scriptPath, "--url", `${baseUrl}/keyboard.html`, "--raw");
+    const result = await cli("evaluate", "--file", scriptPath, "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("Keyboard fixture");
   }, TIMEOUT);
@@ -251,7 +243,7 @@ describe("evaluate", () => {
       scriptPath,
       "const el = document.getElementById('field');\nconst n = document.querySelectorAll('input').length;\nreturn { tag: el.tagName, inputs: n };\n",
     );
-    const result = await cli("evaluate", "--file", scriptPath, "--url", `${baseUrl}/keyboard.html`, "--json");
+    const result = await cli("evaluate", "--file", scriptPath, "--url", `${baseUrl}/keyboard.html`, "--json", "--force");
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('"tag": "INPUT"');
     expect(result.stdout).toContain('"inputs": 1');
@@ -262,16 +254,62 @@ describe("evaluate", () => {
     writeFileSync(scriptPath, "const sel = args[0];\nconst bump = args[1];\nreturn document.querySelectorAll(sel).length + bump;\n");
     const result = await cli(
       "evaluate", "--file", scriptPath, "--arg", '"input"', "--arg", "10",
-      "--url", `${baseUrl}/keyboard.html`, "--raw",
+      "--url", `${baseUrl}/keyboard.html`, "--raw", "--force",
     );
     expect(result.code).toBe(0);
     expect(result.stdout.trim().split("\n").pop()).toBe("11");
   }, TIMEOUT);
 
   test("a parenthesised expression is not mistaken for a function literal", async () => {
-    const result = await cli("evaluate", "({a: 41 + 1}).a", "--url", `${baseUrl}/keyboard.html`, "--raw");
+    const result = await cli("evaluate", "({a: 41 + 1}).a", "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
     expect(result.code).toBe(0);
     expect(result.stdout.trim().split("\n").pop()).toBe("42");
+  }, TIMEOUT);
+});
+
+describe("evaluate is red zone", () => {
+  // Page script can click what click() refuses, so evaluate runs nothing
+  // without --force (src/security/script-gate.ts). The 19.2.0 live proof was
+  // exactly this: click("Delete account") refused, then a one-line script
+  // clicking #delete-account fired the handler.
+  const page = () => `${baseUrl}/red-zone.html`;
+  const deleted = async () => {
+    const r = await cli("evaluate", "localStorage.getItem('deleted')", "--url", page(), "--raw", "--force");
+    return r.stdout.trim().split("\n").pop();
+  };
+
+  test("without --force it is refused, exits 1, and the script never runs", async () => {
+    await cli("evaluate", "localStorage.removeItem('deleted') || 'ok'", "--url", page(), "--raw", "--force");
+    expect(await deleted()).toBe("null");
+
+    const refused = await cli("evaluate", "document.querySelector('#delete-account').click(); 'clicked'", "--url", page(), "--raw");
+    expect(refused.code).toBe(1);
+    expect(refused.stderr).toContain("Red zone action requires --force: evaluate_script");
+    expect(refused.stdout).not.toContain("clicked");
+    expect(await deleted()).toBe("null");
+  }, TIMEOUT);
+
+  test("the eval alias is refused the same way", async () => {
+    const refused = await cli("eval", "1 + 1", "--url", page());
+    expect(refused.code).toBe(1);
+    expect(refused.stderr).toContain("Red zone action requires --force: evaluate_script");
+  }, TIMEOUT);
+
+  test("with --force it runs, keeps stdout to the result, and names the zone on stderr", async () => {
+    await cli("evaluate", "localStorage.removeItem('deleted') || 'ok'", "--url", page(), "--raw", "--force");
+    const forced = await cli("evaluate", "document.querySelector('#delete-account').click(); 'clicked'", "--url", page(), "--raw", "--force");
+    expect(forced.code).toBe(0);
+    expect(forced.stdout.trim().split("\n").pop()).toBe("clicked");
+    expect(forced.stderr).toMatch(/Red zone/);
+    expect(await deleted()).toBe("DELETE");
+  }, TIMEOUT);
+
+  test("--force placed before the script is explained, not silently refused", async () => {
+    // The parser hands a flag the next word as its value, so this reads the
+    // script as the value of --force.
+    const result = await cli("evaluate", "--force", "1 + 1", "--url", page());
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("--force takes no value");
   }, TIMEOUT);
 });
 
