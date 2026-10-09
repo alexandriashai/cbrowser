@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.2.2](https://github.com/alexandriashai/cbrowser/compare/v19.2.1...v19.2.2) (2026-10-09)
+
+### Fixed
+
+* **server:** enter persona scope for the key that authenticated ([f602757](https://github.com/alexandriashai/cbrowser/commit/f602757e524fbda7d6c7a5a916046743e23a9ac2))
+
 ## [19.2.1](https://github.com/alexandriashai/cbrowser/compare/v19.2.0...v19.2.1) (2026-10-09)
 
 ### Fixed
