@@ -35,18 +35,22 @@ const { runEmpathyAudit } = await import("../src/analysis/accessibility-empathy.
 type Rect = { x: number; y: number; width: number; height: number };
 type Barrier = {
   type: string; element: string; description: string; wcagCriteria: string[];
-  rect?: Rect; affectedElementCount?: number;
+  rect?: Rect; affectedElementCount?: number; members?: string[]; pageLevel?: boolean;
 };
 type Audit = {
   barriers: Barrier[];
   violations: string[];
   credited: Array<{ content: string; control: string }>;
-  /** querySelector(selector).id, resolved while the page was open. */
+  /** querySelector(selector).id, else its aria-label, resolved while the page was open. */
   idOf: Record<string, string | null>;
 };
 
 const CSS =
   `body{margin:0;font:16px sans-serif;color:#000;background:#fff}` +
+  `@keyframes heroProgress{from{width:0}to{width:100%}}` +
+  `@keyframes pulse{50%{opacity:.5}}` +
+  `.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite;height:40px;margin:4px;background:#ddd}` +
+  `.animate-marquee{animation:fade 2s linear infinite}` +
   `@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-12px)}}` +
   `@keyframes fade{from{opacity:.5}to{opacity:1}}` +
   `.slide{display:inline-block;width:280px;height:150px;background:#eee;animation:slide 3s linear infinite}` +
@@ -86,9 +90,16 @@ async function audit(html: string): Promise<Audit> {
     const barriers = r.barriers.filter((b) => b.wcagCriteria.includes("2.2.2"));
     const credited = r.motionControlsCredited ?? [];
     const idOf: Record<string, string | null> = {};
-    for (const sel of [...barriers.map((b) => b.element), ...credited.flatMap((c) => [c.content, c.control])]) {
+    const selectors = [
+      ...barriers.flatMap((b) => [b.element, ...(b.members ?? [])]),
+      ...credited.flatMap((c) => [c.content, c.control]),
+    ];
+    for (const sel of selectors) {
       idOf[sel] = await page.evaluate((s) => {
-        try { return document.querySelector(s)?.id || null; } catch { return null; }
+        try {
+          const el = document.querySelector(s);
+          return el?.id || el?.getAttribute("aria-label") || null;
+        } catch { return null; }
       }, sel);
     }
     return { barriers, violations: result.allWcagViolations, credited, idOf };
@@ -114,6 +125,94 @@ describe("an associated pause control credits the moving content", () => {
     const a = await audit(hero(`<button>Pause</button>`));
     expect(a.barriers).toEqual([]);
     expect(a.violations).not.toContain("2.2.2");
+  }, 60_000);
+});
+
+describe("a control credits only its own group (round 2)", () => {
+  // The verifier's fixture. The parent rule credited any group whose parent
+  // held a pause control, so the carousel's own button -- in <main>, the
+  // marquee's parent -- credited the marquee too, and main's real 2.2.2
+  // failure disappeared.
+  const neighbours = (mainClass = "") => doc(
+    `<main${mainClass ? ` class="${mainClass}"` : ""}>` +
+    `<section id="hero" class="carousel" aria-label="Featured">` +
+    `<div class="slide" id="s1">One</div><div class="slide" id="s2">Two</div>` +
+    `<button>Pause slides</button></section>` +
+    `<p id="ticker" class="animate-marquee">Breaking: an endless ticker</p></main>`);
+
+  test("the marquee beside a credited carousel is still reported", async () => {
+    const a = await audit(neighbours());
+    expect(a.barriers.length).toBe(1);
+    expect(a.idOf[a.barriers[0].element]).toBe("ticker");
+    expect(a.violations).toContain("2.2.2");
+  }, 60_000);
+
+  test("the carousel is credited by its own button, and only the carousel", async () => {
+    const a = await audit(neighbours());
+    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["hero"]);
+  }, 60_000);
+
+  test("a slider-classed page wrapper does not carry the carousel's credit to the marquee", async () => {
+    // Outermost-container grouping made <main class="slider-page"> one group
+    // holding every animation on the page, credited by the carousel's button.
+    const a = await audit(neighbours("slider-page"));
+    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["hero"]);
+    expect(a.barriers.length).toBe(1);
+    expect((a.barriers[0].members ?? []).map((m) => a.idOf[m])).toEqual(["ticker"]);
+    expect(a.violations).toContain("2.2.2");
+  }, 60_000);
+
+  test("a control in the container's parent credits it when the parent holds nothing else that moves", async () => {
+    const a = await audit(doc(
+      `<main><div class="wrap"><section id="hero" class="carousel" aria-label="Featured">${slides}</section>` +
+      `<button>Pause</button></div></main>`));
+    expect(a.barriers).toEqual([]);
+    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["hero"]);
+  }, 60_000);
+
+  test("a timer-driven Bootstrap carousel is one widget: its pause button in .carousel credits it", async () => {
+    // carousel-inner, carousel-item and carousel-control-* all match the
+    // container selector. As separate nearest-container groups, a button in
+    // .carousel could credit only the outer one; class-only parts join it.
+    const a = await audit(doc(
+      `<main><div id="bs" class="carousel slide"><div class="carousel-inner">` +
+      `<div class="carousel-item active" style="height:120px">Slide 1</div></div>` +
+      `<button class="carousel-control-prev">Previous</button><button class="carousel-control-next">Next</button>` +
+      `<button>Pause</button></div><p>Copy.</p></main>`));
+    expect(a.barriers).toEqual([]);
+    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["bs"]);
+  }, 60_000);
+
+  test("a bare carousel-classed wrapper does not claim the button beside its moving track", async () => {
+    const a = await audit(doc(
+      `<main><div class="carousel"><div id="track" class="carousel-track" style="height:120px;animation:slide 3s linear infinite">Track</div>` +
+      `<button>Pause</button></div><p>Copy.</p></main>`));
+    expect(a.barriers).toEqual([]);
+    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["track"]);
+  }, 60_000);
+
+  test("cbrowser.ai's structure: the in-carousel \"Pause auto-play\" credits the carousel, not the skeletons", async () => {
+    // Read from the live DOM (curl https://cbrowser.ai, 2026-10-09): the
+    // button has no aria-controls and sits two divs deep INSIDE the
+    // aria-roledescription="carousel" region, beside Previous/Next; slides
+    // carry tailwindcss-animate's animate-in, the progress bar a 10 s CSS
+    // animation. Sibling sections in <main> hold animate-pulse skeletons.
+    const a = await audit(doc(
+      `<main><div role="region" aria-roledescription="carousel" aria-label="CBrowser use cases" class="relative overflow-hidden">` +
+      `<div class="absolute inset-0 hero-pattern"></div>` +
+      `<div class="container mx-auto"><div role="group" aria-roledescription="slide" aria-label="1 of 6: Persona Testing" ` +
+      `class="text-center animate-in fade-in slide-in-from-bottom-3 duration-500"><h1>Persona Testing</h1></div></div>` +
+      `<div class="container mx-auto mt-8"><div class="flex items-center">` +
+      `<button aria-label="Previous slide">&lt;</button><span>1 / 6</span><button aria-label="Next slide">&gt;</button>` +
+      `<button aria-label="Pause auto-play"><svg aria-hidden="true" width="16" height="16"><rect x="3" y="2" width="4" height="12"></rect></svg></button>` +
+      `</div></div>` +
+      `<div class="absolute bottom-0"><div id="progress" style="height:2px;background:#999;animation:heroProgress 10000ms linear forwards"></div></div>` +
+      `</div>` +
+      `<section><div class="rounded-xl border animate-pulse" id="sk1"></div><div class="rounded-xl border animate-pulse" id="sk2"></div></section>` +
+      `</main>`));
+    expect(a.credited.map((c) => [a.idOf[c.content], a.idOf[c.control]]))
+      .toEqual([["CBrowser use cases", "Pause auto-play"]]);
+    expect(a.barriers.map((b) => a.idOf[b.element]).sort()).toEqual(["sk1", "sk2"]);
   }, 60_000);
 });
 

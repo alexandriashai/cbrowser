@@ -804,16 +804,23 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
  * because a JavaScript-timer carousel never appears in getAnimations(). Only
  * rendered, in-scope elements count.
  *
- * Grouped by their outermost motion container (carousel, slider, or
- * aria-roledescription="carousel"), else their outermost animated ancestor.
+ * Grouped by their NEAREST motion container (carousel, slider, or
+ * aria-roledescription="carousel"), else, for a running animation, its
+ * outermost animated ancestor. A class-only group nested in another group
+ * joins it (a widget's inner/item/control classes are parts of the widget),
+ * and a bare class-named wrapper around another group is not a group.
  *
  * A group is CREDITED -- no barrier -- when a visible, enabled button,
- * role=button or role=switch whose name says pause, stop or autoplay either
- * sits inside the container or its parent (not when the parent is body or
- * html, which would credit any control on the page), or names the container
- * or one of its members in aria-controls. Credited groups are listed in
- * `motionControlsCredited`, so a crediting that happened can be told from a
- * detector that saw nothing.
+ * role=button or role=switch whose name says pause, stop or autoplay
+ *   (a) sits inside the group's container and in no other group nested in
+ *       it (a control belongs to its innermost group), or
+ *   (b) names the container or one of its members in aria-controls, or
+ *   (c) sits in the container's parent, when that parent is not body/html
+ *       and holds no OTHER motion group.
+ * Credited groups are listed in `motionControlsCredited`, so a crediting that
+ * happened can be told from a detector that saw nothing. (Round 2: the parent
+ * rule credited a marquee with its neighbour carousel's button, and the
+ * outermost container let a page wrapper absorb every animation.)
  *
  * An uncredited group is one barrier: a unique selector for the container,
  * its document-space rect, and the number of animated members.
@@ -859,24 +866,74 @@ async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
     const candidates = Array.from(new Set<Element>([...animated, ...classMatched]))
       .filter((el) => rendered(el) && inVp(el));
     if (candidates.length === 0) return [];
-    const candidateSet = new Set(candidates);
 
     const CONTAINER = '[class*="carousel"], [class*="slider"], [aria-roledescription="carousel"]';
+    const isPageRoot = (el: Element | null): boolean =>
+      !el || el === document.body || el === document.documentElement;
+    // The NEAREST motion container, ancestor-or-self. Outermost let a wrapper
+    // whose class happened to contain "slider" absorb every animated element
+    // on the page into one group, credited by one button anywhere inside it.
+    // With no container: an animated element joins its outermost ANIMATED
+    // ancestor (a ticker and its moving spans are one thing), never a merely
+    // class-named one, so a static `.animate-in` wrapper cannot absorb either.
     const rootOf = (el: Element): Element => {
-      let container: Element | null = null;
-      let outerCandidate: Element = el;
-      for (let cur: Element | null = el; cur && cur !== document.body && cur !== document.documentElement;
-        cur = cur.parentElement) {
-        if (cur.matches(CONTAINER)) container = cur;
-        if (candidateSet.has(cur)) outerCandidate = cur;
+      for (let cur: Element | null = el; !isPageRoot(cur); cur = cur!.parentElement) {
+        if (cur!.matches(CONTAINER)) return cur!;
       }
-      return container ?? outerCandidate;
+      if (!animated.has(el)) return el;
+      let outer: Element = el;
+      for (let cur: Element | null = el.parentElement; !isPageRoot(cur); cur = cur!.parentElement) {
+        if (animated.has(cur!)) outer = cur!;
+      }
+      return outer;
     };
     const byRoot = new Map<Element, Element[]>();
     for (const el of candidates) {
       const root = rootOf(el);
       const list = byRoot.get(root);
       if (list) list.push(el); else byRoot.set(root, [el]);
+    }
+    // A class-only group (no running animation among its members) nested
+    // inside another group is part of that group: Bootstrap's carousel-inner,
+    // carousel-item and carousel-control-* all match the container selector,
+    // and as separate groups a pause button in .carousel could credit only
+    // the outer one. Class names are not motion; a running animation is, so
+    // an animation-backed group is never folded into another.
+    const classOnly = (members: Element[]): boolean => !members.some((m) => animated.has(m));
+    {
+      const initial = Array.from(byRoot.keys());
+      const enclosing = (root: Element): Element | null => {
+        let best: Element | null = null;
+        for (const r of initial) {
+          if (r !== root && r.contains(root) && (!best || best.contains(r))) best = r;
+        }
+        return best;
+      };
+      const finalRoot = new Map<Element, Element>();
+      const resolve = (root: Element): Element => {
+        const known = finalRoot.get(root);
+        if (known) return known;
+        const outer = classOnly(byRoot.get(root)!) ? enclosing(root) : null;
+        const f = outer ? resolve(outer) : root;
+        finalRoot.set(root, f);
+        return f;
+      };
+      for (const root of initial) {
+        const f = resolve(root);
+        if (f === root) continue;
+        byRoot.get(f)!.push(...byRoot.get(root)!);
+        byRoot.delete(root);
+      }
+      // A bare class-named wrapper -- class-only, nothing in the group but
+      // itself, around another group -- is not moving content of its own; its
+      // class describes what is inside it. As a group it would claim the
+      // controls inside it and block the parent rule for the real one.
+      for (const [root, members] of Array.from(byRoot)) {
+        if (members.length === 1 && members[0] === root && classOnly(members) &&
+          Array.from(byRoot.keys()).some((r) => r !== root && root.contains(r))) {
+          byRoot.delete(root);
+        }
+      }
     }
 
     const PAUSE = /\b(pause|stop|autoplay|auto-play)\b/i;
@@ -899,10 +956,23 @@ async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
       const moving = members.filter((m) => animated.has(m));
       const counted = moving.length > 0 ? moving : [root];
       const ids = new Set([root, ...members].map((e) => e.id).filter(Boolean));
+      // The parent counts only when it holds no OTHER motion group (one
+      // nested inside this container is part of it, not a rival). Any parent
+      // used to credit (body/html aside), so in <main> a carousel's own "Pause
+      // slides" button credited the marquee beside it and the page's real
+      // 2.2.2 failure disappeared.
       const parent = root.parentElement;
-      const scope = parent && parent !== document.body && parent !== document.documentElement ? parent : root;
-      const credit = pauseControls.find((c) => scope.contains(c) ||
-        (c.getAttribute("aria-controls") ?? "").split(/\s+/).some((id) => ids.has(id)));
+      const parentIsOnlyThisGroup = !isPageRoot(parent) &&
+        !roots.some((r) => r !== root && !root.contains(r) && parent!.contains(r));
+      // Inside: the control's innermost group is this one. A carousel's
+      // button inside a slider-classed page wrapper belongs to the carousel,
+      // not to the wrapper and whatever else moves in it.
+      const inside = (c: Element): boolean => root.contains(c) &&
+        !roots.some((r) => r !== root && root.contains(r) && r.contains(c));
+      const credit = pauseControls.find((c) =>
+        inside(c) ||
+        (c.getAttribute("aria-controls") ?? "").split(/\s+/).some((id) => ids.has(id)) ||
+        (parentIsOnlyThisGroup && parent!.contains(c)));
       return {
         selector: uniq(root),
         rect: docRect(root),
