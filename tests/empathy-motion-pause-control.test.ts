@@ -49,7 +49,10 @@ const CSS =
   `body{margin:0;font:16px sans-serif;color:#000;background:#fff}` +
   `@keyframes heroProgress{from{width:0}to{width:100%}}` +
   `@keyframes pulse{50%{opacity:.5}}` +
-  `.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite;height:40px;margin:4px;background:#ddd}` +
+  `.animate-pulse{height:40px;margin:4px;background:#ddd}` +
+  // Tailwind's animate-pulse, applied only where a fixture opts in: a bare
+  // .animate-pulse is the class-only (JavaScript-timer) case.
+  `.tw .animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}` +
   `.animate-marquee{animation:fade 2s linear infinite}` +
   `@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-12px)}}` +
   `@keyframes fade{from{opacity:.5}to{opacity:1}}` +
@@ -208,11 +211,47 @@ describe("a control credits only its own group (round 2)", () => {
       `</div></div>` +
       `<div class="absolute bottom-0"><div id="progress" style="height:2px;background:#999;animation:heroProgress 10000ms linear forwards"></div></div>` +
       `</div>` +
-      `<section><div class="rounded-xl border animate-pulse" id="sk1"></div><div class="rounded-xl border animate-pulse" id="sk2"></div></section>` +
+      `<section class="tw"><div class="rounded-xl border animate-pulse" id="sk1"></div><div class="rounded-xl border animate-pulse" id="sk2"></div></section>` +
       `</main>`));
     expect(a.credited.map((c) => [a.idOf[c.content], a.idOf[c.control]]))
       .toEqual([["CBrowser use cases", "Pause auto-play"]]);
     expect(a.barriers.map((b) => a.idOf[b.element]).sort()).toEqual(["sk1", "sk2"]);
+  }, 60_000);
+});
+
+describe("class-only motion (the JavaScript-timer fallback) is ONE page-level barrier", () => {
+  // No running animation, only a class name. One barrier per group turned four
+  // bare .animate-pulse divs into four 2.2.2 barriers where main gave one, and
+  // no fixture exercised the fallback at all: deleting it failed no test.
+  const bare = (ids: string[]) => ids.map((id) => `<div class="animate-pulse" id="${id}"></div>`).join("");
+
+  test("four bare .animate-pulse divs: one barrier listing all four", async () => {
+    const a = await audit(doc(`<main>${bare(["p1", "p2", "p3", "p4"])}</main>`));
+    expect(a.barriers.length).toBe(1);
+    const b = a.barriers[0];
+    expect(b.pageLevel).toBe(true);
+    expect(b.affectedElementCount).toBe(4);
+    expect((b.members ?? []).map((m) => a.idOf[m])).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(a.violations).toContain("2.2.2");
+  }, 60_000);
+
+  test("animation-backed groups stay individual beside the class-only aggregate", async () => {
+    const a = await audit(doc(
+      `<main>${bare(["p1", "p2"])}<p id="ticker" class="animate-marquee">Breaking: an endless ticker</p></main>`));
+    expect(a.barriers.length).toBe(2);
+    const located = a.barriers.filter((b) => !b.pageLevel);
+    const aggregate = a.barriers.filter((b) => b.pageLevel);
+    expect(located.map((b) => a.idOf[b.element])).toEqual(["ticker"]);
+    expect(aggregate.length).toBe(1);
+    expect((aggregate[0].members ?? []).map((m) => a.idOf[m])).toEqual(["p1", "p2"]);
+  }, 60_000);
+
+  test("a class-only group with its own pause control is credited, not aggregated", async () => {
+    const a = await audit(doc(
+      `<main><div id="rot" class="slider" style="height:120px">Rotating offers<button>Pause</button></div>${bare(["p1"])}</main>`));
+    expect(a.credited.map((c) => a.idOf[c.content])).toEqual(["rot"]);
+    expect(a.barriers.length).toBe(1);
+    expect((a.barriers[0].members ?? []).map((m) => a.idOf[m])).toEqual(["p1"]);
   }, 60_000);
 });
 

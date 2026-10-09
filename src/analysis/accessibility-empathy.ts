@@ -822,8 +822,10 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
  * rule credited a marquee with its neighbour carousel's button, and the
  * outermost container let a page wrapper absorb every animation.)
  *
- * An uncredited group is one barrier: a unique selector for the container,
- * its document-space rect, and the number of animated members.
+ * An uncredited animation-backed group is one barrier: a unique selector for
+ * the container, its document-space rect, and the number of animated members.
+ * Uncredited class-only groups together are one page-level barrier listing
+ * them (see pushClassOnlyMotionBarrier).
  */
 async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
   const groups = await ctx.page.evaluate(() => {
@@ -984,17 +986,48 @@ async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
     });
   });
 
-  // Capped at ten groups, document order, like the other located detectors.
+  // Animation-backed groups: one located barrier each, capped at ten in
+  // document order like the other located detectors. Class-only groups (the
+  // JavaScript-timer fallback: a class name and no running animation) are
+  // ONE page-level barrier listing them. One per group turned four bare
+  // .animate-pulse divs into four 2.2.2 barriers where main reported one,
+  // and a class name is weak evidence to multiply. (Round 2, 2026-10-09)
   let pushed = 0;
+  const classOnly: typeof groups = [];
   for (const g of groups) {
     if (g.credited) {
       ctx.motionControlsCredited.push({ content: g.selector, control: g.credited });
       continue;
     }
+    if (g.detectedBy === "class name") { classOnly.push(g); continue; }
     if (pushed >= 10) continue;
     pushMotionBarrier(ctx, g);
     pushed++;
   }
+  if (classOnly.length > 0) pushClassOnlyMotionBarrier(ctx, classOnly.map((g) => g.selector));
+}
+
+/**
+ * The one 2.2.2 barrier for every uncredited class-only motion group: a page
+ * with elements whose class names say carousel, slider or animate, and no
+ * running animation was seen (a JavaScript timer may drive them).
+ */
+function pushClassOnlyMotionBarrier(ctx: BarrierContext, selectors: string[]): void {
+  const n = selectors.length;
+  ctx.barriers.push({
+    type: "cognitive_load",
+    element: `${n} class-named motion element${n === 1 ? "" : "s"}`,
+    // A page-wide aggregate; each element is in members.
+    pageLevel: true,
+    members: selectors.slice(0, 10),
+    affectedElementCount: n,
+    description: `${n} element${n === 1 ? "" : "s"} whose class names suggest moving content (carousel, slider, animate), with no running animation seen (a JavaScript timer may drive ${n === 1 ? "it" : "them"}), ${n === 1 ? "has" : "have"} no associated pause, stop or hide control - may distract users with attention difficulties`,
+    affectedPersonas: ["cognitive-adhd", "dyslexic-user"],
+    wcagCriteria: ["2.2.2"],
+    severity: "minor",
+    remediation: "If these move on their own, add a visible pause/stop control inside each (or name it with aria-controls), or honour prefers-reduced-motion",
+  });
+  ctx.wcagViolations.add("2.2.2");
 }
 
 /** One 2.2.2 barrier for an uncredited motion group. */
