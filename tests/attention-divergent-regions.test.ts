@@ -17,9 +17,9 @@
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
-import { describe, test, expect, beforeAll } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import fc from "fast-check";
-import { mkdirSync } from "fs";
+import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import * as at from "../src/visual/attention-transport.js";
@@ -212,6 +212,9 @@ describe("compareAttention returns those regions", () => {
     block(560, 400, 120, 80, [200, 30, 30]);
     await sharp(px, { raw: { width, height, channels: 3 } }).png().toFile(img);
   });
+
+  // A test that leaves a scratch dir behind on every run is the P-14 class.
+  afterAll(() => { rmSync(dir, { recursive: true, force: true }); });
 
   test("regions at the tool's grid are not neighbouring cells of one hotspot, and carry shares", async () => {
     const r = await at.compareAttention(img, "motor-impairment-tremor", "cognitive-adhd", 4);
