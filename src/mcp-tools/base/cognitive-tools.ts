@@ -28,6 +28,16 @@ import type {
 } from "../../types.js";
 
 /**
+ * 3dp, as persona_values_lookup already publishes these. The higher-order
+ * values are averages of Schwartz values, so binary residue leaked straight
+ * into the roster ("openness": 0.30000000000000004) on the hosted servers,
+ * which do not pass through the security layer's residue boundary. (B15,
+ * 2026-10-09)
+ */
+const r3 = (n: number | undefined): number | undefined =>
+  typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1000) / 1000 : n;
+
+/**
  * Fetch custom personas from CMS for the current account.
  * Uses the API key from the session to authenticate.
  */
@@ -478,10 +488,10 @@ export function registerCognitiveTools(
                     universalism: personaValues.universalism,
                   },
                   higherOrder: {
-                    openness: personaValues.openness,
-                    selfEnhancement: personaValues.selfEnhancement,
-                    conservation: personaValues.conservation,
-                    selfTranscendence: personaValues.selfTranscendence,
+                    openness: r3(personaValues.openness),
+                    selfEnhancement: r3(personaValues.selfEnhancement),
+                    conservation: r3(personaValues.conservation),
+                    selfTranscendence: r3(personaValues.selfTranscendence),
                   },
                   sdt: {
                     autonomyNeed: personaValues.autonomyNeed,
@@ -808,10 +818,10 @@ Begin the simulation now. Narrate your thoughts as this persona.
               universalism: values.universalism,
             },
             higherOrder: {
-              openness: values.openness,
-              selfEnhancement: values.selfEnhancement,
-              conservation: values.conservation,
-              selfTranscendence: values.selfTranscendence,
+              openness: r3(values.openness),
+              selfEnhancement: r3(values.selfEnhancement),
+              conservation: r3(values.conservation),
+              selfTranscendence: r3(values.selfTranscendence),
             },
             sdt: {
               autonomyNeed: values.autonomyNeed,
@@ -853,10 +863,10 @@ Begin the simulation now. Narrate your thoughts as this persona.
               universalism: values.universalism,
             },
             higherOrder: {
-              openness: values.openness,
-              selfEnhancement: values.selfEnhancement,
-              conservation: values.conservation,
-              selfTranscendence: values.selfTranscendence,
+              openness: r3(values.openness),
+              selfEnhancement: r3(values.selfEnhancement),
+              conservation: r3(values.conservation),
+              selfTranscendence: r3(values.selfTranscendence),
             },
             sdt: {
               autonomyNeed: values.autonomyNeed,

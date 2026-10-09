@@ -2526,7 +2526,9 @@ async function simulateAccessibilityJourney(
   const scoreContext = {
     baseScore: 100,
     deductionsByType: perceptualResult.deductions,
-    totalBarrierDeduction: totalDeduction,
+    // Rounded like the 0.1-rounded deductions it sums (20 + 9.3 came out as
+    // 29.299999999999997 on the hosted servers). (B15, 2026-10-09)
+    totalBarrierDeduction: Math.round(totalDeduction * 10) / 10,
     // Were a hardcoded 0 and a locally re-derived guess. Both now come from the
     // same computation that actually moved the score, so the numbered fields and
     // the explanation prose can no longer disagree. (2026-07-28)
@@ -2808,7 +2810,7 @@ function calculateEmpathyScoreWithContext(
     context: {
       baseScore,
       deductionsByType,
-      totalBarrierDeduction,
+      totalBarrierDeduction: Math.round(totalBarrierDeduction * 10) / 10,
       frictionDeduction,
       goalDeduction,
       finalScore,
@@ -3818,14 +3820,18 @@ export async function runEmpathyAudit(
         const perceptualAnalysis = await analyzePerceptualTransport(screenshotPath, personaName, attentionData, (resolvedPersona as any).accessibilityTraits);
 
         // Attach perceptual metrics to the result
+        // 4dp at the source: these are published raw and the hosted servers do
+        // not pass through the residue boundary ("attentionMismatch":
+        // 0.42237499999999994, "cognitiveLoad": 0.43019999999999997). (B15)
+        const r4 = (n: number) => (Number.isFinite(n) ? Math.round(n * 10000) / 10000 : n);
         (result as any).perceptualTransport = {
-          informationLoss: perceptualAnalysis.informationLoss,
-          attentionMismatch: perceptualAnalysis.attentionMismatch,
-          motorCost: perceptualAnalysis.motorCost,
-          cognitiveLoad: perceptualAnalysis.cognitiveLoad,
-          perceptualScore: perceptualAnalysis.perceptualScore,
-          transportDistance: perceptualAnalysis.transportDistance,
-          computeTimeMs: perceptualAnalysis.computeTimeMs,
+          informationLoss: r4(perceptualAnalysis.informationLoss),
+          attentionMismatch: r4(perceptualAnalysis.attentionMismatch),
+          motorCost: r4(perceptualAnalysis.motorCost),
+          cognitiveLoad: r4(perceptualAnalysis.cognitiveLoad),
+          perceptualScore: r4(perceptualAnalysis.perceptualScore),
+          transportDistance: r4(perceptualAnalysis.transportDistance),
+          computeTimeMs: Math.round(perceptualAnalysis.computeTimeMs),
         };
 
         // Blend perceptual score into empathy score (30% perceptual, 70% barrier-based)
