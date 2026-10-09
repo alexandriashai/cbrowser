@@ -160,7 +160,9 @@ export interface FindByIntentOptions {
 /** The MCP tool description, shared by both server registrations so they cannot drift. */
 export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
   "Find ONE element from a natural-language intent by walking a cascade of accessible-name locators "
-  + "(exact name > exact link > badge-count name > synonym > contains > label/placeholder > all words > visible text > attributes > stems > sub-phrase), "
+  + "(exact name > a real button named X plus one word (\"Features tour\"; never when X is destructive, financial, a sign-out or "
+  + "a paging word) > exact link > badge-count name > synonym > contains > label/placeholder > all words > visible text > attributes > "
+  + "stems > sub-phrase), "
   + "scoped to a landmark when the intent says so ('in the header', 'in the navigation', 'in the footer'). "
   + "Returns a plain CSS selector that Playwright resolves to exactly that element (open shadow roots included) and that cbrowser's click "
   + "resolver will not read as page text, plus confidence (2 decimals). Confidence is the rung, not a probability: "
@@ -181,9 +183,11 @@ export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
   + "a click on a container is ADDITIONALLY judged where the pointer lands, so a card or section can read yellow and still be refused "
   + "when its centre is a red control, and a stale self-healing cache entry for the same selector string can still steer click() elsewhere. "
   + "CHECK zone AND visible BEFORE clicking. "
-  + "It returns null / found:false when nothing qualifies; when the only exact match is hidden at this viewport, whatever its kind (one "
-  + "exception: an exact match display-hidden inside a folded navigation or the page header lets the search continue to the page's visible "
-  + "equivalent, capped at 0.7, and only to an exact-family match or a name that starts with the phrase); when an ordinal asks for "
+  + "It returns null / found:false when nothing qualifies; when the only exact match is hidden at this viewport, whatever its kind (two "
+  + "exceptions: a visible real button named X plus one word still answers, since that rung runs before the exact ones - a hidden 'Save' "
+  + "with a visible 'Save changes' gives 'Save changes' at 0.8; and an exact match display-hidden inside a folded navigation or the page "
+  + "header lets the search continue to the page's visible equivalent, capped at 0.7, and only to an exact-family match or a name that "
+  + "starts with the phrase); when an ordinal asks for "
   + "more matches than the first rung that matched has ('second remove button' with one Remove); when 'X in the navigation' finds X only in "
   + "a footer while the header nav is collapsed; when a fuzzy match adds an action the intent did not say - a destructive, financial or "
   + "bulk verb (delete, remove, cancel, clear, reset, leave, end, wipe, archive, transfer, upgrade, place, approve, pay, buy, ...: 'account "
@@ -2109,8 +2113,8 @@ async function findElementByIntentCore(
     const badgeLit = exactBadgeRe(literal);
     if (kind === "button" && exactLit) {
       // A control named exactly X, button or link, beats everything fuzzy: "cart button" is the Cart link, not
-      // Empty cart; "settings button" is the Settings link, not the Options kebab. A real button that is X plus one
-      // word ("Features tour") wins only when no exact link exists.
+      // Empty cart; "settings button" is the Settings link, not the Options kebab. The one rung above the exact link
+      // is a real button that is X plus one word ("Features tour"), with the limits described below.
       rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: CONF_EXACT, pick: pickBase });
       // A real button that is X followed by ONE word is X qualified ("Features tour", "Download now") and beats a
       // plain link named X; a verb-first name ("Edit profile", "Mute notifications") does not, and a paging word's
