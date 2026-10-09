@@ -165,24 +165,32 @@ export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
   + "Returns a plain CSS selector that Playwright resolves to exactly that element (open shadow roots included) and that cbrowser's click "
   + "resolver will not read as page text, plus confidence (2 decimals). Confidence is the rung, not a probability: "
   + "0.95 = a unique match on the exact name, or a unique landmark ('header', 'footer navigation'); "
-  + "0.88-0.92 = a unique synonym, label/placeholder, typed field, badge-count name ('Cart (2)'), ordinal, or a recognised logo/home/search/menu control; "
-  + "0.7-0.85 = fuzzy (the name contains the phrase, or every word of it, or a search-form submit); "
-  + "0.65 = a weak synonym (exit -> Close); 0.6 = a guess (attributes carry the words, a stem, a sub-phrase of the intent, the only X under "
-  + "'in the navigation' sitting in a footer nav); several equally good matches drop to 0.5-0.65 and are listed in alternatives. matchedBy names the rung. "
-  + "Also accessibleName (the finder's own name computation, which can differ from Playwright's in edge cases), visible (not display:none, "
-  + "zero-size, clipped by an overflow-hidden ancestor, transparent without a visible label, aria-hidden, inert, or covered by an open modal; "
-  + "scrolled-away content IS visible), zone, candidates (how many visible elements that rung matched), and alternatives (each with its own unique selector). "
+  + "0.88-0.92 = a unique synonym, label/placeholder, typed field, badge-count name ('Cart (2)', never on a destructive name), a kind-only "
+  + "intent ('first link', 'button') with an ordinal or a single candidate, or a recognised logo/home/search/menu/theme/language control; "
+  + "0.7-0.85 = fuzzy (the name contains the phrase, or every word of it; a search-form submit; an exact button for a 'link' intent; "
+  + "a logo found page-wide, 0.8, or by its image, 0.75; a language named by its own name, 0.7); "
+  + "0.65 = a weak synonym (exit -> Close, remove -> Delete, learn more -> See more); 0.6 = a guess (attributes carry the words, a stem, "
+  + "a sub-phrase of the intent, the only X under 'in the navigation' sitting in a footer nav). An ordinal keeps its rung's band less a "
+  + "little (exact 0.92, contains 0.78). Several equally good matches lower each rung (exact 0.65, landmark 0.8, specials 0.7-0.75, "
+  + "fuzzy 0.5-0.55) and are listed in alternatives. matchedBy names the rung. "
+  + "Also accessibleName (the finder's own name computation, which can differ from Playwright's in edge cases), visible (laid out and not "
+  + "display:none, not clipped by an overflow hidden/clip ancestor - body and html clip only horizontally, a horizontal scroller never clips - "
+  + "not transparent unless a visible label or a styled parent box stands for it, not aria-hidden or inert, not covered by an opaque on-screen "
+  + "modal; scrolled-away content IS visible), zone, candidates (how many visible elements that rung matched), and alternatives (each with its own unique selector). "
   + "zone is the click gate's verdict on the element itself (green/yellow/red; red is refused without force however it is addressed); "
   + "a click on a container is ADDITIONALLY judged where the pointer lands, so a card or section can read yellow and still be refused "
   + "when its centre is a red control, and a stale self-healing cache entry for the same selector string can still steer click() elsewhere. "
   + "CHECK zone AND visible BEFORE clicking. "
-  + "It returns null / found:false when nothing qualifies; when the only exact match is hidden at this viewport (one exception: an exact "
-  + "match display-hidden inside a folded navigation, header, menu or dropdown lets the search continue to the page's visible equivalent, "
-  + "capped at 0.7); when an ordinal asks for "
+  + "It returns null / found:false when nothing qualifies; when the only exact match is hidden at this viewport, whatever its kind (one "
+  + "exception: an exact match display-hidden inside a folded navigation or the page header lets the search continue to the page's visible "
+  + "equivalent, capped at 0.7, and only to an exact-family match or a name that starts with the phrase); when an ordinal asks for "
   + "more matches than the first rung that matched has ('second remove button' with one Remove); when 'X in the navigation' finds X only in "
-  + "a footer while the header nav is collapsed; when a fuzzy match carries a destructive or financial verb the intent did not say (account "
-  + "button never reaches Delete account), or a bulk quantifier ('all', a count) the intent did not say; and for row-scoped intents on "
-  + "table-layout pages with no landmarks ('upvote button for the first story' - say 'first upvote link' instead). "
+  + "a footer while the header nav is collapsed; when a fuzzy match adds an action the intent did not say - a destructive, financial or "
+  + "bulk verb (delete, remove, cancel, clear, reset, leave, end, wipe, archive, transfer, upgrade, place, approve, pay, buy, ...: 'account "
+  + "button' never reaches Delete account), a bulk quantifier (all, everything, selected, everyone, everywhere, 'of all', or a count ending "
+  + "the name), or any word in front of the phrase other than a known-benign one (view, send, report, confirm, edit, add, ...: 'funds button' "
+  + "never reaches Withdraw funds, 'spam button' does reach Report spam); and for row-scoped intents on table-layout pages with no "
+  + "landmarks ('upvote button for the first story' - say 'first upvote link' instead). "
   + "Ordinals count person-visible elements in DOM order, not visual order ('third delete button'; 'second cheapest product' ranks by price). "
   + "verbose=true on a miss lists the first visible links, buttons and fields with unique selectors so you can rephrase, and says when a "
   + "locator evaluation failed during the search.";
@@ -246,7 +254,7 @@ type PickArg = {
   container: boolean;            // container visibility rule (a landmark is visible when a child is)
   require: PickFilter[];         // hard filters
   prefer: PickFilter[];          // soft filters, applied in order while something survives
-  guard?: { words: string[]; maxExtra: number; prefixMaxExtra: number; danger: boolean; quant?: boolean; lettersOnlyExtra?: boolean };
+  guard?: { words: string[]; maxExtra: number; prefixMaxExtra: number; danger: boolean; quant?: boolean; lettersOnlyExtra?: boolean; noWordsBefore?: boolean };
   dedupeNested?: boolean;        // drop a candidate that contains another candidate
   dedupeOuter?: boolean;         // drop a candidate that is inside another candidate (keep the outer)
   liftToControl?: boolean;       // text matches: lift to the nearest interactive ancestor
@@ -277,11 +285,12 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   const CONTAINERS = new Set(["HEADER", "NAV", "FOOTER", "MAIN", "ASIDE", "SECTION", "FORM", "ARTICLE", "DIV", "UL", "OL", "TR", "TABLE", "TBODY", "DIALOG", "LI"]);
   // The verbs that make a name destructive or financial. A fuzzy rung may only land on a name carrying one of
   // these when the intent itself says that verb: "account button" never reaches "Delete account".
+  // (host-side copy: DANGER_VERB_LIST; "send" and "confirm" are not destructive, financial or bulk and were dropped)
   const DANGER_VERBS = ["delete", "remove", "cancel", "unsubscribe", "leave", "clear", "reset", "disconnect", "revoke", "erase",
     "deactivate", "disable", "discard", "destroy", "terminate", "end", "empty", "wipe", "archive", "transfer", "upgrade", "place",
-    "confirm", "send", "approve", "pay", "buy", "purchase", "checkout"];
-  // A bulk quantifier in the name ("Delete all", "Remove everything", "Approve 12") needs the same in the intent.
-  const QUANTIFIERS = ["all", "everything", "every"];
+    "approve", "pay", "buy", "purchase", "checkout"];
+  // A bulk quantifier in the name ("Delete all", "Remove selected", "Sign out everywhere", "Approve 12") needs the same in the intent.
+  const QUANTIFIERS = ["all", "everything", "every", "selected", "everyone", "everybody", "everywhere"];
   const GENERATED_ID = /^(radix-|:r|«r|_R_|:R|ember\d|mui-|headlessui-|react-aria|__|rc-|ant-|chakra-|downshift-|react-select)|[:«»]|^[a-z]{1,2}\d+$|^[0-9a-f]{8,}$/i;
   const STATE_CLASS = /^(active|open|opened|closed|hover|focus|focused|visible|hidden|show|shown|selected|current|expanded|collapsed|disabled|checked|is-|has-|js-)/;
   const HASHED_CLASS = /^(css-|sc-|_|jsx-)|[_-][a-z0-9]{6,}$|\d{3,}/i;
@@ -343,11 +352,17 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     const r = e.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return false;
     const sx = window.scrollX, sy = window.scrollY;
+    if (r.right + sx <= 0 || r.bottom + sy <= 0) return false;
+    // Past the document's right edge: off the page, unless the element sits in a horizontal scroller (a
+    // .table-responsive, a product rail), which a person can scroll. body/html clip only horizontally:
+    // overflow-x:hidden on body is the off-canvas idiom (a drawer parked at left:100% is not on the page);
+    // vertical overflow on body is scrolling, never clipping.
     const docW = Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth);
-    if (r.right + sx <= 0 || r.bottom + sy <= 0 || r.left + sx >= docW) return false;
-    // body/html clip only horizontally: overflow-x:hidden on body is the off-canvas idiom (a drawer parked at
-    // left:100% is not on the page); vertical overflow on body is scrolling, never clipping
-    if (r.left >= window.innerWidth && bodyClipsX()) return false;
+    if (r.left + sx >= docW || (r.left >= window.innerWidth && bodyClipsX())) {
+      let a = e.parentElement, scroller = false;
+      while (a && a !== document.body && a !== document.documentElement) { if (/^(auto|scroll)$/.test(getComputedStyle(a).overflowX)) { scroller = true; break; } a = a.parentElement; }
+      if (!scroller) return false;
+    }
     const cs = getComputedStyle(e);
     if (cs.clip && cs.clip !== "auto" && /rect\((0|1)px?,?\s*(0|1)px?/.test(cs.clip)) return false;
     if (cs.clipPath && /inset\(50%\)/.test(cs.clipPath)) return false;
@@ -357,7 +372,11 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     if (cs.opacity === "0") {
       const labels = (e as HTMLInputElement).labels;
       const labelled = !!labels && Array.from(labels).slice(0, 3).some(l => getComputedStyle(l).opacity !== "0" && cssVisible(l) && l.getBoundingClientRect().width >= 2);
-      if (!labelled) return false;
+      // a transparent native select/input laid over a styled box is what the person sees (the box is its parent)
+      const p = e.parentElement;
+      const styledBox = /^(SELECT|INPUT|TEXTAREA)$/.test(e.tagName) && !!p && cssVisible(p) && getComputedStyle(p).opacity !== "0"
+        && p.getBoundingClientRect().width >= 2 && p.getBoundingClientRect().height >= 2;
+      if (!labelled && !styledBox) return false;
     }
     if (e.closest('[aria-hidden="true"], [inert]')) return false;
     if (coveredByModal(e, r)) return false;
@@ -698,9 +717,26 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
       const after = (i: number) => i > 0 && nw[i - 1] === lastIntent;
       const priceLike = /[$£€¥]\s?\d|\b\d{1,3}[.,]\d{2}\b/.test(name);
       const isCount = (w: string) => /^\d{1,3}$/.test(w) || /^(19|20)\d{2}$/.test(w);
-      const quantAfterPhrase = nw.some((w, i) => QUANTIFIERS.includes(w) && after(i));
+      // "of all" anywhere is bulk too ("Sign out of all devices"); "from all" is not ("Unsubscribe from all emails")
+      const quantAfterPhrase = nw.some((w, i) => QUANTIFIERS.includes(w) && (after(i) || (w === "all" && i > 0 && nw[i - 1] === "of")));
       const countEndsName = !priceLike && nw.length > 0 && isCount(nw[nw.length - 1]) && after(nw.length - 1);
       if ((quantAfterPhrase && !iw.some(w => QUANTIFIERS.includes(w))) || (countEndsName && !iw.some(w => /^\d+$/.test(w)))) return false;
+    }
+    // An object-only intent ("funds button", "pull request button") never takes a name that puts words in front of the
+    // phrase: the word in front is the action ("Withdraw funds", "Merge pull request", "Cookie settings"), and the intent
+    // did not say it. Field labels are sentences, so field kinds are exempt.
+    // A known-benign lead is allowed ("Report spam", "Send invite", "Confirm email", "View orders"); anything else in front
+    // of the phrase is an action the intent did not name (Withdraw, Merge, Refund, Suspend, Ban, Stop, Publish, Deploy, Cookie).
+    if (g.noWordsBefore && iw.length) {
+      const BENIGN_LEAD = new Set(["report", "view", "show", "open", "see", "read", "add", "new", "create", "edit", "learn", "get", "start", "go",
+        "browse", "search", "find", "filter", "sort", "export", "download", "print", "share", "copy", "select", "choose", "toggle", "change",
+        "update", "manage", "contact", "send", "confirm", "write", "compose", "reply", "mark", "save", "continue", "more", "my", "your", "our",
+        "the", "a", "an", "to", "hide", "expand", "collapse", "back", "forward", "previous", "next", "main", "skip", "visit", "explore", "watch",
+        "play", "listen", "subscribe", "follow", "like", "upload", "attach", "insert", "request", "invite", "join", "accept", "sign", "log"]);
+      let start = -1;
+      for (let i = 0; i + iw.length <= nw.length && start < 0; i++) if (iw.every((w, j) => nw[i + j] === w)) start = i;
+      if (start < 0) start = nw.indexOf(iw[0]);
+      if (start > 0 && nw.slice(0, start).some(w => !iw.includes(w) && !BENIGN_LEAD.has(w))) return false;
     }
     // "X plus one word": the extra must be a word ("Features tour"), not a number or a price ("Save $5", "Delete 2")
     if (g.lettersOnlyExtra && nw.some(w => !iw.includes(w) && !/^\p{L}+$/u.test(w))) return false;
@@ -736,6 +772,8 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     cands = cands.filter(x => {
       const m = x.name.match(/(\(\s*[\d.,]+k?\+?\s*\)|[\d.,]+k?\+?)[\s\W_]*$/i);
       if (!m) return true;
+      // a count on a destructive or financial name is a bulk action ("Delete (2)", "Archive <span>3</span>"), never the exact name
+      if (words(x.name).some(w => DANGER_VERBS.includes(w))) return false;
       if (m[1].startsWith("(")) return true;
       const count = norm(m[1]);
       return Array.from(x.e.querySelectorAll("span, b, i, em, strong, sup, small, div")).slice(0, 20).some(c => norm(c.textContent || "") === count);
@@ -755,7 +793,9 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   // Hidden how? A match display-hidden inside a navigation, header, menu or dropdown is a collapsed copy of a
   // control the page shows elsewhere (the footer Documentation link when the header nav is folded at 393); a
   // control hidden on its own (a display:none Save, an opacity-0 row action) is simply not there.
-  const COLLAPSIBLE = "nav, [role='navigation'], header, [role='banner'], [role='menu'], [role='menubar'], [class*='menu' i], [class*='nav' i], [class*='dropdown' i], [class*='drawer' i]";
+  // Real navigation only: a nav landmark or the page header (whose links fold at narrow widths). A row's action
+  // dropdown or a <details> menu in the main content is not a folded copy of the page's navigation.
+  const COLLAPSIBLE = "nav, [role='navigation'], [role='menubar'], header, [role='banner']";
   const hiddenInCollapsedNav = hiddenOnly && cands.every(x => !cssVisible(x.e) && !!x.e.closest(COLLAPSIBLE));
   let pool = visibleAll;
   if (arg.ordinal === null) {
@@ -1022,7 +1062,7 @@ const SYNONYM_GROUPS: string[][] = [
   ["menu", "hamburger", "hamburger menu", "open menu", "toggle menu", "toggle navigation", "toggle navigation menu",
     "navigation menu", "main menu", "open main menu", "open navigation", "show menu", "nav menu", "burger"],
   ["home", "homepage", "home page", "start page"],
-  ["docs", "documentation", "documents"],
+  ["docs", "documentation"],
   ["cart", "basket", "my cart", "shopping cart", "my basket", "shopping bag", "bag"],
   ["theme", "dark mode", "light mode", "toggle theme", "toggle dark mode", "switch theme", "dark theme", "appearance", "color scheme"],
   ["language", "languages", "change language", "select language", "switch language", "locale"],
@@ -1030,11 +1070,14 @@ const SYNONYM_GROUPS: string[][] = [
   ["buy", "buy now", "purchase", "purchase now"],
   ["pay", "pay now", "make payment"],
   ["checkout", "check out", "proceed to checkout", "go to checkout"],
-  ["delete account", "delete my account", "close account", "close my account", "deactivate account", "deactivate my account", "remove account"],
+  // deleting, closing and deactivating an account are three different actions (two of them reversible)
+  ["delete account", "delete my account", "remove account"],
+  ["close account", "close my account"],
+  ["deactivate account", "deactivate my account"],
   ["cancel subscription", "end subscription"],
   ["next", "next page"],
   ["previous", "prev", "previous page"],
-  ["settings", "preferences", "options"],
+  ["settings", "preferences"],
   ["profile", "my profile", "account", "my account"],
   ["help", "support", "help center", "help centre"],
   ["contact", "contact us", "get in touch"],
@@ -1046,11 +1089,10 @@ const SYNONYM_GROUPS: string[][] = [
   ["continue", "next step", "proceed"],
   ["save", "save changes"],
   ["cancel", "nevermind", "never mind"],
-  ["remove", "delete"],
   ["edit", "modify", "change"],
   ["open", "view", "show"],
-  ["learn more", "read more", "more info", "find out more", "see more"],
-  ["download", "downloads", "get the app"],
+  ["learn more", "read more", "more info", "find out more"],
+  ["download", "downloads"],
   ["skip to content", "skip to main content", "skip navigation", "skip to main"],
   ["back to site", "go to site", "back to home", "return to site", "back to homepage", "back to website", "go to website"],
   ["remove card", "remove payment method", "delete card", "remove credit card", "delete payment method", "remove payment card"],
@@ -1060,7 +1102,13 @@ const SYNONYM_GROUPS: string[][] = [
 // Near-synonyms that usually, not always, mean the same control: matched exactly, scored as a guess (0.65).
 const WEAK_SYNONYM_GROUPS: string[][] = [
   ["exit", "close", "dismiss"],
+  ["remove", "delete"],
+  ["learn more", "see more"],
 ];
+// The destructive, financial and bulk verbs, host-side copy of the list inside PICK (keep both in step).
+const DANGER_VERB_LIST = ["delete", "remove", "cancel", "unsubscribe", "leave", "clear", "reset", "disconnect", "revoke", "erase",
+  "deactivate", "disable", "discard", "destroy", "terminate", "end", "empty", "wipe", "archive", "transfer", "upgrade", "place",
+  "approve", "pay", "buy", "purchase", "checkout"];
 function weakSynonymsOf(phrase: string): string[] {
   const p = phrase.toLowerCase().trim();
   const out = new Set<string>();
@@ -1763,14 +1811,18 @@ async function findElementByIntentCore(
     // Real logo evidence: an icon-only link (an image/svg and no text of its own), logo/brand/wordmark in its
     // id/class/aria-label, or, with a brand word, the brand in its name. "<svg/> Account" is a control with an
     // icon, not a logo; a "Sign in" link beside an unlinked logo image has none of these.
-    const evidence: PickFilter = { anyOf: [{ iconLink: true }, { attrRe: "logo|brand|wordmark" }, ...(brandRe ? [{ nameRe: brandRe }] : [])] };
+    // Attribute evidence (class/id/aria-label with logo/brand/wordmark) counts only outside a nav or list: "Brands"
+    // (class nav-brands) and aria-label "Shop by brand" are nav items, and an icon-only or site-root link always
+    // outranks attribute evidence ("Brand guidelines" beside the real logo).
+    const attrEvidence: PickFilter = { attrRe: "logo|brand|wordmark", notWithinCss: "nav, [role='navigation'], ul, ol, [role='menu']" };
+    const evidence: PickFilter = { anyOf: [{ iconLink: true }, attrEvidence, ...(brandRe ? [{ nameRe: brandRe }] : [])] };
     // inside the header, a text link to the site root ("Acme", an absolute wordmark href) is the brand link too,
     // unless it sits in a nav or list or is named Home - that is the home link
     const headerEvidence: PickFilter = { anyOf: [...evidence.anyOf!, { rootLink: true }] };
     const hdr = page.locator(scopeCss("header"));
     const r = await run("logo", hdr.locator("a[href]"), {
       container: false, mode: "first", require: [headerEvidence, ...brandReq],
-      prefer: [{ attrRe: "logo|brand|wordmark" }, { hasCss: "img, svg" }, { rootLink: true }],
+      prefer: [{ anyOf: [{ iconLink: true }, { rootLink: true }] }, { attrRe: "logo|brand|wordmark" }, { hasCss: "img, svg" }, { rootLink: true }],
     });
     if (r && r.chosen) return build(r, "logo", r.ambiguous ? 0.75 : 0.9, "Logo");
     if (brandRe) {
@@ -1828,21 +1880,44 @@ async function findElementByIntentCore(
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "language") {
-    const loc = root.getByRole("combobox", { name: /lang|locale/i, includeHidden: true })
-      .or(root.getByRole("button", { name: /lang|locale/i, includeHidden: true }))
-      .or(root.getByRole("link", { name: /^\s*(lang|language|languages)\s*$/i, includeHidden: true }))
+    // A language control is NAMED as one ("Change language", "Language", "Locale", "Select your language"); "Golang" and
+    // "Language Arts" are not. A link or button named with a language itself ("English", "Deutsch") is the selector on
+    // many sites, scored below 0.9.
+    const LANG_NAME = new RegExp(
+      "^\\W*(?:(?:change|select|switch|choose|set)\\s+(?:your\\s+|the\\s+|site\\s+|display\\s+)?)?"
+      + "(?:language|languages|locale|site language|display language|lang)(?:\\s+(?:selector|switcher|menu|settings?|picker|options?))?\\W*$", "i");
+    const LANG_WORD = new RegExp(
+      "^\\W*(?:english|español|espanol|deutsch|français|francais|italiano|português|portugues|nederlands|polski|svenska|norsk|dansk|suomi|"
+      + "türkçe|turkce|čeština|magyar|română|ελληνικά|русский|українська|日本語|中文|简体中文|繁體中文|한국어|العربية|हिन्दी|bahasa indonesia|"
+      + "tiếng việt|ไทย)\\W*$", "i");
+    const byWord = root.getByRole("link", { name: LANG_WORD, includeHidden: true }).or(root.getByRole("button", { name: LANG_WORD, includeHidden: true }));
+    const rw = await run("language-name", byWord, { container: false, mode: "first", require: [], prefer: [{ withinCss: "header, footer, nav, [role='navigation']" }], dedupeNested: true });
+    const loc = root.getByRole("combobox", { name: LANG_NAME, includeHidden: true })
+      .or(root.getByRole("button", { name: LANG_NAME, includeHidden: true }))
+      .or(root.getByRole("link", { name: LANG_NAME, includeHidden: true }))
       .or(root.locator("select[name*='lang' i], select[id*='lang' i], select[class*='lang' i], [class*='language' i] select, [class*='lang-switch' i], [aria-label*='language' i]"));
     const r = await run("language", loc, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^(select|button)$" }], dedupeNested: true });
     if (r && r.chosen) return build(r, "language", r.ambiguous ? 0.7 : 0.9, "Language control");
+    if (rw && rw.chosen) return build(rw, "language-name", rw.ambiguous ? 0.5 : 0.7, "Language control");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "theme") {
-    const loc = root.getByRole("button", { name: /theme|dark|light mode|colou?r scheme|appearance/i, includeHidden: true })
-      .or(root.getByRole("switch", { name: /theme|dark|light/i, includeHidden: true }))
-      .or(root.getByRole("checkbox", { name: /theme|dark|light/i, includeHidden: true }))
-      .or(root.locator("button[class*='theme' i], button[id*='theme' i], [data-theme-toggle], button[aria-label*='theme' i], button[aria-label*='dark' i]"));
-    const r = await run("theme", loc, { container: false, mode: "first", require: [], prefer: [], dedupeNested: true });
+    // A theme control is NAMED as one ("Toggle dark mode", "Dark mode", "Theme", "Switch to light theme", "Appearance");
+    // "Dark roast" and "Add Dark Roast to cart" are not. Whole-name match at 0.9; a class/data-attribute fallback below it.
+    // a theme PHRASE anywhere in the name ("Switch between dark and light mode (currently system mode)"), or a name
+    // that is just Dark / Light; the bare word in a product name ("Dark roast") is not a phrase
+    const THEME_NAME = new RegExp(
+      "(?:\\b(?:dark|light|night|day)\\s*(?:mode|theme)s?\\b|\\btheme\\b|\\bappearance\\b|\\bcolou?r\\s*scheme\\b"
+      + "|^\\W*(?:(?:toggle|switch to|enable|use)\\s+)?(?:dark|light)\\W*$)", "i");
+    const named = root.getByRole("button", { name: THEME_NAME, includeHidden: true })
+      .or(root.getByRole("switch", { name: THEME_NAME, includeHidden: true }))
+      .or(root.getByRole("checkbox", { name: THEME_NAME, includeHidden: true }))
+      .or(root.getByRole("menuitem", { name: THEME_NAME, includeHidden: true }));
+    const r = await run("theme", named, { container: false, mode: "first", require: [], prefer: [], dedupeNested: true });
     if (r && r.chosen) return build(r, "theme", r.ambiguous ? 0.7 : 0.9, "Theme control");
+    const r2 = await run("theme-css", root.locator("button[class*='theme' i], button[id*='theme' i], [data-theme-toggle], button[aria-label*='theme' i], [role='switch'][aria-label*='theme' i]"),
+      { container: false, mode: "first", require: [], prefer: [], dedupeNested: true });
+    if (r2 && r2.chosen) return build(r2, "theme-css", r2.ambiguous ? 0.6 : 0.8, "Theme control");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "menu") {
@@ -1852,13 +1927,9 @@ async function findElementByIntentCore(
       { unique: 0.9, ordinal: 0.9, ambiguous: 0.6 }, "Menu control");
     if (r && r.res) return r.res;
     // An exactly-named "Menu" control that is hidden at this width means null, unless it is display-hidden inside
-    // the navigation itself (a folded or no-JS copy), or it is of another kind than the intent asked for: GOV.UK's
-    // hidden no-JS <a hidden>Menu</a> is a link and cannot block "Menu button" from the visible toggle.
-    let hiddenExact = !!(r && r.r.hiddenOnly);
-    if (hiddenExact && kind === "button") {
-      const onlyButtons = await run("menu-control-buttons", unionRole(root, ["button"], menuExact)!, { container: false, mode: "first", require: [], prefer: [] });
-      if (onlyButtons && onlyButtons.total === 0) hiddenExact = false;
-    }
+    // the navigation itself (a folded or no-JS copy such as GOV.UK's <a hidden>Menu</a> inside its <nav>): then the
+    // visible toggle is still the answer, capped at 0.7.
+    const hiddenExact = !!(r && r.r.hiddenOnly);
     if (hiddenExact && !r!.r.hiddenInCollapsedNav) return options.verbose ? await verboseMiss(page, intent) : null;
     const capped = (res: ReturnType<typeof build> | null) => res && hiddenExact ? { ...res, confidence: red2(Math.min(res.confidence, 0.7)) } : res;
     // the navigation toggle over a search or account toggle when several buttons mention "menu"
@@ -1948,6 +2019,7 @@ async function findElementByIntentCore(
       prefixMaxExtra: loose ? prefixMaxExtra + 8 : prefixMaxExtra,
       danger: true,
       quant: !["card", "product", "section", "article", "form"].includes(kind),
+      noWordsBefore: !loose && !["section", "article", "form"].includes(kind),
     });
     const literal = [...new Set([q.phraseFull, phrase].filter(Boolean))];
     const syns = synonymsOf(phrase);
@@ -2043,8 +2115,11 @@ async function findElementByIntentCore(
       // A real button that is X followed by ONE word is X qualified ("Features tour", "Download now") and beats a
       // plain link named X; a verb-first name ("Edit profile", "Mute notifications") does not, and a paging word's
       // exact link ("Next", "Previous") is always the canonical one.
+      // ... and never when X is itself destructive, financial or a sign-out: "delete button" is not Delete selected,
+      // "cancel button" is not Cancel subscription, "clear button" is not Clear history.
       const paging = /^(next|previous|prev|back|forward|first|last)$/.test(phrase);
-      if (containsLit && !paging) {
+      const xDanger = nameWords.some(w => DANGER_VERB_LIST.includes(w)) || /^(sign ?out|log ?out)$/.test(phrase);
+      if (containsLit && !paging && !xDanger) {
         rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS,
           pick: { ...pickBase, guard: { ...guard(0, 1), lettersOnlyExtra: true } } });
       }
@@ -2057,6 +2132,8 @@ async function findElementByIntentCore(
     } else if (exactLit) {
       rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
       if (badgeLit && !isContainerKind) rungs.push({ label: "exact-badge", locator: poolFor(badgeLit), conf: CONF_BADGE, pick: { ...pickBase, badge: true } });
+      // "cancel link" with an exact Cancel BUTTON and a "Cancel subscription" link: the exact button, not the fuzzy link
+      if (kind === "link") rungs.push({ label: "exact-button", locator: roleUnion(exactLit, ["button"])!, conf: CONF_GOOD, pick: pickBase });
     }
     if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: CONF_STRONG, pick: pickBase });
     if (kind === "button" && /^search$/.test(phrase) && !exactLit) rungs.push(searchSubmitRung());
@@ -2119,8 +2196,9 @@ async function findElementByIntentCore(
     if (exactWeak) rungs.push({ label: "exact-synonym-weak", locator: poolFor(exactWeak), conf: { unique: 0.65, ordinal: 0.65, ambiguous: 0.5 }, pick: pickBase });
     // Text fallback: the phrase as visible text, lifted to the nearest control
     if (exactLit && !isContainerKind) {
+      // a <label> is a control only for field intents: "message button" must not land on the Message label
       const isControl: PickFilter = { anyOf: [
-        { tagRe: "^(a|button|input|select|textarea|summary|label)$" },
+        { tagRe: isFieldKind ? "^(a|button|input|select|textarea|summary|label)$" : "^(a|button|input|select|textarea|summary)$" },
         { matchCss: "[role='button'], [role='link'], [role='tab'], [role='menuitem']" },
       ] };
       rungs.push({ label: "text-exact", locator: root.getByText(exactLit), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 },
@@ -2182,7 +2260,11 @@ async function findElementByIntentCore(
         if (NEEDS_ANY.test(rung.label) && !pre.any) continue;
         if (rung.label === "superset" && pre.cover < (rung.pick.minNameWords ?? 1)) continue;
       }
-      const r = await run(rung.label, rung.locator, rung.pick);
+      // after a collapsed exact, a contains hit must START with the phrase ("Billing help" for a folded Billing,
+      // "Sign up for free" for a folded Sign up): "Cookie settings" is not the folded Settings link
+      const pick = sawCollapsedExact && /^contains/.test(rung.label) && rung.pick.guard
+        ? { ...rung.pick, guard: { ...rung.pick.guard, maxExtra: 0 } } : rung.pick;
+      const r = await run(rung.label, rung.locator, pick);
       if (!r) continue;
       // "second remove button" with one visible Remove, "third approve button" with two "Approve request": the
       // ordinal is the answer's shape, and a looser rung ("Remove payment method", "Approve all requests") is not
@@ -2198,11 +2280,10 @@ async function findElementByIntentCore(
       }
       if (r.hiddenOnly && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) {
         // hidden in a folded navigation: the page shows the same control elsewhere, keep looking (capped);
-        // hidden on its own (display:none Save, opacity-0 row Remove): it means null, a fuzzy visible one is not it.
-        // A hidden exact match of another KIND (a link when the intent said button) blocks nothing: it was not asked for.
-        const otherKind = kind === "button" && /-link$/.test(rung.label);
+        // hidden on its own (display:none Save, opacity-0 row Remove or Remove link): it means null, a fuzzy visible
+        // one is not it, whatever kind the hidden one was
         if (r.hiddenInCollapsedNav) sawCollapsedExact = true;
-        else if (!otherKind) return null;
+        else return null;
       }
       if (r.ambiguous && rung.pick.mode === "unique") break;
     }

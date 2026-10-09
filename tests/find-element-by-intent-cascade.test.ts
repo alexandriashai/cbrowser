@@ -296,9 +296,9 @@ describe("(g2) a hidden exact match of another kind does not block a visible con
     await resolvesTo(r, "#super-navigation-menu-toggle");
     expect(r!.confidence).toBeLessThanOrEqual(0.7);
   });
-  test("in the cascade: a hidden Docs link does not block 'docs button' from the visible Documentation button", async () => {
-    await resolvesTo(await find(doc(`<main><a href="/docs" style="display:none">Docs</a><button id="d">Documentation</button></main>`), "docs button"), "#d");
-    // the same kind hidden still means null
+  test("in the cascade: a hidden exact match means null whatever its kind (a hidden Docs link, a hidden Docs button)", async () => {
+    // round 4 removed the other-kind exception: it had reopened H4 for hover-revealed row LINKS
+    expect(await find(doc(`<main><a href="/docs" style="display:none">Docs</a><button id="d">Documentation</button></main>`), "docs button")).toBeNull();
     expect(await find(doc(`<main><button style="display:none">Docs</button><button>Documentation</button></main>`), "docs button")).toBeNull();
   });
 });
@@ -465,9 +465,12 @@ describe("F6: synonyms that cross actions no longer match", () => {
     expect(r!.confidence).toBeLessThan(0.7);
     await resolvesTo(await find(doc(`${SITE()}<main><button>Close</button><button id="x">Exit fullscreen</button></main>`), "exit button"), "#x");
   });
-  test("same-action synonyms still match: 'log in' -> Sign in, 'remove' -> Delete", async () => {
+  test("same-action synonyms still match: 'log in' -> Sign in at 0.9; 'remove' -> Delete is a weak synonym at 0.65", async () => {
     await resolvesTo(await find(doc(`<main><button id="s">Sign in</button></main>`), "log in button"), "#s");
-    await resolvesTo(await find(doc(`<main><button id="d">Delete</button></main>`), "remove button"), "#d");
+    const r = await find(doc(`<main><button id="d">Delete</button></main>`), "remove button");
+    await resolvesTo(r, "#d");
+    expect(r!.matchedBy).toBe("exact-synonym-weak");
+    expect(r!.confidence).toBeLessThan(0.7);
   });
 });
 
@@ -697,6 +700,126 @@ describe("R3-9: open shadow roots count for uniqueness, text collisions and sele
     const r = await find(doc(`<site-banner id="sb"></site-banner><script>document.getElementById('sb').attachShadow({mode:'open'}).innerHTML='<div><span>Sale</span><button aria-label="Close" type="button">x</button></div>';</script>
       <main><div role="dialog" aria-label="Offer"><p>10% off</p><button type="button" aria-label="Close" id="dc">x</button></div></main>`), "close button");
     await resolvesTo(r, "#dc");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D2 round 4 (Forge's final audit): synonyms that cross actions, specials that match substrings, the verb class.
+// ---------------------------------------------------------------------------
+describe("R4-1: synonym groups no longer cross actions", () => {
+  test("documents / options / get the app / deactivate are not synonyms; see more is weak", async () => {
+    expect(await find(doc(`${SITE()}<aside><nav><a href="/files/documents">Documents</a></nav></aside>`), "documentation link")).toBeNull();
+    // "options button" is the row's More options kebab (contains), never the Settings button via a synonym
+    await resolvesTo(await find(doc(`${SITE(`<button>Settings</button>`)}<main><button id="k" aria-label="More options">&#8942;</button></main>`), "options button"), "#k");
+    await resolvesTo(await find(doc(`<div class="app-banner"><button>Get the app</button></div>${SITE()}<main><a class="btn" id="dl" href="/dl/acme.dmg">Download for Mac</a></main>`), "download button"), "#dl");
+    expect(await find(doc(`${SITE()}<main><button>Delete account</button></main>`), "deactivate account button")).toBeNull();
+    const r = await find(doc(`${SITE()}<main><button id="sm">See more</button></main>`), "learn more button");
+    await resolvesTo(r, "#sm");
+    expect(r!.confidence).toBeLessThan(0.7);
+  });
+});
+
+describe("R4-2: theme and language specials match whole control names", () => {
+  test("'dark mode toggle' / 'theme toggle' ignore Dark Roast and Dark chocolate; the real toggle wins", async () => {
+    expect(await find(doc(`${SITE()}<main><button>Add Dark Roast to cart</button><button>Dark roast</button></main>`), "dark mode toggle")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Dark chocolate</button></main>`), "theme toggle")).toBeNull();
+    const r = await find(doc(`${SITE()}<main><button>Add Dark Roast to cart</button></main><footer><button id="t" aria-label="Toggle dark mode">x</button></footer>`), "dark mode toggle");
+    await resolvesTo(r, "#t");
+    expect(r!.confidence).toBe(0.9);
+  });
+  test("'language selector' ignores Golang and Language Arts; Change language wins; a language name is a 0.7 fallback", async () => {
+    expect(await find(doc(`${SITE()}<main><button>Language Arts</button></main>`), "language selector")).toBeNull();
+    await resolvesTo(await find(doc(`${SITE()}<main><button>Golang</button></main><footer><button id="l" aria-label="Change language">English</button></footer>`), "language selector"), "#l");
+    const r = await find(doc(`${SITE(`<a href="/en" id="en">English</a>`)}<main><button>Golang</button></main>`), "language selector");
+    await resolvesTo(r, "#en");
+    expect(r!.confidence).toBeLessThan(0.9);
+  });
+});
+
+describe("R4-3/4: visibility of transparent selects and horizontal scrollers", () => {
+  test("a transparent native select over a styled box is visible", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<main><span class="sel"><span>United States</span><select aria-label="Country" id="c"><option>United States</option></select></span></main>`,
+      `<style>.sel{position:relative;display:inline-block;width:200px;height:36px;border:1px solid #888}.sel select{position:absolute;inset:0;opacity:0;width:100%;height:100%}</style>`), "country dropdown"), "#c");
+  });
+  test("under body{overflow-x:hidden}, a control past the viewport inside an overflow-x:auto scroller is visible", async () => {
+    const rail = doc(`${SITE()}<main><div class="rail">${[1, 2, 3, 4, 5].map(i => `<div class="card"><h3>Item ${i}</h3></div>`).join("")}<button class="card" id="va">View all</button></div></main>`,
+      `<style>body{overflow-x:hidden}.rail{display:flex;gap:16px;overflow-x:auto}.card{flex:0 0 300px;border:1px solid #ccc;padding:8px}</style>`);
+    await resolvesTo(await find(rail, "view all button"), "#va");
+    const table = doc(`${SITE()}<main><div class="table-responsive"><table><tbody>${[1, 2].map(i => `<tr><td>User ${i}</td><td>user${i}@example.com</td><td>Editor</td><td>2026</td><td><button id="e${i}">Edit</button></td></tr>`).join("")}</tbody></table></div></main>`,
+      `<style>body{overflow-x:hidden}.table-responsive{overflow-x:auto;max-width:100%}table{width:900px}td{padding:8px;white-space:nowrap}</style>`);
+    await resolvesTo(await find(table, "first edit button", { width: 393 }), "#e1");
+  });
+});
+
+describe("R4-5/11: a lead word in front of the phrase must be benign; send and confirm are not danger verbs", () => {
+  test("Send invite / Send feedback / Confirm email / Report spam are found", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<main><form><label for="e">Email</label><input id="e"><button id="si">Send invite</button></form></main>`), "invite button"), "#si");
+    await resolvesTo(await find(doc(`${SITE()}<main><form><button id="sf">Send feedback</button></form></main>`), "feedback button"), "#sf");
+    await resolvesTo(await find(doc(`${SITE()}<main><a class="btn" id="ce" href="/confirm">Confirm email</a></main>`), "email button"), "#ce");
+    await resolvesTo(await find(doc(`${SITE()}<main><div role="toolbar"><button aria-label="Archive">a</button><button id="rs" aria-label="Report spam">s</button></div></main>`), "spam button"), "#rs");
+  });
+  test("Merge pull request / Withdraw funds / Suspend user / Deploy to production are not the object alone", async () => {
+    for (const [intent, name] of [["pull request button", "Merge pull request"], ["funds button", "Withdraw funds"], ["user button", "Suspend user"],
+      ["production button", "Deploy to production"], ["order button", "Refund order"], ["post button", "Publish post"]]) {
+      expect(await find(doc(`${SITE()}<main><h1>Page</h1><button>${name}</button></main>`), intent), `${intent} -> ${name}`).toBeNull();
+    }
+  });
+  test("'message button' never lands on the Message label", async () => {
+    const r = await find(doc(`${SITE()}<main><form><label for="m">Message</label><textarea id="m"></textarea><button id="sm">Send message</button></form></main>`), "message button");
+    await resolvesTo(r, "#sm");
+  });
+});
+
+describe("R4-6: 'X link' with an exact X button", () => {
+  test("'cancel link' takes the dialog's exact Cancel button over the Cancel subscription link", async () => {
+    const r = await find(doc(`${SITE()}<main><a href="/billing/cancel">Cancel subscription</a></main><div role="dialog"><button id="c">Cancel</button><button>Save</button></div>`), "cancel link");
+    await resolvesTo(r, "#c");
+    expect(r!.matchedBy).toBe("exact-button");
+  });
+});
+
+describe("R4-7/8/9/10: hidden exact, collapsed menus, danger X+1, bulk badges", () => {
+  const ROWS = (cell: (i: number) => string) => `<table><tbody>${[1, 2, 3].map(i => `<tr><td>Project ${i}</td><td>${cell(i)}</td></tr>`).join("")}</tbody></table>`;
+  const DD = (n: number, items: string) => `<div class="dropdown"><button class="kebab" aria-label="Actions" aria-expanded="false">&#8942;</button><ul class="dropdown-menu" style="display:none">${items}</ul></div>`;
+  test("hover-revealed row Remove links beside a bulk Delete: null (no other-kind exception)", async () => {
+    expect(await find(doc(`${SITE()}<main><div class="toolbar"><button>Delete</button></div><ul>${[1, 2].map(i => `<li class="row">Item ${i} <a href="#" class="act">Remove</a></li>`).join("")}</ul></main>`,
+      `<style>.row .act{opacity:0}.row:hover .act{opacity:1}</style>`), "remove button")).toBeNull();
+  });
+  test("a closed row-action dropdown is not a folded navigation: 'delete button' is null, not Delete selected / Delete project", async () => {
+    expect(await find(doc(`${SITE()}<main><div class="toolbar"><button>Delete selected</button></div>${ROWS(i => DD(i, `<li><button class="dropdown-item">Delete</button></li>`))}</main>`), "delete button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main>${ROWS(i => DD(i, `<li><button class="dropdown-item">Delete</button></li>`))}<section><button>Delete project</button></section></main>`), "delete button")).toBeNull();
+  });
+  test("after a folded-nav exact, a contains hit must start with the phrase: 'settings link' at 393 is null, not Cookie settings", async () => {
+    expect(await find(doc(`<header><button aria-label="Open menu">=</button><nav class="desk"><a href="/settings">Settings</a></nav></header><main><h1>D</h1></main><footer><a href="#cookies">Cookie settings</a></footer>`,
+      `<style>@media (max-width:600px){.desk{display:none}}</style>`), "settings link", { width: 393 })).toBeNull();
+  });
+  test("X+1 never fires for a danger verb or sign out: the exact link wins, the bulk is never taken", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<main><form><a href="/account" id="cl">Cancel</a></form><section><button>Cancel subscription</button></section></main>`), "cancel button"), "#cl");
+    await resolvesTo(await find(doc(`${SITE(`<a href="/transfer" id="tl">Transfer</a>`)}<main><form><button>Transfer funds</button></form></main>`), "transfer button"), "#tl");
+    const r = await find(doc(`${SITE()}<main><div class="toolbar"><button>Delete selected</button></div>${ROWS(i => `<a href="/p/${i}/delete" id="d${i}">Delete</a>`)}</main>`), "delete button");
+    await resolvesTo(r, "#d1");
+    expect(r!.confidence).toBeLessThan(0.7);
+    expect(await find(doc(`<main><button>Sign out everywhere</button></main>`), "sign out button")).toBeNull();
+    expect(await find(doc(`<main><a href="/revoke">Sign out of all devices</a></main>`), "sign out link")).toBeNull();
+    expect(await find(doc(`<main><button>Remove everyone</button></main>`), "remove button")).toBeNull();
+  });
+  test("a count on a danger-verb name is bulk, not a badge: Delete (2) and Archive <span>3</span>", async () => {
+    expect(await find(doc(`${SITE()}<main><div class="toolbar"><button>Archive <span class="count">3</span></button></div></main>`), "archive button")).toBeNull();
+    const r = await find(doc(`${SITE()}<main><div class="toolbar"><button>Delete (2)</button></div><ul><li><button aria-label="Delete file-1.pdf" id="r1">x</button></li></ul></main>`), "delete button");
+    if (r) await resolvesTo(r, "#r1");
+  });
+  test("the bulk Delete (2) is never the answer when it is the only Delete", async () => {
+    expect(await find(doc(`${SITE()}<main><div class="toolbar"><button>Delete (2)</button></div></main>`), "delete button")).toBeNull();
+  });
+});
+
+describe("R4-12: logo attribute evidence outside nav/lists only; icon-only and root links preferred", () => {
+  test("Brands, Shop by brand and Brand guidelines are not the logo", async () => {
+    const svg = `<svg width="18" height="18" aria-hidden="true"><circle cx="9" cy="9" r="7"/></svg>`;
+    await resolvesTo(await find(doc(`<header><a href="/" aria-label="Acme home" id="l">${svg}</a><nav><a href="/new">New</a> <a href="/brands" class="nav-brands">Brands</a></nav></header>`), "logo"), "#l");
+    await resolvesTo(await find(doc(`<header><a href="/" id="l"><img src="data:," alt="Acme" width="80" height="24"></a><nav><a href="/brands" aria-label="Shop by brand">Brands</a></nav></header>`), "logo"), "#l");
+    await resolvesTo(await find(doc(`<header><a href="/" id="l"><img src="data:," alt="Acme" width="80" height="24"></a><a href="/brand" class="brand-guidelines">Brand guidelines</a></header>`), "logo"), "#l");
+    await resolvesTo(await find(doc(`<header><a href="/" id="l">Acme</a><nav><a href="/brands" class="nav-brands">Brands</a></nav></header>`), "logo"), "#l");
   });
 });
 

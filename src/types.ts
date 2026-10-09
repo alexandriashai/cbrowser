@@ -2493,10 +2493,12 @@ export interface FindByIntentResult {
   accessibleName?: string;
   /**
    * Whether a person can see the element at the current viewport: laid out with a box, not display:none or
-   * visibility:hidden, not clipped away by an overflow hidden/clip ancestor (body and html never clip vertically),
-   * not transparent unless a visible label stands for it, not aria-hidden or inert (self or ancestor), and not
-   * covered by an opaque on-screen modal. Content scrolled out of view, including inside an overflow:auto
-   * container, IS visible: a person can scroll to it.
+   * visibility:hidden, not clipped away by an overflow hidden/clip ancestor (body and html clip only
+   * horizontally, and an element inside an overflow-x auto/scroll ancestor is never clipped horizontally),
+   * not transparent unless a visible label or a visible styled parent box stands for it (a native select laid
+   * over a styled box), not aria-hidden or inert (self or ancestor), and not covered by an opaque on-screen
+   * modal (a full-viewport modal covers everything outside it; a smaller one only what it is over). Content
+   * scrolled out of view vertically, or inside an overflow:auto container, IS visible: a person can scroll to it.
    */
   visible?: boolean;
   /**
@@ -2510,9 +2512,13 @@ export interface FindByIntentResult {
   zone?: string;
   /**
    * The cascade rung that produced the match. Confidence is the rung, not a probability: 0.95 exact name or a
-   * unique landmark; 0.88-0.92 exact-link, exact-badge ("Cart (2)"), exact-synonym, label-exact, field-type,
-   * ordinals, logo/home/search/menu specials; 0.7-0.85 contains, all-words, text-exact, search-submit;
-   * 0.65 exact-synonym-weak; 0.6 attribute, stem, superset, the footer-nav fallback; ambiguity lowers each.
+   * unique landmark; 0.88-0.92 exact-link, exact-badge ("Cart (2)", never a destructive name), exact-synonym,
+   * label-exact, field-type, kind-only ("first link", a lone button), the logo/home/search/menu/theme/language
+   * specials; 0.7-0.85 contains, all-words, text-exact, search-submit, exact-button (for a "link" intent),
+   * logo-root 0.8, logo-img 0.75, language-name 0.7; 0.65 exact-synonym-weak (exit/close, remove/delete,
+   * learn more/see more); 0.6 attribute, stem, superset, the footer-nav fallback. An ordinal keeps its rung's
+   * band less a little (exact 0.92, contains 0.78); several equally good matches lower each rung (exact 0.65,
+   * landmark 0.8, specials 0.7-0.75, fuzzy 0.5-0.55).
    */
   matchedBy?: string;
   /** How many visible elements that rung matched (1 = unique) */
