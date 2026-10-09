@@ -29,8 +29,12 @@ async function scrollForAnalysis(
   const original: number = await page.evaluate(() => window.scrollY).catch(() => 0);
   let scroll: { requested: number; applied: number; maxScrollY: number } | undefined;
   if (scrollY !== undefined) {
+    // behavior "instant" overrides a page's CSS scroll-behavior: smooth.
+    // Without it the scroll ANIMATES: the position read back is where the page
+    // still was (cbrowser.ai: asked 2000, reported 0), and the screenshot can
+    // land mid-scroll. (Live check, 2026-10-09)
     const applied = await page.evaluate((y: number) => {
-      window.scrollTo(0, y);
+      window.scrollTo({ top: y, left: 0, behavior: "instant" as ScrollBehavior });
       return { applied: Math.round(window.scrollY), max: Math.max(0, Math.round(document.documentElement.scrollHeight - window.innerHeight)) };
     }, scrollY);
     // Lazy content and sticky headers settle on scroll.
@@ -39,7 +43,9 @@ async function scrollForAnalysis(
   }
   return {
     ...(scroll ? { scroll } : {}),
-    restore: async () => { await page.evaluate((y: number) => window.scrollTo(0, y), original).catch(() => {}); },
+    restore: async () => {
+      await page.evaluate((y: number) => window.scrollTo({ top: y, left: 0, behavior: "instant" as ScrollBehavior }), original).catch(() => {});
+    },
   };
 }
 

@@ -21,6 +21,7 @@ const { CBrowser } = await import("../src/browser.js");
 const { registerVisualTestingTools } = await import("../src/mcp-tools/base/visual-testing-tools.js");
 
 const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>tall</title><style>
+html{scroll-behavior:smooth}
 body{margin:0;font:16px sans-serif} header{height:80px;background:#222;color:#fff}
 .band{height:900px;border-bottom:1px solid #ccc} @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:40px;height:40px;background:#c00;animation:spin 1s linear infinite}
@@ -68,7 +69,7 @@ describe("attention_analysis with a session token", () => {
 
   test("scrollY is applied for the measurement and the session's own scroll is restored", async () => {
     const p = await page();
-    await p.evaluate(() => window.scrollTo(0, 300));
+    await p.evaluate(() => window.scrollTo({ top: 300, behavior: "instant" as ScrollBehavior }));
     const r = await handler({ _browserToken: TOKEN, persona: "first-timer", heatmap: false, scrollY: 1500 });
     const b = body(r);
     expect(b.scroll).toEqual({ requested: 1500, applied: 1500, maxScrollY: expect.any(Number) });
@@ -125,7 +126,7 @@ describe("attention_compare with a session token and scrollY (same contract)", (
 
   test("scrollY is applied for the comparison and the session's scroll is restored", async () => {
     const p = await page();
-    await p.evaluate(() => window.scrollTo(0, 250));
+    await p.evaluate(() => window.scrollTo({ top: 250, behavior: "instant" as ScrollBehavior }));
     const b = body(await compare({ _browserToken: TOKEN, personaA: "power-user", personaB: "first-timer", scrollY: 900 }));
     expect(b.scroll).toEqual({ requested: 900, applied: 900, maxScrollY: expect.any(Number) });
     expect(await p.evaluate(() => Math.round(window.scrollY))).toBe(250);
