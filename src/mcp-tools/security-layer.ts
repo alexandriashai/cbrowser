@@ -58,7 +58,8 @@ export function getDescriptionScanSummary(): DescriptionScanSummary {
  * Binary floating-point residue: a run of six or more 0s or 9s after the
  * decimal point, followed by one more digit. `0.30000000000000004`,
  * `29.299999999999997` and `0.43019999999999997` all match; `0.3`, `29.3`,
- * `1e-9` and integers do not. A cheap gate so a clean payload is never parsed.
+ * `1e-9` and integers do not. A cheap gate so a clean payload is never parsed,
+ * and the per-number test: only a number that carries residue is rewritten.
  */
 const FLOAT_RESIDUE = /\d\.\d*(?:0{6,}|9{6,})\d/;
 
@@ -67,9 +68,14 @@ function cleanNumber(v: number): number {
   return Number.isFinite(v) && !Number.isInteger(v) ? Number(v.toPrecision(12)) : v;
 }
 
-/** Deep copy of plain objects and arrays with every number cleaned; anything else is passed through. */
+/** A number cleaned only when its shortest form carries residue; every other number is returned as is. */
+function cleanIfResidue(v: number): number {
+  return FLOAT_RESIDUE.test(String(v)) ? cleanNumber(v) : v;
+}
+
+/** Deep copy of plain objects and arrays with residue cleaned; anything else is passed through. */
 function cleanDeep(v: unknown): unknown {
-  if (typeof v === "number") return cleanNumber(v);
+  if (typeof v === "number") return cleanIfResidue(v);
   if (Array.isArray(v)) return v.map(cleanDeep);
   if (v && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype) {
     const out: Record<string, unknown> = {};
@@ -80,20 +86,108 @@ function cleanDeep(v: unknown): unknown {
 }
 
 /**
- * Remove binary floating-point residue from a tool result, at the one boundary
- * every tool on both surfaces passes through.
+ * The tools whose results are cbrowser's OWN computed analysis -- scores,
+ * deductions, weights, distances, persona state -- and so the only ones whose
+ * float residue is ours to remove. An explicit opt-in, never a default.
+ *
+ * Applied to every tool, the clean-up rewrote page data: evaluate_script
+ * returned a customer's `{cartTotal: 29.299999999999997}` as 29.3, masking the
+ * very float bug they were inspecting, and the whole-block re-serialization
+ * moved values with more than 12 significant digits and corrupted integer
+ * literals above 2^53. Page-data tools (evaluate_script, extract, get_*,
+ * cookies, storage, console and network logs, nl_test results, screenshots,
+ * navigation) are deliberately absent. (Round 2, 2026-10-09)
+ */
+const COMPUTED_ANALYSIS_PREFIX = /^(?:(?:empathy|attention|cognitive|persona|marketing)_|compare_personas(?:_|$))/;
+const COMPUTED_ANALYSIS_TOOLS = new Set([
+  "list_cognitive_personas",
+  "list_emotional_personas",
+  "get_emotional_state",
+  "trigger_emotional_event",
+  "list_influence_patterns",
+  "agent_ready_audit",
+  "hunt_bugs",
+  "site_cognitive_assessment",
+  "visual_cognitive_story",
+  "competitive_benchmark",
+  "journey_heatmap_gif",
+  "webmcp_ready_audit",
+  "ai_benchmark",
+  "transport_map",
+]);
+
+/** True when a tool's result is cbrowser's own computed analysis and may have its float residue removed. */
+export function isComputedAnalysisTool(name: string): boolean {
+  return COMPUTED_ANALYSIS_TOOLS.has(name) || COMPUTED_ANALYSIS_PREFIX.test(name);
+}
+
+/** One JSON number token, per RFC 8259, anchored where the scanner stands. */
+const NUMBER_TOKEN = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+
+/**
+ * Rewrite the residue-carrying number tokens of a JSON text, and nothing
+ * else. A scanner, not a parse-and-stringify: it tracks string state and
+ * escapes, and replaces only number tokens OUTSIDE strings whose value
+ * carries residue and changes when cleaned. Every other byte -- big integer
+ * literals, other numbers, whitespace, key order, string contents -- is
+ * returned as it came. The caller decides the text is JSON.
+ */
+export function cleanResidueInJsonText(text: string): string {
+  const chunks: string[] = [];
+  let last = 0;
+  let i = 0;
+  const n = text.length;
+  while (i < n) {
+    const ch = text.charCodeAt(i);
+    if (ch === 34 /* " */) {
+      i++;
+      while (i < n) {
+        const c = text.charCodeAt(i);
+        if (c === 92 /* backslash */) { i += 2; continue; }
+        i++;
+        if (c === 34) break;
+      }
+      continue;
+    }
+    if (ch === 45 /* - */ || (ch >= 48 && ch <= 57)) {
+      NUMBER_TOKEN.lastIndex = i;
+      const m = NUMBER_TOKEN.exec(text);
+      if (!m) { i++; continue; }
+      const start = i;
+      i += m[0].length;
+      if (FLOAT_RESIDUE.test(m[0])) {
+        const v = Number(m[0]);
+        const c = cleanNumber(v);
+        if (c !== v) {
+          chunks.push(text.slice(last, start), String(c));
+          last = i;
+        }
+      }
+      continue;
+    }
+    i++;
+  }
+  if (chunks.length === 0) return text;
+  chunks.push(text.slice(last));
+  return chunks.join("");
+}
+
+/**
+ * Remove binary floating-point residue from a computed-analysis tool's
+ * result. The secured wrapper calls it only for isComputedAnalysisTool names.
  *
  * Customers read `totalBarrierDeduction: 29.299999999999997`,
  * `cognitiveLoad: 0.43019999999999997` and `0.30000000000000004` in JSON that
  * was otherwise rounded. There are ~117 hand-written Math.round sites in src/
  * and two private round3 copies, which is how a field gets missed: rounding at
- * each producer depends on every producer remembering. Here it cannot be
- * forgotten. (2026-10-09)
+ * each producer depends on every producer remembering. (2026-10-09)
  *
- * - A "text" block is touched only if it contains residue AND parses as JSON;
- *   it is re-serialized at its own indentation, and kept byte-identical when
- *   no number actually changed. Non-JSON text and image blocks are untouched.
- * - `structuredContent` gets the same treatment.
+ * - A "text" block is touched only if it contains residue AND parses as JSON,
+ *   and then only its residue-carrying number tokens are rewritten
+ *   (cleanResidueInJsonText); every other byte is kept. Non-JSON text and
+ *   image blocks are untouched.
+ * - `structuredContent` (already an object, so no bytes to keep) has each
+ *   residue-carrying number cleaned.
  * - Strings are never edited: "0.30000000000000004" stays a string.
  *
  * 12 significant digits removes residue (it lives at the 16th-17th) without
@@ -113,18 +207,9 @@ export function cleanFloatResidue(result: unknown): unknown {
       const text = b.text;
       const lead = text.trimStart()[0];
       if ((lead !== "{" && lead !== "[") || !FLOAT_RESIDUE.test(text)) return block;
-      let parsed: unknown;
-      try { parsed = JSON.parse(text); } catch { return block; }
-      let changed = false;
-      const replacer = (_k: string, v: unknown) => {
-        if (typeof v !== "number") return v;
-        const c = cleanNumber(v);
-        if (c !== v) changed = true;
-        return c;
-      };
-      const indent = /\n( +)\S/.exec(text)?.[1].length ?? 0;
-      const next = JSON.stringify(parsed, replacer, indent || undefined);
-      if (!changed) return block;
+      try { JSON.parse(text); } catch { return block; }
+      const next = cleanResidueInJsonText(text);
+      if (next === text) return block;
       changedAny = true;
       return { ...(block as Record<string, unknown>), text: next };
     });
@@ -213,9 +298,10 @@ export function applySecurityLayer(server: unknown, opts?: { audit?: AuditContex
           }],
         };
       }
-      // The one serialization boundary every tool passes through. See
-      // cleanFloatResidue.
-      return cleanFloatResidue(await (handler as (...a: unknown[]) => Promise<unknown>)(...args));
+      const result = await (handler as (...a: unknown[]) => Promise<unknown>)(...args);
+      // Residue is removed from cbrowser's own computed analysis only, never
+      // from page data. See isComputedAnalysisTool and cleanFloatResidue.
+      return isComputedAnalysisTool(name) ? cleanFloatResidue(result) : result;
     };
 
     // Audit wraps the outermost call so a zone refusal is recorded too.

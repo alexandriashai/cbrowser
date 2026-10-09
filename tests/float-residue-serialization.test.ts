@@ -29,8 +29,12 @@ const audit = {
   includeStackTraces: false, actionsTriggered: new Map(),
 };
 
-/** Register one tool through the security layer and return what a caller would receive. */
-function serve(result: unknown, surface: "registerTool" | "tool" = "registerTool"): Handler {
+/**
+ * Register one tool through the security layer and return what a caller would
+ * receive. Named empathy_audit by default: residue is removed only from
+ * cbrowser's own computed-analysis tools (round 2).
+ */
+function serve(result: unknown, surface: "registerTool" | "tool" = "registerTool", name = "empathy_audit"): Handler {
   let registered: Handler | undefined;
   const server = {
     registerTool: (_n: string, _c: unknown, h: Handler) => { registered = h; },
@@ -38,8 +42,8 @@ function serve(result: unknown, surface: "registerTool" | "tool" = "registerTool
   };
   applySecurityLayer(server, { audit: audit as never });
   const handler = async () => result;
-  if (surface === "registerTool") server.registerTool("probe_tool", { description: "probe" }, handler);
-  else server.tool("probe_tool", "probe", {}, handler);
+  if (surface === "registerTool") server.registerTool(name, { description: "probe" }, handler);
+  else server.tool(name, "probe", {}, handler);
   if (!registered) throw new Error("not registered");
   return registered;
 }
@@ -132,5 +136,68 @@ describe("float residue is removed at the security-layer boundary", () => {
     const text = '{ "s":"0.30000000000000004" }';
     const r = await serve({ content: [{ type: "text", text }] })({}) as Result;
     expect(r.content[0].text).toBe(text);
+  });
+});
+
+/**
+ * Round 2 (2026-10-09). Applied to EVERY tool, the clean-up rewrote page data:
+ * evaluate_script returned a customer's {cartTotal: 29.299999999999997} as
+ * 29.3, masking the float bug they were inspecting. And re-serializing the
+ * whole block moved values past 12 significant digits and corrupted integer
+ * literals above 2^53. Now: an explicit opt-in list of computed-analysis
+ * tools, and a token-level rewrite of the JSON text that changes only the
+ * residue-carrying number tokens outside strings.
+ */
+describe("page data is never rewritten", () => {
+  test("evaluate_script returns the page's residue exactly as the page computed it", async () => {
+    const text = JSON.stringify({ result: { cartTotal: 29.299999999999997, tax: 0.1 + 0.2 } }, null, 2);
+    const sc = { result: { cartTotal: 29.299999999999997 } };
+    const r = await serve({ content: [{ type: "text", text }], structuredContent: sc }, "registerTool", "evaluate_script")({}) as Result;
+    expect(r.content[0].text).toBe(text);
+    expect((r.structuredContent as typeof sc).result.cartTotal).toBe(29.299999999999997);
+  });
+
+  test.each([
+    "evaluate_script", "extract", "get_console_messages", "get_network_requests",
+    "manage_cookies", "manage_storage", "nl_test_inline", "nl_test_file",
+  ])("%s: byte-identical on both surfaces", async (tool) => {
+    const text = JSON.stringify({ value: 0.1 + 0.2, at: 1696800000000.0001 });
+    for (const surface of ["registerTool", "tool"] as const) {
+      const r = await serve({ content: [{ type: "text", text }] }, surface, tool)({}) as Result;
+      expect(r.content[0].text).toBe(text);
+    }
+  });
+});
+
+describe("computed-analysis tools are cleaned, by an explicit list", () => {
+  test.each([
+    "empathy_audit", "empathy_audit_summarize", "attention_analysis", "attention_compare",
+    "cognitive_effort", "cognitive_load_estimate", "persona_lookup", "list_cognitive_personas",
+    "compare_personas", "compare_personas_init", "agent_ready_audit", "hunt_bugs",
+    "site_cognitive_assessment", "visual_cognitive_story", "competitive_benchmark",
+    "journey_heatmap_gif", "webmcp_ready_audit", "marketing_campaign_run",
+  ])("%s", async (tool) => {
+    const r = await serve({ content: [{ type: "text", text: '{"score": 29.299999999999997}' }] }, "registerTool", tool)({}) as Result;
+    expect(r.content[0].text).toBe('{"score": 29.3}');
+  });
+});
+
+describe("the rewrite is token-level: only residue tokens change", () => {
+  test("an integer literal above 2^53 in an empathy payload survives byte for byte", async () => {
+    const text = '{"id": 12345678901234567890, "neg": -9007199254740993, "score": 29.299999999999997}';
+    const r = await serve({ content: [{ type: "text", text }] })({}) as Result;
+    expect(r.content[0].text).toBe('{"id": 12345678901234567890, "neg": -9007199254740993, "score": 29.3}');
+  });
+
+  test("formatting, key order, other numbers and escaped strings are untouched", async () => {
+    const text = String.raw`{ "z" : 0.30000000000000004 ,"a":[1, 37.774929123456789, "say \"0.30000000000000004\"", "\\"], "e": 1.0000000000000002e-7,"k":2 }`;
+    const r = await serve({ content: [{ type: "text", text }] })({}) as Result;
+    expect(r.content[0].text).toBe(
+      String.raw`{ "z" : 0.3 ,"a":[1, 37.774929123456789, "say \"0.30000000000000004\"", "\\"], "e": 1e-7,"k":2 }`);
+  });
+
+  test("structuredContent keeps a high-precision value that carries no residue", async () => {
+    const r = await serve({ content: [], structuredContent: { lat: 37.77492912345679, s: 0.1 + 0.2 } })({}) as Result;
+    expect(r.structuredContent).toEqual({ lat: 37.77492912345679, s: 0.3 });
   });
 });
