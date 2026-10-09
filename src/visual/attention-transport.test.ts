@@ -57,7 +57,9 @@ describe("Attention Transport (Phase 4)", () => {
     expect(result.persona).toBe("first-timer");
     expect(result.saliencyMap.cells.length).toBeGreaterThan(0);
     expect(result.entropy).toBeGreaterThan(0);
-    expect(result.computeTimeMs).toBeGreaterThan(0);
+    // Whole milliseconds since B15: a sub-0.5 ms run rounds to 0.
+    expect(result.computeTimeMs).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(result.computeTimeMs)).toBe(true);
     // Uniform image → low concentration (attention spread evenly)
     expect(result.concentration).toBeLessThan(0.8);
   });

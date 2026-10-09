@@ -53,7 +53,10 @@ describe("Sliced Wasserstein Distance", () => {
     expect(result.metric).toBe("sliced-wasserstein");
     expect(result.distance).toBeLessThan(0.001);
     expect(result.normalizedScore).toBeGreaterThan(0.99);
-    expect(result.details.computeTimeMs).toBeGreaterThan(0);
+    // Whole milliseconds since B15: a sub-0.5 ms run rounds to 0, which is a
+    // measurement, not a failure.
+    expect(result.details.computeTimeMs).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(result.details.computeTimeMs)).toBe(true);
   });
 
   test("completely different colors have high distance", async () => {
@@ -196,7 +199,8 @@ describe("Smart Barycenter Baseline (Phase 2)", () => {
     expect(baseline.referencePath).toBeTruthy();
     expect(baseline.adaptiveThreshold).toBeGreaterThan(0.7);
     expect(baseline.adaptiveThreshold).toBeLessThanOrEqual(0.98);
-    expect(baseline.computeTimeMs).toBeGreaterThan(0);
+    expect(baseline.computeTimeMs).toBeGreaterThanOrEqual(0); // whole ms: 0 is a fast run
+    expect(Number.isInteger(baseline.computeTimeMs)).toBe(true);
   });
 
   test("detects outlier captures have higher distance", async () => {
@@ -273,7 +277,8 @@ describe("Visual Transport Map (Phase 3)", () => {
     expect(result.totalCost).toBe(0);
     expect(result.svg).toContain("<svg");
     expect(result.svg).toContain("</svg>");
-    expect(result.computeTimeMs).toBeGreaterThan(0);
+    expect(result.computeTimeMs).toBeGreaterThanOrEqual(0); // whole ms: 0 is a fast run
+    expect(Number.isInteger(result.computeTimeMs)).toBe(true);
   });
 
   test("different images produce hotspots and heatmap changes", async () => {
