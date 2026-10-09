@@ -2485,11 +2485,20 @@ export interface FindByIntentResult {
   aiSuggestion?: string;
   /** Debug screenshot (verbose mode) */
   debugScreenshot?: string;
-  /** The element's accessible name as the locator engine computed it */
+  /**
+   * The element's accessible name as the finder's page-side approximation computed it (aria-labelledby,
+   * aria-label, label, value/alt for input buttons, placeholder, title, visible text, inner image alt).
+   * It is what the rungs matched on; Playwright's own name computation can differ in edge cases.
+   */
   accessibleName?: string;
-  /** Whether a person can see the element at the current viewport */
+  /** Whether a person can see the element at the current viewport (not hidden, transparent, aria-hidden, inert, or behind an open modal) */
   visible?: boolean;
-  /** Most severe classifyAction zone over every name the element carries (green / yellow / red / black) */
+  /**
+   * The click gate's verdict on the element itself (CBrowser.elementZone: green / yellow / red), judged with no
+   * hit-test. A real click is additionally judged where the pointer lands, so a container can read yellow here
+   * and still be refused when the control at its centre is red. Falls back to the most severe classifyAction
+   * zone over the element's names when no gate is available (black words ignored, as the gate does).
+   */
   zone?: string;
   /** The cascade rung that produced the match (exact, exact-synonym, contains, all-words, stem, superset, ...) */
   matchedBy?: string;

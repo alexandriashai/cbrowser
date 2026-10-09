@@ -6519,9 +6519,11 @@ For more help: https://playwright.dev/docs/browsers
   }
 
   /**
-   * The click gate's verdict on the element `selector` resolves to, judged on the element itself (no
-   * hit-test, so nothing scrolls). find_element_by_intent reports it as `zone`, so the zone an agent sees
-   * before clicking is the zone the click will be held to.
+   * The click gate's verdict on the element `selector` resolves to, judged on the element ITSELF (no
+   * hit-test, so nothing scrolls). find_element_by_intent reports it as `zone`. A real click is additionally
+   * judged where the pointer lands, so a container (a card, a section) can read yellow here and still be
+   * refused when the control at its centre is red. Resolves `selector` as CSS, not through the text-first
+   * click resolver or the self-healing cache; the finder's selectors are built so that both agree.
    */
   async elementZone(selector: string): Promise<{ zone: ActionZone; label: string } | null> {
     const page = await this.getPage();

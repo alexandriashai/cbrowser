@@ -162,15 +162,21 @@ export const FIND_ELEMENT_BY_INTENT_DESCRIPTION =
   "Find ONE element from a natural-language intent by walking a cascade of accessible-name locators "
   + "(exact name > synonym > label/placeholder/title/alt > contains > all words > visible text > attributes > stems > sub-phrase), "
   + "scoped to a landmark when the intent says so ('in the header', 'in the navigation', 'in the footer'). "
-  + "Returns a CSS selector verified to match exactly that element, plus confidence (2 decimals; >= 0.9 exact and unique, 0.7-0.85 a strong fuzzy match, "
-  + "<= 0.6 a guess), accessibleName, visible, zone (the click gate's verdict on the element, green/yellow/red: a red element is refused "
-  + "without force however it is addressed, and a click on a container is also judged where it lands; CHECK zone AND visible BEFORE clicking), "
-  + "matchedBy (the rung), candidates (how many visible elements that rung matched), and alternatives (the other matches, each with its own unique selector). "
-  + "It returns null / found:false RATHER THAN GUESSING: when nothing qualifies, when the only exact match is hidden at this viewport, "
-  + "when 'X in the navigation' finds X only in a footer or the header nav is collapsed at this width, and for row-scoped intents on "
-  + "table-layout pages with no landmarks ('upvote button for the first story' - say 'first upvote link' instead). "
-  + "Ordinals count what a person can see ('third delete button'). verbose=true on a miss lists the first visible links, buttons and fields "
-  + "with unique selectors so you can rephrase.";
+  + "Returns a CSS selector that matches exactly that element and that cbrowser's click resolver will not read as page text, "
+  + "plus confidence (2 decimals): 0.95 is a unique match on the exact name; 0.9-0.92 is a unique match on a synonym, a label or placeholder, "
+  + "a typed field, or a recognised logo/home/search/menu control, which is strong but not exact; 0.7-0.85 is a fuzzy match (the name contains "
+  + "the phrase, or every word of it); <= 0.6 is a guess, and matchedBy says which rung made it. Also accessibleName, visible, zone, matchedBy, "
+  + "candidates (how many visible elements that rung matched), and alternatives (the other matches, each with its own unique selector). "
+  + "zone is the click gate's verdict on the element itself (green/yellow/red; red is refused without force however it is addressed); "
+  + "a click on a container is ADDITIONALLY judged where the pointer lands, so a card or section can read yellow and still be refused "
+  + "when its centre is a red control. CHECK zone AND visible BEFORE clicking. "
+  + "It returns null / found:false when nothing qualifies, when the only exact match is hidden at this viewport (or transparent, aria-hidden, "
+  + "inert, or behind an open modal), when an ordinal asks for more matches than exist, when 'X in the navigation' finds X only in a footer "
+  + "while the header nav is collapsed, and for row-scoped intents on table-layout pages with no landmarks ('upvote button for the first "
+  + "story' - say 'first upvote link' instead). It still guesses, at <= 0.6 and labelled, when a control's name is a sub-phrase of the intent "
+  + "or the only X under 'in the navigation' sits in a footer nav. Ordinals count what a person can see ('third delete button'). "
+  + "verbose=true on a miss lists the first visible links, buttons and fields with unique selectors so you can rephrase, and says when a "
+  + "locator evaluation failed during the search.";
 
 
 import type { SelectorStrategyType } from "../types.js";
@@ -247,6 +253,7 @@ type PickResult = {
   chosen: CandidateInfo | null;
   others: CandidateInfo[];
   countVisible?: number;
+  ordinalOutOfRange?: boolean;   // visible matches existed, but fewer than the ordinal asked for
 };
 
 /**
@@ -254,7 +261,10 @@ type PickResult = {
  */
 const PICK = (input: Element[], arg: PickArg): PickResult => {
   const CONTAINERS = new Set(["HEADER", "NAV", "FOOTER", "MAIN", "ASIDE", "SECTION", "FORM", "ARTICLE", "DIV", "UL", "OL", "TR", "TABLE", "TBODY", "DIALOG", "LI"]);
-  const DANGER = ["account", "subscription", "permanently", "order", "payment", "purchase", "checkout", "delete", "remove", "cancel", "unsubscribe", "pay", "buy", "erase", "deactivate"];
+  // The verbs that make a name destructive or financial. A fuzzy rung may only land on a name carrying one of
+  // these when the intent itself says that verb: "account button" never reaches "Delete account".
+  const DANGER_VERBS = ["delete", "remove", "cancel", "unsubscribe", "leave", "clear", "reset", "disconnect", "revoke", "erase",
+    "deactivate", "disable", "discard", "destroy", "terminate", "pay", "buy", "purchase", "checkout"];
   const GENERATED_ID = /^(radix-|:r|«r|_R_|:R|ember\d|mui-|headlessui-|react-aria|__|rc-|ant-|chakra-|downshift-|react-select)|[:«»]|^[a-z]{1,2}\d+$|^[0-9a-f]{8,}$/i;
   const STATE_CLASS = /^(active|open|opened|closed|hover|focus|focused|visible|hidden|show|shown|selected|current|expanded|collapsed|disabled|checked|is-|has-|js-)/;
   const HASHED_CLASS = /^(css-|sc-|_|jsx-)|[_-][a-z0-9]{6,}$|\d{3,}/i;
@@ -270,6 +280,19 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   };
 
   // ---- visibility: what a person can see at this width ----
+  // The open modal, if one is showing: while it is up, nothing outside it is person-visible.
+  let modalCache: Element | null | undefined;
+  const activeModal = (): Element | null => {
+    if (modalCache !== undefined) return modalCache;
+    modalCache = null;
+    try {
+      for (const m of Array.from(document.querySelectorAll('[aria-modal="true"], dialog:modal'))) {
+        const b = m.getBoundingClientRect();
+        if (cssVisible(m) && b.width >= 2 && b.height >= 2) modalCache = m;   // the last one in DOM order is on top
+      }
+    } catch { /* :modal unsupported */ }
+    return modalCache;
+  };
   function leafVisible(e: Element): boolean {
     if (!e || !e.isConnected) return false;
     if (!cssVisible(e)) return false;
@@ -281,9 +304,21 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     const cs = getComputedStyle(e);
     if (cs.clip && cs.clip !== "auto" && /rect\((0|1)px?,?\s*(0|1)px?/.test(cs.clip)) return false;
     if (cs.clipPath && /inset\(50%\)/.test(cs.clipPath)) return false;
+    // transparent, hidden from assistive tech, inert, or behind an open modal: not something a person can act on.
+    // A transparent control with a visible label is what the person sees (Wikipedia's checkbox-as-button inputs);
+    // a transparent button with nothing in its place is a ghost.
+    if (cs.opacity === "0") {
+      const labels = (e as HTMLInputElement).labels;
+      const labelled = !!labels && Array.from(labels).slice(0, 3).some(l => getComputedStyle(l).opacity !== "0" && cssVisible(l) && l.getBoundingClientRect().width >= 2);
+      if (!labelled) return false;
+    }
+    if (e.closest('[aria-hidden="true"], [inert]')) return false;
+    const modal = activeModal();
+    if (modal && !modal.contains(e)) return false;
     let p = e.parentElement;
-    while (p && p !== document.body && p !== document.documentElement) {
+    while (p && p !== document.documentElement) {
       const pcs = getComputedStyle(p);
+      if (pcs.opacity === "0") return false;
       if (pcs.position === "fixed") break;
       if (/(hidden|clip|auto|scroll)/.test(pcs.overflowX + " " + pcs.overflowY)) {
         const pr = p.getBoundingClientRect();
@@ -440,6 +475,23 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     }
     return null;
   }
+  // cbrowser's click resolver reads a selector string as page TEXT first (exact, then a case-insensitive
+  // substring, then placeholder / label / button-name), and only then as CSS. So a form is usable only when
+  // no text or name on the page contains it: "#home" with a hashtag "#home" in a post, or a lone "button"
+  // beside "Press the button below", would click the wrong element. One haystack per pick, built lazily.
+  let hayCache: string | null = null;
+  const haystack = (): string => {
+    if (hayCache !== null) return hayCache;
+    const parts: string[] = [norm(document.body ? document.body.textContent || "" : "")];
+    const named = document.querySelectorAll("[aria-label], [placeholder], [title], [alt], input[value]");
+    for (let i = 0; i < named.length && i < 3000; i++) {
+      for (const a of ["aria-label", "placeholder", "title", "alt", "value"]) { const v = named[i].getAttribute(a); if (v) parts.push(norm(v)); }
+    }
+    hayCache = parts.join(" \n ").toLowerCase();
+    return hayCache;
+  };
+  const collides = (sel: string): boolean => haystack().includes(norm(sel).toLowerCase());
+  const usable = (sel: string, el: Element): boolean => uniq(sel, el) && !collides(sel);
   function uniqueSelector(e: Element): { selector: string; type: SelectorStrategyType } {
     const tag = e.tagName.toLowerCase();
     const tries: Array<[string, SelectorStrategyType]> = [];
@@ -482,19 +534,19 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     if (lb) tries.push([`${tag}[aria-labelledby="${q(lb)}"]`, "aria-labelledby"]);
     const cls = stableClasses(e);
     if (cls.length) tries.push([tag + cls.map(c => "." + esc(c)).join(""), "css-class"]);
-    for (const [s, t] of tries) if (uniq(s, e)) return { selector: s, type: t };
-    // Structural path: walk up until unique, anchoring at the nearest stable id/testid.
+    for (const [s, t] of tries) if (usable(s, e)) return { selector: s, type: t };
+    // Structural path: walk up until unique, anchoring at the nearest stable id/testid. Never a lone part:
+    // a bare tag ("button") is page text to the click resolver, and a lone positional part is unique only by accident.
     const parts: string[] = [part(e)];
     let cur: Element | null = e.parentElement;
     let guardN = 0;
     while (cur && cur !== document.documentElement && guardN++ < 40) {
       const sel = parts.join(" > ");
-      // a lone positional part ("a:nth-of-type(5)") is unique only by accident: anchor it to its parent
-      if (uniq(sel, e) && !(parts.length === 1 && /:nth-of-type/.test(sel))) return { selector: sel, type: "nth-of-type" };
+      if (parts.length > 1 && usable(sel, e)) return { selector: sel, type: "nth-of-type" };
       const anchor = anchorFor(cur);
       if (anchor) {
         const s2 = anchor + " > " + sel;
-        if (uniq(s2, e)) return { selector: s2, type: "nth-of-type" };
+        if (usable(s2, e)) return { selector: s2, type: "nth-of-type" };
       }
       if (cur.tagName === "BODY") { parts.unshift("body"); break; }
       parts.unshift(part(cur));
@@ -532,8 +584,10 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
     const g = arg.guard; if (!g) return true;
     const nw = words(name);
     const iw = g.words;
-    if (g.danger && !iw.some(w => DANGER.includes(w))) {
-      for (const d of DANGER) if (nw.includes(d)) return false;
+    if (g.danger) {
+      for (const v of DANGER_VERBS) if (nw.includes(v) && !iw.includes(v)) return false;
+      // "Close account" is the one destructive name without a listed verb
+      if (/\bclose\s+(?:my\s+|your\s+|the\s+)?account\b/.test(name.toLowerCase()) && !(iw.includes("close") && iw.includes("account"))) return false;
     }
     const extra = nw.length - iw.length;
     if (extra <= g.maxExtra) return true;
@@ -607,7 +661,7 @@ const PICK = (input: Element[], arg: PickArg): PickResult => {
   let idx = 0;
   if (arg.ordinal !== null) {
     idx = arg.ordinal === -1 ? pool.length - 1 : arg.ordinal;
-    if (idx < 0 || idx >= pool.length) return out;
+    if (idx < 0 || idx >= pool.length) { out.ordinalOutOfRange = true; return out; }
   } else if (pool.length > 1) {
     out.ambiguous = true;
     if (arg.mode === "unique") {
@@ -786,6 +840,8 @@ function parseIntent(raw: string): ParsedIntent {
       }
     }
   }
+  // "product card" / "item tile": a card of product kind, not a card named "product"
+  if ((out.kind === "card" || out.kind === "product") && /^(?:product|item|listing)s?$/.test(s)) s = "";
   // "x button" -> close ; "close the dialog" -> close
   if (out.kind === "button" && /^(x|×|✕|✖|cross)$/.test(s)) { out.special = "close"; s = "close"; }
   if (/^(close|dismiss|exit)\s+(?:the\s+|this\s+)?(dialog|modal|popup|pop-up|window|overlay|banner|notification|toast|alert|panel|drawer|sheet|box)$/.test(s)) s = s.split(" ")[0];
@@ -825,11 +881,13 @@ const COMPOUNDS: Record<string, string> = { login: "log in", logout: "log out", 
 const SYNONYM_GROUPS: string[][] = [
   ["log in", "login", "sign in", "signin", "log on", "logon"],
   ["log out", "logout", "sign out", "signout"],
+  // Synonyms are the same action under another name. Pairs that cross actions were split out after a
+  // cross-vendor audit: "join" (a meeting), "start free trial", "exit", "apply", "go", "forward", "unsubscribe".
   ["sign up", "signup", "register", "create account", "create an account", "create your account", "create free account",
-    "create a free account", "create one", "create one free", "create one now", "join", "join now", "start free trial"],
+    "create a free account", "create one", "create one free", "create one now", "join now"],
   ["search", "find", "look up", "lookup", "look for"],
-  ["close", "dismiss", "exit", "x", "×", "✕", "✖", "close dialog", "close modal", "close window"],
-  ["submit", "send", "go", "apply"],
+  ["close", "dismiss", "x", "×", "✕", "✖", "close dialog", "close modal", "close window"],
+  ["submit", "send"],
   ["menu", "hamburger", "hamburger menu", "open menu", "toggle menu", "toggle navigation", "toggle navigation menu",
     "navigation menu", "main menu", "open main menu", "open navigation", "show menu", "nav menu", "burger"],
   ["home", "homepage", "home page", "start page"],
@@ -842,8 +900,8 @@ const SYNONYM_GROUPS: string[][] = [
   ["pay", "pay now", "make payment"],
   ["checkout", "check out", "proceed to checkout", "go to checkout"],
   ["delete account", "delete my account", "close account", "close my account", "deactivate account", "deactivate my account", "remove account"],
-  ["unsubscribe", "cancel subscription", "end subscription"],
-  ["next", "next page", "forward"],
+  ["cancel subscription", "end subscription"],
+  ["next", "next page"],
   ["previous", "prev", "previous page"],
   ["settings", "preferences", "options"],
   ["profile", "my profile", "account", "my account"],
@@ -868,6 +926,16 @@ const SYNONYM_GROUPS: string[][] = [
   ["privacy", "privacy policy"],
   ["terms", "terms of service", "terms and conditions", "terms of use"],
 ];
+// Near-synonyms that usually, not always, mean the same control: matched exactly, scored as a guess (0.65).
+const WEAK_SYNONYM_GROUPS: string[][] = [
+  ["exit", "close", "dismiss"],
+];
+function weakSynonymsOf(phrase: string): string[] {
+  const p = phrase.toLowerCase().trim();
+  const out = new Set<string>();
+  for (const g of WEAK_SYNONYM_GROUPS) if (g.includes(p)) for (const s of g) if (s !== p) out.add(s);
+  return [...out];
+}
 // Groups where fuzzy (substring) matching over synonyms is too loose to trust.
 const NO_FUZZY_SYNONYMS = new Set([
   "remove", "delete", "edit", "open", "cancel", "close", "learn more", "continue", "save", "profile", "settings",
@@ -895,7 +963,8 @@ const EDGE = "[\\s\\W_]*";
 function exactRe(alts: string[]): RegExp | null {
   const parts = alts.map(phraseRe).filter(Boolean);
   if (!parts.length) return null;
-  return new RegExp(`^${EDGE}(?:${parts.join("|")})${EDGE}$`, "i");
+  // a trailing badge count is still the exact name: "Cart (2)", "Notifications 5", "Inbox (12)"
+  return new RegExp(`^${EDGE}(?:${parts.join("|")})${EDGE}(?:\\(?\\d{1,4}\\)?)?${EDGE}$`, "i");
 }
 function containsRe(alts: string[]): RegExp | null {
   const parts = alts.map(phraseRe).filter(Boolean);
@@ -1221,13 +1290,18 @@ async function findElementByIntentCore(
   const root: Scope = parsed.scope ? page.locator(scopeCss(parsed.scope)) : page;
   const basePick: PickArg = { ordinal: parsed.ordinal, mode: "first", container: false, require: [], prefer: [], maxOthers: 5 };
 
+  // A rung that throws (a navigation mid-search, a closed page, an unsupported selector) is skipped, and the
+  // verbose miss says so, so "no match" is not mistaken for "nothing happened".
+  const rungErrors: string[] = [];
   const run = async (label: string, locator: Locator, pick: Partial<PickArg>): Promise<PickResult | null> => {
     try {
       return await locator.evaluateAll(PICK, { ...basePick, ...pick } as PickArg);
-    } catch {
+    } catch (e) {
+      if (rungErrors.length < 5) rungErrors.push(`${label}: ${String((e as Error)?.message ?? e).split("\n")[0].slice(0, 160)}`);
       return null;
     }
   };
+  const verboseMiss = (p: Page, i: string) => verboseMissWith(p, i, rungErrors);
 
   const accessibilityScore = (c: CandidateInfo): number => {
     let s = 0;
@@ -1287,19 +1361,38 @@ async function findElementByIntentCore(
           const m = t.match(/[$£€¥]\s?(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*\.\d{2})/);
           return m ? parseFloat((m[1] || m[2]).replace(/,/g, "")) : NaN;
         };
+        // the price a person would pay: text that is not struck through (<s>, <del>, line-through) comes first
+        const struck = (n: Node, top: Element): boolean => {
+          let p = n.parentElement;
+          while (p && p !== top.parentElement) {
+            if (/^(S|DEL|STRIKE)$/.test(p.tagName) || getComputedStyle(p).textDecorationLine.includes("line-through")) return true;
+            p = p.parentElement;
+          }
+          return false;
+        };
+        const currentText = (el: Element): string => {
+          const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          let t = "", n: Node | null, i = 0;
+          while ((n = w.nextNode()) && i++ < 2000) if (!struck(n, el)) t += (n.textContent || "") + " ";
+          return t;
+        };
+        const priceOfEl = (el: Element): number => {
+          const v = priceOf(currentText(el));
+          return isNaN(v) ? priceOf((el as HTMLElement).innerText || "") : v;
+        };
         const vis = (e: Element) => {
           if (typeof e.checkVisibility === "function" && !e.checkVisibility({ visibilityProperty: true })) return false;
           const b = e.getBoundingClientRect();
           return b.width >= 2 && b.height >= 2;
         };
         // product = smallest container that holds exactly one price text node family
-        const priceEls = els.filter(e => vis(e) && e.matches(".price, [class*='price' i]") && !isNaN(priceOf((e as HTMLElement).innerText || "")));
+        const priceEls = els.filter(e => vis(e) && e.matches(".price, [class*='price' i]") && !isNaN(priceOfEl(e)));
         const products: Element[] = [];
         const PROD = want.prod;
         if (priceEls.length) {
           for (const p of priceEls) { const c = p.closest(PROD); if (c && !products.includes(c)) products.push(c); }
         } else {
-          for (const e of els) if (vis(e) && e.matches(PROD) && !isNaN(priceOf((e as HTMLElement).innerText || ""))) products.push(e);
+          for (const e of els) if (vis(e) && e.matches(PROD) && !isNaN(priceOfEl(e))) products.push(e);
           // keep innermost
           const set = new Set(products);
           for (const e of [...set]) if ([...set].some(o => o !== e && e.contains(o))) set.delete(e);
@@ -1314,7 +1407,7 @@ async function findElementByIntentCore(
         if (!products.length) return -1;
         let best = -1, bestP = want.min ? Infinity : -Infinity;
         products.forEach((p, i) => {
-          const v = priceOf((p as HTMLElement).innerText || "");
+          const v = priceOfEl(p);
           if (isNaN(v)) return;
           if (want.min ? v < bestP : v > bestP) { bestP = v; best = i; }
         });
@@ -1529,10 +1622,16 @@ async function findElementByIntentCore(
     // "GOV.UK logo": the link must also carry the brand words somewhere a name comes from (aria-label, alt, title, text, id/class).
     const brandRe = parsed.brand?.length ? parsed.brand.map(w => `(?=.*(?:^|[^\\p{L}\\p{N}])${escRe(w)})`).join("") + ".*" : null;
     const brandReq: PickFilter[] = brandRe ? [{ anyOf: [{ nameRe: brandRe }, { attrRe: brandRe }] }] : [];
+    // Real logo evidence: an image/svg child, logo/brand in its id/class/aria-label, a link to the site root
+    // (the header's "Acme" home link is the brand link), or, with a brand word, the brand in its name. A "Sign in"
+    // link beside an unlinked logo image has none of these.
+    const evidence: PickFilter = { anyOf: [{ hasCss: "img, svg, picture" }, { attrRe: "logo|brand" }, ...(brandRe ? [{ nameRe: brandRe }] : [])] };
+    // inside the header, a link to the site root is the brand link even as plain text; elsewhere it is just a link home
+    const headerEvidence: PickFilter = { anyOf: [...evidence.anyOf!, { matchCss: "a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html']" }] };
     const hdr = page.locator(scopeCss("header"));
     const r = await run("logo", hdr.locator("a[href]"), {
-      container: false, mode: "first", require: [{ attrRe: "logo|brand|home|^$" }, ...brandReq],
-      prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg" }, { attrRe: "home" }],
+      container: false, mode: "first", require: [headerEvidence, ...brandReq],
+      prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg" }, { attrRe: "home" }, { matchCss: "a[href='/'], a[href='./'], a[href$='://']" }],
     });
     if (r && r.chosen) return build(r, "logo", r.ambiguous ? 0.75 : 0.9, "Logo");
     if (brandRe) {
@@ -1544,11 +1643,12 @@ async function findElementByIntentCore(
     const ROOT_LINKS = "a[href='/'], a[href='./'], a[href$='://'], a[href='index.html'], a[href='/index.html'], a[aria-label*='home' i], "
       + "a[aria-label*='logo' i], a[class*='logo' i], a[id*='logo' i], a[class*='brand' i], [class*='logo' i] a[href]";
     const r2 = await run("logo-root", page.locator(ROOT_LINKS), {
-      container: false, mode: "first", require: brandReq, prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }],
+      container: false, mode: "first", require: [evidence, ...brandReq], prefer: [{ attrRe: "logo|brand" }, { hasCss: "img, svg, picture" }],
     });
     if (r2 && r2.chosen) return build(r2, "logo-root", 0.8, "Logo");
+    // a logo image counts only when it lifts to a link or button; an unlinked logo is not something to click
     const r3 = await run("logo-img", page.locator("img[alt*='logo' i], img[class*='logo' i], [class*='logo' i] img, svg[aria-label*='logo' i]"),
-      { container: false, mode: "first", require: brandReq, prefer: [], liftToControl: true });
+      { container: false, mode: "first", require: [{ tagRe: "^(a|button)$" }, ...brandReq], prefer: [], liftToControl: true });
     if (r3 && r3.chosen) return build(r3, "logo-img", 0.75, "Logo");
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
@@ -1773,26 +1873,29 @@ async function findElementByIntentCore(
       const CITE_CSS = "sup a[href], a[href^='#cite'], .reference a[href], a[href*='cite_note'], .citation a[href], a.citation, a[role='doc-noteref'], a[href^='#fn'], a[href^='#ref']";
       rungs.push({ label: "citation", locator: root.locator(CITE_CSS), conf: CONF_GOOD, pick: pickBase });
     }
+    // "search button" with no control named Search: the submit of the search form
+    const SEARCH_SUBMIT_CSS = "[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], "
+      + "form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], "
+      + "form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], "
+      + "form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], "
+      + "form[action*='search' i] button, form[action*='search' i] input[type='submit'], "
+      + "button[class*='search' i], button[id*='search' i], a[class*='search' i][href]";
+    const searchSubmitRung = (): Rung => ({ label: "search-submit", locator: root.locator(SEARCH_SUBMIT_CSS), conf: CONF_GOOD,
+      pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
     if (kind === "button" && exactLit) {
-      // Real buttons (and link-buttons) first: exact, synonyms, then a fuzzy real button beats an exact plain link.
+      // Real buttons (and link-buttons) named exactly X first, then a link named exactly X, and only then a
+      // button that merely contains X: "cart button" is the Cart link, not Add to cart.
       rungs.push({ label: "exact", locator: buttonPool(exactLit), conf: CONF_EXACT, pick: pickBase });
       if (exactSyn) rungs.push({ label: "exact-synonym", locator: buttonPool(exactSyn), conf: CONF_STRONG, pick: pickBase });
-      if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
+      // ... except a real button that is X plus one word ("Features tour", "Download now"), which is X qualified
+      if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(1, 1) } });
       rungs.push({ label: "exact-link", locator: linkPool(exactLit), conf: CONF_STRONG, pick: pickBase });
+      if (/^search$/.test(phrase)) rungs.push(searchSubmitRung());
+      if (containsLit) rungs.push({ label: "contains", locator: roleUnion(containsLit, ["button"])!, conf: CONF_CONTAINS, pick: { ...pickBase, guard: guard(2, 4) } });
       if (exactSyn) rungs.push({ label: "exact-synonym-link", locator: linkPool(exactSyn), conf: CONF_GOOD, pick: pickBase });
     } else if (exactLit) rungs.push({ label: "exact", locator: poolFor(exactLit), conf: CONF_EXACT, pick: pickBase });
     if (exactSyn && kind !== "button") rungs.push({ label: "exact-synonym", locator: poolFor(exactSyn), conf: CONF_STRONG, pick: pickBase });
-    // "search button" with no control named Search: the submit of the search form
-    if (kind === "button" && /^search$/.test(phrase)) {
-      const SEARCH_SUBMIT_CSS = "[role='search'] button, [role='search'] input[type='submit'], [role='search'] input[type='image'], "
-        + "form:has(input[type='search']) button, form:has(input[type='search']) input[type='submit'], "
-        + "form:has(input[name='q']) button, form:has(input[name='q']) input[type='submit'], "
-        + "form:has(input[name='s']) button, form:has(input[name='s']) input[type='submit'], "
-        + "form[action*='search' i] button, form[action*='search' i] input[type='submit'], "
-        + "button[class*='search' i], button[id*='search' i], a[class*='search' i][href]";
-      rungs.push({ label: "search-submit", locator: root.locator(SEARCH_SUBMIT_CSS), conf: CONF_GOOD,
-        pick: { ...pickBase, prefer: [{ matchCss: "[type='submit'], button:not([type='button'])" }] } });
-    }
+    if (kind === "button" && /^search$/.test(phrase) && !exactLit) rungs.push(searchSubmitRung());
     // Label / placeholder / title / alt for the exact phrase (fields and icon controls)
     const isFieldKind = ["field", "textarea", "dropdown", "checkbox", "radio"].includes(kind);
     if (exactLit && (isFieldKind || kind === "any")) {
@@ -1844,6 +1947,11 @@ async function findElementByIntentCore(
         conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 }, pick: { ...pickBase, prefer: [{ nameRe: "sign|log|continue|with|auth" }, ...preferReal] } });
     }
     if (allWords) rungs.push({ label: "all-words", locator: poolFor(allWords), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 }, pick: { ...pickBase, guard: guard(2, 4) } });
+    // "exit button" -> Close: usually the same control, so an exact match on a weak synonym is a labelled guess,
+    // after anything that carries the phrase itself ("Exit fullscreen")
+    const weakSyn = weakSynonymsOf(phrase);
+    const exactWeak = weakSyn.length ? exactRe(weakSyn) : null;
+    if (exactWeak) rungs.push({ label: "exact-synonym-weak", locator: poolFor(exactWeak), conf: { unique: 0.65, ordinal: 0.65, ambiguous: 0.5 }, pick: pickBase });
     // Text fallback: the phrase as visible text, lifted to the nearest control
     if (exactLit && !isContainerKind) {
       const isControl: PickFilter = { anyOf: [
@@ -1852,6 +1960,16 @@ async function findElementByIntentCore(
       ] };
       rungs.push({ label: "text-exact", locator: root.getByText(exactLit), conf: { unique: 0.7, ordinal: 0.68, ambiguous: 0.5 },
         pick: { ...pickBase, liftToControl: true, require: [...scopeRequire, isControl] } });
+    }
+    // "<name> menu": the control that opens a menu, named without the word. Before the attribute fallback:
+    // a trigger named "Account" with data-testid="account-menu" is the trigger, not an attribute coincidence.
+    if ((kind === "any" || kind === "button") && /\s+menu$/.test(phrase) && !parsed.special) {
+      const stripped = phrase.replace(/\s+menu$/, "");
+      const re1 = exactRe([stripped]);
+      if (re1) {
+        rungs.push({ label: "menu-trigger", locator: buttonOrLinkPool(re1), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 },
+          pick: { ...pickBase, prefer: [{ matchCss: "[aria-haspopup], [aria-expanded], [aria-controls], [data-state]" }, ...preferReal] } });
+      }
     }
     // Attribute fallback (ids / names / testids that carry the words): "wishlist button" -> button#wishlist
     const attrWords = nameWords.filter(w => !["button", "link", "icon"].includes(w));
@@ -1866,15 +1984,6 @@ async function findElementByIntentCore(
     }
     const CONF_STEM = { unique: 0.6, ordinal: 0.58, ambiguous: 0.4 };
     if (stems && (loose || kind === "tab")) rungs.push({ label: "stem", locator: poolFor(stems), conf: CONF_STEM, pick: { ...pickBase, guard: guard(3, 5) } });
-    // "<name> menu": the control that opens a menu, named without the word
-    if ((kind === "any" || kind === "button") && /\s+menu$/.test(phrase) && !parsed.special) {
-      const stripped = phrase.replace(/\s+menu$/, "");
-      const re1 = exactRe([stripped]);
-      if (re1) {
-        rungs.push({ label: "menu-trigger", locator: buttonOrLinkPool(re1), conf: { unique: 0.85, ordinal: 0.8, ambiguous: 0.55 },
-          pick: { ...pickBase, prefer: [{ matchCss: "[aria-haspopup], [aria-expanded], [aria-controls], [data-state]" }, ...preferReal] } });
-      }
-    }
     // Links and buttons take inflections only ("category link" -> "Categories"); the promiscuous phrases stay out.
     const inflect = (kind === "link" || kind === "button") && !NO_FUZZY_SYNONYMS.has(phrase) ? inflectRe(nameWords) : null;
     // (the contains guard, not the field one: "Direct link to System requirements" is not "system requirements link")
@@ -1908,6 +2017,9 @@ async function findElementByIntentCore(
       }
       const r = await run(rung.label, rung.locator, rung.pick);
       if (!r) continue;
+      // "second remove button" with one visible Remove: the ordinal is the answer's shape, and a looser rung
+      // ("Remove payment method") is not the second Remove. Stop here.
+      if (r.ordinalOutOfRange && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) return null;
       if (r.chosen) {
         let conf = parsed.ordinal !== null ? rung.conf.ordinal : (r.ambiguous ? rung.conf.ambiguous : rung.conf.unique);
         if (sawHiddenExact) conf = Math.min(conf, 0.7);
@@ -1955,7 +2067,7 @@ async function findElementByIntentCore(
 }
 
 /** The verbose "no match" shape: the first visible interactive elements, each with a unique selector. */
-async function verboseMiss(page: Page, intent: string) {
+async function verboseMissWith(page: Page, intent: string, errors: string[] = []) {
   let alternatives: Array<{ selector: string; text: string; tag: string; type: SelectorStrategyType; confidence: number }> = [];
   try {
     const arg: PickArg = { ordinal: null, mode: "first", container: false, require: [], prefer: [], maxOthers: 12 };
@@ -1974,6 +2086,10 @@ async function verboseMiss(page: Page, intent: string) {
     confidence: 0,
     description: "No match found",
     alternatives,
-    aiSuggestion: `No element matching "${intent}" found.\n\nAvailable interactive elements:\n${list}\n\nTry using the exact text, aria-label, or a more specific description.`,
+    aiSuggestion: (errors.length
+      ? `Note: ${errors.length} locator evaluation(s) failed during the search (${errors.join("; ")}); `
+        + "the page may have navigated or closed, so this miss is not conclusive.\n\n"
+      : "")
+      + `No element matching "${intent}" found.\n\nAvailable interactive elements:\n${list}\n\nTry using the exact text, aria-label, or a more specific description.`,
   };
 }

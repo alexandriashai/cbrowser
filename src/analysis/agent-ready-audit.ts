@@ -738,8 +738,9 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
         const root = e.getRootNode() as Document | DocumentFragment;
         return typeof root.getElementById === 'function' ? root.getElementById(id) : null;
       };
-      // aria-label first, then aria-labelledby resolved to text: the order
-      // find_element_by_intent tries them (natural-language.ts SELECTOR_PRIORITY).
+      // aria-label first, then aria-labelledby resolved to text: the order the
+      // accessible-name computation that find_element_by_intent matches on reads
+      // them (natural-language.ts accName, inside the page-side picker).
       const ariaName = (e: Element): string => {
         const label = ariaLabel(e);
         if (label) return label;
@@ -782,9 +783,10 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
         // Score how findable this element is.
         // A unique aria-label weighs the same as id and data-testid. It was 2,
         // so an icon button named aria-label="Previous slide" scored 2/10 and
-        // was flagged, while find_element_by_intent resolves it FIRST, at 0.95
-        // confidence (natural-language.ts SELECTOR_PRIORITY), and browser.ts
-        // ranks aria-label above both testid and id. A name shared with another
+        // was flagged, while find_element_by_intent resolves it on its first
+        // rung at 0.95 (the exact accessible-name match, natural-language.ts
+        // cascade) and emits a tag[aria-label=".."] selector ahead of testid and
+        // id. A name shared with another
         // element keeps its OLD weight, aria-label 2 and aria-labelledby 0 (it
         // was never scored), so a duplicate is flagged exactly as before.
         // Giving a shared aria-labelledby 2 stopped flagging two text buttons

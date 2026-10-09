@@ -322,6 +322,170 @@ describe("(i)/(j) a bare landmark intent returns the nav landmark even when its 
   });
 });
 
+// ---------------------------------------------------------------------------
+// D2 cross-vendor audit (Forge, 2026-10-08): page shapes the auditor wrote, reproduced here as fixtures.
+// ---------------------------------------------------------------------------
+const SITE = (extra = "") => `<header><a href="/" class="site-logo"><img src="data:," alt="Acme" width="80" height="24"></a>
+  <nav aria-label="Main"><a href="/shop">Shop</a> <a href="/about">About</a> ${extra}</nav></header>`;
+
+/** The click resolver reads a selector as page text first: exact, then a case-insensitive substring. */
+async function clickSafe(sel: string): Promise<void> {
+  expect(sel.split(/\s*>\s*/).length > 1 || /[#.\[]/.test(sel), `lone tag ${sel}`).toBe(true);
+  expect(await page.getByText(sel, { exact: true }).count(), `${sel} is exact page text`).toBe(0);
+  expect(await page.getByText(sel).count(), `${sel} is a substring of page text`).toBe(0);
+}
+
+describe("F1: the selector cannot be read as page text by the click resolver", () => {
+  test("a lone tag is never emitted: 'join button' beside 'Press the button below'", async () => {
+    const r = await find(doc(`<main><h1>Community</h1><p>Press the button below to join the waitlist.</p><button type="button" id="j">Join</button></main>`), "join button");
+    await resolvesTo(r, "#j");
+    await clickSafe(r!.selector);
+  });
+
+  test("an id that is also a hashtag's text is skipped for the next form", async () => {
+    const r = await find(doc(`<header><nav><a href="/" id="home">Home</a> <a href="/explore">Explore</a></nav></header>
+      <main><p>Loving this <a href="/tags/home">#home</a> setup</p></main>`), "home link");
+    await resolvesTo(r, "a#home");
+    expect(r!.selector).not.toBe("#home");
+    await clickSafe(r!.selector);
+  });
+
+  test("a link whose text is the word 'button' does not capture a bare-tag selector", async () => {
+    const r = await find(doc(`<main><p>Read our guide to <a href="/guides/button-design">button design</a>.</p><button type="button" id="s">Subscribe</button></main>`), "subscribe button");
+    await resolvesTo(r, "#s");
+    await clickSafe(r!.selector);
+  });
+});
+
+describe("F3: an ordinal beyond the visible exact matches is null, not a looser rung", () => {
+  const CART = doc(`${SITE()}<main><h1>Cart</h1><ul><li>Shirt <button id="r1">Remove</button></li></ul>
+    <section><h2>Payment</h2><button id="rpm">Remove payment method</button></section></main>`);
+  test("'second remove button' with one Remove is null", async () => {
+    expect(await find(CART, "second remove button")).toBeNull();
+    await resolvesTo(await find(CART, "first remove button"), "#r1");
+  });
+  test("'third delete button' with two Delete rows and a Delete all is null", async () => {
+    expect(await find(doc(`<main><ul><li>A <button>Delete</button></li><li>B <button>Delete</button></li></ul><section><button>Delete all projects</button></section></main>`), "third delete button")).toBeNull();
+  });
+});
+
+describe("F4: the danger guard looks at the verb in the candidate's name", () => {
+  test("object-only intents never reach a destructive name", async () => {
+    expect(await find(doc(`${SITE()}<main><button id="d">Delete account</button></main>`), "account button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Cancel subscription</button></main>`), "subscription button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Leave team</button></main>`), "team button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Clear browsing history</button></main>`), "browsing history button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Close my account</button></main>`), "my account button")).toBeNull();
+  });
+  test("an intent that says the verb still reaches it", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<main><button id="d">Delete account</button></main>`), "delete account button"), "#d");
+    await resolvesTo(await find(doc(`${SITE()}<main><button id="l">Leave team</button></main>`), "leave team button"), "#l");
+  });
+});
+
+describe("F5: the logo special needs real logo evidence", () => {
+  test("an unlinked logo beside a Sign in link is null, not the Sign in link", async () => {
+    expect(await find(doc(`<header><div class="logo"><img src="data:," alt="Acme" width="80" height="24"></div><a href="/signin">Sign in</a></header><main><h1>Hi</h1></main>`), "logo")).toBeNull();
+  });
+  test("an attribute-less header link with an image child is a logo; a text link to the root with the brand is too", async () => {
+    await resolvesTo(await find(doc(`<header><a href="/" id="h"><img src="data:," alt="Acme" width="80" height="24"></a><a href="/signin">Sign in</a></header>`), "logo"), "#h");
+    await resolvesTo(await find(doc(`<header><a href="/" id="b">Acme</a><a href="/signin">Sign in</a></header>`), "Acme logo"), "#b");
+    // the header's text link to the site root is the brand link (the corpus labels it so); a link elsewhere is not
+    await resolvesTo(await find(doc(`<header><a href="/" id="b">Acme</a><a href="/signin">Sign in</a></header>`), "logo"), "#b");
+    expect(await find(doc(`<header><a href="/signin">Sign in</a></header><main><a href="/">Acme</a></main>`), "logo")).toBeNull();
+  });
+});
+
+describe("F2: 'X button' prefers a link named exactly X over a button that merely contains X", () => {
+  const cases: Array<[string, string, string, string]> = [
+    ["cart button", `<a href="/cart" id="t">Cart (2)</a>`, `<button>Add to cart</button>`, "#t"],
+    ["sign up button", `<a href="/signup" id="t">Sign up</a>`, `<form><button type="submit">Sign up for our newsletter</button></form>`, "#t"],
+    ["settings button", `<a href="/settings" id="t" aria-label="Settings"><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8"/></svg></a>`, `<button>Reset all settings</button>`, "#t"],
+    ["browsing history button", `<a href="/history" id="t">Browsing history</a>`, `<button>Clear browsing history</button>`, "#t"],
+    ["log in button", `<a href="/login" id="t">Log in</a>`, `<button>Log in with SSO</button>`, "#t"],
+    ["pricing button", `<a href="/pricing" id="t">Pricing</a>`, `<button>Compare pricing plans</button>`, "#t"],
+    ["download button", `<a href="/download" id="t">Download</a>`, `<button>Download invoice PDF</button>`, "#t"],
+  ];
+  for (const [intent, link, button, expected] of cases) {
+    test(`'${intent}'`, async () => {
+      const r = await find(doc(`${SITE(link)}<main><h1>Page</h1>${button}</main>`), intent);
+      await resolvesTo(r, expected);
+      expect(r!.matchedBy).toBe("exact-link");
+    });
+  }
+  test("a real button that is X plus one word still wins: 'features button' -> Features tour, not the nav link", async () => {
+    const r = await find(doc(`<nav><a data-slot="navigation-menu-link" href="/x">Features</a></nav><main><button type="button" id="real">Features tour</button></main>`), "features button");
+    await resolvesTo(r, "#real");
+  });
+  test("'search button' with an icon submit prefers the search form's submit over 'Clear search'", async () => {
+    const r = await find(doc(`${SITE()}<main><form role="search" action="/s"><input name="q" type="search" aria-label="Search products">
+      <button type="submit" id="go"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg></button></form><button type="button">Clear search</button></main>`), "search button");
+    await resolvesTo(r, "#go");
+  });
+});
+
+describe("F6: synonyms that cross actions no longer match", () => {
+  test("unsubscribe / sign up / send / forward / exit", async () => {
+    expect(await find(doc(`${SITE()}<main><button>Cancel subscription</button></main>`), "unsubscribe button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Join meeting</button></main>`), "sign up button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><aside><button>Apply</button></aside></main>`), "send button")).toBeNull();
+    expect(await find(doc(`${SITE()}<main><button>Reply</button> <button>Next</button></main>`), "forward button")).toBeNull();
+  });
+  test("'exit' is a weak synonym of Close: a labelled guess at 0.65, and never over an Exit control", async () => {
+    const r = await find(doc(`${SITE()}<main><button id="c">Close</button></main>`), "exit button");
+    await resolvesTo(r, "#c");
+    expect(r!.matchedBy).toBe("exact-synonym-weak");
+    expect(r!.confidence).toBeLessThan(0.7);
+    await resolvesTo(await find(doc(`${SITE()}<main><button>Close</button><button id="x">Exit fullscreen</button></main>`), "exit button"), "#x");
+  });
+  test("same-action synonyms still match: 'log in' -> Sign in, 'remove' -> Delete", async () => {
+    await resolvesTo(await find(doc(`<main><button id="s">Sign in</button></main>`), "log in button"), "#s");
+    await resolvesTo(await find(doc(`<main><button id="d">Delete</button></main>`), "remove button"), "#d");
+  });
+});
+
+describe("F7: transparent, aria-hidden, inert, and behind-a-modal elements are not person-visible", () => {
+  test("a background Save behind an open aria-modal dialog is null", async () => {
+    expect(await find(doc(`${SITE()}<main><button>Save</button></main>
+      <div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:#fff;z-index:10"><p>Session expired</p><button>Log in</button></div>`), "save button")).toBeNull();
+  });
+  test("an opacity:0 Save is null", async () => {
+    expect(await find(doc(`${SITE()}<main><button style="opacity:0;width:100px;height:40px">Save</button><button>Cancel</button></main>`), "save button")).toBeNull();
+  });
+  test("a transparent checkbox-as-button input with a visible label is what the person sees (Wikipedia's Vector menus)", async () => {
+    const r = await find(doc(`<header><input type="checkbox" id="mm" role="button" aria-label="Main menu" style="opacity:0;position:absolute;width:32px;height:32px">
+      <label for="mm" style="display:inline-block;width:32px;height:32px;border:1px solid #000">=</label></header><main><h1>Topic</h1></main>`), "main menu button");
+    await resolvesTo(r, "#mm");
+  });
+  test("an aria-hidden clone loses to the real Subscribe, unambiguously", async () => {
+    const r = await find(doc(`${SITE()}<main><div aria-hidden="true"><button tabindex="-1">Subscribe</button></div><div><button id="real">Subscribe</button></div></main>`), "subscribe button");
+    await resolvesTo(r, "#real");
+    expect(r!.confidence).toBeGreaterThanOrEqual(0.9);
+  });
+  test("an inert page's Continue loses to the open dialog's", async () => {
+    await resolvesTo(await find(doc(`${SITE()}<main inert><button>Continue</button></main><dialog open><p>Confirm email</p><button id="dc">Continue</button></dialog>`), "continue button"), "#dc");
+  });
+  test("an off-canvas drawer pushed outside an overflow-x:hidden body is not visible", async () => {
+    const r = await find(doc(`<header><button aria-label="Open menu">=</button><nav class="desk"><a href="/about">About</a></nav></header>
+      <div class="drawer"><nav><a href="/about">About</a></nav></div><main><h1>Home</h1></main>`,
+      `<style>body{overflow-x:hidden;margin:0} .drawer{position:absolute;top:0;left:100%;width:280px} .desk{display:none}</style>`), "about link", { width: 393 });
+    expect(r).toBeNull();
+  });
+});
+
+describe("F10: the cheapest product reads the price a person would pay", () => {
+  test("a struck-through list price is ignored", async () => {
+    const r = await find(doc(`<main><div class="product" id="a"><h2>Basic</h2><span class="price"><s>$10.00</s> $8.00</span><button>Choose Basic</button></div>
+      <div class="product" id="b"><h2>Standard</h2><span class="price">$9.00</span><button>Choose Standard</button></div></main>`), "cheapest product");
+    await resolvesTo(r, "#a");
+  });
+  test("a line-through styled list price is ignored too", async () => {
+    const r = await find(doc(`<main><div class="product" id="a"><h2>Basic</h2><span class="price"><span style="text-decoration:line-through">$10.00</span> $8.00</span><button>Choose Basic</button></div>
+      <div class="product" id="b"><h2>Standard</h2><span class="price">$9.00</span><button>Choose Standard</button></div></main>`), "most expensive product");
+    await resolvesTo(r, "#b");
+  });
+});
+
 describe("rungs that reach beyond the kind pool still run", () => {
   test("'Talk tab' on a page whose tabs are plain links in a list (no role=tab) lifts the text match", async () => {
     const WIKI = doc(`<nav><ul><li><a href="/w" title="View the content page">Article</a></li>
