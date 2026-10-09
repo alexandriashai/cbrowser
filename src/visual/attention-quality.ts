@@ -295,6 +295,13 @@ function dedupeTargetsByElement(
   );
 }
 
+/**
+ * The sampling floor: the attention window widens until it covers this many
+ * DISTINCT elements, and a result below it carries `sampleNote`. Exported so
+ * every statement about "below the floor" reads the same number.
+ */
+export const MIN_DISTINCT_ELEMENTS = 8;
+
 export function computeAttentionQuality(
   hotspots: SaliencyHotspot[],
   pageElements: Array<{
@@ -340,7 +347,6 @@ export function computeAttentionQuality(
   // than one covering a single cell of the same intensity — only the window
   // stopping rule changes.
   const MIN_HOTSPOTS = 20;
-  const MIN_DISTINCT_ELEMENTS = 8;
   const seenKeys = new Set<string>();
   let windowEnd = 0;
   for (let i = 0; i < hotspots.length; i++) {

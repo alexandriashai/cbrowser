@@ -632,7 +632,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         // attention model. This was the only inline copy of the collect+DPR-scale
         // dance; it now shares one implementation with visual_cognitive_story and
         // journey_heatmap_gif, so the scaling cannot drift between the three.
-        const { computeAttentionQuality, extractPageElementsForAttention, collectDomAttentionElements } =
+        const { computeAttentionQuality, extractPageElementsForAttention, collectDomAttentionElements, MIN_DISTINCT_ELEMENTS } =
           await import("../../visual/attention-quality.js");
         const rawElements = await extractPageElementsForAttention(page);
         const dpr: number = await page.evaluate(() => window.devicePixelRatio).catch(() => 1);
@@ -751,12 +751,19 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         // only ever annotated, never rewritten: the narrative carries the "why"
         // the metrics don't.
         let narrativeReconciliation: import("../../visual/narrative-reconcile.js").NarrativeReconciliation | undefined;
+        // What the narrative was computed over versus what the metrics were:
+        // N candidates judged by the LLM, M elements the hotspots sampled.
+        let reasoningScope: string | undefined;
         try {
-          const { reconcileAttentionNarrative } = await import("../../visual/narrative-reconcile.js");
+          const { reconcileAttentionNarrative, describeReasoningScope } = await import("../../visual/narrative-reconcile.js");
           narrativeReconciliation = reconcileAttentionNarrative(
             relevanceReasoning,
             attentionQuality as { ctaCaptureRate?: number } | null,
           );
+          if (relevanceReasoning) {
+            const sampled = (attentionQuality as { sampledElements?: number } | null)?.sampledElements;
+            reasoningScope = describeReasoningScope(domAttentionElements.length, sampled, MIN_DISTINCT_ELEMENTS);
+          }
         } catch { /* annotation only; never block the result on it */ }
 
         const data: Record<string, unknown> = {
@@ -797,6 +804,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // with no stated reason is one the caller cannot argue with, which
             // was the point of leaving keyword matching.
             ...(relevanceReasoning ? { attentionReasoning: relevanceReasoning } : {}),
+            // Beside the narrative, so it cannot be read as describing the
+            // measured targets: it was computed over a different, larger set.
+            ...(reasoningScope ? { attentionReasoningScope: reasoningScope } : {}),
             // Only present when a checkable claim in the narrative actually
             // contradicts a computed metric. Silent otherwise — a spurious
             // "these disagree" on a narrative that was fine is its own defect.

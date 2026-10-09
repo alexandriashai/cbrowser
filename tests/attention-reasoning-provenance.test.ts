@@ -3,6 +3,9 @@
  *
  * Both reported against 19.2.3 on cbrowser.ai:
  *
+ *   B19  attentionReasoning (the LLM narrative) names elements that are not
+ *        among the measured targets: it judged every candidate element, while
+ *        topAttentionTargets come from the 2-4 the saliency hotspots sampled.
  *   B23  attentionReasoning came back word for word identical across runs,
  *        because the relevance judgement is cached -- and nothing said so.
  *
@@ -130,5 +133,37 @@ describe("B23: relevance provenance in the attention_analysis payload", () => {
     // Next to relevanceMethod, where a reader of that field will see it.
     const keys = Object.keys(b);
     expect(keys.indexOf("relevanceCached")).toBe(keys.indexOf("relevanceMethod") + 1);
+  }, 180_000);
+});
+
+describe("B19: the narrative's scope is stated beside it", () => {
+  test("attentionReasoningScope gives N (judged) and M (sampled), matching the payload", async () => {
+    const seenBefore = elementsSeen.length;
+    // A fresh goal, so this run's narrative is judged on this call and the
+    // stand-in records exactly what the model was shown.
+    const b = body(await handler({ _browserToken: TOKEN, persona: "first-timer", goal: `${goal} scope`, heatmap: false }));
+    expect(elementsSeen.length).toBe(seenBefore + 1);
+    expect(b.attentionReasoning).toBe(REASONING);
+
+    const scope = b.attentionReasoningScope as string;
+    expect(typeof scope).toBe("string");
+
+    // N: the candidates the LLM relevance pass judged -- counted on the wire.
+    const n = Number(/LLM relevance pass over (\d+) candidate elements?/.exec(scope)?.[1]);
+    expect(n).toBe(elementsSeen[elementsSeen.length - 1]);
+    expect(n).toBeGreaterThan(0);
+
+    // M: the elements the quantitative targets were computed over.
+    const quality = b.attentionQuality as { sampledElements: number; topAttentionTargets: unknown[] };
+    const m = Number(/come from (\d+) sampled elements?/.exec(scope)?.[1]);
+    expect(m).toBe(quality.sampledElements);
+
+    // Below the floor it says so; at or above it, it does not.
+    if (m < 8) expect(scope).toContain(`${m} is below the sampling floor of 8`);
+    else expect(scope).not.toContain("below the sampling floor");
+
+    // Placed beside the narrative it qualifies.
+    const keys = Object.keys(b);
+    expect(keys.indexOf("attentionReasoningScope")).toBe(keys.indexOf("attentionReasoning") + 1);
   }, 180_000);
 });

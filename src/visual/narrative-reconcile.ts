@@ -111,3 +111,43 @@ export function reconcileAttentionNarrative(
       + `persona but visually weak on the page — which is a design finding, not a tool error.`,
   };
 }
+
+/**
+ * Say what the attention narrative was computed over, beside the narrative.
+ *
+ * attentionReasoning is written by the LLM relevance pass, which reads EVERY
+ * candidate element collected from the DOM (dozens on a real page). The
+ * quantitative targets -- attentionQuality's ratios and topAttentionTargets --
+ * come from the few distinct elements the saliency hotspots landed on, two to
+ * four per run on cbrowser.ai. So the narrative routinely names elements that
+ * are not among the measured targets, and a reader seeing them side by side
+ * reasonably assumed it described them (B19, 2026-10-09).
+ *
+ * Labelled, not changed: the prompt and the scoring are untouched.
+ *
+ * @param candidateElements N: elements the relevance pass judged.
+ * @param sampledElements   M: attentionQuality.sampledElements, or undefined when it was not computed.
+ * @param samplingFloor     The distinct-element floor the attention window aims for.
+ */
+export function describeReasoningScope(
+  candidateElements: number,
+  sampledElements: number | undefined,
+  samplingFloor: number,
+): string {
+  const n = `${candidateElements} candidate element${candidateElements === 1 ? "" : "s"}`;
+  const head = `attentionReasoning comes from an LLM relevance pass over ${n} read from the page, `
+    + "made before the saliency map is computed (its scores help build it). ";
+  if (sampledElements === undefined) {
+    return head + "The quantitative targets were not computed on this run, so nothing in this payload "
+      + "measures the elements the narrative names.";
+  }
+  const m = `${sampledElements} sampled element${sampledElements === 1 ? "" : "s"}`;
+  let text = head + `The quantitative targets (attentionQuality ratios and topAttentionTargets) come from ${m}, `
+    + "the distinct elements the top saliency hotspots landed on. The narrative can therefore name elements "
+    + "that are not among the measured targets; naming one is not evidence it drew measured attention.";
+  if (sampledElements < samplingFloor) {
+    text += ` ${sampledElements} is below the sampling floor of ${samplingFloor} distinct elements, so the `
+      + "quantitative targets are indicative, not measurements (see attentionQuality.sampleNote).";
+  }
+  return text;
+}
