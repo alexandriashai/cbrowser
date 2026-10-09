@@ -6147,7 +6147,9 @@ For more help: https://playwright.dev/docs/browsers
     const inPage = (node: Element, arg: Arg): Info => {
       const norm = (s: string | null | undefined, max: number) => (s || "").replace(/\s+/g, " ").trim().slice(0, max);
       const INTERACTIVE = "a,button,input,select,textarea,summary,label,[role='button'],[role='link'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='tab'],[role='option'],[role='checkbox'],[role='radio'],[role='switch'],[onclick]";
-      const CHOICE = "input[type=checkbox],input[type=radio],select,option,[role='checkbox'],[role='radio'],[role='switch'],[role='option'],[role='menuitemcheckbox'],[role='menuitemradio']";
+      // Native checkboxes, radios and selects choose a value; role=checkbox/radio/switch likewise. NOT role=option or
+      // menu items: command palettes (cmdk / shadcn Command) render every command as role=option and run it on click.
+      const CHOICE = "input[type=checkbox],input[type=radio],select,option,[role='checkbox'],[role='radio'],[role='switch']";
       const BUTTON_INPUT = /^(submit|button|reset|image)$/i;
       const isTextField = (el: Element) => el.tagName === "TEXTAREA" ||
         (el.tagName === "INPUT" && !BUTTON_INPUT.test((el as HTMLInputElement).type || "") && !/^(checkbox|radio)$/i.test((el as HTMLInputElement).type || ""));
@@ -6167,7 +6169,8 @@ For more help: https://playwright.dev/docs/browsers
       // The element a pointer at viewport (x, y) actually reaches: beneath anything not inside `within`
       // (a cookie bar, a loading overlay), into open shadow roots and same-origin frames.
       const deepAt = (x: number, y: number, within: Element | null): Element | null => {
-        const stack = document.elementsFromPoint(x, y);
+        const hitRoot = (within ? within.getRootNode() : document) as Document | ShadowRoot;
+        const stack = hitRoot.elementsFromPoint(x, y);
         let e: Element | null = within ? (stack.find(s => composedContains(within, s)) ?? null) : (stack[0] ?? null);
         let ox = 0, oy = 0;
         for (let i = 0; e && i < 12; i++) {
@@ -6244,8 +6247,8 @@ For more help: https://playwright.dev/docs/browsers
         push(words.split(" ").reverse().join(" "));
       };
       const pushSubmit = (form: HTMLFormElement, submitter: Element | null) => {
-        pushPath(form.getAttribute("action"));
-        if (submitter) pushPath(submitter.getAttribute("formaction"));
+        const fa = submitter?.getAttribute("formaction");
+        pushPath(fa ? fa : form.getAttribute("action"));
       };
       // The DOM's own submit test: a <button> with no or an invalid type is a submit button.
       const isSubmitter = (el: Element) =>
@@ -6322,7 +6325,10 @@ For more help: https://playwright.dev/docs/browsers
           // full; an acting-as-control element's own text by its opening 120 characters (a long div-button is
           // labelled by how it starts). A plain container or inert text is not a label: the hit-test above
           // judges the control a click on it lands on.
-          const actsAsControl = isControl || clickable(el);
+          const isLeaf = !el.querySelector(INTERACTIVE);
+          // The resolved element as a leaf is judged by how its text starts, affordance or not: a refused inert
+          // heading costs one force retry, a missed listener-only "Delete account" div cannot be undone.
+          const actsAsControl = isControl || (el === node && isLeaf) || clickable(el);
           if (actsAsControl) {
             pushControl(el);
             push(norm(ownText(el), isControl ? 300 : 120), 300);
@@ -6467,11 +6473,18 @@ For more help: https://playwright.dev/docs/browsers
   async dragRedZone(source: string, target: string, force?: boolean): Promise<string | null> {
     if (force) return null;
     const page = await this.getPage();
+    const vp = page.viewportSize() ?? (await page.evaluate(() => ({ width: innerWidth, height: innerHeight })));
     const pointOf = async (sel: string) => {
       const loc = page.locator(sel).first();
       await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
       const b = await loc.boundingBox({ timeout: 3000 }).catch(() => null);
-      return b ? this.deepElementAt(b.x + b.width / 2, b.y + b.height / 2) : null;
+      let at: ElementHandle | null = null;
+      if (b) {
+        const l = Math.max(b.x, 0), r = Math.min(b.x + b.width, vp.width);
+        const tp = Math.max(b.y, 0), bt = Math.min(b.y + b.height, vp.height);
+        if (r > l && bt > tp) at = await this.deepElementAt((l + r) / 2, (tp + bt) / 2);
+      }
+      return at ?? (await loc.elementHandle({ timeout: 3000 }).catch(() => null));
     };
     const a = await pointOf(source);
     const b = a ? await pointOf(target) : null;
@@ -6510,8 +6523,10 @@ For more help: https://playwright.dev/docs/browsers
    * paths through keystrokeRedZone.
    */
   async classifyKeyActivation(key: string): Promise<{ zone: ActionZone; tag: string; label: string } | null> {
-    const last = (key.split("+").pop() || "").trim();
-    const isEnter = /^(enter|numpadenter)$/i.test(last);
+    const raw = key.split("+").pop() || "";
+    const last = raw.trim();
+    // Playwright maps "\n" and "\r" to Enter, so they are Enter here too.
+    const isEnter = /^(enter|numpadenter)$/i.test(last) || raw === "\n" || raw === "\r";
     const isSpace = last === "" ? key.endsWith(" ") : /^(space|spacebar)$/i.test(last);
     if (!isEnter && !isSpace) return null;
     const page = await this.getPage();
@@ -6526,6 +6541,14 @@ For more help: https://playwright.dev/docs/browsers
           if (d?.activeElement && d.activeElement !== d.body) { a = d.activeElement; continue; }
         }
         break;
+      }
+      // A combobox or listbox keeps focus on itself and points at the highlighted item with
+      // aria-activedescendant; Enter activates that item (a command palette runs it).
+      const ad = a?.getAttribute("aria-activedescendant");
+      if (a && ad) {
+        const r = a.getRootNode() as Document | ShadowRoot;
+        const item = ((r as Document).getElementById ? (r as Document).getElementById(ad) : null) ?? a.ownerDocument.getElementById(ad);
+        if (item) a = item;
       }
       return a && a !== document.body && a !== document.documentElement ? a : null;
     });

@@ -489,8 +489,79 @@ s.innerHTML = '<nav>' + 'Home Products Pricing Docs Blog Careers Support Status 
     const r = await run(H(`<form action="/checkout" onsubmit="window.__c='PAID';return false"><button id="x" type="bogus">Continue</button></form>`));
     expect(r).toMatchObject({ success: false, zone: "red", fired: null });
   });
-  test("an inert heading is not a control: <h1>Checkout</h1> clicked by id proceeds", async () => {
+  test("the resolved element as a leaf is judged by its text even with no affordance: <h1>Checkout</h1> by id is refused", async () => {
+    // Deliberate (Forge round 6): refusing an inert heading costs one force retry; missing a listener-only
+    // "Delete account" div (React delegates onClick to the root) cannot be undone.
     const r = await run(H(`<h1 id="x">Checkout</h1>`));
-    expect(r).toMatchObject({ success: true, zone: "yellow" });
+    expect(r).toMatchObject({ success: false, zone: "red" });
+  });
+});
+
+describe("cross-vendor re-audit findings (Forge round 6)", () => {
+  const H = (body: string, bodyStyle = "margin:0") => `<!doctype html><html lang="en"><body style="${bodyStyle}">${body}<script>
+document.addEventListener('submit', e => { window.__c = 'SUBMIT ' + (e.submitter?.getAttribute('formaction') || e.target.getAttribute('action')); e.preventDefault(); }, true);
+</script></body></html>`;
+  const LONG = "Simple, transparent pricing for teams of every size. Start free, upgrade when you need more runs, and top up credits whenever you like.";
+  const run = async (html: string, sel = "#x") => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(html); await page.waitForTimeout(50); await fired();
+    const r = await b.click(sel, {});
+    await page.waitForTimeout(50);
+    return { success: r.success, zone: r.zone, fired: await fired() };
+  };
+  test("1: '\\n', '\\r' and 'Shift+\\n' are Enter (Playwright maps them to Enter)", async () => {
+    await page.setContent(H(`<button id="del" onclick="window.__c='DELETE'">Delete account</button>
+<form action="/checkout"><input id="card" aria-label="Card number"><button>Pay now</button></form>`));
+    await page.focus("#del");
+    expect((await b.classifyKeyActivation("\n"))?.zone).toBe("red");
+    expect((await b.classifyKeyActivation("\r"))?.zone).toBe("red");
+    expect(await b.keystrokeRedZone({ key: "\n" })).toMatch(/^Red zone action requires --force/);
+    await page.focus("#card");
+    expect((await b.classifyKeyActivation("Shift+\n"))?.zone).toBe("red");
+  });
+  test("2: a container inside an open shadow root is hit-tested in that root", async () => {
+    const r = await run(H(`<plans-root id="host"></plans-root><script>customElements.define('plans-root', class extends HTMLElement { connectedCallback() {
+const s = this.attachShadow({mode:'open'}); s.innerHTML = '<section id="plans" style="position:relative;width:600px;height:300px"><p style="margin:0">${LONG}</p>'
++ '<button style="position:absolute;left:200px;top:100px;width:200px;height:100px">Buy credits</button></section>';
+s.querySelector('button').onclick = () => { window.__c = 'BUY'; }; } });</script>`), "#plans");
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("3: dragging a red button taller than the viewport onto itself is refused", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(H(`<button id="tall" style="height:3000px;width:600px">Delete account</button>`));
+    expect(await b.dragRedZone("#tall", "#tall")).toMatch(/^Red zone action requires --force: dragging/);
+  });
+  test("3: dragging a tall container onto itself whose visible centre is a red button is refused", async () => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setContent(H(`<section id="plans" style="position:relative;width:600px;height:3000px"><p style="margin:0">${LONG}</p>
+<button style="position:absolute;left:200px;top:300px;width:200px;height:200px">Buy credits</button></section>`));
+    expect(await b.dragRedZone("#plans", "#plans")).toMatch(/clicks <button> "Buy credits"/);
+  });
+  test("4: role=option is a command, not a choice: a palette's Delete account and Buy annual plan are refused", async () => {
+    let r = await run(H(`<div role="listbox"><div role="option" id="x" onclick="window.__c='DELETE'">Delete account</div></div>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+    r = await run(H(`<div role="listbox"><div role="option" id="x" onclick="window.__c='PAID'">Buy annual plan</div></div>`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("5: listener-only elements (delegated handler, no affordance) are judged by their own text", async () => {
+    const DELEGATE = `<script>document.addEventListener('click', e => { const t = e.target.closest('[data-act]'); if (t) window.__c = t.dataset.act; });</script>`;
+    let r = await run(H(`<div id="x" data-act="DELETE">Delete account</div>${DELEGATE}`));
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+    r = await run(H(`<div data-testid="danger-zone-confirm" data-act="DELETE">Delete account</div>${DELEGATE}`), '[data-testid="danger-zone-confirm"]');
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+    r = await run(H(`<div><span data-act="PAID">Pay now</span></div>${DELEGATE}`), "body > div > span");
+    expect(r).toMatchObject({ success: false, zone: "red", fired: null });
+  });
+  test("6: Enter on a combobox follows aria-activedescendant to the highlighted command", async () => {
+    await page.setContent(H(`<input id="cmd" role="combobox" aria-activedescendant="opt-del" aria-label="Search commands">
+<div role="listbox"><div role="option" id="opt-new">New project</div><div role="option" id="opt-del">Delete account</div></div>`));
+    await page.focus("#cmd");
+    const a = await b.classifyKeyActivation("Enter");
+    expect(a?.zone).toBe("red");
+    expect(a?.label).toBe("Delete account");
+  });
+  test("9: a submitter's formaction replaces the form action: Save draft in a /checkout form proceeds", async () => {
+    const r = await run(H(`<form action="/checkout"><button id="x" formaction="/save-draft">Save draft</button></form>`));
+    expect(r).toMatchObject({ success: true, zone: "yellow", fired: "SUBMIT /save-draft" });
   });
 });
