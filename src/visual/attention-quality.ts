@@ -6,7 +6,8 @@
  *
  * Four components:
  * 1. CTA Capture Rate — do top saliency zones overlap with CTAs?
- * 2. Value Prop Salience — is the headline/message in top attention?
+ * 2. Value Prop Salience — share of top attention on headings AND CTAs
+ *    together (headingShare is the heading-only part of it)
  * 3. Distractor Ratio — how much attention goes to non-actionable elements?
  * 4. Value Relevance Score — does the persona see what THEIR values care about?
  *
@@ -126,7 +127,14 @@ export interface AttentionQualityResult {
   /** Residual after every bucket, so a gap is visible rather than silent. */
   unaccountedRatio?: number;
   ratioNote?: string;
-  /** Value prop salience: is the primary heading in top attention? (0-1) */
+  /**
+   * Share of top attention on headings and CTAs together (0-1).
+   *
+   * NOT "is the value proposition seen": it includes CTA attention, so it is 1
+   * whenever every sampled hotspot lands on a CTA, headings or not. Read
+   * headingShare for the heading-only figure. The interpretation therefore
+   * speaks about headings and CTAs, never about "the value prop".
+   */
   valuePropSalience: number;
   /** Distractor ratio: fraction of top attention on non-actionable elements (0-1) */
   distractorRatio: number;
@@ -457,11 +465,11 @@ export function computeAttentionQuality(
       : 0;
   }
 
-  // Quality score: rewards CTA capture, value prop, low distraction, and value relevance
+  // Quality score: rewards CTA capture, heading + CTA attention, low distraction, and value relevance
   const valueBonus = valueRelevanceScore !== undefined ? valueRelevanceScore * 10 : 0;
   const qualityScore = Math.max(0, Math.min(100, Math.round(
     ctaCaptureRate * 35 +          // 35 points for CTA capture
-    valuePropSalience * 25 +       // 25 points for value prop visibility
+    valuePropSalience * 25 +       // 25 points for heading + CTA attention
     (1 - distractorRatio) * 25 +   // 25 points for low distraction
     valueBonus +                   // up to 10 points for value-relevant attention
     5                              // 5 base points
@@ -469,26 +477,39 @@ export function computeAttentionQuality(
 
   // Interpretation
   let interpretation: string;
-  // headingShare, not valuePropSalience, decides whether the value prop was
+  // headingShare, not valuePropSalience, decides whether the headings were
   // seen. valuePropSalience INCLUDES ctaSaliency, so it can never be low when
   // CTA capture is high -- the metric is structurally unable to detect "sees
-  // the CTA, misses the value prop". Measured on a real run: ctaCaptureRate and
+  // the CTA, misses the heading". Measured on a real run: ctaCaptureRate and
   // valuePropSalience both 0.598 to three decimals, which happens exactly when
   // headingSaliency is zero, and the tool nonetheless reported "the persona
   // sees the value prop". It saw no heading at all.
+  //
+  // The prose then made the opposite mistake (B18, 2026-10-09): it said "the
+  // value prop does not" capture attention, judged from headingShare, right
+  // beside `valuePropSalience: 1` -- the field whose NAME is that claim. Both
+  // numbers were right; the sentence borrowed one field's name for the other
+  // field's measurement. So the verdicts below name what they measured --
+  // headings, CTAs -- and never "the value prop", and the one branch where the
+  // two fields diverge says how they relate.
+  const pct = (n: number) => Math.round(n * 100) + "%";
+  // The published 3dp value, so the prose quotes exactly what the field says.
+  const r3 = (n: number) => String(Math.round(n * 1000) / 1000);
   if (ctaCaptureRate > 0.3 && headingShare > 0.15) {
     // "Design intent is working" removed: it is a claim about the whole design,
     // and this metric only knows whether the CTAs and heading drew top saliency.
     // Sitting beside an alignment verdict that said the opposite, it read as the
     // tool contradicting itself. Scoped to what it measures. (2026-08-02)
-    interpretation = "Strong attention capture — the CTAs and the value prop both drew top attention for this persona. This is about the conversion elements specifically; see interpretation.alignment for whether the overall distribution matches the design.";
+    interpretation = "Strong attention capture — the CTAs and the headings both drew top attention for this persona. This is about the conversion elements specifically; see interpretation.alignment for whether the overall distribution matches the design.";
   } else if (ctaCaptureRate > 0.3 && headingShare <= 0.02) {
-    interpretation = "CTAs capture attention but the value prop does not — headings drew "
-      + Math.round(headingShare * 100) + "% of top attention. The persona is seeing where to click without reading what it is for.";
+    interpretation = "CTAs capture attention but headings do not — headings drew "
+      + pct(headingShare) + " of top attention (headingShare). The persona is seeing where to click without reading the headings that say what it is for. "
+      + "valuePropSalience (" + r3(valuePropSalience) + ") counts CTA and heading attention together, so here it is almost all CTA attention; headingShare is the heading-only figure.";
   } else if (ctaCaptureRate > 0.1 && valuePropSalience > 0.3) {
     interpretation = "Moderate attention quality — the persona partially sees key elements but attention is split with other content.";
   } else if (distractorRatio > 0.5) {
-    interpretation = "Poor attention quality — more than half of top attention goes to non-actionable elements. CTAs and value prop are not capturing attention.";
+    interpretation = "Poor attention quality — more than half of top attention goes to non-actionable elements; CTAs and headings together drew valuePropSalience "
+      + r3(valuePropSalience) + " of it.";
   } else if (ctaCaptureRate < 0.05) {
     interpretation = "CTAs are invisible to this persona — none of the top saliency zones overlap with calls to action. Consider making CTAs larger, higher-contrast, or more prominently positioned.";
   } else {
