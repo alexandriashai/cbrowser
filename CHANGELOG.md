@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.2.1](https://github.com/alexandriashai/cbrowser/compare/v19.2.0...v19.2.1) (2026-10-09)
+
+### Fixed
+
+* **mcp:** return attention heatmaps inline as previews fitted to the cap ([11d6eab](https://github.com/alexandriashai/cbrowser/commit/11d6eabcc47dfd1e0d853c6c44ee71479bda9161))
+* **personas:** one resolver, one record per name, no cross-account reads ([692cf32](https://github.com/alexandriashai/cbrowser/commit/692cf321b88137ae1bd2bab851b9f2c2bd78c8e0))
+* **security:** make evaluate_script red zone, refused without force ([9a33d9b](https://github.com/alexandriashai/cbrowser/commit/9a33d9bdaf7746caff4e8f5acb83f08b7b64c36e))
+
 ## [19.2.0](https://github.com/alexandriashai/cbrowser/compare/v19.1.9...v19.2.0) (2026-10-09)
 
 ### Added
