@@ -5280,6 +5280,12 @@ export interface AccessibilityBarrier {
   /** Number of distinct elements grouped under this barrier type. */
   affectedElementCount?: number;
   /**
+   * Unique selectors of the elements a group barrier stands for (capped at
+   * ten), e.g. the animated members of one carousel. `affectedElementCount` is
+   * the full count.
+   */
+  members?: string[];
+  /**
    * Where the barrier is, in DOCUMENT coordinates.
    *
    * Written by the detectors and read by the overlay layer, and declared in

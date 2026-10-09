@@ -215,6 +215,8 @@ interface BarrierContext {
   unverifiableMedia: Array<{ element: string; reason: string; checkAt: string }>;
   /** Findings above the audited WCAG level, split out by splitAboveAuditLevel. */
   advisories: AccessibilityBarrier[];
+  /** Moving content whose pause/stop control was found and credited (2.2.2). */
+  motionControlsCredited: Array<{ content: string; control: string }>;
 }
 
 /**
@@ -709,15 +711,8 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
       }
     }
 
-    // Check for animations/movement (in scope)
-    const animations = Array.from(document.querySelectorAll('[class*="animate"], [class*="slider"], [class*="carousel"]')).filter(inVp);
-    if (animations.length > 0) {
-      issues.push({
-        type: "animation",
-        description: "Animated content may distract users with attention difficulties",
-        count: animations.length,
-      });
-    }
+    // Animation/movement is detectMotionWithoutPause's job (2.2.2, located,
+    // pause controls credited). It was a class-name count here. (B5)
 
     // Check for complex navigation (in scope)
     const navItems = Array.from(document.querySelectorAll('nav a, header a, [role="navigation"] a')).filter(inVp);
@@ -737,11 +732,6 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
     const wcagMap: Record<string, { criteria: string[]; violation: string | null }> = {
       "long-form": { criteria: ["3.3.2"], violation: "3.3.2" }, // Labels or Instructions
       "text-wall": { criteria: ["1.3.1"], violation: null }, // Info and Relationships (recommendation, not violation)
-      // Pause, Stop, Hide only. 2.3.1 (Three Flashes) is a seizure-safety
-      // criterion about flash RATE, and nothing here measures flashing -- this
-      // is a class-name match. Citing it published a Level A violation for
-      // every page with an animate-* utility. (2026-10-07)
-      "animation": { criteria: ["2.2.2"], violation: "2.2.2" },
       "complex-nav": { criteria: [], violation: null }, // No WCAG criterion for nav item count — UX recommendation only
     };
     const mapping = wcagMap[issue.type] || { criteria: [], violation: null };
@@ -765,12 +755,178 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
         ? "Break form into multiple steps or sections"
         : issue.type === "text-wall"
           ? "Break text into smaller paragraphs with headings"
-          : issue.type === "animation"
-            ? "Provide controls to pause/stop animations, or use prefers-reduced-motion"
-            : "Consider simplifying navigation structure for cognitive accessibility",
+          : "Consider simplifying navigation structure for cognitive accessibility",
     });
     if (mapping.violation) ctx.wcagViolations.add(mapping.violation);
   }
+
+  await detectMotionWithoutPause(ctx);
+}
+
+/**
+ * WCAG 2.2.2 Pause, Stop, Hide: moving content that starts on its own and
+ * keeps going, with no control to pause, stop or hide it.
+ *
+ * This was a class-name count inside detectCognitiveLoad, `[class*=animate|
+ * slider|carousel]`, returning {type, description, count}. The barrier was
+ * built with `element: "animation"` -- the literal string -- no rect, and the
+ * count thrown away, so deduplication counted it as one element and the
+ * overlay could not draw it. Nothing anywhere looked for a pause control, so a
+ * carousel with a correctly labelled, correctly associated "Pause auto-play"
+ * button was reported as a 2.2.2 violation exactly like one with none. (B5,
+ * 2026-10-09)
+ *
+ * Candidates: running animations from document.getAnimations() that loop
+ * forever or run longer than five seconds, UNIONED with the old class match,
+ * because a JavaScript-timer carousel never appears in getAnimations(). Only
+ * rendered, in-scope elements count.
+ *
+ * Grouped by their outermost motion container (carousel, slider, or
+ * aria-roledescription="carousel"), else their outermost animated ancestor.
+ *
+ * A group is CREDITED -- no barrier -- when a visible, enabled button,
+ * role=button or role=switch whose name says pause, stop or autoplay either
+ * sits inside the container or its parent (not when the parent is body or
+ * html, which would credit any control on the page), or names the container
+ * or one of its members in aria-controls. Credited groups are listed in
+ * `motionControlsCredited`, so a crediting that happened can be told from a
+ * detector that saw nothing.
+ *
+ * An uncredited group is one barrier: a unique selector for the container,
+ * its document-space rect, and the number of animated members.
+ */
+async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
+  const groups = await ctx.page.evaluate(() => {
+    type R = { x: number; y: number; width: number; height: number };
+    const w = window as unknown as {
+      __cbrowserInViewport?: (el: Element) => boolean;
+      __cbrowserUniqueSelector?: (el: Element) => string;
+    };
+    const inVp = w.__cbrowserInViewport ?? (() => true);
+    const uniq = w.__cbrowserUniqueSelector ?? ((el: Element) => el.tagName.toLowerCase());
+    const rendered = (el: Element): boolean => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+    };
+    const docRect = (el: Element): R => {
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.left + window.scrollX), y: Math.round(r.top + window.scrollY),
+        width: Math.round(r.width), height: Math.round(r.height),
+      };
+    };
+
+    // 1. Running animations that loop forever or last more than 5 s.
+    const animated = new Set<Element>();
+    try {
+      for (const a of document.getAnimations()) {
+        if (a.playState !== "running") continue;
+        const effect = a.effect as KeyframeEffect | null;
+        const target = effect?.target;
+        if (!effect || !target) continue;
+        const t = effect.getComputedTiming();
+        const active = Number(t.activeDuration);
+        if (t.iterations === Infinity || active > 5000) animated.add(target);
+      }
+    } catch { /* no getAnimations: the class fallback below still runs */ }
+
+    // 2. The class-match fallback, for timer-driven carousels.
+    const classMatched = Array.from(document.querySelectorAll('[class*="animate"], [class*="slider"], [class*="carousel"]'));
+
+    const candidates = Array.from(new Set<Element>([...animated, ...classMatched]))
+      .filter((el) => rendered(el) && inVp(el));
+    if (candidates.length === 0) return [];
+    const candidateSet = new Set(candidates);
+
+    const CONTAINER = '[class*="carousel"], [class*="slider"], [aria-roledescription="carousel"]';
+    const rootOf = (el: Element): Element => {
+      let container: Element | null = null;
+      let outerCandidate: Element = el;
+      for (let cur: Element | null = el; cur && cur !== document.body && cur !== document.documentElement;
+        cur = cur.parentElement) {
+        if (cur.matches(CONTAINER)) container = cur;
+        if (candidateSet.has(cur)) outerCandidate = cur;
+      }
+      return container ?? outerCandidate;
+    };
+    const byRoot = new Map<Element, Element[]>();
+    for (const el of candidates) {
+      const root = rootOf(el);
+      const list = byRoot.get(root);
+      if (list) list.push(el); else byRoot.set(root, [el]);
+    }
+
+    const PAUSE = /\b(pause|stop|autoplay|auto-play)\b/i;
+    const nameOf = (c: Element): string => [
+      c.getAttribute("aria-label"),
+      ...(c.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean)
+        .map((id) => document.getElementById(id)?.textContent ?? ""),
+      c.getAttribute("title"),
+      c instanceof HTMLInputElement ? c.value : "",
+      c.textContent,
+    ].filter(Boolean).join(" ");
+    const pauseControls = Array.from(document.querySelectorAll('button, [role="button"], [role="switch"]'))
+      .filter((c) => PAUSE.test(nameOf(c)) && rendered(c) &&
+        !(c as HTMLButtonElement).disabled && c.getAttribute("aria-disabled") !== "true");
+
+    const roots = Array.from(byRoot.keys()).sort((a, b) =>
+      a === b ? 0 : (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    return roots.map((root) => {
+      const members = byRoot.get(root)!;
+      const moving = members.filter((m) => animated.has(m));
+      const counted = moving.length > 0 ? moving : [root];
+      const ids = new Set([root, ...members].map((e) => e.id).filter(Boolean));
+      const parent = root.parentElement;
+      const scope = parent && parent !== document.body && parent !== document.documentElement ? parent : root;
+      const credit = pauseControls.find((c) => scope.contains(c) ||
+        (c.getAttribute("aria-controls") ?? "").split(/\s+/).some((id) => ids.has(id)));
+      return {
+        selector: uniq(root),
+        rect: docRect(root),
+        memberCount: counted.length,
+        members: counted.slice(0, 10).map(uniq),
+        detectedBy: moving.length > 0 ? "getAnimations" : "class name",
+        credited: credit ? uniq(credit) : null,
+      };
+    });
+  });
+
+  // Capped at ten groups, document order, like the other located detectors.
+  let pushed = 0;
+  for (const g of groups) {
+    if (g.credited) {
+      ctx.motionControlsCredited.push({ content: g.selector, control: g.credited });
+      continue;
+    }
+    if (pushed >= 10) continue;
+    pushMotionBarrier(ctx, g);
+    pushed++;
+  }
+}
+
+/** One 2.2.2 barrier for an uncredited motion group. */
+function pushMotionBarrier(
+  ctx: BarrierContext,
+  g: { selector: string; rect: { x: number; y: number; width: number; height: number };
+    memberCount: number; members: string[]; detectedBy: string },
+): void {
+  ctx.barriers.push({
+    type: "cognitive_load",
+    element: g.selector,
+    description: `Moving content (${g.memberCount} animated element${g.memberCount === 1 ? "" : "s"}, found by ${g.detectedBy}) has no associated pause, stop or hide control - may distract users with attention difficulties`,
+    affectedPersonas: ["cognitive-adhd", "dyslexic-user"],
+    // Pause, Stop, Hide only. 2.3.1 (Three Flashes) is a seizure-safety
+    // criterion about flash RATE, and nothing here measures flashing. Citing
+    // it published a Level A violation for every page with an animate-*
+    // utility. (2026-10-07)
+    wcagCriteria: ["2.2.2"],
+    severity: "minor",
+    remediation: "Add a visible pause/stop control inside the moving content (or name it with aria-controls), or honour prefers-reduced-motion",
+    rect: g.rect,
+    affectedElementCount: g.memberCount,
+    members: g.members,
+  });
+  ctx.wcagViolations.add("2.2.2");
 }
 
 /**
@@ -1449,23 +1605,36 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
   // Check for auto-playing media (distraction for ADHD)
   const autoPlayMedia = await page.$$eval(
     'video[autoplay], audio[autoplay], [class*="autoplay"]',
-    (elements) => elements.map(el => ({
-      selector: el.tagName.toLowerCase(),
-      hasControls: el.hasAttribute('controls'),
-      hasMuted: el.hasAttribute('muted'),
-    }))
+    (elements) => elements.map(el => {
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
+      return {
+        tag: el.tagName.toLowerCase(),
+        // Was the bare tag name: every autoplaying video was "video".
+        selector: uniq ? uniq(el) : el.tagName.toLowerCase(),
+        hasControls: el.hasAttribute('controls'),
+        hasMuted: el.hasAttribute('muted'),
+      };
+    })
   );
 
   for (const media of autoPlayMedia) {
-    if (!media.hasMuted) {
+    // Native `controls` ARE a pause/stop mechanism -- this barrier's own
+    // remediation says so -- and satisfy both 1.4.2 and 2.2.2. hasControls was
+    // computed and never read, so a video with a play/pause bar was reported
+    // as uncontrollable. Same defect as the uncredited carousel. (B5 sibling,
+    // 2026-10-09)
+    if (!media.hasMuted && !media.hasControls) {
       barriers.push({
         type: "cognitive_load",
         element: media.selector,
-        description: `Auto-playing ${media.selector} with sound can be highly distracting for users with ADHD`,
+        description: `Auto-playing ${media.tag} with sound can be highly distracting for users with ADHD`,
         affectedPersonas: ["cognitive-adhd"],
         wcagCriteria: ["1.4.2", "2.2.2"],
         severity: "critical",
         remediation: "Add muted attribute to autoplay media, or provide user controls to pause/stop",
+        // Deliberately no rect. This is a finding about SOUND, which is heard
+        // on first paint wherever the element sits; a rect would let the
+        // viewport filter drop an autoplaying video below the fold.
       });
       ctx.wcagViolations.add("1.4.2");
     }
@@ -1772,6 +1941,7 @@ async function simulateAccessibilityJourney(
     wcagLevel,
     unverifiableMedia: [],
     advisories: [],
+    motionControlsCredited: [],
   };
 
   // Named for what it is computed from. See EmpathyPersonaResult in types.ts:
@@ -2224,6 +2394,9 @@ async function simulateAccessibilityJourney(
     barriers: ctx.barriers,
     // Above the audited level: reported, never scored. See splitAboveAuditLevel.
     ...(ctx.advisories.length > 0 ? { advisories: ctx.advisories } : {}),
+    // Moving content that would have been a 2.2.2 barrier but has an
+    // associated pause control. Listed so a credit is visible as one.
+    ...(ctx.motionControlsCredited.length > 0 ? { motionControlsCredited: ctx.motionControlsCredited } : {}),
     // Surfaced, not kept internal: a filter whose effect is invisible cannot be
     // told apart from a filter that never ran, and that is exactly the defect
     // this closes.

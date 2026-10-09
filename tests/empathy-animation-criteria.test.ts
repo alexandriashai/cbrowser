@@ -46,15 +46,27 @@ beforeAll(async () => {
 
 afterAll(async () => { await browser?.close(); });
 
+// Found by what it is, not by `element === "animation"`: that literal string
+// WAS the defect B5 fixed (2026-10-09). The barrier is now located -- a unique
+// selector and a rect -- so the element field names the animated div.
+const isMotion = (b: { description: string }) => /^Moving content/.test(b.description);
+
 describe("animation barrier criteria", () => {
   test("the fixture produces an animation barrier at all", () => {
-    const anim = result.results[0].barriers.filter((b) => b.element === "animation");
+    const anim = result.results[0].barriers.filter(isMotion);
     expect(anim.length).toBe(1);
   });
 
   test("the animation barrier cites 2.2.2 only", () => {
-    const anim = result.results[0].barriers.find((b) => b.element === "animation")!;
+    const anim = result.results[0].barriers.find(isMotion)!;
     expect(anim.wcagCriteria).toEqual(["2.2.2"]);
+  });
+
+  test("the animation barrier is located, not the literal string \"animation\"", () => {
+    const anim = result.results[0].barriers.find(isMotion)!;
+    expect(anim.element).not.toBe("animation");
+    expect(anim.element).toContain("div");
+    expect(anim.rect).toBeDefined();
   });
 
   test("2.3.1 is not published as a violation; 2.2.2 still is", () => {
