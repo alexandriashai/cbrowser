@@ -24,6 +24,14 @@
  * page.evaluate calls are not gated: they are fixed code, not caller input.
  */
 
+/**
+ * How an MCP caller gets past a red refusal. The shared refusal text says
+ * "--force" (the CLI flag), which an MCP client cannot pass; its parameter is
+ * `force: true`. Attached to every MCP red refusal so the response names the
+ * spelling the caller can actually use. (Alexa, 2026-10-09)
+ */
+export const RED_ZONE_MCP_HINT = "Re-run with force: true (the MCP tool parameter; --force is the CLI flag).";
+
 /** Why evaluate_script is red, stated in every refusal. */
 export const EVALUATE_SCRIPT_RED_REASON =
   "arbitrary page script can activate any control (click, submit, delete) without passing the element-level red-zone gate";

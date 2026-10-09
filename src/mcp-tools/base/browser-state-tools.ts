@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { evaluateScriptRefusal } from "../../security/script-gate.js";
+import { evaluateScriptRefusal, RED_ZONE_MCP_HINT } from "../../security/script-gate.js";
 
 /**
  * Register browser state tools (5 tools)
@@ -44,7 +44,8 @@ export function registerBrowserStateTools(
           success: false,
           result: null,
           zone: "red",
-          message: refusal,
+          message: `${refusal}. ${RED_ZONE_MCP_HINT}`,
+          howToRun: RED_ZONE_MCP_HINT,
           ...(_browserToken ? { _browserToken } : {}),
         }, null, 2) }],
       };

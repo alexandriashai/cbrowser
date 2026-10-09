@@ -8,6 +8,7 @@
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { buildContentWithScreenshots } from "../screenshot-utils.js";
+import { RED_ZONE_MCP_HINT } from "../../security/script-gate.js";
 
 /**
  * Register interaction tools (5 tools: click, smart_click, dismiss_overlay, fill, scroll)
@@ -51,6 +52,7 @@ export function registerInteractionTools(
       // The zone the click was judged in and what the selector resolved to, so a refused red names its target.
       if (result.zone) response.zone = result.zone;
       if (result.target) response.target = result.target;
+      if (!result.success && result.zone === "red") response.howToRun = RED_ZONE_MCP_HINT;
       if (verbose && !result.success) {
         if (result.availableElements) response.availableElements = result.availableElements;
         if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
@@ -123,6 +125,7 @@ export function registerInteractionTools(
               healed: result.healed,
               healReason: result.healReason,
               zone: result.zone,
+              ...(!result.success && result.zone === "red" ? { howToRun: RED_ZONE_MCP_HINT } : {}),
               ...(token ? { _browserToken: token } : {}),
             }, null, 2),
           },
