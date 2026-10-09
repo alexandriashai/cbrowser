@@ -657,9 +657,12 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         let relevanceScores: Record<number, number> | undefined;
         let relevanceSource: string | undefined;
         let relevanceReasoning: string | undefined;
+        // Method AND provenance: whether this call judged, or replayed a
+        // cached judgement (and how old it is). See relevanceProvenance.
+        let relevanceFields: Record<string, unknown> = {};
         if (domAttentionElements.length > 0) {
           try {
-            const { judgeRelevance } = await import("../../visual/llm-relevance.js");
+            const { judgeRelevance, relevanceProvenance } = await import("../../visual/llm-relevance.js");
             const { getAnthropicApiKey } = await import("../../cognitive/index.js");
             const { getActiveTier } = await import("../tier-gate.js");
             const { tierHasAccess } = await import("../tool-categories.js");
@@ -684,6 +687,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             relevanceScores = judged.scores;
             relevanceSource = judged.source;
             relevanceReasoning = judged.reasoning;
+            relevanceFields = relevanceProvenance(judged);
           } catch { /* keyword path inside buildSemanticMap remains the floor */ }
         }
 
@@ -803,7 +807,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
                 note: narrativeReconciliation.reconciliationNote,
               },
             } : {}),
-            ...(relevanceSource ? { relevanceMethod: relevanceSource } : {}),
+            // relevanceMethod, relevanceCached, and the cache age when replayed.
+            ...(relevanceSource ? relevanceFields : {}),
             // These two lines used to read as a contradiction — "Scattered
             // attention (overwhelmed)" printed directly above "Attention
             // concentrated on few areas". The numbers were never wrong; the

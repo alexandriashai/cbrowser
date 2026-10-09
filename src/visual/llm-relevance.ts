@@ -37,16 +37,21 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { getTraitDefinition, getTraitLevel } from "../trait-reference.js";
 
-const CACHE_DIR = join(
-  process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser"),
-  "llm-relevance-cache",
-);
+/**
+ * Resolved per call, not frozen at import. A module-level constant read
+ * CBROWSER_DATA_DIR once, at whichever import came first, so a process that set
+ * it later (a test isolating its cache, a hosted request scoped to an account)
+ * still read and wrote the shared ~/.cbrowser cache.
+ */
+function cacheDir(): string {
+  return join(process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser"), "llm-relevance-cache");
+}
 
 /**
  * Element as the relevance judge sees it.
@@ -128,10 +133,58 @@ export interface RelevanceResult {
   scores: Record<number, number>;
   /** Which method produced these numbers. Never omit this from telemetry. */
   source: "llm" | "keyword-fallback";
+  /**
+   * True when this result was replayed from the on-disk cache rather than
+   * judged now. A cached judgement repeats its reasoning word for word, which
+   * is the point (a regression run must repeat its answer) and also looks
+   * exactly like a model that ignores the page unless it is labelled.
+   */
   cached: boolean;
+  /** When the judgement was made (ISO 8601). Set on fresh LLM results and carried into the cache. */
+  judgedAt?: string;
+  /**
+   * Age of a cached judgement in milliseconds, at read time. Present only on a
+   * cache hit. Entries written before judgedAt existed are aged from the cache
+   * file's modification time, which is when they were written.
+   */
+  cacheAgeMs?: number;
   model?: string;
   /** Present when the LLM path was attempted and could not be used. */
   unavailable?: string;
+}
+
+/**
+ * The payload fields that say where a relevance judgement came from.
+ *
+ * `relevanceMethod` alone said WHICH method ran. It did not say WHEN: two
+ * attention_analysis runs returned attentionReasoning word for word identical,
+ * which reads as a model ignoring the page, and was in fact the second run
+ * replaying the first from the cache (B23, 2026-10-09). The cache is right to
+ * exist; leaving it unlabelled is what made a correct replay look like a defect.
+ */
+export function relevanceProvenance(
+  judged: Pick<RelevanceResult, "source" | "cached" | "cacheAgeMs" | "judgedAt">,
+): {
+  relevanceMethod: RelevanceResult["source"];
+  relevanceCached: boolean;
+  relevanceCacheAgeSeconds?: number;
+  relevanceJudgedAt?: string;
+  relevanceCacheNote?: string;
+} {
+  const ageSeconds = judged.cached && typeof judged.cacheAgeMs === "number"
+    ? Math.round(judged.cacheAgeMs / 1000)
+    : undefined;
+  return {
+    relevanceMethod: judged.source,
+    relevanceCached: judged.cached === true,
+    ...(ageSeconds !== undefined ? { relevanceCacheAgeSeconds: ageSeconds } : {}),
+    ...(judged.judgedAt ? { relevanceJudgedAt: judged.judgedAt } : {}),
+    ...(judged.cached ? {
+      relevanceCacheNote: "The relevance scores and attentionReasoning were replayed from a cache keyed on the persona, "
+        + "goal and the page's element set (text, geometry, colour), not judged on this call. Identical wording "
+        + "across runs of an unchanged page is this cache, by design, so repeated runs are comparable.",
+    } : {}),
+  };
 }
 
 /** The model rung this layer runs on. Judgement task, not a reasoning task. */
@@ -172,9 +225,17 @@ function cacheKey(elements: RelevanceElement[], ctx: RelevanceContext): string {
 
 function readCache(key: string): RelevanceResult | null {
   try {
-    const p = join(CACHE_DIR, `${key}.json`);
+    const p = join(cacheDir(), `${key}.json`);
     if (!existsSync(p)) return null;
-    return { ...(JSON.parse(readFileSync(p, "utf8")) as RelevanceResult), cached: true };
+    const entry = JSON.parse(readFileSync(p, "utf8")) as RelevanceResult;
+    const judgedAtMs = entry.judgedAt ? Date.parse(entry.judgedAt) : NaN;
+    const bornMs = Number.isFinite(judgedAtMs) ? judgedAtMs : statSync(p).mtimeMs;
+    return {
+      ...entry,
+      cached: true,
+      judgedAt: entry.judgedAt ?? new Date(bornMs).toISOString(),
+      cacheAgeMs: Math.max(0, Math.round(Date.now() - bornMs)),
+    };
   } catch {
     return null;
   }
@@ -182,8 +243,12 @@ function readCache(key: string): RelevanceResult | null {
 
 function writeCache(key: string, value: RelevanceResult): void {
   try {
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(join(CACHE_DIR, `${key}.json`), JSON.stringify(value));
+    const dir = cacheDir();
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    // Never persist the read-side fields: an entry that stored cached:true or
+    // an age would replay a stale age forever.
+    const { cacheAgeMs: _age, ...entry } = value;
+    writeFileSync(join(dir, `${key}.json`), JSON.stringify({ ...entry, cached: false }));
   } catch { /* a cold cache is slower, never wrong */ }
 }
 
@@ -468,6 +533,7 @@ export async function judgeRelevance(
 
     const result: RelevanceResult = {
       scores, source: "llm", cached: false, model: RELEVANCE_MODEL,
+      judgedAt: new Date().toISOString(),
       sawScreenshot: Boolean(ctx.screenshot),
       ...(typeof parsed.reasoning === "string" ? { reasoning: parsed.reasoning } : {}),
     };
