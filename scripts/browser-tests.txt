@@ -18,7 +18,9 @@
 
 tests/agent-ready-findability-remediation.test.ts
 tests/alt-attribute-classification.test.ts
+tests/attention-heatmap-inline.test.ts
 tests/cli-evaluate-keyboard.test.ts
+tests/cognitive-effort-motor-preview.test.ts
 tests/empathy-animation-criteria.test.ts
 tests/empathy-disability-label.test.ts
 tests/empathy-hover-self-interactive.test.ts
@@ -38,3 +40,4 @@ tests/screenshot-no-viewport-resize.test.ts
 tests/selector-escape.test.ts
 tests/sticky-overlay-threshold.test.ts
 tests/svg-classname.test.ts
+tests/visual-story-inline.test.ts

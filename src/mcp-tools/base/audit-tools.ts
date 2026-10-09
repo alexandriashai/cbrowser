@@ -10,6 +10,7 @@ import { barrierWeightFor, weightedSeverity, weightKeyFor } from "../../visual/p
 import { randomBytes } from "crypto";
 import { htmlUiResource, attachUiResource, uiResourcesEnabled, type ToolContentBlock } from "../../mcp-ui-resources.js";
 import { writeArtifact } from "../../artifact-store.js";
+import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import {
@@ -714,7 +715,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
   server.registerTool("visual_cognitive_story", {
     title: "Visual Cognitive Story",
-    description: "Generate a complete visual narrative of how a persona experiences a page. Produces multiple annotated screenshots: attention heatmap (where they look), motor overlay (what they can click), attention quality (do they see the CTAs), and a written narrative connecting effort, attention, and conversion. Returns all images as public URLs.",
+    description: "Generate a complete visual narrative of how a persona experiences a page. Produces multiple annotated screenshots: attention heatmap (where they look), motor overlay (what they can click), attention quality (do they see the CTAs), and a written narrative connecting effort, attention, and conversion. Returns every image inline as a JPEG preview (the result-size budget split between them; see imagePreviews) and as a full-resolution PNG URL under images.",
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       persona: z.string().optional().default("cognitive-adhd").describe("Persona name"),
@@ -790,8 +791,14 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         // (directory creation is the artifact store's job now)
         const ts = Date.now();
 
-        const images: Array<{ type: "image"; data: string; mimeType: string }> = [];
+        // Overlays to preview inline. Collected as PNGs and fitted together at
+        // the end, because up to four ~500 KB overlays went out inline at full
+        // size: two million characters against a ~150k result cap.
+        const overlays: PreviewSource[] = [];
         const urls: Record<string, string> = {};
+        const fullResolutionOf = (name: string) => urls[name]
+          ? `the PNG at images.${name}`
+          : "not available (the artifact store was unavailable, so the full-resolution PNG was not saved)";
 
         // ── 1. Attention Heatmap ──
         let attentionData: { entropy: number; concentration: number; hotspots: Array<{ x: number; y: number; saliency: number; row: number; col: number }>; saliencyMap?: { cells: Float64Array; rows: number; cols: number } } | null = null;
@@ -816,9 +823,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             const { generateHeatmapOverlay } = await import("../../visual/heatmap-overlay.js");
             const heatB64 = await generateHeatmapOverlay(ssPath, attnResult.saliencyMap.cells, attnResult.saliencyMap.rows, attnResult.saliencyMap.cols, `${persona} Attention`);
             const heatId = `story-attn-${persona}-${ts}`;
-            const w_attention = writeArtifact(Buffer.from(heatB64, "base64"), `${heatId}.png`);
+            const heatPng = Buffer.from(heatB64, "base64");
+            const w_attention = writeArtifact(heatPng, `${heatId}.png`);
             if (w_attention) urls.attention = w_attention.url;
-            images.push({ type: "image", data: heatB64, mimeType: "image/png" });
+            overlays.push({ name: "attention", png: heatPng, fullResolution: fullResolutionOf("attention") });
             // Auto-save to gallery
             try {
               const { saveVisualReport } = await import("../visual-report-saver.js");
@@ -865,9 +873,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           const cssVW = await page.evaluate(() => window.innerWidth).catch(() => 1920);
           const motorB64 = await generateMotorOverlay(ssPath, motorElements, persona, cssVW);
           const motorId = `story-motor-${persona}-${ts}`;
-          const w_motor = writeArtifact(Buffer.from(motorB64, "base64"), `${motorId}.png`);
+          const motorPng = Buffer.from(motorB64, "base64");
+          const w_motor = writeArtifact(motorPng, `${motorId}.png`);
           if (w_motor) urls.motor = w_motor.url;
-          images.push({ type: "image", data: motorB64, mimeType: "image/png" });
+          overlays.push({ name: "motor", png: motorPng, fullResolution: fullResolutionOf("motor") });
           try { const { saveVisualReport } = await import("../visual-report-saver.js"); const { getSessionApiKey } = await import("./cognitive-tools.js"); saveVisualReport({ apiKey: getSessionApiKey(), imageUrl: urls.motor, toolName: "visual_cognitive_story_motor", targetUrl: url, persona }); } catch {}
         } catch (e) { console.debug(`[story] Motor failed: ${(e as Error).message}`); }
 
@@ -940,9 +949,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
               const cssVW2 = await page.evaluate(() => window.innerWidth).catch(() => 1920);
               const qualB64 = await generateAttentionQualityOverlay(ssPath, overlayTargets, persona, cssVW2);
               const qualId = `story-quality-${persona}-${ts}`;
-              const w_quality = writeArtifact(Buffer.from(qualB64, "base64"), `${qualId}.png`);
+              const qualPng = Buffer.from(qualB64, "base64");
+              const w_quality = writeArtifact(qualPng, `${qualId}.png`);
               if (w_quality) urls.quality = w_quality.url;
-              images.push({ type: "image", data: qualB64, mimeType: "image/png" });
+              overlays.push({ name: "quality", png: qualPng, fullResolution: fullResolutionOf("quality") });
               try { const { saveVisualReport } = await import("../visual-report-saver.js"); const { getSessionApiKey } = await import("./cognitive-tools.js"); saveVisualReport({ apiKey: getSessionApiKey(), imageUrl: urls.quality, toolName: "visual_cognitive_story_quality", targetUrl: url, persona }); } catch {}
             }
 
@@ -1027,9 +1037,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             cssVW3,
           );
           const combId = `story-combined-${persona}-${ts}`;
-          const w_combined = writeArtifact(Buffer.from(combinedB64, "base64"), `${combId}.png`);
+          const combinedPng = Buffer.from(combinedB64, "base64");
+          const w_combined = writeArtifact(combinedPng, `${combId}.png`);
           if (w_combined) urls.combined = w_combined.url;
-          images.push({ type: "image", data: combinedB64, mimeType: "image/png" });
+          overlays.push({ name: "combined", png: combinedPng, fullResolution: fullResolutionOf("combined") });
           try { const { saveVisualReport } = await import("../visual-report-saver.js"); const { getSessionApiKey } = await import("./cognitive-tools.js"); saveVisualReport({ apiKey: getSessionApiKey(), imageUrl: urls.combined, toolName: "visual_cognitive_story_combined", targetUrl: url, persona }); } catch {}
         } catch (e) { console.debug(`[story] Combined overlay failed: ${(e as Error).message}`); }
 
@@ -1150,10 +1161,14 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           duration: `${Date.now() - startTime}ms`,
         };
 
-        const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [
-          { type: "text", text: JSON.stringify(storyResponse, null, 2) },
-          ...images,
-        ];
+        // Every overlay rides along as a preview, the budget split between them
+        // so text plus all images stays under the cap; imagePreviews says what
+        // each inline image is and where its full-resolution PNG lives.
+        const content = await buildContentWithPreviews(
+          storyResponse,
+          overlays,
+          (previews) => ({ imagePreviews: previews }),
+        );
 
         try { unlinkSync(ssPath); } catch {}
         return { content };
