@@ -4488,11 +4488,15 @@ For more help: https://playwright.dev/docs/browsers
         const maxScroll = Math.max(0, docHeight - vh);
         const pct = maxScroll > 0 ? scrollY / maxScroll : 0;
 
-        // Headings outline — including which are currently visible
+        // Headings outline — including which are currently visible.
+        // innerText is "" inside a render-skipped subtree (content-visibility:
+        // auto below the fold), which silently dropped every below-fold heading;
+        // textContent is layout-independent, so it is the fallback.
         const headings: Array<{ level: number; text: string; visible: boolean }> = [];
         document.querySelectorAll('h1, h2, h3, h4').forEach(el => {
           const r = el.getBoundingClientRect();
-          const text = (el as HTMLElement).innerText?.trim().substring(0, 100);
+          const text = ((el as HTMLElement).innerText?.trim()
+            || el.textContent?.replace(/\s+/g, ' ').trim() || '').substring(0, 100);
           if (text) {
             headings.push({
               level: parseInt(el.tagName.charAt(1)),
@@ -4571,8 +4575,15 @@ For more help: https://playwright.dev/docs/browsers
           // Order matters: most specific first.
           const classifyRegion = (el: Element, top: number, bottom: number): string => {
             const inside = (sel: string) => !!el.closest(sel);
-            if (inside('nav, [role="navigation"], header[role="banner"]') || inside('header')) return 'header-nav';
+            // Footer BEFORE nav: site footers hold their link groups in <nav>
+            // (cbrowser.ai: <footer><nav aria-label="Product links">), and
+            // testing nav first labelled every footer link header-nav.
             if (inside('footer, [role="contentinfo"]')) return 'footer';
+            if (inside('nav, [role="navigation"], header[role="banner"]')) return 'header-nav';
+            // A <header> is the page banner only outside article/aside/main/
+            // section (HTML-AAM); a card's or section's own header is not.
+            const header = el.closest('header');
+            if (header && !header.parentElement?.closest('article, aside, main, section')) return 'header-nav';
             if (inside('aside, [role="complementary"], [role="dialog"], [aria-modal="true"]')) {
               return inside('[role="dialog"], [aria-modal="true"]') ? 'modal' : 'sidebar';
             }
@@ -4581,6 +4592,25 @@ For more help: https://playwright.dev/docs/browsers
             if (top < vh * 0.15) return 'top-bar';
             if (top < vh) return 'main-visible';
             return 'below-fold';
+          };
+          // Accessible-ish text for an element. innerText is "" for anything in
+          // a render-skipped subtree (content-visibility:auto below the fold),
+          // so a below-fold "Hunt bugs" button used to be listed with no text.
+          // Order: rendered text, aria-label, value, textContent (layout-
+          // independent, whitespace collapsed), title.
+          const textOf = (el: Element): string => {
+            const candidates = [
+              (el as HTMLElement).innerText,
+              el.getAttribute("aria-label"),
+              el.getAttribute("value"),
+              el.textContent?.replace(/\s+/g, " "),
+              el.getAttribute("title"),
+            ];
+            for (const c of candidates) {
+              const t = c?.trim();
+              if (t) return t.substring(0, 80);
+            }
+            return "";
           };
           // Deduplicate, filter visible, sort by vertical position
           const seen = new Set<Element>();
@@ -4598,7 +4628,7 @@ For more help: https://playwright.dev/docs/browsers
               const aboveFold = r.top < vh && r.bottom > 0;
               return {
                 tag: el.tagName.toLowerCase(),
-                text: (el as HTMLElement).innerText?.trim().substring(0, 80) || el.getAttribute("aria-label") || el.getAttribute("value") || "",
+                text: textOf(el),
                 selector: el.getAttribute("data-testid")
                   ? `[data-testid="${el.getAttribute("data-testid")!.replace(/"/g, '\\"')}"]`
                   : el.id
@@ -4645,12 +4675,15 @@ For more help: https://playwright.dev/docs/browsers
 
           // Find associated label
           let label = "";
+          // textContent fallback: innerText is "" in a render-skipped subtree.
+          const labelText = (l: Element) =>
+            ((l as HTMLElement).innerText?.trim() || l.textContent?.replace(/\s+/g, " ").trim() || "").substring(0, 50);
           if (input.id) {
             const labelEl = document.querySelector(`label[for="${input.id}"]`);
-            if (labelEl) label = (labelEl as HTMLElement).innerText?.trim().substring(0, 50) || "";
+            if (labelEl) label = labelText(labelEl);
           }
           if (!label && input.closest("label")) {
-            label = (input.closest("label") as HTMLElement).innerText?.trim().substring(0, 50) || "";
+            label = labelText(input.closest("label")!);
           }
 
           // For hidden elements, try to find the visible trigger
