@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.1.8](https://github.com/alexandriashai/cbrowser/compare/v19.1.7...v19.1.8) (2026-10-09)
+
+### Fixed
+
+* **safety:** close the gaps a cross-vendor audit reproduced in the red-zone gate ([7289204](https://github.com/alexandriashai/cbrowser/commit/7289204d29c7cb42121ae8eca99f3a1c4be7095e))
+* **safety:** gate keystrokes that activate a red control, and narrow container text ([011d430](https://github.com/alexandriashai/cbrowser/commit/011d4302bffb6f6b518756a8482f1686de884c10))
+* **safety:** judge a container click by the control at its centre ([0e02bff](https://github.com/alexandriashai/cbrowser/commit/0e02bff0de0fe517b9a5beb578ac6a29f4967431))
+* **safety:** judge red-zone clicks by the element, not the selector string ([8c1db73](https://github.com/alexandriashai/cbrowser/commit/8c1db73c8ac3cf3621d023ac2b8cdd999753c449)), closes [#id](https://github.com/alexandriashai/cbrowser/issues/id)
+* **safety:** judge what a pointer or Enter actually activates, including non-role items ([d09401f](https://github.com/alexandriashai/cbrowser/commit/d09401f20fb149cc96f15b3c84259210e5dccabe))
+* **safety:** judge what the pointer reaches, and stop refusing fields and inert text ([45d0e1e](https://github.com/alexandriashai/cbrowser/commit/45d0e1e7f01568fabe97ccc94a46bd0ccf0b192a))
+* **safety:** pin every audited shape and close the round-6 gaps in the red-zone gate ([0f6f3e5](https://github.com/alexandriashai/cbrowser/commit/0f6f3e5bfd266665c3ead490381cce5b5b13bffa))
+
 ## [19.1.7](https://github.com/alexandriashai/cbrowser/compare/v19.1.6...v19.1.7) (2026-10-07)
 
 ### Fixed
