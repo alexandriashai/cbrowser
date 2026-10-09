@@ -55,3 +55,4 @@ tests/svg-classname.test.ts
 tests/visual-story-inline.test.ts
 tests/attention-session-scroll.test.ts
 tests/attention-reasoning-provenance.test.ts
+tests/nl-assert-suggestion-snippet.test.ts

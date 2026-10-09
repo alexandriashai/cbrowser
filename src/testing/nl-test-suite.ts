@@ -397,32 +397,93 @@ export interface NLTestSuiteOptions {
   capture?: AutoCaptureSetting;
 }
 
+/** Longest snippet shown to a reader; a longer line is trimmed at word boundaries around the match. */
+const SNIPPET_MAX = 80;
+
+const collapseWhitespace = (s: string): string => s.replace(/\s+/g, " ").trim();
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
- * Find partial text matches for a failed content assertion.
+ * The text of `line` around [start, end), never cut mid-word.
+ *
+ * A line that fits is returned whole. A longer one is widened from the match to
+ * whole words, then by whole words on either side while it stays under
+ * SNIPPET_MAX. `line` is already whitespace-collapsed, so words are split by a
+ * single space.
  */
-function findPartialMatches(pageText: string, expected: string, maxResults: number = 3): string[] {
-  if (!pageText || !expected) return [];
-  const lowerPage = pageText.toLowerCase();
-  const lowerExpected = expected.toLowerCase();
-  const matches: string[] = [];
-
-  // Check word-by-word overlap
-  const words = lowerExpected.split(/\s+/).filter(w => w.length > 2);
-  for (const word of words) {
-    const idx = lowerPage.indexOf(word);
-    if (idx !== -1) {
-      // Extract surrounding context (up to 60 chars)
-      const start = Math.max(0, idx - 20);
-      const end = Math.min(pageText.length, idx + word.length + 40);
-      const context = pageText.substring(start, end).trim();
-      if (!matches.some(m => m.includes(context.substring(0, 20)))) {
-        matches.push(context);
-      }
+function wordWindow(line: string, start: number, end: number): string {
+  if (line.length <= SNIPPET_MAX) return line;
+  let s = start;
+  let e = end;
+  while (s > 0 && line[s - 1] !== " ") s--;
+  while (e < line.length && line[e] !== " ") e++;
+  for (let grew = true; grew;) {
+    grew = false;
+    if (e < line.length) {
+      let ne = e + 1;
+      while (ne < line.length && line[ne] !== " ") ne++;
+      if (ne - s <= SNIPPET_MAX) { e = ne; grew = true; }
     }
-    if (matches.length >= maxResults) break;
+    if (s > 0) {
+      let ns = s - 1;
+      while (ns > 0 && line[ns - 1] !== " ") ns--;
+      if (e - ns <= SNIPPET_MAX) { s = ns; grew = true; }
+    }
   }
+  return line.slice(s, e).trim();
+}
 
-  return matches;
+/**
+ * Near-miss text for a failed content assertion, as a reader should see it.
+ *
+ * Every entry is real page text in its real case, on one line, whitespace
+ * collapsed, and never cut mid-word, so it can be pasted straight back into
+ * `verify page contains "..."`.
+ *
+ * The previous version took a raw 60-character window of innerText (20 before
+ * the first matching WORD, 40 after) and the suggestion then cut that to 50.
+ * On cbrowser.ai, `verify page contains "pERSONA tESTING fOR pRODUCT"` came back
+ * as `Try: verify page contains "⌘\nK\nLog in\nSign up\nPersona Testing for
+ * Product Tea"` -- toolbar glyphs, newlines, cut inside "Teams" -- a suggestion
+ * that fails if pasted (B22, 2026-10-09).
+ *
+ * Order of preference: the whole target matched case-insensitively within a
+ * rendered line (that line's text); then across a line break; and only when
+ * neither exists, lines containing the target's individual words.
+ *
+ * @param pageText Rendered innerText, NOT lowercased or flattened -- its case
+ *                 and line breaks are what make the snippet usable.
+ */
+export function findPartialMatches(pageText: string, expected: string, maxResults: number = 3): string[] {
+  if (!pageText || !expected) return [];
+  const needle = collapseWhitespace(expected);
+  if (!needle) return [];
+  const lines = pageText.split(/\n+/).map(collapseWhitespace).filter(Boolean);
+  const out: string[] = [];
+  const add = (snippet: string) => { if (snippet && !out.includes(snippet)) out.push(snippet); };
+  const whole = new RegExp(escapeRegExp(needle), "i");
+
+  for (const line of lines) {
+    if (out.length >= maxResults) break;
+    const m = whole.exec(line);
+    if (m) add(wordWindow(line, m.index, m.index + m[0].length));
+  }
+  if (out.length === 0) {
+    const flat = lines.join(" ");
+    const m = whole.exec(flat);
+    if (m) add(wordWindow(flat, m.index, m.index + m[0].length));
+  }
+  if (out.length > 0) return out;
+
+  for (const word of needle.split(" ").filter((w) => w.length > 2)) {
+    if (out.length >= maxResults) break;
+    const re = new RegExp(escapeRegExp(word), "i");
+    for (const line of lines) {
+      const m = re.exec(line);
+      if (m) { add(wordWindow(line, m.index, m.index + m[0].length)); break; }
+    }
+  }
+  return out;
 }
 
 /**
@@ -430,7 +491,16 @@ function findPartialMatches(pageText: string, expected: string, maxResults: numb
  */
 function generateAssertionSuggestion(step: NLTestStep, actual?: string, partialMatches?: string[]): string {
   if (step.assertionType === "contains" && partialMatches && partialMatches.length > 0) {
-    return `Partial matches found on the page. Try: verify page contains "${partialMatches[0].substring(0, 50)}"`;
+    // No substring cut here: findPartialMatches already bounds each snippet at
+    // a word boundary, and a hard cut is what produced "Product Tea". (B22)
+    const best = partialMatches[0];
+    const target = collapseWhitespace(step.target ?? "");
+    // Same letters, different case. If the snippet already holds the target
+    // exactly, case is not what failed (a line break, say), so do not claim it.
+    const caseOnly = target.length > 0 && best.toLowerCase().includes(target.toLowerCase()) && !best.includes(target);
+    return caseOnly
+      ? `The page has this text in different letter case. Try: verify page contains "${best}"`
+      : `Partial matches found on the page. Try: verify page contains "${best}"`;
   }
   if (step.assertionType === "equals" && actual) {
     return `Actual value is "${actual}". Try using 'contains' instead of exact match: verify title contains "${step.target}"`;
@@ -664,7 +734,10 @@ export async function runNLTestSuite(
                 if (step.target) {
                   const expected = step.target.toLowerCase().replace(/\s+/g, " ").trim();
                   const title = (await page.title()).toLowerCase().replace(/\s+/g, " ").trim();
-                  const bodyText = (await page.evaluate(() => document.body?.innerText || "")).toLowerCase().replace(/\s+/g, " ").trim();
+                  // Raw text kept for the near-miss snippets: they are shown to
+                  // the reader, so they need the page's own case and lines.
+                  const rawBodyText = await page.evaluate(() => document.body?.innerText || "");
+                  const bodyText = rawBodyText.toLowerCase().replace(/\s+/g, " ").trim();
                   const url = page.url().toLowerCase();
 
                   let matched = false;
@@ -674,7 +747,7 @@ export async function runNLTestSuite(
                   stepPassed = matched;
                   actualValue = matched ? `Found (fuzzy)` : `Not found`;
                   if (!matched) {
-                    const partialMatches = findPartialMatches(bodyText, expected);
+                    const partialMatches = findPartialMatches(rawBodyText, step.target);
                     stepErrorObj = {
                       reason: "Fuzzy match failed",
                       expected: step.target,
