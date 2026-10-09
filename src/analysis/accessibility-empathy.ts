@@ -358,6 +358,14 @@ export function splitAboveAuditLevel<T extends { wcagCriteria?: string[]; severi
  * animation presence, reading level -- have no coordinates and are properties of
  * the page rather than of a location on it. Dropping the unlocatable would trade
  * this bug for its opposite. (2026-08-05)
+ *
+ * A ZERO-AREA rect is kept too, exactly as a full_page audit keeps it. A
+ * display:none element resolves to {0,0,0,0}: it is not outside the viewport,
+ * it is nowhere, so it has no position to filter on. Dropping it scored the
+ * same unlabelled hidden input in full_page and silently removed it in
+ * viewport, under a note that called it "outside the viewport". The rect
+ * coverage reports it undrawn as zeroArea in both scopes. (Round 2,
+ * 2026-10-09)
  */
 export function filterBarriersToViewport<T extends { rect?: { x: number; y: number; width: number; height: number } }>(
   barriers: T[],
@@ -366,6 +374,7 @@ export function filterBarriersToViewport<T extends { rect?: { x: number; y: numb
   const kept = barriers.filter((b) => {
     if (!b.rect) return true; // page-level finding, not a located one
     const { x, y, width, height } = b.rect;
+    if (!(width > 0 && height > 0)) return true; // zero-area: no position to judge
     // Document coordinates, and a viewport-scoped audit never scrolls, so the
     // visible band is y 0..height and x 0..width.
     const intersectsY = y < viewport.height && y + height > 0;
