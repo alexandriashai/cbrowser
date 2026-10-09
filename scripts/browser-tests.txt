@@ -30,6 +30,7 @@ tests/find-element-by-intent-cascade.test.ts
 tests/find-element-by-intent-confidence.test.ts
 tests/find-element-zone-matches-gate.test.ts
 tests/freeze-animations.test.ts
+tests/nl-assert-case-sensitive.test.ts
 tests/recording-autocapture.test.ts
 tests/recording-change-tiers.test.ts
 tests/recording-engine.test.ts

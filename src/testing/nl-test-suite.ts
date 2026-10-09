@@ -163,8 +163,10 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     };
   }
 
-  // Wait for text pattern
-  const waitForMatch = lower.match(/^wait\s+(?:for|until)\s+['"](.+?)['"]\s+(?:appears?|is visible|shows?)$/i);
+  // Wait for text pattern. Matched on `trimmed`, not `lower`: the pattern is
+  // already /i, and the captured text goes to waitForSelector and to an
+  // innerText.includes() fallback, both of which are case-sensitive.
+  const waitForMatch = trimmed.match(/^wait\s+(?:for|until)\s+['"](.+?)['"]\s+(?:appears?|is visible|shows?)$/i);
   if (waitForMatch) {
     return {
       instruction,
@@ -183,8 +185,9 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     };
   }
 
-  // v16.7.1: Wait for element pattern (more flexible)
-  const waitForElementMatch = lower.match(/^wait\s+(?:for|until)\s+(?:the\s+)?(.+?)\s+(?:to\s+)?(?:appear|load|exist|be\s+visible)$/i);
+  // v16.7.1: Wait for element pattern (more flexible). `trimmed` for the same
+  // reason: a selector like #SubmitBtn must not arrive as #submitbtn.
+  const waitForElementMatch = trimmed.match(/^wait\s+(?:for|until)\s+(?:the\s+)?(.+?)\s+(?:to\s+)?(?:appear|load|exist|be\s+visible)$/i);
   if (waitForElementMatch) {
     return {
       instruction,
@@ -216,8 +219,11 @@ export function parseNLInstruction(instruction: string): NLTestStep {
     { pattern: /^(?:verify|assert|check|ensure)\s+(?:that\s+)?(?:there\s+are\s+)?(\d+)\s+(.+?)$/i, type: "count" as const, assertType: "count" as const },
   ];
 
+  // Matched against `trimmed`, not `lower`: every pattern is /i already, and
+  // matching the lowercased copy returned a lowercased target, so an exact
+  // assertion could never be exact.
   for (const { pattern, type, assertType } of assertPatterns) {
-    const match = lower.match(pattern);
+    const match = trimmed.match(pattern);
     if (match) {
       return {
         instruction,
@@ -619,7 +625,9 @@ export async function runNLTestSuite(
                   }
                 }
               } else {
-                const assertResult = await browser.assert(step.instruction);
+                // Exact unless fuzzy matching was asked for: the fuzzy branch
+                // above is the case-insensitive one, so this one must not be.
+                const assertResult = await browser.assert(step.instruction, { caseSensitive: !fuzzyMatch });
                 stepPassed = assertResult.passed;
                 // v11.7.1: Don't stringify undefined to "undefined"
                 actualValue = assertResult.actual !== undefined ? String(assertResult.actual) : undefined;

@@ -4814,13 +4814,20 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Assert a condition using natural language.
+   *
+   * Text comparisons (title contains, page contains, quoted text) ignore case
+   * by default, which is what the standalone `assert` tool and CLI `assert`
+   * have always done. Pass `caseSensitive: true` to compare exactly: the NL
+   * test runner does that unless fuzzy matching was asked for, because a test
+   * step that says `verify page contains "Persona Testing"` must fail on a page
+   * that says "persona testing". Title-equals and URL checks were already exact.
    */
-  async assert(assertion: string): Promise<AssertionResult> {
+  async assert(assertion: string, options: { caseSensitive?: boolean } = {}): Promise<AssertionResult> {
     await this.getPage(); // Ensure page exists
 
     try {
       // Parse the assertion
-      const result = await this.evaluateAssertion(assertion);
+      const result = await this.evaluateAssertion(assertion, options.caseSensitive === true);
 
       this.audit("assert", assertion, "green", result.passed ? "success" : "failure");
 
@@ -4841,9 +4848,12 @@ For more help: https://playwright.dev/docs/browsers
   /**
    * Evaluate a natural language assertion.
    */
-  private async evaluateAssertion(assertion: string): Promise<Omit<AssertionResult, "screenshot">> {
+  private async evaluateAssertion(assertion: string, caseSensitive = false): Promise<Omit<AssertionResult, "screenshot">> {
     const page = await this.getPage();
     const lowerAssertion = assertion.toLowerCase();
+    // Lowercase both sides only when the caller did not ask for an exact compare.
+    const textContains = (haystack: string, needle: string): boolean =>
+      caseSensitive ? haystack.includes(needle) : haystack.toLowerCase().includes(needle.toLowerCase());
 
     // Page title assertions
     if (lowerAssertion.includes("title") && (lowerAssertion.includes("is") || lowerAssertion.includes("contains"))) {
@@ -4852,7 +4862,7 @@ For more help: https://playwright.dev/docs/browsers
       if (expected === null) return { passed: false, assertion, actual: title, message: UNPARSEABLE_MESSAGE };
 
       if (lowerAssertion.includes("contains")) {
-        const passed = title.toLowerCase().includes(expected.toLowerCase());
+        const passed = textContains(title, expected);
         return { passed, assertion, actual: title, expected, message: passed ? "Title contains expected text" : `Title "${title}" does not contain "${expected}"` };
       } else {
         const passed = title === expected;
@@ -4886,7 +4896,7 @@ For more help: https://playwright.dev/docs/browsers
         clone.querySelectorAll('script, style, noscript').forEach(el => el.remove());
         return clone.innerText || clone.textContent || "";
       }) || "";
-      const passed = content.toLowerCase().includes(expected.toLowerCase());
+      const passed = textContains(content, expected);
       // v11.7.1: Include actual content snippet for debugging (truncated to 200 chars)
       const actualSnippet = content.length > 200 ? content.substring(0, 200) + "..." : content;
 
@@ -4940,7 +4950,7 @@ For more help: https://playwright.dev/docs/browsers
         text = text.replace(/[\n\t\r]+/g, ' ').replace(/\s+/g, ' ').trim();
         return text;
       }) || "";
-      const passed = content.toLowerCase().includes(expected.toLowerCase());
+      const passed = textContains(content, expected);
 
       return { passed, assertion, expected, message: passed ? `Found "${expected}"` : `Did not find "${expected}"` };
     }
