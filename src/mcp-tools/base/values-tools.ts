@@ -1091,6 +1091,18 @@ export function registerValuesTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, async ({ persona, includeInfluencePatterns }) => {
+      // A name with no persona and no registered values returned a default
+      // profile labelled source "none" -- refused instead. (2026-10-09)
+      {
+        const { getAnyPersona, suggestPersonaNames } = await import("../../personas.js");
+        if (!getAnyPersona(persona) && resolvePersonaValues(persona).source === "none") {
+          const suggestions = suggestPersonaNames(persona);
+          return { isError: true, content: [{ type: "text" as const, text: JSON.stringify({
+            error: `Unknown persona "${persona}".${suggestions.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""} Run list_cognitive_personas for the roster.`,
+            code: "unknown_persona", persona, suggestions,
+          }, null, 2) }] };
+        }
+      }
       // Delegates so the shape is testable without an MCP server.
       const payload = await buildValuesPayload(persona, includeInfluencePatterns);
       return { content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }] };

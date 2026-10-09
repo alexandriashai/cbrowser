@@ -15,7 +15,7 @@
  * instead of random clicking.
  */
 
-import { getPersona, BUILTIN_PERSONAS } from "../personas.js";
+import { getPersona, BUILTIN_PERSONAS, getPersonaOrRefuse } from "../personas.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
@@ -114,6 +114,10 @@ export async function comparePersonas(
     headless = true,
     vision = true, // Vision ON by default (v17.1.0) - text-only misses rendered content
   } = options;
+
+  // Every name resolves (or the call is refused) before any journey starts:
+  // a typo used to run as first-timer under the typo's name. (2026-10-09)
+  for (const name of personas) getPersonaOrRefuse(name);
 
   // Check API key
   if (!isApiKeyConfigured()) {

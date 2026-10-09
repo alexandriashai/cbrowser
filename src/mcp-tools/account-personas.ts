@@ -11,15 +11,17 @@
  * WHY THIS IS NOT A DISK SYNC. The obvious fix — write every DB persona into the
  * persona directory — is wrong on a hosted server. That directory is global and
  * the table is per-account, so syncing would let one customer address another
- * customer's personas by name. These are loaded into the in-memory runtime
- * registry, scoped to the authenticated account, and never written to disk.
+ * customer's personas by name. These are loaded into an in-memory registry keyed
+ * by account and read only through that account's request scope
+ * (registerAccountPersonas), and never written to disk.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 
 import type { Persona } from "../types.js";
-import { registerPersonas } from "../personas.js";
+import { registerAccountPersonas } from "../personas.js";
+import { scopedAccountId } from "../persona-scope.js";
 
 /** Shape the CMS returns for a custom persona. */
 interface CmsPersona {
@@ -83,6 +85,12 @@ export function cmsPersonaToPersona(row: CmsPersona): Persona {
  */
 export async function loadAccountPersonas(apiKey: string | undefined): Promise<string[]> {
   if (!apiKey) return [];
+  // No account scope, nowhere safe to put them: the registry is read through
+  // the request's scope, and an unscoped write would have to be process-wide,
+  // which is the cross-tenant read this module promised not to create and did
+  // (RUNTIME_PERSONAS, 2026-08-01 to 2026-10-09).
+  const accountId = scopedAccountId();
+  if (accountId === undefined) return [];
   const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
   try {
     const res = await fetch(`${cmsUrl}/api/personas`, {
@@ -96,7 +104,7 @@ export async function loadAccountPersonas(apiKey: string | undefined): Promise<s
     const personas = rows
       .filter((r) => r && typeof r.name === "string" && r.name.length > 0)
       .map(cmsPersonaToPersona);
-    registerPersonas(personas);
+    registerAccountPersonas(accountId, personas);
     return personas.map((p) => p.name);
   } catch {
     return [];

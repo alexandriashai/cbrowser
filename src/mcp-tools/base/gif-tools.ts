@@ -93,6 +93,19 @@ export function registerGifTools(
   }, async ({ url, persona, goal, maxSteps, frameDelay, device }) => {
     const startTime = Date.now();
 
+    // Refused before launching anything; an unknown name was animated as if it
+    // were a persona. (2026-10-09)
+    {
+      const { getAnyPersona, suggestPersonaNames } = await import("../../personas.js");
+      if (!getAnyPersona(persona)) {
+        const suggestions = suggestPersonaNames(persona);
+        return { isError: true, content: [{ type: "text" as const, text: JSON.stringify({
+          error: `Unknown persona "${persona}".${suggestions.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""} Run list_cognitive_personas for the full roster. Nothing was measured.`,
+          code: "unknown_persona", persona, suggestions,
+        }, null, 2) }] };
+      }
+    }
+
     try {
       const { CBrowser: BrowserClass } = await import("../../browser.js");
       const { join } = await import("path");

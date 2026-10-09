@@ -480,7 +480,7 @@ Begin with the first persona: ${personas[0]}
       const pA = getAnyPersona(personaA);
       const pB = getAnyPersona(personaB);
       if (!pA || !pB) {
-        return { content: [{ type: "text" as const, text: `Persona not found: ${!pA ? personaA : personaB}` }] };
+        return { isError: true, content: [{ type: "text" as const, text: `Persona not found: ${!pA ? personaA : personaB}. Run list_cognitive_personas for the roster. Nothing was measured.` }] };
       }
       const profileA = getCognitiveProfile(pA as Persona | AccessibilityPersona);
       const profileB = getCognitiveProfile(pB as Persona | AccessibilityPersona);
@@ -556,6 +556,12 @@ Begin with the first persona: ${personas[0]}
       openWorldHint: false,
     },
   }, async ({ personas, count }) => {
+      // Unknown names were skipped silently, so the "maximal set" was chosen
+      // from a smaller list than the caller named. (2026-10-09)
+      const unknown = personas.filter((n) => !getAnyPersona(n));
+      if (unknown.length > 0) {
+        return { isError: true, content: [{ type: "text" as const, text: `Unknown persona(s): ${unknown.join(", ")}. Run list_cognitive_personas for the roster. Nothing was measured.` }] };
+      }
       const profiles: OTCognitiveProfile[] = [];
       for (const name of personas) {
         const p = getAnyPersona(name);
@@ -601,7 +607,7 @@ Begin with the first persona: ${personas[0]}
       const pA = getAnyPersona(personaA);
       const pB = getAnyPersona(personaB);
       if (!pA || !pB) {
-        return { content: [{ type: "text" as const, text: `Persona not found: ${!pA ? personaA : personaB}` }] };
+        return { isError: true, content: [{ type: "text" as const, text: `Persona not found: ${!pA ? personaA : personaB}. Run list_cognitive_personas for the roster. Nothing was measured.` }] };
       }
       const profileA = getCognitiveProfile(pA as Persona | AccessibilityPersona);
       const profileB = getCognitiveProfile(pB as Persona | AccessibilityPersona);
@@ -667,7 +673,7 @@ Begin with the first persona: ${personas[0]}
     },
   }, async ({ persona, informationDensity, visualComplexity, interactiveElements, textDensity, animationLevel, choiceCount, navigationDepth }) => {
       const p = getAnyPersona(persona);
-      if (!p) return { content: [{ type: "text" as const, text: `Persona not found: ${persona}` }] };
+      if (!p) return { isError: true, content: [{ type: "text" as const, text: `Persona not found: ${persona}. Run list_cognitive_personas for the roster. Nothing was measured.` }] };
       const profile = getCognitiveProfile(p as Persona | AccessibilityPersona);
       const otProfile = buildOTProfile(persona, profile.traits as unknown as Record<string, number> || {});
 

@@ -20,6 +20,35 @@ import { writeArtifact } from "../../artifact-store.js";
  * goes through artifact_fetch instead.
  */
 const INLINE_IMAGE_BUDGET = 100_000;
+
+/**
+ * Resolve a persona before anything is measured, or return the tool's refusal.
+ *
+ * Loads the calling account's CMS personas first (scoped to that account), so a
+ * custom persona resolves exactly as list_cognitive_personas shows it. An
+ * unknown name is refused here: it used to reach the relevance LLM as a bare
+ * string, which role-played it from the name alone. (2026-10-09)
+ */
+async function resolveOrRefuse(requested: string): Promise<
+  | { ok: true; name: string; resolvedFrom?: string }
+  | { ok: false; result: { isError: true; content: Array<{ type: "text"; text: string }> } }
+> {
+  try {
+    const { loadAccountPersonas } = await import("../account-personas.js");
+    const { getSessionApiKey } = await import("./cognitive-tools.js");
+    await loadAccountPersonas(getSessionApiKey());
+  } catch { /* falls back to disk and built-ins */ }
+  const { resolvePersonaForTool, UnknownPersonaError } = await import("../../personas.js");
+  try {
+    const r = resolvePersonaForTool(requested);
+    return { ok: true, name: r.name, ...(r.resolvedFrom ? { resolvedFrom: r.resolvedFrom } : {}) };
+  } catch (e) {
+    if (!(e instanceof UnknownPersonaError)) throw e;
+    return { ok: false, result: { isError: true, content: [{ type: "text" as const, text: JSON.stringify({
+      error: e.message, code: e.code, persona: requested, suggestions: e.suggestions,
+    }, null, 2) }] } };
+  }
+}
 import type { McpServer } from "../types.js";
 import {
   runVisualRegression,
@@ -457,7 +486,10 @@ export function registerVisualTestingTools(server: McpServer): void {
     // Declares the attention view. The heatmap is the finding here, and a JSON
     // list of scores is a lossy description of where a persona actually looks.
     _meta: { ui: { resourceUri: "ui://cbrowser/attention" } },
-  }, async ({ url, persona, goal, cellSize, heatmap, device, useValues, freezeAnimations: doFreeze }) => {
+  }, async ({ url, persona: requestedPersona, goal, cellSize, heatmap, device, useValues, freezeAnimations: doFreeze }) => {
+      const resolved = await resolveOrRefuse(requestedPersona);
+      if (!resolved.ok) return resolved.result;
+      const persona = resolved.name;
       const { CBrowser } = await import("../../browser.js");
       const browser = new CBrowser({
         headless: true,
@@ -524,13 +556,7 @@ export function registerVisualTestingTools(server: McpServer): void {
 
         // Run attention analysis with DOM semantic layer (visual + semantic blend)
         const { analyzeAttention } = await import("../../visual/attention-transport.js");
-        // Same reason as capture: a persona created through the account lives in
-        // the CMS, and attention_analysis resolves personas through the registry.
-        try {
-          const { loadAccountPersonas } = await import("../account-personas.js");
-          const { getSessionApiKey } = await import("./cognitive-tools.js");
-          await loadAccountPersonas(getSessionApiKey());
-        } catch { /* falls back to disk and built-ins */ }
+        // Account personas were loaded by resolveOrRefuse, before the browser.
 
         const domAttentionElements = await collectDomAttentionElements(page).catch(() => []);
 
@@ -643,6 +669,7 @@ export function registerVisualTestingTools(server: McpServer): void {
           type: "text" as const,
           text: JSON.stringify({
             persona: result.persona,
+            ...(resolved.resolvedFrom ? { resolvedFrom: resolved.resolvedFrom } : {}),
             // Stated, because two tools silently rendering at different sizes is
             // exactly what made these coordinates incomparable with a CTC run.
             // A reader can now check instead of assuming they match.
@@ -845,7 +872,15 @@ export function registerVisualTestingTools(server: McpServer): void {
       idempotentHint: true,
       openWorldHint: true,
     },
-  }, async ({ url, personaA, personaB }) => {
+  }, async ({ url, personaA: requestedA, personaB: requestedB }) => {
+      // Both refused before measuring: an unknown name compared as "maximally
+      // different" from power-user, more than the extreme real pair. (2026-10-09)
+      const resolvedA = await resolveOrRefuse(requestedA);
+      if (!resolvedA.ok) return resolvedA.result;
+      const resolvedB = await resolveOrRefuse(requestedB);
+      if (!resolvedB.ok) return resolvedB.result;
+      const personaA = resolvedA.name;
+      const personaB = resolvedB.name;
       const { CBrowser } = await import("../../browser.js");
       // Same configured viewport as attention_analysis. This tool COMPARES two
       // attention runs, so rendering at a size no other tool uses meant its
@@ -888,12 +923,14 @@ export function registerVisualTestingTools(server: McpServer): void {
         const responseData: Record<string, unknown> = {
           personaA: {
             name: personaA,
+            ...(resolvedA.resolvedFrom ? { resolvedFrom: resolvedA.resolvedFrom } : {}),
             alignment: result.personaA.alignmentScore,
             entropy: result.personaA.entropy,
             concentration: result.personaA.concentration,
           },
           personaB: {
             name: personaB,
+            ...(resolvedB.resolvedFrom ? { resolvedFrom: resolvedB.resolvedFrom } : {}),
             alignment: result.personaB.alignmentScore,
             entropy: result.personaB.entropy,
             concentration: result.personaB.concentration,

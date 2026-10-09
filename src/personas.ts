@@ -18,7 +18,7 @@ import { homedir } from "os";
 import type { Persona, CognitiveTraits, CognitiveProfile, AttentionPatternType, DecisionStyleType, AgentPersona } from "./types.js";
 import { applyTraitCorrelations } from "./persona-questionnaire.js";
 import { AGENT_PERSONAS, isAgentPersona, getAgentPersona, listAgentPersonas, isAgentPersonaObject } from "./agent-personas.js";
-import { scopedDataDir } from "./persona-scope.js";
+import { scopedDataDir, scopedAccountId } from "./persona-scope.js";
 import { TRAIT_DEFINITIONS, canonicalizeTraits } from "./trait-reference.js";
 
 // ============================================================================
@@ -54,6 +54,37 @@ function personasDirFor(): string {
  * @since 16.17.0
  */
 const RUNTIME_PERSONAS: Record<string, Persona> = {};
+
+/**
+ * An account's custom personas, loaded from the CMS, keyed by account.
+ *
+ * These used to go into RUNTIME_PERSONAS, which is one map for the whole
+ * process and is checked FIRST by getAnyPersona. So once any account ran
+ * attention_analysis, its personas resolved by name for every other caller in
+ * that process - a cross-tenant read - and the trait vector a measurement read
+ * for a name depended on whether that had happened yet. list_cognitive_personas
+ * never consulted the map, so the roster and persona_lookup returned different
+ * records for alexa-eden (WM 0.25 vs 0.40, FOMO 0.25 vs 0.60). (2026-10-09)
+ *
+ * Stored process-wide because the load is expensive, but READ only through the
+ * request's persona scope, so request A can never see account B's personas. And
+ * consulted AFTER the on-disk store, which for a scoped request is that
+ * account's mirror of the same rows, so every reader agrees on one record.
+ */
+const ACCOUNT_PERSONAS = new Map<number, Record<string, Persona>>();
+
+/** Replace an account's loaded personas. Never visible outside that account's scope. */
+export function registerAccountPersonas(accountId: number, personas: Persona[]): void {
+  const byName: Record<string, Persona> = {};
+  for (const p of personas) byName[p.name] = p;
+  ACCOUNT_PERSONAS.set(accountId, byName);
+}
+
+/** The current request's account personas; empty when unscoped. */
+function scopedAccountPersonas(): Record<string, Persona> {
+  const id = scopedAccountId();
+  return id === undefined ? {} : ACCOUNT_PERSONAS.get(id) ?? {};
+}
 
 function ensurePersonasDir(): void {
   if (!existsSync(DATA_DIR)) {
@@ -1831,6 +1862,13 @@ export function getPersona(name: string): Persona | undefined {
     return customPersonas[name];
   }
 
+  // Then the calling account's CMS personas, in the same order getAnyPersona
+  // uses, so list_cognitive_personas and persona_lookup cannot disagree.
+  const accountPersonas = scopedAccountPersonas();
+  if (accountPersonas[name]) {
+    return accountPersonas[name];
+  }
+
   // Fall back to built-ins
   return BUILTIN_PERSONAS[name];
 }
@@ -1841,9 +1879,10 @@ export function getPersona(name: string): Persona | undefined {
 export function listPersonas(): string[] {
   const builtinNames = Object.keys(BUILTIN_PERSONAS);
   const customNames = Object.keys(loadCustomPersonas());
+  const accountNames = Object.keys(scopedAccountPersonas());
 
   // Combine and dedupe (custom personas with same name as built-in take precedence in getPersona)
-  return [...new Set([...builtinNames, ...customNames])];
+  return [...new Set([...builtinNames, ...customNames, ...accountNames])];
 }
 
 /**
@@ -3470,6 +3509,14 @@ export function getAnyPersona(name: string): Persona | AccessibilityPersona | Ag
     return customPersonas[name];
   }
 
+  // 2b. The calling account's CMS personas (scoped; empty when unscoped).
+  // Same position as in getPersona, so the roster and every measurement
+  // resolve a name to the same record.
+  const accountPersonas = scopedAccountPersonas();
+  if (accountPersonas[name]) {
+    return accountPersonas[name];
+  }
+
   // 3. Check built-in personas
   if (BUILTIN_PERSONAS[name]) {
     return BUILTIN_PERSONAS[name];
@@ -3586,6 +3633,50 @@ export function resolvePersonaOrThrow(
   throw new UnknownPersonaError(name, suggestPersonaNames(name));
 }
 
+/**
+ * Resolve a persona name for a measuring tool, or refuse - the one resolver.
+ *
+ * Every tool that measures "as" a persona must call this BEFORE measuring.
+ * Three tools did their own resolution and each failed open differently:
+ * empathy_audit returned empathyScore 0 with errors: [] for a name that does not
+ * exist, attention_analysis handed the bare string to the relevance LLM, which
+ * role-played it (a one-letter typo of cognitive-adhd scored 81 against the real
+ * persona's 80), and attention_compare reported a nonexistent persona as more
+ * different from power-user than the deliberately extreme real pair. (2026-10-09)
+ *
+ * `aliases` maps shorthand to a roster name (empathy_audit's disability terms).
+ * When the name that measured differs from the one asked for, `resolvedFrom`
+ * says so; a silent substitution reads as the requested persona's result.
+ */
+export function resolvePersonaForTool(
+  requested: string,
+  aliases?: Record<string, string>,
+): { name: string; persona: Persona | AccessibilityPersona | AgentPersona; resolvedFrom?: string } {
+  const aliased = aliases?.[requested.toLowerCase()] ?? requested;
+  const persona = getAnyPersona(aliased);
+  if (!persona) throw new UnknownPersonaError(requested, suggestPersonaNames(requested));
+  const name = (persona as { name?: string }).name ?? aliased;
+  return name === requested ? { name, persona } : { name, persona, resolvedFrom: requested };
+}
+
+/**
+ * A cognitive persona for a journey engine, refusing names nothing knows.
+ *
+ * Journey and benchmark engines used `getPersona(name) || first-timer`, so a
+ * typo ran as first-timer and the result was reported under the typo. A name no
+ * registry knows now throws UnknownPersonaError. A name that IS known but is not
+ * a cognitive persona (an accessibility or agent persona) keeps the old
+ * first-timer substitution -- a named limit, not fixed here. (2026-10-09)
+ */
+export function getPersonaOrRefuse(name: string | undefined): Persona {
+  if (!name) return BUILTIN_PERSONAS["first-timer"];
+  const direct = getPersona(name);
+  if (direct) return direct;
+  const any = getAnyPersona(name);
+  if (!any) throw new UnknownPersonaError(name, suggestPersonaNames(name));
+  return getPersona((any as { name: string }).name) ?? BUILTIN_PERSONAS["first-timer"];
+}
+
 export function listAllPersonas(): string[] {
   const runtimeNames = Object.keys(RUNTIME_PERSONAS);
   const builtinNames = Object.keys(BUILTIN_PERSONAS);
@@ -3593,9 +3684,10 @@ export function listAllPersonas(): string[] {
   const emotionalNames = Object.keys(EMOTIONAL_PERSONAS);
   const agentNames = Object.keys(AGENT_PERSONAS);
   const customNames = Object.keys(loadCustomPersonas());
+  const accountNames = Object.keys(scopedAccountPersonas());
 
   // Combine and dedupe (runtime first for Enterprise priority)
-  return [...new Set([...runtimeNames, ...builtinNames, ...accessibilityNames, ...emotionalNames, ...agentNames, ...customNames])];
+  return [...new Set([...runtimeNames, ...builtinNames, ...accessibilityNames, ...emotionalNames, ...agentNames, ...customNames, ...accountNames])];
 }
 
 /**

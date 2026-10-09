@@ -73,7 +73,7 @@ export function registerCognitiveTools(
     title: "Initialize Cognitive Journey",
     description: "Initialize a cognitive user journey simulation. Returns the persona's cognitive profile, initial state, and abandonment thresholds. The actual simulation is driven by the LLM using browser tools (navigate, click, fill, screenshot) while tracking cognitive state.",
     inputSchema: {
-      persona: z.string().describe("Persona name (e.g., 'first-timer', 'elderly-user', 'power-user') or custom description"),
+      persona: z.string().describe("Persona name from list_cognitive_personas (e.g., 'first-timer', 'elderly-user', 'power-user'). An unknown name is refused unless customTraits defines an ad-hoc persona."),
       goal: z.string().describe("What the simulated user is trying to accomplish"),
       startUrl: z.string().url().describe("Starting URL for the journey"),
       customTraits: z.object({
@@ -186,8 +186,19 @@ export function registerCognitiveTools(
           }
 
           personaObj = basePersona;
+        } else if (customTraits && Object.keys(customTraits).length > 0) {
+          // Caller-defined ad-hoc persona: the one legitimate synthesis.
+          personaObj = createCognitivePersona(personaName, personaName, customTraits);
         } else {
-          personaObj = createCognitivePersona(personaName, personaName, customTraits || {});
+          // A name nothing knows, with no traits, used to become a persona with
+          // every trait at 0.5 named after the string -- a typo simulated as if
+          // it were someone. (2026-10-09)
+          const { suggestPersonaNames } = await import("../../personas.js");
+          const suggestions = suggestPersonaNames(personaName);
+          return { isError: true, content: [{ type: "text" as const, text: JSON.stringify({
+            error: `Unknown persona "${personaName}".${suggestions.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""} Run list_cognitive_personas for the roster, create one with persona_create_from_description, or pass customTraits to define an ad-hoc persona. Nothing was simulated.`,
+            code: "unknown_persona", persona: personaName, suggestions,
+          }, null, 2) }] };
         }
       } else if (customTraits) {
         const defaultTraits: CognitiveTraits = {

@@ -25,7 +25,7 @@ import type {
   Persona,
   FocusAreaType,
 } from "../types.js";
-import { getPersona, BUILTIN_PERSONAS } from "../personas.js";
+import { getPersonaOrRefuse } from "../personas.js";
 import {
   getFocusHierarchy,
   inferTaskTypeFromGoal,
@@ -1286,7 +1286,7 @@ export async function runCompetitiveBenchmark(
   } = options;
 
   const startTime = Date.now();
-  const personaConfig = getPersona(persona) || BUILTIN_PERSONAS["first-timer"];
+  const personaConfig = getPersonaOrRefuse(persona);
   const useCognitiveJourneys = isApiKeyConfigured();
 
   // Run journeys in parallel (limited concurrency)

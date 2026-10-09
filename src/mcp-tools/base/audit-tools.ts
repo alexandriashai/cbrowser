@@ -1276,10 +1276,20 @@ export function registerEmpathyAuditTool(server: McpServer): void {
         const findingKeys = chosenBarriers.map(
           (b) => `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria) ?? ""}`);
 
+        // The name that was measured, when it differs from the one asked for.
+        // "motor-tremor" measured motor-impairment-tremor while testedPersona
+        // echoed "motor-tremor" and only resultsSummary showed the substitution.
+        // Same resolver and alias table runEmpathyAudit used. (2026-10-09)
+        const { resolvePersonaForTool } = await import("../../personas.js");
+        const { EMPATHY_PERSONA_ALIASES } = await import("../../analysis/accessibility-empathy.js");
+        const resolution = resolvePersonaForTool(testedPersona, EMPATHY_PERSONA_ALIASES);
         const response: Record<string, unknown> = {
           url: result.url,
           goal: result.goal,
           testedPersona,
+          ...(resolution.resolvedFrom
+            ? { resolvedPersona: resolution.name, resolvedFrom: resolution.resolvedFrom }
+            : {}),
           overallScore: result.overallScore,
           scope: scope || "viewport",
           device: device || "desktop",
@@ -1635,7 +1645,12 @@ export function registerEmpathyAuditTool(server: McpServer): void {
         let errorType = "unknown";
         let suggestion = "Please try again or contact support if the issue persists.";
 
-        if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+        // First, so "please try again" is never the advice for a name that
+        // cannot succeed on any retry. (2026-10-09)
+        if ((error as { code?: string })?.code === "unknown_persona") {
+          errorType = "unknown_persona";
+          suggestion = "Use a name from list_cognitive_personas (the error lists the closest matches). Nothing was measured.";
+        } else if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
           errorType = "timeout";
           suggestion = "The page took too long to load. Try increasing maxTime or testing a faster page.";
         } else if (errorMessage.includes("net::") || errorMessage.includes("DNS") || errorMessage.includes("ERR_")) {

@@ -2903,6 +2903,48 @@ function inferGoalType(goal: string): import("../site-model/types.js").GoalType 
 }
 
 /**
+ * Map disability names to personas.
+ * v14.2.5: Added elderly-user mapping (issue #190 - persona dropout)
+ */
+export const EMPATHY_PERSONA_ALIASES: Record<string, string> = {
+  "motor-tremor": "motor-impairment-tremor",
+  "motor": "motor-impairment-tremor",
+  "tremor": "motor-impairment-tremor",
+  "low-vision": "low-vision-magnified",
+  "vision": "low-vision-magnified",
+  "magnified": "low-vision-magnified",
+  "adhd": "cognitive-adhd",
+  "cognitive": "cognitive-adhd",
+  "attention": "cognitive-adhd",
+  "dyslexia": "dyslexic-user",
+  "dyslexic": "dyslexic-user",
+  "reading": "dyslexic-user",
+  "deaf": "deaf-user",
+  "hearing": "deaf-user",
+  "elderly": "elderly-low-vision",
+  "elderly-user": "elderly-low-vision",  // v14.2.5: Added missing mapping
+  "elderly-low-vision": "elderly-low-vision",
+  "senior": "elderly-low-vision",
+  "old": "elderly-low-vision",  // v14.2.5: Additional synonym
+  "color-blind": "color-blind-deuteranopia",
+  "colorblind": "color-blind-deuteranopia",
+  "deuteranopia": "color-blind-deuteranopia",
+  // v18.35.0: New research-backed cognitive disability personas
+  "autism": "autism-spectrum",
+  "autistic": "autism-spectrum",
+  "asd": "autism-spectrum",
+  "autism-spectrum": "autism-spectrum",
+  "intellectual-disability": "intellectual-disability",
+  "intellectual": "intellectual-disability",
+  "learning-disability": "intellectual-disability",
+  "aphasia": "aphasia-receptive",
+  "aphasia-receptive": "aphasia-receptive",
+  "wernicke": "aphasia-receptive",
+  "dyscalculia": "dyscalculia",
+  "numeracy": "dyscalculia",
+};
+
+/**
  * The published WCAG list, DERIVED from the barriers rather than accumulated
  * alongside them.
  *
@@ -2966,50 +3008,27 @@ export async function runEmpathyAudit(
   const allWcagViolations = new Set<string>();
   const allBarriers: AccessibilityBarrier[] = [];
 
-  // Map disability names to personas
-  // v14.2.5: Added elderly-user mapping (issue #190 - persona dropout)
-  const personaMap: Record<string, string> = {
-    "motor-tremor": "motor-impairment-tremor",
-    "motor": "motor-impairment-tremor",
-    "tremor": "motor-impairment-tremor",
-    "low-vision": "low-vision-magnified",
-    "vision": "low-vision-magnified",
-    "magnified": "low-vision-magnified",
-    "adhd": "cognitive-adhd",
-    "cognitive": "cognitive-adhd",
-    "attention": "cognitive-adhd",
-    "dyslexia": "dyslexic-user",
-    "dyslexic": "dyslexic-user",
-    "reading": "dyslexic-user",
-    "deaf": "deaf-user",
-    "hearing": "deaf-user",
-    "elderly": "elderly-low-vision",
-    "elderly-user": "elderly-low-vision",  // v14.2.5: Added missing mapping
-    "elderly-low-vision": "elderly-low-vision",
-    "senior": "elderly-low-vision",
-    "old": "elderly-low-vision",  // v14.2.5: Additional synonym
-    "color-blind": "color-blind-deuteranopia",
-    "colorblind": "color-blind-deuteranopia",
-    "deuteranopia": "color-blind-deuteranopia",
-    // v18.35.0: New research-backed cognitive disability personas
-    "autism": "autism-spectrum",
-    "autistic": "autism-spectrum",
-    "asd": "autism-spectrum",
-    "autism-spectrum": "autism-spectrum",
-    "intellectual-disability": "intellectual-disability",
-    "intellectual": "intellectual-disability",
-    "learning-disability": "intellectual-disability",
-    "aphasia": "aphasia-receptive",
-    "aphasia-receptive": "aphasia-receptive",
-    "wernicke": "aphasia-receptive",
-    "dyscalculia": "dyscalculia",
-    "numeracy": "dyscalculia",
-  };
+  // Disability shorthand -> roster name (module-level so the MCP handler
+  // resolves with the same table).
+  const personaMap = EMPATHY_PERSONA_ALIASES;
 
   // Run audit for each disability type
   // v18.35.0: Accept any persona — wrap non-disability personas with default accessibility traits
-  for (const disability of disabilities) {
-    const personaName = personaMap[disability.toLowerCase()] || disability;
+  // Every requested persona resolves through the one resolver BEFORE anything
+  // launches. An unknown name used to fall through to a "persona" with no
+  // traits that scored 0 -- the worst possible score -- with errors: [] and
+  // isDisabilityPersona: true, which a dashboard reads as "the site failed
+  // completely". It now throws UnknownPersonaError instead. (2026-10-09)
+  try {
+    const { loadAccountPersonas } = await import("../mcp-tools/account-personas.js");
+    const { getSessionApiKey } = await import("../mcp-tools/base/cognitive-tools.js");
+    await loadAccountPersonas(getSessionApiKey());
+  } catch { /* falls back to disk and built-ins */ }
+  const { resolvePersonaForTool } = await import("../personas.js");
+  const resolvedNames = disabilities.map((d) => resolvePersonaForTool(d, personaMap).name);
+
+  for (const [index, disability] of disabilities.entries()) {
+    const personaName = resolvedNames[index];
     let persona = getAccessibilityPersona(personaName);
     let isDisabilityPersona = !!persona;
 
@@ -3018,43 +3037,9 @@ export async function runEmpathyAudit(
       const { getAnyPersona, createCognitivePersona } = await import("../personas.js");
       let cognitivePersona = getAnyPersona(personaName);
 
-      // CMS custom persona fallback — fetch from API if not found locally
-      if (!cognitivePersona) {
-        try {
-          const { getSessionApiKey } = await import("../mcp-tools/base/cognitive-tools.js");
-          const apiKey = getSessionApiKey();
-          if (apiKey) {
-            const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
-            const res = await fetch(`${cmsUrl}/api/personas`, {
-              headers: { "Authorization": `Bearer ${apiKey}` },
-            });
-            if (res.ok) {
-              const data = await res.json() as { personas: Array<{ name: string; slug?: string; traits: Record<string, number>; accessibility_traits?: Record<string, unknown>; age_range?: string }> };
-              const cmsMatch = data.personas.find(
-                (p: { name: string; slug?: string }) =>
-                  p.name.toLowerCase() === personaName.toLowerCase() ||
-                  p.name.toLowerCase().replace(/\s+/g, '-') === personaName.toLowerCase() ||
-                  p.name.toLowerCase().replace(/\s+/g, '_') === personaName.toLowerCase() ||
-                  (p.slug && p.slug.toLowerCase() === personaName.toLowerCase())
-              );
-              if (cmsMatch) {
-                const parsedTraits = typeof cmsMatch.traits === "string" ? JSON.parse(cmsMatch.traits) : cmsMatch.traits;
-                cognitivePersona = createCognitivePersona(cmsMatch.name, cmsMatch.name, parsedTraits, {
-                  ageRange: cmsMatch.age_range || undefined,
-                });
-                // Attach CMS accessibility traits if stored
-                if (cmsMatch.accessibility_traits) {
-                  const at = typeof cmsMatch.accessibility_traits === "string" ? JSON.parse(cmsMatch.accessibility_traits) : cmsMatch.accessibility_traits;
-                  (cognitivePersona as any).accessibilityTraits = at;
-                }
-                console.log(`[empathy_audit] Found custom CMS persona: "${cmsMatch.name}" with ${Object.keys(parsedTraits).length} traits${cmsMatch.accessibility_traits ? ' + disability modeling' : ''}`);
-              }
-            }
-          }
-        } catch (e) {
-          console.debug(`[empathy_audit] CMS persona lookup failed: ${(e as Error).message}`);
-        }
-      }
+      // No CMS fallback here any more: the account's CMS personas were loaded
+      // into the scoped registry above, so getAnyPersona already sees them, and
+      // a name nothing resolves was refused before the loop. (2026-10-09)
 
       if (cognitivePersona) {
         // Wrap cognitive persona as accessibility persona, inferring traits from name + cognitive traits

@@ -18,7 +18,7 @@ import { join, dirname } from "path";
 import { execSync } from "child_process";
 
 import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths } from "./config.js";
-import { BUILTIN_PERSONAS, getPersona } from "./personas.js";
+import { getPersonaOrRefuse } from "./personas.js";
 import type {
   SavedSession,
   NavigateOptions,
@@ -5827,7 +5827,7 @@ For more help: https://playwright.dev/docs/browsers
     // NOTE: This is simplified exploration. For realistic user simulation,
     // configure an API key: npx cbrowser config set-api-key YOUR_KEY
 
-    const persona = getPersona(personaName) || BUILTIN_PERSONAS["first-timer"];
+    const persona = getPersonaOrRefuse(personaName);
     this.currentPersona = persona;
 
     // Set viewport based on persona
