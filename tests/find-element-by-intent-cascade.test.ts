@@ -277,6 +277,32 @@ describe("(g) a menu toggle named by an aria-label with extra words", () => {
   });
 });
 
+describe("(g2) a hidden exact match of another kind does not block a visible control of the asked kind", () => {
+  // GOV.UK super-navigation with JS off: a hidden no-JS <a>Menu</a> inside the nav, beside the visible toggle
+  const GOVUK_NOJS = doc(`<header><nav aria-label="Menu">
+      <a href="#super-navigation-menu" hidden>Menu</a>
+      <button id="super-navigation-menu-toggle" aria-controls="super-navigation-menu" aria-expanded="false" aria-label="Show navigation menu">Menu</button>
+      <button id="super-search-menu-toggle" aria-controls="super-search-menu" aria-expanded="false" aria-label="Show search menu">Search GOV.UK</button>
+    </nav></header><main><h1>Welcome</h1></main>`);
+  test("'Menu button' reaches #super-navigation-menu-toggle at 1280 and 393", async () => {
+    for (const width of [1280, 393]) {
+      const r = await find(GOVUK_NOJS, "Menu button", { width });
+      await resolvesTo(r, "#super-navigation-menu-toggle");
+      expect(r!.confidence).toBeGreaterThanOrEqual(0.7);
+    }
+  });
+  test("bare 'menu' reaches the toggle too (the hidden copy is inside the navigation), capped", async () => {
+    const r = await find(GOVUK_NOJS, "menu", { width: 393 });
+    await resolvesTo(r, "#super-navigation-menu-toggle");
+    expect(r!.confidence).toBeLessThanOrEqual(0.7);
+  });
+  test("in the cascade: a hidden Docs link does not block 'docs button' from the visible Documentation button", async () => {
+    await resolvesTo(await find(doc(`<main><a href="/docs" style="display:none">Docs</a><button id="d">Documentation</button></main>`), "docs button"), "#d");
+    // the same kind hidden still means null
+    expect(await find(doc(`<main><button style="display:none">Docs</button><button>Documentation</button></main>`), "docs button")).toBeNull();
+  });
+});
+
 describe("(h) a logo link named only by its aria-label", () => {
   test("'GOV.UK logo' reaches the header's homepage link", async () => {
     const r = await find(GOVUK, "GOV.UK logo");

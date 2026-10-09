@@ -1846,17 +1846,26 @@ async function findElementByIntentCore(
     return options.verbose ? await verboseMiss(page, intent) : null;
   }
   if (parsed.special === "menu") {
-    const ctl = unionRole(root, ["button", "link"], exactRe(["menu", ...synonymsOf("menu")]))!;
+    const menuExact = exactRe(["menu", ...synonymsOf("menu")]);
+    const ctl = unionRole(root, ["button", "link"], menuExact)!;
     const r = await take("menu-control", ctl, { container: false, mode: "first", require: [], prefer: [{ tagRe: "^button$" }] },
       { unique: 0.9, ordinal: 0.9, ambiguous: 0.6 }, "Menu control");
     if (r && r.res) return r.res;
-    // an exactly-named "Menu" control that is hidden at this width (a desktop toggle at 393, or the reverse)
-    // means null: a hidden exact match is never traded for a fuzzy one
-    if (r && r.r.hiddenOnly) return options.verbose ? await verboseMiss(page, intent) : null;
-    const capped = (res: ReturnType<typeof build> | null) => res;
+    // An exactly-named "Menu" control that is hidden at this width means null, unless it is display-hidden inside
+    // the navigation itself (a folded or no-JS copy), or it is of another kind than the intent asked for: GOV.UK's
+    // hidden no-JS <a hidden>Menu</a> is a link and cannot block "Menu button" from the visible toggle.
+    let hiddenExact = !!(r && r.r.hiddenOnly);
+    if (hiddenExact && kind === "button") {
+      const onlyButtons = await run("menu-control-buttons", unionRole(root, ["button"], menuExact)!, { container: false, mode: "first", require: [], prefer: [] });
+      if (onlyButtons && onlyButtons.total === 0) hiddenExact = false;
+    }
+    if (hiddenExact && !r!.r.hiddenInCollapsedNav) return options.verbose ? await verboseMiss(page, intent) : null;
+    const capped = (res: ReturnType<typeof build> | null) => res && hiddenExact ? { ...res, confidence: red2(Math.min(res.confidence, 0.7)) } : res;
+    // the navigation toggle over a search or account toggle when several buttons mention "menu"
     const ctl2 = unionRole(root, ["button"], containsRe(["menu", "navigation", "hamburger"]))!;
     const r2 = await take("menu-control-fuzzy", ctl2,
-      { container: false, mode: "first", require: [], prefer: [], guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
+      { container: false, mode: "first", require: [], prefer: [{ notNameRe: "search|account|user|profile|language" }, { nameRe: "navigation|\\bnav\\b|hamburger|main|site|primary" }],
+        guard: { words: ["menu"], maxExtra: 3, prefixMaxExtra: 3, danger: true } },
       { unique: 0.8, ordinal: 0.8, ambiguous: 0.5 }, "Menu control");
     if (r2 && r2.res) return capped(r2.res);
     // the visible text says Menu even though the accessible name (an aria-label) says something else
@@ -2189,9 +2198,11 @@ async function findElementByIntentCore(
       }
       if (r.hiddenOnly && /^(exact|exact-synonym|exact-link|exact-synonym-link|label-exact)$/.test(rung.label)) {
         // hidden in a folded navigation: the page shows the same control elsewhere, keep looking (capped);
-        // hidden on its own (display:none Save, opacity-0 row Remove): it means null, a fuzzy visible one is not it
+        // hidden on its own (display:none Save, opacity-0 row Remove): it means null, a fuzzy visible one is not it.
+        // A hidden exact match of another KIND (a link when the intent said button) blocks nothing: it was not asked for.
+        const otherKind = kind === "button" && /-link$/.test(rung.label);
         if (r.hiddenInCollapsedNav) sawCollapsedExact = true;
-        else return null;
+        else if (!otherKind) return null;
       }
       if (r.ambiguous && rung.pick.mode === "unique") break;
     }
