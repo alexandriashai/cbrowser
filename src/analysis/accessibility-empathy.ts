@@ -2917,6 +2917,26 @@ function getEmpathyGrade(score: number): string {
   return "F";
 }
 
+/** Escape text for HTML element and double-quoted attribute context. */
+function escapeHtml(v: unknown): string {
+  return String(v ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/**
+ * The criteria an advisory is filed under, with the level that put it above
+ * the audit: "2.5.5 (Level AAA)". Shared by the text and HTML reports.
+ */
+function advisoryCriteriaLabel(a: AccessibilityBarrier): string {
+  const known = (a.wcagCriteria ?? []).filter((c) => WCAG_CRITERIA[c]);
+  const codes = known.length > 0 ? known : (a.wcagCriteria ?? []);
+  const level = a.wcagLevelOfFinding ?? (known.length > 0 ? getBarrierWcagLevel(known) : undefined);
+  return `${codes.join(", ") || "no criterion"}${level ? ` (Level ${level})` : ""}`;
+}
+
+/** How many advisories each report lists before saying how many more there are. */
+const REPORT_ADVISORY_CAP = 20;
+
 export function formatEmpathyAuditReport(result: EmpathyAuditResult): string {
   const grade = getEmpathyGrade(result.overallScore);
 
@@ -2974,6 +2994,26 @@ WCAG VIOLATIONS
       report += `  ${violation} (Level ${criteria.level}): ${criteria.description}\n`;
     } else {
       report += `  ${violation}\n`;
+    }
+  }
+
+  // Above-level findings. splitAboveAuditLevel moves them out of `barriers`,
+  // so without this section an AAA-only finding that main showed as a minor
+  // barrier vanished from the text report altogether. (Round 2, 2026-10-09)
+  const advisories = result.advisories ?? [];
+  if (advisories.length > 0) {
+    report += `
+ADVISORIES (${advisories.length}) - above the audited WCAG level: reported, not scored
+───────────────────────────────────────────────────────────────────────────
+`;
+    for (const a of advisories.slice(0, REPORT_ADVISORY_CAP)) {
+      report += `  ${advisoryCriteriaLabel(a)}, ${a.severity}: ${a.description}
+     Element: ${a.element}
+     Fix: ${a.remediation}
+`;
+    }
+    if (advisories.length > REPORT_ADVISORY_CAP) {
+      report += `  (+${advisories.length - REPORT_ADVISORY_CAP} more advisories)\n`;
     }
   }
 
@@ -3054,6 +3094,22 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
     const criteria = WCAG_CRITERIA[v];
     return `<li><strong>${v}</strong> (Level ${criteria?.level || '?'}): ${criteria?.description || 'Unknown'}</li>`;
   }).join('');
+
+  // Above-level findings, escaped: element names and descriptions carry page
+  // text (aria-labels, selectors). See the text report for why this exists.
+  const advisories = result.advisories ?? [];
+  const advisoryItems = advisories.slice(0, REPORT_ADVISORY_CAP).map((a) => `
+      <li><strong>${escapeHtml(advisoryCriteriaLabel(a))}</strong>, ${escapeHtml(a.severity)}: ${escapeHtml(a.description)}
+        <br><small>Element: <code>${escapeHtml(a.element)}</code>; Fix: ${escapeHtml(a.remediation)}</small></li>`).join('');
+  const advisoriesSection = advisories.length === 0 ? '' : `
+  <h2>Advisories (${advisories.length})</h2>
+  <div class="wcag-list advisories">
+    <p class="advisories-note">Findings above the audited WCAG level. Reported for information: not scored, not counted as violations, never escalated by persona weight.</p>
+    <ul>${advisoryItems}
+    </ul>${advisories.length > REPORT_ADVISORY_CAP ? `
+    <p class="advisories-note">+${advisories.length - REPORT_ADVISORY_CAP} more advisories</p>` : ''}
+  </div>
+`;
 
   const remediationRows = result.combinedRemediation.slice(0, 10).map(rem => `
     <tr>
@@ -3220,6 +3276,14 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
     .wcag-list li {
       margin: 0.5rem 0;
     }
+    .advisories-note {
+      margin: 0 0 0.5rem 0;
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+    .advisories small, .advisories code {
+      color: #cbd5e1;
+    }
     .disclaimer {
       background: #1e3a5f;
       border-left: 4px solid #8b5cf6;
@@ -3281,6 +3345,7 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
     </ul>
   </div>
 
+${advisoriesSection}
   <h2>Remediation Priorities</h2>
   <table>
     <thead>
