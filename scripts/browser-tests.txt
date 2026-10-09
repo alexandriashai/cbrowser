@@ -17,6 +17,7 @@
 # Blank lines and #-comments are ignored.
 
 tests/agent-ready-findability-remediation.test.ts
+tests/agent-ready-snippets-paging.test.ts
 tests/alt-attribute-classification.test.ts
 tests/attention-heatmap-inline.test.ts
 tests/cli-evaluate-keyboard.test.ts

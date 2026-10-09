@@ -68,6 +68,7 @@ import {
   findElementByIntent,
   FIND_ELEMENT_BY_INTENT_DESCRIPTION,
   runAgentReadyAudit,
+  pageAgentReadyFindings,
   runCompetitiveBenchmark,
   runEmpathyAudit,
 } from "./analysis/index.js";
@@ -3033,8 +3034,10 @@ Begin the simulation now. Narrate your thoughts as this persona.
     "Audit a website for AI-agent friendliness. Analyzes findability, stability, accessibility, and semantics. Returns score (0-100), grade (A-F), issues, and remediation recommendations.",
     {
       url: z.string().url().describe("URL to audit"),
+      limit: z.number().optional().default(5).describe("How many issues (worst first) and recommendations (priority order) to return. Totals and severity counts always cover ALL findings."),
+      offset: z.number().optional().default(0).describe("Skip this many issues and recommendations before returning, for paging through a large result."),
     },
-    async ({ url }) => {
+    async ({ url, limit, offset }) => {
       const result = await runAgentReadyAudit(url, { headless: true });
       return {
         content: [
@@ -3045,8 +3048,9 @@ Begin the simulation now. Narrate your thoughts as this persona.
               score: result.score,
               grade: result.grade,
               summary: result.summary,
-              topIssues: result.issues.slice(0, 5),
-              topRecommendations: result.recommendations.slice(0, 5),
+              // Same paging as the HTTP tool. This copy sliced issues in
+              // detection order and never got the 2026-08-01 worst-first fix.
+              ...pageAgentReadyFindings(result, { limit, offset }),
               duration: result.duration,
             }, null, 2),
           },
