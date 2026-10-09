@@ -14,10 +14,25 @@ import { z } from "zod";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, basename, extname } from "node:path";
 import { artifactDir } from "../../artifact-store.js";
+import { fitImageForInline } from "../inline-image.js";
+import { MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import type { McpServer } from "../types.js";
 
 /** Largest artifact returned inline. Base64 adds a third on top of this. */
 const MAX_BYTES = 3_500_000;
+
+/**
+ * Base64 budget for an image this tool returns by default.
+ *
+ * The comment above says it: hosts truncate a tool result near 150k chars. That
+ * holds for a view's callServerTool too. A 1280x800 attention heatmap PNG is
+ * ~666k chars of base64, so the attention view asked for it, the host cut it,
+ * and the panel showed no image -- while the tool result it rendered from
+ * carried a perfectly good inline preview it never reads (Alexa, 2026-10-09:
+ * "the attention analysis image doesn't load inline again"). Images over this
+ * are fitted (JPEG quality ladder, then downscale) unless `full: true`.
+ */
+const VIEW_IMAGE_BUDGET = MAX_RESPONSE_SIZE - 10_000;
 
 const MIME: Record<string, string> = {
   ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -30,6 +45,7 @@ export function registerArtifactTools(server: McpServer): void {
     description: "Fetch a generated image artifact (heatmap, diff, capture frame) as inline image data. Called by interactive views to display images the widget sandbox cannot load by URL; not usually needed directly.",
     inputSchema: {
       file: z.string().describe("Artifact filename as returned by the producing tool, e.g. 'heatmap-abc123.png'"),
+      full: z.boolean().optional().describe("Return the original bytes even when they exceed the host's ~150k-char result cap (a host may then truncate the result). Default false: a larger still image comes back as a JPEG fitted under the cap."),
     },
     annotations: {
       title: "Fetch Artifact",
@@ -41,7 +57,7 @@ export function registerArtifactTools(server: McpServer): void {
     // Hidden from the model's tool list: it exists for views to call, and an
     // agent reaching for it directly would be fetching bytes it cannot use.
     _meta: { ui: { visibility: ["app"] } },
-  }, async ({ file }) => {
+  }, async ({ file, full }) => {
       // basename strips any directory component, so a traversal attempt
       // resolves to a plain name inside the artifact dir rather than escaping it.
       // The name is then re-validated, because basename alone would happily
@@ -70,10 +86,22 @@ export function registerArtifactTools(server: McpServer): void {
           isError: true,
         };
       }
+      const bytes = readFileSync(path);
+      const base64 = bytes.toString("base64");
+      // Animated GIFs are never re-encoded: a JPEG would keep one frame.
+      if (full !== true && ext !== ".gif" && base64.length > VIEW_IMAGE_BUDGET) {
+        const fitted = await fitImageForInline(bytes, VIEW_IMAGE_BUDGET).catch(() => null);
+        if (fitted) {
+          return {
+            content: [{ type: "image" as const, data: fitted.data, mimeType: fitted.mimeType }],
+            _meta: { fitted: { width: fitted.width, height: fitted.height, sourceWidth: fitted.sourceWidth, sourceHeight: fitted.sourceHeight, quality: fitted.quality, originalBase64Chars: base64.length } },
+          };
+        }
+      }
       return {
         content: [{
           type: "image" as const,
-          data: readFileSync(path).toString("base64"),
+          data: base64,
           mimeType: MIME[ext] as string,
         }],
       };
