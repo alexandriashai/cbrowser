@@ -72,6 +72,7 @@ import {
   pageAgentReadyFindings,
   runCompetitiveBenchmark,
   runEmpathyAudit,
+  countAffectedElements,
 } from "./analysis/index.js";
 import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibilityPersona } from "./personas.js";
 
@@ -2881,7 +2882,12 @@ Begin the simulation now. Narrate your thoughts as this persona.
             empathyScore: r.empathyScore,
             barrierTypeCount: uniqueTypes.size,  // Unique barrier categories
             barrierTypes: Array.from(uniqueTypes),
-            affectedElements: r.barriers.length,  // Raw element count
+            // Records and elements are different numbers; both ship, counted
+            // as the hosted empathy_audit counts them (B7). This was
+            // barriers.length, labelled "Raw element count": the same element
+            // recorded twice counted twice. (Round 2, 2026-10-09)
+            barrierCount: r.barriers.length,
+            affectedElements: countAffectedElements(r.barriers),
             wcagViolationCount: r.wcagViolations.length,
           };
         }),

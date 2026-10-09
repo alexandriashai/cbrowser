@@ -357,7 +357,7 @@ export async function computeWassersteinDistance(
   // Use sigmoid-like mapping for intuitive scoring
   const normalizedScore = Math.max(0, Math.min(1, 1 - distance * 4));
 
-  const computeTimeMs = performance.now() - startTime;
+  const computeTimeMs = Math.round(performance.now() - startTime);
 
   return {
     metric: 'sliced-wasserstein',
@@ -396,7 +396,7 @@ export function computeByteDiff(baselinePath: string, currentPath: string): Dist
     metric: 'byte-diff',
     distance: diffRatio,
     normalizedScore: 1 - diffRatio,
-    details: { computeTimeMs: performance.now() - startTime },
+    details: { computeTimeMs: Math.round(performance.now() - startTime) },
   };
 }
 
@@ -425,7 +425,7 @@ export async function computeCombinedDistance(
     distance: 1 - combinedScore,
     normalizedScore: combinedScore,
     details: {
-      computeTimeMs: performance.now() - startTime,
+      computeTimeMs: Math.round(performance.now() - startTime),
       channelDistances: wassersteinResult.details.channelDistances,
       dimensions: wassersteinResult.details.dimensions,
       numProjections: wassersteinResult.details.numProjections,
@@ -706,7 +706,7 @@ export async function computeSmartBaseline(
   const adaptiveDistance = inlierMax + 3 * inlierStdDev;
   const adaptiveThreshold = Math.max(0.7, Math.min(0.98, 1 - adaptiveDistance * 4));
 
-  const computeTimeMs = performance.now() - startTime;
+  const computeTimeMs = Math.round(performance.now() - startTime);
 
   return {
     id: `smart-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
@@ -794,7 +794,7 @@ export async function compareAgainstSmartBaseline(
     distance: combinedDistance,
     normalizedScore,
     details: {
-      computeTimeMs: performance.now() - startTime,
+      computeTimeMs: Math.round(performance.now() - startTime),
       dimensions: { width: img.width, height: img.height },
       channelDistances: { r: distR, g: distG, b: distB, spatial: spatialResult.distance },
       transportCost: distance,
@@ -1055,7 +1055,7 @@ export async function computeTransportMap(
     svg,
     dimensions: { width: origWidth, height: origHeight },
     ...(dimensionMismatch ? { dimensionMismatch } : {}),
-    computeTimeMs: performance.now() - startTime,
+    computeTimeMs: Math.round(performance.now() - startTime),
   };
 }
 

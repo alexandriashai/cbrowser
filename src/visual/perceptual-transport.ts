@@ -579,7 +579,10 @@ function synthesizePerceptualProfile(
  * @returns Weighted score and breakdown
  */
 export function calculatePerceptualScore(
-  barriers: Array<{ type: string; severity: string; element?: string; wcagCriteria?: string[] }>,
+  barriers: Array<{
+    type: string; severity: string; element?: string; wcagCriteria?: string[];
+    weightKey?: string; aboveAuditLevel?: boolean;
+  }>,
   frictionPoints: Array<{ impact: string }>,
   goalAchieved: boolean,
   personaName: string,
@@ -625,7 +628,11 @@ export function calculatePerceptualScore(
   // (2026-07-31)
   const byKey = new Map<string, Array<{ severity: string }>>();
   for (const b of barriers) {
-    const key = weightKeyFor(b.type, b.wcagCriteria) ?? b.type;
+    // Findings above the audited WCAG level are advisory and never deduct
+    // (Alexa, 2026-10-09). The audit already moves them to a separate list
+    // before scoring; this guard keeps any other caller from charging them.
+    if (b.aboveAuditLevel) continue;
+    const key = weightKeyFor(b.type, b.wcagCriteria, b.weightKey) ?? b.type;
     const existing = byKey.get(key) || [];
     existing.push(b);
     byKey.set(key, existing);
@@ -637,7 +644,7 @@ export function calculatePerceptualScore(
     // weightKeyFor the payload reports as personaWeightKey. Scoring and
     // display therefore cannot disagree: there is one lookup, one table, one
     // answer per barrier. (2026-07-31)
-    const weight = profile.barrierWeights[weightKey] ?? 1.0;
+    const weight = profileWeight(profile, weightKey) ?? 1.0;
 
     const critical = typeBarriers.filter(b => b.severity === 'critical').length;
     const major = typeBarriers.filter(b => b.severity === 'major').length;
@@ -916,7 +923,7 @@ export async function analyzePerceptualTransport(
     perceptualScore,
     weightedDeductions: {},
     transportDistance: transportResult.distance,
-    computeTimeMs: performance.now() - startTime,
+    computeTimeMs: Math.round(performance.now() - startTime),
   };
 }
 
@@ -947,6 +954,7 @@ const SEVERITY_LADDER: BarrierSeverityLevel[] = ["minor", "major", "critical"];
 export function weightedSeverity(
   base: string,
   weight: number,
+  opts?: { aboveAuditLevel?: boolean },
 ): { severity: BarrierSeverityLevel; shifted: number } {
   const at = SEVERITY_LADDER.indexOf(base as BarrierSeverityLevel);
   if (at < 0) return { severity: "minor", shifted: 0 };
@@ -954,7 +962,13 @@ export function weightedSeverity(
   // for "not my problem", ~1.0 for baseline, and 2.5-3.0 for "this is the one
   // that stops me". Two steps only at the top of that range, so escalation
   // stays rare enough to mean something.
-  const shift = weight >= 2.5 ? 2 : weight >= 1.5 ? 1 : weight <= 0.5 ? -1 : 0;
+  let shift = weight >= 2.5 ? 2 : weight >= 1.5 ? 1 : weight <= 0.5 ? -1 : 0;
+  // A finding above the audited WCAG level is advisory: it is never escalated.
+  // This function knew nothing about the audit level, so a 40x40 target --
+  // AAA-only, already capped at minor by adjustSeverityForLevel -- was moved up
+  // two steps at a tremor persona's 3.0 weight and published as "critical" in
+  // an AA audit. (B6, 2026-10-09)
+  if (opts?.aboveAuditLevel) shift = Math.min(0, shift);
   const idx = Math.max(0, Math.min(SEVERITY_LADDER.length - 1, at + shift));
   return { severity: SEVERITY_LADDER[idx] as BarrierSeverityLevel, shifted: idx - at };
 }
@@ -1024,7 +1038,37 @@ const WCAG_TO_WEIGHT_KEY: Record<string, string> = {
 
 const TYPE_TO_WEIGHT_KEY: Record<string, string> = BARRIER_TYPE_TO_WEIGHT_KEY;
 
-export function weightKeyFor(barrierType: string, wcagCriteria?: string[]): string | null {
+/**
+ * Weight keys that have no row of their own in the persona tables and borrow
+ * another key's susceptibility.
+ *
+ * `target_spacing` is the close-spacing barrier. It used to cite 2.5.5, which
+ * is Target Size, not spacing, so it was charged in the touch_target bucket:
+ * on the reported page that bucket read -20, almost all of it the spacing
+ * heuristic. It now has its own bucket, and the persona weight it uses is the
+ * same pointer-precision susceptibility as target size, rather than a new
+ * number nobody measured. (B6, 2026-10-09)
+ */
+const WEIGHT_KEY_BORROWS: Record<string, string> = {
+  target_spacing: "touch_target",
+};
+
+/** A persona's weight for a key, following WEIGHT_KEY_BORROWS. Undefined when unset. */
+export function profileWeight(profile: PerceptualProfile, key: string): number | undefined {
+  const own = profile.barrierWeights?.[key];
+  if (typeof own === "number") return own;
+  const borrowed = WEIGHT_KEY_BORROWS[key];
+  const w = borrowed ? profile.barrierWeights?.[borrowed] : undefined;
+  return typeof w === "number" ? w : undefined;
+}
+
+/**
+ * @param explicitKey A barrier's own `weightKey`, when its detector set one.
+ *   It wins over criteria and type: the close-spacing barrier relates to
+ *   2.5.8 (whose key is touch_target) but is weighted as target_spacing.
+ */
+export function weightKeyFor(barrierType: string, wcagCriteria?: string[], explicitKey?: string): string | null {
+  if (explicitKey) return explicitKey;
   for (const c of wcagCriteria ?? []) {
     const k = WCAG_TO_WEIGHT_KEY[c];
     if (k) return k;
@@ -1043,8 +1087,9 @@ export function barrierWeightFor(
   personaName: string,
   barrierType: string,
   wcagCriteria?: string[],
+  explicitKey?: string,
 ): { weight: number; key: string | null; defaulted: boolean } {
-  const key = weightKeyFor(barrierType, wcagCriteria);
+  const key = weightKeyFor(barrierType, wcagCriteria, explicitKey);
   try {
     const profile = getPerceptualProfile(personaName);
     // A profile that resolved to the generic default is not a configured
@@ -1053,7 +1098,7 @@ export function barrierWeightFor(
     // five identical 1.0s -- the field asserted "explicitly configured" about
     // numbers nobody had chosen for that persona.
     const isGeneric = profile.persona === "default";
-    const w = key ? profile.barrierWeights?.[key] : undefined;
+    const w = key ? profileWeight(profile, key) : undefined;
     if (typeof w === "number" && !isGeneric) return { weight: w, key, defaulted: false };
     return { weight: typeof w === "number" ? w : 1.0, key, defaulted: true };
   } catch {

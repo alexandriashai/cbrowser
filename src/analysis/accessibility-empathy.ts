@@ -214,6 +214,121 @@ interface BarrierContext {
    * a false negative. This is the third option.
    */
   unverifiableMedia: Array<{ element: string; reason: string; checkAt: string }>;
+  /** Findings above the audited WCAG level, split out by splitAboveAuditLevel. */
+  advisories: AccessibilityBarrier[];
+  /** Moving content whose pause/stop control was found and credited (2.2.2). */
+  motionControlsCredited: Array<{ content: string; control: string }>;
+}
+
+/**
+ * Runs IN THE PAGE. Installs `window.__cbrowserUniqueSelector(el)`, the one
+ * selector builder every detector uses.
+ *
+ * Detectors each built their own `tag + (#id)` string, so every id-less button
+ * on a page became "button": two different targets merged during
+ * deduplication, and a selector a reader could paste into querySelector
+ * resolved to neither. The only unique-selector code in the package lived
+ * inside two other modules' page scripts. (B6/B7, 2026-10-09)
+ *
+ * Order: a unique `tag#id`, then a unique `tag.firstClass` (the readable form
+ * detectors used to emit), then a unique `tag[aria-label="..."]`, then a
+ * structural `nth-of-type` path up to the nearest ancestor with a unique id.
+ * Every candidate is checked with querySelectorAll before it is returned.
+ */
+function installUniqueSelector(): void {
+  const esc = (s: string): string =>
+    (typeof CSS !== "undefined" && CSS.escape) ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`);
+  const isUnique = (sel: string, el: Element): boolean => {
+    try {
+      const m = document.querySelectorAll(sel);
+      return m.length === 1 && m[0] === el;
+    } catch {
+      return false;
+    }
+  };
+  (window as unknown as { __cbrowserUniqueSelector: (el: Element) => string }).__cbrowserUniqueSelector =
+    (el: Element): string => {
+      const tag = el.tagName.toLowerCase();
+      if (el.id) {
+        const s = `${tag}#${esc(el.id)}`;
+        if (isUnique(s, el)) return s;
+      }
+      // The readable form detectors used to emit, kept when it IS unique.
+      const cls = String((el.className as unknown as { baseVal?: string })?.baseVal ?? el.className ?? "")
+        .trim().split(/\s+/)[0];
+      if (cls) {
+        const s = `${tag}.${esc(cls)}`;
+        if (isUnique(s, el)) return s;
+      }
+      const label = el.getAttribute("aria-label");
+      if (label) {
+        const s = `${tag}[aria-label="${label.replace(/["\\]/g, "\\$&")}"]`;
+        if (isUnique(s, el)) return s;
+      }
+      const parts: string[] = [];
+      let cur: Element | null = el;
+      while (cur) {
+        const t = cur.tagName.toLowerCase();
+        if (cur !== el && cur.id) {
+          const s = `${t}#${esc(cur.id)}`;
+          if (isUnique(s, cur)) { parts.unshift(s); break; }
+        }
+        const parent: Element | null = cur.parentElement;
+        if (!parent) { parts.unshift(t); break; }
+        const same = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
+        parts.unshift(same.length > 1 ? `${t}:nth-of-type(${same.indexOf(cur) + 1})` : t);
+        cur = parent;
+      }
+      return parts.join(" > ");
+    };
+}
+
+/** Lowest-to-highest WCAG level order. */
+const LEVEL_ORDER: Record<"A" | "AA" | "AAA", number> = { A: 1, AA: 2, AAA: 3 };
+
+/**
+ * Move findings ABOVE the audited WCAG level out of the scored set.
+ *
+ * Policy (Alexa, 2026-10-09): an above-level finding is advisory. It carries
+ * `aboveAuditLevel`, is reported in a separate `advisories` list, takes no
+ * score deduction, is never escalated by persona weight, and is never
+ * "critical".
+ *
+ * Before this an AAA-only 40x40 target in an AA audit was the largest single
+ * deduction on the reported page and showed severityForPersona "critical":
+ * adjustSeverityForLevel capped it at minor, and weightedSeverity -- which has
+ * no idea what level is being audited -- moved it up two steps at weight 3.0.
+ *
+ * Applied once, after every detector, for the same reason the viewport filter
+ * is: one rule in one place cannot be forgotten by a twelfth detector.
+ *
+ * A barrier with no KNOWN criterion is not a WCAG finding (navigation item
+ * count, the spacing heuristic before it related to 2.5.8) and so is not above
+ * any level; it stays scored. getBarrierWcagLevel treats [] as AAA for
+ * severity purposes, which is why it is not reused for this question as-is.
+ */
+export function splitAboveAuditLevel<T extends { wcagCriteria?: string[]; severity: AccessibilityBarrierSeverity }>(
+  barriers: T[],
+  auditLevel: "A" | "AA" | "AAA",
+): { scored: T[]; advisories: Array<T & { aboveAuditLevel: true; wcagLevelOfFinding: "A" | "AA" | "AAA" }> } {
+  const scored: T[] = [];
+  const advisories: Array<T & { aboveAuditLevel: true; wcagLevelOfFinding: "A" | "AA" | "AAA" }> = [];
+  for (const b of barriers) {
+    const known = (b.wcagCriteria ?? []).filter((c) => WCAG_CRITERIA[c]);
+    if (known.length === 0) { scored.push(b); continue; }
+    const level = getBarrierWcagLevel(known);
+    if (LEVEL_ORDER[level] > LEVEL_ORDER[auditLevel]) {
+      advisories.push({
+        ...b,
+        severity: adjustSeverityForLevel(b.severity, level, auditLevel),
+        aboveAuditLevel: true,
+        wcagLevelOfFinding: level,
+      });
+    } else {
+      scored.push(b);
+    }
+  }
+  return { scored, advisories };
 }
 
 /**
@@ -244,6 +359,14 @@ interface BarrierContext {
  * animation presence, reading level -- have no coordinates and are properties of
  * the page rather than of a location on it. Dropping the unlocatable would trade
  * this bug for its opposite. (2026-08-05)
+ *
+ * A ZERO-AREA rect is kept too, exactly as a full_page audit keeps it. A
+ * display:none element resolves to {0,0,0,0}: it is not outside the viewport,
+ * it is nowhere, so it has no position to filter on. Dropping it scored the
+ * same unlabelled hidden input in full_page and silently removed it in
+ * viewport, under a note that called it "outside the viewport". The rect
+ * coverage reports it undrawn as zeroArea in both scopes. (Round 2,
+ * 2026-10-09)
  */
 export function filterBarriersToViewport<T extends { rect?: { x: number; y: number; width: number; height: number } }>(
   barriers: T[],
@@ -252,6 +375,7 @@ export function filterBarriersToViewport<T extends { rect?: { x: number; y: numb
   const kept = barriers.filter((b) => {
     if (!b.rect) return true; // page-level finding, not a located one
     const { x, y, width, height } = b.rect;
+    if (!(width > 0 && height > 0)) return true; // zero-area: no position to judge
     // Document coordinates, and a viewport-scoped audit never scrolls, so the
     // visible band is y 0..height and x 0..width.
     const intersectsY = y < viewport.height && y + height > 0;
@@ -322,8 +446,11 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
           el.classList.contains('sr-only') || el.classList.contains('visually-hidden') ||
           el.classList.contains('screen-reader-text');
 
+        const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
         return {
-          selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
+          // Unique, not tag + #id: two id-less buttons were both "button" and
+          // merged into one finding. (B6, 2026-10-09)
+          selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
           width: rect.width,
           height: rect.height,
           // DOCUMENT coordinates. getBoundingClientRect is viewport-relative, and
@@ -341,44 +468,53 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
       }).filter(el => {
         if (el.area <= 0 || el.exempt) return false;
         if (vpOnly && !el.inViewport) return false;
-        // Only flag if the SMALLEST dimension is under the threshold
-        // A 1280x36px element is perfectly tappable — the 36px height is fine
-        // WCAG 2.5.8 AA: 24x24px minimum for the target area
-        const minDim = Math.min(el.width, el.height);
-        const maxDim = Math.max(el.width, el.height);
-        // Skip if the element is wide/tall enough to be easily tappable
-        // (one dimension >= 44px AND the other >= 24px = AA compliant)
-        if (minDim >= 24 && maxDim >= 44) return false;
-        // Flag if both dimensions are small
-        return minDim < 44;
+        // Candidates: anything under 44px on EITHER axis. Classified per axis
+        // below, in Node, on the rounded size the description prints.
+        return el.width < 44 || el.height < 44;
       });
     }, viewportOnly
   );
 
   // WCAG 2.5.8 (AA) minimum: 24x24px
   // WCAG 2.5.5 (AAA) target: 44x44px
+  //
+  // Checked PER AXIS. The old filter exempted anything whose larger side was
+  // >= 44 and smaller side >= 24 ("one axis rescues the other"), which is not
+  // what 2.5.5 says -- it asks for 44 on both axes. So a 51x28 "Change
+  // language" button passed while a 40x40 button failed, and of two targets
+  // that both miss 2.5.5 only one was reported. (B6, 2026-10-09)
   const aaMinimum = 24;
   const aaaTarget = 44;
+  const classified = smallTargets
+    .map((t) => {
+      const w = Math.round(t.width);
+      const h = Math.round(t.height);
+      return { ...t, w, h, failsAA: w < aaMinimum || h < aaMinimum, failsAAA: w < aaaTarget || h < aaaTarget };
+    })
+    .filter((t) => t.failsAAA);
+  // AA failures first, THEN the cap, so AAA-only candidates (now more numerous
+  // under the per-axis rule) cannot push an AA failure off the list.
+  // Array.prototype.sort is stable, so document order holds within each class.
+  classified.sort((a, b) => Number(b.failsAA) - Number(a.failsAA));
 
-  for (const target of smallTargets.slice(0, 10)) {
-    const w = Math.round(target.width);
-    const h = Math.round(target.height);
+  for (const target of classified.slice(0, 10)) {
+    const { w, h } = target;
 
     // Determine which WCAG criteria are violated
     const wcagCriteria: string[] = [];
     let description: string;
     let rawSeverity: AccessibilityBarrierSeverity;
 
-    if (w < aaMinimum || h < aaMinimum) {
+    if (target.failsAA) {
       // Fails WCAG 2.5.8 AA (24x24px minimum)
       wcagCriteria.push("2.5.8", "2.5.5");
       description = `Touch target too small (${w}x${h}px) — fails WCAG 2.5.8 AA minimum (24x24px)`;
       rawSeverity = w < 16 || h < 16 ? "critical" : "major";
       ctx.wcagViolations.add("2.5.8");
     } else {
-      // Passes AA but fails AAA (24-44px range)
+      // Passes AA but fails AAA: at least 24 on both axes, under 44 on one.
       wcagCriteria.push("2.5.5");
-      description = `Touch target below AAA target (${w}x${h}px) — passes AA (24px) but below AAA target (44px)`;
+      description = `Touch target below AAA target (${w}x${h}px) — passes AA (24x24px) but under 44px on at least one axis (2.5.5 asks for 44x44px)`;
       rawSeverity = "minor";
       ctx.wcagViolations.add("2.5.5");
     }
@@ -492,8 +628,9 @@ async function detectLowContrast(ctx: BarrierContext): Promise<void> {
         const aaaThreshold = isLargeText ? 4.5 : 7;
 
         if (ratio < aaaThreshold) {
+          const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
           (results as any[]).push({
-            selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : el.className ? `.${String((el.className as unknown as { baseVal?: string })?.baseVal ?? el.className ?? "").split(' ')[0]}` : ''),
+            selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.id ? `#${el.id}` : el.className ? `.${String((el.className as unknown as { baseVal?: string })?.baseVal ?? el.className ?? "").split(' ')[0]}` : ''),
             text: text.slice(0, 30),
             fontSize,
             ratio: Math.round(ratio * 10) / 10,
@@ -515,7 +652,12 @@ async function detectLowContrast(ctx: BarrierContext): Promise<void> {
 
   // AA threshold: 4.5:1 normal, 3:1 large text (WCAG 1.4.3)
   // AAA threshold: 7:1 normal, 4.5:1 large text (WCAG 1.4.6)
-  for (const el of lowContrastElements.slice(0, 8)) {
+  // AA failures before the cap, as for touch targets: an AAA-only shortfall
+  // earlier in the document must not push an AA failure off the list. Stable
+  // sort keeps document order within each class. (B6 sibling, 2026-10-09)
+  const failsAAFirst = [...lowContrastElements].sort((a, b) =>
+    Number(b.ratio < (b.isLargeText ? 3 : 4.5)) - Number(a.ratio < (a.isLargeText ? 3 : 4.5)));
+  for (const el of failsAAFirst.slice(0, 8)) {
     const aaThreshold = el.isLargeText ? 3 : 4.5;
     const failsAA = el.ratio < aaThreshold;
     const wcagCriteria = failsAA ? ["1.4.3", "1.4.6"] : ["1.4.6"];
@@ -560,10 +702,17 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
   // v10.10.0: Removed trait-based skipping - always detect issues
 
   const cognitiveIssues = await page.evaluate(() => {
-    const issues: Array<{ type: string; description: string; count?: number }> = [];
+    type R = { x: number; y: number; width: number; height: number };
+    const issues: Array<{ type: string; description: string; count?: number; selector?: string; rect?: R }> = [];
     const inVp = (window as any).__cbrowserInViewport || (() => true);
+    const uniq: (el: Element) => string = (window as any).__cbrowserUniqueSelector || ((el: Element) => el.tagName.toLowerCase());
+    const docRect = (el: Element): R => {
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left + window.scrollX), y: Math.round(r.top + window.scrollY),
+        width: Math.round(r.width), height: Math.round(r.height) };
+    };
 
-    // Check for long forms (in scope)
+    // Check for long forms (in scope). Located: the form is the finding.
     const forms = Array.from(document.querySelectorAll('form')).filter(inVp);
     for (const form of forms) {
       const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"]), textarea, select')).filter(inVp);
@@ -572,31 +721,28 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
           type: "long-form",
           description: `Form with ${inputs.length} fields may overwhelm users with attention difficulties`,
           count: inputs.length,
+          selector: uniq(form),
+          rect: docRect(form),
         });
       }
     }
 
-    // Check for text walls (in scope)
+    // Check for text walls (in scope). Located: the first long paragraph.
     const paragraphs = Array.from(document.querySelectorAll('p')).filter(inVp);
     for (const p of paragraphs) {
       if (p.textContent && p.textContent.length > 500) {
         issues.push({
           type: "text-wall",
           description: "Long paragraph without breaks may be difficult to process",
+          selector: uniq(p),
+          rect: docRect(p),
         });
         break;
       }
     }
 
-    // Check for animations/movement (in scope)
-    const animations = Array.from(document.querySelectorAll('[class*="animate"], [class*="slider"], [class*="carousel"]')).filter(inVp);
-    if (animations.length > 0) {
-      issues.push({
-        type: "animation",
-        description: "Animated content may distract users with attention difficulties",
-        count: animations.length,
-      });
-    }
+    // Animation/movement is detectMotionWithoutPause's job (2.2.2, located,
+    // pause controls credited). It was a class-name count here. (B5)
 
     // Check for complex navigation (in scope)
     const navItems = Array.from(document.querySelectorAll('nav a, header a, [role="navigation"] a')).filter(inVp);
@@ -616,18 +762,16 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
     const wcagMap: Record<string, { criteria: string[]; violation: string | null }> = {
       "long-form": { criteria: ["3.3.2"], violation: "3.3.2" }, // Labels or Instructions
       "text-wall": { criteria: ["1.3.1"], violation: null }, // Info and Relationships (recommendation, not violation)
-      // Pause, Stop, Hide only. 2.3.1 (Three Flashes) is a seizure-safety
-      // criterion about flash RATE, and nothing here measures flashing -- this
-      // is a class-name match. Citing it published a Level A violation for
-      // every page with an animate-* utility. (2026-10-07)
-      "animation": { criteria: ["2.2.2"], violation: "2.2.2" },
       "complex-nav": { criteria: [], violation: null }, // No WCAG criterion for nav item count — UX recommendation only
     };
     const mapping = wcagMap[issue.type] || { criteria: [], violation: null };
 
     barriers.push({
       type: "cognitive_load",
-      element: issue.type,
+      // A located issue names its element. The navigation count is a property
+      // of the page, said so with pageLevel rather than by a rect's absence.
+      element: issue.selector ?? issue.type,
+      ...(issue.rect ? { rect: issue.rect } : { pageLevel: true }),
       description: issue.description + (mapping.criteria.length === 0 ? ' (UX recommendation, not a WCAG violation)' : ''),
       affectedPersonas: ["cognitive-adhd", "dyslexic-user"],
       wcagCriteria: mapping.criteria,
@@ -644,12 +788,283 @@ async function detectCognitiveLoad(ctx: BarrierContext): Promise<void> {
         ? "Break form into multiple steps or sections"
         : issue.type === "text-wall"
           ? "Break text into smaller paragraphs with headings"
-          : issue.type === "animation"
-            ? "Provide controls to pause/stop animations, or use prefers-reduced-motion"
-            : "Consider simplifying navigation structure for cognitive accessibility",
+          : "Consider simplifying navigation structure for cognitive accessibility",
     });
     if (mapping.violation) ctx.wcagViolations.add(mapping.violation);
   }
+
+  await detectMotionWithoutPause(ctx);
+}
+
+/**
+ * WCAG 2.2.2 Pause, Stop, Hide: moving content that starts on its own and
+ * keeps going, with no control to pause, stop or hide it.
+ *
+ * This was a class-name count inside detectCognitiveLoad, `[class*=animate|
+ * slider|carousel]`, returning {type, description, count}. The barrier was
+ * built with `element: "animation"` -- the literal string -- no rect, and the
+ * count thrown away, so deduplication counted it as one element and the
+ * overlay could not draw it. Nothing anywhere looked for a pause control, so a
+ * carousel with a correctly labelled, correctly associated "Pause auto-play"
+ * button was reported as a 2.2.2 violation exactly like one with none. (B5,
+ * 2026-10-09)
+ *
+ * Candidates: running animations from document.getAnimations() that loop
+ * forever or run longer than five seconds, UNIONED with the old class match,
+ * because a JavaScript-timer carousel never appears in getAnimations(). Only
+ * rendered, in-scope elements count.
+ *
+ * Grouped by their NEAREST motion container (carousel, slider, or
+ * aria-roledescription="carousel"), else, for a running animation, its
+ * outermost animated ancestor. A class-only group nested in another group
+ * joins it (a widget's inner/item/control classes are parts of the widget),
+ * and a bare class-named wrapper around another group is not a group.
+ *
+ * A group is CREDITED -- no barrier -- when a visible, enabled button,
+ * role=button or role=switch whose name says pause, stop or autoplay
+ *   (a) sits inside the group's container and in no other group nested in
+ *       it (a control belongs to its innermost group), or
+ *   (b) names the container or one of its members in aria-controls, or
+ *   (c) sits in the container's parent, when that parent is not body/html
+ *       and holds no OTHER motion group.
+ * Credited groups are listed in `motionControlsCredited`, so a crediting that
+ * happened can be told from a detector that saw nothing. (Round 2: the parent
+ * rule credited a marquee with its neighbour carousel's button, and the
+ * outermost container let a page wrapper absorb every animation.)
+ *
+ * An uncredited animation-backed group is one barrier: a unique selector for
+ * the container, its document-space rect, and the number of animated members.
+ * Uncredited class-only groups together are one page-level barrier listing
+ * them (see pushClassOnlyMotionBarrier).
+ */
+async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
+  const groups = await ctx.page.evaluate(() => {
+    type R = { x: number; y: number; width: number; height: number };
+    const w = window as unknown as {
+      __cbrowserInViewport?: (el: Element) => boolean;
+      __cbrowserUniqueSelector?: (el: Element) => string;
+    };
+    const inVp = w.__cbrowserInViewport ?? (() => true);
+    const uniq = w.__cbrowserUniqueSelector ?? ((el: Element) => el.tagName.toLowerCase());
+    const rendered = (el: Element): boolean => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+    };
+    const docRect = (el: Element): R => {
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.left + window.scrollX), y: Math.round(r.top + window.scrollY),
+        width: Math.round(r.width), height: Math.round(r.height),
+      };
+    };
+
+    // 1. Running animations that loop forever or last more than 5 s.
+    const animated = new Set<Element>();
+    try {
+      for (const a of document.getAnimations()) {
+        if (a.playState !== "running") continue;
+        const effect = a.effect as KeyframeEffect | null;
+        const target = effect?.target;
+        if (!effect || !target) continue;
+        const t = effect.getComputedTiming();
+        const active = Number(t.activeDuration);
+        if (t.iterations === Infinity || active > 5000) animated.add(target);
+      }
+    } catch { /* no getAnimations: the class fallback below still runs */ }
+
+    // 2. The class-match fallback, for timer-driven carousels.
+    const classMatched = Array.from(document.querySelectorAll('[class*="animate"], [class*="slider"], [class*="carousel"]'));
+
+    const candidates = Array.from(new Set<Element>([...animated, ...classMatched]))
+      .filter((el) => rendered(el) && inVp(el));
+    if (candidates.length === 0) return [];
+
+    const CONTAINER = '[class*="carousel"], [class*="slider"], [aria-roledescription="carousel"]';
+    const isPageRoot = (el: Element | null): boolean =>
+      !el || el === document.body || el === document.documentElement;
+    // The NEAREST motion container, ancestor-or-self. Outermost let a wrapper
+    // whose class happened to contain "slider" absorb every animated element
+    // on the page into one group, credited by one button anywhere inside it.
+    // With no container: an animated element joins its outermost ANIMATED
+    // ancestor (a ticker and its moving spans are one thing), never a merely
+    // class-named one, so a static `.animate-in` wrapper cannot absorb either.
+    const rootOf = (el: Element): Element => {
+      for (let cur: Element | null = el; !isPageRoot(cur); cur = cur!.parentElement) {
+        if (cur!.matches(CONTAINER)) return cur!;
+      }
+      if (!animated.has(el)) return el;
+      let outer: Element = el;
+      for (let cur: Element | null = el.parentElement; !isPageRoot(cur); cur = cur!.parentElement) {
+        if (animated.has(cur!)) outer = cur!;
+      }
+      return outer;
+    };
+    const byRoot = new Map<Element, Element[]>();
+    for (const el of candidates) {
+      const root = rootOf(el);
+      const list = byRoot.get(root);
+      if (list) list.push(el); else byRoot.set(root, [el]);
+    }
+    // A class-only group (no running animation among its members) nested
+    // inside another group is part of that group: Bootstrap's carousel-inner,
+    // carousel-item and carousel-control-* all match the container selector,
+    // and as separate groups a pause button in .carousel could credit only
+    // the outer one. Class names are not motion; a running animation is, so
+    // an animation-backed group is never folded into another.
+    const classOnly = (members: Element[]): boolean => !members.some((m) => animated.has(m));
+    {
+      const initial = Array.from(byRoot.keys());
+      const enclosing = (root: Element): Element | null => {
+        let best: Element | null = null;
+        for (const r of initial) {
+          if (r !== root && r.contains(root) && (!best || best.contains(r))) best = r;
+        }
+        return best;
+      };
+      const finalRoot = new Map<Element, Element>();
+      const resolve = (root: Element): Element => {
+        const known = finalRoot.get(root);
+        if (known) return known;
+        const outer = classOnly(byRoot.get(root)!) ? enclosing(root) : null;
+        const f = outer ? resolve(outer) : root;
+        finalRoot.set(root, f);
+        return f;
+      };
+      for (const root of initial) {
+        const f = resolve(root);
+        if (f === root) continue;
+        byRoot.get(f)!.push(...byRoot.get(root)!);
+        byRoot.delete(root);
+      }
+      // A bare class-named wrapper -- class-only, nothing in the group but
+      // itself, around another group -- is not moving content of its own; its
+      // class describes what is inside it. As a group it would claim the
+      // controls inside it and block the parent rule for the real one.
+      for (const [root, members] of Array.from(byRoot)) {
+        if (members.length === 1 && members[0] === root && classOnly(members) &&
+          Array.from(byRoot.keys()).some((r) => r !== root && root.contains(r))) {
+          byRoot.delete(root);
+        }
+      }
+    }
+
+    const PAUSE = /\b(pause|stop|autoplay|auto-play)\b/i;
+    const nameOf = (c: Element): string => [
+      c.getAttribute("aria-label"),
+      ...(c.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean)
+        .map((id) => document.getElementById(id)?.textContent ?? ""),
+      c.getAttribute("title"),
+      c instanceof HTMLInputElement ? c.value : "",
+      c.textContent,
+    ].filter(Boolean).join(" ");
+    const pauseControls = Array.from(document.querySelectorAll('button, [role="button"], [role="switch"]'))
+      .filter((c) => PAUSE.test(nameOf(c)) && rendered(c) &&
+        !(c as HTMLButtonElement).disabled && c.getAttribute("aria-disabled") !== "true");
+
+    const roots = Array.from(byRoot.keys()).sort((a, b) =>
+      a === b ? 0 : (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    return roots.map((root) => {
+      const members = byRoot.get(root)!;
+      const moving = members.filter((m) => animated.has(m));
+      const counted = moving.length > 0 ? moving : [root];
+      // Credit needs evidence a control is FOR this motion, and a class name
+      // is not that evidence. Two rounds of class-based rules (nearest
+      // container, parent-holds-no-other-group, class-only merging) each let a
+      // carousel's own Pause button credit a ticker or a second carousel beside
+      // it, hiding a real Level A 2.2.2 failure. Hiding a violation costs more
+      // than reporting one that has a control, so credit only on the two
+      // explicit signals: aria-controls naming the moving content (or an
+      // ancestor of it), or the ARIA carousel pattern -- the control and the
+      // motion inside the same [aria-roledescription="carousel"] region.
+      // A class-named carousel with no ARIA is reported even when a pause
+      // button exists (named limit). (2026-10-09, round 3)
+      const ids = new Set<string>();
+      for (const m of [root, ...members]) if (m.id) ids.add(m.id);
+      for (let cur: Element | null = root.parentElement; !isPageRoot(cur); cur = cur!.parentElement) {
+        if (cur!.id) ids.add(cur!.id);
+      }
+      const region = root.closest('[aria-roledescription="carousel"]');
+      const credit = pauseControls.find((c) =>
+        (c.getAttribute("aria-controls") ?? "").split(/\s+/).some((id) => ids.has(id)) ||
+        (region !== null && region.contains(c)));
+      return {
+        selector: uniq(root),
+        rect: docRect(root),
+        memberCount: counted.length,
+        members: counted.slice(0, 10).map(uniq),
+        detectedBy: moving.length > 0 ? "getAnimations" : "class name",
+        credited: credit ? uniq(credit) : null,
+      };
+    });
+  });
+
+  // Animation-backed groups: one located barrier each, capped at ten in
+  // document order like the other located detectors. Class-only groups (the
+  // JavaScript-timer fallback: a class name and no running animation) are
+  // ONE page-level barrier listing them. One per group turned four bare
+  // .animate-pulse divs into four 2.2.2 barriers where main reported one,
+  // and a class name is weak evidence to multiply. (Round 2, 2026-10-09)
+  let pushed = 0;
+  const classOnly: typeof groups = [];
+  for (const g of groups) {
+    if (g.credited) {
+      ctx.motionControlsCredited.push({ content: g.selector, control: g.credited });
+      continue;
+    }
+    if (g.detectedBy === "class name") { classOnly.push(g); continue; }
+    if (pushed >= 10) continue;
+    pushMotionBarrier(ctx, g);
+    pushed++;
+  }
+  if (classOnly.length > 0) pushClassOnlyMotionBarrier(ctx, classOnly.map((g) => g.selector));
+}
+
+/**
+ * The one 2.2.2 barrier for every uncredited class-only motion group: a page
+ * with elements whose class names say carousel, slider or animate, and no
+ * running animation was seen (a JavaScript timer may drive them).
+ */
+function pushClassOnlyMotionBarrier(ctx: BarrierContext, selectors: string[]): void {
+  const n = selectors.length;
+  ctx.barriers.push({
+    type: "cognitive_load",
+    element: `${n} class-named motion element${n === 1 ? "" : "s"}`,
+    // A page-wide aggregate; each element is in members.
+    pageLevel: true,
+    members: selectors.slice(0, 10),
+    affectedElementCount: n,
+    description: `${n} element${n === 1 ? "" : "s"} whose class names suggest moving content (carousel, slider, animate), with no running animation seen (a JavaScript timer may drive ${n === 1 ? "it" : "them"}), ${n === 1 ? "has" : "have"} no associated pause, stop or hide control - may distract users with attention difficulties`,
+    affectedPersonas: ["cognitive-adhd", "dyslexic-user"],
+    wcagCriteria: ["2.2.2"],
+    severity: "minor",
+    remediation: "If these move on their own, add a visible pause/stop control inside each (or name it with aria-controls), or honour prefers-reduced-motion",
+  });
+  ctx.wcagViolations.add("2.2.2");
+}
+
+/** One 2.2.2 barrier for an uncredited motion group. */
+function pushMotionBarrier(
+  ctx: BarrierContext,
+  g: { selector: string; rect: { x: number; y: number; width: number; height: number };
+    memberCount: number; members: string[]; detectedBy: string },
+): void {
+  ctx.barriers.push({
+    type: "cognitive_load",
+    element: g.selector,
+    description: `Moving content (${g.memberCount} animated element${g.memberCount === 1 ? "" : "s"}, found by ${g.detectedBy}) has no associated pause, stop or hide control - may distract users with attention difficulties`,
+    affectedPersonas: ["cognitive-adhd", "dyslexic-user"],
+    // Pause, Stop, Hide only. 2.3.1 (Three Flashes) is a seizure-safety
+    // criterion about flash RATE, and nothing here measures flashing. Citing
+    // it published a Level A violation for every page with an animate-*
+    // utility. (2026-10-07)
+    wcagCriteria: ["2.2.2"],
+    severity: "minor",
+    remediation: "Add a visible pause/stop control inside the moving content (or name it with aria-controls), or honour prefers-reduced-motion",
+    rect: g.rect,
+    affectedElementCount: g.memberCount,
+    members: g.members,
+  });
+  ctx.wcagViolations.add("2.2.2");
 }
 
 /**
@@ -677,11 +1092,19 @@ async function detectTimingIssues(ctx: BarrierContext): Promise<void> {
         // includes time-cue language (countdown, expires, remaining, seconds).
         const hasTimeCueText = /\b(countdown|expir|remaining|time\s*left|seconds?\s+left|minutes?\s+left)\b/i.test(text);
         const isTimingRelevant = dataTimeout || role === "timer" || httpRefresh || hasTimeCueText;
+        const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
+        const r = el.getBoundingClientRect();
         return {
           isTimingRelevant,
-          selector: el.tagName.toLowerCase() + (el.className && typeof (el as HTMLElement).className === "string"
+          selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.className && typeof (el as HTMLElement).className === "string"
             ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(" ")[0]}` : ""),
           text,
+          // A meta refresh is the page timing out, not an element on it.
+          pageLevel: httpRefresh,
+          x: Math.round(r.left + window.scrollX),
+          y: Math.round(r.top + window.scrollY),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
         };
       })
       .filter((el) => el.isTimingRelevant)
@@ -700,6 +1123,9 @@ async function detectTimingIssues(ctx: BarrierContext): Promise<void> {
         wcagCriteria,
         severity,
         remediation: "Allow users to extend, adjust, or disable time limits",
+        ...(el.pageLevel
+          ? { pageLevel: true }
+          : { rect: { x: el.x, y: el.y, width: el.width, height: el.height } }),
       });
       ctx.wcagViolations.add("2.2.1");
     }
@@ -722,12 +1148,19 @@ async function detectColorOnlyInfo(ctx: BarrierContext): Promise<void> {
       const styles = window.getComputedStyle(el);
       const hasIcon = el.querySelector('svg, i, [class*="icon"]') !== null;
       const hasText = (el.textContent?.trim() || '').length > 0;
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
+      const r = el.getBoundingClientRect();
       return {
-        selector: el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
+        // Unique and located: five same-class swatches were one "span.red".
+        selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
         hasIcon,
         hasText,
         color: styles.color,
         bgColor: styles.backgroundColor,
+        x: Math.round(r.left + window.scrollX),
+        y: Math.round(r.top + window.scrollY),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
       };
     }).filter(el => !el.hasIcon && !el.hasText)
   );
@@ -741,6 +1174,7 @@ async function detectColorOnlyInfo(ctx: BarrierContext): Promise<void> {
       wcagCriteria: ["1.4.1"],
       severity: "major",
       remediation: "Add icons, patterns, or text labels in addition to color",
+      rect: { x: el.x, y: el.y, width: el.width, height: el.height },
     });
     ctx.wcagViolations.add("1.4.1");
   }
@@ -858,8 +1292,10 @@ async function detectMissingAltText(ctx: BarrierContext): Promise<void> {
       // so there is no audio experience being withheld. Deliberately narrow --
       // a muted video WITH controls can be unmuted and still needs captions.
       const noAudioReachable = v.hasAttribute("muted") && !v.hasAttribute("controls");
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
       return {
-        selector: v.id ? `video#${v.id}` : "video",
+        // Two id-less videos were both "video" and merged into one finding.
+        selector: uniq ? uniq(v) : v.id ? `video#${v.id}` : "video",
         hasCaptions: v.querySelector('track[kind="captions"]') !== null,
         // Subtitles translate dialogue for people who can hear; captions also
         // carry speaker changes and non-speech audio. 1.2.2 asks for captions,
@@ -957,8 +1393,9 @@ async function detectMissingAudioDescription(ctx: BarrierContext): Promise<void>
         const hasTranscript =
           /transcript|described version|audio description/.test(nearbyText) ||
           !!scope?.querySelector('a[href*="transcript"]');
+        const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
         return {
-          selector: v.id ? `video#${v.id}` : (v.getAttribute("src") ? `video[src]` : "video"),
+          selector: uniq ? uniq(v) : v.id ? `video#${v.id}` : (v.getAttribute("src") ? `video[src]` : "video"),
           hasDescriptions,
           decorative,
           hasTranscript,
@@ -991,6 +1428,7 @@ async function detectMissingAudioDescription(ctx: BarrierContext): Promise<void>
       remediation:
         "Add an audio description track (<track kind=\"descriptions\">) narrating on-screen information that is not already spoken, or publish a described version. A full text transcript satisfies 1.2.3 but not 1.2.5.",
       affectedElementCount: withNothing.length,
+      members: withNothing.map((v) => v.selector),
       rect: { x: withNothing[0].x, y: withNothing[0].y, width: withNothing[0].width, height: withNothing[0].height },
     } as AccessibilityBarrier);
     ctx.wcagViolations.add("1.2.3");
@@ -1008,6 +1446,7 @@ async function detectMissingAudioDescription(ctx: BarrierContext): Promise<void>
       remediation:
         "Add an audio description track so on-screen information is available during playback, not only in a separate transcript",
       affectedElementCount: withTranscript.length,
+      members: withTranscript.map((v) => v.selector),
       rect: { x: withTranscript[0].x, y: withTranscript[0].y, width: withTranscript[0].width, height: withTranscript[0].height },
     } as AccessibilityBarrier);
     ctx.wcagViolations.add("1.2.5");
@@ -1024,7 +1463,9 @@ async function detectMissingFormLabels(ctx: BarrierContext): Promise<void> {
   const unlabeledInputs = await page.$$eval(
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]), textarea, select',
     (elements) => {
-      const results: Array<{ selector: string; type: string; hasLabel: boolean; hasAriaLabel: boolean; hasPlaceholder: boolean }> = [];
+      const results: Array<{ selector: string; type: string; hasLabel: boolean; hasAriaLabel: boolean; hasPlaceholder: boolean;
+        x: number; y: number; width: number; height: number }> = [];
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
       for (const el of elements.slice(0, 50)) {
         const input = el as HTMLInputElement;
@@ -1040,12 +1481,17 @@ async function detectMissingFormLabels(ctx: BarrierContext): Promise<void> {
         const hasPlaceholder = input.hasAttribute('placeholder');
 
         if (!hasLabel && !hasAriaLabel) {
+          const r = input.getBoundingClientRect();
           results.push({
-            selector: input.tagName.toLowerCase() + (id ? `#${id}` : '') + (input.name ? `[name="${input.name}"]` : ''),
+            selector: uniq ? uniq(input) : input.tagName.toLowerCase() + (id ? `#${id}` : '') + (input.name ? `[name="${input.name}"]` : ''),
             type: input.type || 'text',
             hasLabel,
             hasAriaLabel,
             hasPlaceholder,
+            x: Math.round(r.left + window.scrollX),
+            y: Math.round(r.top + window.scrollY),
+            width: Math.round(r.width),
+            height: Math.round(r.height),
           });
         }
       }
@@ -1066,6 +1512,7 @@ async function detectMissingFormLabels(ctx: BarrierContext): Promise<void> {
       wcagCriteria: ["1.3.1", "3.3.2", "4.1.2"],
       severity: "major",
       remediation: "Add a <label for=\"id\"> element or aria-label attribute to identify the input's purpose",
+      rect: { x: input.x, y: input.y, width: input.width, height: input.height },
     });
     ctx.wcagViolations.add("3.3.2");
     ctx.wcagViolations.add("4.1.2");
@@ -1187,8 +1634,9 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
         } catch { isKeyboardPath = false; }
 
         const r = el.getBoundingClientRect();
+        const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
         results.push({
-          selector: el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
+          selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
           hasClickAlternative: hasClick,
           isKeyboardPath,
           text: el.textContent?.trim().slice(0, 30) || '',
@@ -1226,11 +1674,19 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
   // Check for drag-and-drop without keyboard alternative
   const dragDropElements = await page.$$eval(
     '[draggable="true"], [class*="drag"], [class*="sortable"], [class*="reorder"]',
-    (elements) => elements.map(el => ({
-      selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
-      hasAriaGrabbed: el.hasAttribute('aria-grabbed'),
-      hasKeyboardHandler: el.hasAttribute('onkeydown') || el.hasAttribute('onkeyup'),
-    }))
+    (elements) => elements.map(el => {
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
+      const r = el.getBoundingClientRect();
+      return {
+        selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
+        hasAriaGrabbed: el.hasAttribute('aria-grabbed'),
+        hasKeyboardHandler: el.hasAttribute('onkeydown') || el.hasAttribute('onkeyup'),
+        x: Math.round(r.left + window.scrollX),
+        y: Math.round(r.top + window.scrollY),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+      };
+    })
   );
 
   for (const el of dragDropElements.slice(0, 3)) {
@@ -1244,17 +1700,24 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
         wcagCriteria: ["2.1.1", "2.5.7"],
         severity: "critical",
         remediation: "Provide keyboard-accessible alternative for drag-and-drop (arrow keys, or explicit move buttons)",
+        rect: { x: el.x, y: el.y, width: el.width, height: el.height },
       });
       ctx.wcagViolations.add("2.1.1");
     }
   }
 
   // Check for very small spacing between interactive elements (motor precision issue)
+  // Viewport-filtered. It scanned the first 30 targets in DOM order with no
+  // scope test and carried no rect, so a viewport audit counted pairs seven
+  // screens down and the central filter could not drop them. (B7, 2026-10-09)
   const closeElements = await page.$$eval(
     'button, a, input[type="checkbox"], input[type="radio"]',
     (elements) => {
       const closeGroups: Array<{ selectors: string[]; spacing: number }> = [];
-      const elArray = Array.from(elements);
+      const inVp = (window as unknown as { __cbrowserInViewport?: (e: Element) => boolean }).__cbrowserInViewport ?? (() => true);
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector
+        ?? ((e: Element) => e.tagName.toLowerCase() + (e.id ? `#${e.id}` : ''));
+      const elArray = Array.from(elements).filter(inVp);
 
       for (let i = 0; i < Math.min(elArray.length, 30); i++) {
         const rect1 = elArray[i].getBoundingClientRect();
@@ -1272,10 +1735,7 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
           // Flag elements less than 8px apart
           if (distance < 8 && distance >= 0) {
             closeGroups.push({
-              selectors: [
-                elArray[i].tagName.toLowerCase() + (elArray[i].id ? `#${elArray[i].id}` : ''),
-                elArray[j].tagName.toLowerCase() + (elArray[j].id ? `#${elArray[j].id}` : '')
-              ],
+              selectors: [uniq(elArray[i]), uniq(elArray[j])],
               spacing: Math.round(distance),
             });
           }
@@ -1287,13 +1747,32 @@ async function detectMotorBarriers(ctx: BarrierContext): Promise<void> {
   );
 
   if (closeElements.length > 0) {
+    // Spacing is not 2.5.5. That criterion is Target SIZE, and citing it put
+    // this heuristic in the touch_target bucket, graded "major" and never
+    // level-adjusted: on the reported page it was most of a -20 touch_target
+    // deduction. Spacing RELATES to 2.5.8, whose exception lets an undersized
+    // target pass when it is far enough from its neighbours, but closeness on
+    // its own fails no criterion (two 44px targets 4px apart conform). So:
+    // 2.5.8 as a related, advisory criterion; minor, like the other
+    // relates-to findings; its own weight bucket; and run through
+    // adjustSeverityForLevel like every located finding. (B6, 2026-10-09)
+    const spacingCriteria = ["2.5.8"];
+    // The elements involved, each once: three targets in a row are two pairs
+    // and three elements, not "2 element groups" counted as one.
+    const spacingMembers = Array.from(new Set(closeElements.flatMap((g) => g.selectors)));
     barriers.push({
       type: "motor_precision",
       element: `${closeElements.length} element groups`,
-      description: `${closeElements.length} groups of interactive elements are very close together (< 8px spacing), making them difficult to target for users with tremors`,
+      // A page-wide aggregate of pairs, with no single location to draw.
+      pageLevel: true,
+      members: spacingMembers.slice(0, 10),
+      affectedElementCount: spacingMembers.length,
+      description: `${closeElements.length} groups of interactive elements are very close together (< 8px spacing), making them difficult to target for users with tremors (relates to the WCAG 2.5.8 spacing exception; not a violation on its own)`,
       affectedPersonas: ["motor-impairment-tremor"],
-      wcagCriteria: ["2.5.5"],
-      severity: "major",
+      wcagCriteria: spacingCriteria,
+      wcagAdvisoryCriteria: spacingCriteria,
+      weightKey: "target_spacing",
+      severity: adjustSeverityForLevel("minor", getBarrierWcagLevel(spacingCriteria), ctx.wcagLevel),
       remediation: "Increase spacing between interactive elements to at least 8-12px",
     });
   }
@@ -1316,23 +1795,37 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
   // Check for auto-playing media (distraction for ADHD)
   const autoPlayMedia = await page.$$eval(
     'video[autoplay], audio[autoplay], [class*="autoplay"]',
-    (elements) => elements.map(el => ({
-      selector: el.tagName.toLowerCase(),
-      hasControls: el.hasAttribute('controls'),
-      hasMuted: el.hasAttribute('muted'),
-    }))
+    (elements) => elements.map(el => {
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
+      return {
+        tag: el.tagName.toLowerCase(),
+        // Was the bare tag name: every autoplaying video was "video".
+        selector: uniq ? uniq(el) : el.tagName.toLowerCase(),
+        hasControls: el.hasAttribute('controls'),
+        hasMuted: el.hasAttribute('muted'),
+      };
+    })
   );
 
   for (const media of autoPlayMedia) {
-    if (!media.hasMuted) {
+    // Native `controls` ARE a pause/stop mechanism -- this barrier's own
+    // remediation says so -- and satisfy both 1.4.2 and 2.2.2. hasControls was
+    // computed and never read, so a video with a play/pause bar was reported
+    // as uncontrollable. Same defect as the uncredited carousel. (B5 sibling,
+    // 2026-10-09)
+    if (!media.hasMuted && !media.hasControls) {
       barriers.push({
         type: "cognitive_load",
         element: media.selector,
-        description: `Auto-playing ${media.selector} with sound can be highly distracting for users with ADHD`,
+        description: `Auto-playing ${media.tag} with sound can be highly distracting for users with ADHD`,
         affectedPersonas: ["cognitive-adhd"],
         wcagCriteria: ["1.4.2", "2.2.2"],
         severity: "critical",
         remediation: "Add muted attribute to autoplay media, or provide user controls to pause/stop",
+        // Deliberately no rect. This is a finding about SOUND, which is heard
+        // on first paint wherever the element sits; a rect would let the
+        // viewport filter drop an autoplaying video below the fold.
+        pageLevel: true,
       });
       ctx.wcagViolations.add("1.4.2");
     }
@@ -1345,7 +1838,9 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
       fieldCount: number;
       hasProgress: boolean;
       hasStepIndicator: boolean;
+      x: number; y: number; width: number; height: number;
     }> = [];
+    const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
     for (const form of forms) {
       const inputs = form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), textarea, select');
@@ -1353,11 +1848,16 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
         form.querySelector('[class*="progress"], [class*="stepper"], [role="progressbar"]') !== null ||
         document.querySelector('[class*="step-indicator"], [class*="wizard"]') !== null;
 
+      const r = form.getBoundingClientRect();
       results.push({
-        selector: 'form' + (form.id ? `#${form.id}` : ''),
+        selector: uniq ? uniq(form) : 'form' + (form.id ? `#${form.id}` : ''),
         fieldCount: inputs.length,
         hasProgress,
         hasStepIndicator: hasProgress,
+        x: Math.round(r.left + window.scrollX),
+        y: Math.round(r.top + window.scrollY),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
       });
     }
 
@@ -1378,6 +1878,7 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
         wcagCriteria: ["3.3.4"],
         severity: "major",
         remediation: "Add progress indicator showing steps completed and remaining, or break form into clearly numbered sections",
+        rect: { x: form.x, y: form.y, width: form.width, height: form.height },
       });
     }
   }
@@ -1389,7 +1890,9 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
       wordCount: number;
       lineHeight: string;
       fontSize: string;
+      x: number; y: number; width: number; height: number;
     }> = [];
+    const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
     for (const el of elements.slice(0, 20)) {
       const text = el.textContent || '';
@@ -1398,11 +1901,16 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
 
       // Flag blocks with 200+ words AND tight line spacing
       if (wordCount > 200) {
+        const r = el.getBoundingClientRect();
         results.push({
-          selector: el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
+          selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
           wordCount,
           lineHeight: styles.lineHeight,
           fontSize: styles.fontSize,
+          x: Math.round(r.left + window.scrollX),
+          y: Math.round(r.top + window.scrollY),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
         });
       }
     }
@@ -1425,19 +1933,23 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
         wcagCriteria: ["1.4.12"],
         severity: "major",
         remediation: "Increase line-height to at least 1.5x font size, and consider breaking text into shorter paragraphs with headings",
+        rect: { x: block.x, y: block.y, width: block.width, height: block.height },
       });
       ctx.wcagViolations.add("1.4.12");
     }
   }
 
   // Check for justified text (dyslexia barrier)
+  // In scope only: an aggregate has no rect for the central viewport filter.
   const justifiedText = await page.$$eval('p, article, div', (elements) => {
     const results: string[] = [];
+    const inVp = (window as unknown as { __cbrowserInViewport?: (e: Element) => boolean }).__cbrowserInViewport ?? (() => true);
+    const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
     for (const el of elements.slice(0, 50)) {
       const styles = window.getComputedStyle(el);
-      if (styles.textAlign === 'justify') {
-        results.push(el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''));
+      if (styles.textAlign === 'justify' && inVp(el)) {
+        results.push(uniq ? uniq(el) : el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''));
       }
     }
 
@@ -1448,6 +1960,9 @@ async function detectCognitiveBarriers(ctx: BarrierContext): Promise<void> {
     barriers.push({
       type: "cognitive_load",
       element: `${justifiedText.length} elements`,
+      pageLevel: true,
+      members: justifiedText,
+      affectedElementCount: justifiedText.length,
       description: `Justified text creates uneven word spacing that makes reading difficult for dyslexic users`,
       affectedPersonas: ["dyslexic-user"],
       wcagCriteria: ["1.4.12"],
@@ -1473,17 +1988,21 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
   const { page, barriers } = ctx;
 
   // Check for small base font sizes (vision impairment)
+  // The four aggregates below have no rect for the central viewport filter
+  // to test, so each scan applies the scope itself. (B7, 2026-10-09)
   const smallFontElements = await page.$$eval('body, p, span, div, li, td', (elements) => {
     const results: Array<{ selector: string; fontSize: string; fontSizeNum: number }> = [];
+    const inVp = (window as unknown as { __cbrowserInViewport?: (e: Element) => boolean }).__cbrowserInViewport ?? (() => true);
+    const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
     for (const el of elements.slice(0, 100)) {
       const styles = window.getComputedStyle(el);
       const fontSize = parseFloat(styles.fontSize);
 
       // Flag fonts smaller than 14px as problematic for low vision
-      if (fontSize > 0 && fontSize < 14) {
+      if (fontSize > 0 && fontSize < 14 && inVp(el)) {
         results.push({
-          selector: el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
+          selector: uniq ? uniq(el) : el.tagName.toLowerCase() + (el.className ? `.${String(((el as HTMLElement).className as unknown as { baseVal?: string })?.baseVal ?? (el as HTMLElement).className ?? "").split(' ')[0]}` : ''),
           fontSize: styles.fontSize,
           fontSizeNum: fontSize,
         });
@@ -1498,6 +2017,9 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
     barriers.push({
       type: "visual_clarity",
       element: `${smallFontElements.length} elements`,
+      pageLevel: true,
+      members: smallFontElements.map((e) => e.selector),
+      affectedElementCount: smallFontElements.length,
       description: `${smallFontElements.length} text elements use small font sizes (avg ${avgSize.toFixed(0)}px) that may be difficult for low-vision users`,
       affectedPersonas: ["low-vision-magnified", "elderly-low-vision"],
       wcagCriteria: ["1.4.4"],
@@ -1510,14 +2032,16 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
   // Check for thin fonts (hard for low vision)
   const thinFontElements = await page.$$eval('body, h1, h2, h3, p, span', (elements) => {
     const results: string[] = [];
+    const inVp = (window as unknown as { __cbrowserInViewport?: (e: Element) => boolean }).__cbrowserInViewport ?? (() => true);
+    const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
     for (const el of elements.slice(0, 50)) {
       const styles = window.getComputedStyle(el);
       const fontWeight = parseInt(styles.fontWeight, 10) || 400;
 
       // Font weight < 400 is thin and harder to read
-      if (fontWeight < 400 && el.textContent && el.textContent.trim().length > 0) {
-        results.push(el.tagName.toLowerCase());
+      if (fontWeight < 400 && el.textContent && el.textContent.trim().length > 0 && inVp(el)) {
+        results.push(uniq ? uniq(el) : el.tagName.toLowerCase());
       }
     }
 
@@ -1528,6 +2052,9 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
     barriers.push({
       type: "visual_clarity",
       element: `${thinFontElements.length} text elements`,
+      pageLevel: true,
+      members: thinFontElements.slice(0, 10),
+      affectedElementCount: thinFontElements.length,
       description: `Multiple elements use thin font weights (< 400) which are harder to read for low-vision users`,
       affectedPersonas: ["low-vision-magnified", "elderly-low-vision"],
       wcagCriteria: ["1.4.12"],
@@ -1539,15 +2066,18 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
   // Check for links distinguished only by color (color blindness)
   const colorOnlyLinks = await page.$$eval('a', (links) => {
     const results: Array<{ selector: string; hasUnderline: boolean; hasIcon: boolean }> = [];
+    const inVp = (window as unknown as { __cbrowserInViewport?: (e: Element) => boolean }).__cbrowserInViewport ?? (() => true);
+    const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
     for (const link of links.slice(0, 30)) {
       const styles = window.getComputedStyle(link);
       const hasUnderline = styles.textDecoration.includes('underline');
       const hasIcon = link.querySelector('svg, i, [class*="icon"]') !== null;
 
-      if (!hasUnderline && !hasIcon) {
+      if (!hasUnderline && !hasIcon && inVp(link)) {
         results.push({
-          selector: link.textContent?.trim().slice(0, 20) || 'link',
+          // Was the link's text, which is not a selector.
+          selector: uniq ? uniq(link) : link.textContent?.trim().slice(0, 20) || 'link',
           hasUnderline,
           hasIcon,
         });
@@ -1561,6 +2091,9 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
     barriers.push({
       type: "sensory",
       element: `${colorOnlyLinks.length} links`,
+      pageLevel: true,
+      members: colorOnlyLinks.slice(0, 10).map((l) => l.selector),
+      affectedElementCount: colorOnlyLinks.length,
       description: `${colorOnlyLinks.length} links are distinguished only by color, without underline or icon - color-blind users may not identify them as links`,
       affectedPersonas: ["color-blind-deuteranopia"],
       wcagCriteria: ["1.4.1"],
@@ -1575,8 +2108,11 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
     '[class*="status"], [class*="indicator"], [class*="badge"], [class*="alert"]',
     (elements) => {
       const problematic: string[] = [];
+      const inVp = (window as unknown as { __cbrowserInViewport?: (e: Element) => boolean }).__cbrowserInViewport ?? (() => true);
+      const uniq = (window as unknown as { __cbrowserUniqueSelector?: (e: Element) => string }).__cbrowserUniqueSelector;
 
       for (const el of elements.slice(0, 20)) {
+        if (!inVp(el)) continue;
         const styles = window.getComputedStyle(el);
         const bgColor = styles.backgroundColor;
         const color = styles.color;
@@ -1590,7 +2126,7 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
         const hasText = (el.textContent?.trim() || '').length > 1;
 
         if (hasRedGreen && !hasIcon && !hasText) {
-          problematic.push(el.className?.split(' ')[0] || 'indicator');
+          problematic.push(uniq ? uniq(el) : (String((el.className as unknown as { baseVal?: string })?.baseVal ?? el.className ?? "").split(' ')[0] || 'indicator'));
         }
       }
 
@@ -1602,6 +2138,9 @@ async function detectVisionBarriers(ctx: BarrierContext): Promise<void> {
     barriers.push({
       type: "sensory",
       element: `${redGreenIndicators.length} status indicators`,
+      pageLevel: true,
+      members: redGreenIndicators.slice(0, 10),
+      affectedElementCount: redGreenIndicators.length,
       description: `Status indicators using red/green without additional cues may be indistinguishable for color-blind users`,
       affectedPersonas: ["color-blind-deuteranopia"],
       wcagCriteria: ["1.4.1"],
@@ -1638,6 +2177,8 @@ async function simulateAccessibilityJourney(
     viewportOnly: scope === "viewport",
     wcagLevel,
     unverifiableMedia: [],
+    advisories: [],
+    motionControlsCredited: [],
   };
 
   // Named for what it is computed from. See EmpathyPersonaResult in types.ts:
@@ -1695,6 +2236,8 @@ async function simulateAccessibilityJourney(
         (window as any).__cbrowserViewportOnly = false;
       });
     }
+    // One selector builder for every detector. See installUniqueSelector.
+    await page.evaluate(installUniqueSelector);
 
     // Run barrier detection
     // v10.10.0: All general detectors run unconditionally regardless of persona
@@ -1749,6 +2292,15 @@ async function simulateAccessibilityJourney(
         ctx.barriers.push(...kept);
         ctx.outOfViewportDropped = dropped;
       }
+    }
+
+    // Above-level findings leave the scored set here, once, before scoring,
+    // friction and remediation read it. See splitAboveAuditLevel.
+    {
+      const { scored, advisories } = splitAboveAuditLevel(ctx.barriers, wcagLevel);
+      ctx.barriers.length = 0;
+      ctx.barriers.push(...scored);
+      ctx.advisories.push(...advisories);
     }
 
     // Use cognitive journey for realistic step tracking if API key available
@@ -2079,6 +2631,11 @@ async function simulateAccessibilityJourney(
     // Deprecated alias, one release only. See EmpathyPersonaResult.
     goalAchieved: noBlockingBarriers,
     barriers: ctx.barriers,
+    // Above the audited level: reported, never scored. See splitAboveAuditLevel.
+    ...(ctx.advisories.length > 0 ? { advisories: ctx.advisories } : {}),
+    // Moving content that would have been a 2.2.2 barrier but has an
+    // associated pause control. Listed so a credit is visible as one.
+    ...(ctx.motionControlsCredited.length > 0 ? { motionControlsCredited: ctx.motionControlsCredited } : {}),
     // Surfaced, not kept internal: a filter whose effect is invisible cannot be
     // told apart from a filter that never ran, and that is exactly the defect
     // this closes.
@@ -2295,8 +2852,8 @@ function generateRemediationPriority(
   const severityOrder: Record<string, number> = { critical: 0, major: 1, minor: 2 };
   const rank = (b: AccessibilityBarrier): number => {
     if (!personaName) return severityOrder[b.severity] ?? 3;
-    const { weight } = barrierWeightFor(personaName, b.type, b.wcagCriteria);
-    const { severity } = weightedSeverity(b.severity, weight);
+    const { weight } = barrierWeightFor(personaName, b.type, b.wcagCriteria, b.weightKey);
+    const { severity } = weightedSeverity(b.severity, weight, { aboveAuditLevel: b.aboveAuditLevel });
     return severityOrder[String(severity).toLowerCase()] ?? 3;
   };
   const sorted = [...barriers].sort((a, b) => rank(a) - rank(b));
@@ -2365,6 +2922,26 @@ function getEmpathyGrade(score: number): string {
   return "F";
 }
 
+/** Escape text for HTML element and double-quoted attribute context. */
+function escapeHtml(v: unknown): string {
+  return String(v ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/**
+ * The criteria an advisory is filed under, with the level that put it above
+ * the audit: "2.5.5 (Level AAA)". Shared by the text and HTML reports.
+ */
+function advisoryCriteriaLabel(a: AccessibilityBarrier): string {
+  const known = (a.wcagCriteria ?? []).filter((c) => WCAG_CRITERIA[c]);
+  const codes = known.length > 0 ? known : (a.wcagCriteria ?? []);
+  const level = a.wcagLevelOfFinding ?? (known.length > 0 ? getBarrierWcagLevel(known) : undefined);
+  return `${codes.join(", ") || "no criterion"}${level ? ` (Level ${level})` : ""}`;
+}
+
+/** How many advisories each report lists before saying how many more there are. */
+const REPORT_ADVISORY_CAP = 20;
+
 export function formatEmpathyAuditReport(result: EmpathyAuditResult): string {
   const grade = getEmpathyGrade(result.overallScore);
 
@@ -2422,6 +2999,26 @@ WCAG VIOLATIONS
       report += `  ${violation} (Level ${criteria.level}): ${criteria.description}\n`;
     } else {
       report += `  ${violation}\n`;
+    }
+  }
+
+  // Above-level findings. splitAboveAuditLevel moves them out of `barriers`,
+  // so without this section an AAA-only finding that main showed as a minor
+  // barrier vanished from the text report altogether. (Round 2, 2026-10-09)
+  const advisories = result.advisories ?? [];
+  if (advisories.length > 0) {
+    report += `
+ADVISORIES (${advisories.length}) - above the audited WCAG level: reported, not scored
+───────────────────────────────────────────────────────────────────────────
+`;
+    for (const a of advisories.slice(0, REPORT_ADVISORY_CAP)) {
+      report += `  ${advisoryCriteriaLabel(a)}, ${a.severity}: ${a.description}
+     Element: ${a.element}
+     Fix: ${a.remediation}
+`;
+    }
+    if (advisories.length > REPORT_ADVISORY_CAP) {
+      report += `  (+${advisories.length - REPORT_ADVISORY_CAP} more advisories)\n`;
     }
   }
 
@@ -2502,6 +3099,22 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
     const criteria = WCAG_CRITERIA[v];
     return `<li><strong>${v}</strong> (Level ${criteria?.level || '?'}): ${criteria?.description || 'Unknown'}</li>`;
   }).join('');
+
+  // Above-level findings, escaped: element names and descriptions carry page
+  // text (aria-labels, selectors). See the text report for why this exists.
+  const advisories = result.advisories ?? [];
+  const advisoryItems = advisories.slice(0, REPORT_ADVISORY_CAP).map((a) => `
+      <li><strong>${escapeHtml(advisoryCriteriaLabel(a))}</strong>, ${escapeHtml(a.severity)}: ${escapeHtml(a.description)}
+        <br><small>Element: <code>${escapeHtml(a.element)}</code>; Fix: ${escapeHtml(a.remediation)}</small></li>`).join('');
+  const advisoriesSection = advisories.length === 0 ? '' : `
+  <h2>Advisories (${advisories.length})</h2>
+  <div class="wcag-list advisories">
+    <p class="advisories-note">Findings above the audited WCAG level. Reported for information: not scored, not counted as violations, never escalated by persona weight.</p>
+    <ul>${advisoryItems}
+    </ul>${advisories.length > REPORT_ADVISORY_CAP ? `
+    <p class="advisories-note">+${advisories.length - REPORT_ADVISORY_CAP} more advisories</p>` : ''}
+  </div>
+`;
 
   const remediationRows = result.combinedRemediation.slice(0, 10).map(rem => `
     <tr>
@@ -2668,6 +3281,14 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
     .wcag-list li {
       margin: 0.5rem 0;
     }
+    .advisories-note {
+      margin: 0 0 0.5rem 0;
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+    .advisories small, .advisories code {
+      color: #cbd5e1;
+    }
     .disclaimer {
       background: #1e3a5f;
       border-left: 4px solid #8b5cf6;
@@ -2729,6 +3350,7 @@ export function generateEmpathyAuditHtmlReport(result: EmpathyAuditResult): stri
     </ul>
   </div>
 
+${advisoriesSection}
   <h2>Remediation Priorities</h2>
   <table>
     <thead>
@@ -2775,17 +3397,53 @@ function deduplicateBarriers(
   _allBarriers: AccessibilityBarrier[],
   results: AccessibilityEmpathyResult[]
 ): AccessibilityBarrier[] {
+  return groupBarriers(results.flatMap((r) => r.barriers));
+}
+
+/** How many elements one barrier stands for: its member count, else 1. */
+export function barrierElementCount(b: { affectedElementCount?: number }): number {
+  const n = b.affectedElementCount;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
+}
+
+/**
+ * Affected elements in a barrier set, counted exactly as topBarriers counts
+ * them: the sum of the grouped entries' affectedElementCount.
+ *
+ * resultsSummary.affectedElements was `barriers.length` -- barrier RECORDS,
+ * not elements -- while each topBarriers entry counted distinct element
+ * STRINGS, so "button", "animation" and "5 element groups" each collapsed many
+ * elements into one and a group barrier counted 1. The two numbers on the
+ * same page could not be reconciled. One function now produces both. (B7,
+ * 2026-10-09)
+ */
+export function countAffectedElements(barriers: AccessibilityBarrier[]): number {
+  return groupBarriers(barriers).reduce((n, b) => n + (b.affectedElementCount ?? 0), 0);
+}
+
+function groupBarriers(allBarriers: AccessibilityBarrier[]): AccessibilityBarrier[] {
   // Group by barrier TYPE only (not element)
   // Keyed "type|weightKey" now, not a bare type.
   const barriersByType = new Map<string, {
     barriers: AccessibilityBarrier[];
     personas: Set<string>;
-    elements: Set<string>;
+    // Keyed by element AND rect, valued by how many elements that barrier
+    // stands for. A Set of element strings merged every id-less "button" into
+    // one and counted a 3-member carousel as 1. The same element seen by two
+    // personas shares a key, so it still counts once.
+    elements: Map<string, { element: string; count: number }>;
     highestSeverity: AccessibilityBarrierSeverity;
   }>();
+  const locationKey = (b: AccessibilityBarrier): string =>
+    `${b.element}|${b.rect ? `${b.rect.x},${b.rect.y},${b.rect.width},${b.rect.height}` : ""}`;
+  const addElement = (m: Map<string, { element: string; count: number }>, b: AccessibilityBarrier) => {
+    const k = locationKey(b);
+    const prev = m.get(k);
+    m.set(k, { element: b.element, count: Math.max(prev?.count ?? 0, barrierElementCount(b)) });
+  };
 
-  for (const result of results) {
-    for (const barrier of result.barriers) {
+  {
+    for (const barrier of allBarriers) {
       // Grouped by type AND the susceptibility key its criteria resolve to,
       // not by type alone.
       //
@@ -2797,7 +3455,7 @@ function deduplicateBarriers(
       // matters most arrived bundled inside a colour barrier whose fix was
       // "add patterns alongside colour". Unioning the criteria made them
       // visible; separating the groups makes them actionable.
-      const groupKey = `${barrier.type}|${weightKeyFor(barrier.type, barrier.wcagCriteria) ?? ""}`;
+      const groupKey = `${barrier.type}|${weightKeyFor(barrier.type, barrier.wcagCriteria, barrier.weightKey) ?? ""}`;
       const existing = barriersByType.get(groupKey);
       // Use the barrier's OWN affectedPersonas (set by the detector — accurate)
       // rather than the test persona's name. Previously we overwrote with
@@ -2808,7 +3466,7 @@ function deduplicateBarriers(
       if (existing) {
         existing.barriers.push(barrier);
         for (const p of barrierPersonas) existing.personas.add(p);
-        existing.elements.add(barrier.element);
+        addElement(existing.elements, barrier);
 
         // Track highest severity
         const severityOrder = { critical: 3, major: 2, minor: 1 };
@@ -2816,10 +3474,12 @@ function deduplicateBarriers(
           existing.highestSeverity = barrier.severity;
         }
       } else {
+        const elements = new Map<string, { element: string; count: number }>();
+        addElement(elements, barrier);
         barriersByType.set(groupKey, {
           barriers: [barrier],
           personas: new Set(barrierPersonas),
-          elements: new Set([barrier.element]),
+          elements,
           highestSeverity: barrier.severity,
         });
       }
@@ -2833,19 +3493,25 @@ function deduplicateBarriers(
     // The map is keyed "type|weightKey"; the emitted barrier keeps the plain
     // type, since that is what downstream weighting and styling read.
     const type = groupKey.split("|")[0] as AccessibilityBarrier["type"];
-    const elementCount = data.elements.size;
+    // Elements, not records: the sum of each location's member count.
+    const elementCount = Array.from(data.elements.values()).reduce((n, e) => n + e.count, 0);
+    const locations = data.elements.size;
     const representative = data.barriers[0]; // Use first barrier as template
 
     // Create aggregated description
-    const elementList = Array.from(data.elements).slice(0, 5);
-    const moreCount = elementCount > 5 ? ` (+${elementCount - 5} more)` : "";
-    const aggregatedDescription = elementCount > 1
+    const names = Array.from(new Set(Array.from(data.elements.values()).map((e) => e.element)));
+    const elementList = names.slice(0, 5);
+    const moreCount = names.length > 5 ? ` (+${names.length - 5} more)` : "";
+    const aggregatedDescription = locations > 1
       ? `${representative.description.split(" - ")[0]} - affects ${elementCount} elements: ${elementList.join(", ")}${moreCount}`
       : representative.description;
 
     deduplicated.push({
       type,
-      element: elementCount > 1 ? `${elementCount} elements` : representative.element,
+      element: locations > 1 ? `${elementCount} elements` : representative.element,
+      // One location keeps its members (a carousel's animated slides).
+      ...(locations === 1 && representative.members ? { members: representative.members } : {}),
+      ...(data.barriers.every((b) => b.pageLevel) ? { pageLevel: true } : {}),
       description: aggregatedDescription,
       affectedPersonas: Array.from(data.personas),
       // Union across the group, not the representative's alone.
@@ -2866,8 +3532,19 @@ function deduplicateBarriers(
       // hid that one is an aggregate. (2026-07-29)
       severity: data.highestSeverity,
       severityIsGroupMax: true,
-      affectedElementCount: data.elements.size,
+      affectedElementCount: elementCount,
       remediation: representative.remediation,
+      // Every member of a group shares the key it was grouped under, so the
+      // representative's is the group's. Without it the deduplicated entry
+      // would re-resolve from its criteria and land in a different bucket.
+      ...(representative.weightKey ? { weightKey: representative.weightKey } : {}),
+      // Advisory-ness of the related criteria, unioned like wcagCriteria, so a
+      // relates-to criterion does not read as violated on the grouped entry.
+      ...(() => {
+        const adv = Array.from(new Set(data.barriers.flatMap((b) => b.wcagAdvisoryCriteria ?? [])))
+          .filter((c) => data.barriers.every((b) => !(b.wcagCriteria ?? []).includes(c) || (b.wcagAdvisoryCriteria ?? []).includes(c)));
+        return adv.length > 0 ? { wcagAdvisoryCriteria: adv } : {};
+      })(),
     });
   }
 
@@ -3302,6 +3979,21 @@ export async function runEmpathyAudit(
     ? Math.round(results.reduce((sum, r) => sum + r.empathyScore, 0) / results.length)
     : 0;
 
+  // Above-level findings across personas, one entry per finding: the same
+  // element seen by two personas is one advisory.
+  const advisories: AccessibilityBarrier[] = [];
+  {
+    const seen = new Set<string>();
+    for (const r of results) {
+      for (const a of r.advisories ?? []) {
+        const k = `${a.type}|${a.element}|${a.rect ? `${a.rect.x},${a.rect.y},${a.rect.width},${a.rect.height}` : ""}|${a.description}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        advisories.push(a);
+      }
+    }
+  }
+
   return {
     url,
     goal,
@@ -3310,6 +4002,7 @@ export async function runEmpathyAudit(
     allWcagViolations: filteredViolations,
     allBarriers,
     topBarriers: deduplicatedBarriers, // v11.11.0: Deduplicated barriers grouped by type
+    ...(advisories.length > 0 ? { advisories } : {}),
     combinedRemediation,
     overallScore,
     // Summed from the per-persona audits: a filter whose effect is invisible is

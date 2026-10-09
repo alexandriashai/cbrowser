@@ -93,10 +93,24 @@ describe("page-level findings survive", () => {
 
 describe("degenerate geometry", () => {
   test("a zero-size rect at the origin is kept, not silently dropped", () => {
-    // Zero-size is a resolution failure, not an off-screen element. Dropping it
-    // would hide a detector bug behind a scope filter.
-    const { kept } = filterBarriersToViewport([b({ x: 0, y: 0, width: 0, height: 0 })], VP);
-    expect(kept.length).toBe(0); // width 0 cannot intersect — documented, not accidental
+    // Zero-size is not an off-screen element: display:none resolves to
+    // {0,0,0,0}, which is nowhere. This test's name always said "kept" while
+    // its assertion said 0 ("width 0 cannot intersect"), so a viewport audit
+    // dropped the hidden element a full_page audit scored, and counted it as
+    // outside the viewport. Kept, like full_page; the rect coverage reports it
+    // undrawn as zeroArea. (Round 2, 2026-10-09)
+    const { kept, dropped } = filterBarriersToViewport([b({ x: 0, y: 0, width: 0, height: 0 })], VP);
+    expect(kept.length).toBe(1);
+    expect(dropped).toBe(0);
+  });
+
+  test("zero-area anywhere is kept: a collapsed element has no extent to be off-screen", () => {
+    const { kept, dropped } = filterBarriersToViewport([
+      b({ x: 40, y: 3000, width: 0, height: 0 }),
+      b({ x: 40, y: 120, width: 200, height: 0 }),
+    ], VP);
+    expect(kept.length).toBe(2);
+    expect(dropped).toBe(0);
   });
 
   test("an empty list is not an error", () => {

@@ -21,6 +21,8 @@ import {
   runWebMCPReadyAudit,
 } from "../../analysis/index.js";
 import { listAccessibilityPersonas } from "../../personas.js";
+import { barrierElementCount, countAffectedElements } from "../../analysis/accessibility-empathy.js";
+import type { AccessibilityBarrier } from "../../types.js";
 import { getDefaultConfig } from "../../config.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
@@ -1256,8 +1258,9 @@ export function registerEmpathyAuditTool(server: McpServer): void {
           // whatever order the analyzer happened to emit.
           const rank = (b: any) => {
             const { weight } = barrierWeightFor(
-              testedPersona, String(b.type ?? ""), b.wcagCriteria);
-            const { severity } = weightedSeverity(String(b.severity ?? "minor"), weight);
+              testedPersona, String(b.type ?? ""), b.wcagCriteria, b.weightKey);
+            const { severity } = weightedSeverity(String(b.severity ?? "minor"), weight,
+              { aboveAuditLevel: b.aboveAuditLevel });
             const order: Record<string, number> = {
               critical: 0, blocker: 0, high: 1, major: 1, serious: 1,
               medium: 2, moderate: 2, low: 3, minor: 3, info: 4, notice: 4 };
@@ -1268,7 +1271,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
         // Group keys in list order; a rect's key looked up here gives its
         // finding number.
         const findingKeys = chosenBarriers.map(
-          (b) => `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria) ?? ""}`);
+          (b) => `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria, b.weightKey) ?? ""}`);
 
         // The name that was measured, when it differs from the one asked for.
         // "motor-tremor" measured motor-impairment-tremor while testedPersona
@@ -1340,8 +1343,17 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               } : undefined,
               barrierTypeCount: uniqueTypes.size,
               barrierTypes: Array.from(uniqueTypes),
-              affectedElements: r.barriers.length,
+              // Barrier RECORDS and affected ELEMENTS are different numbers and
+              // both ship. affectedElements was barriers.length, so it could not
+              // be reconciled with topBarriers' per-entry counts. It is now the
+              // same sum topBarriers is built from: for a one-persona audit,
+              // sum(topBarriers[].affectedElementCount) +
+              // (topBarriersOmitted?.affectedElements ?? 0). (B7, 2026-10-09)
+              barrierCount: r.barriers.length,
+              affectedElements: countAffectedElements(r.barriers),
               wcagViolationCount: r.wcagViolations.length,
+              // Above-level findings, listed in `advisories` and never scored.
+              ...(r.advisories?.length ? { advisoryCount: r.advisories.length } : {}),
               // v18.26.0: Perceptual transport metrics (Wasserstein-based)
               perceptualTransport: (r as any).perceptualTransport || undefined,
               empathyScoreBarrierOnly: (r as any).empathyScoreBarrierOnly || undefined,
@@ -1398,8 +1410,9 @@ export function registerEmpathyAuditTool(server: McpServer): void {
             // and the weight that separates them ships with them.
             return chosen.map((b, i) => {
               const { weight, key, defaulted } = barrierWeightFor(
-                testedPersona, String(b.type ?? ""), b.wcagCriteria);
-              const { severity, shifted } = weightedSeverity(String(b.severity ?? "minor"), weight);
+                testedPersona, String(b.type ?? ""), b.wcagCriteria, b.weightKey);
+              const { severity, shifted } = weightedSeverity(String(b.severity ?? "minor"), weight,
+                { aboveAuditLevel: b.aboveAuditLevel });
               return {
                 ...b,
                 // Same number the overlay draws on the matching boxes.
@@ -1415,6 +1428,37 @@ export function registerEmpathyAuditTool(server: McpServer): void {
                   : {}),
               };
             });
+          })(),
+          // Findings above the audited WCAG level. Advisory by policy (Alexa,
+          // 2026-10-09): reported here so nothing is hidden, never scored,
+          // never escalated by persona weight, never "critical". (B6)
+          ...(result.advisories?.length
+            ? {
+                advisories: result.advisories.map((a) => {
+                  const { weight, key } = barrierWeightFor(
+                    testedPersona, String(a.type ?? ""), a.wcagCriteria, a.weightKey);
+                  return {
+                    ...a,
+                    severityForPersona: weightedSeverity(String(a.severity ?? "minor"), weight,
+                      { aboveAuditLevel: true }).severity,
+                    personaWeightKey: key,
+                  };
+                }),
+                advisoriesNote: `Findings whose WCAG level is above the audited level (${wcagLevel}). Advisory: reported for information, not scored, not counted in affectedElements, never escalated by persona weight. Re-run with wcagLevel set to their level to score them.`,
+              }
+            : {}),
+          // Groups not shown in topBarriers, so the shown entries plus this
+          // add up to resultsSummary.affectedElements. Dropped groups used to
+          // vanish from the sum without a trace. (B7)
+          ...(() => {
+            const shown = new Set(chosenBarriers);
+            const omitted = result.topBarriers.filter((b) => !shown.has(b));
+            return omitted.length > 0
+              ? { topBarriersOmitted: {
+                  groups: omitted.length,
+                  affectedElements: omitted.reduce((n, b) => n + (b.affectedElementCount ?? 0), 0),
+                } }
+              : {};
           })(),
           topBarriersNote:
             "Ordered worst-first by severityForPersona — the persona-weighted grade — so an entry can sit above a higher WCAG severity when this persona is more susceptible to it. Any entries after the fifth are included because they carry a WCAG criterion the top five do not.",
@@ -1482,25 +1526,58 @@ export function registerEmpathyAuditTool(server: McpServer): void {
             // is stated. Reported rather than papered over, the same way
             // cognitiveLoadReadings reports its disagreement.
             barrierRectCoverage: (() => {
-              // Counted the same way barrierRects is built below, from
-              // barriers that resolved to a rect. Reading r.barrierRects gave
-              // 0 every time: that field is this payload's OUTPUT name, not an
-              // input, so the coverage line reported drawn:0 beside ten
-              // populated rects.
-              // Zero-area rects draw nothing. They were counted as drawn, so
-              // coverage read 19 while only 16 boxes were visible -- an
-              // element that resolved to {0,0,0,0} (display:none, a collapsed
-              // menu item) is undrawn in every sense that matters.
-              const rects = (r.barriers ?? []).filter(
-                (b: any) => b.rect && b.rect.width > 0 && b.rect.height > 0).length;
-              const affected = (r.barriers ?? []).reduce(
-                (n: number, b: any) => n + (b.affectedElementCount ?? 1), 0);
+              // Per BARRIER, with the reason each undrawn one has no box.
+              //
+              // This subtracted drawn rects from affected elements and gave
+              // one hardcoded reason, "typically below the fold, hidden, or an
+              // unresolvable selector". In a viewport audit that reason is
+              // wrong by construction: located barriers below the fold were
+              // already dropped (outOfViewportBarriersDropped), so every
+              // undrawn one was a barrier that never had a rect at all. And
+              // elements minus boxes is not a count of anything a reader can
+              // list. (B7, 2026-10-09)
+              //
+              // Zero-area rects draw nothing and are undrawn: an element that
+              // resolved to {0,0,0,0} (display:none, a collapsed menu item)
+              // is undrawn in every sense that matters.
+              const origin = scope === "full_page"
+                ? { x: 0, y: 0 }
+                : (r.captureScroll ?? { x: 0, y: 0 });
+              const size = r.screenshotSize
+                ?? { width: r.viewportSize?.width ?? Infinity,
+                     height: scope === "full_page" ? (r.documentHeight ?? Infinity) : (r.viewportSize?.height ?? Infinity) };
+              const undrawnBarriers: Array<{ type: string; element: string; reason: string; affectedElementCount: number }> = [];
+              let drawn = 0;
+              for (const b of (r.barriers ?? []) as AccessibilityBarrier[]) {
+                let reason: string | null = null;
+                if (!b.rect) reason = b.pageLevel ? "pageLevel" : "notLocated";
+                else if (!(b.rect.width > 0 && b.rect.height > 0)) reason = "zeroArea";
+                else {
+                  const ix = b.rect.x - origin.x;
+                  const iy = b.rect.y - origin.y;
+                  if (iy + b.rect.height < 0 || ix + b.rect.width < 0 || iy > size.height || ix > size.width) {
+                    reason = "outsideCapture";
+                  }
+                }
+                if (reason === null) { drawn++; continue; }
+                undrawnBarriers.push({ type: b.type, element: b.element, reason,
+                  affectedElementCount: barrierElementCount(b) });
+              }
+              const legend: Record<string, string> = {
+                pageLevel: "A finding about the page as a whole, or a page-wide aggregate (its elements are in members), with no single location to outline.",
+                zeroArea: "The element resolved to a zero-size box at capture time (display:none, collapsed), so there is nothing to outline.",
+                outsideCapture: "The element's box lies outside the captured screenshot.",
+                notLocated: "The detector recorded no location for this barrier. A defect in the detector, not a property of the page.",
+              };
+              const present = Array.from(new Set(undrawnBarriers.map((u) => u.reason)));
               return {
-                drawn: rects,
-                affectedElements: affected,
-                ...(affected > rects
-                  ? { undrawn: affected - rects,
-                      undrawnReason: "Barriers whose element did not resolve to a bounding box at capture time — typically below the fold, hidden, or an unresolvable selector. They are counted in the score and listed in barriers, but the overlay cannot outline them." }
+                barriers: (r.barriers ?? []).length,
+                drawn,
+                affectedElements: countAffectedElements(r.barriers ?? []),
+                ...(undrawnBarriers.length > 0
+                  ? { undrawn: undrawnBarriers.length,
+                      undrawnBarriers,
+                      undrawnReasons: Object.fromEntries(present.map((p) => [p, legend[p]])) }
                   : {}),
               };
             })(),
@@ -1574,14 +1651,14 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               // the list -- two scales, no label saying which was which.
               // (2026-07-31)
               const { weight } = barrierWeightFor(
-                r.persona, String(b.type ?? ""), b.wcagCriteria);
+                r.persona, String(b.type ?? ""), b.wcagCriteria, b.weightKey);
               const { severity: weighted } = weightedSeverity(
-                String(b.severity ?? "minor"), weight);
+                String(b.severity ?? "minor"), weight, { aboveAuditLevel: b.aboveAuditLevel });
               // Which findings-list entry this box belongs to. Boxes are
               // per-element and findings are grouped by type+criterion, so
               // ten boxes can map to five findings; without the link there is
               // no way to tell which box the list is talking about.
-              const gk = `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria) ?? ""}`;
+              const gk = `${b.type}|${weightKeyFor(String(b.type ?? ""), b.wcagCriteria, b.weightKey) ?? ""}`;
               const findingIndex = findingKeys.indexOf(gk);
               return {
                 type: b.type, severity: b.severity, element: b.element,

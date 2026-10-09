@@ -5294,6 +5294,20 @@ export interface AccessibilityBarrier {
   /** Number of distinct elements grouped under this barrier type. */
   affectedElementCount?: number;
   /**
+   * Unique selectors of the elements a group barrier stands for (capped at
+   * ten), e.g. the animated members of one carousel. `affectedElementCount` is
+   * the full count.
+   */
+  members?: string[];
+  /**
+   * A finding about the page as a whole -- navigation item count, a meta
+   * refresh, sound from autoplaying media -- or a page-wide aggregate with no
+   * single location (its elements are in `members`). Said explicitly so the
+   * coverage report can tell "nothing to draw" from "the detector forgot a
+   * rect". Counts as `affectedElementCount ?? 1` elements.
+   */
+  pageLevel?: boolean;
+  /**
    * Where the barrier is, in DOCUMENT coordinates.
    *
    * Written by the detectors and read by the overlay layer, and declared in
@@ -5310,6 +5324,22 @@ export interface AccessibilityBarrier {
   rect?: { x: number; y: number; width: number; height: number };
   /** How to remediate */
   remediation: string;
+  /**
+   * The persona-weight key this barrier is scored under, when its detector
+   * sets one. Wins over the key its criteria or type would resolve to, so a
+   * finding that RELATES to a criterion can be weighted as what it is: the
+   * close-spacing barrier relates to 2.5.8 but is weighted `target_spacing`.
+   */
+  weightKey?: string;
+  /**
+   * The finding's WCAG level is above the level the audit was run at, e.g. an
+   * AAA-only 2.5.5 target in an AA audit. Such findings are ADVISORY (Alexa,
+   * 2026-10-09): reported in `advisories`, never scored, never escalated, never
+   * "critical". Set once, after every detector, by the audit.
+   */
+  aboveAuditLevel?: boolean;
+  /** The lowest WCAG level among this finding's criteria. Set alongside aboveAuditLevel. */
+  wcagLevelOfFinding?: "A" | "AA" | "AAA";
 }
 
 /** Friction point specific to accessibility */
@@ -5397,6 +5427,11 @@ export interface AccessibilityEmpathyResult {
   goalAchieved: boolean;
   /** Barriers encountered */
   barriers: AccessibilityBarrier[];
+  /**
+   * Findings above the audited WCAG level (aboveAuditLevel). Not in `barriers`,
+   * not scored, not counted in affected elements. Present only when non-empty.
+   */
+  advisories?: AccessibilityBarrier[];
   /** Friction points encountered */
   frictionPoints: AccessibilityFrictionPoint[];
   /** WCAG violations found */
@@ -5431,6 +5466,8 @@ export interface EmpathyAuditResult {
   allBarriers: AccessibilityBarrier[];
   /** Deduplicated barriers grouped by type with element counts */
   topBarriers: AccessibilityBarrier[];
+  /** Advisory findings above the audited WCAG level, across personas. Present only when non-empty. */
+  advisories?: AccessibilityBarrier[];
   /** Prioritized remediation across all */
   combinedRemediation: RemediationItem[];
   /** Overall empathy score */
