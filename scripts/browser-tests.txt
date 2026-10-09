@@ -53,3 +53,4 @@ tests/selector-escape.test.ts
 tests/sticky-overlay-threshold.test.ts
 tests/svg-classname.test.ts
 tests/visual-story-inline.test.ts
+tests/attention-session-scroll.test.ts

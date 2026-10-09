@@ -40,7 +40,7 @@ async function resolveOrRefuse(requested: string): Promise<
     }, null, 2) }] } };
   }
 }
-import type { McpServer } from "../types.js";
+import type { McpServer, ToolRegistrationContext } from "../types.js";
 import {
   runVisualRegression,
   runCrossBrowserTest,
@@ -81,7 +81,7 @@ export async function assembleAttentionContent(
 /**
  * Register visual testing tools (6 tools: visual_baseline, visual_regression, cross_browser_test, cross_browser_diff, responsive_test, ab_comparison)
  */
-export function registerVisualTestingTools(server: McpServer): void {
+export function registerVisualTestingTools(server: McpServer, context?: ToolRegistrationContext): void {
   server.registerTool("visual_baseline", {
     title: "Capture Visual Baseline",
     description: "Capture a visual baseline using Wasserstein barycenter. Takes multiple screenshots, rejects outliers, computes optimal consensus reference with adaptive threshold. Robust to dynamic content, animations, and timing variations.",
@@ -486,7 +486,9 @@ export function registerVisualTestingTools(server: McpServer): void {
     title: "Attention Saliency Analysis",
     description: "Analyze where a persona's attention goes on a page. Two-layer model: (1) visual saliency via W₂ on CIE-Lab (what POPS), (2) DOM semantic analysis (what MATTERS — CTAs, headings, forms, nav). Blended 35/65 so a gray search bar a power-user prioritizes outweighs a flashy banner they ignore. Returns attention metrics, a quality score, and the heatmap overlay: inline as a JPEG preview sized to fit the result (described in heatmapPreview), with the full-resolution PNG at heatmapUrl / artifact_fetch({ file: heatmapFile }).",
     inputSchema: {
-      url: z.string().describe("URL to analyze"),
+      url: z.string().optional().describe("URL to analyze. Optional with _browserToken: omit it to analyze the session's current page as it stands (logged in, mid-flow); pass it to navigate that session first. Required without a token."),
+      _browserToken: z.string().optional().describe("Browser session token from a previous tool call (navigate, click, fill...). Analyzes that live session instead of a fresh browser, so authenticated and mid-flow states can be measured. The session keeps its viewport (device is ignored), and its scroll position and animation state are restored afterwards."),
+      scrollY: z.number().min(0).optional().describe("Vertical scroll offset in CSS pixels to analyze at. The screenshot, heatmap and DOM coordinates are all taken in the viewport at this offset. Clamped to the page's maximum scroll; the applied value is reported in `scroll`."),
       persona: z.string().optional().default("first-timer").describe("Persona name"),
       goal: z.string().optional().describe("Task goal — elements matching this goal get boosted attention (e.g., 'find pricing', 'sign up for an account')"),
       cellSize: z.number().optional().default(4).describe("Saliency grid cell size in pixels (smaller = finer heatmap, default: 4)"),
@@ -505,12 +507,20 @@ export function registerVisualTestingTools(server: McpServer): void {
     // Declares the attention view. The heatmap is the finding here, and a JSON
     // list of scores is a lossy description of where a persona actually looks.
     _meta: { ui: { resourceUri: "ui://cbrowser/attention" } },
-  }, async ({ url, persona: requestedPersona, goal, cellSize, heatmap, device, useValues, freezeAnimations: doFreeze }) => {
+  }, async ({ url, persona: requestedPersona, goal, cellSize, heatmap, device, useValues, freezeAnimations: doFreeze, _browserToken, scrollY }) => {
+      const refuse = (error: string) => ({ isError: true as const, content: [{ type: "text" as const, text: JSON.stringify({ error }, null, 2) }] });
+      if (!url && !_browserToken) return refuse("attention_analysis needs a url, or a _browserToken to analyze that session's current page.");
+      if (_browserToken && !context?.getBrowserByToken) return refuse("This server does not support browser session tokens; pass a url instead.");
       const resolved = await resolveOrRefuse(requestedPersona);
       if (!resolved.ok) return resolved.result;
       const persona = resolved.name;
       const { CBrowser } = await import("../../browser.js");
-      const browser = new CBrowser({
+      // A session is the caller's: analyze it, leave it as found (scroll,
+      // animation state), never close it. A fresh browser is ours to close.
+      let sessionToken: string | undefined;
+      const browser = _browserToken
+        ? await (async () => { const r = await context!.getBrowserByToken!(_browserToken); sessionToken = r.token; return r.browser; })()
+        : new CBrowser({
         headless: true,
         // The CONFIGURED viewport, not a hardcoded 1920x1080.
         //
@@ -530,12 +540,39 @@ export function registerVisualTestingTools(server: McpServer): void {
       const { tmpdir } = await import("os");
       const { unlinkSync } = await import("fs");
 
+      const ownsBrowser = !_browserToken;
+      let restoreSession: (() => Promise<void>) | undefined;
       try {
-        await browser.launch();
-        await browser.navigate(url);
-        await new Promise(r => setTimeout(r, 2000));
+        if (ownsBrowser) await browser.launch();
+        if (url) {
+          await browser.navigate(url);
+          await new Promise(r => setTimeout(r, 2000));
+        }
 
         const page = await browser.getPage();
+        const pageUrl = url ?? page.url();
+        const viewport = page.viewportSize?.() ?? null;
+
+        // Scroll BEFORE the screenshot and the DOM read: both are taken in the
+        // viewport, so the heatmap and element coordinates describe the same
+        // band of the page. The page clamps an over-large offset; report what
+        // actually applied rather than what was asked.
+        const originalScrollY: number = await page.evaluate(() => window.scrollY).catch(() => 0);
+        let scroll: { requested: number; applied: number; maxScrollY: number } | undefined;
+        if (scrollY !== undefined) {
+          const applied = await page.evaluate((y: number) => {
+            window.scrollTo(0, y);
+            return { applied: Math.round(window.scrollY), max: Math.max(0, Math.round(document.documentElement.scrollHeight - window.innerHeight)) };
+          }, scrollY);
+          // Lazy content and sticky headers settle on scroll.
+          await new Promise(r => setTimeout(r, 500));
+          scroll = { requested: scrollY, applied: applied.applied, maxScrollY: applied.max };
+        }
+        if (!ownsBrowser) {
+          restoreSession = async () => {
+            await page.evaluate((y: number) => window.scrollTo(0, y), originalScrollY).catch(() => {});
+          };
+        }
 
         // Freeze BEFORE the screenshot, which is the only moment that matters:
         // the saliency layer reads the image, so anything still moving when the
@@ -548,6 +585,21 @@ export function registerVisualTestingTools(server: McpServer): void {
           try {
             animationState = await doFreezeAnimations(page as never);
           } catch { /* a failed freeze is reported below, never fatal */ }
+          if (!ownsBrowser) {
+            // The freeze stylesheet and reduced-motion emulation would outlive
+            // this call in the caller's session; undo both with the scroll.
+            const restoreScroll = restoreSession;
+            restoreSession = async () => {
+              await restoreScroll?.();
+              await page.evaluate(() => {
+                for (const st of Array.from(document.querySelectorAll("style"))) {
+                  if ((st.textContent ?? "").includes("cbrowser-freeze-animations")) st.remove();
+                }
+                try { for (const a of document.getAnimations?.() ?? []) { try { a.play(); } catch { /* not resumable */ } } } catch { /* older engines */ }
+              }).catch(() => {});
+              await (page as { emulateMedia?: (o: { reducedMotion: null }) => Promise<unknown> }).emulateMedia?.({ reducedMotion: null }).catch(() => {});
+            };
+          }
         }
         // Measured either way. On a live run it says how much motion the number
         // was taken through; on a frozen run a non-zero value means the freeze
@@ -690,9 +742,14 @@ export function registerVisualTestingTools(server: McpServer): void {
             // Stated, because two tools silently rendering at different sizes is
             // exactly what made these coordinates incomparable with a CTC run.
             // A reader can now check instead of assuming they match.
-            renderedViewport: device
-              ? `device: ${device.toLowerCase()}`
-              : `${getDefaultConfig().viewportWidth}x${getDefaultConfig().viewportHeight}`,
+            renderedViewport: !ownsBrowser
+              ? (viewport ? `${viewport.width}x${viewport.height} (session)` : "session viewport")
+              : device
+                ? `device: ${device.toLowerCase()}`
+                : `${getDefaultConfig().viewportWidth}x${getDefaultConfig().viewportHeight}`,
+            url: pageUrl,
+            ...(scroll ? { scroll } : {}),
+            ...(sessionToken ? { _browserToken: sessionToken, ...(device ? { deviceIgnored: "device does not apply to an existing session; its own viewport was used" } : {}) } : {}),
             coordinateSpace: "CSS pixels in the rendered viewport above — compare only against runs reporting the same renderedViewport",
             // What actually ran, not what was asked for. A freeze that silently
             // failed would produce exactly the variance it was asked to remove,
@@ -830,7 +887,7 @@ export function registerVisualTestingTools(server: McpServer): void {
                 apiKey: getSessionApiKey(),
                 imageUrl: publicUrl,
                 toolName: "attention_analysis",
-                targetUrl: url,
+                targetUrl: pageUrl,
                 persona,
                 metadata: { entropy: result.entropy, concentration: result.concentration, alignmentScore: result.alignmentScore },
               });
@@ -844,7 +901,8 @@ export function registerVisualTestingTools(server: McpServer): void {
 
         return { content: await assembleAttentionContent(data, heatmapPng, heatmapFullResolution) };
       } finally {
-        await browser.close();
+        if (ownsBrowser) await browser.close();
+        else await restoreSession?.();
       }
     }
   );

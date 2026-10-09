@@ -92,8 +92,8 @@ export function registerBaseTools(
   // Healing (1)
   registerHealingTools(server, context);
 
-  // Visual Testing (6) - no browser context needed
-  registerVisualTestingTools(server);
+  // Visual Testing (6) - attention_analysis can analyze a live session by token
+  registerVisualTestingTools(server, context);
 
   // Testing (5) - no browser context needed
   registerTestingTools(server);
