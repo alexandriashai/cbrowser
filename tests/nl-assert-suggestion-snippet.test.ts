@@ -34,6 +34,7 @@ const FIXTURE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><tit
 <h1>Persona Testing for Product Teams</h1>
 <p>${LONG}</p>
 <p>Plans start free.</p>
+<p style="text-transform:uppercase">Trusted by product teams</p>
 </body></html>`;
 
 type Step = { action: string; instruction: string; passed: boolean; error?: { suggestion?: string; partialMatches?: string[] } };
@@ -69,13 +70,20 @@ describe("B22: findPartialMatches, pure", () => {
     expectReadable(s, PAGE);
   });
 
-  test("a word-level near miss is still whole words on one line", () => {
+  test("a target that is not on the page gets no near miss (no word-by-word fallback)", () => {
+    // Round 2: the word fallback offered unrelated lines, e.g. "for" inside
+    // "Platform", for a target that is simply absent.
     expect(typeof find).toBe("function");
-    const out = find!(PAGE, "Persona Pricing Plans");
-    expect(out.length).toBeGreaterThan(0);
-    for (const s of out) expectReadable(s, PAGE);
-    expect(out).toContain("Persona Testing for Product Teams");
-    expect(out).toContain("Plans start free.");
+    expect(find!(PAGE, "Persona Pricing Plans")).toEqual([]);
+    expect(find!("Platform overview\nPlans start free.", "xqzv for qqzv")).toEqual([]);
+  });
+
+  test("a match across a line break returns only the matched span, not the neighbouring lines", () => {
+    expect(typeof find).toBe("function");
+    // The verifier's shape: the target runs from one rendered line into the next.
+    const out = find!(PAGE, "SIGN UP PERSONA TESTING");
+    expect(out).toEqual(["Sign up Persona Testing"]);
+    expect(out[0]).not.toContain("⌘");
   });
 
   test("whitespace in the target or the page does not defeat the match", () => {
@@ -139,11 +147,29 @@ verify page contains "Persona Pricing"
     const r = await runNLTestSuite(suite, { headless: true, screenshotOnFailure: false, fuzzyMatch: true });
     const step = failingAssert(r, "near miss");
     expect(step.passed).toBe(false);
-    const pm = step.error?.partialMatches ?? [];
-    expect(pm.length).toBeGreaterThan(0);
-    // Was lowercased and flattened: the fuzzy path fed the lowercased body text in.
-    expect(pm).toContain("Persona Testing for Product Teams");
-    for (const s of pm) expect(s).not.toMatch(/[\n⌘]/);
-    expect(step.error?.suggestion).toMatch(/^Partial matches found on the page\. Try: verify page contains "Persona Testing for Product Teams"$/);
+    // "Persona Pricing" is not on the page in any case, so there is no near
+    // miss to offer and no fabricated "Try:" (round 2: the word fallback used
+    // to suggest an unrelated heading here).
+    expect(step.error?.partialMatches ?? []).toEqual([]);
+    expect(step.error?.suggestion ?? "").not.toMatch(/Try: verify page contains/);
+  }, 180_000);
+
+  test("CSS text-transform: the suggestion comes from the text the exact check reads, so pasted back it passes", async () => {
+    // Round 2: snippets came from rendered innerText (uppercased by CSS here),
+    // while the exact check reads the source text, so the "Try:" failed.
+    const suite = parseNLTestSuite(`# eyebrow
+go to ${url}
+verify page contains "tRUSTED BY PRODUCT"
+`, "b22-transform");
+    const r = await runNLTestSuite(suite, { headless: true, screenshotOnFailure: false });
+    const step = failingAssert(r, "eyebrow");
+    expect(step.passed).toBe(false);
+    const suggested = /Try: verify page contains "(.*)"$/.exec(step.error?.suggestion ?? "")?.[1];
+    expect(suggested).toBe("Trusted by product");
+    const again = await runNLTestSuite(parseNLTestSuite(`# pasted
+go to ${url}
+verify page contains "${suggested}"
+`, "b22-transform-pasted"), { headless: true, screenshotOnFailure: false });
+    expect(again.testResults[0].passed).toBe(true);
   }, 180_000);
 });

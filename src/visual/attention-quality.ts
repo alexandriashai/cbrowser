@@ -511,15 +511,25 @@ export function computeAttentionQuality(
     interpretation = "CTAs capture attention but headings do not — headings drew "
       + pct(headingShare) + " of top attention (headingShare). The persona is seeing where to click without reading the headings that say what it is for. "
       + "valuePropSalience (" + r3(valuePropSalience) + ") counts CTA and heading attention together, so here it is almost all CTA attention; headingShare is the heading-only figure.";
+  } else if (valuePropSalience >= 0.7) {
+    // Most top attention is on CTAs and headings together. The Moderate and
+    // Mixed verdicts below said "split with other content" / "without strong
+    // focus on conversion elements" here, contradicting valuePropSalience
+    // (verifier sweep: 91 of 10,626 mixes, e.g. CTAs 0.9 + headings 0.1).
+    // (2026-10-09)
+    interpretation = "Attention concentrates on conversion elements — CTAs and headings together drew valuePropSalience "
+      + r3(valuePropSalience) + " of top attention (CTAs " + pct(ctaCaptureRate) + ", headings " + pct(headingShare) + ").";
   } else if (ctaCaptureRate > 0.1 && valuePropSalience > 0.3) {
-    interpretation = "Moderate attention quality — the persona partially sees key elements but attention is split with other content.";
+    interpretation = "Moderate attention quality — the persona partially sees key elements but attention is split with other content: "
+      + pct(1 - valuePropSalience) + " of top attention went to elements that are neither CTAs nor headings.";
   } else if (distractorRatio > 0.5) {
     interpretation = "Poor attention quality — more than half of top attention goes to non-actionable elements; CTAs and headings together drew valuePropSalience "
       + r3(valuePropSalience) + " of it.";
   } else if (ctaCaptureRate < 0.05) {
     interpretation = "CTAs are invisible to this persona — none of the top saliency zones overlap with calls to action. Consider making CTAs larger, higher-contrast, or more prominently positioned.";
   } else {
-    interpretation = "Mixed attention quality — attention is distributed across the page without strong focus on conversion elements.";
+    interpretation = "Mixed attention quality — attention is distributed across the page without strong focus on conversion elements (CTAs and headings together drew valuePropSalience "
+      + r3(valuePropSalience) + ").";
   }
 
   return {

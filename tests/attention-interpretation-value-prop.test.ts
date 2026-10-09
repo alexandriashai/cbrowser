@@ -133,3 +133,35 @@ describe("B18: no branch of the interpretation borrows the value-prop name", () 
     expect(offenders).toEqual([]);
   });
 });
+
+describe("B18 round 2: no verdict contradicts valuePropSalience, in either direction", () => {
+  // The verifier's sweep found the Moderate and Mixed branches still saying
+  // attention was split / unfocused when CTAs + headings held nearly all of it.
+  const SPLIT = /split with other content|without strong focus on conversion elements/i;
+  const STRONG = /concentrates on conversion elements|Strong attention capture/i;
+  const kinds: Kind[] = ["cta", "heading", "nav", "decorative", "content"];
+  const steps = [0, 1, 2, 3, 4];
+  test("sweep of bucket mixes: high valuePropSalience never reads as split, low never reads as strong", () => {
+    let checked = 0;
+    for (const a of steps) for (const b of steps) for (const c of steps) for (const d of steps) for (const e of steps) {
+      const counts = [a, b, c, d, e];
+      if (counts.reduce((x, y) => x + y, 0) === 0) continue;
+      const spec = counts.flatMap((n, k) => Array.from({ length: n }, () => ({ kind: kinds[k], saliency: 0.9 })));
+      const q = page(spec);
+      const vps = q.valuePropSalience;
+      if (vps >= 0.7) expect(q.interpretation, `vps ${vps} mix ${counts}`).not.toMatch(SPLIT);
+      if (vps <= 0.3) expect(q.interpretation, `vps ${vps} mix ${counts}`).not.toMatch(STRONG);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(3000);
+  });
+
+  test("the verifier's counterexamples: CTAs 0.9 + headings 0.1, and CTAs 0.2 + headings 0.8", () => {
+    const one = page([...Array(9).fill({ kind: "cta", saliency: 0.9 }), { kind: "heading", saliency: 0.9 }]);
+    const two = page([...Array(2).fill({ kind: "cta", saliency: 0.9 }), ...Array(8).fill({ kind: "heading", saliency: 0.9 })]);
+    for (const q of [one, two]) {
+      expect(q.valuePropSalience).toBe(1);
+      expect(q.interpretation).not.toMatch(SPLIT);
+    }
+  });
+});

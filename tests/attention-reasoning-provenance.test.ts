@@ -155,7 +155,7 @@ describe("B19: the narrative's scope is stated beside it", () => {
 
     // M: the elements the quantitative targets were computed over.
     const quality = b.attentionQuality as { sampledElements: number; topAttentionTargets: unknown[] };
-    const m = Number(/come from (\d+) sampled elements?/.exec(scope)?.[1]);
+    const m = Number(/counted over (\d+) sampled elements?/.exec(scope)?.[1]);
     expect(m).toBe(quality.sampledElements);
 
     // Below the floor it says so; at or above it, it does not.

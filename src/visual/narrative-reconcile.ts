@@ -142,9 +142,10 @@ export function describeReasoningScope(
       + "measures the elements the narrative names.";
   }
   const m = `${sampledElements} sampled element${sampledElements === 1 ? "" : "s"}`;
-  let text = head + `The quantitative targets (attentionQuality ratios and topAttentionTargets) come from ${m}, `
-    + "the distinct elements the top saliency hotspots landed on. The narrative can therefore name elements "
-    + "that are not among the measured targets; naming one is not evidence it drew measured attention.";
+  let text = head + `The quantitative targets are counted over ${m}, the distinct elements the top `
+    + "saliency hotspots landed on (topAttentionTargets can also list hotspots that hit no element, "
+    + "which that count excludes). The narrative can therefore name elements that are not among the "
+    + "measured targets; naming one is not evidence it drew measured attention.";
   if (sampledElements < samplingFloor) {
     text += ` ${sampledElements} is below the sampling floor of ${samplingFloor} distinct elements, so the `
       + "quantitative targets are indicative, not measurements (see attentionQuality.sampleNote).";

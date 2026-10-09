@@ -35,7 +35,7 @@ describe("B19: describeReasoningScope", () => {
     expect(typeof describeScope).toBe("function");
     const s = describeScope!(37, 3, 8);
     expect(s).toContain("LLM relevance pass over 37 candidate elements");
-    expect(s).toContain("come from 3 sampled elements");
+    expect(s).toContain("counted over 3 sampled elements");
     expect(s).toMatch(/not among the measured targets/);
     expect(s).toContain("3 is below the sampling floor of 8");
   });
@@ -44,7 +44,7 @@ describe("B19: describeReasoningScope", () => {
     expect(typeof describeScope).toBe("function");
     for (const m of [8, 12]) {
       const s = describeScope!(40, m, 8);
-      expect(s).toContain(`come from ${m} sampled elements`);
+      expect(s).toContain(`counted over ${m} sampled elements`);
       expect(s).not.toContain("below the sampling floor");
     }
   });
@@ -53,7 +53,7 @@ describe("B19: describeReasoningScope", () => {
     expect(typeof describeScope).toBe("function");
     const s = describeScope!(1, 1, 8);
     expect(s).toContain("over 1 candidate element ");
-    expect(s).toContain("come from 1 sampled element,");
+    expect(s).toContain("counted over 1 sampled element,");
   });
 
   test("with no quantitative targets it says nothing measured the named elements", () => {

@@ -397,41 +397,9 @@ export interface NLTestSuiteOptions {
   capture?: AutoCaptureSetting;
 }
 
-/** Longest snippet shown to a reader; a longer line is trimmed at word boundaries around the match. */
-const SNIPPET_MAX = 80;
 
 const collapseWhitespace = (s: string): string => s.replace(/\s+/g, " ").trim();
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/**
- * The text of `line` around [start, end), never cut mid-word.
- *
- * A line that fits is returned whole. A longer one is widened from the match to
- * whole words, then by whole words on either side while it stays under
- * SNIPPET_MAX. `line` is already whitespace-collapsed, so words are split by a
- * single space.
- */
-function wordWindow(line: string, start: number, end: number): string {
-  if (line.length <= SNIPPET_MAX) return line;
-  let s = start;
-  let e = end;
-  while (s > 0 && line[s - 1] !== " ") s--;
-  while (e < line.length && line[e] !== " ") e++;
-  for (let grew = true; grew;) {
-    grew = false;
-    if (e < line.length) {
-      let ne = e + 1;
-      while (ne < line.length && line[ne] !== " ") ne++;
-      if (ne - s <= SNIPPET_MAX) { e = ne; grew = true; }
-    }
-    if (s > 0) {
-      let ns = s - 1;
-      while (ns > 0 && line[ns - 1] !== " ") ns--;
-      if (e - ns <= SNIPPET_MAX) { s = ns; grew = true; }
-    }
-  }
-  return line.slice(s, e).trim();
-}
 
 /**
  * Near-miss text for a failed content assertion, as a reader should see it.
@@ -454,53 +422,66 @@ function wordWindow(line: string, start: number, end: number): string {
  * @param pageText Rendered innerText, NOT lowercased or flattened -- its case
  *                 and line breaks are what make the snippet usable.
  */
+/** Longest whole line shown as a near miss; a longer one yields only the matched span. */
+const SNIPPET_MAX = 80;
+
 export function findPartialMatches(pageText: string, expected: string, maxResults: number = 3): string[] {
+  // Round 2 (verifier, 2026-10-09): returns the MATCHED SPAN in the page's own
+  // case and nothing around it. Widening a match across neighbouring lines
+  // brought the toolbar glyphs back, and the word-by-word fallback offered
+  // unrelated text for a target that is not on the page ("for" inside
+  // "Platform"). A near miss is now the whole target, case-insensitively, or
+  // nothing.
   if (!pageText || !expected) return [];
   const needle = collapseWhitespace(expected);
   if (!needle) return [];
   const lines = pageText.split(/\n+/).map(collapseWhitespace).filter(Boolean);
   const out: string[] = [];
   const add = (snippet: string) => { if (snippet && !out.includes(snippet)) out.push(snippet); };
-  const whole = new RegExp(escapeRegExp(needle), "i");
-
+  const whole = new RegExp(escapeRegExp(needle), "gi");
+  // The rendered line holding the match (its text node, near enough) when it
+  // is short -- "Persona Testing for Product Teams" for a target missing
+  // "Teams" -- else just the matched span, never widened into neighbours.
   for (const line of lines) {
-    if (out.length >= maxResults) break;
-    const m = whole.exec(line);
-    if (m) add(wordWindow(line, m.index, m.index + m[0].length));
+    for (const m of line.matchAll(whole)) {
+      if (out.length >= maxResults) return out;
+      add(line.length <= SNIPPET_MAX ? line : m[0]);
+    }
   }
   if (out.length === 0) {
-    const flat = lines.join(" ");
-    const m = whole.exec(flat);
-    if (m) add(wordWindow(flat, m.index, m.index + m[0].length));
-  }
-  if (out.length > 0) return out;
-
-  for (const word of needle.split(" ").filter((w) => w.length > 2)) {
-    if (out.length >= maxResults) break;
-    const re = new RegExp(escapeRegExp(word), "i");
-    for (const line of lines) {
-      const m = re.exec(line);
-      if (m) { add(wordWindow(line, m.index, m.index + m[0].length)); break; }
-    }
+    const m = new RegExp(escapeRegExp(needle), "i").exec(lines.join(" "));
+    if (m) add(m[0]);
   }
   return out;
 }
 
 /**
+ * The target as it appears in `text`, matched case-insensitively and exactly
+ * otherwise (no whitespace folding), so `text.includes(result)` holds: pasted
+ * back into a case-sensitive `page contains`, it passes. Undefined when the
+ * only difference is not case. (B22 round 2, 2026-10-09)
+ */
+export function findCaseVariant(text: string, target: string): string | undefined {
+  if (!text || !target) return undefined;
+  const idx = text.toLowerCase().indexOf(target.toLowerCase());
+  if (idx < 0) return undefined;
+  const span = text.slice(idx, idx + target.length);
+  return span !== target && span.toLowerCase() === target.toLowerCase() ? span : undefined;
+}
+
+/**
  * Generate a suggestion for a failed assertion step.
  */
-function generateAssertionSuggestion(step: NLTestStep, actual?: string, partialMatches?: string[]): string {
+function generateAssertionSuggestion(step: NLTestStep, actual?: string, partialMatches?: string[], caseMatch?: string): string {
+  // A "Try:" is offered only when it is guaranteed to pass if pasted: the span
+  // found case-insensitively in the SAME text the exact check reads (a
+  // detached clone, so no CSS text-transform, no rendered line joins).
+  // Snippets from the rendered page could differ from that text and fail.
+  if (step.assertionType === "contains" && caseMatch) {
+    return `The page has this text in different letter case. Try: verify page contains "${caseMatch}"`;
+  }
   if (step.assertionType === "contains" && partialMatches && partialMatches.length > 0) {
-    // No substring cut here: findPartialMatches already bounds each snippet at
-    // a word boundary, and a hard cut is what produced "Product Tea". (B22)
-    const best = partialMatches[0];
-    const target = collapseWhitespace(step.target ?? "");
-    // Same letters, different case. If the snippet already holds the target
-    // exactly, case is not what failed (a line break, say), so do not claim it.
-    const caseOnly = target.length > 0 && best.toLowerCase().includes(target.toLowerCase()) && !best.includes(target);
-    return caseOnly
-      ? `The page has this text in different letter case. Try: verify page contains "${best}"`
-      : `Partial matches found on the page. Try: verify page contains "${best}"`;
+    return `Similar text is on the page as rendered: "${partialMatches[0]}". It differs from the page source in whitespace, line breaks or CSS text-transform, so check the source text before asserting it.`;
   }
   if (step.assertionType === "equals" && actual) {
     return `Actual value is "${actual}". Try using 'contains' instead of exact match: verify title contains "${step.target}"`;
@@ -767,11 +748,25 @@ export async function runNLTestSuite(
                 if (!assertResult.passed) {
                   // Enrich the error with partial matches
                   let partialMatches: string[] | undefined;
+                  let caseMatch: string | undefined;
                   if (step.assertionType === "contains" && step.target) {
                     try {
                       const page = await browser.getPage();
                       const pageText = await page.evaluate(() => document.body?.innerText || "");
                       partialMatches = findPartialMatches(pageText, step.target);
+                      // The exact check's own text source (browser.ts page-contains).
+                      const assertText = await page.evaluate(() => {
+                        const clone = document.body.cloneNode(true) as HTMLElement;
+                        clone.querySelectorAll("script, style, noscript").forEach((el) => el.remove());
+                        return clone.innerText || clone.textContent || "";
+                      });
+                      // Prefer the short rendered line holding the match, but only if
+                      // the exact check's text contains it verbatim, so the pasted
+                      // suggestion is guaranteed to pass; else the exact case span.
+                      const line = partialMatches?.[0];
+                      caseMatch = line && line !== step.target && assertText.includes(line)
+                        ? line
+                        : findCaseVariant(assertText, step.target);
                     } catch {}
                   }
                   stepErrorObj = {
@@ -779,7 +774,7 @@ export async function runNLTestSuite(
                     actual: assertResult.actual !== undefined ? String(assertResult.actual) : undefined,
                     expected: assertResult.expected !== undefined ? String(assertResult.expected) : step.target,
                     partialMatches,
-                    suggestion: generateAssertionSuggestion(step, actualValue, partialMatches),
+                    suggestion: generateAssertionSuggestion(step, actualValue, partialMatches, caseMatch),
                   };
                 }
               }

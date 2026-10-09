@@ -181,7 +181,8 @@ export function relevanceProvenance(
     ...(judged.judgedAt ? { relevanceJudgedAt: judged.judgedAt } : {}),
     ...(judged.cached ? {
       relevanceCacheNote: "The relevance scores and attentionReasoning were replayed from a cache keyed on the persona, "
-        + "goal and the page's element set (text, geometry, colour), not judged on this call. Identical wording "
+        + "goal and the page's element set (the fields the calling tool passes: text and geometry for "
+        + "attention_analysis, so a colour-only restyle replays the same judgement), not judged on this call. Identical wording "
         + "across runs of an unchanged page is this cache, by design, so repeated runs are comparable.",
     } : {}),
   };
