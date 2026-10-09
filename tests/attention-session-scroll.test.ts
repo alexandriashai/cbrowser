@@ -30,7 +30,9 @@ body{margin:0;font:16px sans-serif} header{height:80px;background:#222;color:#ff
 
 let server: ReturnType<typeof Bun.serve>;
 let browser: InstanceType<typeof CBrowser>;
-let handler: (a: Record<string, unknown>) => Promise<{ isError?: boolean; content: Array<{ type: string; text?: string }> }>;
+type Handler = (a: Record<string, unknown>) => Promise<{ isError?: boolean; content: Array<{ type: string; text?: string }> }>;
+let handler: Handler;
+let compare: Handler;
 const TOKEN = "cb_attn_test";
 
 beforeAll(async () => {
@@ -39,7 +41,10 @@ beforeAll(async () => {
   await browser.launch();
   await browser.navigate(`http://localhost:${server.port}/`);
   registerVisualTestingTools({
-    registerTool: (name: string, _c: unknown, h: typeof handler) => { if (name === "attention_analysis") handler = h; },
+    registerTool: (name: string, _c: unknown, h: Handler) => {
+      if (name === "attention_analysis") handler = h;
+      if (name === "attention_compare") compare = h;
+    },
     tool: () => {}, registerResource: () => {}, resource: () => {},
   } as never, {
     getBrowser: async () => browser,
@@ -102,6 +107,33 @@ describe("attention_analysis with a session token", () => {
 
   test("neither url nor token is refused before anything runs", async () => {
     const r = await handler({ persona: "first-timer", heatmap: false });
+    expect(r.isError).toBe(true);
+    expect(body(r).error).toMatch(/needs a url, or a _browserToken/);
+  });
+});
+
+describe("attention_compare with a session token and scrollY (same contract)", () => {
+  test("no url: compares on the session's current page and returns its token", async () => {
+    const r = await compare({ _browserToken: TOKEN, personaA: "power-user", personaB: "first-timer" });
+    expect(r.isError).toBeFalsy();
+    const b = body(r);
+    expect(b.url).toBe(`http://localhost:${server.port}/`);
+    expect(b._browserToken).toBe(TOKEN);
+    expect(String(b.renderedViewport)).toContain("(session)");
+    expect(b.personaA.name).toBe("power-user");
+  }, 120_000);
+
+  test("scrollY is applied for the comparison and the session's scroll is restored", async () => {
+    const p = await page();
+    await p.evaluate(() => window.scrollTo(0, 250));
+    const b = body(await compare({ _browserToken: TOKEN, personaA: "power-user", personaB: "first-timer", scrollY: 900 }));
+    expect(b.scroll).toEqual({ requested: 900, applied: 900, maxScrollY: expect.any(Number) });
+    expect(await p.evaluate(() => Math.round(window.scrollY))).toBe(250);
+    expect(await p.evaluate(() => document.title)).toBe("tall");
+  }, 120_000);
+
+  test("neither url nor token is refused before anything runs", async () => {
+    const r = await compare({ personaA: "power-user", personaB: "first-timer" });
     expect(r.isError).toBe(true);
     expect(body(r).error).toMatch(/needs a url, or a _browserToken/);
   });
