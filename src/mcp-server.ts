@@ -63,6 +63,7 @@ import type { NLTestCase, NLTestStep } from "./types.js";
 // Analysis module imports
 import {
   huntBugs,
+  huntBugsResponse,
   runChaosTest,
   comparePersonas,
   findElementByIntent,
@@ -1753,28 +1754,20 @@ async function registerCBrowserTools(): Promise<McpServer> {
     {
       url: z.string().url().describe("Starting URL to hunt from"),
       maxPages: z.number().optional().default(10).describe("Maximum pages to visit"),
+      limit: z.number().optional().default(25).describe("How many bugs to return, worst first. The full count and a per-page/per-type breakdown are always reported, so a truncated list never hides the shape of what was found."),
+      offset: z.number().optional().default(0).describe("Skip this many bugs before returning, for paging through a large result."),
       timeout: z.number().optional().default(60000).describe("Timeout in milliseconds"),
     },
-    async ({ url, maxPages, timeout }) => {
+    async ({ url, maxPages, timeout, limit, offset }) => {
       const b = await getBrowser();
       const result = await huntBugs(b, url, { maxPages, timeout });
+      // Same response as the HTTP tool. This copy returned the first ten bugs
+      // in crawl order, with no severity sort, paging or breakdowns.
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              pagesVisited: result.pagesVisited,
-              bugsFound: result.bugs.length,
-              duration: result.duration,
-              bugs: result.bugs.slice(0, 10).map(bug => ({
-                type: bug.type,
-                severity: bug.severity,
-                description: bug.description,
-                url: bug.url,
-                selector: bug.selector,
-                recommendation: bug.recommendation,
-              })),
-            }, null, 2),
+            text: JSON.stringify(huntBugsResponse(result, { limit, offset }), null, 2),
           },
         ],
       };
