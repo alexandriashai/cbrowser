@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import {
   generateRemediationPatches,
   summarizePatches,
@@ -38,6 +39,9 @@ export function registerRemediationTools(
       openWorldHint: false,
     },
   }, async ({ url, maxPatches }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("remediation_patches", { url });
+      if (hostedRefusal) return hostedRefusal;
       // Run audit first
       const auditResult = await runAgentReadyAudit(url, { headless: true });
 
@@ -98,6 +102,9 @@ export function registerRemediationTools(
       openWorldHint: true,
     },
   }, async ({ url, crawl, maxPages }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("llms_txt_generate", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = crawl
         ? await crawlSiteForLlmsTxt(url, { maxPages, headless: true })
         : await generateLlmsTxt({ url, headless: true });
@@ -141,6 +148,9 @@ export function registerRemediationTools(
       openWorldHint: true,
     },
   }, async ({ url }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("structured_data_suggest", { url });
+      if (hostedRefusal) return hostedRefusal;
       const suggestion = await suggestStructuredData({ url, headless: true });
 
       return {

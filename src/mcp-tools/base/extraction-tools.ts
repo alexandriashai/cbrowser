@@ -10,6 +10,7 @@ import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { buildContentWithScreenshots, describeDownscale } from "../screenshot-utils.js";
 import { activeRecordingViewport } from "./capture-tools.js";
 import { refuseUnboundSession } from "../session-policy.js";
+import { refuseHostedPath } from "../hosted-inputs.js";
 
 /**
  * Register extraction tools (2 tools: screenshot, extract)
@@ -36,6 +37,11 @@ export function registerExtractionTools(
       openWorldHint: false,
     },
   }, async ({ path, _browserToken }) => {
+      // Hosted: `path` was handed straight to page.screenshot, so a caller chose
+      // where the root-run server wrote a PNG (sec-paths, 2026-10-10).
+      const hostedRefusal = refuseHostedPath("screenshot", "path", path,
+        "Omit path: the screenshot is returned in this response.");
+      if (hostedRefusal) return hostedRefusal;
       let b: Awaited<ReturnType<typeof getBrowser>>;
       let token: string | undefined;
       if (getBrowserByToken) {

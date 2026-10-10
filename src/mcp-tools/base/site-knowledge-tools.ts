@@ -10,6 +10,7 @@
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseUnboundSession } from "../session-policy.js";
+import { refuseHostedPathName } from "../hosted-inputs.js";
 
 /**
  * Register site knowledge tools (7 tools: page_understand, site_model_status, site_model_query,
@@ -500,6 +501,12 @@ export function registerSiteKnowledgeTools(
       openWorldHint: false,
     },
   }, async ({ domain }) => {
+      // Hosted: the domain is joined into a directory path that is then removed
+      // recursively, and the sanitiser keeps dots, so ".." named the parent of
+      // site-profiles: the whole data directory (sec-paths, 2026-10-10).
+      const hostedRefusal = refuseHostedPathName("site_profile_delete", "domain", domain,
+        'Pass the bare domain, e.g. "example.com".');
+      if (hostedRefusal) return hostedRefusal;
       try {
         const { SiteProfileManager } = await import("../../browser/site-profile-manager.js");
         const manager = new SiteProfileManager();
@@ -563,6 +570,11 @@ export function registerSiteKnowledgeTools(
       openWorldHint: false,
     },
   }, async ({ domain }) => {
+      // Hosted: same path join as site_profile_delete, read instead of removed
+      // (sec-paths, 2026-10-10).
+      const hostedRefusal = refuseHostedPathName("site_profile_status", "domain", domain,
+        'Pass the bare domain, e.g. "example.com".');
+      if (hostedRefusal) return hostedRefusal;
       try {
         const { SiteProfileManager } = await import("../../browser/site-profile-manager.js");
         const manager = new SiteProfileManager();

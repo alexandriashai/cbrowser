@@ -57,7 +57,7 @@ import {
 // getActiveKeyHash is deliberately no longer imported: billing identity is per-request
 // (see resolveRequestKeyHash). setActiveKeyHash stays for the usage-logging path, which
 // is per-session rather than per-charge.
-import { registerAllPublicTools, setRemoteMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
+import { registerAllPublicTools, setRemoteMode, setHostedMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
 import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
 import { withChargeScope } from "./charge-scope.js";
 
@@ -1729,6 +1729,12 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
 
   // Enable remote mode for screenshot handling (returns base64 images instead of paths)
   setRemoteMode(true);
+
+  // Hosted input policy: no tool parameter may name a path on this server, and
+  // URL parameters must be http(s). Set here, explicitly, because this process
+  // runs as root for many accounts; the stdio server and the CLI never set it.
+  // (sec-paths, 2026-10-10 security review; see mcp-tools/hosted-inputs.ts)
+  setHostedMode(true);
 
   const port = parseInt(process.env.PORT || "3000", 10);
   const host = process.env.HOST || "0.0.0.0";

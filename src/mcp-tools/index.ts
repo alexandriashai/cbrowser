@@ -38,6 +38,18 @@ export {
   MAX_RESPONSE_SIZE,
 } from "./screenshot-utils.js";
 
+// Hosted-transport input policy (sec-paths, 2026-10-10). Exported so a server
+// built on startRemoteMcpServer can consult the same flag for its own tools.
+export {
+  setHostedMode,
+  isHostedMode,
+  refuseHostedPath,
+  refuseHostedPathName,
+  refuseHostedUrl,
+  confineToAccountDir,
+  isWebUrl,
+} from "./hosted-inputs.js";
+
 // Re-export base tools
 export { registerBaseTools } from "./base/index.js";
 

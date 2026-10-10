@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { buildContentWithScreenshots, describeDownscale } from "../screenshot-utils.js";
 import { describeContentIntegrity } from "../../content-integrity.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 
 /**
  * Register navigation tools (1 tool: navigate)
@@ -34,6 +35,10 @@ export function registerNavigationTools(
       openWorldHint: true,
     },
   }, async ({ url, waitAfterLoad, waitForSelector, _browserToken }) => {
+      // Hosted: http(s) only. z.string().url() accepts file:, data: and
+      // view-source:, and the root-run browser opened them (sec-paths, 2026-10-10).
+      const refused = refuseHostedUrl("navigate", { url });
+      if (refused) return refused;
       let b: Awaited<ReturnType<typeof getBrowser>>;
       let token: string | undefined;
       if (getBrowserByToken) {

@@ -11,6 +11,7 @@ import { z } from "zod";
 import type { Dialog, Page } from "playwright";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { summarizePlaywrightError } from "../../browser.js";
+import { confineToAccountDir } from "../hosted-inputs.js";
 
 type DialogAction = "accept" | "dismiss";
 
@@ -260,7 +261,15 @@ export function registerAdvancedInteractionTools(
       _browserToken: z.string().optional().describe("Browser session token"),
     },
     annotations: { title: "Upload File", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async ({ selector, filePaths, _browserToken }) => {
+  }, async ({ selector, filePaths: requestedPaths, _browserToken }) => {
+    // Hosted: setInputFiles read whatever the root-run server could read and
+    // sent it to the page, i.e. to any site the caller navigated to. Useless
+    // without paths, so confined to the caller's own account directory rather
+    // than refused (sec-paths, 2026-10-10).
+    const confined = confineToAccountDir("upload_file", "filePaths", requestedPaths,
+      "To upload your own file, run upload_file on your own machine (npx cbrowser mcp-server).");
+    if (!confined.ok) return confined.result;
+    const filePaths = confined.paths;
     let b, token;
     try {
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }

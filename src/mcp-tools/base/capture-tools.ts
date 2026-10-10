@@ -30,6 +30,7 @@ import type { RecordingManifest } from "../../recording/types.js";
 import { VIEWPORT_PRESETS } from "../../types.js";
 import { buildContentWithScreenshots, MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import type { CBrowser, McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedPath, refuseHostedPathName, refuseHostedUrl } from "../hosted-inputs.js";
 
 /**
  * Does the active key entitle paid model calls?
@@ -1025,6 +1026,15 @@ export function registerCaptureTools(
       openWorldHint: true,
     },
   }, async ({ _browserToken, ...args }) => {
+    // Hosted: out_dir picked the directory the root-run server wrote frames and
+    // video into, and name is joined into that path unchecked, so "../x" did
+    // the same. url must be http(s) (sec-paths, 2026-10-10).
+    const hostedRefusal = refuseHostedUrl("capture_start", { url: args.url })
+      ?? refuseHostedPath("capture_start", "out_dir", args.out_dir,
+        "Omit out_dir: capture_stop returns the contact sheet in its response and the GIF/video through the artifact store.")
+      ?? refuseHostedPathName("capture_start", "name", args.name,
+        'Use a plain name such as "hero-animation".');
+    if (hostedRefusal) return hostedRefusal;
     try {
       const { browser, token } = await resolveBrowser(_browserToken);
       const payload = await startCapture(browser, args, token);
