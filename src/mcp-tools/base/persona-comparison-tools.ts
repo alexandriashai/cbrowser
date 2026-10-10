@@ -35,6 +35,7 @@ import {
   estimateCognitiveLoad,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
+import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 
 /**
  * Most base64 characters cognitive_effort spends on its inline motor-overlay
@@ -663,7 +664,7 @@ Begin with the first persona: ${personas[0]}
 
   server.registerTool("cognitive_load_estimate", {
     title: "Cognitive Load Estimate",
-    description: "Estimate cognitive load for a specific persona on page metrics. Returns per-dimension breakdown (information, visual, attention, decision, motor, text, memory, patience) and identifies the bottleneck dimension.",
+    description: "Estimate cognitive load for a specific persona on page metrics. Returns per-dimension breakdown (information, visual, attention, decision, motor, text, memory, patience) and identifies the bottleneck dimension. Attention, motor and text use the persona's modelled capacities (sustained attention, Fitts pointing, reading). Visual is persona-invariant: no trait has a researched mapping onto visual-complexity tolerance, so it measures the page only and is listed under personaInvariant.",
     inputSchema: {
       persona: z.string().describe("Persona name"),
       informationDensity: z.number().min(0).max(1).describe("Content density (0=sparse, 1=dense)"),
@@ -685,7 +686,15 @@ Begin with the first persona: ${personas[0]}
       const p = getAnyPersona(persona);
       if (!p) return { isError: true, content: [{ type: "text" as const, text: `Persona not found: ${persona}. Run list_cognitive_personas for the roster. Nothing was measured.` }] };
       const profile = getCognitiveProfile(p as Persona | AccessibilityPersona);
-      const otProfile = buildOTProfile(persona, profile.traits as unknown as Record<string, number> || {});
+      // A copy, because the bridge writes into what it is given.
+      const traits = { ...((profile.traits as unknown as Record<string, number>) || {}) };
+      // The estimator's attention, motor and text dimensions read the three
+      // bridged capacities. Unbridged, they sat at the 0.5 fallback and every
+      // persona scored identically on all three (B29, 2026-10-10). Same helper
+      // as cognitive_effort, site_cognitive_assessment and the story tool.
+      bridgeCapacityTraits(persona, traits,
+        (p as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+      const otProfile = buildOTProfile(persona, traits);
 
       const load = estimateCognitiveLoad(otProfile, {
         informationDensity, visualComplexity, interactiveElementCount: interactiveElements,
@@ -703,6 +712,8 @@ Begin with the first persona: ${personas[0]}
             breakdown: Object.fromEntries(
               Object.entries(load.breakdown).map(([k, v]) => [k, Math.round(v * 100) / 100])
             ),
+            personaInvariant: load.personaInvariant,
+            personaInvariantNote: "visual depends on the page only: no trait has a researched mapping onto visual-complexity tolerance, so it is the same for every persona.",
             recommendation: load.overloaded
               ? `${persona} is cognitively overloaded. Primary bottleneck: ${load.bottleneck}. Reduce ${load.bottleneck} complexity to improve experience.`
               : `${persona} can handle this page. Closest to overload on: ${load.bottleneck}.`,
