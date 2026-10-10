@@ -16,12 +16,14 @@
  *
  * WHY NOT A MODULE VARIABLE
  *
- * tier-gate.ts already keeps the billing key in one (`currentKeyHash`, set by
- * `setActiveKeyHash`) and its autosave reads it. Under two overlapping requests that
- * global holds whichever key was set last. For an autosave that mislabels a dashboard
+ * tier-gate.ts kept the billing key in one (`currentKeyHash`, set by
+ * `setActiveKeyHash`) and its autosave read it. Under two overlapping requests that
+ * global held whichever key was set last. For an autosave that mislabels a dashboard
  * row. For a refund it would CREDIT THE WRONG ACCOUNT. The refund must therefore read
  * the key from here and never from the global. `AsyncLocalStorage` binds the value to
- * one request's async context, so overlapping requests each see their own.
+ * one request's async context, so overlapping requests each see their own. (The
+ * usage-log key hash moved to a per-request context too: request-context.ts,
+ * 2026-10-10.)
  *
  * WHAT IS DELIBERATELY NOT IN SCOPE
  *

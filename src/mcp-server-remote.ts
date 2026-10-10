@@ -55,11 +55,13 @@ import {
 
 // Modular MCP tools (v17.5.0)
 // getActiveKeyHash is deliberately no longer imported: billing identity is per-request
-// (see resolveRequestKeyHash). setActiveKeyHash stays for the usage-logging path, which
-// is per-session rather than per-charge.
+// (see resolveRequestKeyHash). setActiveKeyHash, setActiveTier and setSessionApiKey
+// write the calling request's own identity context (request-context.ts), which every
+// HTTP request enters at createServer below. (sec-identity, 2026-10-10)
 import { registerAllPublicTools, setRemoteMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
 import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
 import { withChargeScope } from "./charge-scope.js";
+import { withRequestIdentity } from "./request-context.js";
 
 /**
  * keyHash -> accountId, so a request can be scoped to the tenant that owns it.
@@ -1209,6 +1211,14 @@ function sendUnauthorized(res: ServerResponse, message?: string): void {
 }
 
 /**
+ * The tier a request is gated at.
+ * Priority: resolved from API key > CBROWSER_TIER env > null (self-hosted, no gating).
+ */
+function effectiveTier(resolvedTier?: PricingTier | null): PricingTier | null {
+  return resolvedTier ?? (process.env.CBROWSER_TIER as PricingTier | undefined) ?? null;
+}
+
+/**
  * Configure all CBrowser tools on an MCP server instance.
  * This is shared between stdio and HTTP transports.
  *
@@ -1232,8 +1242,7 @@ function configureMcpTools(
 
   const context: ToolRegistrationContext = { getBrowser: sessionGetBrowser, getBrowserByToken };
 
-  // Tier priority: resolved from API key > CBROWSER_TIER env > null (self-hosted, no gating)
-  const tier = resolvedTier ?? (process.env.CBROWSER_TIER as PricingTier | undefined) ?? null;
+  const tier = effectiveTier(resolvedTier);
 
   if (customRegisterTools) {
     // Set tier BEFORE custom registration so createGatedServer uses resolved tier
@@ -1764,7 +1773,15 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   }
   console.log(`Listening on ${host}:${port}`);
 
-  const httpServer = createServer(async (req, res) => {
+  // Every HTTP request runs in its own identity context, so the key hash, tier
+  // and API key the /mcp branch sets for it belong to it alone. They were module
+  // globals, set while the request's server was built and read when its tool
+  // ran, several awaits later; an overlapping request from another account
+  // overwrote them in between. The context starts as an unauthenticated caller
+  // at the deployment's default tier. (sec-identity, 2026-10-10)
+  const httpServer = createServer((req, res) => withRequestIdentity(
+    { keyHash: null, tier: effectiveTier(null), apiKey: undefined },
+    async () => {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
     // Security headers (defense in depth)
@@ -2500,6 +2517,22 @@ ${VERSION}
       const shortId = browserSessionId.substring(0, 8);
       console.log(`[Session] ${sessionSource}: ${shortId}... (active: ${activeSessions.size})`);
 
+      // This request's caller, written into its own identity context (entered at
+      // createServer above). Set before the transport branch so a reused
+      // stateful transport gets it too: that path used to run on whatever the
+      // last request to build a server had left in the globals. Building a new
+      // server below sets the tier again during registration, as it always did.
+      // (sec-identity, 2026-10-10)
+      const requestApiKey = extractApiKey(req);
+      const resolvedTier = requestApiKey ? await resolveApiKeyTier(requestApiKey) : null;
+      // Key hash for usage tracking: a cbk_ key's own hash, or the key an OAuth
+      // token was issued for; null otherwise. The same derivation as billing.
+      setActiveKeyHash(await resolveRequestKeyHash(req));
+      // Raw key for account-scoped features (custom personas, etc.)
+      const { setSessionApiKey } = await import("./mcp-tools/base/cognitive-tools.js");
+      setSessionApiKey(requestApiKey || undefined);
+      setTierGate(effectiveTier(resolvedTier));
+
       // Now handle transport (stateful mode caches transport, stateless creates new each time)
       const hasExistingTransport = existingSessionId ? transports.has(existingSessionId) : false;
 
@@ -2514,30 +2547,6 @@ ${VERSION}
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: sessionMode === "stateful" ? () => browserSessionId : undefined,
         });
-
-        // Resolve pricing tier from API key (cbk_ keys → CMS lookup)
-        const requestApiKey = extractApiKey(req);
-        const resolvedTier = requestApiKey ? await resolveApiKeyTier(requestApiKey) : null;
-
-        // Set key hash for usage tracking
-        if (requestApiKey?.startsWith("cbk_")) {
-          const { createHash } = await import("crypto");
-          setActiveKeyHash(createHash("sha256").update(requestApiKey).digest("hex"));
-        } else if (requestApiKey) {
-          // Check token→keyHash map (OAuth tokens that aren't raw cbk_ keys)
-          const mapped = tokenToKeyHash.get(requestApiKey);
-          if (mapped && mapped.expiresAt > Date.now()) {
-            setActiveKeyHash(mapped.keyHash);
-          } else {
-            setActiveKeyHash(null);
-          }
-        } else {
-          setActiveKeyHash(null);
-        }
-
-        // Set session API key for account-scoped features (custom personas, etc.)
-        const { setSessionApiKey } = await import("./mcp-tools/base/cognitive-tools.js");
-        setSessionApiKey(requestApiKey || undefined);
 
         // Create and connect server with session isolation and tier gating
         const server = createMcpServer(options?.registerTools, browserSessionId, resolvedTier);
@@ -2601,7 +2610,7 @@ ${VERSION}
     // 404 for other paths
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
-  });
+  }));
 
   httpServer.listen(port, host, () => { void (async () => {
     console.log(`\nCognitive Browser Remote MCP Server running at http://${host}:${port}`);
