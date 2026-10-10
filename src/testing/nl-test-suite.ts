@@ -14,7 +14,7 @@
 import type { Page } from "playwright";
 import { existsSync, readFileSync } from "fs";
 
-import { CBrowser } from "../browser.js";
+import { CBrowser, namedClickables } from "../browser.js";
 import {
   finishAutoCapture,
   resolveCaptureOptions,
@@ -67,7 +67,13 @@ export function unquote(text: string): string {
 async function clickFailure(browser: CBrowser, reason: string, result: SmartRetryResult): Promise<NLTestStepError> {
   let availableElements: NLTestStepError["availableElements"];
   try {
-    availableElements = (await browser.getAvailableClickables()).slice(0, 20).map((e) => ({
+    // The same list the suggestion names: smartClick returns the one it built
+    // aiSuggestion from. Re-scanning here is the fallback (e.g. a red-zone
+    // refusal, which never reaches the suggestion), with the same filter.
+    // Two scans used to disagree: the suggestion offered a hidden, nameless
+    // BUTTON "" that this list did not contain. (v5 B25)
+    const listed = result.availableElements ?? namedClickables(await browser.getAvailableClickables());
+    availableElements = listed.slice(0, 20).map((e) => ({
       tag: e.tag,
       text: e.text,
       selector: e.selector,

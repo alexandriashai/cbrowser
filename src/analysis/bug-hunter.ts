@@ -46,7 +46,13 @@ export interface BugReport {
     | "missing-skip-link";
   severity: "critical" | "high" | "medium" | "low";
   description: string;
+  /** The page the bug was found on. */
   url: string;
+  /**
+   * For a "Failed to load resource" console error: the resource that failed,
+   * which `url` (the page) does not name. (v5 B24, 2026-10-09)
+   */
+  resourceUrl?: string;
   selector?: string;
   screenshot?: string;
   recommendation?: string;
@@ -137,12 +143,18 @@ export async function huntBugs(
   const _timeout = options.timeout || 60000;
 
   const page = await (browser as any).getPage();
-  const consoleErrors: string[] = [];
+  const consoleErrors: Array<{ text: string; resourceUrl?: string }> = [];
 
-  // Capture console errors
+  // Capture console errors. Chrome's "Failed to load resource" message does
+  // not name the resource in its text; it is the message's location. Without
+  // it a 404 was reported as a high bug against the page with no way to tell
+  // which asset failed (cbrowser.ai/blog). (v5 B24)
   page.on("console", (msg: any) => {
     if (msg.type() === "error") {
-      consoleErrors.push(msg.text());
+      const text: string = msg.text();
+      const loc = typeof msg.location === "function" ? msg.location() : undefined;
+      const resourceUrl = /^Failed to load resource/.test(text) && loc?.url ? String(loc.url) : undefined;
+      consoleErrors.push({ text, ...(resourceUrl ? { resourceUrl } : {}) });
     }
   });
 
@@ -150,17 +162,23 @@ export async function huntBugs(
   // Crawled pages' errors used to be collected and never reported: the only
   // flush ran once, before the crawl started.
   const flushConsoleErrors = (pageUrl: string) => {
-    const errorCounts = new Map<string, number>();
+    // Keyed by text AND resource: two different missing assets are two bugs,
+    // each with its own fix, not one bug "×2".
+    const errorCounts = new Map<string, { text: string; resourceUrl?: string; count: number }>();
     for (const error of consoleErrors.splice(0)) {
-      const key = error.slice(0, 200);
-      errorCounts.set(key, (errorCounts.get(key) || 0) + 1);
+      const key = `${error.text.slice(0, 200)}\u0000${error.resourceUrl ?? ""}`;
+      const entry = errorCounts.get(key);
+      if (entry) entry.count++;
+      else errorCounts.set(key, { ...error, count: 1 });
     }
-    for (const [error, count] of errorCounts) {
+    for (const { text, resourceUrl, count } of errorCounts.values()) {
+      const described = resourceUrl ? `${text} - ${resourceUrl}` : text;
       bugs.push({
         type: "console-error",
-        severity: severityFor({ type: "console-error", description: error }),
-        description: count > 1 ? `${error} (×${count})` : error,
+        severity: severityFor({ type: "console-error", description: text }),
+        description: count > 1 ? `${described} (×${count})` : described,
         url: pageUrl,
+        ...(resourceUrl ? { resourceUrl } : {}),
       });
     }
   };

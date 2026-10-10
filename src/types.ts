@@ -3732,6 +3732,11 @@ export interface SmartRetryResult {
   message: string;
   screenshot: string;
   aiSuggestion?: string;
+  /**
+   * On failure: the named, visible clickables aiSuggestion was built from, so a
+   * report of available elements and the suggestion name the same ones. (v5 B25)
+   */
+  availableElements?: Array<{ tag: string; text: string; selector: string; role?: string; region?: string }>;
   /** v11.8.0: Confidence score of the final selector (0-1). Only present when healed. */
   confidence?: number;
   /** v11.8.0: True if an alternative selector was used instead of the original. */

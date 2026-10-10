@@ -56,3 +56,5 @@ tests/visual-story-inline.test.ts
 tests/attention-session-scroll.test.ts
 tests/attention-reasoning-provenance.test.ts
 tests/nl-assert-suggestion-snippet.test.ts
+tests/click-suggestion-same-list.test.ts
+tests/hunt-bugs-resource-url.test.ts

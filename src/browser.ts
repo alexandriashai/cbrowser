@@ -306,6 +306,17 @@ export async function launchBrowserWithFallback(
 }
 
 /**
+ * The clickables a failure message may offer: visible ones (getAvailableClickables
+ * already filters) that have an accessible name. A nameless control cannot be
+ * clicked by its text, so listing it as `BUTTON: ""` only adds noise. The click
+ * suggestion and the `availableElements` beside it are both built from this one
+ * list; they used to come from two different page scans and disagreed. (v5 B25)
+ */
+export function namedClickables<T extends { text: string }>(list: T[]): T[] {
+  return list.filter((e) => e.text.trim() !== "");
+}
+
+/**
  * Compress a Playwright error for a tool response.
  *
  * Playwright appends a "Call log:" listing every retry, which for a click that
@@ -2388,7 +2399,7 @@ For more help: https://playwright.dev/docs/browsers
         };
 
         if (options.verbose) {
-          const available = await this.getAvailableClickables(page);
+          const available = namedClickables(await this.getAvailableClickables(page)); // same named list for the suggestion and availableElements (v5 B25)
           result.availableElements = available;
           result.aiSuggestion = this.generateClickSuggestion(selector, available);
           result.debugScreenshot = await this.captureDebugScreenshot(page, {
@@ -2590,7 +2601,7 @@ For more help: https://playwright.dev/docs/browsers
       };
 
       if (options.verbose) {
-        const available = await this.getAvailableClickables(page);
+        const available = namedClickables(await this.getAvailableClickables(page)); // same named list for the suggestion and availableElements (v5 B25)
         result.availableElements = available;
         result.aiSuggestion = this.generateClickSuggestion(selector, available);
         result.debugScreenshot = await this.captureDebugScreenshot(page, {
@@ -3800,14 +3811,15 @@ For more help: https://playwright.dev/docs/browsers
     }
 
     // All attempts failed - provide AI suggestion
-    const aiSuggestion = await this.analyzeFailure(selector, attempts);
+    const failure = await this.analyzeFailure(selector, attempts);
 
     return {
       success: false,
       attempts,
       message: `Failed after ${attempts.length} attempts`,
       screenshot: result.screenshot,
-      aiSuggestion,
+      aiSuggestion: failure.suggestion,
+      availableElements: failure.available,
     };
   }
 
@@ -4827,24 +4839,29 @@ For more help: https://playwright.dev/docs/browsers
   /**
    * Analyze a failure and provide AI-powered suggestions.
    */
-  private async analyzeFailure(selector: string, attempts: RetryAttempt[]): Promise<string> {
+  private async analyzeFailure(
+    selector: string,
+    attempts: RetryAttempt[],
+  ): Promise<{ suggestion: string; available: Awaited<ReturnType<CBrowser["getAvailableClickables"]>> }> {
     const page = await this.getPage();
 
-    try {
-      // Get page context for suggestion
-      const buttons = await page.$$eval('button, a, [role="button"]', els =>
-        els.slice(0, 10).map(el => ({
-          text: el.textContent?.trim().substring(0, 50),
-          tag: el.tagName,
-        }))
-      );
-
-      const buttonList = buttons.map(b => `- ${b.tag}: "${b.text}"`).join("\n");
-
-      return `Element "${selector}" not found after ${attempts.length} attempts.\n\nAvailable clickable elements:\n${buttonList}\n\nTry using the exact text from one of these elements.`;
-    } catch {
-      return `Element "${selector}" not found. Check that the element exists and is visible.`;
+    // The list the suggestion names, returned too, so a caller reporting
+    // availableElements reports THESE elements. This used to be its own raw
+    // `button, a, [role=button]` scan (hidden ones included, DOM order, first
+    // 10), so it offered a hidden nameless menu toggle as `BUTTON: ""` that the
+    // filtered availableElements beside it did not contain. (v5 B25)
+    const available = namedClickables(await this.getAvailableClickables(page));
+    if (available.length === 0) {
+      return {
+        suggestion: `Element "${selector}" not found after ${attempts.length} attempts, and no visible clickable element with a name is on the page. It may still be loading, or its controls may be icons without accessible names.`,
+        available,
+      };
     }
+    const buttonList = available.slice(0, 10).map((b) => `- ${b.tag.toUpperCase()}: "${b.text}"`).join("\n");
+    return {
+      suggestion: `Element "${selector}" not found after ${attempts.length} attempts.\n\nAvailable clickable elements:\n${buttonList}\n\nTry using the exact text from one of these elements.`,
+      available,
+    };
   }
 
   // =========================================================================
