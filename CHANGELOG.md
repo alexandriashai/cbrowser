@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.7](https://github.com/alexandriashai/cbrowser/compare/v19.3.6...v19.3.7) (2026-10-10)
+
+### Fixed
+
+* chaos_test route handlers cannot reject (v8 b27) ([7ec1db4](https://github.com/alexandriashai/cbrowser/commit/7ec1db4be0f8d56f546f31365256643d4be1b8c5))
+* handle_dialog keeps one arm per page, latest wins, never throws (v8 b27) ([9f7a42e](https://github.com/alexandriashai/cbrowser/commit/9f7a42e7c9f3ee5ed4b904d8f614950e34413fbf))
+* **security:** hosted accounts no longer share sessions, baselines or a browser (v8 o3) ([f30ad58](https://github.com/alexandriashai/cbrowser/commit/f30ad5864f5e56c8ab1bcd49a53ba6a551686929))
+* **security:** hosted path guard refuses "" and null; path tests start no browser (sec-paths) ([91df9a7](https://github.com/alexandriashai/cbrowser/commit/91df9a773f9bd1be8d2fb692a755ecab5565d0d6))
+* **security:** hosted tools refuse server paths and non-web urls (sec-paths) ([e986ef5](https://github.com/alexandriashai/cbrowser/commit/e986ef50f7de0de0b5f95970d9ae66b44abd632d))
+* **security:** site profile names cannot address the profile root or the data dir (tenant) ([564eed6](https://github.com/alexandriashai/cbrowser/commit/564eed695bb8261e058a58b1dd5fd29d6892871f))
+
 ## [19.3.6](https://github.com/alexandriashai/cbrowser/compare/v19.3.5...v19.3.6) (2026-10-10)
 
 ### Fixed
