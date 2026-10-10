@@ -122,6 +122,10 @@ interface RawInteractiveElement {
    * search toggle and video pause button on a page into a call to action.
    */
   typeAttr: string;
+  /** `text` came from aria-label or title because the element shows none. */
+  textIsLabel?: boolean;
+  /** Inside nav, header, footer or their ARIA landmark roles: site chrome. */
+  inChrome?: boolean;
   rect: { top: number; left: number; width: number; height: number };
   formIndex: number;
   nthOfType: number;
@@ -186,6 +190,8 @@ interface RawDOMExtraction {
   extractionScope: "viewport" | "full_page";
   /** Document height in viewports, so a caller can see what viewport scope missed. */
   pageScreens: number;
+  /** <p> elements of 200+ characters outside site chrome, whole document. */
+  longParagraphs?: number;
 }
 
 interface RawSkeletonData {
@@ -497,16 +503,57 @@ export class PageUnderstandingEngine {
         // elements, which is not visible text at all. A container matched via
         // [tabindex] that happened to wrap a JSON-LD block therefore reported
         // `Activate {"@context":"https://schema.org","@type":"breadcrumblist"…`
-        // as its label and expectedOutcome. Strip non-rendered subtrees first,
-        // and only pay for the clone when there is something to strip.
-        // (2026-07-29)
-        let source: Element = el;
-        if (el.querySelector("script, style, noscript, template")) {
-          const clone = el.cloneNode(true) as Element;
-          clone.querySelectorAll("script, style, noscript, template").forEach((n) => n.remove());
-          source = clone;
+        // as its label and expectedOutcome. Those subtrees are skipped by the
+        // walk below. (2026-07-29)
+        //
+        // textContent also GLUES text nodes: it concatenates them with no
+        // separator, so a card's badges, date and heading came back as
+        // "10 mincognitive-effortaccessibilityux+1What Cognitive Effort..." on
+        // cbrowser.ai/blog. innerText would separate them, but it is "" for
+        // content under content-visibility:auto, which is where most of a long
+        // page's cards are. So walk the text nodes and put a space wherever two
+        // of them sit in different boxes (an ancestor whose computed display is
+        // not inline), which is where the page renders a break; text split by
+        // an inline element (<mark>Pri</mark>cing) stays one word. Computed
+        // style is available inside skipped content; layout is not.
+        // (2026-10-10, B40/B47)
+        const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"]);
+        const boxCache = new Map<Element, boolean>();
+        const isBox = (e: Element): boolean => {
+          let v = boxCache.get(e);
+          if (v === undefined) {
+            const d = getComputedStyle(e).display;
+            v = d !== "inline" && d !== "contents";
+            boxCache.set(e, v);
+          }
+          return v;
+        };
+        const boxOf = (n: Node): Node => {
+          for (let e = n.parentElement; e && e !== el; e = e.parentElement) {
+            if (isBox(e)) return e;
+          }
+          return el;
+        };
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+          acceptNode: (n) => n.nodeType !== 1 ? NodeFilter.FILTER_ACCEPT
+            : SKIP.has((n as Element).tagName) ? NodeFilter.FILTER_REJECT
+            : (n as Element).tagName === "BR" ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_SKIP,
+        });
+        let out = "";
+        let prevBox: Node | null = null;
+        let gap = false;
+        for (let n = walker.nextNode(); n && out.length < 200; n = walker.nextNode()) {
+          const t = n.nodeType === 3 ? (n.nodeValue || "").replace(/\s+/g, " ") : "";
+          // A <br> or a whitespace-only node is a separator, never content.
+          if (!t.trim()) { gap = true; continue; }
+          const box = boxOf(n);
+          if (prevBox !== null && (gap || box !== prevBox)) out += " ";
+          out += t;
+          prevBox = box;
+          gap = false;
         }
-        return (source.textContent || "").trim().replace(/\s+/g, " ").slice(0, 80);
+        return out.trim().replace(/\s+/g, " ").slice(0, 80);
       }
 
       /**
@@ -572,7 +619,11 @@ export class PageUnderstandingEngine {
       }
 
       // -- Interactive elements --
-      const interactiveSelectors = "a[href], button, input, textarea, select, [role='button'], [role='link'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [tabindex]";
+      // A negative tabindex takes an element OUT of the tab order; it is how a
+      // skip link's target is made focusable by script. Bare [tabindex] listed
+      // cbrowser.ai's <div id="main-content" tabindex="-1">, the whole page
+      // body, as a click affordance on every page. (2026-10-10, B40)
+      const interactiveSelectors = "a[href], button, input, textarea, select, [role='button'], [role='link'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [tabindex]:not([tabindex^='-'])";
       const interactiveEls = document.querySelectorAll(interactiveSelectors);
       const interactiveElements: RawInteractiveElement[] = [];
 
@@ -601,15 +652,28 @@ export class PageUnderstandingEngine {
           parent = parent.parentElement;
         }
 
+        // `<input type="submit" value="Apply">` has no textContent at all, so
+        // getVisibleText returns "" and every downstream classifier skipped
+        // it as unlabelled. Its label is the value attribute. Found on the CU
+        // Denver homepage, where the program-finder's submit is exactly that.
+        const shownText = getVisibleText(el) || (tag === "input" ? String(inputEl.value ?? "").trim() : "");
+        // An icon link or button is named by aria-label, else title, and the
+        // text never fell back to either: on cbrowser.ai/blog the GitHub icon
+        // link (aria-label "View CBrowser on GitHub (opens in new tab)") and the
+        // theme, accessibility and read-aloud buttons all came back with
+        // elementText "". Flagged so the hero-CTA count in classifyPageType
+        // still counts only text a visitor can read. (2026-10-10, B40)
+        const labelText = shownText ? "" : ((el.getAttribute("aria-label") || "").trim() || (el.getAttribute("title") || "").trim()).slice(0, 80);
+
         interactiveElements.push({
           tag,
           type: inputEl.type || "",
           typeAttr: el.getAttribute("type") || "",
-          // `<input type="submit" value="Apply">` has no textContent at all, so
-          // getVisibleText returns "" and every downstream classifier skipped
-          // it as unlabelled. Its label is the value attribute. Found on the CU
-          // Denver homepage, where the program-finder's submit is exactly that.
-          text: getVisibleText(el) || (tag === "input" ? String(inputEl.value ?? "").trim() : ""),
+          text: shownText || labelText,
+          textIsLabel: !!labelText,
+          // Site chrome: header and footer links are navigation, not a hero's
+          // calls to action. (2026-10-10, B40)
+          inChrome: !!el.closest('nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"]'),
           href: (el as HTMLAnchorElement).href || "",
           name: inputEl.name || "",
           id: el.id || "",
@@ -711,7 +775,8 @@ export class PageUnderstandingEngine {
         const links: RawNavData["links"] = [];
         nav.querySelectorAll("a[href]").forEach((a) => {
           links.push({
-            text: getVisibleText(a),
+            // Same aria-label / title fallback as the affordances. (2026-10-10, B40)
+            text: getVisibleText(a) || ((a.getAttribute("aria-label") || "").trim() || (a.getAttribute("title") || "").trim()).slice(0, 80),
             href: (a as HTMLAnchorElement).href || "",
             id: a.id || "",
             className: String((a.className as unknown as { baseVal?: string })?.baseVal ?? a.className ?? "").slice(0, 120),
@@ -770,6 +835,13 @@ export class PageUnderstandingEngine {
         pageScreens: Math.round((Math.max(viewportHeight, document.documentElement.scrollHeight) / viewportHeight) * 10) / 10,
         title: document.title || "",
         viewportHeight,
+        // Document-wide, at every scope, like totalElementCount: a scalar about
+        // the page's kind, not a list of things in view. See classifyPageType.
+        // (2026-10-10, B40)
+        longParagraphs: Array.from(document.querySelectorAll("p")).filter((p) =>
+          !p.closest('nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"]') &&
+          (p.textContent || "").replace(/\s+/g, " ").trim().length >= 200
+        ).length,
       };
     }, [MAX_ELEMENTS_FULL_SCAN, scope] as [number, string]);
 
@@ -896,9 +968,22 @@ function classifyPageType(raw: RawDOMExtraction, pageUrl?: string): PageType {
   // form is true of essentially any marketing page — and it sits ABOVE the
   // landing branch, so landing was unreachable for them. One short link near the
   // top is ordinary navigation; several is a hero. (2026-07-29)
-  const topCtaCount = interactiveElements.filter(
-    (el) => el.tag === "a" && el.rect.top < 600 && el.text.length > 0 && el.text.length < 30
-  ).length;
+  // A label borrowed from aria-label or title is not visible copy, so it never
+  // counts here. (2026-10-10, B40)
+  const topLinks = interactiveElements.filter(
+    (el) => el.tag === "a" && el.rect.top < 600 && el.text.length > 0 && el.text.length < 30 && !el.textIsLabel
+  );
+  // Header, footer and nav links are excluded from the hero count: they are the
+  // site's chrome, and any header with three short nav links passed this test,
+  // which typed cbrowser.ai/blog (a list of posts) as "landing". So are
+  // same-page fragment links: a skip link is not a call to action.
+  // (2026-10-10, B40)
+  let pagePath = "";
+  try { pagePath = pageUrl ? new URL(pageUrl).origin + new URL(pageUrl).pathname : ""; } catch { pagePath = ""; }
+  const isSamePageFragment = (href: string): boolean => {
+    try { const u = new URL(href); return !!u.hash && u.origin + u.pathname === pagePath; } catch { return false; }
+  };
+  const topCtaCount = topLinks.filter((el) => !el.inChrome && !isSamePageFragment(el.href)).length;
 
   // Decided here rather than at the bottom. A hero CTA cluster is a STRONG and
   // specific signal, and it used to sit below two weak general ones — "three
@@ -909,6 +994,18 @@ function classifyPageType(raw: RawDOMExtraction, pageUrl?: string): PageType {
   // checks by how specific they are, not by how they were written.
   // (2026-07-29)
   if (topCtaCount >= 3) return "landing";
+
+  // But most real landing pages have one or two hero links, and the header nav
+  // was what carried them past three. Measured 2026-10-10 with chrome excluded:
+  // stripe.com, linear.app, notion.com, shopify.com, dropbox.com and
+  // cbrowser.ai/pricing and /enterprise all fell to "article" or "list" (7 of
+  // 14 landing pages). What separates them from the content pages a header
+  // nav also mislabelled is prose: those 14 carry at most 2 paragraphs of 200+
+  // characters; cbrowser.ai/blog carries 5, a cbrowser.ai post 15, web.dev and
+  // css-tricks articles 27 and 209. So the old whole-page count still decides
+  // for a page without long-form prose, and stops deciding for one with it.
+  // (2026-10-10, B40)
+  if (topLinks.length >= 3 && (raw.longParagraphs ?? 0) < 4) return "landing";
 
   // Article heuristic: multiple headings, deep hierarchy, few interactive elements relative to headings
   if (manyHeadings && hasDeepHeadings && totalFormFields <= 2) return "article";

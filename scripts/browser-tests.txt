@@ -61,3 +61,4 @@ tests/hunt-bugs-resource-url.test.ts
 tests/view-image-block.test.ts
 tests/v8-p3-browser.test.ts
 tests/structured-data-suggest-browser.test.ts
+tests/page-understand-labels-landing.test.ts
