@@ -21,6 +21,51 @@ import { describeNavigationError } from "../navigation-errors.js";
 /** Playwright appends a multi-line "Call log:"; a result keeps only the first line. */
 const firstLine = (m: unknown): string => String(m ?? "").split("\n")[0].trim();
 
+/**
+ * blockUrls as one matcher, compiled before any route handler runs (v8 B27,
+ * 2026-10-10). The glob used to be compiled inside the route handler, so a
+ * pattern such as "*.(" threw SyntaxError there on every request. Playwright
+ * rethrows a route handler's rejection from an event listener, where nothing
+ * catches it: measured, it escaped chaos_test's caller entirely, and under Node
+ * (both hosted servers) an unhandled rejection ends the process. Matching is
+ * unchanged for every pattern that compiles; one that does not is in `invalid`.
+ */
+function compileBlockUrls(patterns: string[] | undefined): { matches: (url: string) => boolean; invalid: string[] } {
+  const tests: Array<(url: string) => boolean> = [];
+  const invalid: string[] = [];
+  for (const pattern of patterns ?? []) {
+    // Convert glob pattern to regex: *.css -> \.css$
+    if (pattern.startsWith('*.')) {
+      const ext = pattern.slice(1); // .css
+      try {
+        const regex = new RegExp(ext.replace('.', '\\.') + '$', 'i');
+        tests.push((url) => regex.test(url));
+      } catch {
+        invalid.push(pattern);
+      }
+    } else {
+      tests.push((url) => url.includes(pattern));
+    }
+  }
+  return { matches: (url) => tests.some((t) => t(url)), invalid };
+}
+
+/**
+ * A route handler that cannot reject (v8 B27, 2026-10-10), for the reason in
+ * compileBlockUrls. On an error the request goes on unchanged and `onError`
+ * gets the message.
+ */
+function safeRoute(handler: (route: any) => Promise<void>, onError: (message: string) => void): (route: any) => Promise<void> {
+  return async (route: any) => {
+    try {
+      await handler(route);
+    } catch (err: any) {
+      onError(firstLine(err?.message ?? err));
+      await route.continue().catch(() => { /* already handled, or the page is gone */ });
+    }
+  };
+}
+
 export interface ChaosConfig {
   /** Simulate slow network (ms latency) */
   networkLatency?: number;
@@ -44,6 +89,12 @@ export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promis
   const context = await (browser as any).context;
   const page = await (browser as any).getPage();
 
+  // Refused before anything changes, so there is nothing to clean up.
+  const blocked = compileBlockUrls(config.blockUrls);
+  if (blocked.invalid.length > 0) {
+    throw new Error(`Invalid blockUrls pattern(s): ${blocked.invalid.map((p) => JSON.stringify(p)).join(", ")}`);
+  }
+
   // Track what we modified for cleanup
   const wasOffline = config.offline;
   const hadRoutes = config.networkLatency || config.blockUrls || config.failApis;
@@ -55,19 +106,11 @@ export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promis
 
   // Route interception for latency/failures
   if (hadRoutes) {
-    await page.route("**/*", async (route: any) => {
+    await page.route("**/*", safeRoute(async (route: any) => {
       const url = route.request().url();
 
       // Block URLs - support both literal patterns and glob patterns (*.css, *.js)
-      if (config.blockUrls?.some(pattern => {
-        // Convert glob pattern to regex: *.css -> \.css$
-        if (pattern.startsWith('*.')) {
-          const ext = pattern.slice(1); // .css
-          const regex = new RegExp(ext.replace('.', '\\.') + '$', 'i');
-          return regex.test(url);
-        }
-        return url.includes(pattern);
-      })) {
+      if (blocked.matches(url)) {
         await route.abort();
         return;
       }
@@ -93,7 +136,7 @@ export async function applyChaos(browser: CBrowser, config: ChaosConfig): Promis
       }
 
       await route.continue();
-    });
+    }, (message) => console.warn(`[chaos] route handler failed, request continued: ${message}`)));
   }
 
   // Return cleanup function to restore original state
@@ -234,20 +277,16 @@ export async function runChaosTest(
     }
 
     if (hadRoutes) {
-      await page.route("**/*", async (route: any) => {
+      const blocked = compileBlockUrls(chaos.blockUrls);
+      for (const pattern of blocked.invalid) {
+        errors.push(`blockUrls pattern ${JSON.stringify(pattern)} is not a valid pattern; nothing was blocked for it`);
+      }
+      await page.route("**/*", safeRoute(async (route: any) => {
         const reqUrl = route.request().url();
         const resourceType = route.request().resourceType();
 
         // Block URLs - support both literal patterns and glob patterns (*.css, *.js)
-        if (chaos.blockUrls?.some(pattern => {
-          // Convert glob pattern to regex: *.css -> \.css$
-          if (pattern.startsWith('*.')) {
-            const ext = pattern.slice(1); // .css
-            const regex = new RegExp(ext.replace('.', '\\.') + '$', 'i');
-            return regex.test(reqUrl);
-          }
-          return reqUrl.includes(pattern);
-        })) {
+        if (blocked.matches(reqUrl)) {
           blockedResources.push(`${resourceType}: ${new URL(reqUrl).pathname}`);
           await route.abort();
           return;
@@ -278,7 +317,10 @@ export async function runChaosTest(
         }
 
         await route.continue();
-      });
+      }, (message) => {
+        const error = `Chaos route handler failed, request continued: ${message}`;
+        if (!errors.includes(error)) errors.push(error);
+      }));
     }
 
     cleanup = async () => {
