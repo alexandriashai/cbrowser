@@ -63,6 +63,22 @@ const LANDING = doc("Product | Fixture", `${HEADER}<main>
   </section>
 </main>`);
 
+// A <header> or <footer> inside main, section or article is that section's own
+// header, not the site's banner. b268812 excluded every header from the hero
+// count, so a hero marked up as <header> in <main> lost its three CTAs and the
+// page was typed "article"; the same hero in a <section> stayed "landing". It
+// also dropped long paragraphs in an article's own <footer> from the prose
+// count, so a post with its author bio there was typed "landing".
+// (2026-10-10, B40)
+const PROSE = `<section><h2>Why</h2><h3>One</h3><p>${EXCERPT}</p><p>${EXCERPT}</p>
+  <h3>Two</h3><p>${EXCERPT}</p><p>${EXCERPT}</p><p>${EXCERPT}</p></section>`;
+const HERO = `<h1>Test like 17 users</h1><a href="/register/">Start free</a> <a href="/demo/">Book a demo</a> <a href="/docs/">Read the docs</a>`;
+const HERO_IN_HEADER = doc("Product | Fixture", `${HEADER}<main><header class="hero">${HERO}</header>${PROSE}</main>`);
+const HERO_IN_SECTION = doc("Product | Fixture", `${HEADER}<main><section class="hero">${HERO}</section>${PROSE}</main>`);
+const ARTICLE_FOOTER = doc("Post | Fixture", `${HEADER}<main><article><h1>A long post</h1><p>${EXCERPT}</p>
+  <h2>Part one</h2><p>${EXCERPT}</p><h3>A detail</h3><p>Short.</p>
+  <footer><h2>About the author</h2><p>${EXCERPT}</p><p>${EXCERPT}</p></footer></article></main>`);
+
 const GLUE = doc("Glue fixture", `<main>
   <a id="card" class="card" href="/blog/we-beat/" style="display:block">
     <div style="display:flex;gap:8px"><span style="display:inline-flex">research</span><span style="display:inline-flex">attention</span><span>Aug 4, 2026</span></div>
@@ -94,6 +110,9 @@ beforeAll(async () => {
   results.blog = await understand(BLOG_INDEX);
   results.landing = await understand(LANDING);
   results.glue = await understand(GLUE);
+  results.heroInHeader = await understand(HERO_IN_HEADER);
+  results.heroInSection = await understand(HERO_IN_SECTION);
+  results.articleFooter = await understand(ARTICLE_FOOTER);
 }, 120_000);
 
 afterAll(async () => { await browser?.close(); });
@@ -130,6 +149,20 @@ describe("a header nav does not make a page a landing page", () => {
 
   test("a page with one hero link, short blurbs and the same header is still landing", () => {
     expect(results.landing.type).toBe("landing");
+  });
+});
+
+describe("only the banner and contentinfo header and footer are site chrome", () => {
+  test("a hero in a <header> inside main, with three CTAs and long prose, is landing", () => {
+    expect(results.heroInHeader.type).toBe("landing");
+  });
+
+  test("the same hero in a <section> is landing too", () => {
+    expect(results.heroInSection.type).toBe("landing");
+  });
+
+  test("long paragraphs in an article's own <footer> count as prose", () => {
+    expect(results.articleFooter.type).not.toBe("landing");
   });
 });
 

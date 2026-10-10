@@ -618,6 +618,30 @@ export class PageUnderstandingEngine {
         return nth;
       }
 
+      /**
+       * Site chrome: nav, and the banner and contentinfo landmarks. A <header>
+       * or <footer> is one of those only when it is not inside article, aside,
+       * main, nav or section (or their roles); inside one it is that section's
+       * own header (HTML-AAM, and Chromium's accessibility tree agrees). A bare
+       * closest("header, footer") also matched <header class="hero"> inside
+       * <main>, so a hero with three CTAs, a four-link nav and five long
+       * paragraphs was typed "article" where the same hero in a <section> was
+       * "landing"; and it dropped an article's own <footer> prose from
+       * longParagraphs. Named cost, measured on live pages: a content page's
+       * own header links (breadcrumbs, byline, filter tabs) count toward the
+       * hero again, so the css-tricks flexbox guide, linear.app/changelog and
+       * smashingmagazine.com/articles are "landing" as they were before B40.
+       * (2026-10-10, B40)
+       */
+      const SECTION_SCOPE = 'article, aside, main, nav, section, [role="article"], [role="complementary"], [role="main"], [role="navigation"], [role="region"]';
+      function isInChrome(el: Element): boolean {
+        if (el.closest('nav, [role="navigation"], [role="banner"], [role="contentinfo"]')) return true;
+        for (let hf = el.closest("header, footer"); hf; hf = hf.parentElement?.closest("header, footer") ?? null) {
+          if (!hf.parentElement?.closest(SECTION_SCOPE)) return true;
+        }
+        return false;
+      }
+
       // -- Interactive elements --
       // A negative tabindex takes an element OUT of the tab order; it is how a
       // skip link's target is made focusable by script. Bare [tabindex] listed
@@ -671,9 +695,9 @@ export class PageUnderstandingEngine {
           typeAttr: el.getAttribute("type") || "",
           text: shownText || labelText,
           textIsLabel: !!labelText,
-          // Site chrome: header and footer links are navigation, not a hero's
-          // calls to action. (2026-10-10, B40)
-          inChrome: !!el.closest('nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"]'),
+          // Site chrome: nav, banner and contentinfo links are navigation, not a
+          // hero's calls to action. See isInChrome. (2026-10-10, B40)
+          inChrome: isInChrome(el),
           href: (el as HTMLAnchorElement).href || "",
           name: inputEl.name || "",
           id: el.id || "",
@@ -839,7 +863,7 @@ export class PageUnderstandingEngine {
         // the page's kind, not a list of things in view. See classifyPageType.
         // (2026-10-10, B40)
         longParagraphs: Array.from(document.querySelectorAll("p")).filter((p) =>
-          !p.closest('nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"]') &&
+          !isInChrome(p) &&
           (p.textContent || "").replace(/\s+/g, " ").trim().length >= 200
         ).length,
       };
