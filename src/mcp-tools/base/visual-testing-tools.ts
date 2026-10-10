@@ -78,6 +78,7 @@ async function resolveOrRefuse(requested: string): Promise<
   }
 }
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { confineToAccountDir, refuseHostedUrl } from "../hosted-inputs.js";
 import {
   runVisualRegression,
   runCrossBrowserTest,
@@ -139,6 +140,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ url, name, captures, delay, selector, device, waitFor }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("visual_baseline", { url });
+      if (hostedRefusal) return hostedRefusal;
       const { captureSmartBaseline } = await import("../../visual/index.js");
       const result = await captureSmartBaseline(url, name, {
         numCaptures: captures || 3,
@@ -186,6 +190,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ url, baselineName, transportMap: wantMap, threshold }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("visual_regression", { url });
+      if (hostedRefusal) return hostedRefusal;
       // Check if a smart baseline exists — if so, use smart regression
       const { getSmartBaseline, runSmartRegression, runRegressionWithTransportMap } = await import("../../visual/index.js");
       const smartBaseline = getSmartBaseline(baselineName);
@@ -275,6 +282,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ url, browsers }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("cross_browser_test", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await runCrossBrowserTest(url, { browsers });
       return {
         content: [
@@ -342,6 +352,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ url, browsers }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("cross_browser_diff", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await crossBrowserDiff(url, browsers);
       return {
         content: [
@@ -377,6 +390,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ url, viewports }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("responsive_test", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await runResponsiveTest(url, { viewports });
       return {
         content: [
@@ -432,6 +448,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ urlA, urlB, labelA, labelB }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("ab_comparison", { urlA, urlB });
+      if (hostedRefusal) return hostedRefusal;
       const labels = labelA && labelB ? { a: labelA, b: labelB } : undefined;
       const result = await runABComparison(urlA, urlB, { labels });
       return {
@@ -489,7 +508,18 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       idempotentHint: true,
       openWorldHint: false,
     },
-  }, async ({ baselinePath, currentPath, cellSize, hotspots: numHotspots }) => {
+  }, async ({ baselinePath: requestedBaseline, currentPath: requestedCurrent, cellSize, hotspots: numHotspots }) => {
+      // Hosted: both paths were opened as images wherever they pointed on the
+      // root-run server. The tool does nothing without them, so on the hosted
+      // server they are confined to the caller's own account directory, where
+      // its screenshots and baselines live (sec-paths, 2026-10-10).
+      const instead = "visual_regression with transportMap: true captures both screenshots on the server and returns the same map.";
+      const baseline = confineToAccountDir("transport_map", "baselinePath", [requestedBaseline], instead);
+      if (!baseline.ok) return baseline.result;
+      const current = confineToAccountDir("transport_map", "currentPath", [requestedCurrent], instead);
+      if (!current.ok) return current.result;
+      const [baselinePath] = baseline.paths;
+      const [currentPath] = current.paths;
       const { computeTransportMap } = await import("../../visual/distance-metrics.js");
       const result = await computeTransportMap(baselinePath, currentPath, { cellSize, numHotspots });
 
@@ -550,6 +580,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
     // list of scores is a lossy description of where a persona actually looks.
     _meta: { ui: { resourceUri: "ui://cbrowser/attention" } },
   }, async ({ url, persona: requestedPersona, goal, cellSize, heatmap, device, useValues, freezeAnimations: doFreeze, _browserToken, scrollY }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("attention_analysis", { url });
+      if (hostedRefusal) return hostedRefusal;
       const refuse = (error: string) => ({ isError: true as const, content: [{ type: "text" as const, text: JSON.stringify({ error }, null, 2) }] });
       if (!url && !_browserToken) return refuse("attention_analysis needs a url, or a _browserToken to analyze that session's current page.");
       if (_browserToken && !context?.getBrowserByToken) return refuse("This server does not support browser session tokens; pass a url instead.");
@@ -964,6 +997,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       openWorldHint: true,
     },
   }, async ({ url, personaA: requestedA, personaB: requestedB, _browserToken, scrollY }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("attention_compare", { url });
+      if (hostedRefusal) return hostedRefusal;
       const refuse = (error: string) => ({ isError: true as const, content: [{ type: "text" as const, text: JSON.stringify({ error }, null, 2) }] });
       if (!url && !_browserToken) return refuse("attention_compare needs a url, or a _browserToken to compare on that session's current page.");
       if (_browserToken && !context?.getBrowserByToken) return refuse("This server does not support browser session tokens; pass a url instead.");

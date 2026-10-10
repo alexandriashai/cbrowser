@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import { huntBugs, huntBugsResponse, runChaosTest } from "../../analysis/index.js";
 
 /**
@@ -35,6 +36,9 @@ export function registerBugAnalysisTools(
       openWorldHint: true,
     },
   }, async ({ url, maxPages, timeout, limit, offset }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("hunt_bugs", { url });
+      if (hostedRefusal) return hostedRefusal;
       const b = await getBrowser();
       const result = await huntBugs(b, url, { maxPages, timeout });
       // Grouping, worst-first paging, breakdowns and the visited-page list
@@ -67,6 +71,9 @@ export function registerBugAnalysisTools(
       openWorldHint: true,
     },
   }, async ({ url, networkLatency, offline, blockUrls }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("chaos_test", { url });
+      if (hostedRefusal) return hostedRefusal;
       const b = await getBrowser();
       try {
         const result = await runChaosTest(b, url, { networkLatency, offline, blockUrls });

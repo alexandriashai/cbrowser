@@ -13,6 +13,7 @@ import { writeArtifact } from "../../artifact-store.js";
 import { MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import { PREVIEW_RESULT_MARGIN, contentSize } from "../inline-image.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 
 /** Frame geometry of the heatmap GIF. Pinned — changing these changes output. */
 export const HEATMAP_GIF_FRAME_WIDTH = 640;
@@ -125,6 +126,9 @@ export function registerGifTools(
       openWorldHint: true,
     },
   }, async ({ url, persona, goal, maxSteps, frameDelay, device }) => {
+    // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("journey_heatmap_gif", { url });
+    if (hostedRefusal) return hostedRefusal;
     const startTime = Date.now();
 
     // Refused before launching anything; an unknown name was animated as if it

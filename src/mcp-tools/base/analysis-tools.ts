@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import { refuseUnboundSession } from "../session-policy.js";
 import { findElementByIntent, runAIReadinessBenchmark, FIND_ELEMENT_BY_INTENT_DESCRIPTION } from "../../analysis/index.js";
 
@@ -97,6 +98,9 @@ export function registerAnalysisTools(
       openWorldHint: false,
     },
   }, async ({ url, _browserToken }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("generate_tests", { url });
+      if (hostedRefusal) return hostedRefusal;
       // Only when it is being asked about "the current page". With an explicit
       // url it navigates itself and needs no session.
       if (!url) {
@@ -206,6 +210,9 @@ export function registerAnalysisTools(
       openWorldHint: true,
     },
   }, async ({ urls, goal }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("ai_benchmark", { urls });
+      if (hostedRefusal) return hostedRefusal;
       const result = await runAIReadinessBenchmark({
         urls,
         goal,

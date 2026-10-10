@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import {
   validateLlmsTxt,
   validateLlmsTxtFromUrl,
@@ -38,6 +39,9 @@ export function registerLlmsTxtTools(
       openWorldHint: true,
     },
   }, async ({ content, url, validateLinks, maxLinksToValidate }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("llms_txt_validate", { url });
+      if (hostedRefusal) return hostedRefusal;
       if (!content && !url) {
         return {
           isError: true,
@@ -106,6 +110,9 @@ export function registerLlmsTxtTools(
       openWorldHint: true,
     },
   }, async ({ url, existingContent, crawl, maxPages }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("llms_txt_diff", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = existingContent
         ? await diffLlmsTxt(url, {
             existingContent,

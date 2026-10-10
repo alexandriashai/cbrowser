@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import { getStatusInfo } from "../../config.js";
 import { VERSION } from "../../version.js";
 
@@ -143,6 +144,9 @@ export function registerBrowserManagementTools(
       openWorldHint: false,
     },
   }, async ({ restoreUrl, maxAttempts, _browserToken }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("browser_recover", { restoreUrl });
+      if (hostedRefusal) return hostedRefusal;
       const { b, token } = await resolve(_browserToken);
       const result = await b.recoverBrowser({ restoreUrl, maxAttempts });
       return {
@@ -225,6 +229,9 @@ export function registerBrowserManagementTools(
     },
     annotations: { title: "Manage Tabs", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, async ({ action, url, index, _browserToken }) => {
+    // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("manage_tabs", { url });
+    if (hostedRefusal) return hostedRefusal;
     const { b } = await resolve(_browserToken);
     const context = (b as any).context;
     if (!context) {

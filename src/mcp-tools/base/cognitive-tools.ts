@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import {
   getPersona,
   getAnyPersona,
@@ -134,6 +135,9 @@ export function registerCognitiveTools(
       openWorldHint: true,
     },
   }, async ({ persona: personaName, goal, startUrl, customTraits, location, waitAfterLoad, waitForSelector }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("cognitive_journey_init", { startUrl });
+      if (hostedRefusal) return hostedRefusal;
       const existingPersona = getAnyPersona(personaName);
       let personaObj: Persona | AccessibilityPersona;
 

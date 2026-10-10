@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "../types.js";
+import { refuseHostedPath, refuseHostedUrl } from "../hosted-inputs.js";
 import {
   runNLTestSuite,
   parseNLTestSuite,
@@ -37,6 +38,11 @@ export function registerTestingTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, async ({ filepath, dryRun, fuzzyMatch }) => {
+      // Hosted: this read any file the server process (root) can read, and the
+      // parse errors and step text echoed its contents (sec-paths, 2026-10-10).
+      const hostedRefusal = refuseHostedPath("nl_test_file", "filepath", filepath,
+        "Send the test file's contents to nl_test_inline instead.");
+      if (hostedRefusal) return hostedRefusal;
       const fs = await import("fs");
       if (!fs.existsSync(filepath)) {
         return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: `Test file not found: ${filepath}` }) }] };
@@ -253,6 +259,13 @@ export function registerTestingTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, async ({ baseUrl, testFiles, maxPages }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("coverage_map", { baseUrl })
+        // testFiles are read from the server's disk; missingTestFiles also
+        // answered whether a given server path exists (sec-paths, 2026-10-10).
+        ?? refuseHostedPath("coverage_map", "testFiles", testFiles,
+          "Pass testFiles: [] to get the site's page inventory and gaps, or run coverage_map with your test files on your own machine (npx cbrowser mcp-server).");
+      if (hostedRefusal) return hostedRefusal;
       const result = await generateCoverageMap(baseUrl, testFiles, { maxPages });
       // Unreadable test files are skipped silently by the coverage engine. If
       // none of them could be read, "0.0%" is not a measurement of the site, it

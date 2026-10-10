@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "../types.js";
+import { refuseHostedPath, refuseHostedUrl } from "../hosted-inputs.js";
 import {
   securityAuditHandler,
   type SecurityAuditHandlerOptions,
@@ -61,6 +62,13 @@ export function registerSecurityTools(server: McpServer): void {
     },
   }, async (params) => {
       const { mcp_url, ...baseParams } = params;
+
+      // Hosted: config_path is read and parsed from the root-run server's disk,
+      // and mcp_url is fetched by the server itself (sec-paths, 2026-10-10).
+      const hostedRefusal = refuseHostedUrl("security_audit", { mcp_url })
+        ?? refuseHostedPath("security_audit", "config_path", baseParams.config_path,
+          "Pass mcp_url to scan a remote MCP server, or omit both to scan this server's own tools.");
+      if (hostedRefusal) return hostedRefusal;
 
       // v18.35.0: Support scanning remote MCP servers by URL
       // Fetches the tool manifest via MCP initialize + tools/list, then passes

@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import {
   capturePerformanceBaseline,
   detectPerformanceRegression,
@@ -34,6 +35,9 @@ export function registerPerformanceTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, async ({ url, name, runs }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("perf_baseline", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await capturePerformanceBaseline(url, { name, runs });
       const m = result.metrics;
       return {
@@ -95,6 +99,9 @@ export function registerPerformanceTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, async ({ url, baselineName, sensitivity, thresholdLcp }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("perf_regression", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await detectPerformanceRegression(url, baselineName, {
         sensitivity,
         thresholds: thresholdLcp ? { lcp: thresholdLcp } : undefined,

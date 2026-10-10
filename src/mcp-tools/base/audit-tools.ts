@@ -13,6 +13,7 @@ import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import {
   runAgentReadyAudit,
   pageAgentReadyFindings,
@@ -92,6 +93,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       openWorldHint: true,
     },
   }, async ({ url, device, limit, offset }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("agent_ready_audit", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await runAgentReadyAudit(url, { headless: true, ...(device ? { device } : {}) });
       const responseData = {
         url: result.url,
@@ -128,6 +132,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       openWorldHint: true,
     },
   }, async ({ sites, goal, persona, maxSteps, maxTime }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("competitive_benchmark", { sites });
+      if (hostedRefusal) return hostedRefusal;
       const result = await runCompetitiveBenchmark({
         sites: sites.map((url) => ({ url })),
         goal,
@@ -173,6 +180,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       openWorldHint: true,
     },
   }, async ({ url, apiKey, oauthToken, timeout }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("webmcp_ready_audit", { url });
+      if (hostedRefusal) return hostedRefusal;
       const result = await runWebMCPReadyAudit(url, {
         apiKey,
         oauthToken,
@@ -237,6 +247,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       openWorldHint: true,
     },
   }, async ({ url, personas, threshold, siteFamiliarity, userLocation, userTimezone, userLanguage, proxy, geoRegion, device, waitAfterLoad, waitForSelector, scope, _browserToken }) => {
+    // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("site_cognitive_assessment", { url });
+    if (hostedRefusal) return hostedRefusal;
     const startTime = Date.now();
     const personaList = (personas || "first-timer,cognitive-adhd").split(",").map(s => s.trim()).filter(Boolean);
 
@@ -720,6 +733,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       openWorldHint: true,
     },
   }, async ({ url, persona, device, useValues, goal, aiLayer, _browserToken }) => {
+    // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("visual_cognitive_story", { url });
+    if (hostedRefusal) return hostedRefusal;
     const startTime = Date.now();
     const { join } = await import("path");
     const { tmpdir } = await import("os");
@@ -1217,6 +1233,9 @@ export function registerEmpathyAuditTool(server: McpServer): void {
       openWorldHint: true,
     },
   }, async ({ url, goal, disabilities, wcagLevel, maxSteps, maxTime, scope, device, includeScreenshots, uiResource }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("empathy_audit", { url });
+      if (hostedRefusal) return hostedRefusal;
       try {
         // Auto-limit to 1 persona to avoid MCP client timeout on Claude.ai (~60s limit)
         const allPersonas = listAccessibilityPersonas();

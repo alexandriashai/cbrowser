@@ -70,6 +70,7 @@ import { SelectorCacheManager } from "./browser/selector-cache.js";
 import { extractExpected, extractSubject, UNPARSEABLE_MESSAGE } from "./browser/assertion-value.js";
 import { OverlayHandler } from "./browser/overlay-handler.js";
 import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.js";
+import { assertHostedNavigable } from "./mcp-tools/hosted-inputs.js";
 import { clampRect } from "./recording/timing.js";
 import { navigationError } from "./navigation-errors.js";
 import type { Rect } from "./recording/types.js";
@@ -1992,6 +1993,11 @@ For more help: https://playwright.dev/docs/browsers
    * @param options - Navigation options (waitStrategy, waitTimeout, waitForStability)
    */
   async navigate(url: string, options: NavigateOptions = {}): Promise<NavigationResult> {
+    // Hosted server only: refuse non-web schemes before a page exists. Tool URL
+    // parameters are checked where they arrive, but URLs also reach this method
+    // from free text (nl_test_inline "go to ..." steps), and the root-run
+    // browser opened file: URLs from there (sec-paths, 2026-10-10).
+    assertHostedNavigable(url);
     // Skip session restore since we're explicitly navigating to a new URL
     const prevSkip = this.skipSessionRestore;
     this.skipSessionRestore = true;

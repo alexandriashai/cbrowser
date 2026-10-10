@@ -11,6 +11,7 @@ import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
 import { scopeProse } from "../../visual/scope-prose.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
+import { refuseHostedUrl } from "../hosted-inputs.js";
 import { comparePersonas } from "../../analysis/index.js";
 import { isApiKeyConfigured } from "../../cognitive/index.js";
 import {
@@ -151,6 +152,9 @@ export function registerPersonaComparisonTools(
       openWorldHint: true,
     },
   }, async ({ url, goal, personas }) => {
+      // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+      const hostedRefusal = refuseHostedUrl("compare_personas", { url });
+      if (hostedRefusal) return hostedRefusal;
       const hasApiKey = isApiKeyConfigured();
 
       if (!hasApiKey) {
@@ -744,6 +748,9 @@ Begin with the first persona: ${personas[0]}
       openWorldHint: true,
     },
   }, async ({ url, persona: personaName, siteFamiliarity, _browserToken, userLocation, userTimezone, userLanguage, proxy, useValues, waitAfterLoad, waitForSelector, scope }) => {
+    // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("cognitive_effort", { url });
+    if (hostedRefusal) return hostedRefusal;
     try {
       // Get browser
       let b: Awaited<ReturnType<typeof getBrowser>>;
