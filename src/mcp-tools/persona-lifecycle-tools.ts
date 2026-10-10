@@ -214,7 +214,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
     // reads the handler signature to prove every declared argument is actually
     // bound, and a body-level destructure is invisible to it. The convention is
     // load-bearing rather than stylistic.
-    const { getAnyPersona, isBuiltinPersona, saveCustomPersona, registerPersonas } = await import("../personas.js");
+    const { getAnyPersona, isBuiltinPersona, saveCustomPersona, registerCallerPersonas } = await import("../personas.js");
 
     if (isBuiltinPersona(persona_name)) {
       return {isError: true,  content: [{ type: "text" as const, text: JSON.stringify({
@@ -316,7 +316,9 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
     }
 
     const filePath = saveCustomPersona(updated as never);
-    registerPersonas([updated as never]);
+    // The caller's own registry, not the process-wide one every account
+    // resolves names through first. (tenant, 2026-10-10)
+    registerCallerPersonas([updated as never]);
     const cms = await writeCms("PUT", slugFor(persona_name), {
       ...(traits ? { traits: updated.cognitiveTraits } : {}),
       ...(description !== undefined ? { description } : {}),

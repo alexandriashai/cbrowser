@@ -709,7 +709,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           let pValues: Record<string, number> | undefined;
           if (useValues) {
             try {
-              const { getPersonaValues, registerPersonaValues, createPersonaValues } = await import("../../values/index.js");
+              const { getPersonaValues, registerAccountPersonaValues, createPersonaValues } = await import("../../values/index.js");
               let vals = resolveValuesForPersona(persona);
 
               // If not found in built-ins, check CMS for custom persona values
@@ -731,7 +731,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
                           { autonomyNeed: sv.autonomyNeed ?? 0.5, competenceNeed: sv.competenceNeed ?? 0.5, relatednessNeed: sv.relatednessNeed ?? 0.5 },
                           "esteem"
                         );
-                        registerPersonaValues([{ personaName: persona, values: pv, rationale: "Custom persona from CMS" }]);
+                        // The caller's account store, not the process-wide registry. (tenant, 2026-10-10)
+                        registerAccountPersonaValues([{ personaName: persona, values: pv, rationale: "Custom persona from CMS" }]);
                         vals = pv;
                       }
                     }

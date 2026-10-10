@@ -881,7 +881,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             let pValues: Record<string, number> | undefined;
             if (useValues) {
               try {
-                const { getPersonaValues: getPV, registerPersonaValues: regPV, createPersonaValues: createPV } = await import("../../values/index.js");
+                // regPV writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
+                const { getPersonaValues: getPV, registerAccountPersonaValues: regPV, createPersonaValues: createPV } = await import("../../values/index.js");
                 let v = getPV(persona);
 
                 // Custom persona CMS fallback

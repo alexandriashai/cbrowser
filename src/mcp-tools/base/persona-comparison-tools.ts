@@ -1004,7 +1004,8 @@ Begin with the first persona: ${personas[0]}
 
       // Modulate demand by motivational values (opt-in, default off)
       if (useValues) try {
-        const { getPersonaValues, registerPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
+        // regPV2 writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
+        const { getPersonaValues, registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
         let pValues = resolveValuesForPersona(personaName);
 
         // Custom persona CMS fallback

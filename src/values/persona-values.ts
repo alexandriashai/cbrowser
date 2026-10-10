@@ -12,6 +12,8 @@ import type { PersonaValues, MaslowLevel } from "./schwartz-values.js";
 import { createPersonaValues } from "./schwartz-values.js";
 import { getAnyPersona } from "../personas.js";
 import { deriveValuesFromBigFive } from "./big-five-values.js";
+import { scopedAccountId } from "../persona-scope.js";
+import { currentRequestIdentity } from "../request-context.js";
 
 /**
  * Value profile with persona name for lookup.
@@ -616,11 +618,60 @@ export function resolvePersonaName(personaName: string): string {
  * @returns PersonaValues or undefined if not found
  */
 export function getPersonaValues(personaName: string): PersonaValues | undefined {
+  return findPersonaValueProfile(personaName)?.values;
+}
+
+/**
+ * Value profiles from an account's CMS custom personas, per account.
+ *
+ * Four tools (cognitive_journey_init, attention_analysis, cognitive_effort and
+ * the comparison path) fetch the caller's custom persona from the CMS and used
+ * to write its values into PERSONA_VALUE_PROFILES. That array is one per
+ * process and getPersonaValues reads it by name alone, so on the hosted server
+ * one account's custom-persona values resolved for every account using that
+ * name and were listed to other accounts in persona_values_lookup's
+ * availablePersonas. Same shape as
+ * ACCOUNT_PERSONAS in personas.ts: stored per account, read only through the
+ * request's own scope. Built-in profiles stay in the global registry.
+ * (tenant, 2026-10-10)
+ */
+const ACCOUNT_VALUE_PROFILES = new Map<number, PersonaValueProfile[]>();
+
+/**
+ * The profile a name resolves to for this caller: its own account's CMS entry
+ * first, then the global registry. Unscoped callers read the registry only.
+ */
+export function findPersonaValueProfile(personaName: string): PersonaValueProfile | undefined {
   const canonicalName = resolvePersonaName(personaName);
-  const profile = PERSONA_VALUE_PROFILES.find(
-    (p) => p.personaName.toLowerCase() === canonicalName
-  );
-  return profile?.values;
+  const matches = (p: PersonaValueProfile) => p.personaName.toLowerCase() === canonicalName;
+  const accountId = scopedAccountId();
+  const own = accountId === undefined ? undefined : ACCOUNT_VALUE_PROFILES.get(accountId)?.find(matches);
+  return own ?? PERSONA_VALUE_PROFILES.find(matches);
+}
+
+/**
+ * Register value profiles that came from the CALLER's CMS custom personas.
+ *
+ * Inside an account scope they go to that account's store. A hosted request
+ * with no account registers nothing, because no store is only the caller's;
+ * the tool still uses the values it just fetched. Outside any request (CLI,
+ * stdio, local) this is registerPersonaValues, as before.
+ * registerPersonaValues itself stays global: the Enterprise build registers
+ * its process-wide Marketing Suite profiles through it. (tenant, 2026-10-10)
+ */
+export function registerAccountPersonaValues(profiles: PersonaValueProfile[]): void {
+  const accountId = scopedAccountId();
+  if (accountId === undefined) {
+    if (currentRequestIdentity() === undefined) registerPersonaValues(profiles);
+    return;
+  }
+  const own = ACCOUNT_VALUE_PROFILES.get(accountId) ?? [];
+  for (const profile of profiles) {
+    const i = own.findIndex((p) => p.personaName.toLowerCase() === profile.personaName.toLowerCase());
+    if (i >= 0) own[i] = profile;
+    else own.push(profile);
+  }
+  ACCOUNT_VALUE_PROFILES.set(accountId, own);
 }
 
 /**
@@ -630,10 +681,7 @@ export function getPersonaValues(personaName: string): PersonaValues | undefined
  * @returns true if values are defined
  */
 export function hasPersonaValues(personaName: string): boolean {
-  const canonicalName = resolvePersonaName(personaName);
-  return PERSONA_VALUE_PROFILES.some(
-    (p) => p.personaName.toLowerCase() === canonicalName
-  );
+  return findPersonaValueProfile(personaName) !== undefined;
 }
 
 /**

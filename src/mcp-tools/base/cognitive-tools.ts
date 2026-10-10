@@ -177,10 +177,12 @@ export function registerCognitiveTools(
           // Overwrite cognitiveTraits completely with CMS values (no defaults, no normalization)
           basePersona.cognitiveTraits = { ...basePersona.cognitiveTraits, ...cmsMatch.traits } as typeof basePersona.cognitiveTraits;
 
-          // Register Schwartz values so saliency engine + journey engine can use them
+          // Register Schwartz values so saliency engine + journey engine can use them.
+          // Into the caller's own account store, never the process-wide
+          // registry every account reads. (tenant, 2026-10-10)
           if (cmsMatch.values) {
             try {
-              const { registerPersonaValues, createPersonaValues } = await import("../../values/index.js");
+              const { registerAccountPersonaValues, createPersonaValues } = await import("../../values/index.js");
               const pv = createPersonaValues(
                 {
                   selfDirection: cmsMatch.values.selfDirection ?? 0.5,
@@ -201,7 +203,7 @@ export function registerCognitiveTools(
                 },
                 "esteem"
               );
-              registerPersonaValues([{
+              registerAccountPersonaValues([{
                 personaName: cmsMatch.slug || cmsMatch.name,
                 values: pv,
                 rationale: "Custom persona values from CMS",
