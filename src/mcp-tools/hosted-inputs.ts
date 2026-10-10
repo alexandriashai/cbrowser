@@ -49,16 +49,26 @@ function refusal(body: Record<string, unknown>): HostedRefusal {
   };
 }
 
+/**
+ * Only an omitted parameter names no path. "" and null used to count as
+ * omitted too, but call sites test `!== undefined`: capture_start then ran
+ * resolve(""), which is the process's working directory, and wrote root-owned
+ * output there, outside the recordings directory. An empty array is the one
+ * exception, because it holds no path at all: coverage_map's required
+ * testFiles: [] is how a hosted caller gets the page inventory.
+ * (sec-paths, 2026-10-10)
+ */
 function provided(value: unknown): boolean {
-  if (value === undefined || value === null || value === "") return false;
+  if (value === undefined) return false;
   if (Array.isArray(value)) return value.length > 0;
   return true;
 }
 
 /**
  * Refuse a parameter that names a server file or directory. Returns null when
- * not hosted or when the parameter was omitted; the caller returns the refusal
- * otherwise, before doing any work.
+ * not hosted or when the parameter was omitted (undefined); anything else, ""
+ * and null included, is refused, and the caller returns the refusal before
+ * doing any work.
  *
  * @param instead how the caller gets the result without the parameter
  */
