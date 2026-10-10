@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.3](https://github.com/alexandriashai/cbrowser/compare/v19.3.2...v19.3.3) (2026-10-10)
+
+### Fixed
+
+* **mcp:** gate refusals are tool errors (isError on upgrade prompt and credit refusal) ([89639c2](https://github.com/alexandriashai/cbrowser/commit/89639c2934123250f1ce590deb4d3e21fa69dd1b))
+
 ## [19.3.2](https://github.com/alexandriashai/cbrowser/compare/v19.3.1...v19.3.2) (2026-10-10)
 
 ### Fixed
