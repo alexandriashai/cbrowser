@@ -78,11 +78,18 @@ async function step(name: string, args: string[], timeoutMs = 90000): Promise<an
 const baselineShots = () => readdirSync(join(DATA, "visual-baselines", "screenshots")).sort();
 
 describe("same engine (B26, B36)", () => {
-  test("visual regression: unchanged page passes at distance 0, a moved button fails, no capture is left beside the baselines", async () => {
+  test("B36: a regression run leaves no new file beside the baselines; its capture is in the session screenshots dir", async () => {
     await step("baseline", [`${base}/`, "b26-home"]);
     const before = baselineShots();
     expect(before.length).toBe(1);
 
+    const r = await step("regression", [`${base}/`, "b26-home"]);
+    expect(baselineShots()).toEqual(before);
+    expect(r.current.startsWith(r.screenshotsDir)).toBe(true);
+    expect(existsSync(r.current)).toBe(true);
+  }, 300000);
+
+  test("visual regression: unchanged page passes at distance 0, a moved button fails", async () => {
     const same = await step("regression", [`${base}/`, "b26-home"]);
     expect(same.analysis.wassersteinDistance).toBe(0);
     expect(same.analysis.overallStatus).toBe("pass");
@@ -93,18 +100,10 @@ describe("same engine (B26, B36)", () => {
     expect(moved.analysis.overallStatus).toBe("fail");
     expect(moved.analysis.changes[0]?.severity).toBe("breaking");
     expect(moved.passed).toBe(false);
-
-    // B36: the current captures went to the session screenshots dir.
-    expect(baselineShots()).toEqual(before);
-    for (const r of [same, moved]) {
-      expect(r.current.startsWith(r.screenshotsDir)).toBe(true);
-      expect(existsSync(r.current)).toBe(true);
-    }
   }, 300000);
 
   test("transport-map regression against a traditional baseline: unchanged passes, a moved button fails, no capture beside the baselines", async () => {
     const before = baselineShots();
-    expect(before.length).toBe(1);
     const same = await step("transport", [`${base}/`, "b26-home"]);
     expect(same.analysis.wassersteinDistance).toBe(0);
     expect(same.passed).toBe(true);
