@@ -124,10 +124,6 @@ interface RawInteractiveElement {
   typeAttr: string;
   /** `text` came from aria-label or title because the element shows none. */
   textIsLabel?: boolean;
-  /** Inside nav, header, footer or their ARIA landmark roles: site chrome. */
-  inChrome?: boolean;
-  /** Inside an <article>'s own header or footer: that article's metadata. */
-  inArticleMeta?: boolean;
   rect: { top: number; left: number; width: number; height: number };
   formIndex: number;
   nthOfType: number;
@@ -192,8 +188,6 @@ interface RawDOMExtraction {
   extractionScope: "viewport" | "full_page";
   /** Document height in viewports, so a caller can see what viewport scope missed. */
   pageScreens: number;
-  /** <p> elements of 200+ characters outside site chrome, whole document. */
-  longParagraphs?: number;
 }
 
 interface RawSkeletonData {
@@ -620,46 +614,6 @@ export class PageUnderstandingEngine {
         return nth;
       }
 
-      /**
-       * Site chrome: nav, and the banner and contentinfo landmarks. A <header>
-       * or <footer> is one of those only when it is not inside article, aside,
-       * main, nav or section (or their roles); inside one it is that section's
-       * own header (HTML-AAM, and Chromium's accessibility tree agrees). A bare
-       * closest("header, footer") also matched <header class="hero"> inside
-       * <main>, so a hero with three CTAs, a four-link nav and five long
-       * paragraphs was typed "article" where the same hero in a <section> was
-       * "landing"; and it dropped an article's own <footer> prose from
-       * longParagraphs. Named cost, measured on live pages: a content page's
-       * own header links (breadcrumbs, byline, filter tabs) count toward the
-       * hero again, so the css-tricks flexbox guide and linear.app/changelog,
-       * whose such links sit in main>header, are "landing" as they were before
-       * B40. (An <article>'s header is handled by isInArticleMeta.)
-       * (2026-10-10, B40)
-       */
-      const SECTION_SCOPE = 'article, aside, main, nav, section, [role="article"], [role="complementary"], [role="main"], [role="navigation"], [role="region"]';
-      function isInChrome(el: Element): boolean {
-        if (el.closest('nav, [role="navigation"], [role="banner"], [role="contentinfo"]')) return true;
-        for (let hf = el.closest("header, footer"); hf; hf = hf.parentElement?.closest("header, footer") ?? null) {
-          if (!hf.parentElement?.closest(SECTION_SCOPE)) return true;
-        }
-        return false;
-      }
-
-      /**
-       * The header or footer of an <article> holds that article's metadata
-       * (byline, date, tags, comment count), never a page's calls to action.
-       * Not chrome, so its prose still counts; only the hero count skips it. On
-       * smashingmagazine.com/articles the byline "Vitaly Friedman" and
-       * "0 comments" in each card's article header/footer were hero CTAs.
-       * (2026-10-10, B40)
-       */
-      function isInArticleMeta(el: Element): boolean {
-        for (let hf = el.closest("header, footer"); hf; hf = hf.parentElement?.closest("header, footer") ?? null) {
-          if (hf.parentElement?.closest(SECTION_SCOPE)?.matches('article, [role="article"]')) return true;
-        }
-        return false;
-      }
-
       // -- Interactive elements --
       // A negative tabindex takes an element OUT of the tab order; it is how a
       // skip link's target is made focusable by script. Bare [tabindex] listed
@@ -713,10 +667,6 @@ export class PageUnderstandingEngine {
           typeAttr: el.getAttribute("type") || "",
           text: shownText || labelText,
           textIsLabel: !!labelText,
-          // Site chrome: nav, banner and contentinfo links are navigation, not a
-          // hero's calls to action. See isInChrome. (2026-10-10, B40)
-          inChrome: isInChrome(el),
-          inArticleMeta: isInArticleMeta(el),
           href: (el as HTMLAnchorElement).href || "",
           name: inputEl.name || "",
           id: el.id || "",
@@ -878,13 +828,6 @@ export class PageUnderstandingEngine {
         pageScreens: Math.round((Math.max(viewportHeight, document.documentElement.scrollHeight) / viewportHeight) * 10) / 10,
         title: document.title || "",
         viewportHeight,
-        // Document-wide, at every scope, like totalElementCount: a scalar about
-        // the page's kind, not a list of things in view. See classifyPageType.
-        // (2026-10-10, B40)
-        longParagraphs: Array.from(document.querySelectorAll("p")).filter((p) =>
-          !isInChrome(p) &&
-          (p.textContent || "").replace(/\s+/g, " ").trim().length >= 200
-        ).length,
       };
     }, [MAX_ELEMENTS_FULL_SCAN, scope] as [number, string]);
 
@@ -1016,17 +959,20 @@ function classifyPageType(raw: RawDOMExtraction, pageUrl?: string): PageType {
   const topLinks = interactiveElements.filter(
     (el) => el.tag === "a" && el.rect.top < 600 && el.text.length > 0 && el.text.length < 30 && !el.textIsLabel
   );
-  // Header, footer and nav links are excluded from the hero count: they are the
-  // site's chrome, and any header with three short nav links passed this test,
-  // which typed cbrowser.ai/blog (a list of posts) as "landing". So are
-  // same-page fragment links: a skip link is not a call to action.
-  // (2026-10-10, B40)
+  // Same-page fragment links are excluded: a skip link is not a call to action.
+  // Header, footer and nav links still count, and that is a named limit: any
+  // header with three short nav links passes this test, so a blog index such as
+  // cbrowser.ai/blog is typed "landing". Excluding them (with a fallback for
+  // pages without long prose) turned 10 of 62 real landing pages measured
+  // 2026-10-10 into "article" or "list" (supabase, mongodb, netlify, hubspot,
+  // intercom, loom, asana, docker, wix, squarespace), so it was undone; the
+  // measured alternatives are in the commit that undid it. (2026-10-10, B40)
   let pagePath = "";
   try { pagePath = pageUrl ? new URL(pageUrl).origin + new URL(pageUrl).pathname : ""; } catch { pagePath = ""; }
   const isSamePageFragment = (href: string): boolean => {
     try { const u = new URL(href); return !!u.hash && u.origin + u.pathname === pagePath; } catch { return false; }
   };
-  const topCtaCount = topLinks.filter((el) => !el.inChrome && !el.inArticleMeta && !isSamePageFragment(el.href)).length;
+  const topCtaCount = topLinks.filter((el) => !isSamePageFragment(el.href)).length;
 
   // Decided here rather than at the bottom. A hero CTA cluster is a STRONG and
   // specific signal, and it used to sit below two weak general ones — "three
@@ -1037,18 +983,6 @@ function classifyPageType(raw: RawDOMExtraction, pageUrl?: string): PageType {
   // checks by how specific they are, not by how they were written.
   // (2026-07-29)
   if (topCtaCount >= 3) return "landing";
-
-  // But most real landing pages have one or two hero links, and the header nav
-  // was what carried them past three. Measured 2026-10-10 with chrome excluded:
-  // stripe.com, linear.app, notion.com, shopify.com, dropbox.com and
-  // cbrowser.ai/pricing and /enterprise all fell to "article" or "list" (7 of
-  // 14 landing pages). What separates them from the content pages a header
-  // nav also mislabelled is prose: those 14 carry at most 2 paragraphs of 200+
-  // characters; cbrowser.ai/blog carries 5, a cbrowser.ai post 15, web.dev and
-  // css-tricks articles 27 and 209. So the old whole-page count still decides
-  // for a page without long-form prose, and stops deciding for one with it.
-  // (2026-10-10, B40)
-  if (topLinks.length >= 3 && (raw.longParagraphs ?? 0) < 4) return "landing";
 
   // Article heuristic: multiple headings, deep hierarchy, few interactive elements relative to headings
   if (manyHeadings && hasDeepHeadings && totalFormFields <= 2) return "article";

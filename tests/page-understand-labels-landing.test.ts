@@ -9,7 +9,9 @@
  *   - <div id="main-content" tabindex="-1"> (the skip link's target, i.e. the
  *     whole page body) was listed as a click affordance;
  *   - the page was typed "landing" because its header nav has more than three
- *     short links above the fold;
+ *     short links above the fold. Still true, a named limit: excluding header
+ *     links from the hero count turned 10 of 62 real landing pages into
+ *     "article" or "list", so that change was undone (see classifyPageType);
  *   - card text was glued: "8 minresearchattentionbenchmarks+2We Beat Two...".
  *
  * Every fixture is local (page.setContent). Tests call the shipped engine.
@@ -44,15 +46,9 @@ const TABINDEX = doc("Tabindex fixture", `<a href="#main-content">Skip to main c
   <div id="roving" role="listbox" tabindex="0" aria-label="Options"><div role="option">One</div></div>
 </div>`);
 
-const BLOG_INDEX = doc("Blog | CBrowser", `${HEADER}<main><h1>CBrowser Blog</h1><div class="grid">
-${Array.from({ length: 12 }, (_, i) => `<a class="card" href="/blog/post-${i}/"><article>
-  <span class="tag">research</span><h3>Post number ${i} about cognitive testing</h3><p>${EXCERPT}</p>
-</article></a>`).join("\n")}
-</div></main>`);
-
-// The shape that the header-nav exclusion must NOT break: measured, real
-// landing pages (stripe.com, linear.app, cbrowser.ai/pricing) have one or two
-// hero links and short blurbs, and were typed "landing" only via the nav.
+// Real landing pages (stripe.com, linear.app, cbrowser.ai/pricing) have one or
+// two hero links and short blurbs, and are typed "landing" via the header nav's
+// links, which count toward the hero.
 const LANDING = doc("Product | Fixture", `${HEADER}<main>
   <section class="hero"><h1>Test like 17 users, not like you</h1><p>Short pitch.</p>
     <a class="btn" href="/register/">Try free</a></section>
@@ -63,30 +59,15 @@ const LANDING = doc("Product | Fixture", `${HEADER}<main>
   </section>
 </main>`);
 
-// A <header> or <footer> inside main, section or article is that section's own
-// header, not the site's banner. b268812 excluded every header from the hero
-// count, so a hero marked up as <header> in <main> lost its three CTAs and the
-// page was typed "article"; the same hero in a <section> stayed "landing". It
-// also dropped long paragraphs in an article's own <footer> from the prose
-// count, so a post with its author bio there was typed "landing".
-// (2026-10-10, B40)
+// b268812 excluded every header from the hero count, so a hero marked up as
+// <header> in <main> lost its three CTAs and the page was typed "article"; the
+// same hero in a <section> stayed "landing". Both are "landing" on 6fbeda6 and
+// again now that the exclusion is undone. (2026-10-10, B40)
 const PROSE = `<section><h2>Why</h2><h3>One</h3><p>${EXCERPT}</p><p>${EXCERPT}</p>
   <h3>Two</h3><p>${EXCERPT}</p><p>${EXCERPT}</p><p>${EXCERPT}</p></section>`;
 const HERO = `<h1>Test like 17 users</h1><a href="/register/">Start free</a> <a href="/demo/">Book a demo</a> <a href="/docs/">Read the docs</a>`;
 const HERO_IN_HEADER = doc("Product | Fixture", `${HEADER}<main><header class="hero">${HERO}</header>${PROSE}</main>`);
 const HERO_IN_SECTION = doc("Product | Fixture", `${HEADER}<main><section class="hero">${HERO}</section>${PROSE}</main>`);
-const ARTICLE_FOOTER = doc("Post | Fixture", `${HEADER}<main><article><h1>A long post</h1><p>${EXCERPT}</p>
-  <h2>Part one</h2><p>${EXCERPT}</p><h3>A detail</h3><p>Short.</p>
-  <footer><h2>About the author</h2><p>${EXCERPT}</p><p>${EXCERPT}</p></footer></article></main>`);
-
-// An <article>'s own header and footer hold its byline and comment count,
-// never a page's calls to action. smashingmagazine.com/articles shape: each
-// card's author link and "0 comments" counted as hero CTAs. (2026-10-10, B40)
-const ARTICLE_CARDS = doc("Articles | Fixture", `${HEADER}<main><h1>Articles</h1><section>
-${Array.from({ length: 6 }, (_, i) => `<article><header><a href="/author/vitaly/">Vitaly F.</a></header>
-  <h3><a href="/2026/post-${i}/">A long article title about accessibility, part ${i}</a></h3><p>${EXCERPT}</p>
-  <footer><a href="/2026/post-${i}/comments/">0 comments</a></footer></article>`).join("\n")}
-</section></main>`);
 
 const GLUE = doc("Glue fixture", `<main>
   <a id="card" class="card" href="/blog/we-beat/" style="display:block">
@@ -116,13 +97,10 @@ beforeAll(async () => {
   browser = await chromium.launch();
   results.labels = await understand(LABELS);
   results.tabindex = await understand(TABINDEX);
-  results.blog = await understand(BLOG_INDEX);
   results.landing = await understand(LANDING);
   results.glue = await understand(GLUE);
   results.heroInHeader = await understand(HERO_IN_HEADER);
   results.heroInSection = await understand(HERO_IN_SECTION);
-  results.articleFooter = await understand(ARTICLE_FOOTER);
-  results.articleCards = await understand(ARTICLE_CARDS);
 }, 120_000);
 
 afterAll(async () => { await browser?.close(); });
@@ -152,31 +130,17 @@ describe("a negative tabindex is not an affordance", () => {
   });
 });
 
-describe("a header nav does not make a page a landing page", () => {
-  test("a blog index with a four-link header nav and twelve cards is not landing", () => {
-    expect(results.blog.type).not.toBe("landing");
-  });
-
-  test("a page with one hero link, short blurbs and the same header is still landing", () => {
+describe("a landing page stays landing", () => {
+  test("a page with one hero link, short blurbs and a four-link header is landing", () => {
     expect(results.landing.type).toBe("landing");
   });
-});
 
-describe("only the banner and contentinfo header and footer are site chrome", () => {
   test("a hero in a <header> inside main, with three CTAs and long prose, is landing", () => {
     expect(results.heroInHeader.type).toBe("landing");
   });
 
   test("the same hero in a <section> is landing too", () => {
     expect(results.heroInSection.type).toBe("landing");
-  });
-
-  test("long paragraphs in an article's own <footer> count as prose", () => {
-    expect(results.articleFooter.type).not.toBe("landing");
-  });
-
-  test("bylines and comment links in articles' own headers and footers are not hero CTAs", () => {
-    expect(results.articleCards.type).not.toBe("landing");
   });
 });
 
