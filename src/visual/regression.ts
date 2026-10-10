@@ -14,9 +14,9 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { homedir } from "os";
 
 import { CBrowser } from "../browser.js";
+import { effectiveDataDir } from "../config.js";
 import type {
   VisualBaseline,
   VisualChange,
@@ -41,7 +41,8 @@ import {
  * Get the path to visual baselines storage
  */
 function getVisualBaselinesPath(): string {
-  const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+  // Per call and per account on a hosted server (v8 O3).
+  const baseDir = effectiveDataDir();
   const baselinesDir = join(baseDir, "visual-baselines");
   if (!existsSync(baselinesDir)) {
     mkdirSync(baselinesDir, { recursive: true });
@@ -207,7 +208,8 @@ export function deleteVisualBaseline(name: string): boolean {
 // ── Smart Baseline Storage ──
 
 function getSmartBaselinesPath(): string {
-  const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+  // Per call and per account on a hosted server (v8 O3).
+  const baseDir = effectiveDataDir();
   const dir = join(baseDir, "smart-baselines");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
@@ -679,7 +681,8 @@ export async function runRegressionWithTransportMap(
 
   // Save SVG to disk
   let transportMapSvgPath: string | undefined; // eslint-disable-line prefer-const
-  const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+  // Per call and per account on a hosted server (v8 O3).
+  const baseDir = effectiveDataDir();
   const mapsDir = join(baseDir, "transport-maps");
   if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
   transportMapSvgPath = join(mapsDir, `transport-map-${Date.now()}.svg`);

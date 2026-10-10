@@ -37,7 +37,7 @@
 
 import { registerUiResources } from "./mcp-tools/ui-resources.js";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -58,7 +58,7 @@ import {
 // (see resolveRequestKeyHash). setActiveKeyHash stays for the usage-logging path, which
 // is per-session rather than per-charge.
 import { registerAllPublicTools, setRemoteMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
-import { withPersonaScope } from "./persona-scope.js";
+import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
 import { withChargeScope } from "./charge-scope.js";
 
 /**
@@ -107,16 +107,18 @@ let cachedToolManifest: Array<{
 // headers. Works with any MCP client including Claude.ai's proxy.
 // ============================================================================
 
-const browserTokens = new Map<string, { sessionId: string; createdAt: number }>();
+const browserTokens = new Map<string, { sessionId: string; createdAt: number; accountId: number | undefined }>();
 const TOKEN_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
  * Generate a short browser token that maps to a session's browser.
  */
 export function generateBrowserToken(sessionId: string): string {
-  // Short readable token
-  const token = `cb_${Math.random().toString(36).substring(2, 10)}`;
-  browserTokens.set(token, { sessionId, createdAt: Date.now() });
+  // 64 bits from the CSPRNG, bound to the account that minted it. It was 8
+  // base36 chars from Math.random and bound to nobody, so a token seen by
+  // another account drove the minting account's logged-in browser. (v8 O3)
+  const token = `cb_${randomBytes(8).toString("hex")}`;
+  browserTokens.set(token, { sessionId, createdAt: Date.now(), accountId: scopedAccountId() });
   return token;
 }
 
@@ -154,7 +156,9 @@ export async function getBrowserByToken(token?: string): Promise<{ browser: CBro
   // Try to resolve existing token
   if (token) {
     const info = browserTokens.get(token);
-    if (info) {
+    // Another account's token resolves exactly like an unknown one: refusing it
+    // differently would confirm that it exists. (v8 O3, 2026-10-10)
+    if (info && info.accountId === scopedAccountId()) {
       const session = activeSessions.get(info.sessionId);
       if (session) {
         session.lastActivity = now;
@@ -493,6 +497,16 @@ async function getBrowser(): Promise<CBrowser> {
     });
   }
   return browser;
+}
+
+/**
+ * The browser a tokenless, session-less (stateless) tool call gets: the calling
+ * account's own isolated browser inside an account scope, the shared legacy
+ * browser otherwise. See configureMcpTools for why. (v8 O3, 2026-10-10)
+ */
+export async function getTokenlessBrowser(): Promise<CBrowser> {
+  const accountId = scopedAccountId();
+  return accountId === undefined ? getBrowser() : getSessionBrowser(`account:${accountId}`);
 }
 
 // Transport storage for stateful sessions
@@ -1206,10 +1220,15 @@ function configureMcpTools(
   sessionId?: string,
   resolvedTier?: PricingTier | null,
 ): void {
-  // Create session-aware getBrowser function
+  // Create session-aware getBrowser function. Stateless hosted requests have no
+  // MCP session, and used to share ONE persistent browser across every account:
+  // its profile collected one tenant's logins and any other tenant's tokenless
+  // manage_cookies read them (v8 O3, 2026-10-10). Inside an account scope a
+  // tokenless call now gets that account's own isolated browser, swept on idle
+  // like any session. Unscoped (operator key, CLI, local) keeps the old one.
   const sessionGetBrowser = sessionId
     ? () => getSessionBrowser(sessionId)
-    : getBrowser;
+    : getTokenlessBrowser;
 
   const context: ToolRegistrationContext = { getBrowser: sessionGetBrowser, getBrowserByToken };
 

@@ -11,11 +11,12 @@
  * Extracted from CBrowser class for better modularity.
  */
 
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 import { join, resolve, sep } from "path";
 import type { Page, BrowserContext, Cookie } from "playwright";
 import type { SavedSession, LoadSessionResult, SessionMetadata } from "../types.js";
 import { navigationError } from "../navigation-errors.js";
+import { scopedDataDir } from "../persona-scope.js";
 
 export interface SessionManagerConfig {
   sessionsDir: string;
@@ -55,13 +56,31 @@ export class SessionManager {
    * caller-supplied name goes through here — the six call sites that each
    * open-coded `join(sessionsDir, name + ".json")` are the class this closes.
    */
+  /**
+   * The sessions directory for THIS call.
+   *
+   * A hosted request runs inside its account's scope, and its sessions live in
+   * that account's directory. They used to live in one directory every account
+   * shared, so list_sessions showed every customer's saved logins and
+   * load_session put another account's cookies into the caller's browser.
+   * (v8 O3, 2026-10-10.) Unscoped -- the CLI, the stdio server, a local
+   * install -- keeps the configured directory, exactly as before.
+   */
+  private dir(): string {
+    const scoped = scopedDataDir();
+    if (!scoped) return this.config.sessionsDir;
+    const d = join(scoped, "sessions");
+    if (!existsSync(d)) mkdirSync(d, { recursive: true });
+    return d;
+  }
+
   private sessionPathFor(name: string): string {
     if (!SAFE_SESSION_NAME.test(name)) {
       throw new Error(
         `Invalid session name ${JSON.stringify(name)} — use letters, digits, dot, dash or underscore (max 64 chars).`,
       );
     }
-    const dir = resolve(this.config.sessionsDir);
+    const dir = resolve(this.dir());
     const path = resolve(join(dir, `${name}.json`));
     if (path !== join(dir, `${name}.json`) || !path.startsWith(dir + sep)) {
       throw new Error(`Invalid session name ${JSON.stringify(name)} — resolves outside the sessions directory.`);
@@ -208,7 +227,7 @@ export class SessionManager {
    * List all saved session names.
    */
   list(): string[] {
-    const files = readdirSync(this.config.sessionsDir);
+    const files = readdirSync(this.dir());
     return files
       .filter((f) => f.endsWith(".json") && f !== "last-session.json")
       .map((f) => f.replace(".json", ""));
@@ -218,12 +237,12 @@ export class SessionManager {
    * List all saved sessions with rich metadata.
    */
   listDetailed(): SessionMetadata[] {
-    const files = readdirSync(this.config.sessionsDir);
+    const files = readdirSync(this.dir());
     const sessions: SessionMetadata[] = [];
 
     for (const file of files) {
       if (!file.endsWith(".json") || file === "last-session.json") continue;
-      const filePath = join(this.config.sessionsDir, file);
+      const filePath = join(this.dir(), file);
       try {
         const data: SavedSession = JSON.parse(readFileSync(filePath, "utf-8"));
         const stats = statSync(filePath);
@@ -286,10 +305,10 @@ export class SessionManager {
     const deleted: string[] = [];
     const kept: string[] = [];
 
-    const files = readdirSync(this.config.sessionsDir);
+    const files = readdirSync(this.dir());
     for (const file of files) {
       if (!file.endsWith(".json") || file === "last-session.json") continue;
-      const filePath = join(this.config.sessionsDir, file);
+      const filePath = join(this.dir(), file);
       const name = file.replace(".json", "");
       try {
         const data: SavedSession = JSON.parse(readFileSync(filePath, "utf-8"));
