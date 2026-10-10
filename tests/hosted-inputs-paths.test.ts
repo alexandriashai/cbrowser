@@ -12,13 +12,23 @@
  *
  * Each parameter is driven through its registered handler with hosted mode on
  * (refused, target untouched) and off (behaves as before). No real browser is
- * started: every handler gets a fake one.
+ * started and nothing touches the network: handlers get a fake browser, and
+ * where code builds its own CBrowser (coverage_map's crawl) or could fetch,
+ * stubBrowserAndNetwork replaces the launch, page, navigate and fetch paths
+ * with recorders that throw. Before 2026-10-10 the coverage_map block started
+ * headless Chromium and opened https://example.com, because maxPages 0 is
+ * read as "use the default of 100".
+ *
+ * The class sweep at the end reads every refuseHostedPath call site from the
+ * source and checks that "" and null are refused on each: "" used to count as
+ * omitted, and capture_start then wrote into resolve(""), the server's working
+ * directory.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -32,7 +42,10 @@ const prevEnv = { data: process.env.CBROWSER_DATA_DIR, mirror: process.env.CBROW
 process.env.CBROWSER_DATA_DIR = DATA;
 process.env.CBROWSER_MIRROR_ROOT = MIRROR;
 
-const { setHostedMode, isHostedMode } = await import("../src/mcp-tools/hosted-inputs.js");
+const { setHostedMode, isHostedMode, refuseHostedPath } = await import("../src/mcp-tools/hosted-inputs.js");
+const { registerBaseTools } = await import("../src/mcp-tools/base/index.js");
+const { CBrowser } = await import("../src/browser.js");
+const playwright = await import("playwright");
 const { withPersonaScope, accountDataDir } = await import("../src/persona-scope.js");
 const { registerExtractionTools } = await import("../src/mcp-tools/base/extraction-tools.js");
 const { registerTestingTools } = await import("../src/mcp-tools/base/testing-tools.js");
@@ -59,6 +72,36 @@ function stubServer(): { server: never; handlers: Map<string, Handler> } {
 
 const REACHED = "browser-reached-sentinel";
 const unreachable = { getBrowser: async () => { throw new Error(REACHED); } } as never;
+
+const NO_BROWSER = "browser-or-network-must-not-be-reached";
+/**
+ * Replace every way code under test could start a real browser or reach the
+ * network with a recorder that throws: CBrowser's launch/getPage/navigate,
+ * Playwright's launchers, and fetch. `calls` lists each attempt, so a test can
+ * show that a crawl reached the stub and that nothing launched or fetched.
+ */
+function stubBrowserAndNetwork(): { calls: string[]; restore: () => void } {
+  const calls: string[] = [];
+  const saved: Array<[object, string, unknown]> = [];
+  const stub = (obj: object, label: string, name: string) => {
+    saved.push([obj, name, (obj as Record<string, unknown>)[name]]);
+    (obj as Record<string, unknown>)[name] = async (...args: unknown[]) => {
+      const first = args[0] as { url?: string } | string | undefined;
+      const arg = typeof first === "string" ? first : first?.url ?? (first === undefined ? "" : String(first));
+      calls.push(arg ? `${label}.${name} ${arg}` : `${label}.${name}`);
+      throw new Error(NO_BROWSER);
+    };
+  };
+  for (const m of ["launch", "getPage", "navigate"]) stub(CBrowser.prototype, "CBrowser", m);
+  for (const [label, bt] of [["chromium", playwright.chromium], ["firefox", playwright.firefox], ["webkit", playwright.webkit]] as const) {
+    for (const m of ["launch", "launchPersistentContext", "connect", "connectOverCDP"]) stub(bt, label, m);
+  }
+  stub(globalThis, "globalThis", "fetch");
+  return {
+    calls,
+    restore: () => { for (const [obj, name, value] of saved.reverse()) (obj as Record<string, unknown>)[name] = value; },
+  };
+}
 
 const body = (r: Result) => JSON.parse(r.content[0].text ?? "{}");
 const refusedHosted = (r: Result, tool: string, param: string) => {
@@ -173,26 +216,39 @@ describe("coverage_map testFiles", () => {
   const handler = handlers.get("coverage_map")!;
   const file = join(OUTSIDE, "coverage-suite.txt");
   writeFileSync(file, "go to https://example.com/covered\n");
-  // maxPages 0: the crawl loop never runs, so no browser starts in either mode.
-  const args = { baseUrl: "https://example.com", testFiles: [file], maxPages: 0 };
+  // The crawl builds its own CBrowser (maxPages 0 would mean the default 100),
+  // so the stubs stand in for the browser and the network: the first
+  // navigate reaches the recorder and throws, the crawl records the page as
+  // unreachable, and nothing launches or fetches.
+  const args = { baseUrl: "https://example.com", testFiles: [file], maxPages: 1 };
+  let stubs: ReturnType<typeof stubBrowserAndNetwork>;
+  beforeAll(() => { stubs = stubBrowserAndNetwork(); });
+  afterAll(() => stubs.restore());
+  const onlyTheStubbedNavigate = () => expect(stubs.calls).toEqual(["CBrowser.navigate https://example.com"]);
 
   test("hosted: refused, the server's disk is not read", async () => {
     setHostedMode(true);
+    stubs.calls.length = 0;
     const r = await handler(args);
     refusedHosted(r, "coverage_map", "testFiles");
     expect(body(r).message).toContain("testFiles: []");
+    expect(stubs.calls).toEqual([]);
   });
 
   test("hosted with testFiles: [] still runs", async () => {
     setHostedMode(true);
+    stubs.calls.length = 0;
     const r = await handler({ ...args, testFiles: [] });
     expect(r.isError).toBeFalsy();
+    onlyTheStubbedNavigate();
   });
 
   test("not hosted: the file is read as before", async () => {
+    stubs.calls.length = 0;
     const r = await handler(args);
     expect(r.isError).toBeFalsy();
     expect(body(r).testedPages).toBe(1);
+    onlyTheStubbedNavigate();
   });
 });
 
@@ -357,6 +413,21 @@ describe("capture_start out_dir and name", () => {
     const r2 = await handler({ name: "../elsewhere" });
     expect(r2.content[0].text).toContain(REACHED);
   });
+
+  // "" counted as omitted, startCapture tests out_dir !== undefined, and
+  // resolve("") is the server's working directory (cbrowser-enterprise for
+  // both hosted units), so output landed there, root-owned. (sec-paths, 2026-10-10)
+  test("hosted out_dir \"\": refused before any browser", async () => {
+    setHostedMode(true);
+    const r = await handler({ out_dir: "" });
+    refusedHosted(r, "capture_start", "out_dir");
+    expect(r.content[0].text).not.toContain(REACHED);
+  });
+
+  test("not hosted: out_dir \"\" goes on to the browser as before", async () => {
+    const r = await handler({ out_dir: "" });
+    expect(r.content[0].text).toContain(REACHED);
+  });
 });
 
 describe("security_audit config_path", () => {
@@ -439,5 +510,89 @@ describe("site_profile_delete / site_profile_status domain", () => {
       expect(r.isError).toBeFalsy();
       expect(existsSync(join(dir, "site-profiles", "example.com"))).toBe(false);
     });
+  });
+});
+
+/**
+ * Class sweep: every parameter refuseHostedPath guards, read from the source
+ * so a parameter guarded later is covered without editing this list. "" and
+ * null used to count as omitted; only undefined (and an empty array, which
+ * names no path) may pass on the hosted server. (sec-paths, 2026-10-10)
+ */
+describe("class: every refuseHostedPath parameter refuses \"\" and null on the hosted server", () => {
+  const SRC = join(import.meta.dir, "..", "src", "mcp-tools");
+  const guarded: Array<{ tool: string; param: string }> = [];
+  for (const f of readdirSync(SRC, { recursive: true }) as string[]) {
+    if (!f.endsWith(".ts")) continue;
+    for (const m of readFileSync(join(SRC, f), "utf-8").matchAll(/refuseHostedPath\(\s*"([^"]+)",\s*"([^"]+)"/g)) {
+      guarded.push({ tool: m[1], param: m[2] });
+    }
+  }
+  const { server, handlers } = stubServer();
+  const reach = async () => { throw new Error(REACHED); };
+  registerBaseTools(server, { getBrowser: reach, getBrowserByToken: reach } as never);
+  let stubs: ReturnType<typeof stubBrowserAndNetwork>;
+  beforeAll(() => { stubs = stubBrowserAndNetwork(); });
+  afterAll(() => stubs.restore());
+  const call = (tool: string, args: Record<string, unknown>) => Promise.race([
+    handlers.get(tool)!(args),
+    new Promise<Result>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+  ]);
+  const refusedFor = (r: Result, param: string) => {
+    let b: { error?: string; parameter?: string } = {};
+    try { b = JSON.parse(r.content?.[0]?.text ?? ""); } catch { /* not JSON */ }
+    return r.isError === true && b.error === "not_available_on_hosted_server" && b.parameter === param;
+  };
+
+  test("the sweep finds every known call site, each a registered tool", () => {
+    expect(guarded.map((g) => `${g.tool}.${g.param}`)).toEqual(expect.arrayContaining([
+      "screenshot.path", "nl_test_file.filepath", "coverage_map.testFiles", "capture_start.out_dir", "security_audit.config_path",
+    ]));
+    for (const g of guarded) expect(handlers.has(g.tool)).toBe(true);
+  });
+
+  test("helper, hosted: \"\" and null are refused; undefined and [] are not", () => {
+    setHostedMode(true);
+    for (const { tool, param } of guarded) {
+      for (const v of ["", null]) expect(refuseHostedPath(tool, param, v, "")?.isError).toBe(true);
+      expect(refuseHostedPath(tool, param, undefined, "")).toBeNull();
+      expect(refuseHostedPath(tool, param, [], "")).toBeNull();
+    }
+  });
+
+  test("helper, not hosted: nothing is refused, \"\" included", () => {
+    for (const { tool, param } of guarded) {
+      for (const v of ["", null, undefined, "/etc/passwd", [""]]) expect(refuseHostedPath(tool, param, v, "")).toBeNull();
+    }
+  });
+
+  test("each handler, hosted: \"\" and null are refused before any work", async () => {
+    setHostedMode(true);
+    const failures: string[] = [];
+    for (const { tool, param } of guarded) {
+      for (const v of ["", null]) {
+        const label = `${tool}.${param}=${JSON.stringify(v)}`;
+        try {
+          const r = await call(tool, { [param]: v });
+          if (!refusedFor(r, param)) failures.push(`${label}: ${(r.content?.[0]?.text ?? "").slice(0, 120)}`);
+        } catch (e) {
+          failures.push(`${label}: threw ${(e as Error).message}`);
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  test("each handler, hosted, parameter omitted: not refused for it", async () => {
+    setHostedMode(true);
+    const refused: string[] = [];
+    for (const { tool, param } of guarded) {
+      try {
+        if (refusedFor(await call(tool, {}), param)) refused.push(`${tool}.${param}`);
+      } catch {
+        // Past the guard, then stopped by the fake browser or a stub: not a refusal.
+      }
+    }
+    expect(refused).toEqual([]);
   });
 });
