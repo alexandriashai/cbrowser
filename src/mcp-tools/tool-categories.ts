@@ -43,6 +43,10 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       "upload_file",
       "handle_dialog",
       "evaluate_script",
+      // Loads the images screenshot and the other views produce. It was in no
+      // category, so every count built from this table missed it. Free by NAME
+      // (FREE_TIER_TOOLS), whatever the category. (B33, 2026-10-10)
+      "artifact_fetch",
     ],
   },
   {
@@ -80,6 +84,9 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       "transport_map",
       "attention_analysis",
       "attention_compare",
+      // Uncategorized until 2026-10-10 (B33), which already priced it pro by
+      // default; this category is pro, so its price is unchanged.
+      "visual_cognitive_story",
     ],
   },
   {
@@ -112,7 +119,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
   },
   {
     name: "site_knowledge",
-    description: "Persistent site models, profiles, and navigation knowledge",
+    description: "Persistent site models, profiles, navigation knowledge, and answers from CBrowser's own docs",
     tier: 2,
     pricingTier: "pro",
     tools: [
@@ -121,6 +128,9 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       "site_profile_list",
       "site_profile_delete",
       "site_profile_status",
+      // Registered beside these in site-knowledge-tools.ts and in no category
+      // until 2026-10-10 (B33). Uncategorized already meant pro; still pro.
+      "question_answer",
     ],
   },
   {
@@ -203,6 +213,9 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       "persona_trait_lookup",
       "persona_traits_list",
       "persona_category_guidance",
+      // The whole-persona view beside persona_values_lookup; in no category
+      // until 2026-10-10 (B33). Uncategorized already meant pro; still pro.
+      "persona_lookup",
     ],
   },
   {
@@ -336,6 +349,20 @@ export function getToolCategory(toolName: string): string | undefined {
     if (cat.tools.includes(toolName)) return cat.name;
   }
   return undefined;
+}
+
+/**
+ * Every tool in the catalog, once. The one source for any tool count the server
+ * prints about itself.
+ *
+ * Those counts were hand-written and had drifted three different ways in one
+ * file: the instructions said "120 tools across 16 categories", the
+ * tools-overview resource said 105 in its description and "120 across 11" in
+ * its body, and persona_creation was "(6 tools)" with nine in it. tools/list on
+ * the enterprise server returned 130 from 20 categories. (B33, 2026-10-10)
+ */
+export function categorizedToolNames(): string[] {
+  return [...new Set(TOOL_CATEGORIES.flatMap(cat => cat.tools))];
 }
 
 /** Get all tools in a tier */

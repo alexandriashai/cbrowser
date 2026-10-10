@@ -86,7 +86,8 @@ export async function resolveRequestAccountId(req: IncomingMessage): Promise<num
   const after = accountCache.get(keyHash);
   return after && after.expiresAt > Date.now() ? after.accountId : null;
 }
-import type { PricingTier } from "./mcp-tools/tool-categories.js";
+import { type PricingTier, TOOL_CATEGORIES, categorizedToolNames } from "./mcp-tools/tool-categories.js";
+import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS, AGENT_PERSONAS } from "./personas.js";
 import type { ToolRegistrationContext } from "./mcp-tools/types.js";
 
 // Shared browser instance (single Chromium process)
@@ -1245,36 +1246,32 @@ function configureMcpTools(
 }
 
 /**
- * Create a configured MCP server instance
+ * Counts this server prints about itself, all derived, never typed.
  *
- * @param customRegisterTools - Optional custom tool registration
- * @param sessionId - Optional session ID for session isolation
+ * Every number below used to be a literal, and they disagreed with each other
+ * and with tools/list: the instructions said "120 tools across 16 categories",
+ * docs://tools-overview said 105 in its description and "120 across 11" in its
+ * body, persona_creation was "(6 tools)" with nine registered, and
+ * docs://personas said 21 while listing 6 of the 10 general personas. Measured
+ * 2026-10-10: tools/list on the enterprise server returned 130 tools, 126 of
+ * them in TOOL_CATEGORIES' 20 categories and 4 in none (B33).
  */
-function createMcpServer(
-  customRegisterTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>,
-  sessionId?: string,
-  resolvedTier?: PricingTier | null,
-): McpServer {
-  const server = new McpServer(
-    {
-      name: "cbrowser",
-      title: "CBrowser — Cognitive Browser Automation",
-      version: VERSION,
-      description: "AI-powered browser automation with cognitive user simulation. 120 MCP tools for navigation, visual testing, accessibility auditing, persona-based testing, site knowledge learning, and security scanning. Simulates how real humans think, struggle, and give up on your site.",
-      websiteUrl: "https://cbrowser.ai",
-      icons: [
-        { src: "https://cbrowser.ai/icon-192.png", sizes: ["192x192"] },
-        { src: "https://cbrowser.ai/icon-512.png", sizes: ["512x512"] },
-        { src: "https://cbrowser.ai/logo.svg", sizes: ["1080x1080"] },
-      ],
-    },
-    {
-      capabilities: {
-        tools: { listChanged: true },
-        prompts: {},
-        resources: {},
-      },
-      instructions: `CBrowser — cognitive browser automation with 120 tools across 16 categories.
+function catalogCounts(): { tools: number; categories: number } {
+  return { tools: categorizedToolNames().length, categories: TOOL_CATEGORIES.length };
+}
+
+/** One line per specialist category, counted from TOOL_CATEGORIES. */
+function specialistCategoryLines(): string {
+  return TOOL_CATEGORIES
+    .filter((cat) => cat.tier > 1)
+    .map((cat) => `• ${cat.name} (${cat.tools.length} tool${cat.tools.length === 1 ? "" : "s"}) — ${cat.tools.slice(0, 5).join(", ")}${cat.tools.length > 5 ? "..." : ""}`)
+    .join("\n");
+}
+
+/** The server instructions sent on initialize. Exported so the counts can be tested. */
+export function buildServerInstructions(): string {
+  const { tools, categories } = catalogCounts();
+  return `CBrowser — cognitive browser automation with ${tools} tools across ${categories} categories.
 
 CORE TOOLS (use these first):
 • navigate, click, fill, scroll, screenshot, extract — browser control
@@ -1287,17 +1284,7 @@ CORE TOOLS (use these first):
 • security_audit — MCP tool injection scanning
 
 SPECIALIST CATEGORIES (use when the task requires them):
-• visual_testing (9 tools) — visual_baseline, visual_regression, cross_browser_test, responsive_test, ab_comparison, transport_map, attention_analysis...
-• cognitive_transport (7 tools) — cognitive_distance, cognitive_coverage, cognitive_interpolate, cognitive_load_estimate, compare_personas...
-• testing (5 tools) — nl_test_inline, nl_test_file, detect_flaky_tests, coverage_map, repair_test
-• site_knowledge (5 tools) — site_model_status, site_model_query, site_profile_list/delete/status
-• bug_hunting (3 tools) — hunt_bugs, chaos_test, competitive_benchmark
-• performance (3 tools) — perf_baseline, perf_regression, list_baselines
-• sessions (4 tools) — save_session, load_session, list_sessions, delete_session
-• marketing (4 tools) — marketing_campaign_create/run/report, marketing_personas_list
-• persona_creation (6 tools) — persona_create_start, questionnaire, from_description
-• enterprise_security (8 tools) — web_security_scan, stealth_enable/disable/check, cloudflare_detect/wait
-• enterprise_marketing (6 tools) — marketing_influence_matrix, lever_analysis, funnel_analyze, audience_discover
+${specialistCategoryLines()}
 
 TIPS:
 • Pass _browserToken between tool calls to maintain browser state
@@ -1316,7 +1303,66 @@ SELF-HELP:
 • If you are unsure what a tool does, what a score means, which persona to use, or how tools work together — call question_answer with your question
 • question_answer searches 290+ pages of CBrowser documentation and returns a grounded answer
 • Use it before guessing. Example: question_answer(question: "What is the difference between viewport and full_page scope?")
-• Use it to explain results to the user. Example: question_answer(question: "What does a CTC of 1.6 with readability bottleneck mean?")`,
+• Use it to explain results to the user. Example: question_answer(question: "What does a CTC of 1.6 with readability bottleneck mean?")`;
+}
+
+/** Body of docs://tools-overview, counted from TOOL_CATEGORIES. */
+export function buildToolsOverviewText(): string {
+  const { tools, categories } = catalogCounts();
+  const list = TOOL_CATEGORIES.map((cat) => `${cat.name} (${cat.tools.length})`).join(", ");
+  return `CBrowser provides ${tools} MCP tools across ${categories} categories: ${list}. Visit https://cbrowser.ai/docs/Tools-Overview for the complete reference.`;
+}
+
+/** Body of docs://personas, listed from the persona maps themselves. */
+export function buildPersonasOverviewText(): string {
+  const groups: Array<[string, string[]]> = [
+    ["Cognitive", Object.keys(BUILTIN_PERSONAS)],
+    ["Accessibility", Object.keys(ACCESSIBILITY_PERSONAS)],
+    ["Emotional", Object.keys(EMOTIONAL_PERSONAS)],
+    ["AI agent", Object.keys(AGENT_PERSONAS)],
+  ];
+  const total = groups.reduce((n, [, names]) => n + names.length, 0);
+  const body = groups.map(([label, names]) => `${label} (${names.length}): ${names.join(", ")}`).join(". ");
+  return `CBrowser includes ${total} built-in personas: ${body}. Each human persona has 26 cognitive traits; agent personas describe AI agents with agent traits instead. Visit https://cbrowser.ai/docs/Persona-Index for details.`;
+}
+
+/** Number of built-in personas across every map docs://personas lists. */
+function builtinPersonaCount(): number {
+  return [BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS, AGENT_PERSONAS]
+    .reduce((n, map) => n + Object.keys(map).length, 0);
+}
+
+/**
+ * Create a configured MCP server instance
+ *
+ * @param customRegisterTools - Optional custom tool registration
+ * @param sessionId - Optional session ID for session isolation
+ */
+function createMcpServer(
+  customRegisterTools?: (server: McpServer, context: ToolRegistrationContext) => void | Promise<void>,
+  sessionId?: string,
+  resolvedTier?: PricingTier | null,
+): McpServer {
+  const server = new McpServer(
+    {
+      name: "cbrowser",
+      title: "CBrowser — Cognitive Browser Automation",
+      version: VERSION,
+      description: `AI-powered browser automation with cognitive user simulation. ${catalogCounts().tools} MCP tools for navigation, visual testing, accessibility auditing, persona-based testing, site knowledge learning, and security scanning. Simulates how real humans think, struggle, and give up on your site.`,
+      websiteUrl: "https://cbrowser.ai",
+      icons: [
+        { src: "https://cbrowser.ai/icon-192.png", sizes: ["192x192"] },
+        { src: "https://cbrowser.ai/icon-512.png", sizes: ["512x512"] },
+        { src: "https://cbrowser.ai/logo.svg", sizes: ["1080x1080"] },
+      ],
+    },
+    {
+      capabilities: {
+        tools: { listChanged: true },
+        prompts: {},
+        resources: {},
+      },
+      instructions: buildServerInstructions(),
     }
   );
 
@@ -1369,11 +1415,11 @@ SELF-HELP:
   server.resource(
     "docs://tools-overview",
     "docs://tools-overview",
-    { description: "Overview of all 105 CBrowser MCP tools organized by category", mimeType: "text/plain" },
+    { description: `Overview of all ${catalogCounts().tools} CBrowser MCP tools organized by category`, mimeType: "text/plain" },
     async () => ({
       contents: [{
         uri: "docs://tools-overview",
-        text: "CBrowser provides 120 MCP tools across 11 categories: Browser Automation, Visual Testing, Cognitive Journeys, Site Knowledge, Accessibility, Persona System, Testing, Performance, Security, Session Management, and Marketing. Visit https://cbrowser.ai/docs/Tools-Overview for the complete reference.",
+        text: buildToolsOverviewText(),
         mimeType: "text/plain",
       }],
     })
@@ -1382,11 +1428,11 @@ SELF-HELP:
   server.resource(
     "docs://personas",
     "docs://personas",
-    { description: "List of 21 built-in personas with cognitive traits", mimeType: "text/plain" },
+    { description: `List of ${builtinPersonaCount()} built-in personas`, mimeType: "text/plain" },
     async () => ({
       contents: [{
         uri: "docs://personas",
-        text: "CBrowser includes 21 personas: Cognitive (6): power-user, first-timer, mobile-user, elderly-user, impatient-user, screen-reader-user. Accessibility (11): motor-impairment-tremor, low-vision-magnified, cognitive-adhd, dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia, autism-spectrum, intellectual-disability, aphasia-receptive, dyscalculia. Emotional (4): anxious-user, confident-user, emotional-user, stoic-user. Each persona has 26 cognitive traits. Visit https://cbrowser.ai/docs/Persona-Index for details.",
+        text: buildPersonasOverviewText(),
         mimeType: "text/plain",
       }],
     })
@@ -2138,11 +2184,14 @@ if (urlParams.get('error')) {
 
     // llms.txt - AI-readable documentation (WebMCP standard)
     if (url.pathname === "/llms.txt" || url.pathname === "/.well-known/llms.txt") {
+      // Count and category list derived from TOOL_CATEGORIES. The hand-written
+      // block said 91 tools, and its per-category numbers did not match the
+      // names it listed ("Visual Testing (6)" named five). (B33, 2026-10-10)
       res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
       res.end(`# CBrowser MCP Server
 # AI-powered browser automation with cognitive user simulation
 
-> CBrowser is an MCP server that provides 91 tools for browser automation,
+> CBrowser is an MCP server that provides ${catalogCounts().tools} tools for browser automation,
 > visual testing, cognitive user simulation, and accessibility auditing.
 > It simulates how real humans think, struggle, and give up on websites.
 
@@ -2165,17 +2214,8 @@ POST /mcp - Model Context Protocol endpoint (JSON-RPC 2.0 over SSE)
 - API Key authentication for programmatic access
 - Demo server (demo.cbrowser.ai): Rate-limited, no auth required
 
-## Tool Categories (91 tools)
-- Navigation (1): navigate
-- Interaction (5): click, smart_click, fill, scroll, press_key
-- Analysis (4): analyze_page, extract, find_element_by_intent, assert
-- Visual Testing (6): visual_baseline, visual_regression, cross_browser_test, responsive_test, ab_comparison
-- Cognitive (3): cognitive_journey_init, cognitive_journey_update_state, list_cognitive_personas
-- Personas (10): compare_personas_init, persona_create, persona_traits_list, etc.
-- Testing (5): nl_test_file, nl_test_inline, repair_test, detect_flaky_tests, coverage_map
-- Audit (4): agent_ready_audit, competitive_benchmark, empathy_audit, webmcp_ready_audit
-- Session (4): save_session, load_session, list_sessions, delete_session
-- Browser (4): browser_health, browser_recover, reset_browser, status
+## Tool Categories (${catalogCounts().tools} tools)
+${TOOL_CATEGORIES.map((cat) => `- ${cat.name} (${cat.tools.length}): ${cat.tools.join(", ")}`).join("\n")}
 
 ## Links
 - Documentation: https://cbrowser.ai/docs
@@ -2223,8 +2263,8 @@ ${VERSION}
   }
 }</code></pre>
 
-  <h2>Available Tools (91)</h2>
-  <p>This server provides 91 MCP tools for browser automation, testing, and analysis.</p>
+  <h2>Available Tools (${catalogCounts().tools})</h2>
+  <p>This server provides ${catalogCounts().tools} MCP tools for browser automation, testing, and analysis.</p>
   <ul>
     <li><strong>Navigation:</strong> navigate, screenshot</li>
     <li><strong>Interaction:</strong> click, smart_click, fill, scroll, press_key</li>
