@@ -51,6 +51,7 @@ import type {
   PageAnalysis,
   FormAnalysis,
   GeneratedTest,
+  TestStep,
   TestGenerationResult,
   SupportedBrowser,
   DismissOverlayOptions,
@@ -4051,7 +4052,7 @@ For more help: https://playwright.dev/docs/browsers
 
     const page = await this.getPage();
     const analysis = await this.analyzePage();
-    const tests = this.generateTestScenarios(analysis);
+    const tests = this.generateTestScenarios(analysis, await this.clickTargetZones(analysis));
 
     return {
       url: page.url(),
@@ -4060,6 +4061,37 @@ For more help: https://playwright.dev/docs/browsers
       cbrowserScript: this.generateCBrowserScript(tests, page.url()),
       playwrightCode: this.generatePlaywrightCode(tests, page.url()),
     };
+  }
+
+  /**
+   * The click gate's zone for every element generate_tests might click, keyed by selector: the selector
+   * string as click() judges it, the element's names, and the element itself through elementZone (the
+   * gate's own classifyElement, so a benign label on a button whose form posts to /account/delete is still
+   * red). The generator used to click whatever it found: a fixture with a "Delete account" button got
+   * `click text="Delete account"` as an unremarked step, which nl_test_inline then refuses, and the
+   * Playwright export would simply run. (v8 b39, 2026-10-10)
+   */
+  private async clickTargetZones(analysis: PageAnalysis): Promise<Map<string, ActionZone>> {
+    const zones = new Map<string, ActionZone>();
+    const candidates = [
+      ...analysis.buttons,
+      ...analysis.links,
+      ...analysis.forms.map(f => f.submitButton).filter((b): b is PageElement => !!b),
+    ].filter(el => !el.hidden && !el.inPage);
+    for (const el of candidates) {
+      // ignoreBlack throughout: the gate refuses red only, and black words describe an instruction, not a
+      // control (the classifyElement rule), so a black match must not mask a red one.
+      let zone: ActionZone = zones.get(el.selector) ?? "yellow";
+      for (const name of [el.selector, el.text, el.ariaLabel]) {
+        if (name) zone = this.maxZone(zone, this.classifyAction("click", name, { ignoreBlack: true }));
+      }
+      if (!zones.has(el.selector)) {
+        const judged = await this.elementZone(el.selector).catch(() => null);
+        if (judged) zone = this.maxZone(zone, judged.zone);
+      }
+      zones.set(el.selector, zone);
+    }
+    return zones;
   }
 
   /**
@@ -4092,9 +4124,36 @@ For more help: https://playwright.dev/docs/browsers
         return el.tagName.toLowerCase();
       };
 
+      // What a user cannot see, flagged so generate_tests makes no step of it: no box at all (display:none
+      // here or on an ancestor, <input type=hidden>), visibility:hidden, a 1-2px box (sr-only), parked
+      // off-screen (left:-9999px, top:-40px, translateY(-100%)), or clipped the sr-only way. The clip and
+      // class rules are empathy_audit's target exemptions (accessibility-empathy.ts). The generator turned
+      // a skip link into "Click Skip to content". (v8 b39, 2026-10-10)
+      const hiddenFromView = (el: Element): boolean => {
+        if (el.getClientRects().length === 0) return true;
+        const style = getComputedStyle(el);
+        if (style.visibility === "hidden" || style.visibility === "collapse") return true;
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 2 || rect.height <= 2) return true;
+        if (rect.right + window.scrollX <= 0 || rect.bottom + window.scrollY <= 0) return true;
+        if ((style.position === "absolute" || style.position === "fixed") &&
+          (style.clip === "rect(0px, 0px, 0px, 0px)" || style.clip === "rect(1px, 1px, 1px, 1px)" || style.clipPath === "inset(50%)")) return true;
+        return el.classList.contains("sr-only") || el.classList.contains("visually-hidden") || el.classList.contains("screen-reader-text");
+      };
+      // A link to a fragment of this same page ("#main", "#") scrolls or moves focus; it never navigates.
+      const inPageLink = (el: Element): boolean => {
+        if (!(el.getAttribute("href") || "").includes("#")) return false;
+        try {
+          const u = new URL((el as HTMLAnchorElement).href);
+          return u.origin + u.pathname + u.search === location.origin + location.pathname + location.search;
+        } catch { return false; }
+      };
+      const visibility = (el: Element) => (hiddenFromView(el) ? { hidden: true } : {});
+
       // Analyze forms
       const forms: FormAnalysis[] = Array.from(document.querySelectorAll("form")).map(form => {
         const fields: PageElement[] = Array.from(form.querySelectorAll("input, select, textarea")).map(el => ({
+          ...visibility(el),
           type: el.tagName.toLowerCase() as PageElement["type"],
           selector: getSelector(el),
           name: el.getAttribute("name") || undefined,
@@ -4107,6 +4166,7 @@ For more help: https://playwright.dev/docs/browsers
 
         const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
         const submitButton = submitBtn ? {
+          ...visibility(submitBtn),
           type: "button" as const,
           selector: getSelector(submitBtn),
           text: submitBtn.textContent?.trim(),
@@ -4189,6 +4249,7 @@ For more help: https://playwright.dev/docs/browsers
       const buttons: PageElement[] = Array.from(document.querySelectorAll('button, [role="button"], input[type="button"]'))
         .slice(0, 20)
         .map(el => ({
+          ...visibility(el),
           type: "button" as const,
           selector: getSelector(el),
           text: el.textContent?.trim(),
@@ -4201,6 +4262,8 @@ For more help: https://playwright.dev/docs/browsers
       const links: PageElement[] = Array.from(document.querySelectorAll("a[href]"))
         .slice(0, 20)
         .map(el => ({
+          ...visibility(el),
+          ...(inPageLink(el) ? { inPage: true } : {}),
           type: "link" as const,
           selector: getSelector(el),
           text: el.textContent?.trim(),
@@ -4257,25 +4320,63 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Generate test scenarios from page analysis.
+   *
+   * zones: the click gate's zone per selector (clickTargetZones). A red control is never an exploratory
+   * click: it is left out and named in the test's notes. A form's own submit that is red stays (the test
+   * means nothing without it) but is marked zone "red" and says it will be refused. Hidden elements and
+   * in-page links make no step at all. (v8 b39, 2026-10-10)
    */
-  private generateTestScenarios(analysis: PageAnalysis): GeneratedTest[] {
+  private generateTestScenarios(analysis: PageAnalysis, zones: Map<string, ActionZone> = new Map()): GeneratedTest[] {
     const tests: GeneratedTest[] = [];
+    const isRed = (target: string) =>
+      (zones.get(target) ?? this.classifyAction("click", target, { ignoreBlack: true })) === "red";
+    const REFUSED = "the click gate refuses it without force: true, and NL test steps never pass force";
+    const clickStep = (target: string, description: string): TestStep =>
+      isRed(target)
+        ? { action: "click", target, description: `${description} (red zone: ${REFUSED})`, zone: "red" }
+        : { action: "click", target, description };
+    // The first n elements that are not red; each red one passed over is named in notes.
+    const notRed = (els: PageElement[], n: number, notes: string[]): PageElement[] => {
+      const picked: PageElement[] = [];
+      for (const el of els) {
+        if (picked.length >= n) break;
+        if (isRed(el.selector)) {
+          // One line: a note is emitted as a comment, and a newline from textContent would end the comment
+          // and leave the rest as a script step or as Playwright code.
+          const note = `Not clicked: "${el.text || el.ariaLabel || el.selector}" (${el.selector}) is a red-zone control; ${REFUSED}.`;
+          notes.push(note.replace(/\s+/g, " "));
+          continue;
+        }
+        picked.push(el);
+      }
+      return picked;
+    };
+    // Notes ride on the test they explain; when every candidate was red there is no such test, and they
+    // ride on the smoke test instead, so the caller still learns the control exists.
+    const unplaced: string[] = [];
+    const withNotes = (test: GeneratedTest, notes: string[]): GeneratedTest => (notes.length ? { ...test, notes } : test);
+    const submitTarget = (form: FormAnalysis, fallback: string) =>
+      form.submitButton && !form.submitButton.hidden ? form.submitButton.selector : fallback;
 
     // Generate form tests
     for (const form of analysis.forms) {
+      // A form whose every field is hidden (a collapsed search drawer) is not one a user can fill.
+      const fields = form.fields.filter(f => !f.hidden);
+      if (form.fields.length > 0 && fields.length === 0) continue;
+
       if (form.purpose === "login") {
         tests.push({
           name: "Login Form Submission",
           description: "Test the login form with valid credentials",
           steps: [
             { action: "navigate", target: analysis.url, description: "Navigate to page" },
-            ...form.fields.filter(f => f.inputType !== "submit").map(f => ({
+            ...fields.filter(f => f.inputType !== "submit").map(f => ({
               action: "fill" as const,
               target: f.selector,
               value: f.inputType === "email" ? "test@example.com" : f.inputType === "password" ? "TestPassword123" : "test value",
               description: `Fill ${f.name || f.placeholder || "field"}`,
             })),
-            { action: "click", target: form.submitButton?.selector || "Submit", description: "Submit form" },
+            clickStep(submitTarget(form, "Submit"), "Submit form"),
             { action: "wait", value: "1000", description: "Wait for response" },
           ],
           assertions: ["url contains '/dashboard' OR url contains '/home'", "page does not contain 'error'"],
@@ -4286,8 +4387,8 @@ For more help: https://playwright.dev/docs/browsers
           description: "Test login form with invalid credentials",
           steps: [
             { action: "navigate", target: analysis.url, description: "Navigate to page" },
-            { action: "fill", target: form.fields.find(f => f.inputType === "email")?.selector || "", value: "invalid", description: "Enter invalid email" },
-            { action: "click", target: form.submitButton?.selector || "Submit", description: "Submit form" },
+            { action: "fill", target: fields.find(f => f.inputType === "email")?.selector || "", value: "invalid", description: "Enter invalid email" },
+            clickStep(submitTarget(form, "Submit"), "Submit form"),
           ],
           assertions: ["page contains 'error' OR page contains 'invalid'"],
         });
@@ -4299,8 +4400,8 @@ For more help: https://playwright.dev/docs/browsers
           description: "Test search with a query",
           steps: [
             { action: "navigate", target: analysis.url, description: "Navigate to page" },
-            { action: "fill", target: form.fields[0]?.selector || "[type='search']", value: "test query", description: "Enter search term" },
-            { action: "click", target: form.submitButton?.selector || "Search", description: "Submit search" },
+            { action: "fill", target: fields[0]?.selector || "[type='search']", value: "test query", description: "Enter search term" },
+            clickStep(submitTarget(form, "Search"), "Submit search"),
           ],
           assertions: ["url contains 'search' OR url contains 'q='", "page contains 'result'"],
         });
@@ -4309,9 +4410,18 @@ For more help: https://playwright.dev/docs/browsers
 
     // Generate navigation tests
     if (analysis.hasNavigation) {
-      const navLinks = analysis.links.filter(l => l.href?.startsWith(analysis.url.split("/").slice(0, 3).join("/")));
+      // Not a skip link or any other "#fragment" link (it never navigates), nothing a user cannot see, and
+      // no red control.
+      const navNotes: string[] = [];
+      const navLinks = notRed(analysis.links.filter(l =>
+        l.href?.startsWith(analysis.url.split("/").slice(0, 3).join("/")) && !l.hidden && !l.inPage), 5, navNotes);
+      // Each pass starts again from the page under test, which is "home" only when it is the site root: a
+      // page at /account/settings said "Start from home" for every link. (v8 b39, 2026-10-10)
+      let startPath = analysis.url;
+      try { const u = new URL(analysis.url); startPath = u.pathname + u.search; } catch { /* keep the url */ }
+      const startDescription = startPath === "/" ? "Start from home" : `Start from ${startPath}`;
       if (navLinks.length > 0) {
-        tests.push({
+        tests.push(withNotes({
           name: "Navigation Links",
           description: "Test main navigation links work",
           // A same-page link has pathname "/", and `assert url contains '/'` is
@@ -4319,12 +4429,12 @@ For more help: https://playwright.dev/docs/browsers
           // than no step, because it reads in the report as verified navigation.
           // Emit the assertion only when the path can actually distinguish the
           // destination from the origin. (2026-07-29)
-          steps: navLinks.slice(0, 5).flatMap(link => {
+          steps: navLinks.flatMap(link => {
             let path = "";
             try { path = new URL(link.href || "", analysis.url).pathname; } catch { path = ""; }
             const discriminating = path.length > 1 && path !== new URL(analysis.url).pathname;
             return [
-              { action: "navigate" as const, target: analysis.url, description: "Start from home" },
+              { action: "navigate" as const, target: analysis.url, description: startDescription },
               { action: "click" as const, target: link.selector, description: `Click ${link.text || "link"}` },
               ...(discriminating
                 ? [{ action: "assert" as const, target: `url contains '${path}'`, description: "Verify navigation" }]
@@ -4332,32 +4442,37 @@ For more help: https://playwright.dev/docs/browsers
             ];
           }),
           assertions: ["no console errors"],
-        });
+        }, navNotes));
+      } else {
+        unplaced.push(...navNotes);
       }
     }
 
     // Generate button interaction tests
-    const actionButtons = analysis.buttons.filter(b =>
-      b.text && !b.text.toLowerCase().includes("submit") && b.text.length < 30
-    );
+    const buttonNotes: string[] = [];
+    const actionButtons = notRed(analysis.buttons.filter(b =>
+      b.text && !b.text.toLowerCase().includes("submit") && b.text.length < 30 && !b.hidden
+    ), 3, buttonNotes);
     if (actionButtons.length > 0) {
-      tests.push({
+      tests.push(withNotes({
         name: "Button Interactions",
         description: "Test clickable buttons respond correctly",
         steps: [
           { action: "navigate", target: analysis.url, description: "Navigate to page" },
-          ...actionButtons.slice(0, 3).map(btn => ({
+          ...actionButtons.map(btn => ({
             action: "click" as const,
             target: btn.selector,
             description: `Click "${btn.text}"`,
           })),
         ],
         assertions: ["no console errors", "page is interactive"],
-      });
+      }, buttonNotes));
+    } else {
+      unplaced.push(...buttonNotes);
     }
 
     // Default smoke test
-    tests.push({
+    tests.push(withNotes({
       name: "Page Load Smoke Test",
       description: "Verify page loads without errors",
       steps: [
@@ -4365,7 +4480,7 @@ For more help: https://playwright.dev/docs/browsers
         { action: "assert", target: `title contains '${analysis.title.split(" ")[0]}'`, description: "Verify title" },
       ],
       assertions: ["page loads successfully", "no console errors"],
-    });
+    }, unplaced));
 
     return tests;
   }
@@ -4379,6 +4494,11 @@ For more help: https://playwright.dev/docs/browsers
     for (const test of tests) {
       script += `# ${test.name}\n`;
       script += `# ${test.description}\n`;
+      // `//`, not `#`: parseNLTestSuite drops `//` lines, but reads every `#` line as a new test header,
+      // so a `#` note would rename the test or split it in two. (v8 b39, 2026-10-10)
+      for (const note of test.notes ?? []) {
+        script += `// note: ${note}\n`;
+      }
 
       // This must be the dialect src/testing/nl-test-suite.ts PARSES, because the
       // MCP tool tells callers to paste it straight into nl_test_inline. It used
@@ -4393,6 +4513,9 @@ For more help: https://playwright.dev/docs/browsers
             script += `go to ${step.target}\n`;
             break;
           case "click":
+            if (step.zone === "red") {
+              script += `// red zone: the next click is refused without force: true, and NL test steps never pass force\n`;
+            }
             // Unquoted: the parser takes the rest of the line as the target.
             script += `click ${step.target}\n`;
             break;
@@ -4433,20 +4556,28 @@ For more help: https://playwright.dev/docs/browsers
     for (const testDef of tests) {
       const _testName = testDef.name.toLowerCase().replace(/\s+/g, "-");
       code += `test('${testDef.name}', async ({ page }) => {\n`;
-      code += `  // ${testDef.description}\n\n`;
+      code += `  // ${testDef.description}\n`;
+      for (const note of testDef.notes ?? []) {
+        code += `  // note: ${note}\n`;
+      }
+      code += `\n`;
 
       for (const step of testDef.steps) {
         switch (step.action) {
           case "navigate":
             code += `  await page.goto('${step.target}');\n`;
             break;
-          case "click":
-            if (step.target?.startsWith("text=")) {
-              code += `  await page.getByText('${step.target.replace("text=", "").replace(/"/g, "")}').click();\n`;
-            } else {
-              code += `  await page.locator('${step.target}').click();\n`;
-            }
+          case "click": {
+            const click = step.target?.startsWith("text=")
+              ? `await page.getByText('${step.target.replace("text=", "").replace(/"/g, "")}').click();`
+              : `await page.locator('${step.target}').click();`;
+            // Playwright has no zone gate: an exported red click would simply run. It ships commented out.
+            // (v8 b39, 2026-10-10)
+            code += step.zone === "red"
+              ? `  // red zone: cbrowser refuses this click without force; left commented out so this test cannot run it.\n  // ${click}\n`
+              : `  ${click}\n`;
             break;
+          }
           case "fill":
             code += `  await page.locator('${step.target}').fill('${step.value}');\n`;
             break;

@@ -3848,6 +3848,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             output += `  📝 ${test.name}\n`;
             output += `     ${test.description}\n`;
             output += `     Steps: ${test.steps.length}\n`;
+            // Red-zone controls the generator left out (v8 b39, 2026-10-10).
+            for (const note of test.notes ?? []) output += `     Note: ${note}\n`;
             output += `     Assertions: ${test.assertions.join(", ")}\n\n`;
           }
         }

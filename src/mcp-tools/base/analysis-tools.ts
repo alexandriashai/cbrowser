@@ -135,8 +135,13 @@ export function registerAnalysisTools(
                   ...(st.target ? { target: st.target } : {}),
                   ...(st.value !== undefined ? { value: st.value } : {}),
                   description: st.description,
+                  // A click the gate will refuse, and the controls left out for
+                  // that reason, reach the caller rather than stopping at the
+                  // generator. (v8 b39, 2026-10-10)
+                  ...(st.zone ? { zone: st.zone } : {}),
                 })),
                 assertions: t.assertions,
+                ...(t.notes?.length ? { notes: t.notes } : {}),
               })),
               // Ready to paste straight into nl_test_inline.
               cbrowserScript: result.cbrowserScript,
