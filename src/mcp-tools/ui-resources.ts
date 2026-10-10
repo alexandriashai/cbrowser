@@ -22,6 +22,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { buildWidget, widgetUri, MCP_APP_MIME as KIT_MIME, type WidgetSpec } from "./widget-kit.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { scopedAccountId } from "../persona-scope.js";
 
 export const UI_PROBE_URI = "ui://cbrowser/probe";
 export const CAPTURE_UI_PREFIX = "ui://cbrowser/capture/";
@@ -36,13 +37,27 @@ export const CAPTURE_UI_PREFIX = "ui://cbrowser/capture/";
  *
  * Bounded because these hold hundreds of KB of embedded frames each and a
  * long-lived server would otherwise accumulate every capture it ever ran.
+ *
+ * Keyed by the publishing account as well as the slug. The store is one map
+ * for the whole hosted process, and it was keyed by slug alone: resources/list
+ * enumerated every account's players and resources/read served any slug to
+ * any caller, and a caller-chosen capture name could overwrite another
+ * account's entry. An entry is now visible only to the account scope that
+ * published it; unscoped callers (CLI, stdio, local) share the unscoped
+ * partition exactly as before. (tenant, 2026-10-10)
  */
 const CAPTURE_HTML_LIMIT = 24;
-const captureHtml = new Map<string, string>();
+const captureHtml = new Map<string, { slug: string; html: string; accountId: number | undefined }>();
+
+/** Store key: the account partition, then the slug. "-" is the unscoped partition. */
+function captureKey(slug: string, accountId: number | undefined): string {
+  return `${accountId ?? "-"}/${slug}`;
+}
 
 /** Store a built player and return the resource URI that will serve it. */
 export function publishCaptureUi(slug: string, html: string): string {
-  captureHtml.set(slug, html);
+  const accountId = scopedAccountId();
+  captureHtml.set(captureKey(slug, accountId), { slug, html, accountId });
   while (captureHtml.size > CAPTURE_HTML_LIMIT) {
     const oldest = captureHtml.keys().next().value;
     if (oldest === undefined) break;
@@ -674,7 +689,8 @@ export function buildStatusTemplate(): string {
 
 /** Read back a published capture panel by its resource URI. */
 export function readCaptureUi(uri: string): string | undefined {
-  return captureHtml.get(uri.startsWith(CAPTURE_UI_PREFIX) ? uri.slice(CAPTURE_UI_PREFIX.length) : uri);
+  const slug = uri.startsWith(CAPTURE_UI_PREFIX) ? uri.slice(CAPTURE_UI_PREFIX.length) : uri;
+  return captureHtml.get(captureKey(slug, scopedAccountId()))?.html;
 }
 
 /** Register the inline-UI resources on a server. Safe to call more than once. */
@@ -801,19 +817,26 @@ export function registerUiResources(server: McpServer): void {
     // host that discovers views by listing would never find a capture panel --
     // and it fails silently, the way a URI mismatch does. Published captures are
     // enumerated instead, which is cheap because the store is bounded at 24.
+    // Only the caller's own partition is listed or read. (tenant, 2026-10-10)
     new ResourceTemplate(`${CAPTURE_UI_PREFIX}{slug}`, {
-      list: async () => ({
-        resources: [...captureHtml.keys()].map((slug) => ({
-          uri: `${CAPTURE_UI_PREFIX}${slug}`,
-          name: `Capture player: ${slug}`,
-          mimeType: MCP_APP_MIME,
-        })),
-      }),
+      list: async () => {
+        const caller = scopedAccountId();
+        return {
+          resources: [...captureHtml.values()]
+            .filter((entry) => entry.accountId === caller)
+            .map(({ slug }) => ({
+              uri: `${CAPTURE_UI_PREFIX}${slug}`,
+              name: `Capture player: ${slug}`,
+              mimeType: MCP_APP_MIME,
+            })),
+        };
+      },
     }),
     { description: "Inline capture player with embedded frames", mimeType: MCP_APP_MIME },
     async (uri, vars) => {
       const slug = String(Array.isArray(vars.slug) ? vars.slug[0] : vars.slug ?? "");
-      const html = captureHtml.get(slug);
+      // Another account's slug reads exactly like an expired one.
+      const html = captureHtml.get(captureKey(slug, scopedAccountId()))?.html;
       return {
         contents: [{
           uri: uri.href,
