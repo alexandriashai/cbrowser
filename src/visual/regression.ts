@@ -16,7 +16,7 @@ import { VERSION } from "../version.js";
 import { join } from "path";
 
 import { CBrowser } from "../browser.js";
-import { effectiveDataDir } from "../config.js";
+import { effectiveDataDir, getPaths } from "../config.js";
 import type {
   VisualBaseline,
   VisualChange,
@@ -60,6 +60,22 @@ function getVisualScreenshotsPath(): string {
     mkdirSync(screenshotsDir, { recursive: true });
   }
   return screenshotsDir;
+}
+
+/**
+ * Where a regression run writes its CURRENT capture. (v8 B36, 2026-10-10)
+ *
+ * These used to land in visual-baselines/screenshots beside the baselines, and
+ * nothing ever deleted them (the v8 report counted 25 orphan current-*.png
+ * there on the live server). That directory holds what a user chose to keep,
+ * so no retention may sweep it. The per-account session screenshots dir is the
+ * one screenshot retention already sweeps (cleanupOldScreenshotSessions, run by
+ * ensureDirectories, 1 hour by default).
+ */
+function getCurrentCaptureDir(): string {
+  const dir = getPaths().screenshotsDir;
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 /**
@@ -503,8 +519,8 @@ export async function runSmartRegression(
     viewportHeight: 1080,
   });
 
-  const screenshotsPath = getVisualScreenshotsPath();
-  const currentPath = join(screenshotsPath, `current-${Date.now()}.png`);
+  // Session screenshots dir, where retention applies (v8 B36).
+  const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
 
   try {
     await browser.launch();
@@ -647,8 +663,8 @@ export async function runRegressionWithTransportMap(
 
   // Capture current screenshot
   const browser = new CBrowser({ viewportWidth: 1920, viewportHeight: 1080 });
-  const screenshotsPath = getVisualScreenshotsPath();
-  const currentPath = join(screenshotsPath, `current-${Date.now()}.png`);
+  // Session screenshots dir, where retention applies (v8 B36).
+  const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
 
   try {
     await browser.launch();
@@ -1177,8 +1193,9 @@ export async function runVisualRegression(
       await new Promise(resolve => setTimeout(resolve, options.waitBeforeCapture));
     }
 
-    // Take screenshot
-    const screenshotsPath = getVisualScreenshotsPath();
+    // Take screenshot, into the session screenshots dir, where retention
+    // applies (v8 B36).
+    const screenshotsPath = getCurrentCaptureDir();
     const currentScreenshotPath = join(screenshotsPath, `current-${baseline.id}-${Date.now()}.png`);
 
     const page = await browser.getPage();
