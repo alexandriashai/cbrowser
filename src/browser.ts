@@ -4129,16 +4129,36 @@ For more help: https://playwright.dev/docs/browsers
       // off-screen (left:-9999px, top:-40px, translateY(-100%)), or clipped the sr-only way. The clip and
       // class rules are empathy_audit's target exemptions (accessibility-empathy.ts). The generator turned
       // a skip link into "Click Skip to content". (v8 b39, 2026-10-10)
+      const srOnly = (el: Element, style: CSSStyleDeclaration): boolean =>
+        ((style.position === "absolute" || style.position === "fixed") &&
+          (style.clip === "rect(0px, 0px, 0px, 0px)" || style.clip === "rect(1px, 1px, 1px, 1px)" || style.clipPath === "inset(50%)")) ||
+        el.classList.contains("sr-only") || el.classList.contains("visually-hidden") || el.classList.contains("screen-reader-text");
       const hiddenFromView = (el: Element): boolean => {
         if (el.getClientRects().length === 0) return true;
+        // opacity:0 here or on an ancestor, and content-visibility:hidden, where the engine can say so.
+        if (typeof el.checkVisibility === "function" && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return true;
         const style = getComputedStyle(el);
         if (style.visibility === "hidden" || style.visibility === "collapse") return true;
+        if (style.opacity === "0") return true;
         const rect = el.getBoundingClientRect();
         if (rect.width <= 2 || rect.height <= 2) return true;
         if (rect.right + window.scrollX <= 0 || rect.bottom + window.scrollY <= 0) return true;
-        if ((style.position === "absolute" || style.position === "fixed") &&
-          (style.clip === "rect(0px, 0px, 0px, 0px)" || style.clip === "rect(1px, 1px, 1px, 1px)" || style.clipPath === "inset(50%)")) return true;
-        return el.classList.contains("sr-only") || el.classList.contains("visually-hidden") || el.classList.contains("screen-reader-text");
+        if (srOnly(el, style)) return true;
+        // A wrapper hides what it holds: a link inside an sr-only div keeps its own full-size box, and became
+        // `click text="Hidden child link"` plus a url assertion; a button at opacity:0 was clicked. So every
+        // ancestor is judged too: sr-only (clipped or classed), opacity:0 (for engines without
+        // checkVisibility), or a 1-2px box that clips its overflow. display:contents has no box to measure.
+        // (v8 b39, 2026-10-10)
+        for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+          const s = getComputedStyle(p);
+          if (s.display === "contents") continue;
+          if (srOnly(p, s) || s.opacity === "0") return true;
+          if (s.overflowX !== "visible" || s.overflowY !== "visible") {
+            const r = p.getBoundingClientRect();
+            if (r.width <= 2 || r.height <= 2) return true;
+          }
+        }
+        return false;
       };
       // A link to a fragment of this same page ("#main", "#") scrolls or moves focus; it never navigates.
       const inPageLink = (el: Element): boolean => {
@@ -4355,17 +4375,29 @@ For more help: https://playwright.dev/docs/browsers
     // ride on the smoke test instead, so the caller still learns the control exists.
     const unplaced: string[] = [];
     const withNotes = (test: GeneratedTest, notes: string[]): GeneratedTest => (notes.length ? { ...test, notes } : test);
-    const submitTarget = (form: FormAnalysis, fallback: string) =>
-      form.submitButton && !form.submitButton.hidden ? form.submitButton.selector : fallback;
+    // A form's submit click, or none. A submit hidden from view is no target: falling back to the bare word
+    // made `click Search` and `page.locator('Search')`, which resolve to nothing (6fbeda6 clicked the hidden
+    // button itself). The NL dialect has no key press ("press Enter" parses as a click on "Enter"), so there
+    // is no Enter step to offer instead: the click is left out and a note says why. A form with no submit
+    // button at all keeps the word fallback it had before. (v8 b39, 2026-10-10)
+    const submitSteps = (form: FormAnalysis, fallback: string, description: string): TestStep[] =>
+      form.submitButton?.hidden ? [] : [clickStep(form.submitButton?.selector || fallback, description)];
+    const submitNotes = (form: FormAnalysis): string[] => {
+      const btn = form.submitButton;
+      if (!btn?.hidden) return [];
+      const note = `Not clicked: the form's submit "${btn.text || btn.selector}" (${btn.selector}) is hidden from view, and NL test steps have no key press; submit it by pressing Enter in the last field.`;
+      return [note.replace(/\s+/g, " ")];
+    };
 
     // Generate form tests
     for (const form of analysis.forms) {
       // A form whose every field is hidden (a collapsed search drawer) is not one a user can fill.
       const fields = form.fields.filter(f => !f.hidden);
       if (form.fields.length > 0 && fields.length === 0) continue;
+      const formNotes = submitNotes(form);
 
       if (form.purpose === "login") {
-        tests.push({
+        tests.push(withNotes({
           name: "Login Form Submission",
           description: "Test the login form with valid credentials",
           steps: [
@@ -4376,35 +4408,35 @@ For more help: https://playwright.dev/docs/browsers
               value: f.inputType === "email" ? "test@example.com" : f.inputType === "password" ? "TestPassword123" : "test value",
               description: `Fill ${f.name || f.placeholder || "field"}`,
             })),
-            clickStep(submitTarget(form, "Submit"), "Submit form"),
+            ...submitSteps(form, "Submit", "Submit form"),
             { action: "wait", value: "1000", description: "Wait for response" },
           ],
           assertions: ["url contains '/dashboard' OR url contains '/home'", "page does not contain 'error'"],
-        });
+        }, formNotes));
 
-        tests.push({
+        tests.push(withNotes({
           name: "Login Form Validation",
           description: "Test login form with invalid credentials",
           steps: [
             { action: "navigate", target: analysis.url, description: "Navigate to page" },
             { action: "fill", target: fields.find(f => f.inputType === "email")?.selector || "", value: "invalid", description: "Enter invalid email" },
-            clickStep(submitTarget(form, "Submit"), "Submit form"),
+            ...submitSteps(form, "Submit", "Submit form"),
           ],
           assertions: ["page contains 'error' OR page contains 'invalid'"],
-        });
+        }, formNotes));
       }
 
       if (form.purpose === "search") {
-        tests.push({
+        tests.push(withNotes({
           name: "Search Functionality",
           description: "Test search with a query",
           steps: [
             { action: "navigate", target: analysis.url, description: "Navigate to page" },
             { action: "fill", target: fields[0]?.selector || "[type='search']", value: "test query", description: "Enter search term" },
-            clickStep(submitTarget(form, "Search"), "Submit search"),
+            ...submitSteps(form, "Search", "Submit search"),
           ],
           assertions: ["url contains 'search' OR url contains 'q='", "page contains 'result'"],
-        });
+        }, formNotes));
       }
     }
 

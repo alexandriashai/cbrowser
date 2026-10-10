@@ -30,7 +30,7 @@ process.env.CBROWSER_DATA_DIR ??= mkdtempSync(join(tmpdir(), "cb-gen-tests-data-
 process.env.CBROWSER_ARTIFACT_DIR ??= mkdtempSync(join(tmpdir(), "cb-gen-tests-art-"));
 
 const { CBrowser } = await import("../src/browser.js");
-const { parseNLTestSuite } = await import("../src/testing/nl-test-suite.js");
+const { parseNLTestSuite, parseNLInstruction } = await import("../src/testing/nl-test-suite.js");
 
 const SETTINGS = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Account settings</title>
 <style>
@@ -61,13 +61,36 @@ const SEARCH = `<!doctype html><html lang="en"><head><meta charset="utf-8"><titl
 <form action="/account/delete" method="post"><input type="search" name="q" placeholder="Search"><button type="submit">Go</button></form>
 </main></body></html>`;
 
+// Follow-up from the branch's verifier (2026-10-10): hiddenFromView judged only the element's own box, so a
+// link inside an sr-only wrapper and a button at opacity:0 still became steps.
+const WRAPPED = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Wrapped things</title></head><body>
+<nav><a href="/one">One</a> <a href="/two">Two</a> <a href="/three">Three</a> <a href="/four">Four</a>
+<div class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)"><a href="/hidden-page">Hidden child link</a></div>
+<div style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)"><a href="/clipped-page">Clipped child link</a></div>
+<div style="width:1px;height:1px;overflow:hidden"><a href="/tiny-page">Tiny wrapper link</a></div>
+</nav>
+<main><h1>Wrapped things</h1>
+<button type="button" style="opacity:0">Invisible opacity</button>
+<div style="opacity:0"><button type="button">Faded wrapper button</button></div>
+<button type="button">Visible button</button>
+</main></body></html>`;
+
+// A form whose submit is sr-only: 6fbeda6 clicked the hidden button; ee68ce7 fell back to the bare word
+// "Search" / "Submit", a target that resolves to nothing.
+const HIDDEN_SUBMIT = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Hidden submits</title>
+<style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}</style></head><body>
+<main><h1>Hidden submits</h1>
+<form action="/results" method="get"><input type="search" name="q" placeholder="Search"><button type="submit" class="sr-only">Go</button></form>
+<form action="/session" method="post"><input type="email" name="email"><input type="password" name="password"><button type="submit" class="sr-only">Sign in</button></form>
+</main></body></html>`;
+
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 let b: InstanceType<typeof CBrowser>;
 beforeAll(async () => {
   server = Bun.serve({ port: 0, fetch: (req) => {
     const p = new URL(req.url).pathname;
-    const html = p === "/search" ? SEARCH : SETTINGS;
+    const html = p === "/search" ? SEARCH : p === "/app" ? WRAPPED : p === "/hidden-submit" ? HIDDEN_SUBMIT : SETTINGS;
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
   } });
   base = `http://localhost:${server.port}`;
@@ -154,4 +177,75 @@ describe("generate_tests uses the click gate's element verdict", () => {
     expect(c.success).toBe(false);
     expect(c.zone).toBe("red");
   }, 90000);
+});
+
+const stepText = (tests: Array<{ steps: Step[] }>) =>
+  tests.flatMap((t) => t.steps).map((s) => `${s.target ?? ""} | ${s.description}`).join("\n");
+
+describe("generate_tests leaves out what a wrapper hides", () => {
+  let result: Awaited<ReturnType<InstanceType<typeof CBrowser>["generateTests"]>>;
+  beforeAll(async () => {
+    result = await b.generateTests(`${base}/app`);
+  }, 90000);
+
+  test("a link inside an sr-only, clipped or 1px overflow-hidden wrapper is not a navigation step", () => {
+    const text = stepText(result.tests);
+    expect(text).not.toMatch(/Hidden child link|hidden-page/);
+    expect(text).not.toMatch(/Clipped child link|clipped-page/);
+    expect(text).not.toMatch(/Tiny wrapper link|tiny-page/);
+    expect(result.cbrowserScript).not.toMatch(/hidden-page|clipped-page|tiny-page/);
+    const nav = result.tests.find((t) => t.name === "Navigation Links");
+    expect(nav?.steps.filter((s) => s.action === "click").map((s) => s.description))
+      .toEqual(["Click One", "Click Two", "Click Three", "Click Four"]);
+    for (const name of ["Hidden child link", "Clipped child link", "Tiny wrapper link"]) {
+      expect(result.analysis.links.find((l) => l.text === name)?.hidden).toBe(true);
+    }
+  });
+
+  test("a button at opacity:0, or inside a wrapper at opacity:0, is not clicked", () => {
+    const buttons = result.tests.find((t) => t.name === "Button Interactions");
+    expect(buttons?.steps.filter((s) => s.action === "click").map((s) => s.description))
+      .toEqual(['Click "Visible button"']);
+    expect(result.cbrowserScript).not.toMatch(/Invisible opacity|Faded wrapper button/);
+    expect(result.playwrightCode).not.toMatch(/Invisible opacity|Faded wrapper button/);
+  });
+});
+
+describe("generate_tests with a hidden submit", () => {
+  let result: Awaited<ReturnType<InstanceType<typeof CBrowser>["generateTests"]>>;
+  const FORM_TESTS = ["Search Functionality", "Login Form Submission", "Login Form Validation"];
+  beforeAll(async () => {
+    result = await b.generateTests(`${base}/hidden-submit`);
+  }, 90000);
+
+  test("no bare 'Submit' or 'Search' target, and no click on the hidden button", () => {
+    for (const name of FORM_TESTS) {
+      const t = result.tests.find((x) => x.name === name);
+      expect(t).toBeDefined();
+      expect(t!.steps.filter((s) => s.action === "click")).toEqual([]);
+      // The fields a user can fill are still filled.
+      expect(t!.steps.some((s) => s.action === "fill")).toBe(true);
+    }
+    expect(clicks(result.tests).map((s) => s.target)).not.toContain("Search");
+    expect(clicks(result.tests).map((s) => s.target)).not.toContain("Submit");
+    expect(result.cbrowserScript).not.toMatch(/^click (Submit|Search)$/m);
+    expect(result.playwrightCode).not.toMatch(/locator\('(Submit|Search)'\)/);
+  });
+
+  test("each form test names the hidden submit and says how to submit instead", () => {
+    const notesOf = (name: string) => result.tests.find((t) => t.name === name)?.notes ?? [];
+    expect(notesOf("Search Functionality").some((n) => /"Go"/.test(n) && /hidden from view/.test(n) && /Enter/.test(n))).toBe(true);
+    expect(notesOf("Login Form Submission").some((n) => /"Sign in"/.test(n) && /hidden from view/.test(n))).toBe(true);
+    expect(notesOf("Login Form Validation").some((n) => /"Sign in"/.test(n) && /hidden from view/.test(n))).toBe(true);
+    expect(result.cbrowserScript).toMatch(/^\/\/ note: Not clicked: the form's submit "Go"/m);
+    expect(result.playwrightCode).toMatch(/^\s*\/\/ note: Not clicked: the form's submit "Go"/m);
+    const parsed = parseNLTestSuite(result.cbrowserScript, "generated");
+    expect(parsed.tests.flatMap((t) => t.steps).filter((s) => s.action === "unknown")).toEqual([]);
+  });
+
+  test("no Enter step is offered because the NL dialect has no key press", () => {
+    // If this starts failing, the dialect gained a key press: emit one on the last filled field instead of
+    // the note.
+    expect(parseNLInstruction("press Enter")).toMatchObject({ action: "click", target: "Enter" });
+  });
 });
