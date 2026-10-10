@@ -11,7 +11,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type Route, type Locator, type ElementHandle } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type ConsoleMessage, type Route, type Locator, type ElementHandle } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync, readlinkSync } from "fs";
 import { isStaleSingletonLock } from "./utils.js";
 import { join, dirname } from "path";
@@ -6029,13 +6029,17 @@ For more help: https://playwright.dev/docs/browsers
     }
 
     const page = await this.getPage();
-    const steps: JourneyStep[] = [];
     const consoleLogs: ConsoleEntry[] = [];
     const frictionPoints: string[] = [];
     const startTime = Date.now();
 
-    // Capture console logs
-    page.on("console", (msg) => {
+    // Capture console logs. Removed in the finally below (v8 B27, 2026-10-10):
+    // it used to stay on the tab, which is the shared page in a hosted session,
+    // so every heuristic journey left one more listener and log array behind
+    // (measured 4 -> 7 console listeners over three runs). Not read from the
+    // tab's console buffer instead: that keeps 500 entries and omits an empty
+    // location, so a noisy page or an inline script would change consoleLogs.
+    const onConsole = (msg: ConsoleMessage) => {
       const entry: ConsoleEntry = {
         type: msg.type() as ConsoleEntry["type"],
         text: msg.text().substring(0, 500),
@@ -6048,7 +6052,26 @@ For more help: https://playwright.dev/docs/browsers
       if (msg.type() === "error") {
         frictionPoints.push(`Console error: ${msg.text().substring(0, 100)}`);
       }
-    });
+    };
+    page.on("console", onConsole);
+    try {
+      return await this.heuristicJourney(page, persona, options, consoleLogs, frictionPoints, startTime);
+    } finally {
+      page.off("console", onConsole);
+    }
+  }
+
+  /** journey()'s heuristic exploration; journey's listener fills `consoleLogs`. */
+  private async heuristicJourney(
+    page: Page,
+    persona: Persona,
+    options: JourneyOptions,
+    consoleLogs: ConsoleEntry[],
+    frictionPoints: string[],
+    startTime: number,
+  ): Promise<JourneyResult> {
+    const { persona: personaName, startUrl, goal, maxSteps = 20 } = options;
+    const steps: JourneyStep[] = [];
 
     // Navigate to start
     await this.navigate(startUrl);
