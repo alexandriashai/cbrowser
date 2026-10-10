@@ -796,6 +796,33 @@ export function _clearTierCache(): void {
   accountCache.clear();
 }
 
+/**
+ * The tool result for a call the CMS refused to charge (insufficient credits,
+ * unregistered domain, tool not on the tier).
+ *
+ * isError: the tool never ran, and without the flag a client read the refusal
+ * as the tool's result. Refunds nothing: this answers before any charge scope
+ * exists. (2026-10-09)
+ */
+export function creditDeniedResult(data: { reason?: string; message?: string; remaining?: number }): {
+  content: Array<{ type: "text"; text: string }>;
+  isError: true;
+} {
+  return {
+    isError: true,
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        error: data.reason,
+        message: data.message || "Tool execution denied",
+        ...(data.reason === "domain_not_registered" ? { action: "Add this domain at cbrowser.ai/account/reports" } : {}),
+        ...(data.reason === "insufficient_credits" ? { action: "Purchase credits at cbrowser.ai/pricing", remaining: data.remaining } : {}),
+        ...(data.reason === "tool_not_available" ? { action: "Upgrade to Pro at cbrowser.ai/pricing" } : {}),
+      }, null, 2),
+    }],
+  };
+}
+
 /** Serve a previously-validated key during a backend outage, or reject. */
 function staleServe(keyHash: string): KeyVerdict {
   const cached = tierCache.get(keyHash);
@@ -1527,23 +1554,12 @@ async function handleMcpRequest(
             // result (e.g. an internal-auth 403) — fail open rather than blanket-deny.
             if (data.allowed === false) {
               console.log(`[Credits] ${toolName}: DENIED (${data.reason})`);
-              // Block tool execution — return JSON-RPC error to client
+              // Block tool execution — return the refusal as a tool error
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({
                 jsonrpc: "2.0",
                 id: parsedBody?.id ?? null,
-                result: {
-                  content: [{
-                    type: "text",
-                    text: JSON.stringify({
-                      error: data.reason,
-                      message: data.message || "Tool execution denied",
-                      ...(data.reason === "domain_not_registered" ? { action: "Add this domain at cbrowser.ai/account/reports" } : {}),
-                      ...(data.reason === "insufficient_credits" ? { action: "Purchase credits at cbrowser.ai/pricing", remaining: data.remaining } : {}),
-                      ...(data.reason === "tool_not_available" ? { action: "Upgrade to Pro at cbrowser.ai/pricing" } : {}),
-                    }, null, 2),
-                  }],
-                },
+                result: creditDeniedResult(data),
               }));
               return;
             }

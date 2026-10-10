@@ -99,15 +99,26 @@ export function isToolAccessible(toolName: string): boolean {
   return tierHasAccess(currentTier, required);
 }
 
-/** Generate upgrade prompt for a gated tool */
+/**
+ * Generate upgrade prompt for a gated tool.
+ *
+ * isError: the tool did not run, so this is a refusal, and a client must be
+ * able to tell it from a result without parsing the text. It went out
+ * without the flag, so an agent read "Upgrade Required" as a completed
+ * empathy_audit. Setting it refunds nothing: both callers refuse before the
+ * deduct (mcp-server-remote's gate-before-charge) or outside the refund
+ * wrapper (the gated handler below). (2026-10-09)
+ */
 export function upgradePrompt(toolName: string): {
   content: Array<{ type: "text"; text: string }>;
+  isError: true;
 } {
   const required = getToolPricingTier(toolName);
   const tierLabel = required.charAt(0).toUpperCase() + required.slice(1);
   const userLabel = currentTier ? currentTier.charAt(0).toUpperCase() + currentTier.slice(1) : "Free";
 
   return {
+    isError: true,
     content: [{
       type: "text" as const,
       text: JSON.stringify({

@@ -9,7 +9,14 @@
  * Three named exceptions are the tool surface's genuine SUCCESS_NEGATIVE /
  * NOT_AN_ERROR sites (triaged 2026-09-17, P-09): the tool did billable work
  * and is reporting a negative outcome, or the return is a valid non-failure
- * (an upgrade/confirm prompt). Refunding those would give away paid work.
+ * (a confirm prompt). Refunding those would give away paid work.
+ *
+ * The upgrade prompt (tier-gate.ts) was on this list and came off it on
+ * 2026-10-09: the tool never runs, so it is a refusal, and clients read it as
+ * a completed result. It cannot refund paid work because it is never charged
+ * (gate-before-charge in mcp-server-remote.ts, 2026-07-26) and its handler
+ * sits outside the refund wrapper; tests/gate-refusal-iserror.test.ts pins
+ * both.
  * Anything NOT on this list must have isError - a new error-shaped return
  * added later fails this test until it is explicitly triaged one way or
  * the other, rather than silently joining the untracked pool.
@@ -81,12 +88,12 @@ describe("every error-shaped tool return carries isError", () => {
       const uncovered = findUncoveredSites(f);
       // The three genuine exception files carry known, counted exceptions.
       // testing-tools.ts and mcp-server.ts each have exactly 3 (nl_test_file
-      // result, nl_test_inline result, repair_test result); tier-gate.ts has 1
-      // (the upgrade prompt); persona-lifecycle-tools.ts has 1 (delete confirm).
+      // result, nl_test_inline result, repair_test result);
+      // persona-lifecycle-tools.ts has 1 (delete confirm). tier-gate.ts has 0
+      // since 2026-10-09 (the upgrade prompt is a refusal; see header).
       const expectedExceptionCount: Record<string, number> = {
         "src/mcp-server.ts": 4, // the 3 test-result sites + the JSDoc comment line
         "src/mcp-tools/base/testing-tools.ts": 3,
-        "src/mcp-tools/tier-gate.ts": 1,
         "src/mcp-tools/persona-lifecycle-tools.ts": 1,
       };
       const expected = expectedExceptionCount[f] ?? 0;
