@@ -416,6 +416,15 @@ export async function runResponsiveTest(
     // Responsive sites should look different at different viewport sizes.
     // Only flag as "fail" if similarity is below 0.3 (truly broken rendering),
     // and treat moderate differences as expected responsive behavior.
+    //
+    // On the raw-distance scale (v8 B26, 2026-10-10) similarity 0.3 is a sliced
+    // Wasserstein distance of 0.175 (similarity = 1 - 4d); under the old floored
+    // score it was ~0.156, so the line barely moved. Measured (chromium, 375 /
+    // 768 / 1440 wide): normal adaptation mobile->tablet 0.052-0.060 and
+    // tablet->desktop 0.007-0.009 stay under it; a dark theme (0.31-0.38) trips
+    // it. A blank desktop render (0.052-0.062) or a clipped mobile layout
+    // (0.045-0.055) measures the same as normal adaptation, so this comparison
+    // cannot catch those; the per-viewport checks are what do.
     if (adjustedAnalysis.overallStatus === "fail" && adjustedAnalysis.similarityScore >= 0.3) {
       adjustedAnalysis.overallStatus = "pass";
       adjustedAnalysis.summary = "Expected responsive layout adaptation between viewports";

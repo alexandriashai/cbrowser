@@ -401,8 +401,46 @@ export function computeByteDiff(baselinePath: string, currentPath: string): Dist
 }
 
 /**
- * Compute combined distance using multiple metrics.
- * Runs byte-diff (fast) and Wasserstein (robust), combines scores.
+ * Fraction of decoded RGBA pixels that are equal (1 = same pixels). Pixels
+ * outside the overlap of two differently sized images count as different, as
+ * the size difference did in computeByteDiff.
+ */
+async function decodedPixelMatch(baselinePath: string, currentPath: string): Promise<number> {
+  const sharpModule: any = await import('sharp');
+  const sharpFn: (input: string) => any = sharpModule.default ?? sharpModule;
+  const decode = async (p: string) => {
+    const { data, info } = await sharpFn(p).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return { data: data as Buffer, width: info.width as number, height: info.height as number };
+  };
+  const [a, b] = await Promise.all([decode(baselinePath), decode(currentPath)]);
+  const total = Math.max(a.width * a.height, b.width * b.height);
+  if (total === 0) return 1;
+  const w = Math.min(a.width, b.width);
+  const h = Math.min(a.height, b.height);
+  let same = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ia = (y * a.width + x) * 4;
+      const ib = (y * b.width + x) * 4;
+      if (a.data[ia] === b.data[ib] && a.data[ia + 1] === b.data[ib + 1]
+        && a.data[ia + 2] === b.data[ib + 2] && a.data[ia + 3] === b.data[ib + 3]) same++;
+    }
+  }
+  return same / total;
+}
+
+/**
+ * Compute combined distance using multiple metrics: a pixel-equality term and
+ * Wasserstein (robust), weighted. `distance` here is 1 - the combined score,
+ * not a Wasserstein distance.
+ *
+ * The first term used to be computeByteDiff, which compares COMPRESSED file
+ * bytes. Two encodings of identical pixels share almost none of them (measured
+ * 2026-10-10: byte similarity 0.0000 for a capture re-encoded at another PNG
+ * level, 0.004-0.09 between engines for plain text), so the combined score
+ * floored at ~0.80 for identical pixels. It now compares decoded pixels.
+ * Nothing in the package calls this since performWassersteinAnalysis moved to
+ * the raw distance; kept and fixed for API callers. (v8 B26, 2026-10-10)
  */
 export async function computeCombinedDistance(
   baselinePath: string,
@@ -413,12 +451,12 @@ export async function computeCombinedDistance(
   const startTime = performance.now();
   const { byteDiff: bw = 0.2, wasserstein: ww = 0.8 } = weights;
 
-  const [byteResult, wassersteinResult] = await Promise.all([
-    Promise.resolve(computeByteDiff(baselinePath, currentPath)),
+  const [pixelMatch, wassersteinResult] = await Promise.all([
+    decodedPixelMatch(baselinePath, currentPath),
     computeWassersteinDistance(baselinePath, currentPath, wassersteinConfig),
   ]);
 
-  const combinedScore = byteResult.normalizedScore * bw + wassersteinResult.normalizedScore * ww;
+  const combinedScore = pixelMatch * bw + wassersteinResult.normalizedScore * ww;
 
   return {
     metric: 'combined',

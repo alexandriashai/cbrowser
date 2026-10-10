@@ -1308,6 +1308,8 @@ async function registerCBrowserTools(): Promise<McpServer> {
             text: JSON.stringify({
               passed: result.passed,
               similarityScore: result.analysis?.similarityScore,
+              ...(result.analysis?.wassersteinDistance !== undefined ? { wassersteinDistance: result.analysis.wassersteinDistance } : {}),
+              status: result.analysis?.overallStatus,
               summary: result.analysis?.summary,
               changes: result.analysis?.changes?.length || 0,
             }, null, 2),
@@ -1359,6 +1361,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
                 browserB: c.browserB,
                 status: c.analysis?.overallStatus,
                 similarity: c.analysis?.similarityScore,
+                ...(c.analysis?.wassersteinDistance !== undefined ? { wassersteinDistance: c.analysis.wassersteinDistance } : {}),
                 changes: (c.analysis?.changes ?? []).map((ch) => ({
                   severity: ch.severity,
                   description: ch.description,
@@ -1468,6 +1471,7 @@ async function registerCBrowserTools(): Promise<McpServer> {
             text: JSON.stringify({
               overallStatus: result.overallStatus,
               similarityScore: result.analysis?.similarityScore,
+              ...(result.analysis?.wassersteinDistance !== undefined ? { wassersteinDistance: result.analysis.wassersteinDistance } : {}),
               summary: result.summary,
               // v11.11.0: Return detailed differences instead of just count
               differences: result.differences.slice(0, 10).map(d => ({
