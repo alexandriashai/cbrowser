@@ -9,8 +9,8 @@
  */
 
 import { readFile, writeFile, mkdir, readdir, rm, stat, chmod } from "fs/promises";
-import { existsSync } from "fs";
-import { join } from "path";
+import { existsSync, realpathSync } from "fs";
+import { join, resolve, sep } from "path";
 import { homedir, hostname } from "os";
 import {
   createCipheriv,
@@ -91,6 +91,20 @@ const PROFILE_VERSION = 1;
 
 /** File permission: owner read/write only */
 const FILE_MODE = 0o600;
+
+/** Raised for a domain that cannot name a profile directory inside site-profiles. */
+export class InvalidProfileDomainError extends Error {
+  constructor() {
+    super("Invalid site profile domain. Use a host name such as example.com.");
+    this.name = "InvalidProfileDomainError";
+  }
+}
+
+/** True when `target` is below `root` and is not `root` itself. Both absolute. */
+function isStrictlyInside(root: string, target: string): boolean {
+  const prefix = root.endsWith(sep) ? root : root + sep;
+  return target !== root && target.startsWith(prefix);
+}
 
 // ---------------------------------------------------------------------------
 // SiteProfileManager
@@ -539,11 +553,35 @@ export class SiteProfileManager {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  /** Get the filesystem path for a domain's profile directory. */
+  /**
+   * Get the filesystem path for a domain's profile directory.
+   *
+   * Every path built from a domain goes through here, so this is the one
+   * guard. The character filter alone let "." and ".." through, and they name
+   * the profile root and the data directory above it; deleteProfile removes
+   * its target recursively, so site_profile_delete("..") deleted the whole
+   * data directory and "." or "" every profile. Refused now: an empty domain,
+   * one containing a path separator, one that sanitizes to only dots and
+   * underscores, and any result not strictly inside site-profiles, checked on
+   * the resolved path and, when it exists, on the real path, so a symlinked
+   * entry cannot point outside. (site-profile path traversal, 2026-10-10)
+   */
   private domainDir(domain: string): string {
+    if (typeof domain !== "string" || domain === "" || /[\\/]/.test(domain)) {
+      throw new InvalidProfileDomainError();
+    }
     // Sanitize domain for filesystem safety
     const safeDomain = domain.replace(/[^a-zA-Z0-9._-]/g, "_");
-    return join(this.profileDir, safeDomain);
+    if (/^[._]+$/.test(safeDomain)) throw new InvalidProfileDomainError();
+
+    const root = resolve(this.profileDir);
+    const dir = resolve(root, safeDomain);
+    if (!isStrictlyInside(root, dir)) throw new InvalidProfileDomainError();
+    if (existsSync(dir)) {
+      const realRoot = existsSync(root) ? realpathSync(root) : root;
+      if (!isStrictlyInside(realRoot, realpathSync(dir))) throw new InvalidProfileDomainError();
+    }
+    return dir;
   }
 
   /** Write data to a file with restricted permissions (0o600). */
