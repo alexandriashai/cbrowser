@@ -369,6 +369,11 @@ export function getToolsByTier(tier: 1 | 2 | 3): string[] {
  */
 export const FREE_TIER_TOOLS = new Set([
   "ab_comparison", "agent_ready_audit", "ai_benchmark", "analyze_page",
+  // artifact_fetch is how a view loads its own picture (the widget sandbox
+  // cannot fetch cbrowser.ai). Unlisted, it defaulted to Pro, so the free
+  // screenshot tool's view could never show its screenshot. Free, 0 credits.
+  // (Alexa, 2026-10-10)
+  "artifact_fetch",
   "assert", "browser_health", "browser_recover", "capture_start",
   "capture_status", "capture_stop", "click", "cognitive_effort",
   "cognitive_load_estimate", "coverage_map", "cross_browser_diff",

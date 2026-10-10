@@ -88,7 +88,12 @@ export type BlockSpec =
       fetchTool?: string; fetchArgsField?: FieldPath;
       /** Argument name to payload field, e.g. {file: "heatmapFile"}. */
       fetchArgs?: Record<string, FieldPath>;
-      caption?: FieldPath }
+      caption?: FieldPath;
+      /**
+       * Shown instead of the image when the result names no file to fetch,
+       * saying why. Without it a generic sentence is shown; never a broken image.
+       */
+      emptyNote?: string }
   /**
    * Persona trait/value meters, matching the account persona editor.
    *
@@ -1619,19 +1624,42 @@ const RUNTIME = String.raw`
       // results near 150k characters and swap in a file pointer, which reaches
       // the widget as unparseable text. Heavy assets have to come over this
       // channel instead.
+      var args = b.fetchArgsField ? at(data, b.fetchArgsField) : {};
+      if (b.fetchArgs) {
+        args = {};
+        Object.keys(b.fetchArgs).forEach(function (k) { args[k] = at(data, b.fetchArgs[k]); });
+      }
+      // A result that names no file has no image to fetch. attention_analysis
+      // called with heatmap: false is one: the panel used to draw "Predicted
+      // attention", ask artifact_fetch for file undefined, and show a broken
+      // image -- which read as "the images don't load" when none was ever
+      // made. (Alexa, 2026-10-10: 9 of her last 10 runs had heatmap: false.)
+      var missing = b.fetchArgs
+        ? Object.keys(b.fetchArgs).filter(function (k) { return args[k] === undefined || args[k] === null || args[k] === ""; })
+        : (args ? [] : ["arguments"]);
+      if (missing.length) {
+        wrap.appendChild(el("p", "cap", b.emptyNote || "No image in this result."));
+        return wrap;
+      }
       var note = el("p", "cap", "Loading image…");
       wrap.appendChild(img); wrap.appendChild(note);
       try {
-        var args = b.fetchArgsField ? at(data, b.fetchArgsField) : {};
-        if (b.fetchArgs) {
-          args = {};
-          Object.keys(b.fetchArgs).forEach(function (k) { args[k] = at(data, b.fetchArgs[k]); });
-        }
         var res = await app.callServerTool({ name: b.fetchTool, arguments: args || {} });
         var blk = (res && res.content || []).filter(function (c) { return c.type === "image"; })[0];
         if (blk && blk.data) { img.src = "data:" + (blk.mimeType || "image/png") + ";base64," + blk.data; note.remove(); }
-        else { note.textContent = "No image was returned."; }
+        else {
+          // Say what the server said. "No image was returned" hid a tier refusal
+          // and a missing file behind the same sentence.
+          var why = "";
+          var txt = (res && res.content || []).filter(function (c) { return c.type === "text"; })[0];
+          if (txt && txt.text) {
+            try { var j = JSON.parse(txt.text); why = j.message || j.error || ""; } catch (_) { why = txt.text; }
+          }
+          img.remove();
+          note.textContent = "The image could not be loaded" + (why ? ": " + String(why).slice(0, 200) : ".");
+        }
       } catch (e) {
+        img.remove();
         note.textContent = "Could not load image: " + (e && e.message ? e.message : e);
       }
     } else {

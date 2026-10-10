@@ -529,7 +529,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       persona: z.string().optional().default("first-timer").describe("Persona name"),
       goal: z.string().optional().describe("Task goal — elements matching this goal get boosted attention (e.g., 'find pricing', 'sign up for an account')"),
       cellSize: z.number().optional().default(4).describe("Saliency grid cell size in pixels (smaller = finer heatmap, default: 4)"),
-      heatmap: z.boolean().optional().default(true).describe("Generate visual heatmap overlay (default: true)"),
+      heatmap: z.boolean().optional().default(true).describe("Generate the heatmap overlay (default: true). The heatmap is the main finding. false returns the metrics only: no inline preview, and the attention view shows no picture."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device name"),
       useValues: z.boolean().optional().default(false).describe("Enable motivational value influence on saliency map generation and attention scoring. Default: false."),
       freezeAnimations: z.boolean().optional().default(false).describe("Pause CSS and Web-Animations before the screenshot, so two runs of an animated page are comparable. An infinite animation has no canonical frame, so sampling one at random reports where attention goes during a fraction of a loop as where attention goes. Default false: every published attention number was measured with animation live. Check `animationState` in the response for what actually ran."),

@@ -26,6 +26,7 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
+import { readFileSync } from "node:fs";
 import { FREE_TIER_TOOLS, getToolPricingTier, TOOL_CATEGORIES } from "../src/mcp-tools/tool-categories.js";
 
 const allTools = new Set(TOOL_CATEGORIES.flatMap((c) => c.tools));
@@ -47,6 +48,21 @@ describe("free-tier tools resolve as free", () => {
 
   test("every tool in FREE_TIER_TOOLS resolves free", () => {
     for (const t of FREE_TIER_TOOLS) expect(getToolPricingTier(t), t).toBe("free");
+  });
+
+  test("every tool a view calls to load its images is free", () => {
+    // A view loads its picture through callServerTool (the sandbox cannot
+    // fetch cbrowser.ai). artifact_fetch was unlisted, so it defaulted to Pro
+    // and the FREE screenshot tool's view could never show its screenshot,
+    // while a paid account was billed the CMS's 1-credit catalog-miss fallback
+    // per image. Any fetcher a view names must be free. (2026-10-10)
+    const src = ["ui-resources.ts", "widget-kit.ts"].map((f) =>
+      readFileSync(new URL(`../src/mcp-tools/${f}`, import.meta.url), "utf8")).join("\n");
+    const named = new Set<string>();
+    for (const m of src.matchAll(/fetchTool:\s*"([a-z_]+)"/g)) named.add(m[1]);
+    for (const m of src.matchAll(/fetchTool\s*\|\|\s*"([a-z_]+)"/g)) named.add(m[1]);
+    expect(named.size, "expected the views to name at least one fetcher").toBeGreaterThan(0);
+    for (const t of named) expect(getToolPricingTier(t), `${t} is called by a view`).toBe("free");
   });
 
   test("name beats category — a free tool in a pro category is still free", () => {

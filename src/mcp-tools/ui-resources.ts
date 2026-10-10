@@ -363,6 +363,7 @@ export const ATTENTION_SPEC: WidgetSpec = {
       fetchTool: "artifact_fetch",
       fetchArgs: { file: "heatmapFile" },
       caption: "heatmapNote",
+      emptyNote: "No heatmap in this result: the call passed heatmap: false, so no picture was made. Run attention_analysis again without heatmap: false to see where attention lands.",
     },
     { type: "table", title: "Where attention lands", field: "topAttentionAreas" },
     {
