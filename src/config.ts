@@ -16,6 +16,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, statSync,
 import { homedir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { scopedDataDir } from "./persona-scope.js";
 import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile, ProxyConfig } from "./types.js";
 
 /**
@@ -250,11 +251,26 @@ export interface CBrowserPaths {
 }
 
 /**
+ * The data directory for THIS call: the calling account's directory when a
+ * hosted request entered an account scope, otherwise getDataDir().
+ *
+ * Per call, never cached. Both hosted servers run as root with one HOME, so
+ * every account shared /root/.cbrowser: saved sessions (cookies included),
+ * visual and perf baselines were listable, loadable and deletable by any key,
+ * free tier included (v8 O3, 2026-10-10). getDataDir() itself is unchanged
+ * on purpose: the shared legacy browser reads it at construction, and making
+ * it scope-aware would bind whichever account happened to create it.
+ */
+export function effectiveDataDir(): string {
+  return scopedDataDir() ?? getDataDir();
+}
+
+/**
  * Get all paths based on the data directory.
  * Screenshots are stored in session-specific subdirectories for multi-user safety.
  */
 export function getPaths(dataDir?: string): CBrowserPaths {
-  const base = dataDir || getDataDir();
+  const base = dataDir || effectiveDataDir();
   const sessionId = getSessionId();
   const screenshotsBase = join(base, "screenshots");
 
