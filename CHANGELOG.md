@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.2](https://github.com/alexandriashai/cbrowser/compare/v19.3.1...v19.3.2) (2026-10-10)
+
+### Fixed
+
+* **mcp:** round persona roster and empathy metrics at the source (b15) ([bfe8c8d](https://github.com/alexandriashai/cbrowser/commit/bfe8c8d79df5027930e57f57fd62682905962896))
+
 ## [19.3.1](https://github.com/alexandriashai/cbrowser/compare/v19.3.0...v19.3.1) (2026-10-09)
 
 ### Fixed
