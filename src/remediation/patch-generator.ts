@@ -366,7 +366,7 @@ export function summarizePatches(patches: RemediationPatch[]): {
   byCategory: Record<string, number>;
   byEffort: Record<string, number>;
   byImpact: Record<string, number>;
-  quickWins: number; // trivial/easy + high impact
+  quickWins: number; // trivial/easy effort + impact above "low"
 } {
   const byCategory: Record<string, number> = {};
   const byEffort: Record<string, number> = {};
@@ -378,9 +378,15 @@ export function summarizePatches(patches: RemediationPatch[]): {
     byEffort[patch.effort] = (byEffort[patch.effort] || 0) + 1;
     byImpact[patch.impact] = (byImpact[patch.impact] || 0) + 1;
 
+    // A quick win is cheap AND worth doing. It required impact "high", but
+    // deriveImpact rates a trivial fix for a low-severity finding "medium" (it
+    // is cheap enough to be worth it), so remediation_patches on cbrowser.ai
+    // reported quickWins 0 over 13 patches, 12 of them trivial (ten add one
+    // data-testid). Impact "low" is the only rating that says "not worth it".
+    // (2026-10-10, B38)
     if (
       (patch.effort === "trivial" || patch.effort === "easy") &&
-      patch.impact === "high"
+      patch.impact !== "low"
     ) {
       quickWins++;
     }
