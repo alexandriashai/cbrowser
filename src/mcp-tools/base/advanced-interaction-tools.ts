@@ -8,8 +8,33 @@
  */
 
 import { z } from "zod";
+import type { Dialog, Page } from "playwright";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { summarizePlaywrightError } from "../../browser.js";
+
+type DialogAction = "accept" | "dismiss";
+
+/**
+ * handle_dialog's armed handler, at most one per page (v8 B27, 2026-10-10).
+ *
+ * Every call used to add its own page.once("dialog") and leave the earlier
+ * ones armed. Measured: three calls, then one confirm(), ran all three; the
+ * FIRST call's action was applied and the other two threw "Cannot accept
+ * dialog which is already handled!" from an async event listener, where
+ * nothing catches it. Both hosted servers run under Node, so that unhandled
+ * rejection ended the process, and every account's calls and browser sessions
+ * with it. Now the latest call replaces the page's arm, and the handler never
+ * throws. Keyed weakly by page, so a closed page releases its arm without a
+ * close listener of its own.
+ */
+const dialogArms = new WeakMap<Page, { listener: (dialog: Dialog) => Promise<void>; action: DialogAction }>();
+
+/**
+ * A dialog an arm failed to handle after its call had returned, so no
+ * response could carry the error. The page's next handle_dialog call reports
+ * it once, as previousDialogFailed.
+ */
+const dialogFailures = new WeakMap<Page, { dialogType: string; message: string; action: DialogAction; error: string }>();
 
 /**
  * Standard error response for an interaction tool.
@@ -132,7 +157,7 @@ export function registerAdvancedInteractionTools(
   // ── handle_dialog ──
   server.registerTool("handle_dialog", {
     title: "Handle JavaScript Dialog",
-    description: "ARM a handler for the next JavaScript dialog (alert, confirm, prompt), then trigger the dialog with a separate call. Returns immediately once armed — the handler persists until a dialog fires, so it does NOT need to observe one to have worked. For prompts, provide the text to enter.",
+    description: "ARM a handler for the next JavaScript dialog (alert, confirm, prompt), then trigger the dialog with a separate call. Returns immediately once armed — the handler persists until a dialog fires, so it does NOT need to observe one to have worked. Calling it again before a dialog fires replaces the earlier arm: the latest call wins. For prompts, provide the text to enter.",
     inputSchema: {
       action: z.enum(["accept", "dismiss"]).describe("Accept or dismiss the dialog"),
       promptText: z.string().optional().describe("Text to enter for prompt() dialogs"),
@@ -143,19 +168,39 @@ export function registerAdvancedInteractionTools(
     let b, token;
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
-    const page = await b.getPage();
+    const page: Page = await b.getPage();
+
+    // The latest call wins: take down this page's earlier arm, if one is still
+    // waiting, before arming (see dialogArms).
+    const previous = dialogArms.get(page);
+    if (previous) page.off("dialog", previous.listener);
+    const previousFailure = dialogFailures.get(page);
+    dialogFailures.delete(page);
 
     // Set up a one-time dialog handler
-    const dialogPromise = new Promise<{ type: string; message: string }>((resolve) => {
-      page.once("dialog", async (dialog) => {
-        const info = { type: dialog.type(), message: dialog.message() };
-        if (action === "accept") {
-          await dialog.accept(promptText);
-        } else {
-          await dialog.dismiss();
+    const dialogPromise = new Promise<{ type: string; message: string; error?: string }>((resolve) => {
+      const listener = async (dialog: Dialog): Promise<void> => {
+        if (dialogArms.get(page)?.listener === listener) dialogArms.delete(page);
+        const info = { type: "", message: "" };
+        try {
+          info.type = dialog.type();
+          info.message = dialog.message();
+          if (action === "accept") {
+            await dialog.accept(promptText);
+          } else {
+            await dialog.dismiss();
+          }
+          resolve(info);
+        } catch (err) {
+          // Never rethrown: a listener's rejection is unhandled, and fatal
+          // under Node. Kept for whichever response can still report it.
+          const error = err instanceof Error ? err.message : String(err);
+          dialogFailures.set(page, { dialogType: info.type, message: info.message, action, error });
+          resolve({ ...info, error });
         }
-        resolve(info);
-      });
+      };
+      dialogArms.set(page, { listener, action });
+      page.once("dialog", listener);
     });
 
     // This tool ARMS a handler; it does not observe one.
@@ -175,13 +220,23 @@ export function registerAdvancedInteractionTools(
     const grace = new Promise<null>((resolve) => setTimeout(() => resolve(null), 300));
     const alreadyPending = await Promise.race([dialogPromise, grace]);
 
+    // Present only when they apply, so the response keeps its shape otherwise.
+    const history = {
+      ...(previous ? { replacedArm: previous.action } : {}),
+      ...(previousFailure ? { previousDialogFailed: previousFailure } : {}),
+    };
+
     if (alreadyPending) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
+      // This response reports the failure, so the next call need not.
+      if (alreadyPending.error) dialogFailures.delete(page);
+      return { ...(alreadyPending.error ? { isError: true as const } : {}), content: [{ type: "text" as const, text: JSON.stringify({
         armed: true,
         handledImmediately: true,
         dialogType: alreadyPending.type,
         message: alreadyPending.message,
         action,
+        ...(alreadyPending.error ? { error: alreadyPending.error } : {}),
+        ...history,
         _browserToken: token,
       }, null, 2) }] };
     }
@@ -189,7 +244,8 @@ export function registerAdvancedInteractionTools(
       armed: true,
       handledImmediately: false,
       action,
-      note: `Handler is registered and will ${action} the next dialog on this page. Trigger it with your next call (e.g. click, or evaluate_script with force: true running confirm()). No dialog was already pending, which is expected.`,
+      ...history,
+      note: `Handler is registered and will ${action} the next dialog on this page. Trigger it with your next call (e.g. click, or evaluate_script with force: true running confirm()). No dialog was already pending, which is expected.${previous ? ` It replaces the earlier arm (${previous.action}).` : ""}`,
       _browserToken: token,
     }, null, 2) }] };
   });
