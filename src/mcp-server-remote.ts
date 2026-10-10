@@ -184,6 +184,7 @@ export async function getBrowserByToken(token?: string): Promise<{ browser: CBro
     browser: sessionBrowser,
     createdAt: now,
     lastActivity: now,
+    accountId: scopedAccountId(),
   });
 
   const newToken = generateBrowserToken(sessionId);
@@ -203,6 +204,16 @@ interface SessionInfo {
   browser: CBrowser;
   createdAt: number;
   lastActivity: number;
+  /** Account scope that created it; undefined when unscoped. (tenant, 2026-10-10) */
+  accountId: number | undefined;
+}
+
+/** Thrown when a session id names a browser another account created. */
+export class SessionOwnedElsewhereError extends Error {
+  constructor() {
+    super("This MCP session id is not available to this caller. Reconnect to start a new session, or call navigate() without a _browserToken.");
+    this.name = "SessionOwnedElsewhereError";
+  }
 }
 
 // Active sessions: sessionId -> SessionInfo
@@ -218,7 +229,7 @@ const EXPIRED_SESSION_RETENTION_MS = 600000; // 10 min
  * Each session gets its own CBrowser with isolated context.
  * If a session expired, transparently create a new one (low-friction reconnect).
  */
-async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
+export async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
   // Check if this session was recently expired - auto-recover by creating new session
   const expiredInfo = expiredSessions.get(sessionId);
   if (expiredInfo) {
@@ -229,9 +240,15 @@ async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
     // Fall through to create new session below
   }
 
-  // Check if session already exists
+  // Check if session already exists. The id is the client's mcp-session-id
+  // header on the /mcp path, so holding it proves nothing: this map is one per
+  // process and returned the browser (cookies, logged-in pages) to any caller
+  // presenting the id. A session is now reused only by the account scope that
+  // created it; unscoped callers keep the old behaviour among themselves.
+  // (tenant, 2026-10-10)
   const existing = activeSessions.get(sessionId);
   if (existing) {
+    if (existing.accountId !== scopedAccountId()) throw new SessionOwnedElsewhereError();
     existing.lastActivity = Date.now();
     return existing.browser;
   }
@@ -260,6 +277,7 @@ async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
     browser: sessionBrowser,
     createdAt: Date.now(),
     lastActivity: Date.now(),
+    accountId: scopedAccountId(),
   });
 
   console.log(`[Session] Created new session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active)`);

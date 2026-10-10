@@ -14,6 +14,7 @@ import * as path from "path";
 import * as os from "os";
 import * as crypto from "crypto";
 
+import { scopedDataDir } from "../persona-scope.js";
 import type {
   SiteModel,
   NavigationEdge,
@@ -37,8 +38,31 @@ export class SiteModelManager {
   /** Singleton instance for process-wide sharing */
   private static _instance: SiteModelManager | null = null;
 
-  /** Get or create the singleton instance */
+  /**
+   * One instance per hosted account, keyed by that account's data dir.
+   *
+   * The singleton is one per process: on the hosted server its in-memory
+   * models and its site-models directory served every account, so one
+   * account's navigation history, element selectors, goal paths (action
+   * values included) and failure patterns for a domain were read through
+   * site_model_status, site_model_query and journey familiarity by any other
+   * account, and written to by all of them. Inside an account scope each
+   * account now gets its own instance under its own directory; unscoped
+   * callers (CLI, stdio, local) keep the singleton. (tenant, 2026-10-10)
+   */
+  private static _scoped = new Map<string, SiteModelManager>();
+
+  /** Get or create the instance for this call's scope */
   static getInstance(dataDir?: string): SiteModelManager {
+    const scoped = dataDir === undefined ? scopedDataDir() : undefined;
+    if (scoped !== undefined) {
+      let instance = SiteModelManager._scoped.get(scoped);
+      if (!instance) {
+        instance = new SiteModelManager(scoped);
+        SiteModelManager._scoped.set(scoped, instance);
+      }
+      return instance;
+    }
     if (!SiteModelManager._instance) {
       SiteModelManager._instance = new SiteModelManager(dataDir);
     }
