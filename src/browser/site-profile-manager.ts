@@ -19,6 +19,7 @@ import {
   createHash,
 } from "crypto";
 import type { BrowserContext, Page } from "playwright";
+import { effectiveDataDir } from "../config.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -117,8 +118,13 @@ export class SiteProfileManager {
   static readonly MAX_PROFILE_AGE_MS = 24 * 60 * 60 * 1000;
 
   constructor(dataDir?: string) {
-    const baseDir =
-      dataDir || process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+    // The calling account's directory on the hosted server. This read
+    // CBROWSER_DATA_DIR directly, so every account's saved cookies and storage
+    // per domain sat in one directory that site_profile_list, _status and
+    // _delete served to any caller. Unscoped: unchanged. Profiles already in
+    // the shared directory stay there and are visible to unscoped callers
+    // only. (tenant, 2026-10-10)
+    const baseDir = dataDir || effectiveDataDir();
     this.profileDir = join(baseDir, "site-profiles");
   }
 

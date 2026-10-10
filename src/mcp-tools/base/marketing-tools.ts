@@ -21,8 +21,8 @@
 
 import { z } from "zod";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { effectiveDataDir } from "../../config.js";
 import type { McpServer } from "../types.js";
 import {
   BUILTIN_PERSONAS,
@@ -64,13 +64,17 @@ interface CampaignsStore {
 // Storage Utilities
 // ============================================================================
 
+// campaigns.json lives in the calling account's directory on the hosted
+// server. It was one file for every account: create, run and report_result
+// read and wrote each other's campaigns, and a miss listed every campaign
+// name in availableCampaigns. Unscoped: unchanged. A campaigns.json already
+// in the shared directory stays there. (tenant, 2026-10-10)
 function getCampaignsPath(): string {
-  const dataDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
-  return join(dataDir, "campaigns.json");
+  return join(effectiveDataDir(), "campaigns.json");
 }
 
 function ensureDataDir(): void {
-  const dataDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+  const dataDir = effectiveDataDir();
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }

@@ -23,10 +23,9 @@ import {
 import { listAccessibilityPersonas } from "../../personas.js";
 import { barrierElementCount, countAffectedElements } from "../../analysis/accessibility-empathy.js";
 import type { AccessibilityBarrier } from "../../types.js";
-import { getDefaultConfig } from "../../config.js";
+import { getDefaultConfig, effectiveDataDir } from "../../config.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
 
 /**
  * Persist an audit screenshot and return its path.
@@ -37,7 +36,7 @@ import { homedir } from "os";
  * through the transport. Returns undefined rather than throwing if the write
  * fails — a screenshot is not worth failing an audit over. (2026-07-29)
  */
-function writeAuditScreenshot(
+export function writeAuditScreenshot(
   base64: string | undefined,
   persona: string,
 ): { path?: string; url?: string; file?: string } {
@@ -46,8 +45,10 @@ function writeAuditScreenshot(
   const out: { path?: string; url?: string; file?: string } = {};
 
   // Local copy, as before — the CLI and anything on this box reads this.
+  // Under the calling account's directory on the hosted server, not the one
+  // CBROWSER_DATA_DIR names for every account. (tenant, 2026-10-10)
   try {
-    const dir = join(process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser"), "audit-screenshots");
+    const dir = join(effectiveDataDir(), "audit-screenshots");
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     const path = join(dir, `empathy-${safe}-${Date.now()}.png`);
     writeFileSync(path, Buffer.from(base64, "base64"));

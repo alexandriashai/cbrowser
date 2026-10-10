@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { homedir } from "os";
+import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
 import type {
@@ -29,10 +29,15 @@ import type {
 import { analyzeVisualDifferences } from "./regression.js";
 
 /**
- * Get the path for A/B comparison screenshots
+ * Get the path for A/B comparison screenshots.
+ *
+ * Under the calling account's directory on the hosted server; it read
+ * CBROWSER_DATA_DIR directly, so every account's captures of the pages it
+ * compared landed in one shared directory. Unscoped: unchanged.
+ * (tenant, 2026-10-10)
  */
-function getABScreenshotsPath(): string {
-  const basePath = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+export function getABScreenshotsPath(): string {
+  const basePath = effectiveDataDir();
   const screenshotsPath = join(basePath, "ab-comparison");
   if (!existsSync(screenshotsPath)) {
     mkdirSync(screenshotsPath, { recursive: true });
