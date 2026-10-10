@@ -15,6 +15,9 @@
  * strength would lose it to hide an inconsistency that is itself information.
  * The exception count is exactly what the old output withheld.
  *
+ * The stability phrases were renamed 2026-10-10 (report v8 B28): that axis does
+ * not score selectors. The cases below use the current wording.
+ *
  * `siteAdvantages` had the sibling problem: superlatives ("Most stable
  * selectors", best-in-cohort) and plain strengths ("Stable selectors that won't
  * break", axis >= 80) are one claim at two scopes, and the list shipped both.
@@ -28,6 +31,9 @@ import {
   dedupeAdvantagesByAxis,
 } from "../src/analysis/competitive-benchmark.js";
 
+/** The stability strength as the benchmark phrases it (renamed 2026-10-10, B28). */
+const STABLE = "Few hidden controls, click-blocking overlays or loading hazards";
+
 /** /pricing's real breakdown. */
 const PRICING = {
   findability: 55, stability: 92, agentPerceivability: 100,
@@ -37,20 +43,20 @@ const PRICING = {
 describe("a contradicted strength is qualified, not silently kept", () => {
   test("the reported case — stability strength beside a stability issue", () => {
     const out = reconcileStrengths(
-      ["Stable selectors that won't break"], ["stability"], PRICING);
-    expect(out[0]).not.toBe("Stable selectors that won't break");
+      [STABLE], ["stability"], PRICING);
+    expect(out[0]).not.toBe(STABLE);
     expect(out[0]).toContain("with 1 element(s) excepted");
   });
 
   test("the axis score survives the qualification — it is real information", () => {
     const out = reconcileStrengths(
-      ["Stable selectors that won't break"], ["stability"], PRICING);
+      [STABLE], ["stability"], PRICING);
     expect(out[0]).toContain("stability 92");
   });
 
   test("the exception COUNT is reported, not just its existence", () => {
     const out = reconcileStrengths(
-      ["Stable selectors that won't break"], ["stability", "stability", "findability"], PRICING);
+      [STABLE], ["stability", "stability", "findability"], PRICING);
     expect(out[0]).toContain("with 2 element(s) excepted");
   });
 
@@ -77,21 +83,21 @@ describe("a contradicted strength is qualified, not silently kept", () => {
 describe("siteAdvantages does not say the same thing twice", () => {
   test("the reported case — superlative wins, plain strength drops", () => {
     const out = dedupeAdvantagesByAxis([
-      "Most stable selectors",
-      "Stable selectors that won't break",
+      "Most stable interactions",
+      STABLE,
     ]);
-    expect(out).toEqual(["Most stable selectors"]);
+    expect(out).toEqual(["Most stable interactions"]);
   });
 
   test("all three real duplicate pairs collapse", () => {
     const out = dedupeAdvantagesByAxis([
-      "Most stable selectors", "Best ARIA/accessibility labels", "Best semantic structure",
-      "Stable selectors that won't break", "Good ARIA labels for identification",
+      "Most stable interactions", "Best ARIA/accessibility labels", "Best semantic structure",
+      STABLE, "Good ARIA labels for identification",
       "Clear semantic HTML structure",
     ]);
     expect(out.length).toBe(3);
-    expect(out).toContain("Most stable selectors");
-    expect(out).not.toContain("Stable selectors that won't break");
+    expect(out).toContain("Most stable interactions");
+    expect(out).not.toContain(STABLE);
   });
 
   test("a plain strength with NO superlative is kept", () => {
@@ -106,18 +112,18 @@ describe("siteAdvantages does not say the same thing twice", () => {
   test("a QUALIFIED strength is still recognised as the same axis", () => {
     // The stem must be matched, or reconcileStrengths would defeat the dedupe.
     const out = dedupeAdvantagesByAxis([
-      "Most stable selectors",
-      "Stable selectors that won't break overall (stability 92), with 2 element(s) excepted",
+      "Most stable interactions",
+      `${STABLE} overall (stability 92), with 2 element(s) excepted`,
     ]);
-    expect(out).toEqual(["Most stable selectors"]);
+    expect(out).toEqual(["Most stable interactions"]);
   });
 
   test("'Best overall AI readiness' is not an axis and always survives", () => {
     const out = dedupeAdvantagesByAxis([
-      "Best overall AI readiness", "Stable selectors that won't break",
+      "Best overall AI readiness", STABLE,
     ]);
     expect(out).toContain("Best overall AI readiness");
-    expect(out).toContain("Stable selectors that won't break");
+    expect(out).toContain(STABLE);
   });
 
   test("exact repeats are removed too", () => {

@@ -1762,7 +1762,9 @@ async function detectCaptcha(ctx: DetectionContext): Promise<void> {
  * sticky bar AND a 300x60 fixed dock at z-index 10, and
  * "3 Button with generic label: "go"" over "go", "done" and "click here".
  * Each summary below is true of every issue it counts. The per-issue
- * descriptions are unchanged; competitive-benchmark matches on them. (2026-10-07)
+ * descriptions are unchanged. (2026-10-07) competitive-benchmark used to match
+ * sites on those descriptions; since report v8 B28 (2026-10-10) it matches on
+ * detectionMethod and renders its groups with summarizeIssueGroup.
  */
 const GROUP_SUMMARIES: Record<string, {
   pattern: RegExp;
@@ -1812,8 +1814,17 @@ const GROUP_SUMMARIES: Record<string, {
   },
 };
 
-/** One line for a group of same-detection issues that is true of every one of them. */
-function summarizeIssueGroup(typeIssues: AgentReadyIssue[]): string {
+/**
+ * One line for a group of same-detection issues that is true of every one of them.
+ *
+ * Exported for ai_benchmark (report v8 B28, 2026-10-10), which groups a site's
+ * issues, and the issues several sites share, by the same detectionMethod.
+ * Only the two fields it reads are required, so a caller holding descriptions
+ * alone does not have to fabricate whole issues.
+ */
+export function summarizeIssueGroup(
+  typeIssues: Array<Pick<AgentReadyIssue, "description" | "detectionMethod">>,
+): string {
   const representative = typeIssues[0];
   const count = typeIssues.length;
   if (count === 1) return representative.description;

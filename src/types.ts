@@ -5104,10 +5104,33 @@ export interface AIBenchmarkSiteResult {
    * `topIssues: ["Element lacks stable selectors (score: 0/10)"]`.
    */
   topIssueCategories?: string[];
+  /**
+   * Check id (the issue's `detectionMethod`) of each entry in `topIssues`,
+   * positionally aligned. Since report v8 B28 (2026-10-10) each entry is one
+   * check, its issues summarized together.
+   */
+  topIssueChecks?: string[];
+  /**
+   * Every check that fired on this page, across ALL its issues, once each.
+   *
+   * Sites are compared on these ids, not on description text. Descriptions
+   * carry per-element figures ("score: 0/10", "1280x57px"), so one check read as
+   * several issues, and comparing only each site's top three missed checks two
+   * sites really share. Measured 2026-10-10, cbrowser.ai vs ucdenver.edu: three
+   * "common" issues, all from cbrowser.ai alone, one check listed twice.
+   * (report v8 B28)
+   */
+  checks?: AIBenchmarkCheck[];
   /** Strengths for AI agents */
   strengths: string[];
   /** Weaknesses for AI agents */
   weaknesses: string[];
+  /**
+   * What each entry in `weaknesses` is about, positionally aligned: an axis for
+   * an axis-score weakness, a check id for an issue. Competitor references are
+   * matched on this key, never on the weakness text. (report v8 B28, 2026-10-10)
+   */
+  weaknessKeys?: AIBenchmarkIssueKey[];
   /** Duration of audit in ms */
   duration: number;
   /** Error message if audit failed */
@@ -5124,6 +5147,21 @@ export interface AIBenchmarkSiteResult {
   suggestion?: string;
 }
 
+/** One audit check that fired on a benchmarked page. */
+export interface AIBenchmarkCheck {
+  /** The issues' `detectionMethod`, e.g. "sticky-element-check". */
+  id: string;
+  /** The scoring axis the check deducts from. */
+  category: string;
+  /** Each issue's own description, in detection order. */
+  descriptions: string[];
+}
+
+/** What a benchmark weakness is about: a scoring axis, or one audit check. */
+export type AIBenchmarkIssueKey =
+  | { axis: AgentReadyIssueCategory }
+  | { check: string };
+
 /** Comparison data between sites */
 export interface AIBenchmarkComparison {
   /** Best overall site for AI agents */
@@ -5137,7 +5175,11 @@ export interface AIBenchmarkComparison {
   bestAgentPerceivability: string;
   /** Best site for semantics */
   bestSemantics: string;
-  /** Common issues across all sites */
+  /**
+   * Checks that at least two audited sites, and at least half of them, both
+   * fail, most widely shared first. One line per check: "k of n sites: <summary
+   * of every matching issue>". (report v8 B28, 2026-10-10)
+   */
   commonIssues: string[];
   /** What each site does better */
   siteAdvantages: Record<string, string[]>;
