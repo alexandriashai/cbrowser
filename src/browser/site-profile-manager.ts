@@ -543,6 +543,14 @@ export class SiteProfileManager {
   private domainDir(domain: string): string {
     // Sanitize domain for filesystem safety
     const safeDomain = domain.replace(/[^a-zA-Z0-9._-]/g, "_");
+    // "." and ".." pass the character filter and name the profile root and
+    // the data directory above it, so deleteProfile("..") (site_profile_delete)
+    // removed the whole data directory; "" named the profile root. A domain is
+    // one path segment inside site-profiles, or it is refused.
+    // (tenant, 2026-10-10)
+    if (safeDomain === "" || safeDomain === "." || safeDomain === "..") {
+      throw new Error(`Invalid domain "${domain}": a site profile is named by a host name`);
+    }
     return join(this.profileDir, safeDomain);
   }
 
