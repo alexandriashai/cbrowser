@@ -26,13 +26,12 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
-import {
-  generateAIComparison,
-  pickBetterReference,
-  topIssueGroups,
-  siteChecks,
-} from "../src/analysis/competitive-benchmark.js";
-import type { AgentReadyIssue, AIBenchmarkSiteResult } from "../src/types.js";
+// A namespace import, so a missing export fails each test that needs it rather
+// than the whole file at load time.
+import * as benchmark from "../src/analysis/competitive-benchmark.js";
+import type { AgentReadyIssue, AIBenchmarkCheck, AIBenchmarkSiteResult } from "../src/types.js";
+
+const { generateAIComparison, pickBetterReference, topIssueGroups } = benchmark;
 
 const issue = (
   detectionMethod: string,
@@ -43,14 +42,26 @@ const issue = (
   category, severity, element: "x", description, detectionMethod, recommendation: "fix it",
 });
 
-/** A completed site result built the way runAIReadinessBenchmark builds one. */
+/**
+ * A completed site result in the shape runAIReadinessBenchmark returns. Built
+ * here by hand, not with the module's own helpers, so a fixture cannot inherit
+ * a bug from the code under test. Top issues are the first three checks.
+ */
 const site = (
   siteName: string,
   score: number,
   issues: AgentReadyIssue[],
   breakdown: Partial<{ findability: number; stability: number; agentPerceivability: number; semantics: number }> = {},
 ): AIBenchmarkSiteResult => {
-  const top = topIssueGroups(issues, 3);
+  const byCheck = new Map<string, AIBenchmarkCheck>();
+  for (const i of issues) {
+    const c = byCheck.get(i.detectionMethod)
+      ?? { id: i.detectionMethod, category: String(i.category), descriptions: [] };
+    c.descriptions.push(i.description);
+    byCheck.set(i.detectionMethod, c);
+  }
+  const checks = [...byCheck.values()];
+  const top = checks.slice(0, 3);
   return {
     url: `https://${siteName}/`,
     siteName,
@@ -59,13 +70,13 @@ const site = (
     scoreBreakdown: {
       overall: score, findability: 90, stability: 90, agentPerceivability: 90, semantics: 90, ...breakdown,
     },
-    topIssues: top.map((g) => g.summary),
-    topIssueCategories: top.map((g) => g.category),
-    topIssueChecks: top.map((g) => g.check),
-    checks: siteChecks(issues),
+    topIssues: top.map((c) => c.descriptions[0]),
+    topIssueCategories: top.map((c) => c.category),
+    topIssueChecks: top.map((c) => c.id),
+    checks,
     strengths: [],
-    weaknesses: top.map((g) => g.summary),
-    weaknessKeys: top.map((g) => ({ check: g.check })),
+    weaknesses: top.map((c) => c.descriptions[0]),
+    weaknessKeys: top.map((c) => ({ check: c.id })),
     duration: 1,
     auditStatus: "complete",
   };
@@ -180,6 +191,16 @@ describe("topIssues is one entry per check", () => {
     ]);
     expect(top.map((g) => g.check)).toEqual(["critical-check", "medium-check", "low-check"]);
     expect(top.map((g) => g.category)).toEqual(["findability", "stability", "semantics"]);
+  });
+
+  test("siteChecks keeps every check, beyond the top three, once each", () => {
+    const checks = benchmark.siteChecks([
+      issue("a-check", "a1"), issue("b-check", "b1"), issue("a-check", "a2"),
+      issue("c-check", "c1"), issue("d-check", "d1", "semantics"),
+    ]);
+    expect(checks.map((c) => c.id)).toEqual(["a-check", "b-check", "c-check", "d-check"]);
+    expect(checks[0].descriptions).toEqual(["a1", "a2"]);
+    expect(checks[3].category).toBe("semantics");
   });
 
   test("a group's line is true of every issue in it", () => {
