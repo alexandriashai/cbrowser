@@ -182,6 +182,7 @@ export async function getBrowserByToken(token?: string): Promise<{ browser: CBro
     browser: sessionBrowser,
     createdAt: now,
     lastActivity: now,
+    accountId: scopedAccountId(),
   });
 
   const newToken = generateBrowserToken(sessionId);
@@ -201,6 +202,16 @@ interface SessionInfo {
   browser: CBrowser;
   createdAt: number;
   lastActivity: number;
+  /** Account scope that created it; undefined when unscoped. (tenant, 2026-10-10) */
+  accountId: number | undefined;
+}
+
+/** Thrown when a session id names a browser another account created. */
+export class SessionOwnedElsewhereError extends Error {
+  constructor() {
+    super("This MCP session id is not available to this caller. Reconnect to start a new session, or call navigate() without a _browserToken.");
+    this.name = "SessionOwnedElsewhereError";
+  }
 }
 
 // Active sessions: sessionId -> SessionInfo
@@ -216,7 +227,7 @@ const EXPIRED_SESSION_RETENTION_MS = 600000; // 10 min
  * Each session gets its own CBrowser with isolated context.
  * If a session expired, transparently create a new one (low-friction reconnect).
  */
-async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
+export async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
   // Check if this session was recently expired - auto-recover by creating new session
   const expiredInfo = expiredSessions.get(sessionId);
   if (expiredInfo) {
@@ -227,9 +238,15 @@ async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
     // Fall through to create new session below
   }
 
-  // Check if session already exists
+  // Check if session already exists. The id is the client's mcp-session-id
+  // header on the /mcp path, so holding it proves nothing: this map is one per
+  // process and returned the browser (cookies, logged-in pages) to any caller
+  // presenting the id. A session is now reused only by the account scope that
+  // created it; unscoped callers keep the old behaviour among themselves.
+  // (tenant, 2026-10-10)
   const existing = activeSessions.get(sessionId);
   if (existing) {
+    if (existing.accountId !== scopedAccountId()) throw new SessionOwnedElsewhereError();
     existing.lastActivity = Date.now();
     return existing.browser;
   }
@@ -258,6 +275,7 @@ async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
     browser: sessionBrowser,
     createdAt: Date.now(),
     lastActivity: Date.now(),
+    accountId: scopedAccountId(),
   });
 
   console.log(`[Session] Created new session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active)`);
@@ -506,7 +524,22 @@ async function getBrowser(): Promise<CBrowser> {
  */
 export async function getTokenlessBrowser(): Promise<CBrowser> {
   const accountId = scopedAccountId();
-  return accountId === undefined ? getBrowser() : getSessionBrowser(`account:${accountId}`);
+  return accountId === undefined ? getBrowser() : getSessionBrowser(`${ACCOUNT_SESSION_PREFIX}${accountId}`);
+}
+
+/**
+ * Session ids in this namespace name an account's own tokenless browser. On the
+ * /mcp path the session id is the client's mcp-session-id header, and account
+ * ids are small integers, so 19.3.7 let any caller send "account:2" and drive
+ * account 2's browser, or claim the id first and lock the owner out. A client
+ * header in this namespace is ignored, as if no session id had been sent.
+ * (19.3.8, 2026-10-10)
+ */
+export const ACCOUNT_SESSION_PREFIX = "account:";
+
+export function sessionIdFromHeader(header: string | string[] | undefined): string | undefined {
+  const id = Array.isArray(header) ? header[0] : header;
+  return id && !id.startsWith(ACCOUNT_SESSION_PREFIX) ? id : undefined;
 }
 
 // Transport storage for stateful sessions
@@ -2475,7 +2508,7 @@ ${VERSION}
       // Get or create session
       // v18.14.0: Use client's mcp-session-id for browser session correlation
       // This fixes DOM interaction desync where navigate worked but other tools saw blank page
-      const existingSessionId = req.headers["mcp-session-id"] as string | undefined;
+      const existingSessionId = sessionIdFromHeader(req.headers["mcp-session-id"]);
 
       let transport: StreamableHTTPServerTransport;
       let browserSessionId: string;
