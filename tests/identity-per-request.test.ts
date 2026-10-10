@@ -19,13 +19,12 @@
  * Filename sorts before the recording-* cluster on purpose; see the note in
  * tests/auth-remote.test.ts.
  */
-import { describe, test, expect, beforeEach, afterAll } from "bun:test";
+import { describe, test, expect, beforeAll, beforeEach, afterAll } from "bun:test";
 import { mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
 process.env.CBROWSER_DATA_DIR ??= mkdtempSync(join(tmpdir(), "cb-identity-"));
-process.env.CMS_URL = "http://cms.invalid";
 
 const { withRequestIdentity } = await import("../src/request-context.js");
 const tg = await import("../src/mcp-tools/tier-gate.js");
@@ -40,23 +39,27 @@ const anonymous = { keyHash: null, tier: null, apiKey: undefined };
 
 let calls: Call[] = [];
 const realFetch = globalThis.fetch;
+const realCmsUrl = process.env.CMS_URL;
 
 /** Custom personas the fake CMS holds, per account key. */
 const CMS_PERSONAS: Record<string, string> = { cbk_A: "Alpha Only", cbk_B: "Beta Only" };
 
-globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-  const url = String(input);
-  const headers = (init?.headers ?? {}) as Record<string, string>;
-  calls.push({ url, headers, body: typeof init?.body === "string" ? init.body : undefined });
-  if (url.endsWith("/api/personas")) {
-    await tick(5);
-    const key = (headers.Authorization ?? "").replace(/^Bearer /, "");
-    const name = CMS_PERSONAS[key];
-    const personas = name ? [{ name, slug: name.toLowerCase().replace(/ /g, "-"), description: "d", traits: "{}", source: "cms" }] : [];
-    return new Response(JSON.stringify({ personas }), { status: 200 });
-  }
-  return new Response("{}", { status: 200 });
-}) as typeof fetch;
+beforeAll(() => {
+  process.env.CMS_URL = "http://cms.invalid";
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    calls.push({ url, headers, body: typeof init?.body === "string" ? init.body : undefined });
+    if (url.endsWith("/api/personas")) {
+      await tick(5);
+      const key = (headers.Authorization ?? "").replace(/^Bearer /, "");
+      const name = CMS_PERSONAS[key];
+      const personas = name ? [{ name, slug: name.toLowerCase().replace(/ /g, "-"), description: "d", traits: "{}", source: "cms" }] : [];
+      return new Response(JSON.stringify({ personas }), { status: 200 });
+    }
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+});
 
 /** Reset the process fallback so a value left by one test cannot pass another. */
 beforeEach(() => {
@@ -68,6 +71,8 @@ beforeEach(() => {
 
 afterAll(() => {
   globalThis.fetch = realFetch;
+  if (realCmsUrl === undefined) delete process.env.CMS_URL;
+  else process.env.CMS_URL = realCmsUrl;
   tg.setActiveKeyHash(null);
   tg.setActiveTier(null);
   setSessionApiKey(undefined);
