@@ -298,7 +298,10 @@ describe("the suggested markup keeps the element's real name and attributes", ()
     const [card] = flaggedFor(results.names, `class="card"`);
     expect(card).toBeDefined();
     // textContent glues these into "Custom PersonasDescribe your user".
-    expect(card.codeExample).toContain(`data-testid="custom-personas-describe-your-user"`);
+    // The testid is cut from the card's heading since 2026-10-10 (B47): the
+    // whole content began with badges and a date on cbrowser.ai's cards, and
+    // here it was "custom-personas-describe-your-user", the excerpt included.
+    expect(card.codeExample).toContain(`data-testid="custom-personas"`);
     expect(card.codeExample).not.toContain("PersonasDescribe");
     expect(card.codeExample).not.toContain("aria-label=");
   });

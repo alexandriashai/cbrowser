@@ -713,6 +713,8 @@ interface FindabilityElement {
    * text > title; "" when it has none.
    */
   accessibleName: string;
+  /** What the testid is cut from: the aria name, else a contained heading, else accessibleName. */
+  testIdName?: string;
   fullText: string;
   textTruncated: boolean;
   hasElementChildren: boolean;
@@ -740,7 +742,7 @@ function buildFindabilityCodeExample(el: FindabilityElement, usedTestIds: Set<st
   const name = el.accessibleName.trim();
   // Two elements that share a name are flagged precisely because they are
   // ambiguous; giving both the same testid would leave them ambiguous.
-  const base = slug(name) || slug(NAMELESS_LABEL_PLACEHOLDER);
+  const base = slug(el.testIdName?.trim() || name) || slug(name) || slug(NAMELESS_LABEL_PLACEHOLDER);
   let testId = base;
   for (let n = 2; usedTestIds.has(testId); n++) testId = `${base}-${n}`;
   usedTestIds.add(testId);
@@ -808,6 +810,56 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
           .join(' ').replace(/\s+/g, ' ').trim();
       };
       const nameKey = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+      // Text with a space wherever two text nodes sit in different boxes (an
+      // ancestor whose computed display is not inline), skipping script/style.
+      // The fallback for innerText, which is "" for anything under
+      // content-visibility:auto: textContent glues text nodes, so a homepage
+      // blog card well below the fold got the testid
+      // "researchattentionaug-4-2026we-beat-two" (measured on cbrowser.ai). Text
+      // split by an inline element (<mark>Pri</mark>cing) stays one word, and
+      // computed style is available inside skipped content where layout is
+      // not. Same walk as page-understanding.ts getVisibleText. (2026-10-10, B47)
+      const readableText = (root: Element): string => {
+        const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
+        const boxCache = new Map<Element, boolean>();
+        const isBox = (e: Element): boolean => {
+          let v = boxCache.get(e);
+          if (v === undefined) {
+            const d = getComputedStyle(e).display;
+            v = d !== 'inline' && d !== 'contents';
+            boxCache.set(e, v);
+          }
+          return v;
+        };
+        const boxOf = (n: Node): Node => {
+          for (let e = n.parentElement; e && e !== root; e = e.parentElement) {
+            if (isBox(e)) return e;
+          }
+          return root;
+        };
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+          acceptNode: (n) => n.nodeType !== 1 ? NodeFilter.FILTER_ACCEPT
+            : SKIP.has((n as Element).tagName) ? NodeFilter.FILTER_REJECT
+            : (n as Element).tagName === 'BR' ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_SKIP,
+        });
+        let out = '';
+        let prevBox: Node | null = null;
+        let gap = false;
+        for (let n = walker.nextNode(); n && out.length < 400; n = walker.nextNode()) {
+          const t = n.nodeType === 3 ? (n.nodeValue || '').replace(/\s+/g, ' ') : '';
+          // A <br> or a whitespace-only node is a separator, never content.
+          if (!t.trim()) { gap = true; continue; }
+          const box = boxOf(n);
+          if (prevBox !== null && (gap || box !== prevBox)) out += ' ';
+          out += t;
+          prevBox = box;
+          gap = false;
+        }
+        return out.replace(/\s+/g, ' ').trim();
+      };
+      const shownText = (e: Element): string =>
+        ((e as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim() || readableText(e);
       // An ARIA name is a stable hook only when it picks out ONE element:
       // two buttons both labelled "Add to cart" match [aria-label="Add to cart"]
       // twice, which is exactly the ambiguity this check exists to report.
@@ -876,8 +928,9 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
             (type === 'submit' ? 'Submit' : type === 'reset' ? 'Reset' : '');
         })();
         // innerText keeps a card's "Heading" and "Description" apart, where
-        // textContent glues them into "HeadingDescription".
-        const rendered = ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim();
+        // textContent glues them into "HeadingDescription". readableText does
+        // the same where innerText is empty (content-visibility:auto). (B47)
+        const rendered = shownText(el);
         // Rendered text beats img alt: in a list of user cards every
         // <a><img alt="Avatar"> Jane Doe</a> has the same alt, so ranking alt
         // first made every testid "avatar", "avatar-2", ... where base gave
@@ -886,12 +939,21 @@ async function detectLowFindabilityElements(ctx: DetectionContext): Promise<void
         // element only when the content does not. <a title="a > b">Short link</a>
         // is "Short link", and its testid must be "short-link", not "a-b".
         const accessibleName = aria || rendered || imgAlt || inputName || text || title;
+        // A card link's name is ALL its content (badges, date, heading,
+        // excerpt), so a testid cut from it starts with whatever comes first:
+        // "research-attention-aug-4-2026-we-beat", the same prefix on every card
+        // in a tag. The heading names the card. An explicit aria name still
+        // wins. Only the testid uses this; the accessible name is unchanged.
+        // (2026-10-10, B47)
+        const headingEl = aria ? null : el.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]');
+        const testIdName = aria || (headingEl ? shownText(headingEl) : '') || accessibleName;
 
         return {
           selector: el.tagName.toLowerCase() + (el.id ? `#${el.id}` : ''),
           tag: el.tagName.toLowerCase(),
           attributes: Array.from(el.attributes).map(a => [a.name, a.value] as [string, string]),
           accessibleName: accessibleName.slice(0, 200),
+          testIdName: testIdName.slice(0, 200),
           hasElementChildren: el.children.length > 0,
           // Truncated copy, for human-readable descriptions ONLY. Never build
           // suggested markup from this — see fullText. (2026-07-29)
