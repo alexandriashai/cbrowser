@@ -2542,6 +2542,28 @@ export interface ConsoleEntry {
   lineNumber?: number;
 }
 
+/**
+ * One message from a tab's console buffer (CBrowser.getConsoleMessages).
+ *
+ * `type`, `text` and `timestamp` (epoch ms) are the fields get_console_messages
+ * has always returned. Since v8 B27 (2026-10-10) the buffer is filled by the
+ * browser rather than by a console.* patch, so `type` is Playwright's console
+ * type ("log", "info", "warning", "error", "debug", ...) and it also holds
+ * messages no page script wrote, such as "Failed to load resource" for a 404.
+ */
+export interface CapturedConsoleMessage {
+  type: string;
+  text: string;
+  timestamp: number;
+  /** "pageerror" for an uncaught exception (type "error"), else "console". */
+  source: "console" | "pageerror";
+  /** Where the browser says it came from: the script, or the failed resource. */
+  url?: string;
+  lineNumber?: number;
+  /** The tab's URL when it was logged; the buffer survives navigation. */
+  pageUrl: string;
+}
+
 export interface JourneyStep {
   action: string;
   target?: string;

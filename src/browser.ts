@@ -28,6 +28,7 @@ import type {
   JourneyResult,
   JourneyStep,
   ConsoleEntry,
+  CapturedConsoleMessage,
   AuditEntry,
   ActionZone,
   CleanupOptions,
@@ -355,6 +356,21 @@ export class CBrowser {
   private static readonly MAX_PENDING_REQUESTS = 2000;
   private harEntries: HAREntry[] = [];
   private isRecordingHar = false;
+  /**
+   * Console capture, one ring buffer per tab (v8 B27, 2026-10-10). Filled by a
+   * single page.on("console") + page.on("pageerror") pair attached when the tab
+   * is created, so it holds what was logged during page load and what the
+   * browser itself reports (a 404 is "Failed to load resource", not a console.*
+   * call). Measured on 19.3.6: get_console_messages returned [] for a page that
+   * had logged and 404'd, because it patched console.* on its first call; and
+   * navigate added a listener per call (6 -> 9 over three navigates). Keyed by
+   * Page so a tab switched to by manage_tabs reads its own buffer.
+   */
+  private consoleBuffers: WeakMap<Page, { entries: Array<{ seq: number; msg: CapturedConsoleMessage }>; dropped: number }> = new WeakMap();
+  /** Increases on every captured message, across tabs; navigate slices by it. */
+  private consoleSeq = 0;
+  private static readonly CONSOLE_BUFFER_CAP = 500;
+  private static readonly CONSOLE_TEXT_CAP = 2000;
   private skipSessionRestore: boolean;
 
   // Modular components (extracted for maintainability)
@@ -801,6 +817,15 @@ For more help: https://playwright.dev/docs/browsers
         if (this.config.verbose && this.config.proxy) {
           console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
         }
+      }
+
+      // Console capture for every tab of this context: the ones open now, and
+      // any opened later by the site (popups), followPopups, or manage_tabs,
+      // which calls context.newPage() directly (v8 B27, 2026-10-10).
+      const ctx = this.context;
+      if (ctx) {
+        ctx.on("page", (p) => this.attachConsoleCapture(p));
+        for (const p of ctx.pages()) this.attachConsoleCapture(p);
       }
 
       // Live-journey mode: when a click opens a new tab, swap the journey's
@@ -1608,6 +1633,90 @@ For more help: https://playwright.dev/docs/browsers
   }
 
   // =========================================================================
+  // Console Capture (v8 B27)
+  // =========================================================================
+
+  /**
+   * Give a tab its one console + pageerror listener pair. Idempotent.
+   *
+   * The buffer is NOT reset on navigation (decided 2026-10-10, v8 B27). A flow
+   * that submits a form and lands on a confirmation page would otherwise lose
+   * the form page's errors, which are usually what the caller is looking for,
+   * and Playwright's public API cannot tell a new document from a pushState
+   * route change, so a reset would also wipe an SPA's load errors on its first
+   * client-side navigation. Each entry carries pageUrl instead; clear starts
+   * fresh.
+   */
+  private attachConsoleCapture(page: Page): void {
+    if (this.consoleBuffers.has(page)) return;
+    const buffer: { entries: Array<{ seq: number; msg: CapturedConsoleMessage }>; dropped: number } = { entries: [], dropped: 0 };
+    this.consoleBuffers.set(page, buffer);
+    const push = (msg: CapturedConsoleMessage): void => {
+      if (msg.text.length > CBrowser.CONSOLE_TEXT_CAP) {
+        const extra = msg.text.length - CBrowser.CONSOLE_TEXT_CAP;
+        msg.text = `${msg.text.slice(0, CBrowser.CONSOLE_TEXT_CAP)}... [${extra} more characters]`;
+      }
+      buffer.entries.push({ seq: ++this.consoleSeq, msg });
+      if (buffer.entries.length > CBrowser.CONSOLE_BUFFER_CAP) {
+        buffer.entries.shift();
+        buffer.dropped++;
+      }
+    };
+    const pageUrl = (): string => {
+      try { return page.url(); } catch { return ""; }
+    };
+    page.on("console", (m) => {
+      let loc: { url: string; lineNumber: number } | undefined;
+      try { loc = m.location(); } catch { /* no location */ }
+      push({
+        type: m.type(),
+        text: m.text(),
+        timestamp: Date.now(),
+        source: "console",
+        // For "Failed to load resource" Chrome puts the failed resource here,
+        // not in the text (same finding as hunt_bugs v5 B24).
+        ...(loc?.url ? { url: loc.url, lineNumber: loc.lineNumber } : {}),
+        pageUrl: pageUrl(),
+      });
+    });
+    page.on("pageerror", (err) => {
+      push({
+        type: "error",
+        text: `${err.name || "Error"}: ${err.message}`,
+        timestamp: Date.now(),
+        source: "pageerror",
+        pageUrl: pageUrl(),
+      });
+    });
+  }
+
+  /**
+   * The current tab's console messages, oldest first: the latest 500 since the
+   * tab opened or since clearConsoleMessages(), across navigations, including
+   * uncaught exceptions (source "pageerror") and browser-generated messages
+   * such as a resource 404. `dropped` counts older ones the ring evicted.
+   */
+  getConsoleMessages(): { messages: CapturedConsoleMessage[]; dropped: number } {
+    const buffer = this.page ? this.consoleBuffers.get(this.page) : undefined;
+    if (!buffer) return { messages: [], dropped: 0 };
+    return { messages: buffer.entries.map((e) => ({ ...e.msg })), dropped: buffer.dropped };
+  }
+
+  /** Empty the current tab's console buffer and its dropped count. */
+  clearConsoleMessages(): void {
+    const buffer = this.page ? this.consoleBuffers.get(this.page) : undefined;
+    if (buffer) {
+      buffer.entries = [];
+      buffer.dropped = 0;
+    }
+  }
+
+  /** What a tab logged after sequence number `afterSeq` (navigate's own slice). */
+  private consoleMessagesSince(page: Page, afterSeq: number): CapturedConsoleMessage[] {
+    return (this.consoleBuffers.get(page)?.entries ?? []).filter((e) => e.seq > afterSeq).map((e) => e.msg);
+  }
+
+  // =========================================================================
   // Performance Metrics
   // =========================================================================
 
@@ -1999,17 +2108,25 @@ For more help: https://playwright.dev/docs/browsers
     this.skipSessionRestore = prevSkip;
     const startTime = Date.now();
 
-    const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Capture console errors
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        errors.push(msg.text());
-      } else if (msg.type() === "warning") {
-        warnings.push(msg.text());
+    // This navigation's console errors and warnings are the tab's capture
+    // buffer sliced from here (v8 B27, 2026-10-10). The page.on("console") that
+    // used to be added here was never removed, so every navigate left one more
+    // listener on the tab (measured 6 -> 9 over three calls). Uncaught
+    // exceptions stay out of `errors`, as before. The attach is a no-op for any
+    // tab this CBrowser opened; it covers a page swapped in from elsewhere.
+    this.attachConsoleCapture(page);
+    const consoleStart = this.consoleSeq;
+    const loggedHere = (): { errors: string[]; warnings: string[] } => {
+      const logged = { errors: [] as string[], warnings: [] as string[] };
+      for (const m of this.consoleMessagesSince(page, consoleStart)) {
+        if (m.source !== "console") continue;
+        if (m.type === "error") logged.errors.push(m.text);
+        else if (m.type === "warning") logged.warnings.push(m.text);
       }
-    });
+      return logged;
+    };
 
     // v11.3.0: Configurable wait strategy
     const waitStrategy = options.waitStrategy || "auto";
@@ -2147,12 +2264,13 @@ For more help: https://playwright.dev/docs/browsers
       if (this.config.verbose) {
         console.log(`⚠️ Page context desync detected: expected ${expectedHost}, got ${actualHost}`);
       }
+      const logged = loggedHere();
       return {
         url: actualUrl,
         title: actualTitle,
         screenshot,
-        errors: [...errors, `Page context desync: navigated to ${url} but landed on ${actualUrl}`],
-        warnings: [...warnings, `Expected domain: ${expectedHost}, Actual domain: ${actualHost}`],
+        errors: [...logged.errors, `Page context desync: navigated to ${url} but landed on ${actualUrl}`],
+        warnings: [...logged.warnings, ...warnings, `Expected domain: ${expectedHost}, Actual domain: ${actualHost}`],
         loadTime,
         success: false,
         desyncDetected: true,
@@ -2161,13 +2279,14 @@ For more help: https://playwright.dev/docs/browsers
     }
 
     const screenshot = await this.screenshot();
+    const logged = loggedHere();
 
     return {
       url: actualUrl,
       title: actualTitle,
       screenshot,
-      errors,
-      warnings,
+      errors: logged.errors,
+      warnings: [...logged.warnings, ...warnings],
       loadTime,
       success: true,
       ...(waitSelectorTimedOut ? { waitSelectorTimedOut: true } : {}),

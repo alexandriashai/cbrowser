@@ -63,9 +63,16 @@ export function registerBrowserStateTools(
   });
 
   // ── get_console_messages ──
+  // Reads the tab's capture buffer (CBrowser.getConsoleMessages). It used to
+  // patch console.* from page script on its first call, so it returned [] for
+  // everything logged before that call, lost the patch on every navigation,
+  // never saw browser-generated messages such as a resource 404, and its
+  // "warning" filter matched nothing because the patch recorded "warn". Measured
+  // on 19.3.6 with a page that logs "hi" and 404s an image: first call returned
+  // 0 messages. (v8 B27, 2026-10-10)
   server.registerTool("get_console_messages", {
     title: "Get Console Messages",
-    description: "Get browser console messages (log, warn, error, info) captured since the last navigation or since the last call to this tool with clear=true.",
+    description: "Get the current tab's console messages (log, info, warning, error, debug, ...) as the browser recorded them since the tab opened: messages logged during page load, uncaught exceptions (type error, source pageerror), and browser-generated messages such as \"Failed to load resource\" for a 404 (url names the resource). Messages persist across navigations in the same tab and each carries the pageUrl it was logged on; the latest 500 are kept and dropped counts any older ones evicted. clear=true empties the buffer after reading.",
     inputSchema: {
       filter: z.enum(["all", "error", "warning", "log", "info"]).optional().default("all").describe("Filter by message type"),
       clear: z.boolean().optional().default(false).describe("Clear captured messages after reading"),
@@ -76,38 +83,21 @@ export function registerBrowserStateTools(
     let b, token;
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
-    const page = await b.getPage();
+    await b.getPage(); // launches (and attaches capture) if this session has no tab yet
 
-    // Capture current console messages via evaluate
-    const messages = await page.evaluate(() => {
-      // Access captured messages if the capture script has been injected
-      return (window as any).__cbrowser_console_messages || [];
-    });
-
-    // Inject console capture if not already done
-    await page.evaluate(() => {
-      if ((window as any).__cbrowser_console_capture_installed) return;
-      (window as any).__cbrowser_console_messages = (window as any).__cbrowser_console_messages || [];
-      const orig = { log: console.log, warn: console.warn, error: console.error, info: console.info };
-      for (const [type, fn] of Object.entries(orig)) {
-        (console as any)[type] = (...args: unknown[]) => {
-          (window as any).__cbrowser_console_messages.push({
-            type, text: args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' '),
-            timestamp: Date.now(),
-          });
-          fn.apply(console, args);
-        };
-      }
-      (window as any).__cbrowser_console_capture_installed = true;
-    });
-
-    const filtered = filter === "all" ? messages : messages.filter((m: any) => m.type === filter);
+    const { messages, dropped } = b.getConsoleMessages();
+    const filtered = filter === "all" ? messages : messages.filter((m) => m.type === filter);
 
     if (clear) {
-      await page.evaluate(() => { (window as any).__cbrowser_console_messages = []; });
+      b.clearConsoleMessages();
     }
 
-    return { content: [{ type: "text" as const, text: JSON.stringify({ messages: filtered, count: filtered.length, _browserToken: token }, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify({
+      messages: filtered,
+      count: filtered.length,
+      ...(dropped > 0 ? { dropped } : {}),
+      _browserToken: token,
+    }, null, 2) }] };
   });
 
   // ── get_network_requests ──
