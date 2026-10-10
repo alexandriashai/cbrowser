@@ -126,6 +126,8 @@ interface RawInteractiveElement {
   textIsLabel?: boolean;
   /** Inside nav, header, footer or their ARIA landmark roles: site chrome. */
   inChrome?: boolean;
+  /** Inside an <article>'s own header or footer: that article's metadata. */
+  inArticleMeta?: boolean;
   rect: { top: number; left: number; width: number; height: number };
   formIndex: number;
   nthOfType: number;
@@ -629,8 +631,9 @@ export class PageUnderstandingEngine {
        * "landing"; and it dropped an article's own <footer> prose from
        * longParagraphs. Named cost, measured on live pages: a content page's
        * own header links (breadcrumbs, byline, filter tabs) count toward the
-       * hero again, so the css-tricks flexbox guide, linear.app/changelog and
-       * smashingmagazine.com/articles are "landing" as they were before B40.
+       * hero again, so the css-tricks flexbox guide and linear.app/changelog,
+       * whose such links sit in main>header, are "landing" as they were before
+       * B40. (An <article>'s header is handled by isInArticleMeta.)
        * (2026-10-10, B40)
        */
       const SECTION_SCOPE = 'article, aside, main, nav, section, [role="article"], [role="complementary"], [role="main"], [role="navigation"], [role="region"]';
@@ -638,6 +641,21 @@ export class PageUnderstandingEngine {
         if (el.closest('nav, [role="navigation"], [role="banner"], [role="contentinfo"]')) return true;
         for (let hf = el.closest("header, footer"); hf; hf = hf.parentElement?.closest("header, footer") ?? null) {
           if (!hf.parentElement?.closest(SECTION_SCOPE)) return true;
+        }
+        return false;
+      }
+
+      /**
+       * The header or footer of an <article> holds that article's metadata
+       * (byline, date, tags, comment count), never a page's calls to action.
+       * Not chrome, so its prose still counts; only the hero count skips it. On
+       * smashingmagazine.com/articles the byline "Vitaly Friedman" and
+       * "0 comments" in each card's article header/footer were hero CTAs.
+       * (2026-10-10, B40)
+       */
+      function isInArticleMeta(el: Element): boolean {
+        for (let hf = el.closest("header, footer"); hf; hf = hf.parentElement?.closest("header, footer") ?? null) {
+          if (hf.parentElement?.closest(SECTION_SCOPE)?.matches('article, [role="article"]')) return true;
         }
         return false;
       }
@@ -698,6 +716,7 @@ export class PageUnderstandingEngine {
           // Site chrome: nav, banner and contentinfo links are navigation, not a
           // hero's calls to action. See isInChrome. (2026-10-10, B40)
           inChrome: isInChrome(el),
+          inArticleMeta: isInArticleMeta(el),
           href: (el as HTMLAnchorElement).href || "",
           name: inputEl.name || "",
           id: el.id || "",
@@ -1007,7 +1026,7 @@ function classifyPageType(raw: RawDOMExtraction, pageUrl?: string): PageType {
   const isSamePageFragment = (href: string): boolean => {
     try { const u = new URL(href); return !!u.hash && u.origin + u.pathname === pagePath; } catch { return false; }
   };
-  const topCtaCount = topLinks.filter((el) => !el.inChrome && !isSamePageFragment(el.href)).length;
+  const topCtaCount = topLinks.filter((el) => !el.inChrome && !el.inArticleMeta && !isSamePageFragment(el.href)).length;
 
   // Decided here rather than at the bottom. A hero CTA cluster is a STRONG and
   // specific signal, and it used to sit below two weak general ones — "three

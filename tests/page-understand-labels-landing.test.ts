@@ -79,6 +79,15 @@ const ARTICLE_FOOTER = doc("Post | Fixture", `${HEADER}<main><article><h1>A long
   <h2>Part one</h2><p>${EXCERPT}</p><h3>A detail</h3><p>Short.</p>
   <footer><h2>About the author</h2><p>${EXCERPT}</p><p>${EXCERPT}</p></footer></article></main>`);
 
+// An <article>'s own header and footer hold its byline and comment count,
+// never a page's calls to action. smashingmagazine.com/articles shape: each
+// card's author link and "0 comments" counted as hero CTAs. (2026-10-10, B40)
+const ARTICLE_CARDS = doc("Articles | Fixture", `${HEADER}<main><h1>Articles</h1><section>
+${Array.from({ length: 6 }, (_, i) => `<article><header><a href="/author/vitaly/">Vitaly F.</a></header>
+  <h3><a href="/2026/post-${i}/">A long article title about accessibility, part ${i}</a></h3><p>${EXCERPT}</p>
+  <footer><a href="/2026/post-${i}/comments/">0 comments</a></footer></article>`).join("\n")}
+</section></main>`);
+
 const GLUE = doc("Glue fixture", `<main>
   <a id="card" class="card" href="/blog/we-beat/" style="display:block">
     <div style="display:flex;gap:8px"><span style="display:inline-flex">research</span><span style="display:inline-flex">attention</span><span>Aug 4, 2026</span></div>
@@ -113,6 +122,7 @@ beforeAll(async () => {
   results.heroInHeader = await understand(HERO_IN_HEADER);
   results.heroInSection = await understand(HERO_IN_SECTION);
   results.articleFooter = await understand(ARTICLE_FOOTER);
+  results.articleCards = await understand(ARTICLE_CARDS);
 }, 120_000);
 
 afterAll(async () => { await browser?.close(); });
@@ -163,6 +173,10 @@ describe("only the banner and contentinfo header and footer are site chrome", ()
 
   test("long paragraphs in an article's own <footer> count as prose", () => {
     expect(results.articleFooter.type).not.toBe("landing");
+  });
+
+  test("bylines and comment links in articles' own headers and footers are not hero CTAs", () => {
+    expect(results.articleCards.type).not.toBe("landing");
   });
 });
 
