@@ -42,7 +42,7 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CBrowser } from "./browser.js";
-import { ensureDirectories } from "./config.js";
+import { ensureDirectories, getDataDir } from "./config.js";
 
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
@@ -514,6 +514,10 @@ async function getBrowser(): Promise<CBrowser> {
       headless: true,
       persistent: true,
       proxy: proxyConfig,
+      // The shared legacy browser belongs to no account, so its files stay
+      // in the process data dir even if it is first built inside a scope;
+      // the config default is now the caller's directory. (tenant, 2026-10-10)
+      dataDir: getDataDir(),
     });
   }
   return browser;

@@ -172,8 +172,14 @@ export function loadConfigFile(dir?: string): CBrowserConfigFile | null {
  * Get default configuration, merging with environment variables and config file.
  */
 export function getDefaultConfig(): CBrowserConfig {
-  const dataDir = getDataDir();
-  const configFile = loadConfigFile(dataDir);
+  // The operator's config file is still read from the process data dir. The
+  // browser's own files (screenshots, HAR, videos, selector cache, journeys,
+  // browser state) go under effectiveDataDir(): a CBrowser built during a
+  // hosted request took getDataDir(), the one directory every account
+  // shared, and heal_stats read that selector cache back to any account.
+  // Unscoped: unchanged. (tenant, 2026-10-10)
+  const dataDir = effectiveDataDir();
+  const configFile = loadConfigFile(getDataDir());
 
   // Build proxy config from environment if available
   // Format: CBROWSER_PROXY=http://user:pass@proxy.example.com:8080
