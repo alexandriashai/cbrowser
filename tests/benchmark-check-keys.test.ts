@@ -209,6 +209,59 @@ describe("topIssues is one entry per check", () => {
   });
 });
 
+describe("a site result carries the keys the comparison reads", () => {
+  const audit = (
+    score: { overall: number; findability: number; stability: number; agentPerceivability: number; semantics: number },
+    issues: AgentReadyIssue[],
+  ) => ({ score, grade: "D" as const, issues, duration: 1 });
+
+  test("the ucdenver shape: grouped top issues, an axis weakness keyed by axis", () => {
+    const r = benchmark.siteResultFromAudit("https://www.ucdenver.edu/", "ucdenver.edu", audit(
+      { overall: 69, findability: 65, stability: 52, agentPerceivability: 90, semantics: 85 },
+      [
+        issue("hidden-select-check", HIDDEN_SELECT, "stability", "high"),
+        issue("hidden-select-check", HIDDEN_SELECT, "stability", "high"),
+        issue("hidden-select-check", HIDDEN_SELECT, "stability", "high"),
+        sticky(10, 1440),
+        selectors(4),
+        selectors(0),
+      ],
+    ), 1);
+    expect(r.topIssues[0]).toBe(`3 ${HIDDEN_SELECT}`);
+    expect(r.topIssueChecks).toEqual(["hidden-select-check", "sticky-element-check", "findability-score-check"]);
+    expect(r.topIssues[2]).toBe("2 elements lack stable selectors (scores: 0-4/10)");
+    expect(r.checks?.map((c) => c.id)).toEqual(["hidden-select-check", "sticky-element-check", "findability-score-check"]);
+    expect(r.weaknessKeys).toEqual([{ axis: "stability" }]);
+    expect(r.weaknesses.length).toBe(1);
+    expect(r.weaknesses[0].toLowerCase()).not.toContain("selector");
+  });
+
+  test("with no weak axis, each weakness is a top issue keyed by its check", () => {
+    const r = benchmark.siteResultFromAudit("https://cbrowser.ai/", "cbrowser.ai", audit(
+      { overall: 85, findability: 70, stability: 92, agentPerceivability: 100, semantics: 100 },
+      [sticky(50, 1280), selectors(0), selectors(2)],
+    ));
+    expect(r.weaknesses).toEqual(r.topIssues);
+    expect(r.weaknessKeys).toEqual([{ check: "sticky-element-check" }, { check: "findability-score-check" }]);
+  });
+
+  test("a strength is qualified by every issue on its axis, not just the top three", () => {
+    // Four sticky issues behind three critical checks: none reach the top three.
+    const r = benchmark.siteResultFromAudit("https://x.example/", "x.example", audit(
+      { overall: 80, findability: 70, stability: 92, agentPerceivability: 70, semantics: 70 },
+      [
+        issue("one-check", "one", "semantics", "critical"),
+        issue("two-check", "two", "semantics", "critical"),
+        issue("three-check", "three", "semantics", "critical"),
+        sticky(5, 1200), sticky(6, 1200), sticky(7, 1200), sticky(8, 1200),
+      ],
+    ));
+    expect(r.topIssueChecks).not.toContain("sticky-element-check");
+    expect(r.strengths).toHaveLength(1);
+    expect(r.strengths[0]).toContain("(stability 92), with 4 element(s) excepted");
+  });
+});
+
 describe("a reference is matched on the check or the axis", () => {
   test("a candidate with the same sticky check is not a reference", () => {
     const subject = site("ucdenver.edu", 69, [sticky(10, 1440)]);

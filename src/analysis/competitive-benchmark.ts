@@ -1404,6 +1404,7 @@ import type {
   AuditFailureCategory,
   AuditStatus,
   AgentReadyGrade,
+  AgentReadyAuditResult,
   AgentReadyIssue,
   AgentReadyIssueCategory,
   AIBenchmarkCheck,
@@ -1609,50 +1610,7 @@ export async function runAIReadinessBenchmark(
         }
 
         const audit = retryResult.result;
-
-        // Strengths and weaknesses from the axis scores, phrased per axis by
-        // AXIS_PHRASES so a phrase cannot drift from the axis it claims.
-        const strengths = AXES
-          .filter((axis) => audit.score[axis] >= 80)
-          .map((axis) => AXIS_PHRASES[axis].strength);
-        const weakAxes = AXES.filter((axis) => audit.score[axis] < 60);
-
-        // One entry per check, each summarized over all of its issues. Was
-        // audit.issues.slice(0, 3): ucdenver.edu's topIssues read "Hidden select
-        // with custom UI..." three times and nothing else. (report v8 B28,
-        // 2026-10-10)
-        const top = topIssueGroups(audit.issues, 3);
-        const issueDescriptions = top.map((g) => g.summary);
-        // Carried alongside the descriptions because reconciliation needs the
-        // CATEGORY, and mapping to description strings threw it away — which is
-        // why a strength and its contradiction could not be matched up.
-        const issueCategories = top.map((g) => g.category);
-
-        return {
-          url,
-          siteName,
-          grade: audit.grade,
-          score: audit.score.overall,
-          scoreBreakdown: audit.score,
-          topIssues: issueDescriptions,
-          topIssueCategories: issueCategories,
-          topIssueChecks: top.map((g) => g.check),
-          checks: siteChecks(audit.issues),
-          // Every issue's category, not the top three's: a top entry is now a
-          // whole check, so counting entries would undercount the elements.
-          strengths: strengths.length > 0
-            ? reconcileStrengths(strengths, audit.issues.map((i) => String(i.category)), audit.score)
-            : ["No major strengths detected"],
-          weaknesses: weakAxes.length > 0
-            ? weakAxes.map((axis) => AXIS_PHRASES[axis].weakness)
-            : issueDescriptions,
-          weaknessKeys: weakAxes.length > 0
-            ? weakAxes.map((axis): AIBenchmarkIssueKey => ({ axis }))
-            : top.map((g): AIBenchmarkIssueKey => ({ check: g.check })),
-          duration: audit.duration,
-          auditStatus: "complete" as AuditStatus,
-          retryAttempts: retryResult.attempts,
-        };
+        return siteResultFromAudit(url, siteName, audit, retryResult.attempts);
       })
     );
 
@@ -1688,6 +1646,63 @@ export async function runAIReadinessBenchmark(
     ranking,
     comparison,
     recommendations,
+  };
+}
+
+/**
+ * One completed audit as a benchmark site result. A pure function, so the
+ * fields the comparison and the competitor references read (checks,
+ * topIssueChecks, weaknessKeys) are testable without a browser.
+ * (report v8 B28, 2026-10-10)
+ */
+export function siteResultFromAudit(
+  url: string,
+  siteName: string,
+  audit: Pick<AgentReadyAuditResult, "score" | "grade" | "issues" | "duration">,
+  retryAttempts?: number,
+): AIBenchmarkSiteResult {
+  // Strengths and weaknesses from the axis scores, phrased per axis by
+  // AXIS_PHRASES so a phrase cannot drift from the axis it claims.
+  const strengths = AXES
+    .filter((axis) => audit.score[axis] >= 80)
+    .map((axis) => AXIS_PHRASES[axis].strength);
+  const weakAxes = AXES.filter((axis) => audit.score[axis] < 60);
+
+  // One entry per check, each summarized over all of its issues. Was
+  // audit.issues.slice(0, 3): ucdenver.edu's topIssues read "Hidden select
+  // with custom UI..." three times and nothing else. (report v8 B28,
+  // 2026-10-10)
+  const top = topIssueGroups(audit.issues, 3);
+  const issueDescriptions = top.map((g) => g.summary);
+  // Carried alongside the descriptions because reconciliation needs the
+  // CATEGORY, and mapping to description strings threw it away — which is
+  // why a strength and its contradiction could not be matched up.
+  const issueCategories = top.map((g) => g.category);
+
+  return {
+    url,
+    siteName,
+    grade: audit.grade,
+    score: audit.score.overall,
+    scoreBreakdown: audit.score,
+    topIssues: issueDescriptions,
+    topIssueCategories: issueCategories,
+    topIssueChecks: top.map((g) => g.check),
+    checks: siteChecks(audit.issues),
+    // Every issue's category, not the top three's: a top entry is now a
+    // whole check, so counting entries would undercount the elements.
+    strengths: strengths.length > 0
+      ? reconcileStrengths(strengths, audit.issues.map((i) => String(i.category)), audit.score)
+      : ["No major strengths detected"],
+    weaknesses: weakAxes.length > 0
+      ? weakAxes.map((axis) => AXIS_PHRASES[axis].weakness)
+      : issueDescriptions,
+    weaknessKeys: weakAxes.length > 0
+      ? weakAxes.map((axis): AIBenchmarkIssueKey => ({ axis }))
+      : top.map((g): AIBenchmarkIssueKey => ({ check: g.check })),
+    duration: audit.duration,
+    auditStatus: "complete" as AuditStatus,
+    retryAttempts,
   };
 }
 
