@@ -671,6 +671,10 @@ export function huntBugsResponse(
       severity: bug.severity,
       description: bug.description,
       url: bug.url,
+      // The failed resource behind a "Failed to load resource" error (v5 B24).
+      // This map names its fields, so a field added to BugReport is dropped
+      // from the MCP response unless it is listed here too.
+      ...(bug.resourceUrl ? { resourceUrl: bug.resourceUrl } : {}),
       selector: bug.selector,
       ...(bug.occurrences > 1
         ? { occurrences: bug.occurrences, allSelectors: bug.selectors }

@@ -17,7 +17,7 @@ import { join } from "path";
 
 process.env.CBROWSER_DATA_DIR ??= mkdtempSync(join(tmpdir(), "cb-hunt-resource-"));
 const { CBrowser } = await import("../src/browser.js");
-const { huntBugs } = await import("../src/analysis/bug-hunter.js");
+const { huntBugs, huntBugsResponse } = await import("../src/analysis/bug-hunter.js");
 
 const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>missing assets</title>
 <link rel="stylesheet" href="/missing.css"></head><body><main><h1>Assets</h1>
@@ -49,6 +49,11 @@ describe("hunt_bugs 404 console errors", () => {
         expect(x.url).toBe(`${base}/`); // still the page
         expect(x.description).toContain(x.resourceUrl!);
       }
+      // And it reaches the MCP response, whose bug map lists fields by name
+      // (live on 19.3.5 the field was dropped there; only the description had it).
+      const shown = (huntBugsResponse(r).bugs as Array<{ description: string; resourceUrl?: string }>)
+        .filter((x) => /^Failed to load resource/.test(x.description));
+      expect(shown.map((x) => x.resourceUrl).sort()).toEqual(expect.arrayContaining([`${base}/gone.png`, `${base}/missing.css`]));
     } finally {
       await b.close();
     }
