@@ -156,9 +156,17 @@ export function registerRemediationTools(
                 existingSchema: suggestion.existingSchema.length > 0
                   ? suggestion.existingSchema
                   : "None detected",
+                // What a low-confidence "unknown" nearly was. (2026-10-10, B34)
+                candidates: suggestion.candidates.map((c) => ({ type: c.type, confidence: Math.round(c.confidence * 100) + "%" })),
                 suggestedSchema: suggestion.suggestedSchema,
-                implementation: `Add this to your page's <head>:\n\n<script type="application/ld+json">\n${suggestion.suggestedSchemaString}\n</script>`,
-                note: "Many fields are auto-extracted from the page. Fill in any remaining empty strings with your actual content.",
+                // No schema when the page already declares it or declares one it
+                // would contradict; the reasoning says which. (2026-10-10, B34)
+                implementation: suggestion.suggestedSchema
+                  ? `Add this to your page's <head>:\n\n<script type="application/ld+json">\n${suggestion.suggestedSchemaString}\n</script>`
+                  : "Nothing to add. See reasoning.",
+                note: suggestion.suggestedSchema
+                  ? "Many fields are auto-extracted from the page. Fill in any remaining empty strings with your actual content."
+                  : undefined,
               },
               null,
               2
