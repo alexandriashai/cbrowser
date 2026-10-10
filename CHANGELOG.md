@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.6](https://github.com/alexandriashai/cbrowser/compare/v19.3.5...v19.3.6) (2026-10-10)
+
+### Fixed
+
+* **views:** no broken image when a result has none; artifact_fetch is free ([6bd3e1a](https://github.com/alexandriashai/cbrowser/commit/6bd3e1a0f335842ba82c0ee9a3b962ae3d652c2e))
+
 ## [19.3.5](https://github.com/alexandriashai/cbrowser/compare/v19.3.4...v19.3.5) (2026-10-10)
 
 ### Fixed
