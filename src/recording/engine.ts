@@ -1169,7 +1169,8 @@ export class VideoCaptureSession {
       ...(this.interactions.length > 0 ? { interactions: this.interactions } : {}),
       capture_method: this.captureMethod,
       target_fps: this.opts.fps,
-      actual_fps: durationMs > 0 ? frames.length / (durationMs / 1000) : 0,
+      // Two decimals: 16 frames over 2.6 s printed 6.153846153846153. (v8 B41)
+      actual_fps: durationMs > 0 ? Math.round((frames.length / (durationMs / 1000)) * 100) / 100 : 0,
       viewport: this.viewport,
       target: this.target,
       start_trigger: this.startTriggerLabel,

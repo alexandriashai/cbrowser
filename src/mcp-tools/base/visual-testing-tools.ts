@@ -156,7 +156,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
               name: result.name,
               captures: result.numCaptures,
               outliers: result.numOutliers,
-              meanDistance: result.meanDistance,
+              // Rounded where it is shown, not where it is computed: the raw
+              // value feeds the adaptive threshold. (v8 B41)
+              meanDistance: Math.round(result.meanDistance * 10000) / 10000,
               adaptiveThreshold: result.adaptiveThreshold,
               reference: result.referencePath,
               computeTime: `${result.computeTimeMs.toFixed(0)}ms`,
@@ -397,9 +399,12 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
                 ...(i.breakpointRange ? { breakpointRange: i.breakpointRange } : {}),
               })),
               ...(result.problematicViewports?.length ? { problematicViewports: result.problematicViewports } : {}),
+              // s.viewport is the preset OBJECT; name read it whole, so every
+              // entry's "name" was {name, width, height, ...}. (v8 B46 side bug)
               viewports: result.screenshots.map((s) => ({
-                name: (s as unknown as { viewport?: string; name?: string }).viewport
-                  ?? (s as unknown as { name?: string }).name,
+                name: s.viewport.name,
+                width: s.viewport.width,
+                height: s.viewport.height,
                 path: (s as unknown as { screenshotPath?: string }).screenshotPath,
               })),
               viewportsCount: result.screenshots.length,

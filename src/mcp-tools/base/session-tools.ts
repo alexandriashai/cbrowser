@@ -117,6 +117,8 @@ export function registerSessionTools(
             text: JSON.stringify({ ...result, ...(token ? { _browserToken: token } : {}) }, null, 2),
           },
         ],
+        // Nothing was loaded, so it is an error (and a charged call is refunded).
+        ...(result.success ? {} : { isError: true as const }),
       };
     }
   );

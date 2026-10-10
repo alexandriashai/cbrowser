@@ -158,12 +158,15 @@ export class SessionManager {
     const sessionPath = this.sessionPathFor(name);
 
     if (!existsSync(sessionPath)) {
+      // A bare `success: false` said nothing about why. (v8 B35)
       return {
         success: false,
         name,
         cookiesRestored: 0,
         localStorageKeysRestored: 0,
         sessionStorageKeysRestored: 0,
+        error: "session_not_found",
+        message: `No saved session named ${JSON.stringify(name)}. Nothing was loaded. Run list_sessions to see the saved names.`,
       };
     }
 

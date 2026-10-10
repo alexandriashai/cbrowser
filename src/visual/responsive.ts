@@ -109,20 +109,64 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
         });
       }
 
-      // Detect small touch targets (< 44x44px on touch devices)
-      const interactiveElements = Array.from(document.querySelectorAll("button, a, input, select, [role='button'], [onclick]"));
-      const smallTargets = interactiveElements.filter(el => {
+      // Target size, classified the way empathy_audit does (accessibility-
+      // empathy.ts, "WCAG 2.5.8 exempts inline text links" and the per-axis
+      // classifier after it). This applied 44px to every viewport with no
+      // exemptions and graded by COUNT: cbrowser.ai's sample "1x1px" was its
+      // skip link, desktop (no touch input) got the same "major", and 44px is
+      // AAA 2.5.5, not the AA 2.5.8 minimum of 24px. (v8 B31, B48)
+      const exempt = (el: Element, rect: DOMRect): boolean => {
+        const style = getComputedStyle(el);
+        if (style.visibility === "hidden" || style.display === "none") return true;
+        if (rect.width <= 2 || rect.height <= 2) return true; // tracking pixels, sr-only 1x1
+        const text = (el.textContent || "").trim();
+        const href = el.getAttribute("href") || "";
+        const isSkip = el.tagName === "A" && ((href.startsWith("#") && /skip|jump|main.content|nav.*content/i.test(text)) ||
+          el.classList.contains("skip-link") || el.classList.contains("skip-nav") || el.classList.contains("skiplink") || (el.id || "").includes("skip"));
+        if (isSkip) return true;
+        const hidden = (style.position === "absolute" && (parseInt(style.left) < -100 || parseInt(style.top) < -100 ||
+          style.clip === "rect(0px, 0px, 0px, 0px)" || style.clip === "rect(1px, 1px, 1px, 1px)" || style.clipPath === "inset(50%)")) ||
+          el.classList.contains("sr-only") || el.classList.contains("visually-hidden") || el.classList.contains("screen-reader-text");
+        if (hidden) return true;
+        // An inline link in a sentence is bounded by the line height (2.5.8's
+        // inline exception), unless it is styled as a button.
+        if (el.tagName === "A" && el.parentElement) {
+          const other = (el.parentElement.textContent || "").replace(el.textContent || "", "").trim();
+          const block = style.display === "inline-block" || style.display === "block" || style.display === "flex";
+          if (other.length >= 10 && !block && !(parseInt(style.padding) > 4)) return true;
+        }
+        return false;
+      };
+      const label = (el: Element): string => {
+        const tag = el.tagName.toLowerCase();
+        const name = (el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40);
+        return name ? `${tag} "${name}"` : tag;
+      };
+      const failsAA: Array<{ el: Element; w: number; h: number }> = [];
+      const failsAAAOnly: Array<{ el: Element; w: number; h: number }> = [];
+      for (const el of Array.from(document.querySelectorAll("button, a, input, select, [role='button'], [onclick]"))) {
         const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && (rect.width < 44 || rect.height < 44);
-      });
-      if (smallTargets.length > 0) {
-        const sample = smallTargets[0];
-        const rect = sample.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || exempt(el, rect)) continue;
+        const w = Math.round(rect.width), h = Math.round(rect.height);
+        if (w < 24 || h < 24) failsAA.push({ el, w, h });
+        else if (w < 44 || h < 44) failsAAAOnly.push({ el, w, h });
+      }
+      if (failsAA.length > 0) {
+        const s0 = failsAA[0];
         findings.push({
           type: "small_touch_target",
-          element: `${smallTargets.length} interactive elements`,
-          description: `${smallTargets.length} touch targets smaller than 44x44px (e.g., ${Math.round(rect.width)}x${Math.round(rect.height)}px)`,
-          severity: smallTargets.length > 5 ? "major" : "minor",
+          element: `${failsAA.length} interactive element${failsAA.length === 1 ? "" : "s"}`,
+          description: `${failsAA.length} target${failsAA.length === 1 ? "" : "s"} under 24x24px, failing WCAG 2.5.8 AA (e.g., ${label(s0.el)} at ${s0.w}x${s0.h}px)`,
+          severity: failsAA.some((t) => t.w < 16 || t.h < 16) ? "critical" : "major",
+        });
+      }
+      if (failsAAAOnly.length > 0) {
+        const s0 = failsAAAOnly[0];
+        findings.push({
+          type: "small_touch_target",
+          element: `${failsAAAOnly.length} interactive element${failsAAAOnly.length === 1 ? "" : "s"}`,
+          description: `${failsAAAOnly.length} target${failsAAAOnly.length === 1 ? "" : "s"} at least 24px but under 44px on an axis: advisory, WCAG 2.5.5 AAA (e.g., ${label(s0.el)} at ${s0.w}x${s0.h}px)`,
+          severity: "minor",
         });
       }
 
@@ -312,6 +356,7 @@ export async function runResponsiveTest(
   // Capture screenshots at each viewport
   const screenshots: ResponsiveScreenshot[] = [];
 
+  const notCaptured: string[] = [];
   for (const viewport of viewports) {
     console.log(`   📸 Capturing ${viewport.name} (${viewport.width}x${viewport.height})...`);
     try {
@@ -319,18 +364,23 @@ export async function runResponsiveTest(
       screenshots.push(screenshot);
       console.log(`      ✅ Captured in ${screenshot.captureTime}ms`);
     } catch (error) {
+      notCaptured.push(viewport.name);
       console.log(`      ❌ Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
 
-  if (screenshots.length < 2) {
+  // Only ZERO captures ends the run. One capture used to end it too, with
+  // "major_issues", no issues and "could not capture enough screenshots" --
+  // while that viewport's own checks (overflow, text size, targets) had run
+  // and found things that were then thrown away. (v8 B46)
+  if (screenshots.length === 0) {
     return {
       url,
       screenshots,
       comparisons: [],
       issues: [],
       overallStatus: "major_issues",
-      summary: "Could not capture enough screenshots for comparison",
+      summary: `No viewport could be captured (${notCaptured.join(", ")}), so nothing was checked.`,
       problematicViewports: [],
       duration: Date.now() - startTime,
       timestamp: new Date().toISOString(),
@@ -465,6 +515,11 @@ export async function runResponsiveTest(
       ? "Minor responsive issues detected"
       : "Significant responsive issues detected";
   }
+  if (screenshots.length === 1) {
+    if (overallStatus === "responsive" && issues.length === 0) summary = `No issues found at ${screenshots[0].viewport.name}`;
+    summary += `. Single viewport (${screenshots[0].viewport.name}): checked on its own, no cross-viewport comparison.`;
+  }
+  if (notCaptured.length > 0) summary += ` Not captured: ${notCaptured.join(", ")}.`;
 
   return {
     url,
