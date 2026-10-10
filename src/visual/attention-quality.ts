@@ -510,7 +510,10 @@ export function computeAttentionQuality(
   } else if (ctaCaptureRate > 0.3 && headingShare <= 0.02) {
     interpretation = "CTAs capture attention but headings do not — headings drew "
       + pct(headingShare) + " of top attention (headingShare). The persona is seeing where to click without reading the headings that say what it is for. "
-      + "valuePropSalience (" + r3(valuePropSalience) + ") counts CTA and heading attention together, so here it is almost all CTA attention; headingShare is the heading-only figure.";
+      // "all" when no heading drew any attention: "almost all" beside
+      // headingShare 0 read as a hedge on an exact figure. (v4 O2, 2026-10-09)
+      + "valuePropSalience (" + r3(valuePropSalience) + ") counts CTA and heading attention together, so here it is "
+      + (headingShare === 0 ? "all" : "almost all") + " CTA attention; headingShare is the heading-only figure.";
   } else if (valuePropSalience >= 0.7) {
     // Most top attention is on CTAs and headings together. The Moderate and
     // Mixed verdicts below said "split with other content" / "without strong

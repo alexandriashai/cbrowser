@@ -71,6 +71,19 @@ describe("B18: the reported case", () => {
     expect(q.interpretation).toContain("0%");
     // And where it quotes valuePropSalience, it quotes the published value.
     expect(q.interpretation).toContain(`valuePropSalience (${q.valuePropSalience})`);
+    // v4 O2: headingShare is exactly 0, so the CTA attention is all of it.
+    expect(q.interpretation).toContain("so here it is all CTA attention");
+    expect(q.interpretation).not.toContain("almost all");
+  });
+
+  test("v4 O2: a small but nonzero heading share still says almost all", () => {
+    // 0.9 CTA saliency against 0.01 heading: headingShare ~0.011, inside the
+    // <= 0.02 branch and not zero.
+    const q = page([{ kind: "cta", saliency: 0.9 }, { kind: "heading", saliency: 0.01 }]);
+    expect(q.headingShare).toBeGreaterThan(0);
+    expect(q.headingShare).toBeLessThanOrEqual(0.02);
+    expect(q.interpretation).toMatch(/^CTAs capture attention but headings do not/);
+    expect(q.interpretation).toContain("so here it is almost all CTA attention");
   });
 });
 
