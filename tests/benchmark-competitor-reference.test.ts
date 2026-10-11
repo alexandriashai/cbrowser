@@ -26,28 +26,44 @@
 import { describe, test, expect } from "bun:test";
 import { pickBetterReference } from "../src/analysis/competitive-benchmark.js";
 
-const STICKY = "sticky element may intercept clicks (z-index: 50, 1280x57px, spans the viewport width)";
+// Since report v8 B28 (2026-10-10) a reference is matched on a KEY -- the check
+// id, or the axis for an axis-score weakness -- against every check the
+// candidate has, not on description text from its weaknesses and top three.
+const STICKY = { check: "sticky-element-check" };
+const SELECTORS = { check: "findability-score-check" };
 
 type Site = Parameters<typeof pickBetterReference>[0][number];
-const site = (siteName: string, score: number, weaknesses: string[], topIssues: string[]) =>
-  ({ siteName, score, weaknesses, topIssues }) as unknown as Site;
+const site = (
+  siteName: string,
+  score: number,
+  checks: Array<[id: string, category: string]>,
+  breakdown = { findability: 90, stability: 90, agentPerceivability: 90, semantics: 90 },
+) => ({
+  siteName,
+  score,
+  scoreBreakdown: { overall: score, ...breakdown },
+  checks: checks.map(([id, category]) => ({ id, category, descriptions: [`${id} issue`] })),
+  weaknesses: [],
+  topIssues: [],
+}) as unknown as Site;
 
-/** The three real pages, with their real scores and issue lists. */
-const PRICING = site("cbrowser.ai/pricing", 83, ["Agents struggle to find elements"], [STICKY, "Element lacks stable selectors (score: 0/10)"]);
-const DOCS = site("cbrowser.ai/docs/home", 80, [STICKY], [STICKY]);
-const ABOUT = site("cbrowser.ai/about", 92, [], ["Element lacks stable selectors (score: 0/10)"]);
-const CLEAN = site("cbrowser.ai/blog", 92, [], []);
+/** The three real pages, with their real scores and the checks they failed. */
+const PRICING = site("cbrowser.ai/pricing", 83,
+  [["sticky-element-check", "stability"], ["findability-score-check", "findability"]],
+  { findability: 55, stability: 92, agentPerceivability: 100, semantics: 100 });
+const DOCS = site("cbrowser.ai/docs/home", 80, [["sticky-element-check", "stability"]]);
+const ABOUT = site("cbrowser.ai/about", 92, [["findability-score-check", "findability"]]);
+const CLEAN = site("cbrowser.ai/blog", 92, []);
 
 describe("a reference must not share the issue", () => {
   test("the reported case — /pricing is not offered for the sticky issue", () => {
-    // /pricing carries STICKY in topIssues but not in weaknesses, which is
-    // exactly what the old check missed.
     const ref = pickBetterReference([PRICING, DOCS, ABOUT], DOCS, STICKY);
     expect(ref?.siteName).not.toBe("cbrowser.ai/pricing");
   });
 
-  test("topIssues is consulted, not just weaknesses", () => {
-    const ref = pickBetterReference([ABOUT], DOCS, "Element lacks stable selectors (score: 0/10)");
+  test("every check the candidate has is consulted, not just its top issues", () => {
+    // ABOUT's selector issue need not be in its top three to disqualify it.
+    const ref = pickBetterReference([ABOUT], DOCS, SELECTORS);
     expect(ref).toBeUndefined();
   });
 
@@ -59,18 +75,18 @@ describe("a reference must not share the issue", () => {
 
 describe("a reference must actually score better", () => {
   test("the second reported case — /docs/home (80) is not offered to /pricing (83)", () => {
-    const ref = pickBetterReference([DOCS, ABOUT], PRICING, "Agents struggle to find elements");
+    const ref = pickBetterReference([DOCS, ABOUT], PRICING, { axis: "findability" });
     expect(ref?.siteName).not.toBe("cbrowser.ai/docs/home");
   });
 
   test("an equal score does not qualify — copying a peer is not advice", () => {
-    const peer = site("peer", 83, [], []);
-    expect(pickBetterReference([peer], PRICING, "anything")).toBeUndefined();
+    const peer = site("peer", 83, []);
+    expect(pickBetterReference([peer], PRICING, { check: "anything" })).toBeUndefined();
   });
 
   test("the BEST qualifying site wins, not the first in the array", () => {
-    const ok90 = site("ok90", 90, [], []);
-    const ok95 = site("ok95", 95, [], []);
+    const ok90 = site("ok90", 90, []);
+    const ok95 = site("ok95", 95, []);
     // ok90 comes first in the array; ok95 must still win.
     expect(pickBetterReference([ok90, ok95], DOCS, STICKY)?.siteName).toBe("ok95");
   });
@@ -86,15 +102,21 @@ describe("no reference beats a wrong one", () => {
   });
 
   test("an unscored subject gets no reference", () => {
-    const unscored = site("failed", 0, [], []);
+    const unscored = site("failed", 0, []);
     (unscored as unknown as { score: number | null }).score = null;
     expect(pickBetterReference([ABOUT, CLEAN], unscored, STICKY)).toBeUndefined();
   });
 
   test("an unscored candidate is never chosen", () => {
-    const failed = site("failed", 0, [], []);
+    const failed = site("failed", 0, []);
     (failed as unknown as { score: number | null }).score = null;
     expect(pickBetterReference([failed], DOCS, STICKY)).toBeUndefined();
+  });
+
+  test("a candidate whose checks are unknown is never chosen", () => {
+    const unknown = site("unknown", 99, []);
+    delete (unknown as unknown as { checks?: unknown }).checks;
+    expect(pickBetterReference([unknown], DOCS, STICKY)).toBeUndefined();
   });
 
   test("an empty candidate list is not an error", () => {

@@ -1404,8 +1404,13 @@ import type {
   AuditFailureCategory,
   AuditStatus,
   AgentReadyGrade,
+  AgentReadyAuditResult,
+  AgentReadyIssue,
+  AgentReadyIssueCategory,
+  AIBenchmarkCheck,
+  AIBenchmarkIssueKey,
 } from "../types.js";
-import { runAgentReadyAudit } from "./agent-ready-audit.js";
+import { runAgentReadyAudit, summarizeIssueGroup } from "./agent-ready-audit.js";
 
 // ============================================================================
 // Error Categorization & Retry Logic (v18.15.0)
@@ -1605,61 +1610,7 @@ export async function runAIReadinessBenchmark(
         }
 
         const audit = retryResult.result;
-
-        // Determine strengths based on high category scores
-        const strengths: string[] = [];
-        if (audit.score.findability >= 80) {
-          strengths.push("Easy for agents to locate elements");
-        }
-        if (audit.score.stability >= 80) {
-          strengths.push("Stable selectors that won't break");
-        }
-        if (audit.score.agentPerceivability >= 80) {
-          strengths.push("Good ARIA labels for identification");
-        }
-        if (audit.score.semantics >= 80) {
-          strengths.push("Clear semantic HTML structure");
-        }
-
-        // Determine weaknesses based on low category scores
-        const weaknesses: string[] = [];
-        if (audit.score.findability < 60) {
-          weaknesses.push("Agents struggle to find elements");
-        }
-        if (audit.score.stability < 60) {
-          weaknesses.push("Dynamic selectors break automation");
-        }
-        if (audit.score.agentPerceivability < 60) {
-          weaknesses.push("Missing labels for element identification");
-        }
-        if (audit.score.semantics < 60) {
-          weaknesses.push("Poor semantic structure");
-        }
-
-        // Add issue-based weaknesses
-        const topThree = audit.issues.slice(0, 3);
-        const issueDescriptions = topThree.map((issue) => issue.description);
-        // Carried alongside the descriptions because reconciliation needs the
-        // CATEGORY, and mapping to description strings threw it away — which is
-        // why a strength and its contradiction could not be matched up.
-        const issueCategories = topThree.map((issue) => String(issue.category));
-
-        return {
-          url,
-          siteName,
-          grade: audit.grade,
-          score: audit.score.overall,
-          scoreBreakdown: audit.score,
-          topIssues: issueDescriptions,
-          topIssueCategories: issueCategories,
-          strengths: strengths.length > 0
-            ? reconcileStrengths(strengths, issueCategories, audit.score)
-            : ["No major strengths detected"],
-          weaknesses: weaknesses.length > 0 ? weaknesses : issueDescriptions,
-          duration: audit.duration,
-          auditStatus: "complete" as AuditStatus,
-          retryAttempts: retryResult.attempts,
-        };
+        return siteResultFromAudit(url, siteName, audit, retryResult.attempts);
       })
     );
 
@@ -1699,9 +1650,66 @@ export async function runAIReadinessBenchmark(
 }
 
 /**
+ * One completed audit as a benchmark site result. A pure function, so the
+ * fields the comparison and the competitor references read (checks,
+ * topIssueChecks, weaknessKeys) are testable without a browser.
+ * (report v8 B28, 2026-10-10)
+ */
+export function siteResultFromAudit(
+  url: string,
+  siteName: string,
+  audit: Pick<AgentReadyAuditResult, "score" | "grade" | "issues" | "duration">,
+  retryAttempts?: number,
+): AIBenchmarkSiteResult {
+  // Strengths and weaknesses from the axis scores, phrased per axis by
+  // AXIS_PHRASES so a phrase cannot drift from the axis it claims.
+  const strengths = AXES
+    .filter((axis) => audit.score[axis] >= 80)
+    .map((axis) => AXIS_PHRASES[axis].strength);
+  const weakAxes = AXES.filter((axis) => audit.score[axis] < 60);
+
+  // One entry per check, each summarized over all of its issues. Was
+  // audit.issues.slice(0, 3): ucdenver.edu's topIssues read "Hidden select
+  // with custom UI..." three times and nothing else. (report v8 B28,
+  // 2026-10-10)
+  const top = topIssueGroups(audit.issues, 3);
+  const issueDescriptions = top.map((g) => g.summary);
+  // Carried alongside the descriptions because reconciliation needs the
+  // CATEGORY, and mapping to description strings threw it away — which is
+  // why a strength and its contradiction could not be matched up.
+  const issueCategories = top.map((g) => g.category);
+
+  return {
+    url,
+    siteName,
+    grade: audit.grade,
+    score: audit.score.overall,
+    scoreBreakdown: audit.score,
+    topIssues: issueDescriptions,
+    topIssueCategories: issueCategories,
+    topIssueChecks: top.map((g) => g.check),
+    checks: siteChecks(audit.issues),
+    // Every issue's category, not the top three's: a top entry is now a
+    // whole check, so counting entries would undercount the elements.
+    strengths: strengths.length > 0
+      ? reconcileStrengths(strengths, audit.issues.map((i) => String(i.category)), audit.score)
+      : ["No major strengths detected"],
+    weaknesses: weakAxes.length > 0
+      ? weakAxes.map((axis) => AXIS_PHRASES[axis].weakness)
+      : issueDescriptions,
+    weaknessKeys: weakAxes.length > 0
+      ? weakAxes.map((axis): AIBenchmarkIssueKey => ({ axis }))
+      : top.map((g): AIBenchmarkIssueKey => ({ check: g.check })),
+    duration: audit.duration,
+    auditStatus: "complete" as AuditStatus,
+    retryAttempts,
+  };
+}
+
+/**
  * Generate comparative analysis between sites
  */
-function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComparison {
+export function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComparison {
   // Only compare successfully audited sites
   const successfulResults = results.filter(
     (r): r is AIBenchmarkSiteResult & { score: number; scoreBreakdown: NonNullable<AIBenchmarkSiteResult["scoreBreakdown"]> } =>
@@ -1723,16 +1731,13 @@ function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComp
     (a, b) => b.scoreBreakdown.semantics - a.scoreBreakdown.semantics
   );
 
-  // Find common issues
-  const issueCounts = new Map<string, number>();
-  for (const result of results) {
-    for (const issue of result.topIssues) {
-      issueCounts.set(issue, (issueCounts.get(issue) || 0) + 1);
-    }
-  }
-  const commonIssues = Array.from(issueCounts.entries())
-    .filter(([_, count]) => count >= Math.ceil(results.length / 2))
-    .map(([issue]) => issue);
+  // A check is common when at least two audited sites, and at least half of
+  // them, fail it. The old count keyed on description text from each site's top
+  // three, counted repeats within one site, and used ceil(n/2), which is 1 for
+  // two sites. Measured 2026-10-10 on cbrowser.ai vs ucdenver.edu: all three
+  // "common" issues came from cbrowser.ai alone, two of them the same check
+  // ("score: 0/10" and "score: 2/10"). (report v8 B28)
+  const commonIssues = commonChecks(successfulResults);
 
   // Build site advantages
   const siteAdvantages: Record<string, string[]> = {};
@@ -1744,16 +1749,16 @@ function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComp
       advantages.push("Best overall AI readiness");
     }
     if (result.siteName === byFindability[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
-      advantages.push("Best element findability");
+      advantages.push(AXIS_PHRASES.findability.best);
     }
     if (result.siteName === byStability[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
-      advantages.push("Most stable selectors");
+      advantages.push(AXIS_PHRASES.stability.best);
     }
     if (result.siteName === byAgentPerceivability[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
-      advantages.push("Best ARIA/accessibility labels");
+      advantages.push(AXIS_PHRASES.agentPerceivability.best);
     }
     if (result.siteName === bySemantics[0]?.siteName && result.siteName !== byScore[0]?.siteName) {
-      advantages.push("Best semantic structure");
+      advantages.push(AXIS_PHRASES.semantics.best);
     }
 
     // Add strength-based advantages
@@ -1773,41 +1778,84 @@ function generateAIComparison(results: AIBenchmarkSiteResult[]): AIBenchmarkComp
   };
 }
 
+type BenchmarkAxis = AgentReadyIssueCategory;
+
+/** The order strengths, weaknesses and superlatives are listed in. */
+const AXES: readonly BenchmarkAxis[] = ["findability", "stability", "agentPerceivability", "semantics"];
+
 /**
- * Which scoring axis a strength phrase is a claim about.
+ * What each scoring axis is called in benchmark output, keyed by the axis.
  *
- * The phrases are generated from axis thresholds a few lines below, so this map
- * is their inverse. Kept beside them deliberately: a new strength added without
- * an entry here is silently exempt from reconciliation, which is how a claim and
- * its contradiction came to ship side by side.
+ * Every phrase is generated from this table and mapped back through its
+ * inverses below, so renaming one cannot leave reconciliation or deduplication
+ * matching the old wording. A new strength gets its axis by construction; it
+ * used to need a hand-kept entry, and without one it was silently exempt from
+ * reconciliation, which is how a claim and its contradiction shipped side by
+ * side.
+ *
+ * The stability phrases said "Stable selectors that won't break", "Dynamic
+ * selectors break automation" and "Most stable selectors". Selector stability
+ * is scored under FINDABILITY (findability-score-check). The stability axis is
+ * scored from hidden native controls, sticky elements that intercept clicks,
+ * session state, infinite scroll and loading indicators, so a page could be
+ * praised for stable selectors beside "N elements lack stable selectors".
+ * (report v8 B28, 2026-10-10)
  */
-const STRENGTH_AXIS: Record<string, "findability" | "stability" | "agentPerceivability" | "semantics"> = {
-  "Easy for agents to locate elements": "findability",
-  "Stable selectors that won't break": "stability",
-  "Good ARIA labels for identification": "agentPerceivability",
-  "Clear semantic HTML structure": "semantics",
+const AXIS_PHRASES: Record<BenchmarkAxis, { strength: string; weakness: string; best: string }> = {
+  findability: {
+    strength: "Easy for agents to locate elements",
+    weakness: "Agents struggle to find elements",
+    best: "Best element findability",
+  },
+  stability: {
+    strength: "Few hidden controls, click-blocking overlays or loading hazards",
+    weakness: "Hidden controls, click-blocking overlays or dynamic loading disrupt agents",
+    best: "Most stable interactions",
+  },
+  agentPerceivability: {
+    strength: "Good ARIA labels for identification",
+    weakness: "Missing labels for element identification",
+    best: "Best ARIA/accessibility labels",
+  },
+  semantics: {
+    strength: "Clear semantic HTML structure",
+    weakness: "Poor semantic structure",
+    best: "Best semantic structure",
+  },
 };
+
+const phraseToAxis = (field: "strength" | "best"): Record<string, BenchmarkAxis> =>
+  Object.fromEntries(AXES.map((axis) => [AXIS_PHRASES[axis][field], axis]));
+
+/** Which scoring axis a strength phrase is a claim about. */
+const STRENGTH_AXIS = phraseToAxis("strength");
 
 /** Superlatives and plain strengths make the same claim at different scopes. */
-const ADVANTAGE_AXIS: Record<string, "findability" | "stability" | "agentPerceivability" | "semantics"> = {
-  "Best element findability": "findability",
-  "Most stable selectors": "stability",
-  "Best ARIA/accessibility labels": "agentPerceivability",
-  "Best semantic structure": "semantics",
-};
+const ADVANTAGE_AXIS = phraseToAxis("best");
+
+/** An issue category as an axis. The deprecated "accessibility" is agentPerceivability. */
+function categoryAxis(category: string): string {
+  return category === "accessibility" ? "agentPerceivability" : category;
+}
 
 /**
- * Qualify a strength that the site's own top issues contradict.
+ * Qualify a strength that the site's own issues contradict.
  *
  * `/pricing` shipped `strengths: ["Stable selectors that won't break"]` beside
  * `topIssues: ["Element lacks stable selectors (score: 0/10)"]`. Both are
  * arithmetically correct -- the first is an AXIS score at 92, the second is an
  * ELEMENT scoring 0 -- and they are not publishable together unreconciled.
+ * (The strength's wording was also wrong: that axis does not score selectors.
+ * Renamed in report v8 B28, 2026-10-10; see AXIS_PHRASES.)
  *
  * Qualified rather than suppressed. Stability 92 is real and useful; deleting
  * the strength would lose it to hide an inconsistency that is actually
  * information. The exception count is what a reader needs, and it is what the
  * old output withheld.
+ *
+ * `issueCategories` is one entry per issue. The benchmark passes every issue's
+ * category; it passed the top three's, which stopped being a count of elements
+ * once a top entry became a whole check.
  */
 export function reconcileStrengths(
   strengths: string[],
@@ -1819,8 +1867,7 @@ export function reconcileStrengths(
     if (!axis) return strength;
     // The deprecated "accessibility" category is out of the type but can still
     // arrive at runtime from an older caller across a JSON boundary.
-    const exceptions = issueCategories.filter((c) => c === axis
-      || (axis === "agentPerceivability" && c === "accessibility")).length;
+    const exceptions = issueCategories.filter((c) => categoryAxis(c) === axis).length;
     if (exceptions === 0) return strength;
     const score = breakdown[axis];
     return `${strength} overall (${axis} ${score}), with ${exceptions} element(s) excepted`;
@@ -1829,8 +1876,8 @@ export function reconcileStrengths(
 
 /**
  * Drop a plain strength when the superlative for the same axis is already
- * present. "Most stable selectors" and "Stable selectors that won't break" are
- * one claim written twice, and the list shipped both.
+ * present. "Most stable interactions" and the stability strength are one claim
+ * written twice, and the list shipped both.
  */
 export function dedupeAdvantagesByAxis(advantages: string[]): string[] {
   const superlativeAxes = new Set(
@@ -1847,19 +1894,105 @@ export function dedupeAdvantagesByAxis(advantages: string[]): string[] {
   });
 }
 
+/** A page's issues grouped by check (`detectionMethod`), in first-seen order. */
+function groupByCheck(issues: AgentReadyIssue[]): Array<{ check: string; category: string; issues: AgentReadyIssue[] }> {
+  const groups = new Map<string, { check: string; category: string; issues: AgentReadyIssue[] }>();
+  for (const issue of issues) {
+    let group = groups.get(issue.detectionMethod);
+    if (!group) {
+      group = { check: issue.detectionMethod, category: String(issue.category), issues: [] };
+      groups.set(issue.detectionMethod, group);
+    }
+    group.issues.push(issue);
+  }
+  return [...groups.values()];
+}
+
+/** Every check that fired on a page, once each, with every issue's description. */
+export function siteChecks(issues: AgentReadyIssue[]): AIBenchmarkCheck[] {
+  return groupByCheck(issues).map((g) => ({
+    id: g.check,
+    category: g.category,
+    descriptions: g.issues.map((i) => i.description),
+  }));
+}
+
 /**
- * Everything a site is known to be bad at.
+ * A page's top issues: one entry per check, summarized over all of that
+ * check's issues, worst severity first (ties keep detection order).
  *
- * `weaknesses` alone is not that set. It is `weaknesses.length > 0 ? weaknesses
- * : issueDescriptions` -- so a site with a low AXIS score gets only its axis
- * weaknesses, and its element-level issues never appear there at all. That is
- * the gap the reference check fell through: cbrowser.ai/pricing carried a sticky
- * -element issue in `topIssues` and not in `weaknesses`, so a check reading only
- * `weaknesses` concluded it was clean and recommended it as the example to
- * follow -- for the identical issue.
+ * Was `audit.issues.slice(0, 3)` -- raw issues in detection order, so one check
+ * could fill all three slots (ucdenver.edu: "Hidden select with custom UI..."
+ * x3, measured 2026-10-10), and severity played no part in which three showed.
+ * (report v8 B28)
  */
-function issueSurface(r: AIBenchmarkSiteResult): Set<string> {
-  return new Set<string>([...(r.weaknesses ?? []), ...(r.topIssues ?? [])]);
+export function topIssueGroups(
+  issues: AgentReadyIssue[],
+  limit = 3,
+): Array<{ check: string; category: string; summary: string }> {
+  const rank = (sev: string) =>
+    ({ critical: 0, high: 1, medium: 2, low: 3 }[String(sev).toLowerCase()] ?? 4);
+  return groupByCheck(issues)
+    .map((g, i) => ({ g, i, worst: Math.min(...g.issues.map((x) => rank(x.severity))) }))
+    .sort((a, b) => a.worst - b.worst || a.i - b.i)
+    .slice(0, limit)
+    .map(({ g }) => ({ check: g.check, category: g.category, summary: summarizeIssueGroup(g.issues) }));
+}
+
+/**
+ * Checks shared by at least two audited sites and at least half of them, most
+ * widely shared first, one line each: "k of n sites: <summary>".
+ *
+ * Keyed on the check id across every issue each site has, counted once per
+ * site. The summary covers every matching issue on every sharing site, so it
+ * is true of all of them (summarizeIssueGroup's contract).
+ */
+export function commonChecks(audited: AIBenchmarkSiteResult[]): string[] {
+  const n = audited.length;
+  const threshold = Math.max(2, Math.ceil(n / 2));
+  const byCheck = new Map<string, { sites: number; issues: Array<{ description: string; detectionMethod: string }> }>();
+  for (const site of audited) {
+    const counted = new Set<string>();
+    for (const check of site.checks ?? []) {
+      let entry = byCheck.get(check.id);
+      if (!entry) {
+        entry = { sites: 0, issues: [] };
+        byCheck.set(check.id, entry);
+      }
+      if (!counted.has(check.id)) {
+        counted.add(check.id);
+        entry.sites++;
+      }
+      entry.issues.push(...check.descriptions.map((description) => ({ description, detectionMethod: check.id })));
+    }
+  }
+  // Map iteration is first-seen order, and sort is stable, so ties keep it.
+  return [...byCheck.values()]
+    .filter((e) => e.sites >= threshold)
+    .sort((a, b) => b.sites - a.sites)
+    .map((e) => `${e.sites} of ${n} sites: ${summarizeIssueGroup(e.issues)}`);
+}
+
+/**
+ * Whether a candidate site has the issue a weakness is about.
+ *
+ * Matched on keys. The old check compared description strings, which carry
+ * per-element figures ("score: 0/10" vs "score: 2/10", "1280x57px"), so the
+ * same check on a candidate read as a different issue, and an axis weakness
+ * matched only a candidate printing the same weakness line, never one with
+ * issues on that axis: ucdenver.edu (stability under 60) was told cbrowser.ai
+ * "does not have this issue" while cbrowser.ai had a stability-axis
+ * sticky-element issue. Measured 2026-10-10. (report v8 B28)
+ *
+ * A candidate whose checks are unknown is treated as having it: no reference
+ * beats a wrong one.
+ */
+function hasIssue(candidate: AIBenchmarkSiteResult, key: AIBenchmarkIssueKey): boolean {
+  if (!candidate.checks) return true;
+  if ("check" in key) return candidate.checks.some((c) => c.id === key.check);
+  if (candidate.checks.some((c) => categoryAxis(c.category) === key.axis)) return true;
+  const score = candidate.scoreBreakdown?.[key.axis];
+  return score === undefined || score < 60;
 }
 
 /**
@@ -1867,8 +2000,9 @@ function issueSurface(r: AIBenchmarkSiteResult): Set<string> {
  *
  * Three conditions, and the tool previously enforced none of them:
  *
- *  1. It must not share the issue. Checked against the full issue surface above,
- *     not just `weaknesses`.
+ *  1. It must not share the issue: not the same check, or for an axis
+ *     weakness, no issue on that axis and the axis not itself under 60. See
+ *     hasIssue above.
  *  2. It must actually score BETTER than the site being advised. The old code
  *     took the first array match, so cbrowser.ai/pricing (83) was told that
  *     cbrowser.ai/docs/home (80) "handles this better" -- advice to copy a page
@@ -1884,13 +2018,13 @@ function issueSurface(r: AIBenchmarkSiteResult): Set<string> {
 export function pickBetterReference(
   candidates: AIBenchmarkSiteResult[],
   subject: { siteName: string; score: number | null },
-  issue: string,
+  key: AIBenchmarkIssueKey,
 ): AIBenchmarkSiteResult | undefined {
   if (subject.score === null) return undefined;
   return candidates
     .filter((r) => r.siteName !== subject.siteName)
     .filter((r) => r.score !== null && r.score > (subject.score as number))
-    .filter((r) => !issueSurface(r).has(issue))
+    .filter((r) => !hasIssue(r, key))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
 }
 
@@ -1931,10 +2065,13 @@ function generateAIRecommendations(
       continue;
     }
 
-    // Add weakness-based recommendations
-    for (const weakness of result.weaknesses) {
-      const betterSite = pickBetterReference(
-        successfulResults, { siteName: result.siteName, score: result.score }, weakness);
+    // Add weakness-based recommendations. The reference is matched on the
+    // weakness's key, not its text; a weakness with no key gets no reference.
+    for (const [i, weakness] of result.weaknesses.entries()) {
+      const key = result.weaknessKeys?.[i];
+      const betterSite = key
+        ? pickBetterReference(successfulResults, { siteName: result.siteName, score: result.score }, key)
+        : undefined;
 
       recommendations.push({
         site: result.siteName,
@@ -1963,7 +2100,10 @@ function generateAIRecommendations(
         {
           name: "stability",
           score: result.scoreBreakdown.stability,
-          fix: "Use data-testid attributes and semantic selectors",
+          // Was "Use data-testid attributes and semantic selectors", a
+          // findability fix: this axis scores hidden controls, sticky overlays
+          // and dynamic loading. (report v8 B28, 2026-10-10)
+          fix: "Expose native form controls, keep sticky elements off click targets, and mark loading with aria-busy",
         },
         {
           name: "agentPerceivability",
