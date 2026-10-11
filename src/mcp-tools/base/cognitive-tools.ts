@@ -16,7 +16,7 @@ import {
   createCognitivePersona,
   isAgentPersonaObject,
 } from "../../personas.js";
-import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibilityPersona } from "../../personas.js";
+import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibilityPersona, listEmotionalPersonas, getEmotionalPersona } from "../../personas.js";
 import { getPersonaValues, rankInfluencePatternsForProfile, resolveValuesForPersona } from "../../values/index.js";
 import { resolvePersonaValues } from "./values-tools.js";
 import type {
@@ -795,15 +795,13 @@ Begin the simulation now. Narrate your thoughts as this persona.
       const builtinNames = listPersonas();
       const accessibilityNames = listAccessibilityPersonas();
 
-      const builtinPersonas = builtinNames.map(name => {
-        const p = getPersona(name);
-        if (!p) return null;
+      const toCognitiveEntry = (p: NonNullable<ReturnType<typeof getPersona>>, category: "builtin" | "emotional") => {
         const profile = getCognitiveProfile(p);
         const values = resolveValuesForPersona(p.name);
         return {
           name: p.name,
           description: p.description,
-          category: "builtin",
+          category,
           demographics: p.demographics,
           cognitiveTraits: profile.traits,
           attentionPattern: profile.attentionPattern,
@@ -835,6 +833,17 @@ Begin the simulation now. Narrate your thoughts as this persona.
             maslowLevel: values.maslowLevel,
           } : undefined,
         };
+      };
+      const builtinPersonas = builtinNames.map((name) => {
+        const p = getPersona(name);
+        return p ? toCognitiveEntry(p, "builtin") : null;
+      }).filter(Boolean);
+      // The four emotional personas are accepted everywhere a persona is, and
+      // this tool's description says it includes them, but it never listed
+      // them: 21 here against the 25 cognitive_distance pairs. (v8 B42)
+      const emotionalPersonas = listEmotionalPersonas().map((name) => {
+        const p = getEmotionalPersona(name);
+        return p ? toCognitiveEntry(p, "emotional") : null;
       }).filter(Boolean);
 
       const accessibilityPersonas = accessibilityNames.map(name => {
@@ -978,7 +987,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       // cognitive traits". Later records therefore fill in and refine, and the
       // first-seen computed cognitive profile wins over raw CMS traits.
       // (2026-07-28)
-      const rawPersonas = [...builtinPersonas, ...accessibilityPersonas, ...localCustomPersonas, ...cmsCustomPersonas]
+      const rawPersonas = [...builtinPersonas, ...emotionalPersonas, ...accessibilityPersonas, ...localCustomPersonas, ...cmsCustomPersonas]
         .filter(Boolean) as Array<Record<string, unknown>>;
 
       const byName = new Map<string, Record<string, unknown>>();
@@ -1009,6 +1018,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
               count: allPersonas.length,
               categories: {
                 builtin: countByCategory("builtin"),
+                emotional: countByCategory("emotional"),
                 accessibility: countByCategory("accessibility"),
                 custom: countByCategory("custom"),
               },

@@ -1680,6 +1680,13 @@ For more help: https://playwright.dev/docs/browsers
       result.resourceCount = resources.length;
       result.transferSize = resources.reduce((sum, r) => sum + (r.transferSize || 0), 0);
 
+      // Timings are high-resolution DOMHighResTimeStamps (ttfb printed as
+      // 53.69999998807907): whole milliseconds, and CLS to 4 dp. (v8 B41)
+      for (const k of ["ttfb", "domContentLoaded", "load", "fcp", "lcp"]) {
+        if (typeof result[k] === "number") result[k] = Math.round(result[k] as number);
+      }
+      if (typeof result.cls === "number") result.cls = Math.round(result.cls * 10000) / 10000;
+
       return result;
     });
 

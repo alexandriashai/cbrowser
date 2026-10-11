@@ -16,6 +16,10 @@
 
 import type { CBrowser } from "../browser.js";
 import { executeNaturalLanguage } from "./natural-language.js";
+import { describeNavigationError } from "../navigation-errors.js";
+
+/** Playwright appends a multi-line "Call log:"; a result keeps only the first line. */
+const firstLine = (m: unknown): string => String(m ?? "").split("\n")[0].trim();
 
 /** Playwright appends a multi-line "Call log:"; a result keeps only the first line. */
 const firstLine = (m: unknown): string => String(m ?? "").split("\n")[0].trim();
@@ -344,10 +348,15 @@ export async function runChaosTest(
       loadTimeMs = Date.now() - navStart;
     } catch (e: any) {
       loadTimeMs = Date.now() - navStart;
+      // Said as an outcome, not as Playwright's raw message and call log.
+      // Offline failing to load is the expected answer for most pages, and the
+      // question the test asks. (v8 B37)
       if (e.message?.includes("Timeout")) {
         errors.push(`Page load timeout after ${loadTimeMs}ms`);
+      } else if (chaos.offline && /ERR_INTERNET_DISCONNECTED/.test(e.message ?? "")) {
+        errors.push("Page failed to load offline: nothing served it from the cache or a service worker (net::ERR_INTERNET_DISCONNECTED).");
       } else {
-        errors.push(`Navigation failed: ${e.message}`);
+        errors.push(`Navigation failed: ${describeNavigationError(e.message ?? "", url) ?? firstLine(e.message)}`);
       }
     }
 
@@ -401,7 +410,9 @@ export async function runChaosTest(
       impact: {
         loadTimeMs,
         baselineLoadTimeMs,
-        loadTimeImpactPercent: baselineLoadTimeMs
+        // Only for a page that loaded: a 2 ms failure against a 50 ms baseline
+        // printed -96%, a load-time IMPROVEMENT, for a page that never loaded.
+        loadTimeImpactPercent: baselineLoadTimeMs && pageCompleted
           ? Math.round((loadTimeMs / baselineLoadTimeMs - 1) * 100)
           : undefined,
         blockedResources: blockedResources.slice(0, 10), // Limit to 10
@@ -417,7 +428,7 @@ export async function runChaosTest(
   } catch (e: any) {
     return {
       passed: false,
-      errors: [...errors, e.message],
+      errors: [...errors, firstLine(e.message)],
       duration: Date.now() - startTime,
       screenshot: "",
       impact: {

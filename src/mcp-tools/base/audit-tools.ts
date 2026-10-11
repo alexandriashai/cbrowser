@@ -1409,6 +1409,13 @@ export function registerEmpathyAuditTool(server: McpServer): void {
               // is that the question is open and where to go to close it.
               // Previously these were asserted as missing captions.
               unverifiableMedia: (r as any).unverifiableMedia || undefined,
+              // Motion groups whose pause control was credited (aria-controls or
+              // the ARIA carousel region). Without it, a page whose Pause button
+              // was credited and a page where no motion was seen at all both read
+              // as "no barrier" over MCP; B5 promised the two could be told
+              // apart, and only the library result kept that promise. (B49,
+              // found by the O1 test pages, 2026-10-10)
+              motionControlsCredited: (r as any).motionControlsCredited || undefined,
             };
           }),
           allWcagViolations: result.allWcagViolations,

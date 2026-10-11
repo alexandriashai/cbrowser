@@ -2350,6 +2350,10 @@ export interface LoadSessionResult {
   localStorageKeysRestored: number;
   sessionStorageKeysRestored: number;
   warning?: string;
+  /** Set when nothing was loaded, e.g. "session_not_found". */
+  error?: string;
+  /** What went wrong and what to do, when `error` is set. */
+  message?: string;
 }
 
 // ============================================================================
