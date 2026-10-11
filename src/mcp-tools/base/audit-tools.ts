@@ -7,7 +7,6 @@
 
 import { z } from "zod";
 import { barrierWeightFor, weightedSeverity, weightKeyFor } from "../../visual/perceptual-transport.js";
-import { randomBytes } from "crypto";
 import { htmlUiResource, attachUiResource, uiResourcesEnabled, type ToolContentBlock } from "../../mcp-ui-resources.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js";
@@ -60,9 +59,10 @@ function writeAuditScreenshot(
   // are captures of a CUSTOMER'S page served from a public path, and a
   // timestamped name is guessable by anyone who knows roughly when an audit
   // ran. Unguessability is the only access control this path has. (2026-07-29)
+  // writeArtifact adds those 12 random hex chars to every name now, so this
+  // call no longer adds its own. (r1010 artifact-nonce, 2026-10-10)
   try {
-    const nonce = randomBytes(6).toString("hex");
-    const written = writeArtifact(Buffer.from(base64, "base64"), `empathy-${safe}-${nonce}.png`);
+    const written = writeArtifact(Buffer.from(base64, "base64"), `empathy-${safe}.png`);
     // The filename too, not just the URL: the widget sandbox cannot fetch that
     // URL and asks artifact_fetch for the bytes by name instead.
     if (written) { out.url = written.url; out.file = written.filename; }

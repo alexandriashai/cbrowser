@@ -23,7 +23,7 @@ import { z } from "zod";
 import type { Page } from "playwright";
 
 import { getPaths } from "../../config.js";
-import { writeArtifact } from "../../artifact-store.js";
+import { artifactNonce, writeArtifact } from "../../artifact-store.js";
 import { buildContactSheet } from "../../recording/contact-sheet.js";
 import { VideoCaptureSession, type CaptureFormat, type VideoCaptureOptions } from "../../recording/engine.js";
 import type { RecordingManifest } from "../../recording/types.js";
@@ -585,6 +585,105 @@ export async function startCapture(
 }
 
 /**
+ * Publish a stopped capture's encoded media, contact sheet and hosted player to
+ * the served artifact store, and return the URLs as written.
+ *
+ * The files of one capture share ONE nonce (artifactNonce), so they read as a
+ * set: `<slug>-<nonce>.gif`, `<slug>-contact-sheet-<nonce>.jpg`,
+ * `<slug>-player-<nonce>.html`. The player links its siblings by the URLs
+ * writeArtifact returned, never by a name rebuilt from the slug. Before the
+ * nonce these were `<slug>.<fmt>` in a public directory shared by every
+ * account, so two captures named alike overwrote each other. Lifted out of
+ * stopCapture so it can be tested without a browser. (r1010 artifact-nonce, 2026-10-10)
+ */
+export async function publishCaptureArtifacts(
+  manifest: RecordingManifest,
+  outDir: string,
+  contactSheet: string | undefined,
+  targetUrl: string | undefined,
+): Promise<{ nonce: string; artifactUrls: Record<string, string>; contactSheetUrl?: string; playerUrl?: string }> {
+  const nonce = artifactNonce();
+
+  // Publish encoded artifacts to the served directory so a chat client can
+  // render them. Same store screenshots use. A copy that fails yields no key
+  // rather than a URL that 404s — handing back a dead link is worse than
+  // handing back only the disk path.
+  const artifactUrls: Record<string, string> = {};
+  for (const [format, artifactPath] of Object.entries(manifest.artifacts ?? {})) {
+    if (typeof artifactPath !== "string" || artifactPath.length === 0) continue;
+    // The engine stores `relative(outDir, outPath)` — a bare filename. Calling
+    // existsSync on it resolved against the process CWD, always missed, and the
+    // loop skipped every artifact, so artifact_urls came back absent while the
+    // note in the same payload advertised it. contact_sheet_url worked only
+    // because that path was already absolute.
+    const diskPath = isAbsolute(artifactPath) ? artifactPath : join(outDir, artifactPath);
+    if (!existsSync(diskPath)) continue;
+    try {
+      const written = writeArtifact(readFileSync(diskPath), `${manifest.slug}.${format}`, { nonce });
+      if (written) artifactUrls[format] = written.url;
+    } catch { /* keep the capture; just omit this URL */ }
+  }
+
+  let contactSheetUrl: string | undefined;
+  if (contactSheet && existsSync(contactSheet)) {
+    try {
+      const written = writeArtifact(readFileSync(contactSheet), `${manifest.slug}-contact-sheet.jpg`, { nonce });
+      if (written) contactSheetUrl = written.url;
+    } catch { /* same */ }
+  }
+
+  // Build a standalone player and publish it alongside the media. This is the
+  // only artifact a chat client can actually open: video will not cross an MCP
+  // boundary and the judgement JSON is not something a person reads.
+  let playerUrl: string | undefined;
+  try {
+    const { buildCapturePlayer } = await import("../../recording/capture-player.js");
+    const overlay = manifest.attention_overlay;
+    const html = buildCapturePlayer({
+      slug: manifest.slug,
+      targetUrl,
+      durationMs: manifest.duration_ms,
+      frames: manifest.frames.length,
+      actualFps: manifest.actual_fps,
+      artifactUrls,
+      ...(manifest.interactions?.length ? { interactions: manifest.interactions } : {}),
+      ...(contactSheetUrl ? { contactSheetUrl } : {}),
+      ...(overlay
+        ? {
+            overlay: {
+              quantity: overlay.quantity,
+              usedDom: overlay.used_dom,
+              domElements: overlay.dom_elements,
+            },
+            // The player was already built to render these; nothing was passing
+            // them, so every capture rendered an empty timeline.
+            ...(overlay.moments
+              ? {
+                  moments: overlay.moments.map((m) => ({
+                    frameIndex: m.frame_index,
+                    tMs: m.t_ms,
+                    ...(m.reasoning ? { reasoning: m.reasoning } : {}),
+                    topElements: m.top_elements,
+                  })),
+                }
+              : {}),
+            ...(overlay.summary ? { summary: overlay.summary } : {}),
+          }
+        : {}),
+    });
+    const written = writeArtifact(Buffer.from(html, "utf8"), `${manifest.slug}-player.html`, { nonce });
+    if (written) playerUrl = written.url;
+  } catch { /* the recording stands without its player */ }
+
+  return {
+    nonce,
+    artifactUrls,
+    ...(contactSheetUrl ? { contactSheetUrl } : {}),
+    ...(playerUrl ? { playerUrl } : {}),
+  };
+}
+
+/**
  * Stop the capture and build the response payload plus a budget-fitted contact
  * sheet. Returns the payload and the sheet path (if one was produced).
  */
@@ -637,76 +736,8 @@ export async function stopCapture(
     }
   }
 
-  // Publish encoded artifacts to the served directory so a chat client can
-  // render them. Same store screenshots use. A copy that fails yields no key
-  // rather than a URL that 404s — handing back a dead link is worse than
-  // handing back only the disk path.
-  const artifactUrls: Record<string, string> = {};
-  for (const [format, artifactPath] of Object.entries(manifest.artifacts ?? {})) {
-    if (typeof artifactPath !== "string" || artifactPath.length === 0) continue;
-    // The engine stores `relative(outDir, outPath)` — a bare filename. Calling
-    // existsSync on it resolved against the process CWD, always missed, and the
-    // loop skipped every artifact, so artifact_urls came back absent while the
-    // note in the same payload advertised it. contact_sheet_url worked only
-    // because that path was already absolute.
-    const diskPath = isAbsolute(artifactPath) ? artifactPath : join(status.outDir, artifactPath);
-    if (!existsSync(diskPath)) continue;
-    try {
-      const written = writeArtifact(readFileSync(diskPath), `${manifest.slug}.${format}`);
-      if (written) artifactUrls[format] = written.url;
-    } catch { /* keep the capture; just omit this URL */ }
-  }
-
-  let contactSheetUrl: string | undefined;
-  if (contactSheet && existsSync(contactSheet)) {
-    try {
-      const written = writeArtifact(readFileSync(contactSheet), `${manifest.slug}-contact-sheet.jpg`);
-      if (written) contactSheetUrl = written.url;
-    } catch { /* same */ }
-  }
-
-  // Build a standalone player and publish it alongside the media. This is the
-  // only artifact a chat client can actually open: video will not cross an MCP
-  // boundary and the judgement JSON is not something a person reads.
-  let playerUrl: string | undefined;
-  try {
-    const { buildCapturePlayer } = await import("../../recording/capture-player.js");
-    const overlay = manifest.attention_overlay;
-    const html = buildCapturePlayer({
-      slug: manifest.slug,
-      targetUrl: entry?.url,
-      durationMs: manifest.duration_ms,
-      frames: manifest.frames.length,
-      actualFps: manifest.actual_fps,
-      artifactUrls,
-      ...(manifest.interactions?.length ? { interactions: manifest.interactions } : {}),
-      ...(contactSheetUrl ? { contactSheetUrl } : {}),
-      ...(overlay
-        ? {
-            overlay: {
-              quantity: overlay.quantity,
-              usedDom: overlay.used_dom,
-              domElements: overlay.dom_elements,
-            },
-            // The player was already built to render these; nothing was passing
-            // them, so every capture rendered an empty timeline.
-            ...(overlay.moments
-              ? {
-                  moments: overlay.moments.map((m) => ({
-                    frameIndex: m.frame_index,
-                    tMs: m.t_ms,
-                    ...(m.reasoning ? { reasoning: m.reasoning } : {}),
-                    topElements: m.top_elements,
-                  })),
-                }
-              : {}),
-            ...(overlay.summary ? { summary: overlay.summary } : {}),
-          }
-        : {}),
-    });
-    const written = writeArtifact(Buffer.from(html, "utf8"), `${manifest.slug}-player.html`);
-    if (written) playerUrl = written.url;
-  } catch { /* the recording stands without its player */ }
+  const { nonce, artifactUrls, contactSheetUrl, playerUrl } =
+    await publishCaptureArtifacts(manifest, status.outDir, contactSheet, entry?.url);
 
   // Inline player for MCP Apps. Separate build from the hosted page above,
   // because that one links its artifacts by URL and this one cannot: the widget
@@ -741,7 +772,10 @@ export async function stopCapture(
         ? { overlay: { quantity: overlay.quantity, domElements: overlay.dom_elements } }
         : {}),
     });
-    captureUiUri = publishCaptureUi(manifest.slug, inline);
+    // Keyed by slug AND the capture's nonce: the store is one per server, so
+    // two accounts using the same capture name replaced each other's panel, and
+    // ui://cbrowser/capture/<name> was guessable. (r1010 artifact-nonce, 2026-10-10)
+    captureUiUri = publishCaptureUi(`${manifest.slug}-${nonce}`, inline);
   } catch { /* inline panel is additive; the recording and hosted player stand */ }
 
   // Surface the recording in the account's Visual Reports gallery, the same way
