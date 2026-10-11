@@ -26,7 +26,21 @@ import type {
   ABSuiteResult,
   AIVisualAnalysis,
 } from "../types.js";
-import { analyzeVisualDifferences } from "./regression.js";
+import { analyzeVisualDifferences, VISUAL_DISTANCE_THRESHOLDS } from "./regression.js";
+
+/**
+ * A/B bands on the raw sliced Wasserstein distance (v8 B26, 2026-10-10).
+ * identical: below the same-engine change line (identical pixels measure 0).
+ * similar: element-level changes (max measured 0.0030; 0.01 is 3.3x above).
+ * different: block-level and whole-page changes, and another page entirely
+ * (0.0144-0.053; 0.2 is 3.8x above). Beyond that (dark theme, 0.31-0.38):
+ * very different.
+ */
+export const AB_DISTANCE_BANDS = {
+  identical: VISUAL_DISTANCE_THRESHOLDS.sameEngine.warnAt,
+  similar: 0.01,
+  different: 0.2,
+} as const;
 
 /**
  * Get the path for A/B comparison screenshots.
@@ -341,15 +355,24 @@ export async function runABComparison(
     { sensitivity: options.sensitivity || "medium" }
   );
 
-  // Determine overall status based on similarity
+  // Determine overall status. On the Wasserstein path, from the raw distance
+  // (v8 B26, 2026-10-10): the old floored score put identical pixels at 0.80,
+  // so "identical" (>= 0.95) needed byte-identical files, and on the real scale
+  // (similarity = 1 - 4 x distance) a moved button is 0.998 and would read
+  // "identical". Same-engine measurements (see VISUAL_DISTANCE_THRESHOLDS):
+  // identical pixels 0; element-level changes 0.000040-0.0030; hero hidden
+  // 0.0144-0.0161; blank page, missing stylesheet or another page entirely
+  // 0.033-0.053; dark theme 0.31-0.38.
+  const d = analysis.wassersteinDistance;
+  const s = analysis.similarityScore;
   let overallStatus: ABComparisonResult["overallStatus"];
-  if (analysis.similarityScore >= 0.95) {
+  if (d !== undefined ? d < AB_DISTANCE_BANDS.identical : s >= 0.95) {
     overallStatus = "identical";
     console.log(`      ✅ Identical (${(analysis.similarityScore * 100).toFixed(1)}%)`);
-  } else if (analysis.similarityScore >= 0.80) {
+  } else if (d !== undefined ? d < AB_DISTANCE_BANDS.similar : s >= 0.80) {
     overallStatus = "similar";
     console.log(`      ⚠️  Similar (${(analysis.similarityScore * 100).toFixed(1)}%)`);
-  } else if (analysis.similarityScore >= 0.50) {
+  } else if (d !== undefined ? d < AB_DISTANCE_BANDS.different : s >= 0.50) {
     overallStatus = "different";
     console.log(`      🟠 Different (${(analysis.similarityScore * 100).toFixed(1)}%)`);
   } else {

@@ -235,11 +235,12 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
                 mode: smartBaseline ? "smart+transport" : "traditional+transport",
                 passed: result.passed,
                 similarity: result.analysis.similarityScore,
+                ...(result.analysis.wassersteinDistance !== undefined ? { wassersteinDistance: result.analysis.wassersteinDistance } : {}),
                 status: result.analysis.overallStatus,
                 summary: result.analysis.summary,
                 ...(smartBaseline
                   ? { adaptiveThreshold: smartBaseline.adaptiveThreshold }
-                  : { note: "Traditional baseline: scored by combined Wasserstein distance, not against an adaptive threshold. Capture with visual_baseline captures=5 for smart regression." }),
+                  : { note: "Traditional baseline: verdict from the raw sliced Wasserstein distance (wassersteinDistance), not against an adaptive threshold. Capture with visual_baseline captures=5 for smart regression." }),
                 hotspots: result.transportMap?.hotspots,
                 flows: result.transportMap?.flows.length,
                 svgPath: result.transportMapSvgPath,
@@ -279,6 +280,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
               mode: "traditional",
               passed: result.passed,
               similarityScore: result.analysis?.similarityScore,
+              ...(result.analysis?.wassersteinDistance !== undefined ? { wassersteinDistance: result.analysis.wassersteinDistance } : {}),
+              status: result.analysis?.overallStatus,
               summary: result.analysis?.summary,
               changes: result.analysis?.changes?.length || 0,
               tip: "Capture with visual_baseline captures=5 for smart Wasserstein regression",
@@ -341,6 +344,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
                 browserB: c.browserB,
                 status: c.analysis?.overallStatus,
                 similarity: c.analysis?.similarityScore,
+                ...(c.analysis?.wassersteinDistance !== undefined ? { wassersteinDistance: c.analysis.wassersteinDistance } : {}),
                 changes: (c.analysis?.changes ?? []).map((ch) => ({
                   severity: ch.severity,
                   description: ch.description,
@@ -482,6 +486,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             text: JSON.stringify({
               overallStatus: result.overallStatus,
               similarityScore: result.analysis?.similarityScore,
+              ...(result.analysis?.wassersteinDistance !== undefined ? { wassersteinDistance: result.analysis.wassersteinDistance } : {}),
               summary: result.summary,
               differences: result.differences.slice(0, 10).map(d => ({
                 type: d.type,

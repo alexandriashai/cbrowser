@@ -64,3 +64,4 @@ tests/chaos-block-pattern.test.ts
 tests/v8-p3-browser.test.ts
 tests/console-messages-capture.test.ts
 tests/console-listener-per-call.test.ts
+tests/visual-distance-browser.test.ts

@@ -16,7 +16,7 @@ import { VERSION } from "../version.js";
 import { join } from "path";
 
 import { CBrowser } from "../browser.js";
-import { effectiveDataDir } from "../config.js";
+import { effectiveDataDir, getPaths } from "../config.js";
 import type {
   VisualBaseline,
   VisualChange,
@@ -27,7 +27,7 @@ import type {
   VisualTestSuiteResult,
 } from "../types.js";
 import {
-  computeCombinedDistance,
+  computeWassersteinDistance,
   computeSmartBaseline,
   compareAgainstSmartBaseline,
   computeTransportMap,
@@ -61,6 +61,78 @@ function getVisualScreenshotsPath(): string {
   }
   return screenshotsDir;
 }
+
+/**
+ * Where a regression run writes its CURRENT capture. (v8 B36, 2026-10-10)
+ *
+ * These used to land in visual-baselines/screenshots beside the baselines, and
+ * nothing ever deleted them (the v8 report counted 25 orphan current-*.png
+ * there on the live server). That directory holds what a user chose to keep,
+ * so no retention may sweep it. The per-account session screenshots dir is the
+ * one screenshot retention already sweeps (cleanupOldScreenshotSessions, run by
+ * ensureDirectories, 1 hour by default).
+ */
+function getCurrentCaptureDir(): string {
+  const dir = getPaths().screenshotsDir;
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
+ * Verdict lines on the RAW sliced Wasserstein distance (v8 B26, 2026-10-10).
+ *
+ * The verdict used to come from computeCombinedDistance: 0.2 x byte-diff +
+ * 0.8 x Wasserstein similarity. The byte term compared COMPRESSED PNG bytes,
+ * and two encodings of the same pixels share almost none of them, so the score
+ * floored at ~0.80 whatever the pixels were: identical pixels re-encoded scored
+ * 0.80-0.83, and robots.txt across chromium/firefox/webkit scored 0.80-0.82 while
+ * its true distance was 0.00003-0.00011. "Wasserstein distance" in the output
+ * was really 1 - that score. The old lines (0.7 / 0.85 / 0.98, cross-browser
+ * 0.55 / 0.70) were tuned on that floored scale.
+ *
+ * Measured on a local corpus (Bun.serve fixtures, 1920x1080 viewport, default
+ * config: 64 projections, downscale 0.5). Each pair was measured 5 times, since
+ * the projections are random; rows with two corpus captures give the min-max
+ * over both (10 measurements), the rest over one:
+ *
+ *   Same engine (chromium vs chromium)
+ *     repeat capture (byte-identical) / same pixels re-encoded ... 0
+ *     CTA button nudged 40px ................................. 0.000040-0.000049
+ *     CTA button moved 600px ................................. 0.00048-0.00060
+ *     third card clipped by horizontal overflow .............. 0.00066-0.00074
+ *     font family swapped (sans -> serif) .................... 0.00085-0.00115
+ *     cards pushed down 200px ................................ 0.00128-0.00207
+ *     one card hidden ........................................ 0.00139-0.00170
+ *     CTA button hidden ...................................... 0.00244-0.00299
+ *     hero section hidden .................................... 0.0144-0.0161
+ *     2600px-wide banner inserted (page overflows) ........... 0.037-0.046
+ *     stylesheet missing ..................................... 0.042-0.050
+ *     blank page ............................................. 0.044-0.050
+ *     dark theme applied ..................................... 0.31-0.38
+ *
+ *   Across engines, same page, no defect (all three pairs)
+ *     robots.txt (plain text) ................................ 0.00003-0.00011
+ *     styled landing page .................................... 0.00020-0.00053
+ *     native form controls ................................... 0.00026-0.00062
+ *     13px data table ........................................ 0.00129-0.00263
+ *     19px serif article ..................................... 0.00075-0.00353
+ *   (the article's worst case is webkit's line-height rounding drifting the
+ *   paragraphs ~10px by the bottom of the viewport: real, not a defect)
+ *
+ * Same engine: identical pixels measure exactly 0, so anything >= 1e-5 changed
+ * (4x under the smallest break measured). Sub-element nudges stay a warning;
+ * from 2.5e-4 it fails (the smallest structural break, 0.00048, is 1.9x above).
+ *
+ * Across engines the noise reaches 0.0035, so the pass line is 0.007 (2x the
+ * worst noise) and the fail line 0.01 (2.8x; the smallest gross break measured,
+ * the hidden hero at 0.0144, is 1.4x above). Named limit: element-level breaks
+ * (0.0005-0.003) sit INSIDE the cross-engine noise band, so cross_browser_test
+ * cannot see them in pixels; its layout-structure comparison is what can.
+ */
+export const VISUAL_DISTANCE_THRESHOLDS = {
+  sameEngine: { warnAt: 1e-5, failAt: 2.5e-4 },
+  crossEngine: { warnAt: 0.007, failAt: 0.01 },
+} as const;
 
 /**
  * Load all visual baselines from storage
@@ -447,8 +519,8 @@ export async function runSmartRegression(
     viewportHeight: 1080,
   });
 
-  const screenshotsPath = getVisualScreenshotsPath();
-  const currentPath = join(screenshotsPath, `current-${Date.now()}.png`);
+  // Session screenshots dir, where retention applies (v8 B36).
+  const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
 
   try {
     await browser.launch();
@@ -591,8 +663,8 @@ export async function runRegressionWithTransportMap(
 
   // Capture current screenshot
   const browser = new CBrowser({ viewportWidth: 1920, viewportHeight: 1080 });
-  const screenshotsPath = getVisualScreenshotsPath();
-  const currentPath = join(screenshotsPath, `current-${Date.now()}.png`);
+  // Session screenshots dir, where retention applies (v8 B36).
+  const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
 
   try {
     await browser.launch();
@@ -623,6 +695,9 @@ export async function runRegressionWithTransportMap(
   // Against a 0.98 adaptive threshold that made an unchanged page fail every time
   // the flag was passed. When a smart baseline exists, score it the same way the
   // no-flag path does. (2026-07-28)
+  // That fixed only this branch; the traditional branch below kept the dead byte
+  // term until performWassersteinAnalysis moved to the raw distance. (v8 B26,
+  // 2026-10-10)
   let analysis: AIVisualAnalysis;
   if (smartBaseline) {
     const smart = await compareAgainstSmartBaseline(currentPath, smartBaseline, options.wassersteinConfig);
@@ -697,7 +772,12 @@ export async function runRegressionWithTransportMap(
   // baseline's adaptiveThreshold (0.98) as though that were the pass line, so
   // pass/fail was decided against a number the caller was never shown.
   const threshold = effectiveThreshold;
-  const passed = analysis.similarityScore >= threshold;
+  // On the real distance a moved button scores ~0.998 similarity, over any
+  // similarity line, while the distance verdict fails it; so a "fail" verdict
+  // fails here too, as it already does in runVisualRegression. A smart "fail"
+  // is always below its threshold, so that branch is unchanged. (v8 B26,
+  // 2026-10-10)
+  const passed = analysis.similarityScore >= threshold && analysis.overallStatus !== "fail";
 
   return {
     baselineName,
@@ -977,10 +1057,12 @@ async function performWassersteinAnalysis(
   currentPath: string,
   options: VisualRegressionOptions & { wassersteinConfig?: WassersteinConfig } = {}
 ): Promise<AIVisualAnalysis> {
-  const result = await computeCombinedDistance(
+  // The raw sliced Wasserstein distance, not computeCombinedDistance: its byte
+  // term compared compressed PNG bytes and floored every score near 0.80. See
+  // VISUAL_DISTANCE_THRESHOLDS for the measurements. (v8 B26, 2026-10-10)
+  const result = await computeWassersteinDistance(
     baselinePath,
     currentPath,
-    { byteDiff: 0.2, wasserstein: 0.8 },
     {
       numProjections: 64,
       compareMode: 'combined',
@@ -990,74 +1072,63 @@ async function performWassersteinAnalysis(
     }
   );
 
-  const similarityScore = Math.round(result.normalizedScore * 100) / 100;
+  const crossBrowser = Boolean((options as { crossBrowser?: boolean }).crossBrowser);
+  const lines = crossBrowser ? VISUAL_DISTANCE_THRESHOLDS.crossEngine : VISUAL_DISTANCE_THRESHOLDS.sameEngine;
+  const distance = result.distance;
+  // 4 significant figures: the interesting range starts at 1e-5, which a fixed
+  // 4-decimal rounding would print as 0.
+  const wassersteinDistance = Number(distance.toPrecision(4));
+  const shown = distance.toPrecision(3);
+  // 4 decimals, not 2: on the real distance a moved button is 0.9978, which 2
+  // decimals rounded to a misleading 1.
+  const similarityScore = Math.round(result.normalizedScore * 10000) / 10000;
+  const scope = crossBrowser ? "beyond cross-engine rendering noise" : "between the two captures";
   const changes: VisualChange[] = [];
   let overallStatus: "pass" | "warning" | "fail" = "pass";
 
-  if (similarityScore < 0.7) {
+  if (distance >= lines.failAt) {
     changes.push({
       type: "layout",
       severity: "breaking",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: `Significant visual differences detected (Wasserstein distance: ${result.distance.toFixed(4)})`,
-      reasoning: "Optimal transport analysis shows substantial redistribution of visual content",
+      description: `Visual change ${scope} (sliced Wasserstein distance ${shown}, fail line ${lines.failAt})`,
+      reasoning: crossBrowser
+        ? "More visual mass moved than engine differences in fonts and anti-aliasing account for"
+        : "Optimal transport analysis shows visual content moved, appeared or disappeared",
       confidence: 0.9,
       suggestion: "Review the visual changes manually — layout or content has materially changed",
     });
     overallStatus = "fail";
-  } else if (similarityScore < 0.85) {
+  } else if (distance >= lines.warnAt) {
     changes.push({
       type: "content",
       severity: "warning",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: `Moderate visual differences detected (Wasserstein distance: ${result.distance.toFixed(4)})`,
-      reasoning: "Optimal transport analysis shows meaningful visual distribution change",
+      description: `Minor visual change ${scope} (sliced Wasserstein distance ${shown}, warning line ${lines.warnAt})`,
+      reasoning: crossBrowser
+        ? "Above the cross-engine noise measured on text-heavy pages, below a gross break"
+        : "The captures differ, but by less than any structural break measured",
       confidence: 0.85,
       suggestion: "Review to confirm changes are expected",
     });
     overallStatus = "warning";
-  } else if (similarityScore < 0.98) {
-    changes.push({
-      type: "style",
-      severity: "info",
-      region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: `Minor visual differences detected (Wasserstein distance: ${result.distance.toFixed(4)})`,
-      reasoning: "Sub-pixel or rendering engine differences — within normal variation",
-      confidence: 0.8,
-    });
   }
 
-  // Sensitivity adjustments
+  // Sensitivity adjustments. High flags any capture that is not pixel-identical;
+  // between engines that is every capture, which is what "flag any visible
+  // difference" asks for.
   if (options.sensitivity === "low" && overallStatus === "warning") {
     overallStatus = "pass";
-  } else if (options.sensitivity === "high" && changes.length === 0 && result.distance > 0.001) {
+  } else if (options.sensitivity === "high" && changes.length === 0 && distance > 0) {
     changes.push({
       type: "style",
       severity: "info",
       region: { x: 0, y: 0, width: 1920, height: 1080 },
-      description: "Very minor visual change detected by Wasserstein analysis",
+      description: `Very minor visual change detected by Wasserstein analysis (sliced Wasserstein distance ${shown})`,
       reasoning: "Slight distribution shift detected at high sensitivity",
       confidence: 0.5,
     });
     overallStatus = "warning";
-  }
-
-  // Cross-browser: Wasserstein naturally handles font rendering differences
-  // much better than byte-diff, so thresholds are less aggressive
-  if ((options as any).crossBrowser) {
-    if (overallStatus === "fail" && similarityScore >= 0.55) {
-      overallStatus = "warning";
-      if (changes.length > 0) {
-        changes[0].severity = "warning";
-        changes[0].reasoning = "Cross-browser rendering differences (Wasserstein is robust to font/anti-aliasing variation)";
-      }
-    }
-    if (overallStatus === "warning" && similarityScore >= 0.70) {
-      overallStatus = "pass";
-      if (changes.length > 0) {
-        changes[0].severity = "acceptable";
-      }
-    }
   }
 
   const channelInfo = result.details.channelDistances
@@ -1067,13 +1138,14 @@ async function performWassersteinAnalysis(
   return {
     overallStatus,
     summary: changes.length === 0
-      ? `No significant visual changes detected (Wasserstein similarity: ${similarityScore})`
-      : `Found ${changes.length} visual change(s) with ${overallStatus} status`,
+      ? `No significant visual changes detected (sliced Wasserstein distance ${shown}, similarity ${similarityScore})`
+      : `Found ${changes.length} visual change(s) with ${overallStatus} status (sliced Wasserstein distance ${shown})`,
     changes,
     similarityScore,
+    wassersteinDistance,
     productionReady: overallStatus !== "fail",
     confidence: 0.9, // Higher than byte-diff (0.75) — Wasserstein is more robust
-    rawAnalysis: `Sliced Wasserstein Distance analysis (${result.details.numProjections} projections, ${result.details.computeTimeMs?.toFixed(0)}ms)${channelInfo}`,
+    rawAnalysis: `Sliced Wasserstein Distance analysis (${result.details.numProjections} projections, ${result.details.computeTimeMs?.toFixed(0)}ms, distance ${shown}, ${crossBrowser ? "cross-engine" : "same-engine"} lines warn ${lines.warnAt} / fail ${lines.failAt})${channelInfo}`,
   };
 }
 
@@ -1121,8 +1193,9 @@ export async function runVisualRegression(
       await new Promise(resolve => setTimeout(resolve, options.waitBeforeCapture));
     }
 
-    // Take screenshot
-    const screenshotsPath = getVisualScreenshotsPath();
+    // Take screenshot, into the session screenshots dir, where retention
+    // applies (v8 B36).
+    const screenshotsPath = getCurrentCaptureDir();
     const currentScreenshotPath = join(screenshotsPath, `current-${baseline.id}-${Date.now()}.png`);
 
     const page = await browser.getPage();

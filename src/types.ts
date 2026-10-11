@@ -4204,8 +4204,18 @@ export interface AIVisualAnalysis {
   summary: string;
   /** Detailed changes detected */
   changes: VisualChange[];
-  /** Semantic similarity score (0-1) */
+  /**
+   * Similarity score (0-1, 1 = identical pixels). On the Wasserstein path this
+   * is max(0, 1 - 4 x wassersteinDistance); the verdict is decided on the raw
+   * distance, not on this number.
+   */
   similarityScore: number;
+  /**
+   * Raw sliced Wasserstein distance between the two captures (0 = identical
+   * pixels, whatever the PNG encoding). Absent when the byte-level fallback
+   * answered. (v8 B26, 2026-10-10)
+   */
+  wassersteinDistance?: number;
   /** Is this acceptable for production? */
   productionReady: boolean;
   /** AI confidence in assessment (0-1) */
