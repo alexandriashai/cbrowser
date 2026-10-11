@@ -970,8 +970,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             data.heatmapUrl = publicUrl;
             // The filename, not just the URL: the widget sandbox cannot fetch
             // that URL, so the view asks artifact_fetch for these bytes over
-            // the MCP connection instead.
-            data.heatmapFile = `${heatmapId}.png`;
+            // the MCP connection instead. The name as written, which carries the
+            // store's random part, not the name asked for. (r1010 artifact-nonce, 2026-10-10)
+            data.heatmapFile = written ? written.filename : `${heatmapId}.png`;
             data.heatmapNote = "Show this heatmap image to the user. The red areas show where this persona's attention concentrates. Blue areas receive little attention.";
             heatmapPng = png;
 
@@ -1140,7 +1141,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // defect the artifact store exists to end.
             if (written) {
               responseData.comparisonHeatmapUrl = written.url;
-              responseData.comparisonHeatmapFile = `${heatmapId}.png`;
+              // As written, random part included. (r1010 artifact-nonce, 2026-10-10)
+              responseData.comparisonHeatmapFile = written.filename;
               comparisonFullResolution = "the PNG at comparisonHeatmapUrl, or artifact_fetch({ file: comparisonHeatmapFile })";
             } else {
               comparisonFullResolution = "not available (the artifact store was unavailable, so the full-resolution PNG was not saved)";

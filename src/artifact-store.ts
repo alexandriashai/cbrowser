@@ -27,7 +27,8 @@
  */
 
 import { writeFileSync, mkdirSync, existsSync } from "fs";
-import { join } from "path";
+import { join, extname } from "path";
+import { randomBytes } from "crypto";
 
 /** The directory nginx serves at `/heatmaps/`, when nothing overrides it. */
 const DEFAULT_ARTIFACT_DIR = "/var/www/cbrowser-data/heatmaps";
@@ -67,13 +68,45 @@ export interface WrittenArtifact {
   path: string;
   /** Public URL that resolves to `path`, assuming the server is up. */
   url: string;
-  /** Bare filename, for callers that build their own links. */
+  /**
+   * Bare filename as written, random part included. Hand back this (or `url`),
+   * never the name that was asked for: they differ by the nonce.
+   */
   filename: string;
+}
+
+/**
+ * The unguessable part of a published name: 48 random bits as 12 hex chars,
+ * the idiom empathy_audit already used. Exported so a caller publishing files
+ * that belong together (a capture's video, player and contact sheet) can give
+ * them one shared nonce.
+ */
+export function artifactNonce(): string {
+  return randomBytes(6).toString("hex");
+}
+
+const NONCE_SHAPE = /^[0-9a-f]{12,}$/;
+
+/** `name.ext` -> `name-<nonce>.ext`: the readable prefix stays in front. */
+function withNonce(name: string, nonce: string): string {
+  const ext = extname(name);
+  const stem = ext ? name.slice(0, -ext.length) : name;
+  return `${stem || "artifact"}-${nonce}${ext}`;
 }
 
 /**
  * Write bytes into the served artifact directory and return both the on-disk
  * path and the URL that serves it.
+ *
+ * Every name gets a random part before its extension. The directory is public
+ * and one for all accounts, and the names callers asked for were guessable:
+ * captures were `<capture name>.<fmt>` or `recording-<ISO time>`, heatmaps
+ * `attn-<persona>-<ms>`. So a capture of a customer's page sat at a URL anyone
+ * could guess, and two accounts using the same capture name overwrote each
+ * other's public files. Adding it here rather than at each caller means a new
+ * caller cannot forget it. Pass `nonce` (from artifactNonce) only to share one
+ * across files that belong together. The write never replaces an existing file
+ * (flag "wx"): old links keep their bytes. (r1010 artifact-nonce, 2026-10-10)
  *
  * Returns `null` rather than throwing when the write fails: an artifact is
  * never worth failing a whole audit over. Callers MUST treat null as "no URL to
@@ -83,13 +116,16 @@ export interface WrittenArtifact {
 export function writeArtifact(
   data: Buffer | string,
   filename: string,
+  options: { nonce?: string } = {},
 ): WrittenArtifact | null {
   const dir = artifactDir();
   try {
+    const nonce = options.nonce ?? artifactNonce();
+    if (!NONCE_SHAPE.test(nonce)) throw new Error("nonce must be at least 12 lowercase hex characters (use artifactNonce())");
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    const safe = filename.replace(/[^a-zA-Z0-9._-]+/g, "-");
+    const safe = withNonce(filename.replace(/[^a-zA-Z0-9._-]+/g, "-"), nonce);
     const path = join(dir, safe);
-    writeFileSync(path, typeof data === "string" ? Buffer.from(data, "base64") : data);
+    writeFileSync(path, typeof data === "string" ? Buffer.from(data, "base64") : data, { flag: "wx" });
     return { path, url: `${artifactBaseUrl()}/${safe}`, filename: safe };
   } catch (err) {
     // Say WHY, and say WHERE. Swallowing this is how the original defect
