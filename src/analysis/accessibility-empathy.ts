@@ -66,6 +66,7 @@ import {
   estimateCognitiveLoad,
   extractPageMetrics,
 } from "../visual/cognitive-transport.js";
+import { bridgeCapacityTraits } from "../visual/cognitive-models.js";
 import {
   analyzeAttention,
 } from "../visual/attention-transport.js";
@@ -3870,7 +3871,14 @@ export async function runEmpathyAudit(
       // v18.27.0: Cognitive load estimation via optimal transport
       try {
         const pageMetrics = await extractPageMetrics(page);
-        const otProfile = buildOTCognitiveProfile(personaName, resolvedPersona.cognitiveTraits as unknown as Record<string, number> || {});
+        // Copied and bridged: the estimator's attention, motor and text
+        // dimensions read the bridged capacities, and without them every
+        // persona scored the same on all three (B29, 2026-10-10). The copy keeps
+        // the bridge from writing into the persona record itself.
+        const loadTraits = { ...((resolvedPersona.cognitiveTraits as unknown as Record<string, number>) || {}) };
+        bridgeCapacityTraits(personaName, loadTraits,
+          (resolvedPersona as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+        const otProfile = buildOTCognitiveProfile(personaName, loadTraits);
         const cogLoad = estimateCognitiveLoad(otProfile, pageMetrics);
 
         // Three separate models each produce a number called "cognitive load",
@@ -3905,6 +3913,8 @@ export async function runEmpathyAudit(
           breakdown: Object.fromEntries(
             Object.entries(cogLoad.breakdown).map(([k, v]) => [k, Math.round(v * 100) / 100])
           ),
+          // Dimensions measured on the page alone (B29, 2026-10-10).
+          personaInvariant: cogLoad.personaInvariant,
           pageMetrics: {
             informationDensity: Math.round(pageMetrics.informationDensity * 100) / 100,
             visualComplexity: Math.round(pageMetrics.visualComplexity * 100) / 100,

@@ -608,9 +608,21 @@ export function generateAdversarialPersonas(
  * The expectation distribution is derived from the persona's traits:
  * - High patience → expects slower information delivery (wider temporal spread)
  * - High comprehension → expects denser information
- * - Low attentionPattern → expects simpler layouts
+ * - attention / motor / text read the three BRIDGED capacities
+ *   (sustainedAttention, motorCapacity, readingCapacity), so a caller must run
+ *   bridgeCapacityTraits (visual/cognitive-models.ts) before building the
+ *   profile, or those dimensions sit at the 0.5 missing-trait fallback.
  *
  * The reality distribution is derived from page analysis metrics.
+ *
+ * Every trait name read here must exist in COGNITIVE_TRAITS, and `p` is typed
+ * to enforce it. Until 2026-10-10 (report item B29) five did not:
+ * visualProcessing, motorPrecision and textProcessing exist in no schema, and
+ * attentionPattern / decisionStyle are enums on the cognitive profile, never
+ * numbers in the trait vector. All five fell back to 0.5, so visual, attention,
+ * motor and text were identical for every persona -- live, cognitive-adhd,
+ * power-user, dyslexic-user and distracted-user all scored the same four
+ * numbers on them.
  */
 export function estimateCognitiveLoad(
   persona: OTCognitiveProfile,
@@ -628,9 +640,11 @@ export function estimateCognitiveLoad(
   breakdown: Record<string, number>;
   overloaded: boolean;
   bottleneck: string;
+  /** Breakdown dimensions that depend on the page only, never on the persona. */
+  personaInvariant: string[];
 } {
   const traits = persona.traits;
-  const p = (t: string) => traits[t] ?? 0.5;
+  const p = (t: CognitiveTrait) => traits[t] ?? 0.5;
 
   // Per-dimension load: mismatch between persona capacity and page demand
   // Use power 1.5 on page metrics for sharper scaling at high demand
@@ -639,21 +653,38 @@ export function estimateCognitiveLoad(
   // Information processing load
   breakdown.information = Math.pow(pageMetrics.informationDensity, 1.5) * (1 - p('comprehension') * 0.8);
 
-  // Visual processing load
-  breakdown.visual = Math.pow(pageMetrics.visualComplexity, 1.5) * (1 - p('visualProcessing') * 0.8);
+  // Visual processing load. PERSONA-INVARIANT, and reported as such.
+  //
+  // It read `visualProcessing`, which exists in no schema, so it was already a
+  // constant for everyone -- just an undeclared one. No trait in the vector has
+  // a researched mapping onto visual-complexity tolerance, and inventing one
+  // would turn a stated gap into a fabricated measurement. The 0.5 midpoint
+  // keeps the number where it has always been; `personaInvariant` says what it
+  // is. (B29, 2026-10-10)
+  breakdown.visual = Math.pow(pageMetrics.visualComplexity, 1.5) * (1 - 0.5 * 0.8);
 
-  // Attention load (animations vs attention capacity)
-  breakdown.attention = Math.pow(pageMetrics.animationLevel, 1.5) * (1 - p('attentionPattern') * 0.8);
+  // Attention load (animations vs the capacity to hold attention under
+  // competition). Was `attentionPattern`, an enum ("skim", "thorough"...) that
+  // is never a number in the trait vector. sustainedAttention is the bridged
+  // capacity (accessibilityTraits.attentionSpan, then interruptRecovery). (B29)
+  breakdown.attention = Math.pow(pageMetrics.animationLevel, 1.5) * (1 - p('sustainedAttention') * 0.8);
 
-  // Decision load (Hick-Hyman: log2(choices) scaled by decision trait)
-  const hickHyman = Math.log2(Math.max(1, pageMetrics.choiceCount)) / 5; // Normalize to ~0-1
-  breakdown.decision = Math.pow(hickHyman, 1.5) * (1 - (p('decisionStyle') * 0.5 + p('satisficing') * 0.5) * 0.8);
+  // Decision load (Hick-Hyman: log2(choices) scaled by decision trait).
+  //
+  // Clamped: log2(choices)/5 passed 1 above 32 choices, so a 64-option page
+  // scored 1.2^1.5 = 1.31 times the persona factor on a dimension every other
+  // line here keeps in 0-1. satisficing alone, because decisionStyle is an enum
+  // and only ever contributed its 0.5 fallback. (B29, 2026-10-10)
+  const hickHyman = Math.min(1, Math.log2(Math.max(1, pageMetrics.choiceCount)) / 5);
+  breakdown.decision = Math.pow(hickHyman, 1.5) * (1 - p('satisficing') * 0.8);
 
-  // Motor load (interactive elements vs precision)
-  breakdown.motor = Math.pow(Math.min(1, pageMetrics.interactiveElementCount / 50), 1.5) * (1 - p('motorPrecision') * 0.8);
+  // Motor load (interactive elements vs pointing capacity). motorCapacity is
+  // bridged from the Fitts pointing model; `motorPrecision` exists nowhere. (B29)
+  breakdown.motor = Math.pow(Math.min(1, pageMetrics.interactiveElementCount / 50), 1.5) * (1 - p('motorCapacity') * 0.8);
 
-  // Text processing load
-  breakdown.text = Math.pow(pageMetrics.textDensity, 1.5) * (1 - p('textProcessing') * 0.8);
+  // Text processing load. readingCapacity is bridged from the reading model
+  // (decoding, visual span); `textProcessing` exists nowhere. (B29)
+  breakdown.text = Math.pow(pageMetrics.textDensity, 1.5) * (1 - p('readingCapacity') * 0.8);
 
   // Working memory load (navigation depth)
   breakdown.memory = Math.pow(Math.min(1, pageMetrics.navigationDepth / 5), 1.5) * (1 - p('workingMemory') * 0.8);
@@ -678,6 +709,7 @@ export function estimateCognitiveLoad(
     breakdown,
     overloaded: total > overloadThreshold,
     bottleneck,
+    personaInvariant: ['visual'],
   };
 }
 
