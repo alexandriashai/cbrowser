@@ -3832,6 +3832,13 @@ export interface PageElement {
   href?: string;
   inputType?: string;
   required?: boolean;
+  /**
+   * True when a user cannot see the element: not rendered, a 1-2px box, or parked off-screen or clipped
+   * the way sr-only and skip-link styles do. generate_tests makes no step of it. (v8 b39, 2026-10-10)
+   */
+  hidden?: boolean;
+  /** True on a link to a fragment of this same page ("#main", "#"): following it never navigates. */
+  inPage?: boolean;
 }
 
 export interface PageAnalysis {
@@ -3866,6 +3873,8 @@ export interface GeneratedTest {
   description: string;
   steps: TestStep[];
   assertions: string[];
+  /** Controls the generator left out on purpose, and why (a red-zone control the click gate refuses). */
+  notes?: string[];
 }
 
 export interface TestStep {
@@ -3873,6 +3882,8 @@ export interface TestStep {
   target?: string;
   value?: string;
   description: string;
+  /** "red" on a click the click gate refuses without force; NL test steps never pass force. */
+  zone?: ActionZone;
 }
 
 export interface TestGenerationResult {
