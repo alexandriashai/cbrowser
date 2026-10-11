@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.3.9](https://github.com/alexandriashai/cbrowser/compare/v19.3.8...v19.3.9) (2026-10-11)
+
+### Fixed
+
+* **agent-ready:** card testids come from words and the card's heading, not glued text (b47) ([7cd6b08](https://github.com/alexandriashai/cbrowser/commit/7cd6b088f72d8a5dd6d63b6fe288deb4682288f7))
+* **ai-benchmark:** compare sites by check id, not description text (v8 b28) ([7ed173e](https://github.com/alexandriashai/cbrowser/commit/7ed173e2af322ec8a7e0d07bdea6c7565af07910))
+* chaos_test route handlers cannot reject (v8 b27) ([d52a722](https://github.com/alexandriashai/cbrowser/commit/d52a72270e2adfd045f2abca952d9d862200a92e))
+* **cognitive-load:** read real traits and bridge capacities before estimating (b29) ([8115a77](https://github.com/alexandriashai/cbrowser/commit/8115a7794f4d28e55de75678b92e7eb9943a1fca))
+* **generate-tests:** a hidden wrapper hides its children; no bare submit fallback (v8 b39) ([85e6f40](https://github.com/alexandriashai/cbrowser/commit/85e6f4007c184d2849d55ba1543be9fe6082d693))
+* **generate-tests:** no red, hidden or skip-link clicks; start from the real page (v8 b39) ([ee68ce7](https://github.com/alexandriashai/cbrowser/commit/ee68ce7f580e6e561930bfc3f3ffc468c9cbd8fa))
+* get_console_messages reads a per-tab capture buffer (v8 b27) ([b41776c](https://github.com/alexandriashai/cbrowser/commit/b41776ca6143bcf0e6f3ca01e06892c1918f6b5f))
+* handle_dialog keeps one arm per page, latest wins, never throws (v8 b27) ([98a9ca6](https://github.com/alexandriashai/cbrowser/commit/98a9ca6b15f86ca9dfe6e9aa560a0fdc361c4b7f))
+* hunt_bugs and the heuristic journey remove their console listener (v8 b27) ([acac87f](https://github.com/alexandriashai/cbrowser/commit/acac87f06665606413fbc4abb010ec5648d9f5a2))
+* **mcp-remote:** derive every tool, category and persona count the server prints (b33) ([58917b0](https://github.com/alexandriashai/cbrowser/commit/58917b0dd8a5e9c44662adcd71fcfbcc51f6d1a9))
+* **page-understand:** an article's own header and footer are not hero area (b40) ([2f40773](https://github.com/alexandriashai/cbrowser/commit/2f4077358ef5c6f2f2835c6c803f3d865ff92649))
+* **page-understand:** aria-label names, no tabindex=-1, header nav is not a hero, unglued text (b40) ([b268812](https://github.com/alexandriashai/cbrowser/commit/b26881244e5831719fbf1f26852fc795593f5182))
+* **page-understand:** only banner and contentinfo header/footer are site chrome (b40) ([c230f0a](https://github.com/alexandriashai/cbrowser/commit/c230f0a3a230920379b24bf5ba67b2ed79fca168))
+* **page-understand:** undo the header-nav hero exclusion and prose fallback (b40) ([3cea34e](https://github.com/alexandriashai/cbrowser/commit/3cea34eda5ac262ad48d523b16d083be013d7e44))
+* **remediation:** quickWins counts cheap fixes rated medium impact (b38) ([7695b59](https://github.com/alexandriashai/cbrowser/commit/7695b5971f46f174b53d1995d7dab4d7d2c97b56))
+* **remediation:** structured_data_suggest stops guessing types and reads existing [@graph](https://github.com/graph) (b34) ([031c77b](https://github.com/alexandriashai/cbrowser/commit/031c77b1c54df713a6553d8a2d7ad26bd6b4b981))
+* **security:** browsers built in an account scope keep their files in the account dir (tenant) ([b30f30b](https://github.com/alexandriashai/cbrowser/commit/b30f30bb4be6422401616c213b8f6ad60e8350a9))
+* **security:** capture players and capture sessions are per account (tenant) ([cda83ae](https://github.com/alexandriashai/cbrowser/commit/cda83ae5e1f8497f41dc9203cdf466eba409d686))
+* **security:** every published artifact name carries a 48-bit random part ([b7ca432](https://github.com/alexandriashai/cbrowser/commit/b7ca4327ab584ff6291f7c69dc547a509a2e04fc))
+* **security:** hosted accounts no longer share sessions, baselines or a browser (v8 o3) ([7fea946](https://github.com/alexandriashai/cbrowser/commit/7fea9462d33c11deb7d4b91b9f118a2a3d15ddfa))
+* **security:** hosted path guard refuses "" and null; path tests start no browser (sec-paths) ([a99053c](https://github.com/alexandriashai/cbrowser/commit/a99053cf49fb405ff180d7bf4c83996e34a1676b))
+* **security:** hosted tools refuse server paths and non-web urls (sec-paths) ([3327bc8](https://github.com/alexandriashai/cbrowser/commit/3327bc8ba4bdb939c751bec5f787e2a8b2825292))
+* **security:** per-request caller identity on the hosted server ([913bd95](https://github.com/alexandriashai/cbrowser/commit/913bd954ede68236bd9d7422a323aab51c826b78))
+* **security:** persona questionnaires, values and created personas are per account (tenant) ([ecdc377](https://github.com/alexandriashai/cbrowser/commit/ecdc377d79fc973d29089e3cdd93a42ef3df0fa0))
+* **security:** site models and mcp session browsers are per account (tenant) ([7643171](https://github.com/alexandriashai/cbrowser/commit/76431714f401682b616277d99c76687a1da194e1))
+* **security:** site profile domains cannot address paths outside site-profiles ([bb89a88](https://github.com/alexandriashai/cbrowser/commit/bb89a88c35677027a8878052a5e0c05cee83a556))
+* **security:** site profiles, campaigns and screenshot dirs resolve under the caller's account (tenant) ([71128dd](https://github.com/alexandriashai/cbrowser/commit/71128dd9bd9f2d2fc1855073cf3ccd8a2a760663))
+* v8 p3 batch (b31 b35 b37 b41 b42 b46 b48 b49) ([6fbeda6](https://github.com/alexandriashai/cbrowser/commit/6fbeda68d5332065d9d6192db5121a1580e35d7a))
+* **visual:** regression captures go where screenshot retention applies (b36) ([0558f5f](https://github.com/alexandriashai/cbrowser/commit/0558f5f83253a4c489dbeea79318c9d121d9c253))
+* **visual:** verdict from the raw sliced wasserstein distance, recalibrated (b26) ([a2c5571](https://github.com/alexandriashai/cbrowser/commit/a2c55715cfec9805c89727dccae2e06b6bb7b515))
+
+### Changed
+
+* **ai-benchmark:** build a site result in one pure function (v8 b28) ([f18202d](https://github.com/alexandriashai/cbrowser/commit/f18202d67d44549f5ee86d9aa34550e1d3016b78))
+
 ## [19.3.8](https://github.com/alexandriashai/cbrowser/compare/v19.3.7...v19.3.8) (2026-10-10)
 
 ### Fixed
