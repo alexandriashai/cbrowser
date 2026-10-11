@@ -62,3 +62,5 @@ tests/view-image-block.test.ts
 tests/handle-dialog-arm.test.ts
 tests/chaos-block-pattern.test.ts
 tests/v8-p3-browser.test.ts
+tests/console-messages-capture.test.ts
+tests/console-listener-per-call.test.ts

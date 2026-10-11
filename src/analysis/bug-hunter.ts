@@ -133,6 +133,45 @@ export async function huntBugs(
   duration: number;
 }> {
   const startTime = Date.now();
+  const page = await (browser as any).getPage();
+  const consoleErrors: Array<{ text: string; resourceUrl?: string }> = [];
+
+  // Capture console errors. Chrome's "Failed to load resource" message does
+  // not name the resource in its text; it is the message's location. Without
+  // it a 404 was reported as a high bug against the page with no way to tell
+  // which asset failed (cbrowser.ai/blog). (v5 B24)
+  //
+  // Removed in the finally below (v8 B27, 2026-10-10). It used to stay on the
+  // tab, which is CBrowser's shared page, so every hunt_bugs call left one more
+  // listener and errors array behind in a long-lived hosted session (measured
+  // 1 -> 4 console listeners over three calls). Not read from CBrowser's console
+  // buffer instead: that caps text at 2000 characters and keeps 500 entries, so
+  // a long error or a noisy page would change this tool's output.
+  const onConsole = (msg: any) => {
+    if (msg.type() === "error") {
+      const text: string = msg.text();
+      const loc = typeof msg.location === "function" ? msg.location() : undefined;
+      const resourceUrl = /^Failed to load resource/.test(text) && loc?.url ? String(loc.url) : undefined;
+      consoleErrors.push({ text, ...(resourceUrl ? { resourceUrl } : {}) });
+    }
+  };
+  page.on("console", onConsole);
+  try {
+    return await huntWithListener(browser, url, options, startTime, page, consoleErrors);
+  } finally {
+    page.off("console", onConsole);
+  }
+}
+
+/** huntBugs' crawl. `consoleErrors` is filled by huntBugs' listener on `page`. */
+async function huntWithListener(
+  browser: CBrowser,
+  url: string,
+  options: { maxDepth?: number; maxPages?: number; timeout?: number },
+  startTime: number,
+  page: any,
+  consoleErrors: Array<{ text: string; resourceUrl?: string }>,
+) {
   const bugs: BugReport[] = [];
   // Requested and landed URLs, normalized: never request the same page twice.
   const seen = new Set<string>();
@@ -141,22 +180,6 @@ export async function huntBugs(
   const visitedUrls: string[] = [];
   const _maxPages = options.maxPages || 10;
   const _timeout = options.timeout || 60000;
-
-  const page = await (browser as any).getPage();
-  const consoleErrors: Array<{ text: string; resourceUrl?: string }> = [];
-
-  // Capture console errors. Chrome's "Failed to load resource" message does
-  // not name the resource in its text; it is the message's location. Without
-  // it a 404 was reported as a high bug against the page with no way to tell
-  // which asset failed (cbrowser.ai/blog). (v5 B24)
-  page.on("console", (msg: any) => {
-    if (msg.type() === "error") {
-      const text: string = msg.text();
-      const loc = typeof msg.location === "function" ? msg.location() : undefined;
-      const resourceUrl = /^Failed to load resource/.test(text) && loc?.url ? String(loc.url) : undefined;
-      consoleErrors.push({ text, ...(resourceUrl ? { resourceUrl } : {}) });
-    }
-  });
 
   // Console errors collected since the last flush belong to `pageUrl`.
   // Crawled pages' errors used to be collected and never reported: the only
