@@ -64,6 +64,12 @@ export interface PageSignals {
   logoUrl?: string;
   phone?: string;
   faqItems?: Array<{ question: string; answer: string }>;
+  // Better names than the raw <title> (2026-10-10, B34)
+  ogTitle?: string;
+  ogSiteName?: string;
+  h1?: string;
+  /** `name` of an Organization the page's own JSON-LD already declares. */
+  existingOrganizationName?: string;
 }
 
 /**
@@ -73,9 +79,15 @@ export interface StructuredDataSuggestion {
   pageType: PageType;
   confidence: number; // 0-1
   existingSchema: string[];
-  suggestedSchema: object;
+  /**
+   * null when there is nothing safe to add: the page already declares this
+   * type, or declares one it conflicts with. (2026-10-10, B34)
+   */
+  suggestedSchema: object | null;
   suggestedSchemaString: string;
   reasoning: string;
+  /** Every type that scored, best first. Shown so a low-confidence "unknown" says what it nearly was. */
+  candidates: Array<{ type: PageType; confidence: number }>;
 }
 
 /**
@@ -84,6 +96,73 @@ export interface StructuredDataSuggestion {
 export interface StructuredDataOptions {
   url: string;
   headless?: boolean;
+}
+
+/**
+ * Below this, no type is claimed. Any score above the 0.1 floor used to win,
+ * so one weak signal produced a full schema: cbrowser.ai/pricing became an
+ * Article at 20% (meta author alone). One strong signal (<article>, the site
+ * root) still reaches it; one weak one (a date, a price, an address) does not.
+ * (2026-10-10, B34)
+ */
+export const MIN_TYPE_CONFIDENCE = 0.4;
+
+const ORGANIZATION_TYPES = ["Organization", "Corporation", "NGO", "EducationalOrganization", "GovernmentOrganization", "OnlineBusiness"];
+const ARTICLE_TYPES = ["Article", "BlogPosting", "NewsArticle", "TechArticle", "ScholarlyArticle", "Report", "LiveBlogPosting", "SocialMediaPosting"];
+const PRODUCT_TYPES = ["Product", "ProductGroup", "ProductModel", "IndividualProduct"];
+const SOFTWARE_TYPES = ["SoftwareApplication", "WebApplication", "MobileApplication"];
+const LOCAL_BUSINESS_TYPES = ["LocalBusiness", "Store", "Restaurant", "FoodEstablishment", "ProfessionalService", "MedicalBusiness"];
+const EVENT_TYPES = ["Event", "BusinessEvent", "EducationEvent", "Festival", "MusicEvent", "SocialEvent", "SportsEvent", "TheaterEvent"];
+const WEBPAGE_TYPES = ["WebPage", "AboutPage", "CollectionPage", "ContactPage", "FAQPage", "ItemPage", "ProfilePage", "QAPage", "SearchResultsPage", "CheckoutPage"];
+
+/** Existing types that already describe what a suggested @type would add. */
+const ALREADY_DESCRIBED: Record<string, string[]> = {
+  Organization: [...ORGANIZATION_TYPES, ...LOCAL_BUSINESS_TYPES],
+  Article: ARTICLE_TYPES,
+  // A SaaS page's offering is a SoftwareApplication; a Product beside it
+  // describes the same thing twice.
+  Product: [...PRODUCT_TYPES, ...SOFTWARE_TYPES],
+  FAQPage: ["FAQPage"],
+  LocalBusiness: LOCAL_BUSINESS_TYPES,
+  WebPage: WEBPAGE_TYPES,
+};
+
+/**
+ * A page has one main subject, so these exclude each other. SoftwareApplication
+ * is deliberately absent: cbrowser.ai declares it site-wide, on its blog posts
+ * too, where an Article is right. (Measured 2026-10-10.)
+ */
+const MAIN_SUBJECT: Record<string, string[]> = {
+  Article: ARTICLE_TYPES,
+  Product: PRODUCT_TYPES,
+  Event: EVENT_TYPES,
+  Recipe: ["Recipe"],
+};
+
+/**
+ * Does suggesting `suggestedType` clash with what the page already declares?
+ * A duplicate (the page has it) or a conflict (the page declares a different
+ * main subject). Never suggest either. (2026-10-10, B34)
+ */
+export function schemaClash(
+  suggestedType: string,
+  existing: string[],
+): { kind: "duplicate" | "conflict"; existingType: string } | null {
+  const dup = existing.find((t) => (ALREADY_DESCRIBED[suggestedType] ?? [suggestedType]).includes(t));
+  if (dup) return { kind: "duplicate", existingType: dup };
+  if (MAIN_SUBJECT[suggestedType]) {
+    for (const [subject, types] of Object.entries(MAIN_SUBJECT)) {
+      if (subject === suggestedType) continue;
+      const other = existing.find((t) => types.includes(t));
+      if (other) return { kind: "conflict", existingType: other };
+    }
+  }
+  return null;
+}
+
+/** og:title, else the page's h1, else <title>. (2026-10-10, B34) */
+function pageHeadline(signals: PageSignals): string {
+  return signals.ogTitle || signals.h1 || signals.title;
 }
 
 /**
@@ -102,8 +181,12 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
     const hasPublishDate = !!(
       document.querySelector('time[datetime], [class*="publish"], [class*="date"], meta[property="article:published_time"]')
     );
+    // Not meta[name="author"]: sites set it once in the layout, so it is on
+    // every page. It made cbrowser.ai/pricing an Article at 20% on the
+    // strength of "Has author attribution" alone. A byline is on the page.
+    // (2026-10-10, B34)
     const hasAuthor = !!(
-      document.querySelector('[rel="author"], [class*="author"], [class*="byline"], meta[name="author"]')
+      document.querySelector('[rel="author"], [class*="author"], [class*="byline"]')
     );
 
     // Check for product indicators
@@ -117,10 +200,9 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
         el => /add to cart|buy now|purchase|add to bag/i.test(el.textContent || '')
       )
     );
-    const hasProductSchema = !!(
-      document.querySelector('script[type="application/ld+json"]')?.textContent?.includes('"@type":"Product"') ||
-      document.querySelector('[itemtype*="Product"]')
-    );
+    // JSON-LD Product is decided from the parsed types (parseExistingSchema):
+    // this read only the FIRST script, as a raw substring. (2026-10-10, B34)
+    const hasProductMicrodata = !!document.querySelector('[itemtype*="Product"]');
 
     // Check for FAQ indicators
     const hasFaqSection = !!(
@@ -149,23 +231,10 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
     // Get og:type
     const ogType = document.querySelector('meta[property="og:type"]')?.getAttribute("content") || undefined;
 
-    // Check for existing schema
-    const schemaScripts = document.querySelectorAll('script[type="application/ld+json"]');
-    const existingSchema: string[] = [];
-    schemaScripts.forEach((script) => {
-      try {
-        const json = JSON.parse(script.textContent || "{}");
-        if (json["@type"]) {
-          existingSchema.push(json["@type"]);
-        } else if (Array.isArray(json)) {
-          json.forEach((item) => {
-            if (item["@type"]) existingSchema.push(item["@type"]);
-          });
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    });
+    // Existing schema: the raw JSON-LD blocks, parsed in Node by
+    // parseExistingSchema so the parser is testable. (2026-10-10, B34)
+    const ldTexts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+      .map((script) => script.textContent || "");
 
     // Check if homepage
     const isHomepage = window.location.pathname === "/" || window.location.pathname === "";
@@ -187,11 +256,14 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
       ""
     ).trim();
 
-    // Publish date
-    const publishDateEl = document.querySelector('time[datetime]') ||
-      document.querySelector('meta[property="article:published_time"]');
-    const publishDate = publishDateEl?.getAttribute("datetime") ||
-      publishDateEl?.getAttribute("content") || "";
+    // Publish date. The page-level meta first: the first <time datetime> in
+    // the document can belong to a sidebar or a related-posts card.
+    // Normalised to ISO 8601 by the generator (toIsoDate). (2026-10-10, B34)
+    const publishDate = (
+      document.querySelector('meta[property="article:published_time"]')?.getAttribute("content") ||
+      document.querySelector('time[datetime]')?.getAttribute("datetime") ||
+      ""
+    ).trim();
 
     // Modified date
     const modifiedDate = (
@@ -236,6 +308,12 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
       document.querySelector('[itemprop="telephone"]')?.textContent?.trim() || ""
     );
 
+    // Names better than the raw <title>, which carries the site suffix
+    // ("CBrowser | Pricing | CBrowser"). (2026-10-10, B34)
+    const ogTitle = (document.querySelector('meta[property="og:title"]')?.getAttribute("content") || "").trim();
+    const ogSiteName = (document.querySelector('meta[property="og:site_name"]')?.getAttribute("content") || "").trim();
+    const h1 = (document.querySelector("h1")?.textContent || "").replace(/\s+/g, " ").trim();
+
     // FAQ items extraction
     const faqItems: Array<{ question: string; answer: string }> = [];
 
@@ -275,7 +353,7 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
     return {
       title,
       hasArticleTag,
-      hasProductSchema,
+      hasProductMicrodata,
       hasPrice,
       hasAddToCart,
       hasPublishDate,
@@ -287,7 +365,10 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
       hasPhone,
       isHomepage,
       ogType,
-      existingSchema,
+      ldTexts,
+      ogTitle,
+      ogSiteName,
+      h1,
       // Extracted values (v18.22.0)
       description,
       authorName,
@@ -302,13 +383,80 @@ async function extractPageSignals(page: Page, url: string): Promise<PageSignals>
     };
   });
 
-  return { ...signals, url };
+  const { ldTexts, hasProductMicrodata, ...rest } = signals;
+  const existing = parseExistingSchema(ldTexts);
+  return {
+    ...rest,
+    url,
+    hasProductSchema: hasProductMicrodata || existing.types.includes("Product"),
+    existingSchema: existing.types,
+    existingOrganizationName: existing.organizationName,
+  };
+}
+
+/**
+ * The @types a page's JSON-LD already declares, plus its Organization's name.
+ *
+ * Read top-level objects and arrays only, so cbrowser.ai, which declares
+ * Organization, SoftwareApplication, WebPage and WebSite in one @graph,
+ * reported "None detected" and was offered a fresh Article. Now @graph is
+ * read, and an array @type (["Organization", "LocalBusiness"]) gives every
+ * entry. Nested values (an Organization's founder Person) are not the page's
+ * own types and are not read. (2026-10-10, B34)
+ */
+export function parseExistingSchema(ldTexts: string[]): { types: string[]; organizationName?: string } {
+  const types: string[] = [];
+  let organizationName: string | undefined;
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (!node || typeof node !== "object") return;
+    const obj = node as Record<string, unknown>;
+    const declared = ([] as unknown[]).concat(obj["@type"] ?? []).filter((t): t is string => typeof t === "string");
+    for (const t of declared) if (!types.includes(t)) types.push(t);
+    if (!organizationName && declared.some((t) => ORGANIZATION_TYPES.includes(t)) && typeof obj.name === "string" && obj.name.trim()) {
+      organizationName = obj.name.trim();
+    }
+    if (obj["@graph"]) visit(obj["@graph"]);
+  };
+  for (const text of ldTexts) {
+    try { visit(JSON.parse(text || "{}")); } catch { /* invalid JSON-LD is not schema */ }
+  }
+  return { types, organizationName };
+}
+
+/**
+ * ISO 8601, or "" when the value is not a date. Schema.org's datePublished
+ * and dateModified are ISO 8601; this passed the page's text through, so a
+ * <time datetime="Aug 4, 2026"> shipped verbatim, and cbrowser.ai's
+ * article:published_time "2026-08-04 17:47:17" would have too.
+ *
+ * Nothing is invented: a date with no time stays a date, and a time with no
+ * zone stays a local time ("2026-08-04T17:47:17"). Converting either to UTC
+ * would read it in THIS machine's zone, which says nothing about the page's.
+ * Only a value that names its zone becomes an instant. (2026-10-10, B34)
+ */
+export function toIsoDate(raw: string | undefined): string {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(s)) return s;
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) return "";
+  const d = new Date(ms);
+  const two = (n: number) => String(n).padStart(2, "0");
+  const ymd = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+  if (!/\d{1,2}:\d{2}/.test(s)) return ymd;
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(s) || /\b(?:GMT|UTC)\b/i.test(s)) return d.toISOString();
+  return `${ymd}T${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 }
 
 /**
  * Detect page type from signals
  */
-export function detectPageType(signals: PageSignals): { type: PageType; confidence: number } {
+export function detectPageType(signals: PageSignals): {
+  type: PageType;
+  confidence: number;
+  candidates: Array<{ type: PageType; confidence: number }>;
+} {
   // Score each type based on signals
   const scores: Record<PageType, number> = {
     homepage: 0,
@@ -321,7 +469,7 @@ export function detectPageType(signals: PageSignals): { type: PageType; confiden
     howto: 0,
     recipe: 0,
     "local-business": 0,
-    unknown: 0.1, // Base score for unknown
+    unknown: 0,
   };
 
   // Homepage detection
@@ -354,21 +502,20 @@ export function detectPageType(signals: PageSignals): { type: PageType; confiden
   if (signals.hasAddress && signals.hasPhone) scores["local-business"] += 0.6;
   if (signals.hasAddress && !signals.hasPhone) scores["local-business"] += 0.3;
 
-  // Find highest scoring type
-  let maxScore = 0;
-  let detectedType: PageType = "unknown";
+  const candidates = (Object.entries(scores) as [PageType, number][])
+    .filter(([type, score]) => type !== "unknown" && score > 0)
+    .map(([type, score]) => ({ type, confidence: Math.round(Math.min(1, score) * 100) / 100 }))
+    .sort((a, b) => b.confidence - a.confidence);
 
-  for (const [type, score] of Object.entries(scores) as [PageType, number][]) {
-    if (score > maxScore) {
-      maxScore = score;
-      detectedType = type;
-    }
+  // The best candidate is a claim only at MIN_TYPE_CONFIDENCE. Below it the
+  // answer is "unknown", with the candidates, and its confidence is the best
+  // candidate's, so "unknown at 20%" reads as "nearly an article, at 20%".
+  // (2026-10-10, B34)
+  const best = candidates[0];
+  if (!best || best.confidence < MIN_TYPE_CONFIDENCE) {
+    return { type: "unknown", confidence: best?.confidence ?? 0, candidates };
   }
-
-  // Normalize confidence
-  const confidence = Math.min(1, maxScore);
-
-  return { type: detectedType, confidence };
+  return { type: best.type, confidence: best.confidence, candidates };
 }
 
 /**
@@ -380,7 +527,7 @@ function generateOrganizationSchema(signals: PageSignals): object {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: signals.title.split("|")[0].split("-")[0].trim(),
+    name: signals.ogSiteName || signals.title.split("|")[0].split("-")[0].trim(),
     url: baseUrl,
     description: signals.description || "", // Extracted or to be filled
     logo: signals.logoUrl ? new URL(signals.logoUrl, baseUrl).href : "", // Extracted or to be filled
@@ -397,17 +544,21 @@ function generateArticleSchema(signals: PageSignals): object {
   return {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: signals.title,
+    // Was the raw <title>, site suffix and all. (2026-10-10, B34)
+    headline: pageHeadline(signals),
     description: signals.description || "", // Extracted or to be filled
     author: {
       "@type": "Person",
       name: signals.authorName || "", // Extracted or to be filled
     },
-    datePublished: signals.publishDate || "", // Extracted or to be filled
-    dateModified: signals.modifiedDate || signals.publishDate || "", // Extracted or to be filled
+    // ISO 8601 or "", never the page's own wording. (2026-10-10, B34)
+    datePublished: toIsoDate(signals.publishDate), // Extracted or to be filled
+    dateModified: toIsoDate(signals.modifiedDate || signals.publishDate), // Extracted or to be filled
     publisher: {
       "@type": "Organization",
-      name: "", // To be filled
+      // Was always "". The page's own Organization, else og:site_name.
+      // (2026-10-10, B34)
+      name: signals.existingOrganizationName || signals.ogSiteName || "",
       logo: {
         "@type": "ImageObject",
         url: signals.logoUrl ? new URL(signals.logoUrl, baseUrl).href : "", // Extracted or to be filled
@@ -426,7 +577,7 @@ function generateProductSchema(signals: PageSignals): object {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: signals.title,
+    name: pageHeadline(signals),
     description: signals.description || "", // Extracted or to be filled
     image: signals.imageUrl ? new URL(signals.imageUrl, baseUrl).href : "", // Extracted or to be filled
     brand: {
@@ -523,7 +674,7 @@ export function generateStructuredData(
       return {
         "@context": "https://schema.org",
         "@type": "WebPage",
-        name: signals.title,
+        name: pageHeadline(signals),
         url: signals.url,
         description: signals.description || "", // Extracted or to be filled
       };
@@ -538,6 +689,12 @@ function getReasoningForType(
   signals: PageSignals,
   confidence: number
 ): string {
+  const confidenceText = confidence > 0.7 ? "High" : confidence >= MIN_TYPE_CONFIDENCE ? "Medium" : "Low";
+  return `${confidenceText} confidence. ${reasonsFor(pageType, signals).join(". ")}.`;
+}
+
+/** The signals behind a type, as short phrases. */
+function reasonsFor(pageType: PageType, signals: PageSignals): string[] {
   const reasons: string[] = [];
 
   switch (pageType) {
@@ -563,9 +720,51 @@ function getReasoningForType(
     default:
       reasons.push("No specific page type detected");
   }
+  return reasons;
+}
 
-  const confidenceText = confidence > 0.7 ? "High" : confidence > 0.4 ? "Medium" : "Low";
-  return `${confidenceText} confidence. ${reasons.join(". ")}.`;
+/**
+ * Detect, generate, and refuse what would clash: the whole suggestion from the
+ * page's signals, with no browser, so every branch is testable.
+ *
+ * Below MIN_TYPE_CONFIDENCE the type is "unknown" and only a generic WebPage
+ * is offered (name, url, description), never a typed schema built on one weak
+ * signal. And nothing is offered that the page already declares or that
+ * conflicts with what it declares: cbrowser.ai/pricing, which declares
+ * WebPage in its @graph, now gets no schema and says why. (2026-10-10, B34)
+ */
+export function buildSuggestion(signals: PageSignals): StructuredDataSuggestion {
+  const { type, confidence, candidates } = detectPageType(signals);
+  const generated = generateStructuredData(signals, type) as Record<string, unknown>;
+  const suggestedType = String(generated["@type"]);
+  const clash = schemaClash(suggestedType, signals.existingSchema);
+
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  let reasoning: string;
+  if (type === "unknown") {
+    const best = candidates[0];
+    reasoning = best
+      ? `Low confidence. No page type reached ${pct(MIN_TYPE_CONFIDENCE)}; the best candidate is ${best.type} at ${pct(best.confidence)} (${reasonsFor(best.type, signals).join(", ").toLowerCase()}), too weak to claim, so no typed schema is suggested.`
+      : "No specific page type detected.";
+  } else {
+    reasoning = getReasoningForType(type, signals, confidence);
+  }
+  if (clash) {
+    reasoning += clash.kind === "duplicate"
+      ? ` The page already declares ${clash.existingType}, so ${suggestedType} is not suggested again.`
+      : ` The page declares ${clash.existingType} as its subject, which a ${suggestedType} would contradict, so none is suggested.`;
+  }
+
+  const suggestedSchema = clash ? null : generated;
+  return {
+    pageType: type,
+    confidence,
+    existingSchema: signals.existingSchema,
+    suggestedSchema,
+    suggestedSchemaString: suggestedSchema ? JSON.stringify(suggestedSchema, null, 2) : "",
+    reasoning,
+    candidates,
+  };
 }
 
 /**
@@ -587,18 +786,7 @@ export async function suggestStructuredData(
     await browser.close();
     browser = null;
 
-    const { type, confidence } = detectPageType(signals);
-    const suggestedSchema = generateStructuredData(signals, type);
-    const reasoning = getReasoningForType(type, signals, confidence);
-
-    return {
-      pageType: type,
-      confidence,
-      existingSchema: signals.existingSchema,
-      suggestedSchema,
-      suggestedSchemaString: JSON.stringify(suggestedSchema, null, 2),
-      reasoning,
-    };
+    return buildSuggestion(signals);
   } finally {
     if (browser) {
       await browser.close();

@@ -65,3 +65,6 @@ tests/v8-p3-browser.test.ts
 tests/console-messages-capture.test.ts
 tests/console-listener-per-call.test.ts
 tests/visual-distance-browser.test.ts
+tests/page-understand-labels-landing.test.ts
+tests/findability-testid-slug.test.ts
+tests/structured-data-suggest-browser.test.ts
