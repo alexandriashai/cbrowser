@@ -70,14 +70,14 @@ describe("site profile names stay inside site-profiles", () => {
   for (const domain of ["..", ".", ""]) {
     test(`deleteProfile(${JSON.stringify(domain)}) is refused and removes nothing`, async () => {
       seed();
-      await expect(new SiteProfileManager(dataDir).deleteProfile(domain)).rejects.toThrow(/Invalid domain/);
+      await expect(new SiteProfileManager(dataDir).deleteProfile(domain)).rejects.toThrow(/Invalid site profile domain/);
       intact();
     });
   }
 
-  test("a name with slashes stays one segment and matches no profile", async () => {
+  test("a name with a path separator is refused and removes nothing", async () => {
     seed();
-    expect(await new SiteProfileManager(dataDir).deleteProfile("a/../..")).toBe(false);
+    await expect(new SiteProfileManager(dataDir).deleteProfile("a/../..")).rejects.toThrow(/Invalid site profile domain/);
     intact();
   });
 
@@ -85,7 +85,7 @@ describe("site profile names stay inside site-profiles", () => {
     seed();
     const res = await deleteTool({ domain: ".." });
     expect(res.isError).toBe(true);
-    expect(JSON.parse(res.content[0].text).error).toMatch(/Invalid domain/);
+    expect(JSON.parse(res.content[0].text).error).toMatch(/Invalid site profile domain/);
     intact();
   });
 

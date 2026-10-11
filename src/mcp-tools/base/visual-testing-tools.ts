@@ -6,7 +6,10 @@
  */
 
 import { z } from "zod";
-import { getDefaultConfig } from "../../config.js";
+import { join } from "path";
+import { homedir } from "os";
+import { getDefaultConfig, effectiveDataDir } from "../../config.js";
+import { scopedDataDir } from "../../persona-scope.js";
 import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
@@ -114,6 +117,25 @@ export async function assembleAttentionContent(
     [{ name: "heatmap", png: heatmapPng, fullResolution }],
     (p) => ({ heatmapPreview: p.heatmap }),
   );
+}
+
+/**
+ * Where transport_map writes its SVGs: the calling account's directory on the
+ * hosted server. It read CBROWSER_DATA_DIR directly, one directory for every
+ * account. Unscoped: unchanged. (tenant, 2026-10-10)
+ */
+export function transportMapsDir(): string {
+  return join(effectiveDataDir(), "transport-maps");
+}
+
+/**
+ * Where attention_analysis keeps a heatmap the artifact store could not take:
+ * the calling account's directory on the hosted server, not ~/.cbrowser shared
+ * by every account. Unscoped: unchanged, home directory included (this path
+ * never followed CBROWSER_DATA_DIR). (tenant, 2026-10-10)
+ */
+export function heatmapFallbackDir(): string {
+  return join(scopedDataDir() ?? join(homedir(), ".cbrowser"), "heatmaps");
 }
 
 /**
@@ -525,10 +547,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
 
       // Save SVG
       const { writeFileSync, mkdirSync, existsSync } = await import("fs");
-      const { join } = await import("path");
-      const { homedir } = await import("os");
-      const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
-      const mapsDir = join(baseDir, "transport-maps");
+      const mapsDir = transportMapsDir();
       if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
       const svgPath = join(mapsDir, `transport-map-${Date.now()}.svg`);
       writeFileSync(svgPath, result.svg);
@@ -742,7 +761,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           let pValues: Record<string, number> | undefined;
           if (useValues) {
             try {
-              const { getPersonaValues, registerPersonaValues, createPersonaValues } = await import("../../values/index.js");
+              const { getPersonaValues, registerAccountPersonaValues, createPersonaValues } = await import("../../values/index.js");
               let vals = resolveValuesForPersona(persona);
 
               // If not found in built-ins, check CMS for custom persona values
@@ -764,7 +783,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
                           { autonomyNeed: sv.autonomyNeed ?? 0.5, competenceNeed: sv.competenceNeed ?? 0.5, relatednessNeed: sv.relatednessNeed ?? 0.5 },
                           "esteem"
                         );
-                        registerPersonaValues([{ personaName: persona, values: pv, rationale: "Custom persona from CMS" }]);
+                        // The caller's account store, not the process-wide registry. (tenant, 2026-10-10)
+                        registerAccountPersonaValues([{ personaName: persona, values: pv, rationale: "Custom persona from CMS" }]);
                         vals = pv;
                       }
                     }
@@ -914,7 +934,6 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
 
             // Save to public directory for URL access
             const { writeFileSync, mkdirSync, existsSync } = await import("fs");
-            const { homedir } = await import("os");
             const heatmapId = `attn-${persona}-${Date.now()}`;
 
             // Both entries of the old deployedPaths list were wrong: nginx
@@ -923,7 +942,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // it wrote to /var/www/cbrowser-web/heatmaps and returned a
             // cbrowser.ai URL for a file no one could fetch. One store now owns
             // the directory and the URL together. (2026-07-29)
-            const cbrowserDir = join(homedir(), ".cbrowser", "heatmaps");
+            const cbrowserDir = heatmapFallbackDir();
             let savedPath = "";
             let publicUrl = "";
 

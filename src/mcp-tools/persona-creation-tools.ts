@@ -29,6 +29,8 @@ import { deriveValuesFromBigFive } from "../values/big-five-values.js";
 import { TRAIT_INFERENCE_CRITERIA, ALL_TRAITS, assessTraitCompleteness } from "../values/persona-completeness.js";
 import { summariseTraits } from "../values/persona-diff.js";
 import { widgetUri } from "./widget-kit.js";
+import { scopedAccountId } from "../persona-scope.js";
+import { currentRequestIdentity } from "../request-context.js";
 
 // ============================================================================
 // Schwartz Values Questions for Persona Questionnaire
@@ -194,9 +196,43 @@ function clearQuestionnaireSession(sessionId: string): void {
   questionnaireSessionsMap.delete(sessionId);
 }
 
-function getSessionId(): string {
-  // In a real implementation, this would come from request context
+/**
+ * The questionnaire slot this call reads and writes, or null when there is no
+ * caller to bind one to.
+ *
+ * This returned the constant "default-session", and the map above is one per
+ * process, so on the hosted server every account shared ONE questionnaire: one
+ * account's start, answer and cancel calls advanced or discarded another's,
+ * and whoever answered last received the other account's persona name and
+ * answers. Now:
+ *  - inside an account scope: the account, plus the MCP session id when the
+ *    transport has one (stateful mode);
+ *  - a hosted request with no account: null, and the questionnaire tools
+ *    refuse, because any slot such callers share is the same defect;
+ *  - outside any request (CLI, stdio, local): "default-session", as before.
+ * (tenant, 2026-10-10)
+ */
+function getSessionId(extra?: { sessionId?: string }): string | null {
+  const accountId = scopedAccountId();
+  if (accountId !== undefined) {
+    return extra?.sessionId ? `account:${accountId}/${extra.sessionId}` : `account:${accountId}`;
+  }
+  if (currentRequestIdentity() !== undefined) return null;
   return "default-session";
+}
+
+/** Refusal for a hosted call that has no account to keep a questionnaire under. */
+function questionnaireNeedsAccount() {
+  return {
+    isError: true,
+    content: [{
+      type: "text" as const,
+      text: JSON.stringify({
+        error: "account_required",
+        message: "Questionnaires on the hosted server are kept per account, and this request carries no account key. Connect with a cbrowser.ai account key, or create the persona with persona_create_from_description.",
+      }, null, 2),
+    }],
+  };
 }
 
 function getTraitHeader(trait: string): string {
@@ -277,10 +313,12 @@ export function registerPersonaCreationTools(server: McpServer): void {
       idempotentHint: false,
       openWorldHint: false,
     },
-  }, async ({ persona_name, comprehensive = false }) => {
-      const sessionId = getSessionId();
+  }, async ({ persona_name, comprehensive = false }, extra) => {
+      const sessionId = getSessionId(extra);
 
-      const existingSession = getQuestionnaireSession(sessionId);
+      // A hosted call with no account has no slot, so nothing is in progress
+      // for it; the describe route below needs none. (tenant, 2026-10-10)
+      const existingSession = sessionId === null ? null : getQuestionnaireSession(sessionId);
       if (existingSession) {
         return {
           content: [{
@@ -338,8 +376,9 @@ IMPORTANT: Do NOT show this text to the user. USE AskUserQuestion to present the
       idempotentHint: false,
       openWorldHint: false,
     },
-  }, async ({ persona_name, comprehensive = false }) => {
-      const sessionId = getSessionId();
+  }, async ({ persona_name, comprehensive = false }, extra) => {
+      const sessionId = getSessionId(extra);
+      if (sessionId === null) return questionnaireNeedsAccount();
       const rawQuestions = generatePersonaQuestionnaire({ comprehensive });
 
       const session: QuestionnaireSession = {
@@ -395,8 +434,9 @@ IMPORTANT: Use AskUserQuestion - do NOT just display this text.`,
       idempotentHint: false,
       openWorldHint: false,
     },
-  }, async ({ answer_value }) => {
-      const sessionId = getSessionId();
+  }, async ({ answer_value }, extra) => {
+      const sessionId = getSessionId(extra);
+      if (sessionId === null) return questionnaireNeedsAccount();
       const session = getQuestionnaireSession(sessionId);
 
       if (!session) {
@@ -767,7 +807,7 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
       const unknownTraits = Object.keys(traits).filter((k) => !allTraitNames.includes(k));
 
       // Register the persona in the runtime so empathy_audit, cognitive_effort, etc. can find it
-      const { createCognitivePersona, registerPersonas } = await import("../personas.js");
+      const { createCognitivePersona, registerCallerPersonas } = await import("../personas.js");
       const personaObj = createCognitivePersona(
         persona_name,
         description || persona_name,
@@ -879,7 +919,9 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
         Record<string, Record<string, unknown>> | undefined;
       if (hb?.attention && "pattern" in hb.attention) delete hb.attention.pattern;
 
-      registerPersonas([personaObj]);
+      // The caller's own registry, not the process-wide one every account
+      // resolves names through first. (tenant, 2026-10-10)
+      registerCallerPersonas([personaObj]);
 
       // Persist to disk. registerPersonas writes to an in-memory map that dies
       // with the process, so a creation whose CMS write also failed left the
@@ -1126,8 +1168,9 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
       idempotentHint: true,
       openWorldHint: false,
     },
-  }, async () => {
-      const sessionId = getSessionId();
+  }, async (_args, extra) => {
+      const sessionId = getSessionId(extra);
+      if (sessionId === null) return questionnaireNeedsAccount();
       const session = getQuestionnaireSession(sessionId);
 
       if (!session) {

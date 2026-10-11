@@ -24,6 +24,7 @@ import type { Page } from "playwright";
 
 import { getPaths } from "../../config.js";
 import { writeArtifact } from "../../artifact-store.js";
+import { scopedAccountId } from "../../persona-scope.js";
 import { buildContactSheet } from "../../recording/contact-sheet.js";
 import { VideoCaptureSession, type CaptureFormat, type VideoCaptureOptions } from "../../recording/engine.js";
 import type { RecordingManifest } from "../../recording/types.js";
@@ -83,10 +84,18 @@ const MIN_USEFUL_SHEET_BYTES = 12000;
  */
 const MCP_APP_MIME_LOCAL = "text/html;profile=mcp-app";
 
-const sessions = new Map<string, { session: VideoCaptureSession; url?: string; viewport?: { width: number; height: number } }>();
+const sessions = new Map<string, {
+  session: VideoCaptureSession;
+  /** Account scope that started it; undefined when unscoped. */
+  accountId: number | undefined;
+  url?: string;
+  viewport?: { width: number; height: number };
+}>();
 
 /** Summary of a capture that has already stopped. */
 interface FinishedCapture {
+  /** Account scope that ran it; undefined when unscoped. */
+  accountId: number | undefined;
   slug: string;
   outDir: string;
   manifestPath: string;
@@ -105,9 +114,21 @@ interface FinishedCapture {
  */
 const finished = new Map<string, FinishedCapture>();
 
-/** Sessions are keyed by token; an untokened caller shares the default slot. */
+/**
+ * Sessions are keyed by token within the caller's account; an untokened caller
+ * shares its own account's default slot.
+ *
+ * Both maps are process-wide on the hosted server, and the key was the token
+ * alone with one "__default__" slot for every untokened call, so untokened
+ * calls from different accounts shared a slot: one account's capture_stop
+ * stopped another's capture and received its result. A scoped key now carries
+ * the account; an unscoped key (CLI, stdio, local) is unchanged.
+ * (tenant, 2026-10-10)
+ */
 function sessionKey(token?: string): string {
-  return token ?? "__default__";
+  const base = token ?? "__default__";
+  const accountId = scopedAccountId();
+  return accountId === undefined ? base : `account:${accountId}/${base}`;
 }
 
 /** Exposed for tests and for `reset_browser`-style teardown. */
@@ -547,6 +568,7 @@ export async function startCapture(
   const recViewport = page.viewportSize();
   sessions.set(key, {
     session,
+    accountId: scopedAccountId(),
     ...(args.url ? { url: args.url } : {}),
     ...(recViewport ? { viewport: recViewport } : {}),
   });
@@ -794,6 +816,7 @@ export async function stopCapture(
   });
 
   finished.set(key, {
+    accountId: entry.accountId,
     slug: manifest.slug,
     outDir: status.outDir,
     manifestPath: result.manifestPath,
@@ -809,9 +832,15 @@ export async function stopCapture(
 /**
  * Describe a capture running somewhere other than this browser session, if any:
  * another token on this server, or another process (CLI / daemon).
+ *
+ * "Another token" means another token of the SAME account. This scanned every
+ * session in the process and returned the first one recording, with its slug,
+ * output directory and URL, to whichever account asked. (tenant, 2026-10-10)
  */
 function runningElsewhere(): Record<string, unknown> | null {
+  const caller = scopedAccountId();
   for (const [otherKey, other] of sessions) {
+    if (other.accountId !== caller) continue;
     const status = other.session.status();
     if (status.state !== "recording") continue;
     return {
@@ -824,7 +853,7 @@ function runningElsewhere(): Record<string, unknown> | null {
       note:
         "Pass that call's _browserToken to capture_stop; this session's " +
         "capture_stop will not find it." +
-        (otherKey === "__default__" ? " It was started without a token." : ""),
+        (otherKey === sessionKey() ? " It was started without a token." : ""),
     };
   }
 
@@ -922,10 +951,16 @@ function finishedPayload(capture: FinishedCapture): Record<string, unknown> {
   };
 }
 
-/** Most recently stopped capture across all keys. */
+/**
+ * Most recently stopped capture across the caller's own keys. It was across
+ * every key in the process, so any account read the last capture's slug,
+ * output directory and manifest path. (tenant, 2026-10-10)
+ */
 function mostRecentFinished(): FinishedCapture | undefined {
+  const caller = scopedAccountId();
   let best: FinishedCapture | undefined;
   for (const candidate of finished.values()) {
+    if (candidate.accountId !== caller) continue;
     if (!best || candidate.stoppedAt > best.stoppedAt) best = candidate;
   }
   return best;

@@ -15,6 +15,7 @@ import { type PricingTier, getToolPricingTier, tierHasAccess } from "./tool-cate
 import { saveToolResult } from "./tool-result-saver.js";
 import { refundCharge } from "./credit-refund.js";
 import { currentCharge } from "../charge-scope.js";
+import { currentRequestIdentity } from "../request-context.js";
 
 /** Tools that should NOT auto-save results (no analytics value) */
 const SKIP_AUTOSAVE = new Set([
@@ -35,20 +36,30 @@ const SKIP_AUTOSAVE = new Set([
   "site_model_status",
 ]);
 
-/** The current user tier for this server session */
-let currentTier: PricingTier | null = null;
+/**
+ * Process-wide tier and key hash: the FALLBACK for code that runs outside any
+ * hosted request (CLI, stdio server, tests). A hosted request reads and writes
+ * its own copy in request-context.ts instead. These two were the only copy
+ * until 2026-10-10, assigned while each request's server was built and read
+ * when its tool ran, so an overlapping request from another account was logged,
+ * autosaved and tier-gated as this one. Nothing in this file reads them
+ * directly any more; every read goes through getActiveTier/getActiveKeyHash.
+ * (sec-identity, 2026-10-10)
+ */
+let fallbackTier: PricingTier | null = null;
+let fallbackKeyHash: string | null = null;
 
-/** The current session's API key hash (for usage logging) */
-let currentKeyHash: string | null = null;
-
-/** Set the current API key hash for usage tracking */
+/** Set the API key hash for usage tracking: this request's when inside one, else the process fallback. */
 export function setActiveKeyHash(hash: string | null): void {
-  currentKeyHash = hash;
+  const ctx = currentRequestIdentity();
+  if (ctx) ctx.keyHash = hash;
+  else fallbackKeyHash = hash;
 }
 
-/** Get the current API key hash */
+/** The API key hash of the request this code runs in, else the process fallback. */
 export function getActiveKeyHash(): string | null {
-  return currentKeyHash;
+  const ctx = currentRequestIdentity();
+  return ctx ? ctx.keyHash : fallbackKeyHash;
 }
 
 /**
@@ -64,7 +75,8 @@ export function getActiveKeyHash(): string | null {
  * failure is now logged rather than discarded: the silent catch is what hid this.
  */
 function logToolCall(toolName: string): void {
-  if (!currentKeyHash) return;
+  const keyHash = getActiveKeyHash();
+  if (!keyHash) return;
   const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
   fetch(`${cmsUrl}/api/accounts/log-usage`, {
     method: "POST",
@@ -72,7 +84,7 @@ function logToolCall(toolName: string): void {
       "Content-Type": "application/json",
       "X-Internal-Secret": process.env.CMS_INTERNAL_SECRET || "",
     },
-    body: JSON.stringify({ keyHash: currentKeyHash, toolName }),
+    body: JSON.stringify({ keyHash, toolName }),
   })
     .then((res) => {
       if (!res.ok) console.warn(`[tier-gate] usage log rejected for ${toolName}: HTTP ${res.status}`);
@@ -82,21 +94,25 @@ function logToolCall(toolName: string): void {
     });
 }
 
-/** Set the active pricing tier. null = self-hosted (no gating). */
+/** Set the active pricing tier (this request's when inside one). null = self-hosted (no gating). */
 export function setActiveTier(tier: PricingTier | null): void {
-  currentTier = tier;
+  const ctx = currentRequestIdentity();
+  if (ctx) ctx.tier = tier;
+  else fallbackTier = tier;
 }
 
-/** Get the active pricing tier. null = ungated. */
+/** Get the active pricing tier (this request's when inside one). null = ungated. */
 export function getActiveTier(): PricingTier | null {
-  return currentTier;
+  const ctx = currentRequestIdentity();
+  return ctx ? ctx.tier : fallbackTier;
 }
 
 /** Check if a tool is accessible at the current tier */
 export function isToolAccessible(toolName: string): boolean {
-  if (currentTier === null) return true; // Self-hosted: no gating
+  const tier = getActiveTier();
+  if (tier === null) return true; // Self-hosted: no gating
   const required = getToolPricingTier(toolName);
-  return tierHasAccess(currentTier, required);
+  return tierHasAccess(tier, required);
 }
 
 /**
@@ -115,6 +131,7 @@ export function upgradePrompt(toolName: string): {
 } {
   const required = getToolPricingTier(toolName);
   const tierLabel = required.charAt(0).toUpperCase() + required.slice(1);
+  const currentTier = getActiveTier();
   const userLabel = currentTier ? currentTier.charAt(0).toUpperCase() + currentTier.slice(1) : "Free";
 
   return {
@@ -160,7 +177,7 @@ export function upgradePrompt(toolName: string): {
  * Returns "" for free tools, "[Pro] " or "[Enterprise] " for gated ones.
  */
 export function tierPrefix(toolName: string): string {
-  if (currentTier === null) return ""; // Self-hosted: no prefixes
+  if (getActiveTier() === null) return ""; // Self-hosted: no prefixes
   const required = getToolPricingTier(toolName);
   if (required === "free") return "";
   if (required === "pro") return "[Pro] ";
@@ -175,7 +192,7 @@ export function tierPrefix(toolName: string): string {
  * If no tier is set (self-hosted), returns the server unchanged.
  */
 export function createGatedServer(server: unknown): unknown {
-  if (currentTier === null) return server; // Self-hosted: no gating
+  if (getActiveTier() === null) return server; // Self-hosted: no gating
 
   const srv = server as {
     registerTool: (name: string, config: Record<string, unknown>, handler: (...args: unknown[]) => unknown) => void;
@@ -230,7 +247,7 @@ export function createGatedServer(server: unknown): unknown {
               if (text) resultData = JSON.parse(text);
             } catch {}
             saveToolResult({
-              apiKey: currentKeyHash || undefined,
+              apiKey: getActiveKeyHash() || undefined,
               toolName: name,
               targetUrl,
               result: resultData,

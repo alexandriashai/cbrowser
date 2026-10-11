@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { homedir } from "os";
+import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
 import { navigationError } from "../navigation-errors.js";
@@ -63,10 +63,14 @@ function getInstallCommand(missing: SupportedBrowser[]): string {
 }
 
 /**
- * Get the path for cross-browser screenshots
+ * Get the path for cross-browser screenshots.
+ *
+ * Under the calling account's directory on the hosted server, not the one
+ * shared directory CBROWSER_DATA_DIR names. Unscoped: unchanged.
+ * (tenant, 2026-10-10)
  */
-function getCrossBrowserScreenshotsPath(): string {
-  const baseDir = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+export function getCrossBrowserScreenshotsPath(): string {
+  const baseDir = effectiveDataDir();
   const dir = join(baseDir, "cross-browser");
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

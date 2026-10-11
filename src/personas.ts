@@ -19,6 +19,7 @@ import type { Persona, CognitiveTraits, CognitiveProfile, AttentionPatternType, 
 import { applyTraitCorrelations } from "./persona-questionnaire.js";
 import { AGENT_PERSONAS, isAgentPersona, getAgentPersona, listAgentPersonas, isAgentPersonaObject } from "./agent-personas.js";
 import { scopedDataDir, scopedAccountId } from "./persona-scope.js";
+import { currentRequestIdentity } from "./request-context.js";
 import { TRAIT_DEFINITIONS, canonicalizeTraits } from "./trait-reference.js";
 
 // ============================================================================
@@ -3749,6 +3750,30 @@ export function registerPersonas(personas: Persona[]): void {
   for (const persona of personas) {
     RUNTIME_PERSONAS[persona.name] = persona;
   }
+}
+
+/**
+ * Register personas the CALLER just created or updated.
+ *
+ * persona_create_submit_traits and persona_update put their result in
+ * RUNTIME_PERSONAS, which getAnyPersona checks FIRST for every caller in the
+ * process: on the hosted server one account's created or updated persona
+ * resolved by name for every other account, was listed in their roster, and
+ * shadowed a built-in of the same name for all of them. Inside an account
+ * scope it now joins that account's own registry (the one its CMS personas
+ * load into). A hosted request with no account registers nothing; the file
+ * saveCustomPersona wrote is what persists. Outside any request (CLI, stdio,
+ * local) this is registerPersonas, as before. (tenant, 2026-10-10)
+ */
+export function registerCallerPersonas(personas: Persona[]): void {
+  const accountId = scopedAccountId();
+  if (accountId === undefined) {
+    if (currentRequestIdentity() === undefined) registerPersonas(personas);
+    return;
+  }
+  const byName = { ...(ACCOUNT_PERSONAS.get(accountId) ?? {}) };
+  for (const p of personas) byName[p.name] = p;
+  ACCOUNT_PERSONAS.set(accountId, byName);
 }
 
 // ============================================================================

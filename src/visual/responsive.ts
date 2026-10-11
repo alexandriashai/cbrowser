@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { homedir } from "os";
+import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
 import type {
@@ -55,10 +55,14 @@ function resolveViewports(viewports?: (string | ViewportPreset)[]): ViewportPres
 }
 
 /**
- * Get the path for responsive testing screenshots
+ * Get the path for responsive testing screenshots.
+ *
+ * Under the calling account's directory on the hosted server, not the one
+ * shared directory CBROWSER_DATA_DIR names. Unscoped: unchanged.
+ * (tenant, 2026-10-10)
  */
-function getResponsiveScreenshotsPath(): string {
-  const basePath = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+export function getResponsiveScreenshotsPath(): string {
+  const basePath = effectiveDataDir();
   const screenshotsPath = join(basePath, "responsive");
   if (!existsSync(screenshotsPath)) {
     mkdirSync(screenshotsPath, { recursive: true });

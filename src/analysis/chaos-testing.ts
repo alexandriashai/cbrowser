@@ -21,9 +21,6 @@ import { describeNavigationError } from "../navigation-errors.js";
 /** Playwright appends a multi-line "Call log:"; a result keeps only the first line. */
 const firstLine = (m: unknown): string => String(m ?? "").split("\n")[0].trim();
 
-/** Playwright appends a multi-line "Call log:"; a result keeps only the first line. */
-const firstLine = (m: unknown): string => String(m ?? "").split("\n")[0].trim();
-
 /**
  * blockUrls as one matcher, compiled before any route handler runs (v8 B27,
  * 2026-10-10). The glob used to be compiled inside the route handler, so a

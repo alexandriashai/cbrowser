@@ -19,6 +19,7 @@ import {
 import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibilityPersona, listEmotionalPersonas, getEmotionalPersona } from "../../personas.js";
 import { getPersonaValues, rankInfluencePatternsForProfile, resolveValuesForPersona } from "../../values/index.js";
 import { resolvePersonaValues } from "./values-tools.js";
+import { currentRequestIdentity } from "../../request-context.js";
 import type {
   CognitiveState,
   AbandonmentThresholds,
@@ -68,10 +69,23 @@ export async function fetchCustomPersonasFromCMS(apiKey?: string): Promise<Array
   }
 }
 
-// Global API key for the current session (set by the remote server context)
-let _sessionApiKey: string | undefined;
-export function setSessionApiKey(key: string | undefined) { _sessionApiKey = key; }
-export function getSessionApiKey(): string | undefined { return _sessionApiKey; }
+// The caller's raw API key, for account-scoped CMS reads (custom personas).
+// A hosted request carries its own in request-context.ts; this variable is the
+// fallback outside any request (CLI, stdio, tests). Until 2026-10-10 it was
+// the only copy, assigned per request by mcp-server-remote.ts and read when the
+// tool ran, so under two overlapping requests list_cognitive_personas fetched
+// account B's custom personas with B's key and returned them to account A.
+// (sec-identity, 2026-10-10)
+let fallbackSessionApiKey: string | undefined;
+export function setSessionApiKey(key: string | undefined) {
+  const ctx = currentRequestIdentity();
+  if (ctx) ctx.apiKey = key;
+  else fallbackSessionApiKey = key;
+}
+export function getSessionApiKey(): string | undefined {
+  const ctx = currentRequestIdentity();
+  return ctx ? ctx.apiKey : fallbackSessionApiKey;
+}
 
 /**
  * Register cognitive simulation tools (3 tools: cognitive_journey_init, cognitive_journey_update_state, list_cognitive_personas)
@@ -158,7 +172,7 @@ export function registerCognitiveTools(
 
       if (!existingPersona) {
         // v18.54.0: Check CMS for account-scoped custom personas before creating a generic one
-        const cmsPersonas = await fetchCustomPersonasFromCMS(_sessionApiKey);
+        const cmsPersonas = await fetchCustomPersonasFromCMS(getSessionApiKey());
         const cmsMatch = cmsPersonas.find(p => p.slug === personaName || p.name.toLowerCase() === personaName.toLowerCase());
         if (cmsMatch) {
           // Build persona directly with ALL CMS traits — skip createCognitivePersona
@@ -167,10 +181,12 @@ export function registerCognitiveTools(
           // Overwrite cognitiveTraits completely with CMS values (no defaults, no normalization)
           basePersona.cognitiveTraits = { ...basePersona.cognitiveTraits, ...cmsMatch.traits } as typeof basePersona.cognitiveTraits;
 
-          // Register Schwartz values so saliency engine + journey engine can use them
+          // Register Schwartz values so saliency engine + journey engine can use them.
+          // Into the caller's own account store, never the process-wide
+          // registry every account reads. (tenant, 2026-10-10)
           if (cmsMatch.values) {
             try {
-              const { registerPersonaValues, createPersonaValues } = await import("../../values/index.js");
+              const { registerAccountPersonaValues, createPersonaValues } = await import("../../values/index.js");
               const pv = createPersonaValues(
                 {
                   selfDirection: cmsMatch.values.selfDirection ?? 0.5,
@@ -191,7 +207,7 @@ export function registerCognitiveTools(
                 },
                 "esteem"
               );
-              registerPersonaValues([{
+              registerAccountPersonaValues([{
                 personaName: cmsMatch.slug || cmsMatch.name,
                 values: pv,
                 rationale: "Custom persona values from CMS",
@@ -908,7 +924,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       });
 
       // v18.54.0: Include account-scoped custom personas from CMS
-      const cmsPersonas = await fetchCustomPersonasFromCMS(_sessionApiKey);
+      const cmsPersonas = await fetchCustomPersonasFromCMS(getSessionApiKey());
       const cmsCustomPersonas = cmsPersonas.map(p => ({
         name: p.name,
         description: p.description,
