@@ -188,6 +188,30 @@ async function disableHttpCache(page: unknown): Promise<boolean> {
   }
 }
 
+/**
+ * Average the numeric metrics across runs, rounded at the source. Unrounded, a
+ * 3-run baseline stored fcp 146.66666666666666 (v10 B41). Millisecond timings to
+ * 0.1 ms, CLS to 4 decimals, counts and byte sizes to whole numbers. A metric no
+ * run reported stays absent.
+ */
+export function averageMetrics(allMetrics: PerformanceMetrics[]): PerformanceMetrics {
+  const step: Record<string, number> = {
+    lcp: 10, fid: 10, fcp: 10, ttfb: 10, tti: 10, tbt: 10, domContentLoaded: 10, load: 10,
+    cls: 10_000, resourceCount: 1, transferSize: 1,
+  };
+  const avg: Record<string, number> = {};
+  for (const key of Object.keys(step)) {
+    const values = allMetrics
+      .map((m) => (m as Record<string, unknown>)[key])
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    if (values.length > 0) {
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      avg[key] = Math.round(mean * step[key]!) / step[key]!;
+    }
+  }
+  return avg as PerformanceMetrics;
+}
+
 export async function capturePerformanceBaseline(
   url: string,
   options: PerformanceBaselineOptions = {}
@@ -219,21 +243,7 @@ export async function capturePerformanceBaseline(
     await browser.close();
   }
 
-  // Average the metrics
-  const avgMetrics: PerformanceMetrics = {};
-  const numericMetricKeys = [
-    "lcp", "fid", "cls", "fcp", "ttfb", "tti", "tbt",
-    "domContentLoaded", "load", "resourceCount", "transferSize"
-  ] as const;
-
-  for (const key of numericMetricKeys) {
-    const values = allMetrics
-      .map((m) => m[key])
-      .filter((v): v is number => v !== undefined && v !== null);
-    if (values.length > 0) {
-      (avgMetrics as Record<string, number>)[key] = values.reduce((a, b) => a + b, 0) / values.length;
-    }
-  }
+  const avgMetrics: PerformanceMetrics = averageMetrics(allMetrics);
 
   // Determine ratings (Web Vitals thresholds)
   if (avgMetrics.lcp !== undefined) {
