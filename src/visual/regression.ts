@@ -445,6 +445,29 @@ export function listSmartBaselines(): SmartBaseline[] {
 }
 
 /**
+ * Smart baselines as `list_baselines` shows them. `visual_baseline` stores this kind,
+ * and list_baselines listed only the single-screenshot store, so a baseline the
+ * caller had just made never appeared (v10 B36). A summary, because the barycenter
+ * histograms and per-capture paths are internal data.
+ */
+export function listSmartBaselineSummaries(): Array<{
+  kind: "smart"; id: string; name: string; url: string; timestamp: string;
+  captures: number; outliers: number; meanDistance: number; adaptiveThreshold: number;
+}> {
+  return loadSmartBaselines().map((b) => ({
+    kind: "smart",
+    id: b.id,
+    name: b.name,
+    url: b.url,
+    timestamp: b.timestamp,
+    captures: b.numCaptures,
+    outliers: b.numOutliers,
+    meanDistance: b.meanDistance,
+    adaptiveThreshold: b.adaptiveThreshold,
+  }));
+}
+
+/**
  * Get a smart baseline by name
  */
 export function getSmartBaseline(name: string): SmartBaseline | undefined {

@@ -13,7 +13,7 @@ import {
   detectPerformanceRegression,
   listPerformanceBaselines,
 } from "../../performance/index.js";
-import { listVisualBaselines } from "../../visual/index.js";
+import { listVisualBaselines, listSmartBaselineSummaries } from "../../visual/index.js";
 
 /**
  * Register performance tools (3 tools: perf_baseline, perf_regression, list_baselines)
@@ -136,7 +136,8 @@ export function registerPerformanceTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, async () => {
-      const visualBaselines = await listVisualBaselines();
+      // visual_baseline stores smart baselines; list both kinds (v10 B36).
+      const visualBaselines = [...(await listVisualBaselines()), ...listSmartBaselineSummaries()];
       const perfBaselines = await listPerformanceBaselines();
       return {
         content: [

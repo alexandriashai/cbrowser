@@ -47,6 +47,7 @@ import {
   crossBrowserDiff,
   captureVisualBaseline,
   listVisualBaselines,
+  listSmartBaselineSummaries,
 } from "./visual/index.js";
 
 // Testing module imports
@@ -3012,7 +3013,8 @@ Begin the simulation now. Narrate your thoughts as this persona.
     "List all saved baselines (visual and performance)",
     {},
     async () => {
-      const visualBaselines = await listVisualBaselines();
+      // visual_baseline stores smart baselines; list both kinds (v10 B36).
+      const visualBaselines = [...(await listVisualBaselines()), ...listSmartBaselineSummaries()];
       const perfBaselines = await listPerformanceBaselines();
       return {
         content: [
