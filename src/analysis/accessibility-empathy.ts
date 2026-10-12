@@ -1050,7 +1050,10 @@ async function detectMotionWithoutPause(ctx: BarrierContext): Promise<void> {
 function pushClassOnlyMotionBarrier(ctx: BarrierContext, selectors: string[]): void {
   const n = selectors.length;
   ctx.barriers.push({
-    type: "cognitive_load",
+    // "timing", the type 2.2.2 is weighted as. "cognitive_load" rated the fix
+    // "hard" and fired the ADHD "complex form layout" friction on pages with no
+    // form. (v10 B44/B45)
+    type: "timing",
     element: `${n} class-named motion element${n === 1 ? "" : "s"}`,
     // A page-wide aggregate; each element is in members.
     pageLevel: true,
@@ -1072,7 +1075,8 @@ function pushMotionBarrier(
     memberCount: number; members: string[]; detectedBy: string },
 ): void {
   ctx.barriers.push({
-    type: "cognitive_load",
+    // See pushClassOnlyMotionBarrier: 2.2.2 is a timing barrier. (v10 B44/B45)
+    type: "timing",
     element: g.selector,
     description: `Moving content (${g.memberCount} animated element${g.memberCount === 1 ? "" : "s"}, found by ${g.detectedBy}) has no associated pause, stop or hide control - may distract users with attention difficulties`,
     affectedPersonas: ["cognitive-adhd", "dyslexic-user"],
