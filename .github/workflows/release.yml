@@ -39,11 +39,21 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # npm publishes through trusted publishing (OIDC, id-token: write above), not a
+      # stored token: the NPM_TOKEN secret expired on 2026-10-12 and failed the 19.3.10
+      # release. Trusted publishing needs Node >= 22.14.0 and npm >= 11.5.1. There is
+      # deliberately no registry-url: setup-node would write an .npmrc that reads
+      # NODE_AUTH_TOKEN, and npm tries a token before the OIDC exchange.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '22'
+
+      - name: npm for trusted publishing
+        run: |
+          npm install -g npm@^11.5.1
+          node -e 'const [a, b] = process.versions.node.split(".").map(Number); if (a < 22 || (a === 22 && b < 14)) { console.error(`node ${process.versions.node} < 22.14.0`); process.exit(1); }'
+          node -e 'const v = require("child_process").execSync("npm --version").toString().trim(); const [a, b, c] = v.split(".").map(Number); if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) { console.error(`npm ${v} < 11.5.1`); process.exit(1); } console.log(`node ${process.versions.node}, npm ${v}`);'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -122,4 +132,4 @@ jobs:
         run: npx release-it --ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NODE_AUTH_TOKEN: a set token makes npm skip the OIDC exchange.

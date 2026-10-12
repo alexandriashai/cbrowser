@@ -14,7 +14,8 @@
   "npm": {
     "publish": true,
     "publishPath": ".",
-    "publishArgs": ["--access", "public"]
+    "publishArgs": ["--access", "public"],
+    "skipChecks": true
   },
   "github": {
     "release": true,
