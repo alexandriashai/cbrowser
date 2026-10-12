@@ -536,17 +536,41 @@ export class PageUnderstandingEngine {
             : (n as Element).tagName === "BR" ? NodeFilter.FILTER_ACCEPT
             : NodeFilter.FILTER_SKIP,
         });
+        // A box change is only a break where the page draws one. cbrowser.ai's
+        // logo animates each letter, so every letter is its own inline-block and
+        // the walk above read it as "B r o w s e r . a i" (v10 B49). When layout
+        // exists, the two text runs are compared where they are drawn: a space
+        // goes in when they sit on different lines or with a visible gap between
+        // them (a flex gap, a margin), not when they touch. Without layout
+        // (content-visibility:auto skipped content), every box change still
+        // breaks, as before.
+        const rectOf = (t: Node): DOMRect | null => {
+          const r = document.createRange();
+          r.selectNodeContents(t);
+          const b = r.getBoundingClientRect();
+          return b.width > 0 && b.height > 0 ? b : null;
+        };
+        const drawnApart = (a: Node, b: Node): boolean => {
+          const ra = rectOf(a), rb = rectOf(b);
+          if (!ra || !rb) return true;
+          const sameLine = ra.bottom > rb.top + 1 && rb.bottom > ra.top + 1;
+          if (!sameLine) return true;
+          const em = parseFloat(getComputedStyle(b.parentElement || el).fontSize) || 16;
+          return rb.left - ra.right > em * 0.2;
+        };
         let out = "";
         let prevBox: Node | null = null;
+        let prevText: Node | null = null;
         let gap = false;
         for (let n = walker.nextNode(); n && out.length < 200; n = walker.nextNode()) {
           const t = n.nodeType === 3 ? (n.nodeValue || "").replace(/\s+/g, " ") : "";
           // A <br> or a whitespace-only node is a separator, never content.
           if (!t.trim()) { gap = true; continue; }
           const box = boxOf(n);
-          if (prevBox !== null && (gap || box !== prevBox)) out += " ";
+          if (prevBox !== null && (gap || (box !== prevBox && drawnApart(prevText!, n)))) out += " ";
           out += t;
           prevBox = box;
+          prevText = n;
           gap = false;
         }
         return out.trim().replace(/\s+/g, " ").slice(0, 80);

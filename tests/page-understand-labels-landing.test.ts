@@ -76,6 +76,15 @@ const GLUE = doc("Glue fixture", `<main>
   <a id="pricing-link" href="/pricing/"><mark>Pri</mark>cing plans</a>
 </main>`);
 
+// v10 B49: cbrowser.ai's logo animates each letter, so every letter is its own
+// inline-block span. The B47 walk put a space at every box change and the logo read
+// "B r o w s e r . a i". Badges that are inline-block with a margin between them
+// (and no whitespace text) must still separate.
+const LETTERS = doc("Letters fixture", `<main>
+  <a id="logo" href="/" style="display:flex;align-items:center;gap:6px">${SVG}<div class="txt">${"Browser".split("").map((c) => `<span style="display:inline-block">${c}</span>`).join("")}<span style="display:inline-block">.</span><span style="display:inline-block">a</span><span style="display:inline-block">i</span></div></a>
+  <a id="badges" href="/tags/" style="display:block"><span style="display:inline-block;margin-right:8px">alpha</span><span style="display:inline-block;margin-right:8px">beta</span><span style="display:inline-block">gamma</span></a>
+</main>`);
+
 let browser: Browser;
 const results: Record<string, PageUnderstanding> = {};
 
@@ -99,6 +108,7 @@ beforeAll(async () => {
   results.tabindex = await understand(TABINDEX);
   results.landing = await understand(LANDING);
   results.glue = await understand(GLUE);
+  results.letters = await understand(LETTERS);
   results.heroInHeader = await understand(HERO_IN_HEADER);
   results.heroInSection = await understand(HERO_IN_SECTION);
 }, 120_000);
@@ -147,6 +157,14 @@ describe("a landing page stays landing", () => {
 describe("text nodes are not glued", () => {
   test("a card's badges, date and heading keep their spaces", () => {
     expect(textOf(results.glue, "#card")).toBe("research attention Aug 4, 2026 We Beat Two Frontier Vision Models");
+  });
+
+  test("v10 B49: letters split into touching inline-block spans read as one word", () => {
+    expect(textOf(results.letters, "#logo")).toBe("Browser.ai");
+  });
+
+  test("v10 B49: inline-block badges with a gap between them still separate", () => {
+    expect(textOf(results.letters, "#badges")).toBe("alpha beta gamma");
   });
 
   test("a word split by an inline element stays one word", () => {
