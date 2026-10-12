@@ -34,6 +34,7 @@ import {
   selectMaxCoveragePersonas,
   generateAdversarialPersonas,
   estimateCognitiveLoad,
+  COGNITIVE_TRAITS,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
@@ -51,7 +52,7 @@ const MOTOR_PREVIEW_MAX_CHARS = 40_000;
  * Reference distribution of cognitive distances across the built-in persona set.
  *
  * cognitive_distance returns three numbers — w1, w2 and sliced — that look like
- * peers but are not on one scale: w1 is an L1 sum over 26 traits, w2 is an L2
+ * peers but are not on one scale: w1 is an L1 sum over every COGNITIVE_TRAITS entry, w2 is an L2
  * norm, and sliced is a mean random projection. Measured across all 210 built-in
  * persona pairs, their means are 0.296 / 0.128 / 0.016 — roughly 20x apart end to
  * end. A reader comparing them directly draws a false conclusion.
@@ -536,7 +537,9 @@ Begin with the first persona: ${personas[0]}
               basis: "all pairs of built-in personas",
             },
             scaleNote:
-              "w1 (L1 sum over 26 traits), w2 (L2 norm) and sliced (mean random projection) " +
+              // The count is read from the list: "26" went stale when the three bridge
+              // traits arrived (v10 B42).
+              `w1 (L1 sum over ${COGNITIVE_TRAITS.length} traits), w2 (L2 norm) and sliced (mean random projection) ` +
               "are different quantities on different scales — w1 typically runs ~20x larger " +
               "than sliced. Compare the percentiles, not the raw values.",
 
