@@ -744,6 +744,39 @@ const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 /** Bound the CMS deduct call; an unanswered one used to hang the whole request. */
 const CREDIT_DEDUCT_TIMEOUT_MS = 5_000;
 
+/**
+ * "none" on the enterprise server: enterprise is unlimited use (Alexa, 2026-10-12).
+ * The deduct call is still made, because the CMS deduct route is also the domain,
+ * tier and URL gate; `charge=none` makes the CMS price the call at 0. Set once at
+ * startup from `RemoteMcpServerOptions.chargeCredits`.
+ */
+let creditChargeMode: "charge" | "none" = "charge";
+
+export function setCreditChargeMode(mode: "charge" | "none"): void {
+  creditChargeMode = mode;
+}
+
+/**
+ * Did this deduct response actually take credits? Decides whether the call enters a
+ * charge scope (where an isError result is refunded). A 0-credit deduct (charge=none,
+ * or a free tool) took nothing, and the CMS refund route credits the catalog price
+ * without finding the matching deduct, so refunding it would mint credits. A CMS that
+ * does not report `cost` keeps the old behaviour.
+ */
+export function chargedByDeduct(httpOk: boolean, data: { allowed?: boolean; cost?: number }): boolean {
+  return httpOk && data.allowed === true && data.cost !== 0;
+}
+
+/** Query string for POST /api/credits/deduct. */
+export function deductQuery(keyHash: string, toolName: string, targetUrl: string | undefined): string {
+  return new URLSearchParams({
+    key_hash: keyHash,
+    tool: toolName,
+    ...(targetUrl ? { target_url: targetUrl } : {}),
+    ...(creditChargeMode === "none" ? { charge: "none" } : {}),
+  }).toString();
+}
+
 const TIER_CACHE_TTL_MS = 30 * 1000;
 
 /**
@@ -1634,11 +1667,7 @@ async function handleMcpRequest(
 
       if (keyHash) {
         const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
-        const deductParams = new URLSearchParams({
-          key_hash: keyHash,
-          tool: toolName,
-          ...(targetUrl ? { target_url: targetUrl } : {}),
-        });
+        const deductParams = deductQuery(keyHash, toolName, targetUrl);
         try {
           const creditRes = await fetch(`${cmsUrl}/api/credits/deduct?${deductParams}`, {
             method: "POST",
@@ -1659,7 +1688,7 @@ async function handleMcpRequest(
           if (!(creditRes.ok || creditRes.status === 402 || creditRes.status === 403)) {
             console.warn(`[Credits] FAIL-OPEN: ${toolName} ran unbilled — CMS returned HTTP ${creditRes.status}`);
           } else if (creditRes.ok || creditRes.status === 402 || creditRes.status === 403) {
-            const data = await creditRes.json() as { allowed: boolean; reason?: string; message?: string; remaining?: number };
+            const data = await creditRes.json() as { allowed: boolean; reason?: string; message?: string; remaining?: number; cost?: number };
             // Only deny on an EXPLICIT allowed:false from the deduct endpoint.
             // A missing `allowed` field means the response was not a real deduct
             // result (e.g. an internal-auth 403) — fail open rather than blanket-deny.
@@ -1678,7 +1707,7 @@ async function handleMcpRequest(
             // above either returned already (allowed:false) or are fail-open
             // (a response with no `allowed` field at all, e.g. an internal-auth
             // failure) — neither charged the account, so neither sets this.
-            if (creditRes.ok && data.allowed === true) {
+            if (chargedByDeduct(creditRes.ok, data)) {
               chargedKeyHash = keyHash;
               chargedTool = toolName;
             }
@@ -1801,6 +1830,11 @@ export interface RemoteMcpServerOptions {
    * If not provided, both GET and POST / go to MCP endpoint.
    */
   homepageHtml?: string;
+  /**
+   * false = calls cost no credits (the enterprise server). The CMS gates still run.
+   * Default true.
+   */
+  chargeCredits?: boolean;
 }
 
 // Re-export for enterprise use
@@ -1811,6 +1845,8 @@ export type { ToolRegistrationContext };
  * @param options - Optional configuration including tool extension callback
  */
 export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Promise<void> {
+  setCreditChargeMode(options?.chargeCredits === false ? "none" : "charge");
+
   // Auto-initialize all data directories on server start
   ensureDirectories();
 
