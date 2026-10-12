@@ -132,14 +132,19 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
           style.clip === "rect(0px, 0px, 0px, 0px)" || style.clip === "rect(1px, 1px, 1px, 1px)" || style.clipPath === "inset(50%)")) ||
           el.classList.contains("sr-only") || el.classList.contains("visually-hidden") || el.classList.contains("screen-reader-text");
         if (hidden) return true;
-        // An inline link in a sentence is bounded by the line height (2.5.8's
-        // inline exception), unless it is styled as a button.
-        if (el.tagName === "A" && el.parentElement) {
-          const other = (el.parentElement.textContent || "").replace(el.textContent || "", "").trim();
-          const block = style.display === "inline-block" || style.display === "block" || style.display === "flex";
-          if (other.length >= 10 && !block && !(parseInt(style.padding) > 4)) return true;
-        }
         return false;
+      };
+      // An inline link in a sentence is bounded by the line height (2.5.8's inline
+      // exception), unless it is styled as a button. The exception is from the SIZE
+      // rule only: the link is still a target, so it stays a neighbour in the spacing
+      // check. 19.4.1 dropped it there too, and cbrowser.ai's 26x8 carousel step dots,
+      // which overlap an inline link, passed. (v10 Q2 follow-up)
+      const inlineLink = (el: Element): boolean => {
+        if (el.tagName !== "A" || !el.parentElement) return false;
+        const style = getComputedStyle(el);
+        const other = (el.parentElement.textContent || "").replace(el.textContent || "", "").trim();
+        const block = style.display === "inline-block" || style.display === "block" || style.display === "flex";
+        return other.length >= 10 && !block && !(parseInt(style.padding) > 4);
       };
       const label = (el: Element): string => {
         const tag = el.tagName.toLowerCase();
@@ -149,12 +154,15 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
       const failsAA: Array<{ el: Element; w: number; h: number }> = [];
       const failsAAAOnly: Array<{ el: Element; w: number; h: number }> = [];
       const passesBySpacing: Array<{ el: Element; w: number; h: number }> = [];
-      const targets: Array<{ el: Element; rect: DOMRect; w: number; h: number; small: boolean }> = [];
+      const targets: Array<{ el: Element; rect: DOMRect; w: number; h: number; small: boolean; sizeExempt: boolean }> = [];
       for (const el of Array.from(document.querySelectorAll("button, a, input, select, [role='button'], [onclick]"))) {
         const rect = el.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0 || exempt(el, rect)) continue;
         const w = Math.round(rect.width), h = Math.round(rect.height);
-        targets.push({ el, rect, w, h, small: w < 24 || h < 24 });
+        // An inline link is not "undersized" (the size rule does not apply to it),
+        // so it has no circle of its own; its rect still counts as a target.
+        const sizeExempt = inlineLink(el);
+        targets.push({ el, rect, w, h, small: !sizeExempt && (w < 24 || h < 24), sizeExempt });
       }
       // WCAG 2.5.8's spacing exception: an undersized target passes when a 24px
       // circle centred on its bounding box intersects no other target and no other
@@ -177,6 +185,7 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
         return true;
       };
       for (const t of targets) {
+        if (t.sizeExempt) continue; // judged as a neighbour only
         const entry = { el: t.el, w: t.w, h: t.h };
         if (t.small) (spaced(t) ? passesBySpacing : failsAA).push(entry);
         else if (t.w < 44 || t.h < 44) failsAAAOnly.push(entry);

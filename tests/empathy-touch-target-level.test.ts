@@ -196,6 +196,15 @@ describe("2.5.8's spacing exception (v10 Q2)", () => {
   }, 60_000);
 });
 
+describe("an inline link is still a 2.5.8 spacing neighbour", () => {
+  const INLINE = doc(`<p style="margin:60px;font:16px sans-serif">Read the <a href="/guide" data-t="guide">guide</a>${btn(16, 16, 'aria-label="info" data-t="info" style="width:16px;height:16px;display:inline-block;vertical-align:middle"', "i")} before you start the setup.</p>`);
+  test("AA audit: a 16x16 button touching an inline link is a scored 2.5.8 barrier", async () => {
+    const { r, resolved } = await audit(INLINE, "AA");
+    expect(touch(r.barriers).map((b) => resolved[b.element])).toEqual(["info"]);
+    expect(touch(r.advisories).filter((b) => /spacing exception/.test(b.description))).toEqual([]);
+  }, 60_000);
+});
+
 describe("the close-spacing barrier is not 2.5.5", () => {
   // Two 50x50 targets 4px apart: no size failure at all, only closeness.
   const CLOSE_BIG = doc(`<div class="row" style="gap:4px">

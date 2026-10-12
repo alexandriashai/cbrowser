@@ -456,6 +456,8 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
           area: rect.width * rect.height,
           inViewport: rect.bottom > 0 && rect.top < vh,
           exempt: isSkipLink || isVisuallyHidden || isInlineTextLink,
+          notTarget: isSkipLink || isVisuallyHidden,
+          inlineLink: isInlineTextLink,
           spaced: false,
           el,
         };
@@ -465,8 +467,12 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
       // target's circle. Without it a lone 152x20 button was a critical AA failure
       // (v10 Q2). Measured against every live target, on or off screen; a target
       // nested in another (a button in a link) is the same target, not a neighbour.
-      const live = mapped.filter((m) => m.area > 0 && !m.exempt);
-      const small = (m: { width: number; height: number }) => Math.round(m.width) < 24 || Math.round(m.height) < 24;
+      // An inline text link is exempt from the SIZE rule only: it is still a target,
+      // so it stays a neighbour (with no circle of its own). 19.4.1 dropped it, and
+      // cbrowser.ai's carousel step dots overlapping an inline link passed.
+      const live = mapped.filter((m) => m.area > 0 && !m.notTarget);
+      const small = (m: { width: number; height: number; inlineLink: boolean }) =>
+        !m.inlineLink && (Math.round(m.width) < 24 || Math.round(m.height) < 24);
       const centre = (m: { x: number; y: number; width: number; height: number }) => ({ x: m.x + m.width / 2, y: m.y + m.height / 2 });
       const distToRect = (p: { x: number; y: number }, m: { x: number; y: number; width: number; height: number }) =>
         Math.hypot(Math.max(m.x - p.x, 0, p.x - (m.x + m.width)), Math.max(m.y - p.y, 0, p.y - (m.y + m.height)));

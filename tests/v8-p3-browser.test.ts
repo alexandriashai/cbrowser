@@ -47,6 +47,13 @@ const SPACING = `<!doctype html><html lang="en"><head><meta charset="utf-8"><tit
 <div class="row"><button class="b20" aria-label="flush">c</button><button class="big" aria-label="big">D</button></div>
 </main></body></html>`;
 
+// 19.4.1 dropped inline text links from the spacing neighbours (they are exempt from
+// the SIZE rule, not from being targets), so a 16x16 button touching one passed.
+// On cbrowser.ai the 26x8 carousel step dots overlapping an inline link passed.
+const INLINE_NEIGHBOUR = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>inline</title>
+<style>p{margin:60px;font:16px sans-serif} .i{width:16px;height:16px;padding:0;border:0;display:inline-block;vertical-align:middle}</style>
+</head><body><main><h1>Inline</h1><p>Read the <a href="/guide">guide</a><button class="i" aria-label="info">i</button> before you start the setup.</p></main></body></html>`;
+
 const MOTION = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>motion</title>
 <style>@keyframes slide{to{transform:translateX(200px)}} .m{width:200px;height:60px;background:#06c;animation:slide 1s infinite alternate}</style>
 </head><body><main><h1>Motion</h1><button type="button" aria-controls="mover">Pause animation</button><div class="m" id="mover"></div></main></body></html>`;
@@ -56,7 +63,7 @@ let base: string;
 beforeAll(() => {
   server = Bun.serve({ port: 0, fetch: (req) => {
     const p = new URL(req.url).pathname;
-    return new Response(p === "/motion" ? MOTION : p === "/spacing" ? SPACING : TARGETS, { headers: { "content-type": "text/html; charset=utf-8" } });
+    return new Response(p === "/motion" ? MOTION : p === "/spacing" ? SPACING : p === "/inline-neighbour" ? INLINE_NEIGHBOUR : TARGETS, { headers: { "content-type": "text/html; charset=utf-8" } });
   } });
   base = `http://localhost:${server.port}`;
 });
@@ -94,6 +101,17 @@ describe("responsive_test applies 2.5.8's spacing exception (v10 Q2)", () => {
     expect(spaced[0].description).toMatch(/^1 target under 24px passes WCAG 2\.5\.8 AA by its spacing exception/);
     expect(spaced[0].description).toContain("Show 3 more tools");
     expect(spaced[0].severity).toBe("minor");
+  }, 90000);
+});
+
+describe("an inline link is still a neighbour for 2.5.8 spacing", () => {
+  test("a 16x16 button touching an inline text link fails AA", async () => {
+    const r = await runResponsiveTest(`${base}/inline-neighbour`, { viewports: ["desktop"] });
+    const targets = r.issues.filter((i) => i.type === "touch_target");
+    const aa = targets.filter((i) => /failing WCAG 2\.5\.8/.test(i.description));
+    expect(aa.length).toBe(1);
+    expect(aa[0].description).toMatch(/^1 target under 24x24px.*"info"/);
+    expect(targets.some((i) => /spacing exception/.test(i.description))).toBe(false);
   }, 90000);
 });
 
