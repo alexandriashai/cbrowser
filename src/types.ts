@@ -3839,6 +3839,13 @@ export interface PageElement {
   hidden?: boolean;
   /** True on a link to a fragment of this same page ("#main", "#"): following it never navigates. */
   inPage?: boolean;
+  /**
+   * True when the element is styled as a destructive or danger action (class, data-variant or
+   * data-testid naming "destructive" or "danger", e.g. shadcn variant="destructive", Bootstrap
+   * btn-danger). The label can sound harmless while the action is not, so generate_tests makes
+   * no exploratory click of it. (v10 B39)
+   */
+  dangerStyled?: boolean;
 }
 
 export interface PageAnalysis {

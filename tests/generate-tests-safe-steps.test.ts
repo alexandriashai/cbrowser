@@ -84,13 +84,24 @@ const HIDDEN_SUBMIT = `<!doctype html><html lang="en"><head><meta charset="utf-8
 <form action="/session" method="post"><input type="email" name="email"><input type="password" name="password"><button type="submit" class="sr-only">Sign in</button></form>
 </main></body></html>`;
 
+// v10 B39: a button whose label sounds harmless but is styled as a destructive or
+// danger action (shadcn variant="destructive", Bootstrap btn-danger, a demo's
+// data-testid) is not an exploratory click either.
+const DANGER = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Variants</title></head><body>
+<main><h1>Button variants</h1>
+<button type="button" data-testid="demo-btn-destructive">Destructive</button>
+<button type="button" class="btn btn-danger">Reset workspace</button>
+<button type="button" data-variant="destructive">Clear</button>
+<button type="button">Refresh</button>
+</main></body></html>`;
+
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 let b: InstanceType<typeof CBrowser>;
 beforeAll(async () => {
   server = Bun.serve({ port: 0, fetch: (req) => {
     const p = new URL(req.url).pathname;
-    const html = p === "/search" ? SEARCH : p === "/app" ? WRAPPED : p === "/hidden-submit" ? HIDDEN_SUBMIT : SETTINGS;
+    const html = p === "/danger" ? DANGER : p === "/search" ? SEARCH : p === "/app" ? WRAPPED : p === "/hidden-submit" ? HIDDEN_SUBMIT : SETTINGS;
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
   } });
   base = `http://localhost:${server.port}`;
@@ -103,6 +114,19 @@ afterAll(async () => {
 
 type Step = { action: string; target?: string; description: string; zone?: string };
 const clicks = (tests: Array<{ steps: Step[] }>) => tests.flatMap((t) => t.steps).filter((s) => s.action === "click");
+
+describe("generate_tests skips danger-styled buttons (v10 B39)", () => {
+  test("only the plain button is clicked; the three danger-styled ones are named in notes", async () => {
+    const r = await b.generateTests(`${base}/danger`);
+    const buttons = r.tests.find((t) => t.name === "Button Interactions");
+    expect(buttons?.steps.filter((s) => s.action === "click").map((s) => s.description)).toEqual(['Click "Refresh"']);
+    const notes = r.tests.flatMap((t) => t.notes ?? []);
+    for (const label of ["Destructive", "Reset workspace", "Clear"]) {
+      expect(notes.some((n) => n.includes(`"${label}"`) && /destructive or danger/.test(n))).toBe(true);
+    }
+    expect(r.cbrowserScript).not.toMatch(/^click .*(Destructive|Reset workspace|demo-btn-destructive)/m);
+  }, 90000);
+});
 
 describe("generate_tests on a page that is not the home page", () => {
   let result: Awaited<ReturnType<InstanceType<typeof CBrowser>["generateTests"]>>;

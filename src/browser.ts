@@ -4400,6 +4400,9 @@ For more help: https://playwright.dev/docs/browsers
           text: el.textContent?.trim(),
           id: el.id || undefined,
           ariaLabel: el.getAttribute("aria-label") || undefined,
+          dangerStyled: /(^|[^a-z])(destructive|danger)([^a-z]|$)/i.test(
+            [el.getAttribute("class"), el.getAttribute("data-variant"), el.getAttribute("data-testid")].filter(Boolean).join(" "),
+          ) || undefined,
         }));
 
       // Analyze links
@@ -4485,6 +4488,11 @@ For more help: https://playwright.dev/docs/browsers
       const picked: PageElement[] = [];
       for (const el of els) {
         if (picked.length >= n) break;
+        if (el.dangerStyled && !isRed(el.selector)) {
+          const note = `Not clicked: "${el.text || el.ariaLabel || el.selector}" (${el.selector}) is styled as a destructive or danger action; confirm it is harmless before adding a click.`;
+          notes.push(note.replace(/\s+/g, " "));
+          continue;
+        }
         if (isRed(el.selector)) {
           // One line: a note is emitted as a comment, and a newline from textContent would end the comment
           // and leave the rest as a script step or as Playwright code.
