@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.4.1](https://github.com/alexandriashai/cbrowser/compare/v19.4.0...v19.4.1) (2026-10-12)
+
+### Fixed
+
+* **a11y:** apply wcag 2.5.8's spacing exception to target size ([9b050ed](https://github.com/alexandriashai/cbrowser/commit/9b050ed51b74a364cb273aa8a62d824067e1e9bd))
+* **baselines:** list_baselines includes the smart baselines visual_baseline makes ([78008af](https://github.com/alexandriashai/cbrowser/commit/78008af3bd5060bbc08aa9438e92fe79dc4284de))
+* **cognitive-distance:** scaleNote reads the trait count from the list ([ae77ee4](https://github.com/alexandriashai/cbrowser/commit/ae77ee48cfa4675d885d5976aca943aaf1c609a4))
+* **empathy:** a 2.2.2 motion barrier is a timing barrier ([fa0e43d](https://github.com/alexandriashai/cbrowser/commit/fa0e43d6026bbe327366db7123cb731e1a783a42))
+* **generate-tests:** no exploratory click on a danger-styled button ([c0f9f93](https://github.com/alexandriashai/cbrowser/commit/c0f9f931278646e92cef51d6f2f24e300002c8e6))
+* **page-understand:** letters in touching inline-blocks read as one word ([ced3fb7](https://github.com/alexandriashai/cbrowser/commit/ced3fb7467c0982d08543045f70d6e4c14204278))
+* **perf:** round baseline averages at the source ([5fa4b60](https://github.com/alexandriashai/cbrowser/commit/5fa4b607296d381e8668fac5cb6409423a2bb11e))
+
 ## [19.4.0](https://github.com/alexandriashai/cbrowser/compare/v19.3.9...v19.4.0) (2026-10-12)
 
 ### Added
