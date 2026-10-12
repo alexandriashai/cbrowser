@@ -45,8 +45,17 @@ describe("element counts reconcile (viewport)", () => {
     expect(s.barrierCount).not.toBe(s.affectedElements);
   });
 
-  test("three id-less buttons and two links are five touch-target elements", () => {
-    expect(touchGroup(json)?.affectedElementCount).toBe(5);
+  // The two links are 45x22 and 37x22 with centres 41px apart: a 24px circle on
+  // either touches no other target, so they pass 2.5.8 AA by its spacing exception
+  // (v10 Q2) and are AAA advisories. Under the size-only rule this group was 5.
+  test("three crowded id-less buttons are the three 2.5.8 touch-target elements", () => {
+    expect(touchGroup(json)?.affectedElementCount).toBe(3);
+  });
+
+  test("the two spaced links are spacing-exception advisories, not scored", () => {
+    const spaced = (json.advisories as Array<{ type: string; description: string }>)
+      .filter((a) => a.type === "touch_target" && /spacing exception/.test(a.description));
+    expect(spaced.map((a) => a.description.match(/\((\d+x\d+)px\)/)?.[1]).sort()).toEqual(["37x22", "45x22"]);
   });
 
   test("the close-spacing group counts its members, not 1", () => {
