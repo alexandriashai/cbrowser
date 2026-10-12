@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.4.0](https://github.com/alexandriashai/cbrowser/compare/v19.3.9...v19.4.0) (2026-10-12)
+
+### Added
+
+* **remote:** chargeCredits option, enterprise calls send charge=none ([1fceb19](https://github.com/alexandriashai/cbrowser/commit/1fceb194f96e292d98a309fe368d51e532d0ed95))
+
 ## [19.3.9](https://github.com/alexandriashai/cbrowser/compare/v19.3.8...v19.3.9) (2026-10-11)
 
 ### Fixed
