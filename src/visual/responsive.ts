@@ -148,12 +148,38 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
       };
       const failsAA: Array<{ el: Element; w: number; h: number }> = [];
       const failsAAAOnly: Array<{ el: Element; w: number; h: number }> = [];
+      const passesBySpacing: Array<{ el: Element; w: number; h: number }> = [];
+      const targets: Array<{ el: Element; rect: DOMRect; w: number; h: number; small: boolean }> = [];
       for (const el of Array.from(document.querySelectorAll("button, a, input, select, [role='button'], [onclick]"))) {
         const rect = el.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0 || exempt(el, rect)) continue;
         const w = Math.round(rect.width), h = Math.round(rect.height);
-        if (w < 24 || h < 24) failsAA.push({ el, w, h });
-        else if (w < 44 || h < 44) failsAAAOnly.push({ el, w, h });
+        targets.push({ el, rect, w, h, small: w < 24 || h < 24 });
+      }
+      // WCAG 2.5.8's spacing exception: an undersized target passes when a 24px
+      // circle centred on its bounding box intersects no other target and no other
+      // undersized target's circle. Without it a lone 152x20 "Show 3 more tools"
+      // button was a critical AA failure (v10 Q2). Nested targets (a button inside
+      // a link) are one target, not neighbours.
+      const centre = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      const distToRect = (p: { x: number; y: number }, r: DOMRect) =>
+        Math.hypot(Math.max(r.left - p.x, 0, p.x - r.right), Math.max(r.top - p.y, 0, p.y - r.bottom));
+      const spaced = (u: (typeof targets)[number]): boolean => {
+        const c = centre(u.rect);
+        for (const t of targets) {
+          if (t === u || t.el.contains(u.el) || u.el.contains(t.el)) continue;
+          if (distToRect(c, t.rect) < 12) return false;
+          if (t.small) {
+            const ct = centre(t.rect);
+            if (Math.hypot(c.x - ct.x, c.y - ct.y) < 24) return false;
+          }
+        }
+        return true;
+      };
+      for (const t of targets) {
+        const entry = { el: t.el, w: t.w, h: t.h };
+        if (t.small) (spaced(t) ? passesBySpacing : failsAA).push(entry);
+        else if (t.w < 44 || t.h < 44) failsAAAOnly.push(entry);
       }
       if (failsAA.length > 0) {
         const s0 = failsAA[0];
@@ -170,6 +196,15 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
           type: "small_touch_target",
           element: `${failsAAAOnly.length} interactive element${failsAAAOnly.length === 1 ? "" : "s"}`,
           description: `${failsAAAOnly.length} target${failsAAAOnly.length === 1 ? "" : "s"} at least 24px but under 44px on an axis: advisory, WCAG 2.5.5 AAA (e.g., ${label(s0.el)} at ${s0.w}x${s0.h}px)`,
+          severity: "minor",
+        });
+      }
+      if (passesBySpacing.length > 0) {
+        const s0 = passesBySpacing[0];
+        findings.push({
+          type: "small_touch_target",
+          element: `${passesBySpacing.length} interactive element${passesBySpacing.length === 1 ? "" : "s"}`,
+          description: `${passesBySpacing.length} target${passesBySpacing.length === 1 ? "" : "s"} under 24px pass${passesBySpacing.length === 1 ? "es" : ""} WCAG 2.5.8 AA by its spacing exception (nothing within the 24px circle); advisory, under the 44px of 2.5.5 AAA (e.g., ${label(s0.el)} at ${s0.w}x${s0.h}px)`,
           severity: "minor",
         });
       }

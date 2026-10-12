@@ -145,7 +145,7 @@ describe("AA failures survive the 10-target cap", () => {
   // Eleven AAA-only targets first in document order, then one 16x16.
   const ELEVEN_THEN_TINY = doc(`<div class="row" style="flex-wrap:wrap">
     ${Array.from({ length: 11 }, (_, i) => btn(40, 40, `data-t="f${i}"`)).join("")}
-    ${btn(16, 16, 'data-t="tiny"')}
+    <div style="display:flex;gap:0">${btn(16, 16, 'data-t="tiny"')}${btn(40, 40, 'data-t="f11"')}</div>
   </div>`);
 
   test("AA audit: the 16x16 is a scored 2.5.8 barrier", async () => {
@@ -167,7 +167,7 @@ describe("AA failures survive the 10-target cap", () => {
 
 describe("touch-target selectors are unique", () => {
   test("two id-less buttons get different selectors, each resolving to its own element", async () => {
-    const { r, resolved } = await audit(doc(`<div class="row">
+    const { r, resolved } = await audit(doc(`<div class="row" style="gap:2px">
       <div>${btn(16, 16, 'data-t="one"')}</div>
       <div>${btn(16, 16, 'data-t="two"')}</div>
       ${btn(16, 16, 'aria-label="Close dialog" data-t="three"')}
@@ -176,6 +176,23 @@ describe("touch-target selectors are unique", () => {
     expect(els.length).toBe(3);
     expect(new Set(els).size).toBe(3);
     expect(Object.values(resolved).sort()).toEqual(["one", "three", "two"]);
+  }, 60_000);
+});
+
+describe("2.5.8's spacing exception (v10 Q2)", () => {
+  // A 16x16 with nothing within its 24px circle passes 2.5.8 AA; two 16x16s 4px apart
+  // (centres 20px apart) do not.
+  const SPACED = doc(`<div class="row" style="gap:40px">${btn(16, 16, 'data-t="alone"')}${btn(60, 60, 'data-t="big"', "Go")}</div>
+    <div class="row" style="gap:4px">${btn(16, 16, 'data-t="p1"')}${btn(16, 16, 'data-t="p2"')}</div>`);
+  test("AA audit: the spaced 16x16 is an advisory, the crowded pair are scored 2.5.8 barriers", async () => {
+    const { r, resolved } = await audit(SPACED, "AA");
+    const barrierTs = touch(r.barriers).map((b) => resolved[b.element]).sort();
+    expect(barrierTs).toEqual(["p1", "p2"]);
+    const alone = touch(r.advisories).filter((b) => resolved[b.element] === "alone");
+    expect(alone.length).toBe(1);
+    expect(alone[0].description).toMatch(/spacing exception/);
+    expect(alone[0].wcagCriteria).toEqual(["2.5.5"]);
+    expect(alone[0].severity).toBe("minor");
   }, 60_000);
 });
 

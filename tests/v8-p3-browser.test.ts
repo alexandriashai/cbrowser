@@ -33,6 +33,20 @@ const TARGETS = `<!doctype html><html lang="en"><head><meta charset="utf-8"><tit
 <button class="b20" aria-label="tiny">t</button><button class="b30" aria-label="small">s</button>
 <div class="wide"></div></main></body></html>`;
 
+// v10 Q2: WCAG 2.5.8's spacing exception. An undersized target passes when a 24px
+// circle centred on it touches no other target and no other undersized target's
+// circle. Here: a lone 152x20 button passes; two 16x16 icon buttons 4px apart fail
+// (centres 20px apart); a 20x20 button flush against a 48x48 one fails.
+const SPACING = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>spacing</title>
+<style>button{padding:0;border:0;margin:0;font-size:10px;display:block}
+.lone{width:152px;height:20px;margin:60px} .i16{width:16px;height:16px;display:inline-block;vertical-align:top}
+.row{margin:60px;font-size:0} .gap{margin-left:4px} .big{width:48px;height:48px;display:inline-block;vertical-align:top} .b20{width:20px;height:20px;display:inline-block;vertical-align:top}</style>
+</head><body><main><h1>Spacing</h1>
+<button class="lone">Show 3 more tools</button>
+<div class="row"><button class="i16" aria-label="one">a</button><button class="i16 gap" aria-label="two">b</button></div>
+<div class="row"><button class="b20" aria-label="flush">c</button><button class="big" aria-label="big">D</button></div>
+</main></body></html>`;
+
 const MOTION = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>motion</title>
 <style>@keyframes slide{to{transform:translateX(200px)}} .m{width:200px;height:60px;background:#06c;animation:slide 1s infinite alternate}</style>
 </head><body><main><h1>Motion</h1><button type="button" aria-controls="mover">Pause animation</button><div class="m" id="mover"></div></main></body></html>`;
@@ -42,7 +56,7 @@ let base: string;
 beforeAll(() => {
   server = Bun.serve({ port: 0, fetch: (req) => {
     const p = new URL(req.url).pathname;
-    return new Response(p === "/motion" ? MOTION : TARGETS, { headers: { "content-type": "text/html; charset=utf-8" } });
+    return new Response(p === "/motion" ? MOTION : p === "/spacing" ? SPACING : TARGETS, { headers: { "content-type": "text/html; charset=utf-8" } });
   } });
   base = `http://localhost:${server.port}`;
 });
@@ -64,6 +78,22 @@ describe("responsive_test", () => {
     // The skip link and the sr-only link are not targets.
     expect(targets.map((i) => i.description).join(" ")).not.toMatch(/1x1px|Skip to main/);
     expect(r.summary).toContain("Single viewport (desktop)");
+  }, 90000);
+});
+
+describe("responsive_test applies 2.5.8's spacing exception (v10 Q2)", () => {
+  test("a lone undersized button passes AA by spacing; crowded ones still fail", async () => {
+    const r = await runResponsiveTest(`${base}/spacing`, { viewports: ["desktop"] });
+    const targets = r.issues.filter((i) => i.type === "touch_target");
+    const aa = targets.filter((i) => /failing WCAG 2\.5\.8/.test(i.description));
+    expect(aa.length).toBe(1);
+    // The two 16px icons and the 20px button flush against the 48px one; not the lone button.
+    expect(aa[0].description).toMatch(/^3 targets under 24x24px/);
+    const spaced = targets.filter((i) => /spacing exception/.test(i.description));
+    expect(spaced.length).toBe(1);
+    expect(spaced[0].description).toMatch(/^1 target under 24px passes WCAG 2\.5\.8 AA by its spacing exception/);
+    expect(spaced[0].description).toContain("Show 3 more tools");
+    expect(spaced[0].severity).toBe("minor");
   }, 90000);
 });
 

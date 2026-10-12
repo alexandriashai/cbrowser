@@ -392,7 +392,7 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
     'button, a, input[type="checkbox"], input[type="radio"], [role="button"], [onclick]',
     (elements, vpOnly) => {
       const vh = window.innerHeight;
-      return elements.map(el => {
+      const mapped = elements.map(el => {
         const rect = el.getBoundingClientRect();
         const text = el.textContent?.trim().slice(0, 50) || '';
         const href = (el as HTMLAnchorElement).href || el.getAttribute('href') || '';
@@ -456,8 +456,27 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
           area: rect.width * rect.height,
           inViewport: rect.bottom > 0 && rect.top < vh,
           exempt: isSkipLink || isVisuallyHidden || isInlineTextLink,
+          spaced: false,
+          el,
         };
-      }).filter(el => {
+      });
+      // WCAG 2.5.8's spacing exception: an undersized target passes when a 24px
+      // circle centred on it intersects no other target and no other undersized
+      // target's circle. Without it a lone 152x20 button was a critical AA failure
+      // (v10 Q2). Measured against every live target, on or off screen; a target
+      // nested in another (a button in a link) is the same target, not a neighbour.
+      const live = mapped.filter((m) => m.area > 0 && !m.exempt);
+      const small = (m: { width: number; height: number }) => Math.round(m.width) < 24 || Math.round(m.height) < 24;
+      const centre = (m: { x: number; y: number; width: number; height: number }) => ({ x: m.x + m.width / 2, y: m.y + m.height / 2 });
+      const distToRect = (p: { x: number; y: number }, m: { x: number; y: number; width: number; height: number }) =>
+        Math.hypot(Math.max(m.x - p.x, 0, p.x - (m.x + m.width)), Math.max(m.y - p.y, 0, p.y - (m.y + m.height)));
+      for (const u of live) {
+        if (!small(u)) continue;
+        const c = centre(u);
+        u.spaced = !live.some((t) => t !== u && !t.el.contains(u.el) && !u.el.contains(t.el) &&
+          (distToRect(c, t) < 12 || (small(t) && Math.hypot(c.x - centre(t).x, c.y - centre(t).y) < 24)));
+      }
+      return mapped.map(({ el: _el, ...rest }) => rest).filter(el => {
         if (el.area <= 0 || el.exempt) return false;
         if (vpOnly && !el.inViewport) return false;
         // Candidates: anything under 44px on EITHER axis. Classified per axis
@@ -481,7 +500,8 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
     .map((t) => {
       const w = Math.round(t.width);
       const h = Math.round(t.height);
-      return { ...t, w, h, failsAA: w < aaMinimum || h < aaMinimum, failsAAA: w < aaaTarget || h < aaaTarget };
+      const undersized = w < aaMinimum || h < aaMinimum;
+      return { ...t, w, h, undersized, failsAA: undersized && !t.spaced, failsAAA: w < aaaTarget || h < aaaTarget };
     })
     .filter((t) => t.failsAAA);
   // AA failures first, THEN the cap, so AAA-only candidates (now more numerous
@@ -503,6 +523,13 @@ async function detectSmallTouchTargets(ctx: BarrierContext): Promise<void> {
       description = `Touch target too small (${w}x${h}px) — fails WCAG 2.5.8 AA minimum (24x24px)`;
       rawSeverity = w < 16 || h < 16 ? "critical" : "major";
       ctx.wcagViolations.add("2.5.8");
+    } else if (target.undersized) {
+      // Under 24px but passes 2.5.8 AA by its spacing exception; still under the
+      // 44px of 2.5.5 AAA. (v10 Q2)
+      wcagCriteria.push("2.5.5");
+      description = `Touch target under 24px (${w}x${h}px) — passes WCAG 2.5.8 AA by its spacing exception (nothing within its 24px circle), but under 44px for 2.5.5 AAA`;
+      rawSeverity = "minor";
+      ctx.wcagViolations.add("2.5.5");
     } else {
       // Passes AA but fails AAA: at least 24 on both axes, under 44 on one.
       wcagCriteria.push("2.5.5");
@@ -3678,7 +3705,7 @@ export async function runEmpathyAudit(
     if (!persona) {
       // Try to find as a regular cognitive persona and wrap it
       const { getAnyPersona, createCognitivePersona } = await import("../personas.js");
-      let cognitivePersona = getAnyPersona(personaName);
+      const cognitivePersona = getAnyPersona(personaName);
 
       // No CMS fallback here any more: the account's CMS personas were loaded
       // into the scoped registry above, so getAnyPersona already sees them, and
