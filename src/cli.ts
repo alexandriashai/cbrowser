@@ -3260,7 +3260,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     const result = await sendToDaemon(daemonCommand, daemonArgs);
     if (result.success) {
       console.log("✓ Command executed via daemon");
-      if (result.result) {
+      // evaluate's value is the answer, so 0, false and "" print too; for other
+      // commands an empty result means nothing to show. (2026-10-13)
+      if (daemonCommand === "evaluate" ? result.result !== undefined : result.result) {
         console.log(JSON.stringify(result.result, null, 2));
       }
     } else {

@@ -281,6 +281,16 @@ describe("evaluate through the daemon keeps function results", () => {
       expect(r.stdout).toContain("Keyboard fixture");
     }, TIMEOUT);
   }
+
+  // A daemon result was printed only when truthy, so 0, false and "" vanished.
+  for (const [script, printed] of [["1 - 1", "0"], ["false", "false"], ['""', '""']]) {
+    test(`a falsy result still prints: ${script}`, async () => {
+      expect((await cli(dataDir, "navigate", `${fixtures.base}keyboard.html`)).code).toBe(0);
+      const r = await cli(dataDir, "evaluate", script, "--force");
+      expect(r.code, r.stderr).toBe(0);
+      expect(r.stdout.trim().split("\n").pop()).toBe(printed);
+    }, TIMEOUT);
+  }
 });
 
 describe("HAR without a daemon", () => {
