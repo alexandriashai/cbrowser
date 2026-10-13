@@ -30,10 +30,12 @@ let fixtures: Awaited<ReturnType<typeof serveFixtures>>;
 
 type DaemonResponse = { success: boolean; result?: unknown; error?: string; zone?: string };
 
+/** The daemon requires its token (from the 0600 state file) on /command. */
+const daemonToken = () => (JSON.parse(readFileSync(join(dataDir, "daemon.json"), "utf8")) as { token?: string }).token ?? "";
 async function post(command: string, args: Record<string, unknown>): Promise<DaemonResponse> {
   const res = await fetch(`http://127.0.0.1:${port}/command`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-CBrowser-Daemon-Token": daemonToken() },
     body: JSON.stringify({ command, args }),
     signal: AbortSignal.timeout(60_000),
   });

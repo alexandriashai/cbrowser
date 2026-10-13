@@ -4799,7 +4799,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
         const response = subcommand === "start"
           ? await sendToDaemon("harStart", {})
-          : await sendToDaemon("harStop", args[1] ? { output: resolve(args[1]) } : {});
+          : await sendToDaemon("harStop", {});
         if (!response.success) {
           console.error(`✗ Daemon error: ${response.error}`);
           process.exit(1);
@@ -4808,7 +4808,16 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log("✓ HAR recording started in the daemon");
           console.log("  Navigate and interact with pages, then run 'cbrowser har stop'");
         } else {
-          console.log(`✓ HAR saved: ${(response.result as { file: string }).file}`);
+          // The daemon writes only its own har directory; a chosen path is written here,
+          // with this process's permissions.
+          const { file, har } = response.result as { file: string; har: string };
+          if (args[1]) {
+            const out = resolve(args[1]);
+            writeFileSync(out, har);
+            console.log(`✓ HAR saved: ${out}`);
+          } else {
+            console.log(`✓ HAR saved: ${file}`);
+          }
         }
         process.exit(0);
       }

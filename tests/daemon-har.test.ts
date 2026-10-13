@@ -13,7 +13,7 @@
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createServer } from "node:net";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Subprocess } from "bun";
@@ -29,10 +29,12 @@ let daemon: Subprocess | undefined;
 let fixtures: Awaited<ReturnType<typeof serveFixtures>>;
 
 type DaemonResponse = { success: boolean; result?: unknown; error?: string };
+/** The daemon requires its token (from the 0600 state file) on /command. */
+const daemonToken = () => (JSON.parse(readFileSync(join(dataDir, "daemon.json"), "utf8")) as { token?: string }).token ?? "";
 async function post(command: string, args: Record<string, unknown>): Promise<DaemonResponse> {
   const res = await fetch(`http://127.0.0.1:${port}/command`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-CBrowser-Daemon-Token": daemonToken() },
     body: JSON.stringify({ command, args }),
     signal: AbortSignal.timeout(60_000),
   });
@@ -130,6 +132,47 @@ describe("network list through the daemon (same class)", () => {
     expect(r.code, r.stderr).toBe(0);
     expect(r.stdout).toContain("/animating.html");
   }, TIMEOUT);
+});
+
+// The daemon had no authentication and reflected any Origin with credentials: any
+// local user, or any web page open on the machine, could drive it (navigate to a
+// file:// URL and extract it, write a screenshot or a HAR anywhere the daemon user
+// can). Commands now need the token from the 0600 state file. (2026-10-12)
+describe("the daemon only obeys a client holding its token", () => {
+  const raw = (headers: Record<string, string>, body: unknown, path = "/command") =>
+    fetch(`http://127.0.0.1:${port}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) });
+
+  test("the state file holding the token is owner-only (0600)", () => {
+    expect(statSync(join(dataDir, "daemon.json")).mode & 0o777).toBe(0o600);
+    expect(daemonToken().length).toBeGreaterThanOrEqual(32);
+  });
+
+  test("no token or a wrong token: 401, and the command does not run", async () => {
+    for (const headers of [{}, { "X-CBrowser-Daemon-Token": "wrong" }, { "X-CBrowser-Daemon-Token": "0".repeat(daemonToken().length) }]) {
+      const r = await raw(headers, { command: "networkClear", args: {} });
+      expect(r.status).toBe(401);
+    }
+    // Shutdown is guarded too; the daemon is still up afterwards.
+    expect((await raw({}, {}, "/shutdown")).status).toBe(401);
+    expect((await fetch(`http://127.0.0.1:${port}/ping`)).ok).toBe(true);
+  });
+
+  test("a cross-origin page cannot send the token header (preflight does not allow it)", async () => {
+    const r = await fetch(`http://127.0.0.1:${port}/command`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://evil.example", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type,x-cbrowser-daemon-token" },
+    });
+    expect((r.headers.get("access-control-allow-headers") ?? "").toLowerCase()).not.toContain("x-cbrowser-daemon-token");
+  });
+
+  test("harStop never writes a client-chosen path; it returns the HAR to the client", async () => {
+    const target = join(lonelyDir, "planted.har");
+    await post("harStart", {});
+    const r = await post("harStop", { output: target });
+    expect(r.success).toBe(true);
+    expect(existsSync(target)).toBe(false);
+    expect(typeof (r.result as { har?: string }).har).toBe("string");
+  });
 });
 
 describe("HAR without a daemon", () => {

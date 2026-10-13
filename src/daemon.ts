@@ -20,7 +20,8 @@
  */
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "http";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, createWriteStream } from "fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, createWriteStream, chmodSync } from "fs";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { join } from "path";
 import { spawn } from "child_process";
 import { VideoCaptureSession, type VideoCaptureOptions, type VideoCaptureResult } from "./recording/engine.js";
@@ -37,7 +38,17 @@ interface DaemonState {
   port: number;
   startedAt: string;
   lastActivity: string;
+  /**
+   * Required (X-CBrowser-Daemon-Token) on /command and /shutdown. The daemon had no
+   * authentication and reflected any Origin with credentials, so any local user, or
+   * any web page open on the machine, could drive it: navigate to a file:// URL and
+   * extract it, write a screenshot anywhere the daemon user can. The state file is
+   * 0600, so only the daemon's own user can read the token. (2026-10-12)
+   */
+  token?: string;
 }
+
+const TOKEN_HEADER = "x-cbrowser-daemon-token";
 
 interface DaemonRequest {
   command: string;
@@ -90,7 +101,9 @@ export function getDaemonState(): DaemonState | null {
  */
 function writeDaemonState(state: DaemonState): void {
   const statePath = getDaemonStatePath();
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  writeFileSync(statePath, JSON.stringify(state, null, 2), { mode: 0o600 });
+  // mode applies only when the file is created; an older state file keeps its mode.
+  chmodSync(statePath, 0o600);
 }
 
 /**
@@ -138,7 +151,7 @@ export async function sendToDaemon(command: string, args: Record<string, unknown
   try {
     const response = await fetch(`http://127.0.0.1:${state.port}/command`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", [TOKEN_HEADER]: state.token ?? "" },
       body: JSON.stringify({ command, args } as DaemonRequest),
       signal: AbortSignal.timeout(120000), // 2 minute timeout for commands
     });
@@ -206,6 +219,7 @@ export async function stopDaemon(): Promise<{ success: boolean; message: string 
     // Send shutdown command
     await fetch(`http://127.0.0.1:${state.port}/shutdown`, {
       method: "POST",
+      headers: { [TOKEN_HEADER]: state.token ?? "" },
       signal: AbortSignal.timeout(5000),
     }).catch(() => {});
 
@@ -466,9 +480,12 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
           if (!harRecording) {
             return { success: false, error: "No HAR recording is running in the daemon; run 'cbrowser har start' first" };
           }
-          const file = await b.exportHar(typeof req.args.output === "string" ? req.args.output : undefined);
+          // Written to the daemon's own har directory only, and handed back: the
+          // client writes any path it wants with its own permissions. A client path
+          // here would let a command write anywhere the daemon user can.
+          const file = await b.exportHar();
           harRecording = false;
-          return { success: true, result: { file } };
+          return { success: true, result: { file, har: readFileSync(file, "utf-8") } };
         }
 
         case "captureStart": {
@@ -567,6 +584,17 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
     }
   };
 
+  const token = randomBytes(32).toString("hex");
+  const authorized = (req: IncomingMessage): boolean => {
+    const got = req.headers[TOKEN_HEADER];
+    if (typeof got !== "string" || got.length !== token.length) return false;
+    return timingSafeEqual(Buffer.from(got), Buffer.from(token));
+  };
+  const refuse = (res: ServerResponse): void => {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ success: false, error: "unauthorized: this daemon only accepts its own CLI (token in its state file)" }));
+  };
+
   const server: Server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     // CORS headers - use request origin instead of wildcard
     const origin = req.headers.origin;
@@ -590,6 +618,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
     }
 
     if (req.url === "/shutdown" && req.method === "POST") {
+      if (!authorized(req)) return refuse(res);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "shutting down" }));
       await shutdown();
@@ -597,6 +626,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
     }
 
     if (req.url === "/command" && req.method === "POST") {
+      if (!authorized(req)) return refuse(res);
       // Cap body size to 10 MB. Without this, a malicious or buggy client
       // can stream gigabytes into memory and OOM the daemon.
       const MAX_BODY_SIZE = 10 * 1024 * 1024;
@@ -655,6 +685,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
       port,
       startedAt: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
+      token,
     };
     writeDaemonState(state);
 
