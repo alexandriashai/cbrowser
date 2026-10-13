@@ -46,6 +46,7 @@ import { getStatusInfo, formatStatus, getDataDir, getPaths } from "./config.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
 import { dirname, join, resolve } from "node:path";
+import { guardConsole, guardTerminalOutput } from "./terminal-safe.js";
 import { VideoCaptureSession, type CaptureFormat } from "./recording/engine.js";
 import { changeSignal, parseManifest, type RecordingTarget } from "./recording/types.js";
 import type { AutoCaptureResult, AutoCaptureSetting } from "./recording/auto-capture.js";
@@ -2879,6 +2880,12 @@ async function main(): Promise<void> {
   const outputOpts = detectOutputOptions(options);
   setOutputOptions(outputOpts);
   installOutputWrappers();
+  // Page-derived text (console messages, titles, extracted text) reaches stdout in
+  // many places; escape sequences and bidi overrides in it come out as visible
+  // escapes instead of acting on the terminal. (2026-10-12)
+  guardTerminalOutput(process.stdout);
+  guardTerminalOutput(process.stderr);
+  guardConsole();
 
   // --json-output must never leave stdout empty. Only two commands in this file
   // call emitJson, so without this every other command printed nothing at all and

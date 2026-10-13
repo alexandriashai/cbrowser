@@ -254,6 +254,15 @@ describe("console through the daemon", () => {
     expect(noToken.status).toBe(401);
   }, TIMEOUT);
 
+  test("a page's escape sequences reach the terminal as visible text, never raw", async () => {
+    expect((await cli(dataDir, "navigate", `${fixtures.base}console.html`)).code).toBe(0);
+    const r = await cli(dataDir, "console");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout).toContain("hostile-");
+    expect(r.stdout).not.toMatch(/[\u001b\u0007\u009b]/);
+    expect(r.stdout).toContain("\\x1b]52");
+  }, TIMEOUT);
+
   test("an unknown --filter value is refused, not silently ignored", async () => {
     const r = await cli(dataDir, "console", "--filter", "errors");
     expect(r.code).toBe(1);

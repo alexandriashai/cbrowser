@@ -7,6 +7,8 @@
 console.log("hello-log");
 console.warn("careful-warn");
 console.error("boom-error");
+// A hostile page: OSC 52 clipboard write, screen clear, title change.
+console.log("hostile-\u001b]52;c;cHduZWQ=\u0007-\u001b[2J-\u001b]0;PWNED\u0007-end");
 </script>
 </body>
 </html>
