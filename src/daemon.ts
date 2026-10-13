@@ -20,8 +20,8 @@
  */
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "http";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, createWriteStream, chmodSync } from "fs";
-import { randomBytes, timingSafeEqual } from "crypto";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, createWriteStream, renameSync } from "fs";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { join } from "path";
 import { spawn } from "child_process";
 import { VideoCaptureSession, type VideoCaptureOptions, type VideoCaptureResult } from "./recording/engine.js";
@@ -101,9 +101,12 @@ export function getDaemonState(): DaemonState | null {
  */
 function writeDaemonState(state: DaemonState): void {
   const statePath = getDaemonStatePath();
-  writeFileSync(statePath, JSON.stringify(state, null, 2), { mode: 0o600 });
-  // mode applies only when the file is created; an older state file keeps its mode.
-  chmodSync(statePath, 0o600);
+  // A new file, created 0600 and exclusive, then renamed over the old one: writing
+  // the token into an existing file and chmod-ing afterwards left it readable at the
+  // old mode in between. rename replaces a symlink, it does not follow it.
+  const tmp = `${statePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  writeFileSync(tmp, JSON.stringify(state, null, 2), { mode: 0o600, flag: "wx" });
+  renameSync(tmp, statePath);
 }
 
 /**
@@ -116,6 +119,34 @@ function clearDaemonState(): void {
   }
 }
 
+const proofFor = (token: string, nonce: string): string => createHmac("sha256", token).update(nonce).digest("hex");
+
+/**
+ * Does the process on the recorded port hold this state file's token? It must answer
+ * a fresh nonce with HMAC(token, nonce) before the client sends it anything. If the
+ * daemon died and another local user bound the port, a client that trusted /ping
+ * handed that process the token and obeyed its answers (e.g. HAR content written to
+ * a path the user chose). (2026-10-12)
+ */
+async function verifyDaemon(state: DaemonState, timeoutMs = 1000): Promise<"verified" | "unreachable" | "impostor"> {
+  if (!state.token) return "impostor";
+  const nonce = randomBytes(16).toString("hex");
+  let proof: unknown;
+  try {
+    const response = await fetch(`http://127.0.0.1:${state.port}/ping?nonce=${nonce}`, {
+      method: "GET",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) return "impostor";
+    proof = ((await response.json()) as { proof?: unknown }).proof;
+  } catch {
+    return "unreachable";
+  }
+  const expected = proofFor(state.token, nonce);
+  return typeof proof === "string" && proof.length === expected.length &&
+    timingSafeEqual(Buffer.from(proof), Buffer.from(expected)) ? "verified" : "impostor";
+}
+
 /**
  * Check if daemon is running
  */
@@ -124,19 +155,13 @@ export async function isDaemonRunning(): Promise<boolean> {
   if (!state) {
     return false;
   }
-
-  // Try to ping the daemon
-  try {
-    const response = await fetch(`http://127.0.0.1:${state.port}/ping`, {
-      method: "GET",
-      signal: AbortSignal.timeout(1000),
-    });
-    return response.ok;
-  } catch (e) {
-    console.debug(`[CBrowser] Daemon not responding, cleaning up stale state: ${(e as Error).message}`);
+  const v = await verifyDaemon(state);
+  if (v !== "verified") {
+    console.debug(`[CBrowser] Daemon on port ${state.port} ${v === "unreachable" ? "not responding" : "did not prove it holds the token"}; cleaning up stale state`);
     clearDaemonState();
     return false;
   }
+  return true;
 }
 
 /**
@@ -146,6 +171,10 @@ export async function sendToDaemon(command: string, args: Record<string, unknown
   const state = getDaemonState();
   if (!state) {
     return { success: false, error: "Daemon not running" };
+  }
+  const v = await verifyDaemon(state, 5000);
+  if (v !== "verified") {
+    return { success: false, error: v === "unreachable" ? "Daemon not responding" : `The process on port ${state.port} did not prove it is this daemon; nothing was sent` };
   }
 
   try {
@@ -216,20 +245,29 @@ export async function stopDaemon(): Promise<{ success: boolean; message: string 
   }
 
   try {
-    // Send shutdown command
-    await fetch(`http://127.0.0.1:${state.port}/shutdown`, {
-      method: "POST",
-      headers: { [TOKEN_HEADER]: state.token ?? "" },
-      signal: AbortSignal.timeout(5000),
-    }).catch(() => {});
+    const v = await verifyDaemon(state, 5000);
+    if (v === "verified") {
+      await fetch(`http://127.0.0.1:${state.port}/shutdown`, {
+        method: "POST",
+        headers: { [TOKEN_HEADER]: state.token ?? "" },
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => {});
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
-    // Wait for daemon to stop
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Force kill if still running
+    // Force kill if still running - but only a process that is this daemon (verified,
+    // or /proc names a cbrowser daemon). An unverified state file's pid may by now
+    // belong to anything, and a root CLI could signal any process.
     try {
       process.kill(state.pid, 0); // Check if process exists
-      process.kill(state.pid, "SIGTERM");
+      let isDaemon = v === "verified";
+      if (!isDaemon) {
+        try {
+          const cmd = readFileSync(`/proc/${state.pid}/cmdline`, "utf-8").replace(/\0/g, " ");
+          isDaemon = /cbrowser|cli\.(js|ts)/.test(cmd) && /\bdaemon\b/.test(cmd);
+        } catch { /* no /proc: do not guess */ }
+      }
+      if (isDaemon) process.kill(state.pid, "SIGTERM");
     } catch {
       // Process already gone
     }
@@ -611,9 +649,13 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
       return;
     }
 
-    if (req.url === "/ping" && req.method === "GET") {
+    if (req.url?.startsWith("/ping") && req.method === "GET") {
+      // With ?nonce=, prove this daemon holds the token: HMAC(token, nonce). The
+      // client checks it before it sends the token or trusts an answer.
+      const nonce = new URL(req.url, "http://127.0.0.1").searchParams.get("nonce");
+      const proof = nonce && /^[0-9a-f]{16,128}$/.test(nonce) ? proofFor(token, nonce) : undefined;
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", uptime: process.uptime() }));
+      res.end(JSON.stringify({ status: "ok", uptime: process.uptime(), ...(proof ? { proof } : {}) }));
       return;
     }
 

@@ -13,7 +13,7 @@
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createServer } from "node:net";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Subprocess } from "bun";
@@ -23,6 +23,7 @@ const CLI = resolve(import.meta.dir, "..", "src", "cli.ts");
 const TIMEOUT = 90_000;
 
 let dataDir = "";
+let staleIno = 0;
 let lonelyDir = "";
 let port = 0;
 let daemon: Subprocess | undefined;
@@ -79,6 +80,10 @@ async function cli(dir: string, ...args: string[]): Promise<{ code: number; stdo
 
 beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), "cb-daemon-har-"));
+  // A leftover state file, world-readable: the daemon must replace it with a new
+  // 0600 file, never write the token into this one and chmod afterwards.
+  writeFileSync(join(dataDir, "daemon.json"), "{}", { mode: 0o644 });
+  staleIno = statSync(join(dataDir, "daemon.json")).ino;
   lonelyDir = mkdtempSync(join(tmpdir(), "cb-har-nodaemon-"));
   fixtures = await serveFixtures();
   port = await freePort();
@@ -142,8 +147,9 @@ describe("the daemon only obeys a client holding its token", () => {
   const raw = (headers: Record<string, string>, body: unknown, path = "/command") =>
     fetch(`http://127.0.0.1:${port}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) });
 
-  test("the state file holding the token is owner-only (0600)", () => {
+  test("the state file holding the token is owner-only (0600), a new file, not the old one chmod'ed", () => {
     expect(statSync(join(dataDir, "daemon.json")).mode & 0o777).toBe(0o600);
+    expect(statSync(join(dataDir, "daemon.json")).ino).not.toBe(staleIno);
     expect(daemonToken().length).toBeGreaterThanOrEqual(32);
   });
 
@@ -173,6 +179,42 @@ describe("the daemon only obeys a client holding its token", () => {
     expect(existsSync(target)).toBe(false);
     expect(typeof (r.result as { har?: string }).har).toBe("string");
   });
+});
+
+// If the daemon dies and another local user binds its port, a client that trusted
+// /ping would hand that process the token and obey its answers.
+describe("the client only talks to a daemon that proves it holds the token", () => {
+  test("an impostor on the recorded port never receives the token", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cb-impostor-"));
+    const seen: string[] = [];
+    const impostor = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (req) => {
+      const tok = req.headers.get("x-cbrowser-daemon-token");
+      if (tok) seen.push(tok);
+      if (new URL(req.url).pathname === "/ping") return Response.json({ status: "ok", uptime: 1 });
+      return Response.json({ success: true, result: { file: "/tmp/x", har: "planted" } });
+    } });
+    try {
+      const token = "a".repeat(64);
+      writeFileSync(join(dir, "daemon.json"), JSON.stringify({ pid: process.pid, port: impostor.port, startedAt: "", lastActivity: "", token }), { mode: 0o600 });
+      // Run the real client in a child with this data dir. Async: spawnSync would block
+      // this process, the impostor could not answer, and the test would pass vacuously.
+      const probe = Bun.spawn(["bun", "-e", `
+        const d = await import(${JSON.stringify(resolve(import.meta.dir, "..", "src", "daemon.ts"))});
+        const running = await d.isDaemonRunning();
+        const r = await d.sendToDaemon("harStop", {});
+        console.log(JSON.stringify({ running, success: r.success, error: r.error ?? null }));`], { env: { ...process.env, CBROWSER_DATA_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      await probe.exited;
+      const text = (await new Response(probe.stdout).text()).trim();
+      const out = JSON.parse(text.split("\n").pop() || "null");
+      expect(out, "the client probe must report").not.toBeNull();
+      expect(out.running).toBe(false);
+      expect(out.success).toBe(false);
+      expect(seen).toEqual([]);
+    } finally {
+      impostor.stop(true);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT);
 });
 
 describe("HAR without a daemon", () => {
