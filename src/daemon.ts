@@ -290,6 +290,12 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
   // `navigate` calls hit the same browser, so their effects land in the frames.
   let capture: VideoCaptureSession | null = null;
   let captureResult: VideoCaptureResult | null = null;
+  /**
+   * HAR recording lives in the daemon's browser, the only one that outlives a CLI
+   * command. Recorded in a client process, `har start` / navigate / `har stop`
+   * were three processes and the HAR came back empty (2026-10-12).
+   */
+  let harRecording = false;
 
   /**
    * Ceiling on a single command. A wedged command used to present as an
@@ -437,6 +443,32 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
             { src: req.args.body as string, a: (req.args.args as unknown[]) ?? [] },
           );
           return { success: true, result, zone: "red" };
+        }
+
+        // The request log, like a HAR, is only meaningful in the browser that
+        // outlives commands. (2026-10-12)
+        case "networkList": {
+          return { success: true, result: { requests: b.getNetworkRequests() } };
+        }
+
+        case "networkClear": {
+          b.clearNetworkHistory();
+          return { success: true, result: { cleared: true } };
+        }
+
+        case "harStart": {
+          b.startHarRecording();
+          harRecording = true;
+          return { success: true, result: { recording: true } };
+        }
+
+        case "harStop": {
+          if (!harRecording) {
+            return { success: false, error: "No HAR recording is running in the daemon; run 'cbrowser har start' first" };
+          }
+          const file = await b.exportHar(typeof req.args.output === "string" ? req.args.output : undefined);
+          harRecording = false;
+          return { success: true, result: { file } };
         }
 
         case "captureStart": {

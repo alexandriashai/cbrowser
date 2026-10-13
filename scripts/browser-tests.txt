@@ -24,6 +24,7 @@ tests/cli-evaluate-keyboard.test.ts
 tests/clickables-offscreen-text-region.test.ts
 tests/cognitive-effort-motor-preview.test.ts
 tests/daemon-evaluate-red-zone.test.ts
+tests/daemon-har.test.ts
 tests/empathy-animation-criteria.test.ts
 tests/empathy-disability-label.test.ts
 tests/empathy-element-counts-full-page.test.ts

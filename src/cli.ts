@@ -386,10 +386,12 @@ PERFORMANCE REGRESSION (v6.4.0)
       cbrowser perf-regression "https://example.com" homepage --sensitivity strict
       cbrowser perf-regression "https://example.com" homepage --threshold-lcp 30
 
-NETWORK / HAR
-  har start                   Start recording HAR
+NETWORK / HAR (need the daemon: each command is its own process)
+  daemon start                Start the daemon first; it holds the browser between commands
+  har start                   Start recording HAR in the daemon's browser
   har stop [output]           Stop and save HAR file
-  network list                List captured network requests
+  network list                List network requests the daemon's browser captured
+  network clear               Clear that list
 
 VISUAL REGRESSION (v2.5.0)
   visual save <name>          Save baseline screenshot
@@ -4780,24 +4782,35 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "har": {
         const subcommand = args[0];
-
-        switch (subcommand) {
-          case "start": {
-            browser.startHarRecording();
-            console.log("✓ HAR recording started");
-            console.log("  Navigate and interact with pages, then run 'cbrowser har stop'");
-            break;
-          }
-          case "stop": {
-            const output = args[1];
-            const filename = await browser.exportHar(output);
-            console.log(`✓ HAR saved: ${filename}`);
-            break;
-          }
-          default:
-            console.error("Usage: cbrowser har [start|stop]");
+        if (subcommand !== "start" && subcommand !== "stop") {
+          console.error("Usage: cbrowser har [start|stop]");
+          break;
         }
-        break;
+        // A recording has to span several commands, and each cbrowser command is
+        // its own process: only the daemon's browser outlives them. Recorded here,
+        // start, navigate and stop were three processes and every HAR was empty,
+        // with or without a daemon, while this printed "started" and "saved".
+        // (2026-10-12)
+        if (!(await isDaemonRunning())) {
+          console.error("Error: HAR recording spans several commands, and each cbrowser command is its own process,");
+          console.error("  so nothing records between them. Start the daemon first:");
+          console.error("  cbrowser daemon start  ->  cbrowser har start  ->  navigate/click...  ->  cbrowser har stop [file]");
+          process.exit(1);
+        }
+        const response = subcommand === "start"
+          ? await sendToDaemon("harStart", {})
+          : await sendToDaemon("harStop", args[1] ? { output: resolve(args[1]) } : {});
+        if (!response.success) {
+          console.error(`✗ Daemon error: ${response.error}`);
+          process.exit(1);
+        }
+        if (subcommand === "start") {
+          console.log("✓ HAR recording started in the daemon");
+          console.log("  Navigate and interact with pages, then run 'cbrowser har stop'");
+        } else {
+          console.log(`✓ HAR saved: ${(response.result as { file: string }).file}`);
+        }
+        process.exit(0);
       }
 
       // =========================================================================
@@ -4806,10 +4819,37 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "network": {
         const subcommand = args[0];
-
+        if (subcommand !== "list" && subcommand !== "clear") {
+          console.error("Usage: cbrowser network [list|clear]");
+          break;
+        }
+        // Same reason as har: the request log lives in a browser, and only the
+        // daemon's browser outlives a command. A fresh process always listed
+        // nothing and said "Navigate to a page first", even right after a
+        // navigate. (2026-10-12)
+        if (!(await isDaemonRunning())) {
+          console.error("Error: the network log only spans commands in the daemon's browser; each cbrowser command is");
+          console.error("  its own process. Start the daemon first:");
+          console.error("  cbrowser daemon start  ->  navigate/click...  ->  cbrowser network list");
+          process.exit(1);
+        }
+        if (subcommand === "clear") {
+          const cleared = await sendToDaemon("networkClear", {});
+          if (!cleared.success) {
+            console.error(`✗ Daemon error: ${cleared.error}`);
+            process.exit(1);
+          }
+          console.log("✓ Network history cleared");
+          process.exit(0);
+        }
+        const listed = await sendToDaemon("networkList", {});
+        if (!listed.success) {
+          console.error(`✗ Daemon error: ${listed.error}`);
+          process.exit(1);
+        }
         switch (subcommand) {
           case "list": {
-            const requests = browser.getNetworkRequests();
+            const requests = (listed.result as { requests: ReturnType<typeof browser.getNetworkRequests> }).requests;
             if (requests.length === 0) {
               console.log("No network requests captured");
               console.log("Navigate to a page first to capture requests");
@@ -4825,15 +4865,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             }
             break;
           }
-          case "clear": {
-            browser.clearNetworkHistory();
-            console.log("✓ Network history cleared");
-            break;
-          }
-          default:
-            console.error("Usage: cbrowser network [list|clear]");
         }
-        break;
+        process.exit(0);
       }
 
       // =========================================================================
