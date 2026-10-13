@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.4.3](https://github.com/alexandriashai/cbrowser/compare/v19.4.2...v19.4.3) (2026-10-13)
+
+### Fixed
+
+* **cli:** har and network go through the daemon's browser ([ed9ce5a](https://github.com/alexandriashai/cbrowser/commit/ed9ce5acbb1f7c013a65bb9ac011c75107db4549))
+* **daemon:** client verifies the daemon before sending the token ([c8ac111](https://github.com/alexandriashai/cbrowser/commit/c8ac111eb57a796aa9ea817f85c1f9791055b72b))
+* **daemon:** commands need the daemon's token; no client paths for har ([25bcea4](https://github.com/alexandriashai/cbrowser/commit/25bcea46cb67f3d1f456af0d40330227db8a1a27))
+
 ## [19.4.2](https://github.com/alexandriashai/cbrowser/compare/v19.4.1...v19.4.2) (2026-10-13)
 
 ### Fixed
