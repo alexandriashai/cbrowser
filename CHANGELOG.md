@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.4.2](https://github.com/alexandriashai/cbrowser/compare/v19.4.1...v19.4.2) (2026-10-13)
+
+### Fixed
+
+* **a11y:** an inline link is still a 2.5.8 spacing neighbour ([4509164](https://github.com/alexandriashai/cbrowser/commit/4509164eaf789f9ec597108c60c603f1d93556ff))
+
 ## [19.4.1](https://github.com/alexandriashai/cbrowser/compare/v19.4.0...v19.4.1) (2026-10-12)
 
 ### Fixed
