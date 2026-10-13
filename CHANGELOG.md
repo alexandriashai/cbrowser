@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.5.0](https://github.com/alexandriashai/cbrowser/compare/v19.4.3...v19.5.0) (2026-10-13)
+
+### Added
+
+* **cli:** cbrowser console, served by the daemon ([0ee2c27](https://github.com/alexandriashai/cbrowser/commit/0ee2c272ffc04d8bb0dad9fae53e6c69db3260fc))
+
+### Fixed
+
+* **cli:** page text cannot drive the terminal ([97bd91d](https://github.com/alexandriashai/cbrowser/commit/97bd91d6163dd5a859eddf2a434a561b1ad3bf46))
+
 ## [19.4.3](https://github.com/alexandriashai/cbrowser/compare/v19.4.2...v19.4.3) (2026-10-13)
 
 ### Fixed
