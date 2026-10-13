@@ -392,6 +392,10 @@ NETWORK / HAR (need the daemon: each command is its own process)
   har stop [output]           Stop and save HAR file
   network list                List network requests the daemon's browser captured
   network clear               Clear that list
+  console                     List the daemon tab's console messages (errors, warnings, logs)
+    --filter <type>           all | error | warning | log | info (default all)
+    --clear                   Empty the console buffer after reading
+    --json                    Print the raw messages as JSON
 
 VISUAL REGRESSION (v2.5.0)
   visual save <name>          Save baseline screenshot
@@ -4825,6 +4829,43 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // =========================================================================
       // Network
       // =========================================================================
+
+      case "console": {
+        // The daemon tab's console (log, info, warning, error, uncaught exceptions,
+        // failed resources), as get_console_messages returns it over MCP. Served by
+        // the daemon: a fresh process has no tab and would always list nothing.
+        const filter = typeof options.filter === "string" ? options.filter : "all";
+        if (!["all", "error", "warning", "log", "info"].includes(filter)) {
+          console.error(`Error: --filter must be one of all, error, warning, log, info (got "${filter}")`);
+          process.exit(1);
+        }
+        if (!(await isDaemonRunning())) {
+          console.error("Error: the console log only spans commands in the daemon's browser; each cbrowser command is");
+          console.error("  its own process. Start the daemon first:");
+          console.error("  cbrowser daemon start  ->  navigate/click...  ->  cbrowser console [--filter error] [--clear] [--json]");
+          process.exit(1);
+        }
+        const response = await sendToDaemon("consoleMessages", { filter, clear: options.clear === true });
+        if (!response.success) {
+          console.error(`✗ Daemon error: ${response.error}`);
+          process.exit(1);
+        }
+        const out = response.result as { messages: Array<{ type: string; text: string; source: string; url?: string; lineNumber?: number; pageUrl: string }>; count: number; dropped?: number };
+        if (options.json === true) {
+          console.log(JSON.stringify(out, null, 2));
+        } else if (out.count === 0) {
+          console.log(filter === "all" ? "No console messages" : `No ${filter} console messages`);
+        } else {
+          console.log(`\n🖥  Console (${out.count}${out.dropped ? `, ${out.dropped} older dropped` : ""}):\n`);
+          for (const m of out.messages) {
+            const where = m.url ? ` (${m.url}${m.lineNumber !== undefined ? `:${m.lineNumber}` : ""})` : "";
+            console.log(`  [${m.type}${m.source === "pageerror" ? ", uncaught" : ""}] ${m.text}${where}`);
+            console.log(`    on ${m.pageUrl}`);
+          }
+        }
+        if (options.clear === true) console.log("✓ Console cleared");
+        process.exit(0);
+      }
 
       case "network": {
         const subcommand = args[0];

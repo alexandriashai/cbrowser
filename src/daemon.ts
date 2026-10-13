@@ -499,6 +499,21 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
 
         // The request log, like a HAR, is only meaningful in the browser that
         // outlives commands. (2026-10-12)
+        // The console buffer of the daemon's tab: what get_console_messages returns
+        // over MCP, for the CLI. Same filter set; clear empties it after reading.
+        // (2026-10-12)
+        case "consoleMessages": {
+          const filter = typeof req.args.filter === "string" ? req.args.filter : "all";
+          if (!["all", "error", "warning", "log", "info"].includes(filter)) {
+            return { success: false, error: `filter must be one of all, error, warning, log, info (got "${filter}")` };
+          }
+          await b.getPage(); // a tab exists, so its console capture is attached
+          const { messages, dropped } = b.getConsoleMessages();
+          const filtered = filter === "all" ? messages : messages.filter((m) => m.type === filter);
+          if (req.args.clear === true) b.clearConsoleMessages();
+          return { success: true, result: { messages: filtered, count: filtered.length, ...(dropped > 0 ? { dropped } : {}) } };
+        }
+
         case "networkList": {
           return { success: true, result: { requests: b.getNetworkRequests() } };
         }

@@ -217,11 +217,61 @@ describe("the client only talks to a daemon that proves it holds the token", () 
   }, TIMEOUT);
 });
 
+// cbrowser console (2026-10-12): the MCP get_console_messages, from the CLI. Served by
+// the daemon for the same reason as har and network: a fresh process has no tab.
+describe("console through the daemon", () => {
+  test("lists what the page logged; --filter error keeps only errors; --clear empties it", async () => {
+    const nav = await cli(dataDir, "navigate", `${fixtures.base}console.html`);
+    expect(nav.code, nav.stderr).toBe(0);
+    const all = await cli(dataDir, "console");
+    expect(all.code, all.stderr).toBe(0);
+    for (const s of ["hello-log", "careful-warn", "boom-error"]) expect(all.stdout).toContain(s);
+    expect(all.stdout).toContain("console.html");
+    const errors = await cli(dataDir, "console", "--filter", "error");
+    expect(errors.code, errors.stderr).toBe(0);
+    expect(errors.stdout).toContain("boom-error");
+    expect(errors.stdout).not.toContain("hello-log");
+    const json = await cli(dataDir, "console", "--json");
+    const parsed = JSON.parse(json.stdout.slice(json.stdout.indexOf("{")));
+    expect(parsed.count).toBeGreaterThanOrEqual(3);
+    expect(parsed.messages.some((m: { type: string; text: string }) => m.type === "error" && m.text === "boom-error")).toBe(true);
+    const cleared = await cli(dataDir, "console", "--clear");
+    expect(cleared.code, cleared.stderr).toBe(0);
+    const after = await cli(dataDir, "console");
+    expect(after.stdout).not.toContain("boom-error");
+  }, TIMEOUT);
+
+  test("the daemon serves consoleMessages directly (token required, filter checked)", async () => {
+    expect((await post("navigate", { url: `${fixtures.base}console.html` })).success).toBe(true);
+    const warn = await post("consoleMessages", { filter: "warning" });
+    expect(warn.success).toBe(true);
+    const r = warn.result as { messages: Array<{ type: string; text: string }>; count: number };
+    expect(r.messages.map((m) => m.text)).toContain("careful-warn");
+    expect(r.messages.every((m) => m.type === "warning")).toBe(true);
+    const bad = await post("consoleMessages", { filter: "bogus" });
+    expect(bad.success).toBe(false);
+    const noToken = await fetch(`http://127.0.0.1:${port}/command`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: "consoleMessages", args: {} }) });
+    expect(noToken.status).toBe(401);
+  }, TIMEOUT);
+
+  test("an unknown --filter value is refused, not silently ignored", async () => {
+    const r = await cli(dataDir, "console", "--filter", "errors");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toMatch(/--filter/);
+  }, TIMEOUT);
+});
+
 describe("HAR without a daemon", () => {
   test("har start refuses and names the daemon, instead of claiming a recording", async () => {
     const r = await cli(lonelyDir, "har", "start");
     expect(r.code).toBe(1);
     expect(r.stdout).not.toMatch(/HAR recording started/);
+    expect(r.stderr).toMatch(/daemon start/);
+  }, TIMEOUT);
+
+  test("console refuses too, and names the daemon", async () => {
+    const r = await cli(lonelyDir, "console");
+    expect(r.code).toBe(1);
     expect(r.stderr).toMatch(/daemon start/);
   }, TIMEOUT);
 
