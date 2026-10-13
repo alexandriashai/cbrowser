@@ -29,6 +29,7 @@ import { CBrowser } from "./browser.js";
 import { executeNaturalLanguage } from "./analysis/index.js";
 import { getPaths, mergeConfig, type CBrowserConfig } from "./config.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
+import { evaluateScript } from "./eval-script.js";
 
 const DEFAULT_PORT = 9222;
 const DAEMON_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
@@ -487,13 +488,18 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
           const refusal = evaluateScriptRefusal(req.args.force);
           if (refusal) return { success: false, error: refusal, zone: "red" };
           const page = await b.getPage();
-          const result = await page.evaluate(
-            (payload: { src: string; a: unknown[] }) => {
-              const fn = new Function("args", payload.src);
-              return fn(payload.a);
-            },
-            { src: req.args.body as string, a: (req.args.args as unknown[]) ?? [] },
-          );
+          const evalArgs = (req.args.args as unknown[]) ?? [];
+          // `script`: a caller's script in any shape, compiled as the local CLI does
+          // (src/eval-script.ts). `body`: a function body, kept for older clients.
+          const result = typeof req.args.script === "string"
+            ? await evaluateScript(page, req.args.script, evalArgs)
+            : await page.evaluate(
+              (payload: { src: string; a: unknown[] }) => {
+                const fn = new Function("args", payload.src);
+                return fn(payload.a);
+              },
+              { src: req.args.body as string, a: evalArgs },
+            );
           return { success: true, result, zone: "red" };
         }
 

@@ -124,6 +124,47 @@ afterAll(async () => {
   if (dataDir) rmSync(dataDir, { recursive: true, force: true });
 });
 
+// Reported 2026-10-13: "CBrowser's evaluate also drops anything with the function
+// keyword." The shape was decided by regex: a script starting with "function" or
+// holding "=>" anywhere was taken for one callable literal, and any "return" -
+// even inside a nested function - switched off the last-expression value.
+describe("evaluate: scripts with functions in them", () => {
+  const TITLE = "Keyboard fixture";
+  const shapes: Array<[string, string]> = [
+    ["a function declaration, then a call", "function t(){ return document.title }; t()"],
+    ["a function expression in a const, then a call", "const t = function(){ return document.title }; t()"],
+    ["an IIFE", "(function(){ return document.title })()"],
+    ["an arrow inside an expression", "[document.title].map(t => t)[0]"],
+    ["a callback with return inside, last expression after", "const ts = [document.title].map(function(t){ return t }); ts[0]"],
+  ];
+  for (const [name, script] of shapes) {
+    test(name, async () => {
+      const result = await cli("evaluate", script, "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout).toContain(TITLE);
+    }, TIMEOUT);
+  }
+
+  test("an expression whose value is a built-in function is returned, not called", async () => {
+    const result = await cli("evaluate", "window.getComputedStyle", "--url", `${baseUrl}/keyboard.html`, "--force");
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stderr).not.toMatch(/Illegal invocation|TypeError/);
+  }, TIMEOUT);
+
+  test("a statement body's last expression is still its value", async () => {
+    const result = await cli("evaluate", "let x = 2; x * 3", "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
+    expect(result.code, result.stderr).toBe(0);
+    // stdout also carries the persistent-context line; the result is the last line.
+    expect(result.stdout.trim().split("\n").pop()).toBe("6");
+  }, TIMEOUT);
+
+  test("sloppy-mode statements keep their last value (the probe is strict)", async () => {
+    const result = await cli("evaluate", "var package = 41; package + 1", "--url", `${baseUrl}/keyboard.html`, "--raw", "--force");
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout.trim().split("\n").pop()).toBe("42");
+  }, TIMEOUT);
+});
+
 describe("evaluate", () => {
   test("the original one-argument form still works", async () => {
     const result = await cli("evaluate", "1 + 1", "--url", `${baseUrl}/keyboard.html`, "--force");

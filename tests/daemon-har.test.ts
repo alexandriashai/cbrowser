@@ -270,6 +270,19 @@ describe("console through the daemon", () => {
   }, TIMEOUT);
 });
 
+// The daemon path wrapped the script in a function body and, if "return" appeared
+// anywhere, ran it as statements: an IIFE's value was dropped. (2026-10-13)
+describe("evaluate through the daemon keeps function results", () => {
+  for (const script of ["(function(){ return document.title })()", "function t(){ return document.title }; t()", "[document.title].map(function(t){ return t })[0]"]) {
+    test(script, async () => {
+      expect((await cli(dataDir, "navigate", `${fixtures.base}keyboard.html`)).code).toBe(0);
+      const r = await cli(dataDir, "evaluate", script, "--force");
+      expect(r.code, r.stderr).toBe(0);
+      expect(r.stdout).toContain("Keyboard fixture");
+    }, TIMEOUT);
+  }
+});
+
 describe("HAR without a daemon", () => {
   test("har start refuses and names the daemon, instead of claiming a recording", async () => {
     const r = await cli(lonelyDir, "har", "start");

@@ -47,6 +47,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync,
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
 import { dirname, join, resolve } from "node:path";
 import { guardConsole, guardTerminalOutput } from "./terminal-safe.js";
+import { evaluateScript } from "./eval-script.js";
 import { VideoCaptureSession, type CaptureFormat } from "./recording/engine.js";
 import { changeSignal, parseManifest, type RecordingTarget } from "./recording/types.js";
 import type { AutoCaptureResult, AutoCaptureSetting } from "./recording/auto-capture.js";
@@ -1972,74 +1973,6 @@ function repeatedFlag(name: string): string[] {
   return values;
 }
 
-/**
- * Evaluate a script in the page, accepting all three shapes people write.
- *
- * `--file` exists because multi-line scripts die in shell quoting, so it has to
- * accept real scripts - `const`, `let`, an explicit `return` - not only a
- * single expression. The source is compiled inside the page as a function
- * body: a bare expression gets an implicit return, a statement body keeps its
- * own, and a function/arrow literal is called with the arguments.
- */
-async function evaluateScript(
-  page: Awaited<ReturnType<CBrowser["getPage"]>>,
-  script: string,
-  args: unknown[],
-): Promise<unknown> {
-  const source = script.trim();
-
-  // A function or arrow literal is called with the arguments directly.
-  const isCallable = /^(async\s+)?function\b/.test(source) || /=>/.test(source);
-
-  return page.evaluate(
-    (payload: { src: string; a: unknown[]; callable: boolean }) => {
-      if (payload.callable) {
-        const fn = (0, eval)(`(${payload.src})`);
-        return fn(...payload.a);
-      }
-
-      // Compile in the page, trying the three shapes people write, in order.
-      // Deciding by regex was wrong twice: `({a:1}).a` starts with "(" but is
-      // not a function, and a statement body with no `return` silently produced
-      // undefined. Letting the JS parser decide is the only reliable test.
-      // `new Function` is typed as the bare `Function`, which accepts any callable and
-      // gives no signature to check a call against - including a class, which would throw
-      // at runtime when invoked without `new`. Every function built below has the same
-      // shape, so state it once and cast to it.
-      type Compiled = (args: unknown[]) => unknown;
-
-      const compile = (src: string): Compiled => {
-        // 1. A bare expression: implicit return.
-        try {
-          return new Function("args", `return (${src});`) as Compiled;
-        } catch { /* not an expression */ }
-
-        // 2. Statements with no explicit return: return the final expression,
-        //    which is what a REPL and the old one-arg form both did.
-        if (!/\breturn\b/.test(src)) {
-          const trimmed = src.replace(/;\s*$/, "");
-          const split = Math.max(trimmed.lastIndexOf(";"), trimmed.lastIndexOf("\n"));
-          if (split > -1) {
-            const head = trimmed.slice(0, split + 1);
-            const tail = trimmed.slice(split + 1).trim();
-            if (tail) {
-              try {
-                return new Function("args", `${head}\nreturn (${tail});`) as Compiled;
-              } catch { /* the tail is not an expression either */ }
-            }
-          }
-        }
-
-        // 3. Statements as written. Any syntax error surfaces from here, which
-        //    is the error the user should actually see.
-        return new Function("args", src) as Compiled;
-      };
-
-      return compile(payload.src)(payload.a);
-    },
-    { src: source, a: args, callable: isCallable },
-  );
-}
 
 /**
  * Run JavaScript in the page.
@@ -3284,7 +3217,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("  Re-run with --force to run it anyway.");
           process.exit(1);
         }
-        daemonArgs = { body: `return (function(){ ${/\breturn\b/.test(script) ? script : `return (${script});`} })();`, args: [], force: true };
+        // The raw script: the daemon compiles it with the same evaluateScript as the
+        // local path. This hand-built body treated a "return" anywhere - even inside
+        // a nested function - as statements, and an IIFE's value was dropped.
+        // (2026-10-13)
+        daemonArgs = { script, args: [], force: true };
         break;
       }
       case "screenshot": {
