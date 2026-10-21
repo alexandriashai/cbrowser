@@ -15,6 +15,8 @@ import { CBrowser } from "./browser.js";
 import { parseArgs } from "./cli-args.js";
 import { browserFlagsOrExit, refuseBrowserFlags } from "./cli-browser-flags.js";
 import { browserLaunchConfig } from "./browser-options.js";
+import { SENT_WEBHOOK_EVENTS, WEBHOOK_FORMATS, WEBHOOK_TIMEOUT_MS, loadWebhooks, sendWebhookEvent, webhookUrlProblem, webhooksPath } from "./webhooks.js";
+import { loadSuiteForExport, resultsName, saveSuiteResult } from "./testing/suite-results.js";
 
 // Analysis module imports
 import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport, runWebMCPReadyAudit, generateWebMCPReadyHtmlReport, runAIReadinessBenchmark } from "./analysis/index.js";
@@ -249,6 +251,8 @@ MULTI-PERSONA COMPARISON (v6.0.0)
 
 NATURAL LANGUAGE TEST SUITES (v6.1.0)
   test-suite <file.txt>        Run tests written in plain English
+                               Saves each run for 'export'; sends test.pass or
+                               test.fail to webhooks ('webhook add')
     --continue-on-failure      Keep running after a test fails
     --screenshot-on-failure    Take screenshots on failure (default: true)
     --output <file>            Save JSON report to file
@@ -699,10 +703,12 @@ SCREEN CAPTURE (video/GIF — distinct from 'record', which captures actions)
 TEST EXPORT (v2.5.0)
   export junit <name> [output]   Export test results as JUnit XML
   export tap <name> [output]     Export test results as TAP format
+    <name> is a suite test-suite has run (its file name); each run is saved
 
 WEBHOOKS (v2.5.0)
-  webhook add <name> <url>    Add webhook notification
-    --events <events>         Comma-separated: test.pass,test.fail,journey.complete
+  webhook add <name> <url>    Add webhook notification (http or https)
+    --events <events>         test.pass,test.fail (default: test.fail); test-suite
+                              sends one per run, JSON, 10s timeout, no retries
     --format <format>         slack, discord, or generic
   webhook list                List configured webhooks
   webhook delete <name>       Delete a webhook
@@ -5966,30 +5972,25 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("Usage: cbrowser export [junit|tap] <name> [output]");
           process.exit(1);
         }
+        if (format !== "junit" && format !== "tap") {
+          console.error("Unknown export format. Use 'junit' or 'tap'");
+          process.exit(1);
+        }
 
-        // Load test results (for now, create a mock suite)
-        const fs = await import("fs");
-        const path = await import("path");
-        const resultsPath = path.join(browser.getDataDir(), "results", `${name}.json`);
-
-        let suite;
-        if (fs.existsSync(resultsPath)) {
-          suite = JSON.parse(fs.readFileSync(resultsPath, "utf-8"));
-        } else {
+        // The last `test-suite` run of that suite (it saves every run).
+        const suite = loadSuiteForExport(browser.getDataDir(), name);
+        if (!suite) {
           console.error(`Test results not found: ${name}`);
-          console.error("Run tests first to generate results");
+          console.error(`  Run 'cbrowser test-suite <file>' first; it saves results as ${resultsName(name)}.json under ${join(browser.getDataDir(), "results")}`);
           process.exit(1);
         }
 
         if (format === "junit") {
           const exportPath = browser.exportJUnit(suite, output);
           console.log(`✓ JUnit XML exported: ${exportPath}`);
-        } else if (format === "tap") {
+        } else {
           const exportPath = browser.exportTAP(suite, output);
           console.log(`✓ TAP exported: ${exportPath}`);
-        } else {
-          console.error("Unknown export format. Use 'junit' or 'tap'");
-          process.exit(1);
         }
         break;
       }
@@ -6001,14 +6002,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "webhook": {
         const subcommand = args[0];
         const fs = await import("fs");
-        const path = await import("path");
-        const webhooksPath = path.join(browser.getDataDir(), "webhooks.json");
+        const hooksFile = webhooksPath(browser.getDataDir());
 
         // Load existing webhooks
-        let webhooks: Array<{ name: string; url: string; events: string[]; format: string }> = [];
-        if (fs.existsSync(webhooksPath)) {
-          webhooks = JSON.parse(fs.readFileSync(webhooksPath, "utf-8"));
-        }
+        let webhooks = loadWebhooks(browser.getDataDir());
 
         switch (subcommand) {
           case "add": {
@@ -6018,16 +6015,32 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Usage: cbrowser webhook add <name> <url> [--events <events>] [--format <format>]");
               process.exit(1);
             }
-            const events = options.events
-              ? (options.events as string).split(",")
-              : ["test.fail", "journey.complete"];
-            const format = (options.format as string) || "generic";
+            const urlProblem = webhookUrlProblem(url);
+            if (urlProblem) {
+              console.error(`Error: ${urlProblem}`);
+              process.exit(1);
+            }
+            // Only events something sends. journey.complete was the default
+            // and nothing ever sent it, nor test.fail (audit O17).
+            const events = options.events === undefined
+              ? ["test.fail"]
+              : String(options.events).split(",").map((e) => e.trim()).filter(Boolean);
+            const unsent = events.filter((e) => !(SENT_WEBHOOK_EVENTS as readonly string[]).includes(e));
+            if (events.length === 0 || unsent.length > 0) {
+              console.error(`Error: no command sends ${unsent.join(", ") || "an empty event list"}. Events sent: ${SENT_WEBHOOK_EVENTS.join(", ")} (by test-suite, once per run)`);
+              process.exit(1);
+            }
+            const format = options.format === undefined ? "generic" : String(options.format);
+            if (!(WEBHOOK_FORMATS as readonly string[]).includes(format)) {
+              console.error(`Error: --format must be ${WEBHOOK_FORMATS.join(", ")}, got "${format}"`);
+              process.exit(1);
+            }
 
             // Remove existing webhook with same name
             webhooks = webhooks.filter(w => w.name !== name);
             webhooks.push({ name, url, events, format });
 
-            fs.writeFileSync(webhooksPath, JSON.stringify(webhooks, null, 2));
+            fs.writeFileSync(hooksFile, JSON.stringify(webhooks, null, 2));
             console.log(`✓ Webhook added: ${name}`);
             console.log(`  URL: ${url}`);
             console.log(`  Events: ${events.join(", ")}`);
@@ -6040,9 +6053,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             } else {
               console.log("\n🔔 Configured Webhooks:\n");
               for (const w of webhooks) {
+                // Saved before 20.0, an event nothing sends (journey.complete) is named as such.
+                const unsent = w.events.filter((e) => !(SENT_WEBHOOK_EVENTS as readonly string[]).includes(e));
                 console.log(`  ${w.name}`);
                 console.log(`    URL: ${w.url}`);
-                console.log(`    Events: ${w.events.join(", ")}`);
+                console.log(`    Events: ${w.events.join(", ")}${unsent.length > 0 ? ` (never sent: ${unsent.join(", ")})` : ""}`);
                 console.log(`    Format: ${w.format}`);
                 console.log("");
               }
@@ -6058,7 +6073,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             const originalLength = webhooks.length;
             webhooks = webhooks.filter(w => w.name !== name);
             if (webhooks.length < originalLength) {
-              fs.writeFileSync(webhooksPath, JSON.stringify(webhooks, null, 2));
+              fs.writeFileSync(hooksFile, JSON.stringify(webhooks, null, 2));
               console.log(`✓ Webhook deleted: ${name}`);
             } else {
               console.error(`✗ Webhook not found: ${name}`);
@@ -6078,6 +6093,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               process.exit(1);
             }
 
+            const urlProblem = webhookUrlProblem(webhook.url);
+            if (urlProblem) {
+              console.error(`✗ ${urlProblem}`);
+              process.exit(1);
+            }
+
             // Send test notification
             const testPayload = webhook.format === "slack"
               ? { text: "🔔 CBrowser test notification" }
@@ -6090,6 +6111,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(testPayload),
+                redirect: "error",
+                signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
               });
               if (response.ok) {
                 console.log(`✓ Test notification sent to: ${name}`);
@@ -6785,6 +6808,24 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const report = formatNLTestReport(result);
         console.log(report);
         reportAutoCapture(result.capture);
+
+        // Saved for `cbrowser export junit|tap`, which read this directory
+        // while nothing wrote it (audit O17).
+        const savedPath = saveSuiteResult(browser.getDataDir(), result);
+        console.log(`\n💾 Results saved: ${savedPath} (export: cbrowser export junit ${resultsName(result.name)})`);
+
+        // Webhooks: one event per run. A failed send is a warning, never the
+        // run's result.
+        await sendWebhookEvent(browser.getDataDir(), result.summary.failed > 0 ? "test.fail" : "test.pass", {
+          suite: result.name,
+          summary: {
+            total: result.summary.total,
+            passed: result.summary.passed,
+            failed: result.summary.failed,
+            skipped: result.summary.skipped,
+          },
+          failedTests: result.testResults.filter((t) => !t.passed).map((t) => ({ name: t.name, ...(t.error ? { error: t.error } : {}) })),
+        });
 
         // Save JSON output if requested
         if (options.output) {

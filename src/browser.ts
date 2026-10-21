@@ -7412,13 +7412,21 @@ For more help: https://playwright.dev/docs/browsers
   exportJUnit(suite: { name: string; tests: Array<{ name: string; status: string; duration: number; error?: string }> }, outputPath?: string): string {
     const filename = outputPath || join(this.paths.dataDir, `junit-${Date.now()}.xml`);
 
+    // Names and errors are page and test-file text: escaped, or a test named
+    // "Search & filter" wrote XML no CI parser accepts. A failed test is a
+    // failure with or without an error message; it used to pass without one.
+    const esc = (text: string): string =>
+      text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const failures = suite.tests.filter((t) => t.status === "failed").length;
+
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<testsuite name="${suite.name}" tests="${suite.tests.length}">\n`;
+    xml += `<testsuite name="${esc(suite.name)}" tests="${suite.tests.length}" failures="${failures}">\n`;
 
     for (const test of suite.tests) {
-      xml += `  <testcase name="${test.name}" time="${(test.duration / 1000).toFixed(3)}">\n`;
-      if (test.status === "failed" && test.error) {
-        xml += `    <failure message="${test.error.replace(/"/g, "&quot;")}">${test.error}</failure>\n`;
+      xml += `  <testcase name="${esc(test.name)}" time="${(test.duration / 1000).toFixed(3)}">\n`;
+      if (test.status === "failed") {
+        const message = test.error || "failed";
+        xml += `    <failure message="${esc(message)}">${esc(message)}</failure>\n`;
       }
       xml += `  </testcase>\n`;
     }
@@ -7440,7 +7448,8 @@ For more help: https://playwright.dev/docs/browsers
 
     suite.tests.forEach((test, i) => {
       const status = test.status === "passed" ? "ok" : "not ok";
-      tap += `${status} ${i + 1} ${test.name}\n`;
+      // One line per test, and a "#" in a name is not read as a directive.
+      tap += `${status} ${i + 1} ${test.name.replace(/[\r\n]+/g, " ").replace(/#/g, "\\#")}\n`;
     });
 
     writeFileSync(filename, tap);
