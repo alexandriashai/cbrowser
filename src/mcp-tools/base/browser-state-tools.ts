@@ -9,7 +9,8 @@
 
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { evaluateScriptRefusal, RED_ZONE_MCP_HINT } from "../../security/script-gate.js";
+import { evaluateScriptRefusal } from "../../security/script-gate.js";
+import { redZoneRefusal } from "../red-zone-refusal.js";
 import { evaluateScript } from "../../eval-script.js";
 
 /**
@@ -39,19 +40,7 @@ export function registerBrowserStateTools(
     // Refused before a browser is even resolved: nothing about this call may
     // touch the page.
     const refusal = evaluateScriptRefusal(force);
-    if (refusal) {
-      return {
-        isError: true,
-        content: [{ type: "text" as const, text: JSON.stringify({
-          success: false,
-          result: null,
-          zone: "red",
-          message: `${refusal}. ${RED_ZONE_MCP_HINT}`,
-          howToRun: RED_ZONE_MCP_HINT,
-          ...(_browserToken ? { _browserToken } : {}),
-        }, null, 2) }],
-      };
-    }
+    if (refusal) return redZoneRefusal("evaluate_script", refusal, { result: null }, _browserToken);
     let b, token;
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }

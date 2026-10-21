@@ -28,7 +28,10 @@ describe("MCP red refusals name force: true", () => {
   });
 
   test("click and smart_click attach the same hint to a red refusal", () => {
+    // Since 2026-10-21 both build it through the shared refusal helper, which
+    // sets howToRun; tests/mcp-red-zone-refusal-shape.test.ts drives them.
     const src = readFileSync(new URL("../src/mcp-tools/base/interaction-tools.ts", import.meta.url), "utf8");
-    expect((src.match(/howToRun/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(src).toContain('redZoneRefusalBody("click"');
+    expect(src).toContain('redZoneRefusal("smart_click"');
   });
 });

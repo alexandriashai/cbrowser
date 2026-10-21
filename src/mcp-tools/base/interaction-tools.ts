@@ -8,7 +8,7 @@
 import { z } from "zod";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { buildContentWithScreenshots } from "../screenshot-utils.js";
-import { RED_ZONE_MCP_HINT } from "../../security/script-gate.js";
+import { redZoneRefusal, redZoneRefusalBody } from "../red-zone-refusal.js";
 
 /**
  * Register interaction tools (5 tools: click, smart_click, dismiss_overlay, fill, scroll)
@@ -52,7 +52,11 @@ export function registerInteractionTools(
       // The zone the click was judged in and what the selector resolved to, so a refused red names its target.
       if (result.zone) response.zone = result.zone;
       if (result.target) response.target = result.target;
-      if (!result.success && result.zone === "red") response.howToRun = RED_ZONE_MCP_HINT;
+      // A red refusal is an error in the one shared shape (redZoneRefusalBody):
+      // it had no isError, so a hosted refused click was billed and never
+      // refunded although nothing ran. (audit M15, 2026-10-21)
+      const refused = !result.success && result.zone === "red";
+      if (refused) Object.assign(response, redZoneRefusalBody("click", result.message ?? "Red zone action requires --force"));
       if (verbose && !result.success) {
         if (result.availableElements) response.availableElements = result.availableElements;
         if (result.aiSuggestion) response.aiSuggestion = result.aiSuggestion;
@@ -75,6 +79,7 @@ export function registerInteractionTools(
       } catch {}
 
       return {
+        ...(refused ? { isError: true as const } : {}),
         content: buildContentWithScreenshots(response, result.screenshot, result.debugScreenshot),
       };
     }
@@ -87,6 +92,10 @@ export function registerInteractionTools(
       selector: z.string().describe("Element to click"),
       maxRetries: z.number().optional().default(3).describe("Maximum retry attempts"),
       dismissOverlays: z.boolean().optional().default(false).describe("Dismiss overlays before clicking"),
+      retryDelay: z.number().optional().describe("Milliseconds between attempts (default 1000), as the CLI's --retry-delay"),
+      // The red refusal says "Re-run with force: true"; until 2026-10-21 this
+      // tool had no such parameter, so the advice could not be followed. (M5)
+      force: z.boolean().optional().describe("Allow clicking a red-zone element (delete account, pay, ...). Without it a red target is refused and nothing is clicked."),
       // Its sibling `click` (above) already took this; smart_click did not, so on
       // the HTTP transport it retried against a blank page and reported a clean
       // "element not found" — and self-healing then cached heals derived from
@@ -100,7 +109,7 @@ export function registerInteractionTools(
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ selector, maxRetries, dismissOverlays, _browserToken }) => {
+  }, async ({ selector, maxRetries, dismissOverlays, retryDelay, force, _browserToken }) => {
       let b;
       let token: string | undefined;
       if (getBrowserByToken) {
@@ -110,7 +119,13 @@ export function registerInteractionTools(
       } else {
         b = await getBrowser();
       }
-      const result = await b.smartClick(selector, { maxRetries, dismissOverlays });
+      const result = await b.smartClick(selector, { maxRetries, dismissOverlays, retryDelay, force });
+      if (!result.success && result.zone === "red") {
+        return redZoneRefusal("smart_click", result.message ?? "Red zone action requires --force", {
+          attempts: result.attempts.length,
+          finalSelector: result.finalSelector,
+        }, token);
+      }
       return {
         content: [
           {
@@ -125,7 +140,6 @@ export function registerInteractionTools(
               healed: result.healed,
               healReason: result.healReason,
               zone: result.zone,
-              ...(!result.success && result.zone === "red" ? { howToRun: RED_ZONE_MCP_HINT } : {}),
               ...(token ? { _browserToken: token } : {}),
             }, null, 2),
           },
