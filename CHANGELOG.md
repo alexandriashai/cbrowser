@@ -6,6 +6,129 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.0.0](https://github.com/alexandriashai/cbrowser/compare/v19.6.0...v20.0.0) (2026-10-21)
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** --quiet is no longer accepted (nothing read it). daemon status
+  exits 1 when no daemon runs. --plain/--json-output text lines carry [PASS],
+  [FAIL] and [WARN] where a glyph used to vanish. extract --json-output returns
+  its data in data instead of data.output text lines. capture start through a
+  running daemon exits 1 on --viewport, --device or --browser. With --html and an
+  --output that does not end in .json, the HTML goes to <name>.report.html.
+* **cli:** ai-benchmark --viewport/--browser, competitive-benchmark
+  --browser and perf-regression --device/--viewport/--browser exit 1 instead of
+  being ignored.
+* **cli:** an out-of-range or non-numeric --threshold, or an unknown
+  --sensitivity, exits 1 instead of running with NaN or the default.
+* **cli:** an unknown subcommand exits 1 (it exited 0), test-suite and
+  cognitive-journey reject flags they never read, and cognitive-journey runs
+  headless when there is no display unless --no-headless is given.
+* **explore:** cbrowser explore and CBrowser.journey() refuse without an
+  Anthropic API key instead of running the heuristic explorer, and a failed
+  cognitive journey now throws instead of falling back to it.
+  JourneyOptions.heuristic is removed.
+* **deps:** cbrowser now requires Node.js 20.9 or newer. sharp 0.35
+  dropped Node 18, which has been end-of-life since April 2025. Installs on
+  Node 18 should stay on cbrowser 19.x.
+* **mcp:** click and smart_click red refusals now set isError
+  (clients that treated them as ordinary results will see tool errors);
+  type_text, drag and press_key refusals now set isError and carry tool and
+  howToRun; the press_key refusal message is the shared gate text
+  ("Red zone action requires --force: ...") rather than "requires force:".
+* **cli:** commands run through the daemon print their status lines
+  ("Connected to running daemon", "Command executed via daemon") on stderr,
+  not stdout, and evaluate's daemon output prints strings bare like the local
+  path (it was JSON-quoted). repair-tests saves its report with
+  --json-out <file>; --json now prints the report (--json=<file> still saves).
+* **competitive-benchmark:** competitive-benchmark (CLI, runCompetitiveBenchmark and the
+  competitive_benchmark MCP tool) refuses without an Anthropic API key, and a
+  failed journey is reported as that site's failure instead of falling back to
+  the heuristic.
+* **cli:** diff and crossBrowserDiff() render at 1920x1080 (was
+  1280x720), like cross-browser. ai-visual capture with --device and
+  --viewport takes the viewport's size (the device's size used to win). A
+  malformed --width or --height is an error instead of the 1920/1080
+  default. The flags listed above exit 1 on the commands that cannot honour
+  them instead of being ignored.
+* **mcp:** manage_cookies set now writes a session cookie unless
+  expires is given (was 24 hours); manage_cookies delete with a domain now
+  leaves same-named cookies on other domains; get_network_requests returns
+  the newest 50 instead of the oldest 50.
+* pages render at 1920x1080 unless CBROWSER_VIEWPORT_WIDTH /
+  CBROWSER_VIEWPORT_HEIGHT, the config file's viewport, --viewport or a device say
+  otherwise. compare_personas_record_result and compare_personas_summarize are
+  no longer listed by `cbrowser mcp-server`.
+* **responsive:** responsive (CLI, runResponsiveTest, MCP responsive_test)
+  renders mobile and tablet presets with the device's user agent, touch and
+  pixel ratio, and no longer sets prefers-reduced-motion on them, so pages that
+  adapt to touch or user agent render differently than before.
+* **mcp:** stdio tools now answer with the shared implementations,
+  so response shapes match the hosted server (navigate can report
+* **ci:** the action's `sensitivity` input is removed.
+* **mcp:** the five stub tool names above are gone from the public
+  package's tool list; their parameters changed to the enterprise shapes.
+* **mcp:** the viewport presets "mobile", "tablet" and "desktop"
+  now mean 393x852, 834x1194 and 1920x1080 (responsive_test's default set
+  and capture_start's viewport names change size); visual_baseline device
+  "mobile"/"tablet"/"desktop" now emulates the device (user agent, touch,
+  pixel ratio) instead of only sizing the page, and "desktop-lg" there is
+  1920x1080 (was 2560x1440; use "desktop-xl"); an unknown device name in
+  visual_baseline is an error; empathy_audit's device field is null
+  instead of "desktop" when no device was set.
+* **cli:** these commands exit 1 where they exited 0; record
+  start/stop/save exit 1; extract and generate reject values they used to
+  accept silently.
+* **cli:** webhook add defaults to --events test.fail (was
+  test.fail,journey.complete) and exits 1 for journey.complete, any other
+  event no command sends, a non-http(s) URL, a URL with credentials, or an
+  unknown --format. A JUnit export marks every failed test as a failure.
+* **daemon:** with a daemon running, a click/fill/hover/run/navigate
+  that fails exits 1 (it exited 0), and a click no longer hovers menu
+  parents first (the hoverClick daemon command still does).
+* **config:** without CBROWSER_LOCALE / CBROWSER_TIMEZONE or a config
+  value, pages render in the host's locale and timezone (was en-US and
+  America/Denver wherever defaults applied); a one-off --device or --geo no
+  longer carries over to later commands.
+
+### Added
+
+* 1920x1080 default page size; retire two stdio tools that never worked ([b1db500](https://github.com/alexandriashai/cbrowser/commit/b1db500e1fe71cfd076f85a7942f03facad2ea84))
+* **cli:** scroll command ([fd0faa1](https://github.com/alexandriashai/cbrowser/commit/fd0faa175a9d2d0bf2d8f6565acd739564ba025b))
+* **competitive-benchmark:** needs an Anthropic API key ([839722d](https://github.com/alexandriashai/cbrowser/commit/839722d1b19b25601ddedece07d0945ec11c5d91))
+* **explore:** explore and journey() need an Anthropic API key ([07215ee](https://github.com/alexandriashai/cbrowser/commit/07215ee95ab7d165fc5e11c63596df914c76c420))
+* **help:** cbrowser ask, and question_answer works outside the hosted servers ([598464c](https://github.com/alexandriashai/cbrowser/commit/598464cfc0ffd551a475e39e9dedac65556d4707))
+* **mcp:** assert caseSensitive, responsive_test wait/waitFor/sensitivity, chaos_test failApis ([7a8f529](https://github.com/alexandriashai/cbrowser/commit/7a8f529e1bb4e0d7a1c81b279660e6cada44cd9b))
+* **mcp:** capture_start takes the CLI's triggers and device, camelCase names ([d855f05](https://github.com/alexandriashai/cbrowser/commit/d855f0565b40c40a84887e8ff046a348dbd36b38))
+
+### Fixed
+
+* **ci:** the GitHub Action and Dockerfile work with 20.0 ([b8ae0da](https://github.com/alexandriashai/cbrowser/commit/b8ae0da06ef9b313633e90670ce764f5e3aa6554))
+* **cli:** --threshold and --sensitivity are checked; help names screenshot's URL ([4a7f27d](https://github.com/alexandriashai/cbrowser/commit/4a7f27de390e4b860cf92be36e64cae02ef68333))
+* **cli:** --timeout errors say what a valid value is ([b89e6f9](https://github.com/alexandriashai/cbrowser/commit/b89e6f95466f66d05b6fa689fba74c6619a13665))
+* **cli:** audit options reach their engines; page commands refused under a daemon ([9d8e29f](https://github.com/alexandriashai/cbrowser/commit/9d8e29f56da7c896a78df0016dd9d7c5ed3052e5))
+* **cli:** commands that fail exit non-zero, and run executes what it parses ([72ccadf](https://github.com/alexandriashai/cbrowser/commit/72ccadf85ff41b564a66f6157750f5140fd03f74))
+* **cli:** flags parse as documented, and evaluate through the daemon keeps its options ([2279e12](https://github.com/alexandriashai/cbrowser/commit/2279e12b1e172485c33f0cc691a441c5df2a5c3d))
+* **cli:** geo set persists for later commands ([6d8c7c2](https://github.com/alexandriashai/cbrowser/commit/6d8c7c2b725ca7b15f0369fec41cbfec26d4f10d))
+* **cli:** help, flags and output say what the code does ([9161e3e](https://github.com/alexandriashai/cbrowser/commit/9161e3e9802e258b7c812eda63be9dcc64461b45))
+* **cli:** journey.complete webhooks, and benchmarks keep --device ([92a5793](https://github.com/alexandriashai/cbrowser/commit/92a5793a3c402439507477a7694e231868daeac7))
+* **cli:** journeys replay without a key, and flags that did nothing now work or error ([d295df9](https://github.com/alexandriashai/cbrowser/commit/d295df96bdf4613dbd66b40cf7ad1249e6e7dc86))
+* **cli:** library commands take --headless, --browser, --device and --viewport ([48ff737](https://github.com/alexandriashai/cbrowser/commit/48ff7374c94879c812e354910f3e93a01899cb04))
+* **cli:** test-suite sends webhooks and saves results for export ([b6589d9](https://github.com/alexandriashai/cbrowser/commit/b6589d982bcaf26e85b36db24d4bd19bf0823fa5))
+* **config:** env vars and the config file apply, and one-off flags no longer stick ([fe4204a](https://github.com/alexandriashai/cbrowser/commit/fe4204a47f78aeb30bee688c1661ae8f2bcb992e))
+* **daemon:** routed commands report failures, honour --url, and daemon start forwards every browser flag ([eaa8c87](https://github.com/alexandriashai/cbrowser/commit/eaa8c871419d032f29828265dee543409d6fcf16))
+* **mcp:** enterprise stubs use the enterprise server's tool names and parameters ([4384753](https://github.com/alexandriashai/cbrowser/commit/4384753abd7954a9ddba8fd05523068dbb528f03))
+* **mcp:** evaluate_script compiles like cbrowser evaluate, newest network requests, cookie expiry and domain ([11f7f73](https://github.com/alexandriashai/cbrowser/commit/11f7f73c3975e1586274e9c36bf4aa391993260d))
+* **mcp:** one meaning for device names, baselines keep their device, hosted navigate can emulate ([97807a6](https://github.com/alexandriashai/cbrowser/commit/97807a66a7eca30dd9bad6325957d4aa1218d338))
+* **mcp:** one red-zone refusal shape, smart_click force, audited press_key, type_text delay 0 ([e64973e](https://github.com/alexandriashai/cbrowser/commit/e64973e0c1ade6781c663fab5d26010bcebe0197))
+* **mcp:** stdio server registers the shared tool set ([fdc84dc](https://github.com/alexandriashai/cbrowser/commit/fdc84dc904997e80b636ffb636a63f08d0796baf))
+* **responsive:** mobile and tablet presets emulate their device ([f471f4f](https://github.com/alexandriashai/cbrowser/commit/f471f4f4d4a58467c0c9e8cd30d0d70189de73ed))
+* **test-suite:** honour the global --browser, --geo, --locale and --timezone ([a3e4ea1](https://github.com/alexandriashai/cbrowser/commit/a3e4ea1462c6b882e6652e79e250b7add58d36e6))
+
+### Changed
+
+* **deps:** sharp 0.35, Node.js 20.9 or newer, current runtime floors ([4e5c72c](https://github.com/alexandriashai/cbrowser/commit/4e5c72c27d86c4d2be94643626af26d09357831a))
+
 ## [19.6.0](https://github.com/alexandriashai/cbrowser/compare/v19.5.0...v19.6.0) (2026-10-21)
 
 ### Added
