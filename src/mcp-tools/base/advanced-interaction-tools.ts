@@ -12,6 +12,7 @@ import type { Dialog, Page } from "playwright";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { summarizePlaywrightError } from "../../browser.js";
 import { confineToAccountDir } from "../hosted-inputs.js";
+import { redZoneRefusal } from "../red-zone-refusal.js";
 
 type DialogAction = "accept" | "dismiss";
 
@@ -110,11 +111,10 @@ export function registerAdvancedInteractionTools(
     const page = await b.getPage();
     // A newline is Enter: "4242\n" in a card field submits the checkout form. Same gate as press_key.
     const refusal = await b.keystrokeRedZone({ text }, force);
-    if (refusal) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, typed: null, zone: "red", message: refusal, _browserToken: token }, null, 2) }] };
-    }
-    await page.keyboard.type(text, { delay: delay || 50 });
-    return { content: [{ type: "text" as const, text: JSON.stringify({ typed: text, characters: text.length, _browserToken: token }, null, 2) }] };
+    if (refusal) return redZoneRefusal("type_text", refusal, { typed: null }, token);
+    // `??`, not `||`: delay 0 means no delay, and `|| 50` made it 50. (audit M13)
+    await page.keyboard.type(text, { delay: delay ?? 50 });
+    return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, typed: text, characters: text.length, _browserToken: token }, null, 2) }] };
   } catch (err) {
       return interactionError("type_text", err, token);
     }
@@ -137,19 +137,19 @@ export function registerAdvancedInteractionTools(
     else { b = await getBrowser(); }
     const page = await b.getPage();
     // Enter on a focused control is a click; gate it the way click() is gated.
-    const activation = await b.classifyKeyActivation(key);
-    if (activation?.zone === "red" && !force) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({
-        success: false,
+    // Through keystrokeRedZone, the gate type_text, the CLI and the daemon use:
+    // calling classifyKeyActivation directly skipped the audit entry that gate
+    // writes for every blocked keystroke. (audit M14, 2026-10-21)
+    const refusal = await b.keystrokeRedZone({ key }, force);
+    if (refusal) {
+      const activation = await b.classifyKeyActivation(key);
+      return redZoneRefusal("press_key", refusal, {
         pressed: null,
-        zone: "red",
-        target: { tag: activation.tag, label: activation.label },
-        message: `Red zone action requires force: ${key} would activate <${activation.tag}> "${activation.label}"`,
-        _browserToken: token,
-      }, null, 2) }] };
+        ...(activation ? { target: { tag: activation.tag, label: activation.label } } : {}),
+      }, token);
     }
     await page.keyboard.press(key);
-    return { content: [{ type: "text" as const, text: JSON.stringify({ pressed: key, _browserToken: token }, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, pressed: key, _browserToken: token }, null, 2) }] };
   } catch (err) {
       return interactionError("press_key", err, token);
     }
@@ -276,7 +276,7 @@ export function registerAdvancedInteractionTools(
     else { b = await getBrowser(); }
     const page = await b.getPage();
     await page.locator(selector).setInputFiles(filePaths);
-    return { content: [{ type: "text" as const, text: JSON.stringify({ uploaded: filePaths, selector, _browserToken: token }, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, uploaded: filePaths, selector, _browserToken: token }, null, 2) }] };
   } catch (err) {
       return interactionError("upload_file", err, token);
     }
@@ -300,11 +300,9 @@ export function registerAdvancedInteractionTools(
     else { b = await getBrowser(); }
     const page = await b.getPage();
     const refusal = await b.dragRedZone(source, target, force);
-    if (refusal) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, dragged: null, zone: "red", message: refusal, _browserToken: token }, null, 2) }] };
-    }
+    if (refusal) return redZoneRefusal("drag", refusal, { dragged: null }, token);
     await page.dragAndDrop(source, target);
-    return { content: [{ type: "text" as const, text: JSON.stringify({ dragged: source, droppedOn: target, _browserToken: token }, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, dragged: source, droppedOn: target, _browserToken: token }, null, 2) }] };
   } catch (err) {
       return interactionError("drag", err, token);
     }

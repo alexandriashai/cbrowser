@@ -62,6 +62,13 @@ export function registerBugAnalysisTools(
       networkLatency: z.number().optional().describe("Simulate network latency (ms)"),
       offline: z.boolean().optional().describe("Simulate offline mode"),
       blockUrls: z.array(z.string()).optional().describe("URL patterns to block"),
+      // The CLI's --fail-api pattern:status, which this tool did not take.
+      // (audit M22, 2026-10-21)
+      failApis: z.array(z.object({
+        pattern: z.string().describe("Substring of the request URL to fail, e.g. '/api/checkout'"),
+        status: z.number().int().min(100).max(599).describe("HTTP status to answer with, e.g. 500 or 503"),
+        body: z.string().optional().describe("Response body (default 'Chaos: Simulated failure')"),
+      })).optional().describe("Requests to answer with an error status instead of the real response (the CLI's --fail-api pattern:status)"),
     },
     annotations: {
       title: "Chaos Engineering Test",
@@ -70,13 +77,13 @@ export function registerBugAnalysisTools(
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, networkLatency, offline, blockUrls }) => {
+  }, async ({ url, networkLatency, offline, blockUrls, failApis }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("chaos_test", { url });
       if (hostedRefusal) return hostedRefusal;
       const b = await getBrowser();
       try {
-        const result = await runChaosTest(b, url, { networkLatency, offline, blockUrls });
+        const result = await runChaosTest(b, url, { networkLatency, offline, blockUrls, ...(failApis?.length ? { failApis } : {}) });
         return {
           content: [
             {

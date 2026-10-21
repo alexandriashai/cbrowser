@@ -4,24 +4,29 @@ export { registerUiResources, publishCaptureUi, buildStatusTemplate, UI_PROBE_UR
  *
  * Modular tool registration for CBrowser MCP servers.
  *
- * Tool counts by deployment:
+ * Tool counts by deployment (measured 2026-10-21 by listing tools/list, list_devices included; the
+ * numbers that stood here before, 104 and 91, were typed and had drifted):
  *
- * LOCAL MCP (npx cbrowser mcp-server):
- * - Base tools: 78 (4 marketing as stubs, 3 remediation, 1 ai_benchmark, 2 llms.txt, 1 webmcp_ready)
+ * SHARED SET (registerAllPublicTools): 130
+ * - Base tools: 104 (registerBaseTools; the 4 marketing_campaign/personas
+ *   tools run for real only with MCP_MODE=demo or enterprise, and answer
+ *   with an upgrade message otherwise, as on local MCP)
  * - Persona creation: 7
  * - Ask user: 1
- * - Enterprise stubs: 18
- * - Total: 104 (68 real + 23 stubs)
+ * - Enterprise stubs: 18 (stealth_*, cloudflare_*, marketing_* analysis, api key)
+ * The tier gate changes what a call returns, never what is listed.
  *
- * DEMO SERVER (MCP_MODE=demo):
- * - Base tools: 78 (4 marketing real, 3 remediation, 1 ai_benchmark, 2 llms.txt, 1 webmcp_ready)
- * - Persona creation: 7
- * - Ask user: 1
- * - Enterprise stubs: 18
- * - Total: 104 (72 real + 19 stubs)
+ * LOCAL MCP (npx cbrowser mcp-server): 139
+ * - The shared set above (130), with tier null: no gate, no credits, no
+ *   hosted path/URL refusals.
+ * - Stdio-only session bridges: 9 (empathy_audit_init/record_barrier/
+ *   complete_persona/summarize, compare_personas_record_result/summarize,
+ *   get_emotional_state, list_emotional_personas, trigger_emotional_event).
  *
- * ENTERPRISE (MCP_MODE=enterprise):
- * - All 91 tools fully functional
+ * HOSTED (demo / pro): the shared set, 130, plus whatever the server adds.
+ * ENTERPRISE: its own registerTools replaces the stubs with the real tools.
+ *
+ * tests/mcp-stdio-parity.test.ts pins the stdio = shared + 9 relation.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -110,7 +115,7 @@ export type { PricingTier } from "./tool-categories.js";
 /**
  * Register all public npm tools on an MCP server
  *
- * Tool count: 108 tools across all deployments
+ * Tool count: 130 (see the header of this file for the breakdown)
  *
  * @param server - MCP server instance
  * @param context - Tool registration context with browser access
@@ -138,7 +143,7 @@ export function registerAllPublicTools(
   // what is enforced and why red-zone denial is opt-in.)
   const securedServer = applySecurityLayer(gatedServer) as McpServer;
 
-  // Base tools (78)
+  // Base tools (104)
   registerBaseTools(securedServer, context);
 
   // Persona creation tools (7)

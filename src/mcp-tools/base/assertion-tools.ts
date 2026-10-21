@@ -18,7 +18,7 @@ export function registerAssertionTools(
 ): void {
   server.registerTool("assert", {
     title: "Assert Page State",
-    description: "Assert a condition using natural language",
+    description: "Assert a condition using natural language. Text comparisons ignore case unless caseSensitive is true (the same default as `cbrowser assert`; nl_test steps compare exactly unless fuzzyMatch).",
     inputSchema: {
       assertion: z.string().describe("Natural language assertion like \"page contains 'Welcome'\" or \"title is 'Home'\""),
       // Without this, assert could not bind to the session navigate created on the
@@ -27,6 +27,9 @@ export function registerAssertionTools(
       // ("page does not contain 'error'") then PASSED against nothing, so a whole
       // suite could report green while testing an empty browser. (2026-07-28)
       _browserToken: z.string().optional().describe("Browser session token from a previous tool call"),
+      // nl_test passes caseSensitive: !fuzzyMatch; this tool had no way to ask
+      // for an exact comparison at all. (audit M20, 2026-10-21)
+      caseSensitive: z.boolean().optional().default(false).describe("Compare text exactly, case included. Default false: \"page contains 'welcome'\" matches \"Welcome\"."),
     },
     annotations: {
       title: "Assert Page State",
@@ -35,7 +38,7 @@ export function registerAssertionTools(
       idempotentHint: true,
       openWorldHint: false,
     },
-  }, async ({ assertion, _browserToken }) => {
+  }, async ({ assertion, _browserToken, caseSensitive }) => {
       // Adding the token was only half the fix: omitting it entirely still
       // asserted against a blank page and returned a confident verdict, with a
       // fresh _browserToken attached that made it look session-backed.
@@ -51,7 +54,7 @@ export function registerAssertionTools(
       } else {
         b = await getBrowser();
       }
-      const result = await b.assert(assertion);
+      const result = await b.assert(assertion, { caseSensitive: caseSensitive === true });
       return {
         content: [
           {

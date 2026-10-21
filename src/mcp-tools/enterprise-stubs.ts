@@ -6,10 +6,10 @@
  * - API Key Prompt (1): get_api_key_prompt
  * - Autonomous Journey (1): cognitive_journey_autonomous
  * - Marketing Advanced (4): marketing_influence_matrix, marketing_lever_analysis,
- *   marketing_funnel_analysis, marketing_competitive_compare
+ *   marketing_funnel_analyze, marketing_compete
  *   (Note: marketing_personas_list, marketing_campaign_create, marketing_campaign_run,
  *    marketing_report_result are real tools in base/marketing-tools.ts - demo/enterprise only)
- * - Marketing Discovery (2): marketing_audience_discover, marketing_audience_discover_status
+ * - Marketing Discovery (2): marketing_audience_discover, marketing_discover_status
  * - Stealth (7): stealth_status, stealth_enable, stealth_disable, stealth_check,
  *   stealth_diagnose, cloudflare_detect, cloudflare_wait
  *
@@ -146,15 +146,23 @@ export function registerEnterpriseStubs(server: McpServer): void {
 
   // =========================================================================
   // Marketing Advanced Stubs (4) - influence analysis (enterprise-only)
+  //
+  // Names and parameters are the enterprise server's own (cbrowser-enterprise
+  // src/mcp-server-enterprise.ts, TOOL_CATEGORIES enterprise_marketing). Until
+  // 2026-10-21 these were marketing_campaign_influence_matrix,
+  // marketing_campaign_levers, marketing_funnel_analysis,
+  // marketing_competitive_compare and marketing_audience_discover_status, so a
+  // call written against the stub failed on the real server (audit M18).
   // (marketing_personas_list, marketing_campaign_create, marketing_campaign_run,
   //  marketing_report_result are real tools in base/marketing-tools.ts for demo/enterprise)
   // =========================================================================
 
   server.tool(
-    "marketing_campaign_influence_matrix",
+    "marketing_influence_matrix",
     "[Enterprise] Generate an influence pattern matrix for a campaign showing persona susceptibility.",
     {
-      campaign_name: z.string().describe("Name of the campaign to analyze"),
+      campaign_id: z.string().describe("Campaign ID"),
+      format: z.enum(["console", "html", "json"]).optional().describe("Output format"),
     },
     async () => ({
       content: [{
@@ -168,10 +176,11 @@ export function registerEnterpriseStubs(server: McpServer): void {
   );
 
   server.tool(
-    "marketing_campaign_levers",
+    "marketing_lever_analysis",
     "[Enterprise] Analyze actionable persuasion levers for a campaign.",
     {
-      campaign_name: z.string().describe("Name of the campaign to analyze"),
+      campaign_id: z.string().describe("Campaign ID"),
+      persona: z.string().optional().describe("Specific persona to analyze"),
     },
     async () => ({
       content: [{
@@ -185,10 +194,13 @@ export function registerEnterpriseStubs(server: McpServer): void {
   );
 
   server.tool(
-    "marketing_funnel_analysis",
-    "[Enterprise] Analyze conversion funnel for a campaign across all personas.",
+    "marketing_funnel_analyze",
+    "[Enterprise] Analyze a conversion funnel across pathways for a persona.",
     {
-      campaign_name: z.string().describe("Name of the campaign to analyze"),
+      entry_url: z.string().describe("Entry URL"),
+      pathways: z.array(z.string()).describe("Pathway names"),
+      goal: z.string().describe("Conversion goal"),
+      persona: z.string().describe("Persona to test"),
     },
     async () => ({
       content: [{
@@ -202,11 +214,12 @@ export function registerEnterpriseStubs(server: McpServer): void {
   );
 
   server.tool(
-    "marketing_competitive_compare",
-    "[Enterprise] Compare your conversion funnel against competitors.",
+    "marketing_compete",
+    "[Enterprise] Compare conversion across sites for a goal and persona.",
     {
-      campaign_name: z.string().describe("Your campaign name"),
-      competitor_urls: z.array(z.string().url()).describe("Competitor URLs to compare"),
+      sites: z.array(z.string()).describe("Site URLs to compare"),
+      goal: z.string().describe("Goal to achieve"),
+      persona: z.string().describe("Persona to test"),
     },
     async () => ({
       content: [{
@@ -227,10 +240,10 @@ export function registerEnterpriseStubs(server: McpServer): void {
     "marketing_audience_discover",
     "[Enterprise] Autonomous audience discovery - run cognitive journeys across randomized personas.",
     {
-      url: z.string().url().describe("URL to analyze"),
-      goal: z.string().describe("Goal to accomplish"),
-      persona_count: z.number().optional().describe("Number of randomized personas (default: 10)"),
-      max_concurrency: z.number().optional().describe("Max parallel journeys (default: 3)"),
+      url: z.string().describe("URL to analyze"),
+      goal: z.string().describe("Goal to attempt"),
+      samples: z.number().optional().describe("Number of journeys (default: 50)"),
+      format: z.enum(["console", "html", "json"]).optional().describe("Output format"),
     },
     async () => ({
       content: [{
@@ -244,7 +257,7 @@ export function registerEnterpriseStubs(server: McpServer): void {
   );
 
   server.tool(
-    "marketing_audience_discover_status",
+    "marketing_discover_status",
     "[Enterprise] Check status of a running audience discovery job.",
     {
       job_id: z.string().describe("Job ID from marketing_audience_discover"),

@@ -4357,19 +4357,32 @@ export interface ViewportPreset {
   isMobile?: boolean;
 }
 
-/** Built-in viewport presets */
+/**
+ * Built-in viewport presets: page SIZES (plus touch/mobile flags), for tools
+ * that take sizes (responsive_test viewports, capture_start viewport).
+ *
+ * "mobile", "tablet" and "desktop" are the sizes of the device presets of the
+ * same name in devices.ts, which every `device` parameter resolves through.
+ * Until 2026-10-21 they were 375x667, 768x1024 and 1440x900 here while the
+ * device presets said 393x852, 834x1194 and 1920x1080, so "mobile" rendered
+ * two different pages depending on which tool took the name (audit M7).
+ * tests/device-names-one-meaning.test.ts pins the agreement. The old sizes
+ * stay reachable: 768x1024 as "tablet-sm", 1440x900 as "desktop-md".
+ */
 export const VIEWPORT_PRESETS: ViewportPreset[] = [
   // Mobile devices
   { name: "mobile-sm", width: 320, height: 568, deviceType: "mobile", deviceName: "iPhone SE", hasTouch: true, isMobile: true },
-  { name: "mobile", width: 375, height: 667, deviceType: "mobile", deviceName: "iPhone 8", hasTouch: true, isMobile: true },
+  { name: "mobile", width: 393, height: 852, deviceType: "mobile", deviceName: "iPhone 15", hasTouch: true, isMobile: true },
   { name: "mobile-lg", width: 414, height: 896, deviceType: "mobile", deviceName: "iPhone 11 Pro Max", hasTouch: true, isMobile: true },
   { name: "mobile-xl", width: 428, height: 926, deviceType: "mobile", deviceName: "iPhone 14 Pro Max", hasTouch: true, isMobile: true },
   // Tablet devices
-  { name: "tablet", width: 768, height: 1024, deviceType: "tablet", deviceName: "iPad", hasTouch: true, isMobile: true },
+  { name: "tablet-sm", width: 768, height: 1024, deviceType: "tablet", deviceName: "iPad", hasTouch: true, isMobile: true },
+  { name: "tablet", width: 834, height: 1194, deviceType: "tablet", deviceName: "iPad Pro 11", hasTouch: true, isMobile: true },
   { name: "tablet-lg", width: 1024, height: 1366, deviceType: "tablet", deviceName: "iPad Pro 12.9", hasTouch: true, isMobile: true },
   // Desktop sizes
   { name: "desktop-sm", width: 1280, height: 800, deviceType: "desktop", deviceName: "Laptop" },
-  { name: "desktop", width: 1440, height: 900, deviceType: "desktop", deviceName: "Desktop" },
+  { name: "desktop-md", width: 1440, height: 900, deviceType: "desktop", deviceName: "Desktop" },
+  { name: "desktop", width: 1920, height: 1080, deviceType: "desktop", deviceName: "Full HD" },
   { name: "desktop-lg", width: 1920, height: 1080, deviceType: "desktop", deviceName: "Full HD" },
   { name: "desktop-xl", width: 2560, height: 1440, deviceType: "desktop", deviceName: "QHD" },
 ];

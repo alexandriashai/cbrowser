@@ -78,6 +78,7 @@ export const DEFAULT_ZONES: Record<string, ToolZone> = {
   // GREEN - Read-only, always safe
   // =========================================================================
   navigate: "green",
+  list_devices: "green",
   screenshot: "green",
   extract: "green",
   status: "green",

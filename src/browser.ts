@@ -1998,7 +1998,8 @@ For more help: https://playwright.dev/docs/browsers
     const cookies = await this.getCookies();
     const filtered = cookies.filter((c) => {
       if (c.name !== name) return true;
-      if (domain && c.domain !== domain) return true;
+      // ".example.com" and "example.com" name the same cookie domain.
+      if (domain && c.domain.replace(/^\./, "") !== domain.replace(/^\./, "")) return true;
       return false;
     });
 
@@ -2049,6 +2050,36 @@ For more help: https://playwright.dev/docs/browsers
     if ("error" in resolved) return false;
     this.config.device = resolved.key;
     return true;
+  }
+
+  /**
+   * Emulate a device preset and/or set the page size, relaunching if the
+   * browser is already up (context options are fixed at launch). An unknown
+   * device throws, as at launch. Returns the device key applied.
+   */
+  async emulate(opts: { device?: string; viewport?: { width: number; height: number } }): Promise<{ device: string | null }> {
+    let key: string | undefined;
+    if (opts.device) {
+      const resolved = resolveDevice(opts.device);
+      if ("error" in resolved) {
+        const closest = resolved.suggestions.length > 0 ? ` Closest presets: ${resolved.suggestions.join(", ")}.` : "";
+        throw new CBrowserError(CBrowserErrorCode.CONFIG_INVALID, `${resolved.error}.${closest}`, {
+          device: opts.device,
+          suggestions: resolved.suggestions,
+        });
+      }
+      key = resolved.key;
+    }
+    if (this.browser || this.context) await this.close();
+    if (key) this.config.device = key;
+    if (opts.viewport) {
+      this.config.viewportOverride = { ...opts.viewport };
+      if (!key) {
+        this.config.viewportWidth = opts.viewport.width;
+        this.config.viewportHeight = opts.viewport.height;
+      }
+    }
+    return { device: this.config.device ?? null };
   }
 
   /**

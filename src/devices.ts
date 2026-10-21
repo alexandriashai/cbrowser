@@ -200,3 +200,23 @@ function suggestDevices(wanted: string, limit = 8): string[] {
     .sort((a, b) => Math.abs(a.length - wanted.length) - Math.abs(b.length - wanted.length) || b.localeCompare(a))
     .slice(0, limit);
 }
+
+/**
+ * What a render actually used: the device preset key (null for no emulation)
+ * and the page size. Tools echo this instead of a label: until 2026-10-21
+ * empathy_audit answered device "desktop" and visual_cognitive_story described
+ * its default as "desktop (1920x1080)" while both rendered at the configured
+ * 1280x800 with no emulation (audit M8). An unknown device keeps its name and
+ * has no viewport; the browser refuses it at launch.
+ *
+ * @param fallback the viewport used when no device is set (the configured default)
+ */
+export function describeRenderTarget(
+  device: string | undefined,
+  fallback: { width: number; height: number },
+): { device: string | null; viewport: { width: number; height: number } | null } {
+  if (!device) return { device: null, viewport: { width: fallback.width, height: fallback.height } };
+  const resolved = resolveDevice(device);
+  if ("error" in resolved) return { device, viewport: null };
+  return { device: resolved.key, viewport: { ...DEVICE_PRESETS[resolved.key].viewport } };
+}
