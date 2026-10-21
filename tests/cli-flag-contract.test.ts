@@ -423,3 +423,29 @@ describe("the GitHub Action's commands", () => {
     expect(r.code, r.stderr).toBe(0);
   }, TIMEOUT * 2);
 });
+
+describe("competitive-benchmark needs a key", () => {
+  // 19.6 without a key reported "sign up for free trial" achieved in 0 steps on
+  // a page with no sign-up, because "welcome" was on it.
+  test("the CLI refuses before launching anything", async () => {
+    const r = await cli({ ANTHROPIC_API_KEY: undefined, CBROWSER_DATA_DIR: mkdtempSync(join(tmpdir(), "cbrowser-bench-")) },
+      "competitive-benchmark", "--sites", `${fixtures.base}static.html`, "--goal", "sign up for free trial");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("competitive-benchmark needs an Anthropic API key");
+    expect(r.stdout).not.toContain("Rank");
+  }, TIMEOUT);
+
+  test("the library throws instead of returning a guessed verdict", async () => {
+    const saved = { key: process.env.ANTHROPIC_API_KEY, dir: process.env.CBROWSER_DATA_DIR };
+    delete process.env.ANTHROPIC_API_KEY;
+    process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cbrowser-bench-lib-"));
+    try {
+      const { runCompetitiveBenchmark } = await import("../src/analysis/competitive-benchmark.js");
+      await expect(runCompetitiveBenchmark({ sites: [{ url: `${fixtures.base}static.html` }], goal: "sign up", headless: true }))
+        .rejects.toThrow("needs an Anthropic API key");
+    } finally {
+      if (saved.key !== undefined) process.env.ANTHROPIC_API_KEY = saved.key;
+      if (saved.dir !== undefined) process.env.CBROWSER_DATA_DIR = saved.dir; else delete process.env.CBROWSER_DATA_DIR;
+    }
+  }, TIMEOUT);
+});

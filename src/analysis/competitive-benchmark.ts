@@ -12,10 +12,7 @@
  * Output: head-to-head comparison with friction analysis.
  */
 
-import { type Page } from "playwright";
 import { VERSION } from "../version.js";
-import { CBrowser } from "../browser.js";
-import { navigationError } from "../navigation-errors.js";
 import type {
   CompetitiveBenchmarkResult,
   CompetitiveBenchmarkOptions,
@@ -23,16 +20,8 @@ import type {
   SiteRanking,
   BenchmarkComparison,
   CompetitiveRecommendation,
-  Persona,
-  FocusAreaType,
 } from "../types.js";
 import { getPersonaOrRefuse } from "../personas.js";
-import {
-  getFocusHierarchy,
-  inferTaskTypeFromGoal,
-  calculateFocusPriority,
-  getDistractionIgnoreRate,
-} from "../cognitive/focus-hierarchies.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
@@ -91,146 +80,6 @@ interface JourneyState {
 }
 
 /**
- * Simulate a user journey toward a goal
- */
-async function simulateJourney(
-  page: Page,
-  url: string,
-  goal: string,
-  persona: Persona,
-  maxSteps: number,
-  maxTime: number
-): Promise<SiteBenchmarkResult> {
-  const startTime = Date.now();
-  const state: JourneyState = {
-    patience: 100,
-    frustration: 0,
-    confusion: 0,
-    steps: 0,
-    frictionPoints: [],
-    startTime,
-  };
-
-  let goalAchieved = false;
-  let abandonmentReason: string | undefined;
-  const screenshots: { start: string; end: string } = {
-    start: '',
-    end: '',
-  };
-
-  try {
-    // Navigate to starting URL (a failed load in plain words, not the raw Playwright error)
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 })
-      .catch((e: unknown) => { throw navigationError(e, url); });
-    await page.waitForTimeout(1000);
-
-    // Take start screenshot
-    const startBuffer = await page.screenshot();
-    screenshots.start = startBuffer.toString("base64");
-
-    // Check initial page state
-    const initialAnalysis = await analyzePageForGoal(page, goal);
-
-    if (initialAnalysis.goalReached) {
-      goalAchieved = true;
-    } else {
-      // Simulate exploration toward goal
-      for (let step = 0; step < maxSteps && !goalAchieved; step++) {
-        // Check time limit
-        if (Date.now() - startTime > maxTime * 1000) {
-          abandonmentReason = "Time limit exceeded";
-          break;
-        }
-
-        state.steps++;
-
-        // Analyze current page for actions
-        const pageAnalysis = await analyzePageForGoal(page, goal);
-
-        if (pageAnalysis.goalReached) {
-          goalAchieved = true;
-          break;
-        }
-
-        // Check for friction points
-        if (pageAnalysis.frictionPoints.length > 0) {
-          state.frictionPoints.push(...pageAnalysis.frictionPoints);
-          state.patience -= pageAnalysis.frictionPoints.length * 5;
-          state.frustration += pageAnalysis.frictionPoints.length * 3;
-        }
-
-        // Try to take an action toward the goal
-        const action = await findBestAction(page, goal, pageAnalysis);
-
-        if (!action) {
-          state.confusion += 10;
-          state.patience -= 5;
-
-          if (state.patience <= 20 || state.confusion >= 70) {
-            abandonmentReason = "User became confused and lost";
-            break;
-          }
-
-          // Try scrolling to find more options
-          await page.evaluate(() => window.scrollBy(0, 300));
-          await page.waitForTimeout(200);
-          continue;
-        }
-
-        // Execute the action
-        try {
-          await executeAction(page, action);
-          await page.waitForTimeout(300);
-
-          // Patience recovery on success
-          state.patience = Math.min(100, state.patience + 2);
-        } catch (e) {
-          state.frictionPoints.push(`Failed to ${action.type}: ${action.target}`);
-          state.frustration += 5;
-          state.patience -= 10;
-
-          if (state.patience <= 10) {
-            abandonmentReason = "Too many failed interactions";
-            break;
-          }
-        }
-
-        // Check for patience exhaustion
-        if (state.patience <= 0) {
-          abandonmentReason = "User ran out of patience";
-          break;
-        }
-      }
-    }
-
-    // Take end screenshot
-    const endBuffer = await page.screenshot();
-    screenshots.end = endBuffer.toString("base64");
-
-  } catch (e) {
-    abandonmentReason = `Error: ${(e as Error).message}`;
-  }
-
-  // Use full URL (without protocol) as site name to distinguish subpaths
-  const parsed = new URL(url);
-  const siteName = parsed.hostname.replace(/^www\d*\./, '') + (parsed.pathname !== '/' ? parsed.pathname.replace(/\/$/, '') : '');
-
-  return {
-    url,
-    siteName,
-    goalAchieved,
-    abandonmentReason,
-    totalTime: Date.now() - startTime,
-    stepCount: state.steps,
-    frictionPoints: [...new Set(state.frictionPoints)], // Dedupe
-    confusionLevel: Math.round(state.confusion),
-    frustrationLevel: Math.round(state.frustration),
-    abandonmentRisk: calculateAbandonmentRisk(state, goalAchieved),
-    screenshots,
-  };
-}
-
-/**
  * Calculate abandonment risk as a letter grade.
  *
  * Research basis:
@@ -270,455 +119,6 @@ function getAbandonmentRiskRating(risk: number): { score: number; label: string 
     }
   }
   return { score: 10, label: "Very High" };
-}
-
-// ============================================================================
-// Page Analysis
-// ============================================================================
-
-interface PageAnalysis {
-  goalReached: boolean;
-  frictionPoints: string[];
-  availableActions: ActionCandidate[];
-  pageContent: string;
-}
-
-interface ActionCandidate {
-  type: "click" | "fill" | "scroll";
-  target: string;
-  selector: string;
-  relevance: number; // 0-1 how relevant to goal
-  area?: FocusAreaType; // Page area for focus hierarchy
-  text?: string; // Text content for distraction filtering
-}
-
-async function analyzePageForGoal(page: Page, goal: string): Promise<PageAnalysis> {
-  const goalLower = goal.toLowerCase();
-  const frictionPoints: string[] = [];
-
-  // Extract page content for analysis with position data for focus hierarchy
-  const pageData = await page.evaluate(() => {
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
-
-    // Helper: detect page area from element position and context
-    function detectArea(el: Element): string {
-      const rect = el.getBoundingClientRect();
-      const classes = el.className?.toString?.().toLowerCase() || '';
-      const id = el.id?.toLowerCase() || '';
-      const tagName = el.tagName.toLowerCase();
-
-      // Semantic detection first
-      if (el.closest('nav') || classes.includes('nav') || id.includes('nav') || el.closest('[role="navigation"]')) {
-        return 'navigation';
-      }
-      if (el.closest('form') || classes.includes('form')) {
-        return 'forms';
-      }
-      if (el.closest('footer') || classes.includes('footer') || id.includes('footer')) {
-        return 'footer';
-      }
-      if (el.closest('aside') || classes.includes('sidebar') || classes.includes('aside')) {
-        return 'sidebar';
-      }
-      if (tagName.match(/^h[1-6]$/) || el.closest('h1, h2, h3, h4, h5, h6')) {
-        return 'headings';
-      }
-      if (classes.includes('hero') || classes.includes('banner') || classes.includes('jumbotron')) {
-        return 'hero';
-      }
-      if (classes.includes('cta') || classes.includes('call-to-action') ||
-          (tagName === 'button' && rect.width > 100) ||
-          (el as HTMLElement).getAttribute?.('role') === 'button') {
-        return 'cta';
-      }
-      if (tagName === 'img' || el.closest('figure, picture')) {
-        return 'images';
-      }
-      if (classes.includes('search') || id.includes('search') || (el as HTMLInputElement).type === 'search') {
-        return 'search';
-      }
-
-      // Position-based detection
-      if (rect.top < 100) {
-        // Top of page - likely navigation or hero
-        return rect.height > 200 ? 'hero' : 'navigation';
-      }
-      if (rect.top > viewportHeight * 0.8) {
-        return 'footer';
-      }
-      if (rect.left < viewportWidth * 0.2 || rect.right > viewportWidth * 0.8) {
-        return 'sidebar';
-      }
-
-      // Default to content
-      return 'content';
-    }
-
-    const data = {
-      title: document.title,
-      url: window.location.href,
-      text: document.body.innerText.slice(0, 5000),
-      buttons: Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"]')).map(el => ({
-        text: el.textContent?.trim() || (el as HTMLInputElement).value || '',
-        selector: el.id ? `#${el.id}` : el.className ? `.${el.className.toString().split(' ')[0]}` : el.tagName.toLowerCase(),
-        visible: el.getBoundingClientRect().width > 0,
-        area: detectArea(el),
-      })),
-      links: Array.from(document.querySelectorAll('a[href]')).map(el => ({
-        text: el.textContent?.trim() || '',
-        href: (el as HTMLAnchorElement).href,
-        selector: el.id ? `#${el.id}` : `a[href="${(el as HTMLAnchorElement).getAttribute('href')}"]`,
-        visible: el.getBoundingClientRect().width > 0,
-        area: detectArea(el),
-      })).slice(0, 50),
-      inputs: Array.from(document.querySelectorAll('input:not([type="hidden"]), textarea, select')).map(el => {
-        const input = el as HTMLInputElement;
-        return {
-          type: input.type || 'text',
-          name: input.name,
-          placeholder: input.placeholder,
-          label: document.querySelector(`label[for="${input.id}"]`)?.textContent?.trim() || '',
-          selector: input.id ? `#${input.id}` : input.name ? `[name="${input.name}"]` : input.placeholder ? `[placeholder="${input.placeholder}"]` : 'input',
-          visible: el.getBoundingClientRect().width > 0,
-          area: detectArea(el),
-        };
-      }),
-      // Check for common friction indicators
-      hasPopup: !!document.querySelector('[class*="modal"], [class*="popup"], [role="dialog"]'),
-      hasError: !!document.querySelector('[class*="error"], .alert-danger, [role="alert"]'),
-      hasCaptcha: !!document.querySelector('[class*="captcha"], [class*="recaptcha"], iframe[src*="captcha"]'),
-      formCount: document.querySelectorAll('form').length,
-    };
-    return data;
-  });
-
-  // Detect friction points
-  if (pageData.hasPopup) {
-    frictionPoints.push("Popup/modal blocking content");
-  }
-  if (pageData.hasError) {
-    frictionPoints.push("Error message displayed");
-  }
-  if (pageData.hasCaptcha) {
-    frictionPoints.push("CAPTCHA blocking progress");
-  }
-
-  // Check if goal is reached based on semantic analysis
-  const goalKeywords = extractGoalKeywords(goal);
-  const pageText = pageData.text.toLowerCase();
-  const pageUrl = pageData.url.toLowerCase();
-
-  let goalReached = false;
-
-  // Action-oriented goal patterns (require completion confirmation)
-  if (goalLower.includes("sign up") || goalLower.includes("register")) {
-    goalReached = pageText.includes("welcome") ||
-                  pageText.includes("account created") ||
-                  pageText.includes("verify your email") ||
-                  pageUrl.includes("dashboard") ||
-                  pageUrl.includes("welcome");
-  } else if (goalLower.includes("login") || goalLower.includes("sign in")) {
-    goalReached = pageUrl.includes("dashboard") ||
-                  pageUrl.includes("account") ||
-                  pageText.includes("welcome back");
-  } else if (goalLower.includes("checkout") || goalLower.includes("purchase")) {
-    goalReached = pageText.includes("order confirmed") ||
-                  pageText.includes("thank you for your") ||
-                  pageUrl.includes("confirmation");
-  } else {
-    // Information-seeking goals: "find X", "search for X", "locate X", or generic
-    // Extract the subject being sought (remove action verbs)
-    const actionVerbs = ["find", "search", "locate", "look", "get", "see", "view", "check", "learn", "discover"];
-    const subjectKeywords = goalKeywords.filter(kw => !actionVerbs.includes(kw));
-
-    // Expand subject keywords with synonyms (e.g., "requirements" -> also check "eligibility", "criteria")
-    const expandedKeywords = expandKeywordsWithSynonyms(subjectKeywords);
-
-    // If we have subject keywords, check for their presence and density
-    if (subjectKeywords.length > 0) {
-      // Count how many expanded keywords (including synonyms) appear in the page
-      const _keywordsFound = expandedKeywords.filter(kw => pageText.includes(kw));
-
-      // For ratio, compare against original subject count (finding ANY synonym counts)
-      // If we find synonyms for a concept, that concept is "found"
-      const conceptsFound = new Set<string>();
-      for (const kw of subjectKeywords) {
-        // Check if original keyword or any of its synonyms appear
-        const synonyms = expandKeywordsWithSynonyms([kw]);
-        if (synonyms.some(syn => pageText.includes(syn))) {
-          conceptsFound.add(kw);
-        }
-      }
-      const keywordRatio = conceptsFound.size / subjectKeywords.length;
-
-      // Also check keyword density (multiple mentions = more relevant)
-      let totalMentions = 0;
-      for (const kw of expandedKeywords) {
-        const regex = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        const matches = pageText.match(regex);
-        totalMentions += matches ? matches.length : 0;
-      }
-
-      // Goal reached if:
-      // - At least 50% of subject CONCEPTS are present (via original or synonym), AND
-      // - Keywords/synonyms are mentioned at least 3x total (indicates actual content)
-      goalReached = keywordRatio >= 0.5 && totalMentions >= 3;
-
-      // Also check if URL contains subject keywords (strong signal)
-      const urlHasSubject = expandedKeywords.some(kw => pageUrl.includes(kw));
-      if (urlHasSubject && keywordRatio >= 0.4) {
-        goalReached = true;
-      }
-    } else {
-      // Fallback: all keywords are action verbs, just check if we're on a relevant page
-      goalReached = goalKeywords.some(kw => pageUrl.includes(kw));
-    }
-  }
-
-  // Build action candidates
-  const availableActions: ActionCandidate[] = [];
-
-  // Score buttons by relevance to goal (with area detection)
-  for (const btn of pageData.buttons.filter(b => b.visible)) {
-    const textLower = btn.text.toLowerCase();
-    let relevance = 0;
-
-    for (const keyword of goalKeywords) {
-      if (textLower.includes(keyword)) relevance += 0.3;
-    }
-
-    // Common action words
-    if (textLower.match(/submit|continue|next|proceed|sign|login|create|register|add|buy|checkout/)) {
-      relevance += 0.2;
-    }
-
-    if (relevance > 0 || btn.text.length > 0) {
-      availableActions.push({
-        type: "click",
-        target: btn.text || "button",
-        selector: btn.selector,
-        relevance: Math.min(1, relevance),
-        area: btn.area as FocusAreaType,
-        text: btn.text,
-      });
-    }
-  }
-
-  // Score links by relevance (with area detection)
-  for (const link of pageData.links.filter(l => l.visible)) {
-    const textLower = link.text.toLowerCase();
-    let relevance = 0;
-
-    for (const keyword of goalKeywords) {
-      if (textLower.includes(keyword) || link.href.toLowerCase().includes(keyword)) {
-        relevance += 0.3;
-      }
-    }
-
-    if (relevance > 0) {
-      availableActions.push({
-        type: "click",
-        target: link.text || link.href,
-        selector: link.selector,
-        relevance: Math.min(1, relevance),
-        area: link.area as FocusAreaType,
-        text: link.text,
-      });
-    }
-  }
-
-  // Score inputs (with area detection)
-  for (const input of pageData.inputs.filter(i => i.visible)) {
-    const labelLower = (input.label + input.placeholder + input.name).toLowerCase();
-    let relevance = 0;
-
-    for (const keyword of goalKeywords) {
-      if (labelLower.includes(keyword)) relevance += 0.2;
-    }
-
-    // Common form fields
-    if (labelLower.match(/email|password|name|username|search/)) {
-      relevance += 0.3;
-    }
-
-    if (relevance > 0) {
-      availableActions.push({
-        type: "fill",
-        target: input.label || input.placeholder || input.name || input.type,
-        selector: input.selector,
-        relevance: Math.min(1, relevance),
-        area: input.area as FocusAreaType,
-        text: input.label || input.placeholder,
-      });
-    }
-  }
-
-  // Sort by relevance (focus hierarchy applied later in findBestAction)
-  availableActions.sort((a, b) => b.relevance - a.relevance);
-
-  return {
-    goalReached,
-    frictionPoints,
-    availableActions,
-    pageContent: pageData.text.slice(0, 1000),
-  };
-}
-
-function extractGoalKeywords(goal: string): string[] {
-  const stopWords = ['a', 'an', 'the', 'to', 'for', 'on', 'in', 'at', 'and', 'or', 'of', 'with'];
-  return goal.toLowerCase()
-    .split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.includes(word));
-}
-
-// Synonym map for common goal terms - expands keywords to include related terms
-const KEYWORD_SYNONYMS: Record<string, string[]> = {
-  requirements: ['requirements', 'eligibility', 'criteria', 'prerequisites', 'qualifications', 'what you need', 'how to apply', 'checklist'],
-  application: ['application', 'apply', 'applying', 'submit', 'enrollment', 'enroll'],
-  admission: ['admission', 'admissions', 'accepted', 'acceptance', 'enrolled'],
-  cost: ['cost', 'tuition', 'fees', 'price', 'pricing', 'financial', 'payment'],
-  deadline: ['deadline', 'due date', 'dates', 'when to apply', 'timeline'],
-  contact: ['contact', 'email', 'phone', 'reach', 'support', 'help'],
-  international: ['international', 'global', 'foreign', 'overseas', 'visa', 'i-20'],
-};
-
-function expandKeywordsWithSynonyms(keywords: string[]): string[] {
-  const expanded = new Set<string>();
-
-  for (const kw of keywords) {
-    expanded.add(kw);
-    // Check if this keyword has synonyms
-    if (KEYWORD_SYNONYMS[kw]) {
-      for (const syn of KEYWORD_SYNONYMS[kw]) {
-        expanded.add(syn);
-      }
-    }
-    // Also check if keyword is IN a synonym list (reverse lookup)
-    for (const [key, syns] of Object.entries(KEYWORD_SYNONYMS)) {
-      if (syns.includes(kw)) {
-        expanded.add(key);
-        for (const syn of syns) {
-          expanded.add(syn);
-        }
-      }
-    }
-  }
-
-  return Array.from(expanded);
-}
-
-/**
- * Find the best action using focus hierarchy weighting.
- *
- * This applies probabilistic focus patterns to simulate how real users
- * prioritize different page areas based on their task type.
- *
- * Key behaviors:
- * - Information-seeking tasks prioritize headings/navigation
- * - Action-completion tasks prioritize forms/CTAs
- * - Common distractions (newsletter popups, etc.) are filtered
- */
-async function findBestAction(page: Page, goal: string, analysis: PageAnalysis): Promise<ActionCandidate | null> {
-  if (analysis.availableActions.length === 0) return null;
-
-  // Infer task type from goal and get appropriate focus hierarchy
-  const taskType = inferTaskTypeFromGoal(goal);
-  const focusHierarchy = getFocusHierarchy(taskType);
-
-  // Apply focus hierarchy weighting to each action
-  const weightedActions = analysis.availableActions.map(action => {
-    // Calculate focus priority based on area and distraction filtering
-    const focusPriority = calculateFocusPriority(
-      {
-        area: action.area,
-        text: action.text,
-        selector: action.selector,
-        isRelevantToGoal: action.relevance > 0.3,
-      },
-      focusHierarchy
-    );
-
-    // Check if this action should be filtered as a distraction
-    const distractionRate = getDistractionIgnoreRate(
-      { text: action.text, selector: action.selector },
-      focusHierarchy.distractionFilters
-    );
-
-    // Deterministic filtering: skip high-probability distractions
-    // (Previously random, now uses threshold for consistent behavior)
-    const skipAsDistraction = distractionRate >= 0.7;
-
-    // Combined score: relevance * focus priority, with distraction penalty
-    const combinedScore = skipAsDistraction
-      ? 0  // Filtered out as distraction
-      : action.relevance * focusPriority;
-
-    return {
-      action,
-      focusPriority,
-      distractionRate,
-      combinedScore,
-      skipped: skipAsDistraction,
-    };
-  });
-
-  // Filter out skipped distractions
-  const viableActions = weightedActions.filter(w => !w.skipped);
-
-  if (viableActions.length === 0) {
-    // All actions were filtered as distractions - fall back to nav-first
-    // This happens when page is full of popups/banners but has some nav
-    const navActions = weightedActions.filter(w =>
-      w.action.area === 'navigation' || w.action.area === 'headings'
-    );
-
-    if (navActions.length > 0) {
-      // Force through navigation even if it was a distraction
-      navActions.sort((a, b) => b.action.relevance - a.action.relevance);
-      return navActions[0].action;
-    }
-
-    // Absolute fallback: return highest relevance regardless of focus
-    return analysis.availableActions[0];
-  }
-
-  // Sort by combined score (focus-weighted relevance)
-  viableActions.sort((a, b) => b.combinedScore - a.combinedScore);
-
-  // Apply attention capacity limit (humans don't consider all options)
-  const consideredActions = viableActions.slice(0, focusHierarchy.attentionCapacity);
-
-  // Select best action deterministically (no random selection)
-  // When using cognitive journeys, Claude provides intelligent decision making
-  // For heuristic mode, we use the highest-scored action consistently
-  return consideredActions[0]?.action ?? null;
-}
-
-async function executeAction(page: Page, action: ActionCandidate): Promise<void> {
-  switch (action.type) {
-    case "click":
-      await page.click(action.selector, { timeout: 5000 });
-      break;
-    case "fill":
-      // Generate test data based on field type
-      const testValue = generateTestValue(action.target);
-      await page.fill(action.selector, testValue, { timeout: 5000 });
-      break;
-    case "scroll":
-      await page.evaluate(() => window.scrollBy(0, 500));
-      break;
-  }
-}
-
-function generateTestValue(fieldHint: string): string {
-  const hint = fieldHint.toLowerCase();
-  if (hint.includes("email")) return "test@example.com";
-  if (hint.includes("password")) return "TestPassword123!";
-  if (hint.includes("name")) return "Test User";
-  if (hint.includes("phone")) return "555-123-4567";
-  if (hint.includes("search")) return "test search";
-  return "test value";
 }
 
 // ============================================================================
@@ -1288,8 +688,13 @@ export async function runCompetitiveBenchmark(
   } = options;
 
   const startTime = Date.now();
-  const personaConfig = getPersonaOrRefuse(persona);
-  const useCognitiveJourneys = isApiKeyConfigured();
+  getPersonaOrRefuse(persona);
+  // 20.0: no keyless mode. The heuristic simulation called a sign-up goal
+  // achieved in 0 steps on a page with no sign-up, because "welcome" was on it
+  // (measured 2026-10-21), and the rankings were built on that verdict.
+  if (!isApiKeyConfigured()) {
+    throw new Error("competitive-benchmark needs an Anthropic API key (cbrowser config set-api-key <key>). The keyless heuristic mode was removed in 20.0.0 because its goal verdicts were not accurate.");
+  }
 
   // Run journeys in parallel (limited concurrency)
   const results: SiteBenchmarkResult[] = [];
@@ -1300,75 +705,66 @@ export async function runCompetitiveBenchmark(
 
     const batchResults = await Promise.all(
       batch.map(async (site) => {
-        // Use cognitive journeys when API key is available (realistic simulation)
-        if (useCognitiveJourneys) {
-          try {
-            const journey = await runCognitiveJourney({
-              persona,
-              startUrl: site.url,
-              goal,
-              maxSteps,
-              maxTime,
-              headless,
-              // Concurrent journeys need their own profiles (cognitive/index.ts).
-              persistent: false,
-              vision: false,
-              verbose: false,
-            });
-
-            const _u = new URL(site.url);
-            const siteName = site.name || _u.hostname.replace(/^www\d*\./, '') + (_u.pathname !== '/' ? _u.pathname.replace(/\/$/, '') : '');
-
-            return {
-              url: site.url,
-              siteName,
-              goalAchieved: journey.goalAchieved,
-              abandonmentReason: journey.abandonmentReason,
-              totalTime: journey.totalTime * 1000, // Convert to ms
-              stepCount: journey.stepCount,
-              frictionPoints: journey.frictionPoints.map(fp =>
-                `${fp.type}: ${fp.monologue.substring(0, 80)}`
-              ),
-              confusionLevel: Math.round(journey.finalState.confusionLevel * 100),
-              frustrationLevel: Math.round(journey.finalState.frustrationLevel * 100),
-              abandonmentRisk: calculateAbandonmentRisk(
-                {
-                  patience: journey.finalState.patienceRemaining * 100,
-                  frustration: journey.finalState.frustrationLevel * 100,
-                  confusion: journey.finalState.confusionLevel * 100,
-                  steps: journey.stepCount,
-                  frictionPoints: [],
-                  startTime: Date.now(),
-                },
-                journey.goalAchieved
-              ),
-              screenshots: { start: '', end: '' },
-            } as SiteBenchmarkResult;
-          } catch (e) {
-            // Fall back to heuristic mode on error
-            console.warn(`Cognitive journey failed for ${site.url}, falling back to heuristic: ${(e as Error).message}`);
-          }
-        }
-
-        // Fallback: Heuristic simulation (when no API key or cognitive journey failed)
-        let browser: CBrowser | null = null;
         try {
-          browser = new CBrowser({ headless, persistent: false });
-          await browser.launch();
-          const page = await browser.getPage();
+          const journey = await runCognitiveJourney({
+            persona,
+            startUrl: site.url,
+            goal,
+            maxSteps,
+            maxTime,
+            headless,
+            // Concurrent journeys need their own profiles (cognitive/index.ts).
+            persistent: false,
+            vision: false,
+            verbose: false,
+          });
 
-          const result = await simulateJourney(page, site.url, goal, personaConfig, maxSteps, maxTime);
+          const _u = new URL(site.url);
+          const siteName = site.name || _u.hostname.replace(/^www\d*\./, '') + (_u.pathname !== '/' ? _u.pathname.replace(/\/$/, '') : '');
 
-          // Override site name if provided
-          if (site.name) {
-            result.siteName = site.name;
-          }
-
-          return result;
-        } finally {
-          if (browser) {
-            await browser.close();
-          }
+          return {
+            url: site.url,
+            siteName,
+            goalAchieved: journey.goalAchieved,
+            abandonmentReason: journey.abandonmentReason,
+            totalTime: journey.totalTime * 1000, // Convert to ms
+            stepCount: journey.stepCount,
+            frictionPoints: journey.frictionPoints.map(fp =>
+              `${fp.type}: ${fp.monologue.substring(0, 80)}`
+            ),
+            confusionLevel: Math.round(journey.finalState.confusionLevel * 100),
+            frustrationLevel: Math.round(journey.finalState.frustrationLevel * 100),
+            abandonmentRisk: calculateAbandonmentRisk(
+              {
+                patience: journey.finalState.patienceRemaining * 100,
+                frustration: journey.finalState.frustrationLevel * 100,
+                confusion: journey.finalState.confusionLevel * 100,
+                steps: journey.stepCount,
+                frictionPoints: [],
+                startTime: Date.now(),
+              },
+              journey.goalAchieved
+            ),
+            screenshots: { start: '', end: '' },
+          } as SiteBenchmarkResult;
+        } catch (e) {
+          // One site's failure is that site's result, not a fake success and
+          // not the end of the whole benchmark.
+          const message = (e as Error).message;
+          console.warn(`Cognitive journey failed for ${site.url}: ${message}`);
+          return {
+            url: site.url,
+            siteName: site.name || new URL(site.url).hostname,
+            goalAchieved: false,
+            abandonmentReason: `Journey failed: ${message}`,
+            totalTime: 0,
+            stepCount: 0,
+            frictionPoints: [],
+            confusionLevel: 0,
+            frustrationLevel: 0,
+            abandonmentRisk: 100,
+            screenshots: { start: '', end: '' },
+            } as SiteBenchmarkResult;
         }
       })
     );

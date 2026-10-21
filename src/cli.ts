@@ -606,7 +606,7 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
     Examples:
       cbrowser hunt-bugs "https://example.com"
 
-  competitive-benchmark       Compare UX across competitor sites
+  competitive-benchmark       Compare UX across competitor sites (needs an Anthropic API key)
     --sites <list>            Comma-separated site URLs (required)
     --goal <goal>             Task goal (required)
     --persona <name>          Persona to use (default: first-timer)
@@ -7910,6 +7910,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
+        // 20.0.0: no keyless mode (its goal verdicts were not accurate).
+        if (!isApiKeyConfigured()) {
+          console.error("Error: competitive-benchmark needs an Anthropic API key (cbrowser config set-api-key <key>). The keyless heuristic mode was removed in 20.0.0 because its goal verdicts were not accurate.");
+          process.exit(1);
+        }
         const sites = sitesArg.split(",").map((s) => ({ url: s.trim() }));
         const personaName = (options.persona as string) || "first-timer";
         const maxSteps = options["max-steps"] ? parseInt(options["max-steps"] as string) : 30;

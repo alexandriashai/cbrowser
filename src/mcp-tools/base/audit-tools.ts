@@ -118,7 +118,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
   server.registerTool("competitive_benchmark", {
     title: "Competitive Benchmark",
-    description: "Compare UX across competitor sites. Runs identical cognitive journeys on multiple sites and generates head-to-head comparison with rankings, friction analysis, and recommendations.",
+    description: "Compare UX across competitor sites. Runs identical cognitive journeys on multiple sites and generates head-to-head comparison with rankings, friction analysis, and recommendations. Needs an Anthropic API key: each site is one model-driven journey (there is no keyless mode since 20.0.0).",
     inputSchema: {
       sites: z.array(z.string().url()).describe("Array of URLs to compare"),
       goal: z.string().describe("Task goal (e.g., 'sign up for free trial')"),
