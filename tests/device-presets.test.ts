@@ -8,17 +8,21 @@
  * "iPad Pro"). These pin the 12 shipped presets unchanged, every Chrome DevTools
  * and Playwright device reachable by its display name, one size convention for
  * all of them, and unknown names refused with suggestions.
+ *
+ * Pure: no browser, no environment changes, so it runs inside the release
+ * gate. That launch refuses an unknown name is proven end to end in
+ * cli-device.test.ts. Unknown names here are ones no device list will ever
+ * have: CI installs the newest Playwright, whose list grows ("iPhone 17" was
+ * unknown on this box's 1.58 and may not be on CI's).
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import fc from "fast-check";
 import { devices as playwrightDevices } from "playwright";
 import { CBROWSER_DEVICE_KEYS, DEVICE_PRESETS, normalizeDeviceName, resolveDevice } from "../src/devices.js";
 import { DEVTOOLS_DEVICES } from "../src/device-presets-devtools.js";
-import { CBrowser } from "../src/browser.js";
-import { CBrowserError, CBrowserErrorCode, type DeviceDescriptor } from "../src/types.js";
+import type { DeviceDescriptor } from "../src/types.js";
 
 /** DEVICE_PRESETS as it shipped in 19.5.0, captured from the code before this change. */
 const ORIGINAL: Record<string, DeviceDescriptor> = JSON.parse(
@@ -112,44 +116,17 @@ describe("names", () => {
 });
 
 describe("unknown names are refused, never rendered as desktop", () => {
-  test("an unlisted phone gets its family as suggestions", () => {
-    const r = resolveDevice("iPhone 17");
-    expect("error" in r).toBe(true);
-    if ("error" in r) expect(r.suggestions).toContain("iphone-16");
-    const s = resolveDevice("Galaxy S25");
-    if ("error" in s) expect(s.suggestions).toContain("galaxy-s24");
-    else throw new Error("Galaxy S25 resolved");
+  test("an unlisted model gets its family as suggestions", () => {
+    for (const [name, family] of [["iPhone 99", "iphone-"], ["Galaxy S99", "galaxy-s"], ["Pixel 99 Pro", "pixel-"]] as const) {
+      const r = resolveDevice(name);
+      if (!("error" in r)) throw new Error(`${name} resolved to ${r.key}`);
+      expect(r.error).toContain(name);
+      expect(r.suggestions.length, name).toBeGreaterThan(0);
+      for (const s of r.suggestions) expect(s.startsWith(family), `${name}: ${s}`).toBe(true);
+    }
   });
 
   test("empty names are refused", () => {
     for (const name of ["", "   ", "---"]) expect("error" in resolveDevice(name)).toBe(true);
-  });
-
-  let dataDir = "";
-  const previousDataDir = process.env.CBROWSER_DATA_DIR;
-  beforeAll(() => {
-    dataDir = mkdtempSync(join(tmpdir(), "cbrowser-device-test-"));
-    process.env.CBROWSER_DATA_DIR = dataDir;
-  });
-  afterAll(() => {
-    if (previousDataDir === undefined) delete process.env.CBROWSER_DATA_DIR;
-    else process.env.CBROWSER_DATA_DIR = previousDataDir;
-    rmSync(dataDir, { recursive: true, force: true });
-  });
-
-  test("launch fails on an unknown device, naming it and the closest presets", async () => {
-    const browser = new CBrowser({ device: "iphone-17", headless: true, persistent: false });
-    let error: unknown;
-    try {
-      await browser.launch();
-    } catch (e) {
-      error = e;
-    } finally {
-      await browser.close().catch(() => {});
-    }
-    expect(error).toBeInstanceOf(CBrowserError);
-    expect((error as CBrowserError).code).toBe(CBrowserErrorCode.CONFIG_INVALID);
-    expect((error as Error).message).toContain("iphone-17");
-    expect((error as Error).message).toContain("iphone-16");
   });
 });

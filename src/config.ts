@@ -73,6 +73,12 @@ export interface CBrowserConfig {
   device?: string;
   /** Device descriptor for custom emulation */
   deviceDescriptor?: DeviceDescriptor;
+  /**
+   * An explicit page size for this run (`--viewport`). Applied after a device
+   * preset, so the preset keeps its pixel ratio, touch and user agent and this
+   * sets the size.
+   */
+  viewportOverride?: { width: number; height: number };
   /** Geolocation coordinates */
   geolocation?: GeoLocation;
   /** Browser locale (e.g., "en-US") */

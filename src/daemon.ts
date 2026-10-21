@@ -196,18 +196,22 @@ export async function sendToDaemon(command: string, args: Record<string, unknown
 /**
  * Start the daemon in the background
  */
-export async function startDaemon(port: number = DEFAULT_PORT): Promise<{ success: boolean; message: string }> {
+export async function startDaemon(
+  port: number = DEFAULT_PORT,
+  /** Flags for `daemon run` that shape its browser, e.g. ["--device", "iphone-16"]. */
+  launchArgs: string[] = [],
+): Promise<{ success: boolean; message: string; alreadyRunning?: boolean }> {
   // Check if already running
   if (await isDaemonRunning()) {
     const state = getDaemonState()!;
-    return { success: true, message: `Daemon already running on port ${state.port} (PID: ${state.pid})` };
+    return { success: true, message: `Daemon already running on port ${state.port} (PID: ${state.pid})`, alreadyRunning: true };
   }
 
   // Start daemon as background process
   const logPath = getDaemonLogPath();
   const child = spawn(
     process.execPath,
-    [process.argv[1], "daemon", "run", "--port", String(port)],
+    [process.argv[1], "daemon", "run", "--port", String(port), ...launchArgs],
     {
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],

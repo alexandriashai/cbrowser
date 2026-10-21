@@ -390,6 +390,10 @@ export interface NLTestSuiteOptions {
   screenshotOnFailure?: boolean;
   /** Run headless */
   headless?: boolean;
+  /** Device preset to emulate (src/devices.ts) */
+  device?: string;
+  /** Page size for the run; wins over the device preset's size */
+  viewport?: { width: number; height: number };
   /** Use fuzzy matching for text assertions */
   fuzzyMatch?: boolean;
   /**
@@ -552,6 +556,8 @@ export async function runNLTestSuite(
     headless = true,
     fuzzyMatch = false,
     capture,
+    device,
+    viewport,
   } = options;
 
   const startTime = Date.now();
@@ -565,6 +571,8 @@ export async function runNLTestSuite(
 
   const browser = new CBrowser({
     headless,
+    ...(device ? { device } : {}),
+    ...(viewport ? { viewportWidth: viewport.width, viewportHeight: viewport.height, viewportOverride: viewport } : {}),
   });
 
   let captureResult: AutoCaptureResult | undefined;

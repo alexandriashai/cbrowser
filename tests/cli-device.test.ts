@@ -115,3 +115,41 @@ describe("cbrowser --device", () => {
     expect(r.stdout.trim().split("\n").pop()).toMatch(/Mozilla\/5\.0 .+/);
   }, TIMEOUT);
 });
+
+/**
+ * `--viewport` is a global flag (2026-10-21). Before, commands that check their
+ * flags (evaluate, keyboard, test-suite, cognitive-journey) refused it, the
+ * rest took it, and with --device the preset's size silently won.
+ */
+describe("cbrowser --viewport", () => {
+  const SIZE = "innerWidth + 'x' + innerHeight + ' dpr' + devicePixelRatio + ' touch' + (navigator.maxTouchPoints > 0)";
+
+  test("evaluate takes it", async () => {
+    const r = await cli("evaluate", SIZE, "--url", `${fixtures.base}static.html`, "--viewport", "390x844", "--raw", "--force");
+    expect(r.code, r.stderr).toBe(0);
+    // Size only: the pixel ratio without a device is the browser's default.
+    expect(r.stdout.trim().split("\n").pop()).toStartWith("390x844 ");
+  }, TIMEOUT);
+
+  test("with --device it sets the size, and the device keeps its pixel ratio and touch", async () => {
+    const r = await cli("evaluate", SIZE, "--url", `${fixtures.base}static.html`,
+      "--device", "iPhone 16", "--viewport", "500x700", "--raw", "--force");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout.trim().split("\n").pop()).toBe("500x700 dpr3 touchtrue");
+  }, TIMEOUT);
+
+  test("a malformed size is an error, not a default", async () => {
+    const r = await cli("evaluate", "1", "--url", `${fixtures.base}static.html`, "--viewport", "wide", "--force");
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain("Invalid viewport");
+  }, TIMEOUT);
+
+  test("test-suite honours --viewport and --device", async () => {
+    // test-suite runs its own browser; before, it was built with headless only.
+    const page = `${fixtures.base}viewport.html`;
+    const sized = await cli("test-suite", "--inline", `go to ${page} ; verify page contains "W390 H844"`, "--viewport", "390x844");
+    expect(sized.code, sized.stdout + sized.stderr).toBe(0);
+    const device = await cli("test-suite", "--inline", `go to ${page} ; verify page contains "W393 H852 DPR3"`, "--device", "iphone-16");
+    expect(device.code, device.stdout + device.stderr).toBe(0);
+  }, TIMEOUT * 2);
+});

@@ -700,6 +700,13 @@ For more help: https://playwright.dev/docs/browsers
       contextOptions.hasTouch = device.hasTouch;
     }
 
+    // An explicit --viewport sets the size even with a device preset, which
+    // keeps its pixel ratio, touch and user agent. Before 2026-10-21 the preset
+    // silently won.
+    if (this.config.viewportOverride) {
+      contextOptions.viewport = { ...this.config.viewportOverride };
+    }
+
     // Apply custom user agent if set (overrides device)
     if (this.config.userAgent) {
       contextOptions.userAgent = this.config.userAgent;

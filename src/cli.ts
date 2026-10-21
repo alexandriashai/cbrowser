@@ -348,7 +348,7 @@ COOKIE MANAGEMENT
   cookie clear                Clear all cookies
 
 DEVICE EMULATION
-  device list                 List available device presets
+  device list [filter]        List device presets, one per line (filter by name)
   device set <name>           Set device emulation for session
     Example: cbrowser device set iphone-15
 
@@ -794,6 +794,8 @@ CLAUDE SKILL INSTALLATION & SYNC
 DAEMON MODE (v6.4.0)
   daemon start                Start background daemon (keeps browser running)
     --port <port>             Daemon port (default: 9222)
+    --device <name>           Device the daemon's browser emulates
+    --viewport <WxH>          Page size of the daemon's browser
     --timeout <min>           Idle timeout in minutes (default: 30)
   daemon stop                 Stop the running daemon
   daemon status               Check if daemon is running
@@ -845,7 +847,9 @@ STORAGE & CLEANUP
 
 OPTIONS
   --browser <type>            Browser: chromium, firefox, webkit (default: chromium)
-  --device <name>             Device preset: iphone-15, pixel-8, ipad-pro-12, etc.
+  --device <name>             Device preset: iphone-16, pixel-9, ipad-pro-13, ... ('device list')
+  --viewport <WxH>            Page size, e.g. 390x844; with --device it sets the size and
+                              the device keeps its pixel ratio, touch and user agent
   --geo <location>            Location preset or lat,lon coordinates
   --locale <locale>           Browser locale (e.g., en-US, fr-FR)
   --timezone <tz>             Timezone (e.g., America/New_York)
@@ -1051,10 +1055,18 @@ const DRIVES_THE_PAGE = [
   "smart-click", "dismiss-overlay", "assert",
 ];
 
-const GLOBAL_FLAGS = [
-  "url", "browser", "device", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "verbose", "help", "no-color", "quiet", "json",
+/**
+ * Flags the shared CBrowser construction consumes, for every command that uses
+ * it. One list, spread into each command's set below: when this list was copied
+ * into each set, --viewport (2026-10-21) reached some commands and was refused
+ * by evaluate and keyboard.
+ */
+const SHARED_BROWSER_FLAGS = [
+  "url", "browser", "device", "viewport", "headless", "persistent", "restore",
+  "locale", "timezone", "geo", "verbose",
 ];
+
+const GLOBAL_FLAGS = [...SHARED_BROWSER_FLAGS, "help", "no-color", "quiet", "json"];
 
 /**
  * Declared options per command.
@@ -1238,9 +1250,7 @@ const CAPTURE_FLAGS = new Set([
   "contact-sheet", "attention-overlay", "overlay-persona", "overlay-goal",
   "after", "after-element", "after-delay",
   "until-element", "until-element-gone", "until-idle", "timeout",
-  // globals honoured by the shared CBrowser construction
-  "url", "browser", "device", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "verbose",
+  ...SHARED_BROWSER_FLAGS,
 ]);
 
 /**
@@ -1933,8 +1943,7 @@ function reportAutoCapture(capture: AutoCaptureResult | undefined): void {
 /** Flags `evaluate` understands; anything else is rejected rather than ignored. */
 const EVALUATE_FLAGS = new Set([
   "file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force",
-  "url", "browser", "device", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "verbose",
+  ...SHARED_BROWSER_FLAGS,
 ]);
 
 /**
@@ -2232,8 +2241,7 @@ function parseKeyboardToken(token: string, literal = false): KeyboardStep {
 /** Flags `keyboard` understands. */
 const KEYBOARD_FLAGS = new Set([
   "delay", "selector", "hold", "repeat", "text", "force",
-  "url", "browser", "device", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "verbose",
+  ...SHARED_BROWSER_FLAGS,
 ]);
 
 /**
@@ -3084,9 +3092,26 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
     switch (subCommand) {
       case "start": {
+        // The daemon's browser takes its device and size from here. Both are
+        // checked now: a bad value inside the detached daemon would only show
+        // up as a daemon that failed to start.
+        const launchArgs: string[] = [];
+        if (typeof options.device === "string") launchArgs.push("--device", resolveDevicePreset(options.device));
+        if (typeof options.viewport === "string") {
+          try {
+            parseViewportList(options.viewport);
+          } catch (e) {
+            console.error(`Error: ${(e as Error).message}`);
+            process.exit(1);
+          }
+          launchArgs.push("--viewport", options.viewport);
+        }
         console.log("🚀 Starting CBrowser daemon...");
-        const result = await startDaemon(port);
+        const result = await startDaemon(port, launchArgs);
         console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
+        if (result.alreadyRunning && launchArgs.length > 0) {
+          console.error("⚠ --device and --viewport were not applied: the daemon was already running. Run cbrowser daemon stop first.");
+        }
         process.exit(result.success ? 0 : 1);
         break;
       }
@@ -3113,9 +3138,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           : options.browser === "webkit" ? "webkit"
           : "chromium";
         // runDaemonServer will merge with defaults internally
+        const runViewport = typeof options.viewport === "string" ? parseViewportList(options.viewport)[0] : undefined;
         await runDaemonServer({
           browser: browserType,
           headless: options.headless !== false && options.headless !== "false",
+          ...(typeof options.device === "string" ? { device: options.device } : {}),
+          ...(runViewport ? { viewportWidth: runViewport.width, viewportHeight: runViewport.height, viewportOverride: runViewport } : {}),
         }, port);
         return;
       }
@@ -3142,6 +3170,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
   if (daemonRunning && INTERACTION_COMMANDS.includes(command)) {
     console.log("🔌 Connected to running daemon");
+    // The daemon's browser keeps the device and size it started with; a flag on
+    // a command it runs cannot change them, so say so instead of ignoring it.
+    if (typeof options.device === "string" || typeof options.viewport === "string") {
+      console.error("⚠ --device and --viewport do not apply to commands the daemon runs: its browser keeps the device and size it started with.");
+      console.error("  To change them: cbrowser daemon stop, then cbrowser daemon start --device <name> --viewport <WxH>");
+    }
 
     const daemonCommand = command;
     let daemonArgs: Record<string, unknown> = {};
@@ -3332,7 +3366,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     browser: browserType,
     headless,
     device: options.device as string,
-    ...(viewportOverride ? { viewportWidth: viewportOverride.width, viewportHeight: viewportOverride.height } : {}),
+    ...(viewportOverride ? { viewportWidth: viewportOverride.width, viewportHeight: viewportOverride.height, viewportOverride } : {}),
     geolocation,
     locale: options.locale as string,
     timezone: options.timezone as string,
@@ -6410,7 +6444,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log(`\n🔍 Step-through mode enabled. Press Enter to execute each step.\n`);
 
           const { CBrowser } = await import("./browser.js");
-          const stepBrowser = new CBrowser({ headless });
+          const stepBrowser = new CBrowser({
+            headless,
+            ...(typeof options.device === "string" ? { device: options.device } : {}),
+            ...(viewportOverride ? { viewportWidth: viewportOverride.width, viewportHeight: viewportOverride.height, viewportOverride } : {}),
+          });
           await (stepBrowser as any).launch();
 
           try {
@@ -6493,6 +6531,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           continueOnFailure: options["continue-on-failure"] === true,
           screenshotOnFailure: options["screenshot-on-failure"] !== false,
           headless,
+          device: typeof options.device === "string" ? options.device : undefined,
+          viewport: viewportOverride,
           fuzzyMatch: options["fuzzy-match"] === true,
           capture: buildAutoCaptureSetting(options, `test-suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
         };
@@ -7137,6 +7177,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             maxTime,
             verbose,
             headless,
+            device: typeof options.device === "string" ? options.device : undefined,
+            viewport: viewportOverride,
             vision,
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override

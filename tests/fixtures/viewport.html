@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewport fixture</title>
+</head>
+<body>
+<!-- Prints the size the page was given, so a test can assert it through any
+     command that reads page text (test-suite's "verify page contains"). -->
+<p id="size"></p>
+<script>
+document.getElementById("size").textContent =
+  "W" + window.innerWidth + " H" + window.innerHeight + " DPR" + window.devicePixelRatio;
+</script>
+</body>
+</html>

@@ -788,6 +788,8 @@ export interface CognitiveJourneyOptions {
    * default desktop viewport regardless of the persona's claimed device.
    */
   device?: string;
+  /** Page size for the journey; wins over the device preset's size and the live-viewer size. */
+  viewport?: { width: number; height: number };
   /**
    * Wrap clicks, typing, and scrolling with human-realistic timing
    * (Gaussian-spaced keystrokes, hover-and-dwell, occasional typos and
@@ -1115,6 +1117,7 @@ export async function runCognitiveJourney(
     windowWidth?: number;
     windowHeight?: number;
     device?: string;
+    viewportOverride?: { width: number; height: number };
     timeout?: number;
     followPopups?: boolean;
   } = {
@@ -1146,6 +1149,11 @@ export async function runCognitiveJourney(
     // When a click opens target="_blank" or window.open, follow the new tab
     // so VNC keeps showing where the persona actually went.
     browserConfig.followPopups = true;
+  }
+  if (options.viewport) {
+    browserConfig.viewportWidth = options.viewport.width;
+    browserConfig.viewportHeight = options.viewport.height;
+    browserConfig.viewportOverride = options.viewport;
   }
 
   const browser = new CBrowser(browserConfig);
