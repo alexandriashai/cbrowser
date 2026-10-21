@@ -41,6 +41,9 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+// Type-only: the client itself is imported lazily where it is used.
+import type Anthropic from "@anthropic-ai/sdk";
+
 import { getTraitDefinition, getTraitLevel } from "../trait-reference.js";
 
 /**
@@ -474,7 +477,7 @@ export async function judgeRelevance(
     // matching, which is the worst possible failure here because the fallback
     // still returns plausible numbers.
     const text = response.content
-      .filter((b): b is { type: "text"; text: string } => b.type === "text")
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n")
       .replace(/```(?:json)?/gi, "");
@@ -684,7 +687,7 @@ export async function summarizeCapture(
     });
 
     const text = response.content
-      .filter((b): b is { type: "text"; text: string } => b.type === "text")
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n")
       .replace(/```(?:json)?/gi, "");
