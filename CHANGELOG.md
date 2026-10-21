@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [19.6.0](https://github.com/alexandriashai/cbrowser/compare/v19.5.0...v19.6.0) (2026-10-21)
+
+### Added
+
+* **cli:** --viewport is a global flag and wins over a device's size ([4254fb5](https://github.com/alexandriashai/cbrowser/commit/4254fb5ec5d9483cdc4234a78725b3949525981a))
+* **devices:** current device presets, and unknown names are an error ([604cd53](https://github.com/alexandriashai/cbrowser/commit/604cd53a8725a20b8bb0ae4d4f4de8e1c39c5223))
+
+### Fixed
+
+* **cli:** evaluate keeps results from scripts that contain functions ([6b1a952](https://github.com/alexandriashai/cbrowser/commit/6b1a9529b9392d1dd372ff138212cd0e5266dfa9))
+* **cli:** evaluate through the daemon prints falsy results ([a33268b](https://github.com/alexandriashai/cbrowser/commit/a33268b0958d9f292dd03c201df95017342f82ae))
+
 ## [19.5.0](https://github.com/alexandriashai/cbrowser/compare/v19.4.3...v19.5.0) (2026-10-13)
 
 ### Added
