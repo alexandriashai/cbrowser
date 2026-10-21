@@ -78,14 +78,11 @@ describe("the instructions count what TOOL_CATEGORIES holds", () => {
 });
 
 describe("every registered tool belongs to a category", () => {
-  // The public package's enterprise stubs register five marketing tools under
-  // names the enterprise server does not use (it serves the TOOL_CATEGORIES
-  // names). They are pinned here, exactly, so a NEW uncategorized tool still
-  // fails while the alias question stays visible rather than hidden.
-  const STUB_ALIASES = [
-    "marketing_audience_discover_status", "marketing_campaign_influence_matrix",
-    "marketing_campaign_levers", "marketing_competitive_compare", "marketing_funnel_analysis",
-  ];
+  // The public package's enterprise stubs registered five marketing tools under
+  // names the enterprise server does not use (marketing_campaign_influence_matrix
+  // for marketing_influence_matrix, and so on), so a call written against the
+  // stub failed on the real server. Renamed 2026-10-21 (audit M18); none remain.
+  const STUB_ALIASES: string[] = [];
 
   test("registerAllPublicTools registers nothing outside TOOL_CATEGORIES but the pinned stub aliases", async () => {
     const { registerAllPublicTools } = await import("../src/mcp-tools/index.js");
