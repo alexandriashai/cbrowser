@@ -1,7 +1,7 @@
 /**
  * CBrowser MCP Tools - Base Tools Index
- * Registers 81 base tools across 22 categories
- * (Marketing tools register everywhere but as stubs on local MCP)
+ * Registers 103 base tools (measured 2026-10-21; the per-category list
+ * below predates several families and is not a count)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -39,7 +39,7 @@ import { registerCaptureTools } from "./capture-tools.js";
 import { registerArtifactTools } from "./artifact-tools.js";
 
 /**
- * Register all 65 base tools on an MCP server
+ * Register all base tools on an MCP server (103 as of 2026-10-21)
  *
  * Tool count by category:
  * - Navigation: 1 (navigate)
@@ -65,7 +65,8 @@ import { registerArtifactTools } from "./artifact-tools.js";
  * - llms.txt: 2 (llms_txt_validate, llms_txt_diff)
  * - Site Knowledge: 6 (page_understand, site_model_status, site_model_query, site_profile_list, site_profile_delete, site_profile_status)
  *
- * Total: 78 tools (always registered; marketing tools are stubs on local MCP)
+ * Not exhaustive: advanced interaction, browser state, GIF, capture and artifact
+ * families are registered at the end of the function. Total: 103.
  */
 export function registerBaseTools(
   server: McpServer,

@@ -87,12 +87,12 @@ describe("every error-shaped tool return carries isError", () => {
     test(`${f}: every error-shaped return not on the named exception list has isError`, () => {
       const uncovered = findUncoveredSites(f);
       // The three genuine exception files carry known, counted exceptions.
-      // testing-tools.ts and mcp-server.ts each have exactly 3 (nl_test_file
-      // result, nl_test_inline result, repair_test result);
+      // testing-tools.ts has exactly 3 (nl_test_file result, nl_test_inline
+      // result, repair_test result); mcp-server.ts had the same 3 in its own
+      // copies until 2026-10-21, when it started registering the shared set;
       // persona-lifecycle-tools.ts has 1 (delete confirm). tier-gate.ts has 0
       // since 2026-10-09 (the upgrade prompt is a refusal; see header).
       const expectedExceptionCount: Record<string, number> = {
-        "src/mcp-server.ts": 4, // the 3 test-result sites + the JSDoc comment line
         "src/mcp-tools/base/testing-tools.ts": 3,
         "src/mcp-tools/persona-lifecycle-tools.ts": 1,
       };
