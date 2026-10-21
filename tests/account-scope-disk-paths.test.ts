@@ -209,6 +209,13 @@ describe("output directories resolve under the caller's account", () => {
     expect(mergeConfig({}).dataDir).toBe(getDataDir());
     // The account's own tokenless browser, and the shared legacy one.
     expect((await asA(() => getTokenlessBrowser())).getDataDir()).toBe(accountDataDir(A));
-    expect((await getTokenlessBrowser()).getDataDir()).toBe(getDataDir());
+    // The shared legacy browser is one per process, built with the data dir that
+    // was current when something first asked for it. Another file in the same
+    // test process (account-scope-isolation) can build it first, which is the
+    // file order CI used for the 20.0 release gate. The claim that matters holds
+    // in any order: it never lives in an account's directory.
+    const legacy = (await getTokenlessBrowser()).getDataDir();
+    expect(legacy).not.toBe(accountDataDir(A));
+    expect(legacy.split(/[\\/]/)).not.toContain("accounts");
   });
 });
