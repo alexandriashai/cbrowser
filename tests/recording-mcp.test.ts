@@ -395,7 +395,9 @@ describe("capture argument parsing", () => {
   test("viewport accepts WxH and preset names", () => {
     expect(parseViewport("1280x720")).toEqual({ width: 1280, height: 720 });
     expect(parseViewport("1280 x 720")).toEqual({ width: 1280, height: 720 });
-    expect(parseViewport("mobile")).toEqual({ width: 375, height: 667 });
+    // mobile is the device preset size since 2026-10-21 (audit M7); 375x667 was a second meaning.
+    expect(parseViewport("mobile")).toEqual({ width: 393, height: 852 });
+    expect(parseViewport("tablet-sm")).toEqual({ width: 768, height: 1024 });
     expect(parseViewport("desktop-lg")).toEqual({ width: 1920, height: 1080 });
     expect(() => parseViewport("huge")).toThrow(/use WIDTHxHEIGHT/);
   });

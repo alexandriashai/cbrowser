@@ -24,6 +24,7 @@ import { listAccessibilityPersonas } from "../../personas.js";
 import { barrierElementCount, countAffectedElements } from "../../analysis/accessibility-empathy.js";
 import type { AccessibilityBarrier } from "../../types.js";
 import { getDefaultConfig, effectiveDataDir } from "../../config.js";
+import { describeRenderTarget } from "../../devices.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
@@ -234,7 +235,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US') — for readability calibration"),
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing (e.g., 'http://user:pass@proxy.example.com:12321'). Routes browser through the proxy so sites see the proxy's IP/location instead of the server's."),
       geoRegion: z.string().optional().describe("Route through a residential proxy in this region. Available: us-west, us-east, us-central, uk, germany, japan. Overrides proxy parameter."),
-      device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: desktop."),
+      device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: no emulation, at the configured viewport (1280x800 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used."),
       waitAfterLoad: z.number().optional().describe("Extra milliseconds to wait after page loads. Use for sites with client-side translation or deferred rendering (e.g., 3000-5000 for i18n sites)."),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load. Example: '[data-translated]', '.content-loaded'. Times out gracefully."),
       scope: z.enum(["viewport", "full_page"]).optional().default("viewport").describe("What to measure: 'viewport' (first impression, above-the-fold — default) or 'full_page' (scroll through entire page). Viewport is right for landing page optimization; full_page for WCAG compliance."),
@@ -471,6 +472,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         }
 
         response.gate1 = { status: "accessible", pageTitle, elementCount };
+        // What was rendered, not a label: the description said "Default:
+        // desktop" while no device meant the configured 1280x800 (audit M8).
+        response.device = ownsBrowser ? (device ?? null) : "session";
+        response.viewport = page.viewportSize();
 
         // ── Gate 2: Agent-Ready Audit ──
         try {
@@ -714,7 +719,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       persona: z.string().optional().default("cognitive-adhd").describe("Persona name"),
-      device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop', or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: desktop (1920x1080)."),
+      device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop' (1920x1080), or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: no emulation, at the configured viewport (1280x800 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used. Ignored with _browserToken (the session keeps its own)."),
       useValues: z.boolean().optional().default(false).describe("Enable motivational value influence on saliency map generation, attention scoring, and narrative. Default: false."),
       // Goal-directed attention is the largest single lever in the semantic
       // layer: computeGoalRelevance boosts any element whose text matches the
@@ -1144,6 +1149,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         const storyResponse = {
           url,
           persona,
+          // As rendered (audit M8): the description promised "desktop
+          // (1920x1080)" while no device rendered at the configured 1280x800.
+          device: ownsVcsBrowser ? (device ?? null) : "session",
+          viewport: page.viewportSize(),
           narrative,
           ...(aiAttention ? { aiAttention } : {}),
           images: urls,
@@ -1310,7 +1319,9 @@ export function registerEmpathyAuditTool(server: McpServer): void {
             : {}),
           overallScore: result.overallScore,
           scope: scope || "viewport",
-          device: device || "desktop",
+          // As rendered: "desktop" was echoed when no device was set, and the
+          // audit ran at the configured 1280x800 with no emulation (audit M8).
+          ...describeRenderTarget(device || undefined, { width: getDefaultConfig().viewportWidth, height: getDefaultConfig().viewportHeight }),
           scopeNote: scope === "full_page"
             ? "Full-page audit: scrolled through entire page before barrier detection. Scores reflect all content including below-the-fold."
             : "Viewport-only audit: scored first impression (above-the-fold). Use scope='full_page' for complete barrier inventory, or cognitive_journey for path-dependent experience.",

@@ -76,3 +76,4 @@ tests/structured-data-suggest-browser.test.ts
 tests/generate-tests-safe-steps.test.ts
 tests/mcp-browser-state-tools.test.ts
 tests/mcp-red-zone-refusal-shape.test.ts
+tests/mcp-device-emulation.test.ts

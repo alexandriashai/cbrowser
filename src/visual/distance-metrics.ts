@@ -597,6 +597,10 @@ export interface SmartBaseline {
   adaptiveThreshold: number;
   timestamp: string;
   computeTimeMs: number;
+  /** Device preset the captures used, if any (since 2026-10-21) */
+  device?: string;
+  /** Page size the captures used (since 2026-10-21; older baselines: 1920x1080) */
+  viewport?: { width: number; height: number };
 }
 
 /**

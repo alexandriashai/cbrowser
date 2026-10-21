@@ -1,6 +1,6 @@
 /**
  * CBrowser MCP Tools - Base Tools Index
- * Registers 103 base tools (measured 2026-10-21; the per-category list
+ * Registers 104 base tools (measured 2026-10-21; the per-category list
  * below predates several families and is not a count)
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
@@ -39,10 +39,10 @@ import { registerCaptureTools } from "./capture-tools.js";
 import { registerArtifactTools } from "./artifact-tools.js";
 
 /**
- * Register all base tools on an MCP server (103 as of 2026-10-21)
+ * Register all base tools on an MCP server (104 as of 2026-10-21)
  *
  * Tool count by category:
- * - Navigation: 1 (navigate)
+ * - Navigation: 2 (navigate, list_devices)
  * - Interaction: 5 (click, smart_click, dismiss_overlay, fill, scroll)
  * - Extraction: 2 (screenshot, extract)
  * - Assertion: 1 (assert)
@@ -66,13 +66,13 @@ import { registerArtifactTools } from "./artifact-tools.js";
  * - Site Knowledge: 6 (page_understand, site_model_status, site_model_query, site_profile_list, site_profile_delete, site_profile_status)
  *
  * Not exhaustive: advanced interaction, browser state, GIF, capture and artifact
- * families are registered at the end of the function. Total: 103.
+ * families are registered at the end of the function. Total: 104.
  */
 export function registerBaseTools(
   server: McpServer,
   context: ToolRegistrationContext
 ): void {
-  // Navigation (1)
+  // Navigation (2)
   registerNavigationTools(server, context);
 
   // Interaction (5)

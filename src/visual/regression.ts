@@ -16,6 +16,8 @@ import { VERSION } from "../version.js";
 import { join } from "path";
 
 import { CBrowser } from "../browser.js";
+import { resolveDevice } from "../devices.js";
+import { VIEWPORT_PRESETS } from "../types.js";
 import { effectiveDataDir, getPaths } from "../config.js";
 import type {
   VisualBaseline,
@@ -319,6 +321,41 @@ function saveSmartBaselines(baselines: SmartBaseline[]): void {
 }
 
 /**
+ * Resolve the `device` argument of a baseline capture.
+ *
+ * A device preset (devices.ts, any case or spacing: "mobile", "iPhone 15")
+ * gives full emulation. Otherwise a size-only VIEWPORT_PRESETS name
+ * ("desktop-sm", "tablet-lg") gives that size. Anything else is an error,
+ * never a silent default. No device = {} (the caller's default size).
+ */
+export function resolveBaselineTarget(device: string | undefined): {
+  device?: string;
+  viewport?: { width: number; height: number };
+} {
+  if (!device) return {};
+  const resolved = resolveDevice(device);
+  if (!("error" in resolved)) return { device: resolved.key };
+  const size = VIEWPORT_PRESETS.find((p) => p.name.toLowerCase() === device.trim().toLowerCase());
+  if (size) return { viewport: { width: size.width, height: size.height } };
+  const closest = resolved.suggestions.length > 0 ? ` Closest presets: ${resolved.suggestions.join(", ")}.` : "";
+  throw new Error(`${resolved.error}.${closest} Viewport sizes: ${VIEWPORT_PRESETS.map((p) => p.name).join(", ")}.`);
+}
+
+/**
+ * A browser for a capture target. A device keeps its emulation (user agent,
+ * touch, pixel ratio); a viewport with it sets the size. Neither: 1920x1080,
+ * the size baselines have always defaulted to.
+ */
+function browserForTarget(target: { device?: string; viewport?: { width: number; height: number } }): CBrowser {
+  return new CBrowser({
+    ...(target.device ? { device: target.device } : {}),
+    viewportWidth: target.viewport?.width ?? 1920,
+    viewportHeight: target.viewport?.height ?? 1080,
+    ...(target.device && target.viewport ? { viewportOverride: target.viewport } : {}),
+  });
+}
+
+/**
  * Capture a Smart Barycenter Baseline.
  *
  * Takes N screenshots of a URL with delays between captures,
@@ -348,30 +385,12 @@ export async function captureSmartBaseline(
   const numCaptures = options.numCaptures || 5;
   const captureDelay = options.captureDelay || 1500;
 
-  // Map generic device names to viewports if not a recognized DEVICE_PRESETS key
-  const GENERIC_VIEWPORTS: Record<string, { width: number; height: number }> = {
-    'mobile': { width: 375, height: 667 },
-    'tablet': { width: 768, height: 1024 },
-    'desktop': { width: 1920, height: 1080 },
-    'mobile-sm': { width: 320, height: 568 },
-    'mobile-lg': { width: 414, height: 896 },
-    'tablet-lg': { width: 1024, height: 1366 },
-    'desktop-sm': { width: 1280, height: 800 },
-    'desktop-lg': { width: 2560, height: 1440 },
-  };
-
-  let resolvedViewport = options.viewport;
-  let resolvedDevice = options.device;
-  if (options.device && GENERIC_VIEWPORTS[options.device]) {
-    resolvedViewport = GENERIC_VIEWPORTS[options.device];
-    resolvedDevice = undefined; // don't pass generic name as device preset
-  }
-
-  const browser = new CBrowser({
-    device: resolvedDevice,
-    viewportWidth: resolvedViewport?.width || 1920,
-    viewportHeight: resolvedViewport?.height || 1080,
-  });
+  // One meaning for a device name (audit M7): a device preset first, then a
+  // size-only VIEWPORT_PRESETS name. The table that stood here mapped "mobile"
+  // to 375x667 and "desktop-lg" to 2560x1440, unlike either other table.
+  const target = { ...resolveBaselineTarget(options.device), ...(options.viewport ? { viewport: options.viewport } : {}) };
+  const browser = browserForTarget(target);
+  let renderedViewport: { width: number; height: number } | undefined;
 
   const screenshotsPath = join(getSmartBaselinesPath(), "screenshots");
   if (!existsSync(screenshotsPath)) mkdirSync(screenshotsPath, { recursive: true });
@@ -381,6 +400,7 @@ export async function captureSmartBaseline(
   try {
     await browser.launch();
     await browser.navigate(url);
+    renderedViewport = (await browser.getPage()).viewportSize() ?? undefined;
 
     // Wait if specified
     if (options.waitFor) {
@@ -427,6 +447,13 @@ export async function captureSmartBaseline(
       outlierThreshold: options.outlierThreshold || 2.0,
     },
   );
+
+  // What it was rendered at, so the regression renders the same page. The
+  // baseline stored neither, and runSmartRegression always captured at
+  // 1920x1080: a mobile baseline was compared against a desktop render.
+  // (audit M6, 2026-10-21)
+  if (target.device) baseline.device = target.device;
+  if (renderedViewport) baseline.viewport = renderedViewport;
 
   // Save to index
   const baselines = loadSmartBaselines();
@@ -536,11 +563,10 @@ export async function runSmartRegression(
     } satisfies SmartRegressionResult;
   }
 
-  // Capture current screenshot
-  const browser = new CBrowser({
-    viewportWidth: baseline.url ? 1920 : 1920,
-    viewportHeight: 1080,
-  });
+  // Capture current screenshot at the baseline's own device and size (M6).
+  // Baselines from before 2026-10-21 carry neither and keep 1920x1080.
+  const browser = browserForTarget({ device: baseline.device, viewport: baseline.viewport });
+  const region = baseline.viewport ?? { width: 1920, height: 1080 };
 
   // Session screenshots dir, where retention applies (v8 B36).
   const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
@@ -575,7 +601,7 @@ export async function runSmartRegression(
       changes.push({
         type: "layout",
         severity: "breaking",
-        region: { x: 0, y: 0, width: 1920, height: 1080 },
+        region: { x: 0, y: 0, width: region.width, height: region.height },
         description: `Visual change exceeds smart baseline variance (score: ${result.normalizedScore.toFixed(3)}, threshold: ${threshold.toFixed(3)}, variance ratio: ${result.varianceRatio.toFixed(1)}σ)`,
         reasoning: result.withinVariance
           ? "Change is within observed render variance but below threshold"
@@ -588,7 +614,7 @@ export async function runSmartRegression(
       changes.push({
         type: "content",
         severity: "warning",
-        region: { x: 0, y: 0, width: 1920, height: 1080 },
+        region: { x: 0, y: 0, width: region.width, height: region.height },
         description: `Marginal visual change near smart baseline threshold (score: ${result.normalizedScore.toFixed(3)}, threshold: ${threshold.toFixed(3)})`,
         reasoning: "Change is close to the boundary of expected variance",
         confidence: 0.8,
@@ -685,7 +711,11 @@ export async function runRegressionWithTransportMap(
   const baselineScreenshot = smartBaseline?.referencePath || regularBaseline!.screenshotPath;
 
   // Capture current screenshot
-  const browser = new CBrowser({ viewportWidth: 1920, viewportHeight: 1080 });
+  // At the baseline's device and size (M6); a regular baseline records both too.
+  const captureTarget = smartBaseline
+    ? { device: smartBaseline.device, viewport: smartBaseline.viewport }
+    : { device: regularBaseline!.device, viewport: regularBaseline!.viewport };
+  const browser = browserForTarget(captureTarget);
   // Session screenshots dir, where retention applies (v8 B36).
   const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
 

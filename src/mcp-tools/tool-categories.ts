@@ -31,6 +31,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
     pricingTier: "free",
     tools: [
       "navigate",
+      "list_devices",
       "click",
       "fill",
       "scroll",
@@ -408,6 +409,7 @@ export const FREE_TIER_TOOLS = new Set([
   "dismiss_overlay", "drag", "evaluate_script", "extract", "fill",
   "find_element_by_intent", "generate_tests", "get_console_messages",
   "get_network_requests", "handle_dialog", "heal_stats", "hover", "hunt_bugs",
+  "list_devices",
   "list_baselines", "list_cognitive_personas", "list_sessions",
   "llms_txt_generate", "load_session", "manage_cookies", "manage_storage",
   "manage_tabs", "navigate", "nl_test_file", "nl_test_inline",
