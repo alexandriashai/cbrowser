@@ -20,10 +20,6 @@ inputs:
     description: 'Browsers to install (space-separated: chromium firefox webkit)'
     required: false
     default: 'chromium'
-  sensitivity:
-    description: 'Visual diff sensitivity level (low, normal, high)'
-    required: false
-    default: 'normal'
   node-version:
     description: 'Node.js version to use'
     required: false
@@ -67,12 +63,11 @@ runs:
         TEST_FILE: ${{ inputs.test-file }}
         URL: ${{ inputs.url }}
         COMMAND: ${{ inputs.command }}
-        SENSITIVITY: ${{ inputs.sensitivity }}
         OUTPUT_DIR: ${{ inputs.output-dir }}
       run: |
         if [ -n "$TEST_FILE" ]; then
           echo "Running test suite: $TEST_FILE"
-          npx cbrowser test-suite "$TEST_FILE" --sensitivity "$SENSITIVITY" --output "$OUTPUT_DIR/results.json" --html
+          npx cbrowser test-suite "$TEST_FILE" --output "$OUTPUT_DIR/results.json" --html
         elif [ -n "$URL" ]; then
           echo "Analyzing URL: $URL"
           npx cbrowser analyze "$URL" --output "$OUTPUT_DIR/analysis.json"

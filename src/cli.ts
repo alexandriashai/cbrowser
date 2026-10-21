@@ -763,6 +763,7 @@ AI TEST GENERATION
     --format <format>         Output: summary, cbrowser, playwright, all (default: summary)
     --output <file>           Save to file instead of stdout
   analyze <url>               Show page analysis without generating tests
+    --output <file>           Save the analysis as JSON
 
 MCP SERVER
   mcp-server                  Start CBrowser as MCP server for Claude integration
@@ -4086,6 +4087,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         await browser.navigate(url);
         const analysis = await browser.analyzePage();
+
+        // --output was accepted and ignored, so the GitHub Action's url mode
+        // (`analyze "$URL" --output .../analysis.json`) never wrote its file.
+        if (typeof options.output === "string") {
+          const { writeFileSync } = await import("node:fs");
+          writeFileSync(options.output, JSON.stringify(analysis, null, 2));
+          console.error(`📄 Analysis saved: ${options.output}`);
+        }
+        if (getOutputOptions().json) {
+          printData("analyze", analysis);
+          break;
+        }
 
         console.log(`\n📊 Page Analysis: ${analysis.url}\n`);
         console.log(`Title: ${analysis.title}`);

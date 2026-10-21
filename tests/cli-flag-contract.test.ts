@@ -402,3 +402,24 @@ describe("test-suite takes the global browser flags", () => {
     expect(r.code, r.stdout + r.stderr).toBe(0);
   }, TIMEOUT * 2);
 });
+
+describe("the GitHub Action's commands", () => {
+  test("analyze --output writes the analysis the action uploads", async () => {
+    const out = join(dataDir, "analysis.json");
+    const r = await run("analyze", `${fixtures.base}static.html`, "--output", out, "--no-persistent");
+    expect(r.code, r.stderr).toBe(0);
+    const a = JSON.parse(readFileSync(out, "utf8")) as { title: string };
+    expect(a.title).toContain("Recording fixture");
+  }, TIMEOUT);
+
+  test("the action's test-suite invocation passes flag validation", async () => {
+    // action.yml passed --sensitivity, which test-suite never read and 20.0 rejects.
+    const action = readFileSync(resolve(import.meta.dir, "..", "action.yml"), "utf8");
+    const line = action.split("\n").find((l) => l.includes("npx cbrowser test-suite"))!;
+    expect(line).not.toContain("--sensitivity");
+    const file = join(dataDir, "a.txt");
+    await Bun.write(file, `# Test: loads\ngo to ${fixtures.base}static.html\n`);
+    const r = await run("test-suite", file, "--output", join(dataDir, "results.json"), "--html", "--no-persistent");
+    expect(r.code, r.stderr).toBe(0);
+  }, TIMEOUT * 2);
+});
