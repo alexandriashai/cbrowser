@@ -162,6 +162,43 @@ describe("cognitive-journey replay", () => {
     expect(r.stdout + r.stderr).not.toContain("API key not configured");
     expect(r.stdout).toMatch(/Step/);
   }, TIMEOUT * 3);
+
+  test("a finished journey sends journey.complete to a subscribed webhook", async () => {
+    // Recorded and replayed as above, so no key and no model call.
+    const recordDir = mkdtempSync(join(tmpdir(), "cbrowser-trace-hook-"));
+    const previous = process.env.CBROWSER_DATA_DIR;
+    process.env.CBROWSER_DATA_DIR = recordDir;
+    try {
+      const { runCognitiveJourney } = await import("../src/cognitive/index.js");
+      await runCognitiveJourney({
+        persona: "first-timer", goal: "read the page", startUrl: `${fixtures.base}static.html`,
+        maxSteps: 2, maxTime: 60, headless: true, vision: true, trace: true,
+        decisionProvider: { decide: async () => "{}" },
+      });
+    } finally {
+      if (previous === undefined) delete process.env.CBROWSER_DATA_DIR;
+      else process.env.CBROWSER_DATA_DIR = previous;
+    }
+    const tracePath = join(recordDir, "traces", readdirSync(join(recordDir, "traces"))[0]);
+
+    const got: Array<Record<string, unknown>> = [];
+    const receiver = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: async (req) => { got.push(await req.json() as Record<string, unknown>); return new Response("ok"); } });
+    const hookDir = mkdtempSync(join(tmpdir(), "cbrowser-hook-cli-"));
+    try {
+      const add = await cli({ CBROWSER_DATA_DIR: hookDir }, "webhook", "add", "ci", `http://127.0.0.1:${receiver.port}/hook`, "--events", "journey.complete");
+      expect(add.code, add.stderr).toBe(0);
+      const r = await cli({ ANTHROPIC_API_KEY: undefined, CBROWSER_DATA_DIR: hookDir }, "cognitive-journey", "--start", `${fixtures.base}static.html`,
+        "--goal", "read the page", "--max-steps", "2", "--headless", "--replay-trace", tracePath);
+      expect(r.stdout + r.stderr).not.toMatch(/diverged/i);
+      expect(got).toHaveLength(1);
+      expect(got[0]).toMatchObject({ event: "journey.complete", persona: "first-timer", goal: "read the page", startUrl: `${fixtures.base}static.html` });
+      expect(typeof got[0].goalAchieved).toBe("boolean");
+    } finally {
+      receiver.stop(true);
+      rmSync(recordDir, { recursive: true, force: true });
+      rmSync(hookDir, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 3);
 });
 
 describe("geo set", () => {
@@ -447,5 +484,26 @@ describe("competitive-benchmark needs a key", () => {
       if (saved.key !== undefined) process.env.ANTHROPIC_API_KEY = saved.key;
       if (saved.dir !== undefined) process.env.CBROWSER_DATA_DIR = saved.dir; else delete process.env.CBROWSER_DATA_DIR;
     }
+  }, TIMEOUT);
+});
+
+describe("benchmarks and perf-regression refuse browser flags they cannot apply", () => {
+  test("ai-benchmark --viewport is refused (the audit takes a device)", async () => {
+    const r = await run("ai-benchmark", "--urls", `${fixtures.base}static.html,${fixtures.base}keyboard.html`, "--viewport", "400x700");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("'ai-benchmark' cannot take --viewport");
+  }, TIMEOUT);
+
+  test("perf-regression --device is refused (it renders as the baseline was captured)", async () => {
+    const r = await run("perf-regression", `${fixtures.base}static.html`, "home", "--device", "iphone-16");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("'perf-regression' cannot take --device");
+  }, TIMEOUT);
+
+  test("a size name works on the commands that share the browser-flag parser", async () => {
+    const r = await run("ai-benchmark", "--urls", `${fixtures.base}static.html,${fixtures.base}keyboard.html`, "--viewport", "mobile");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cannot take --viewport");
+    expect(r.stderr).not.toContain("takes one WIDTHxHEIGHT");
   }, TIMEOUT);
 });

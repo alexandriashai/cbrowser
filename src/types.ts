@@ -5042,6 +5042,10 @@ export interface CompetitiveBenchmarkOptions {
   headless?: boolean;
   /** Max concurrent browsers */
   maxConcurrency?: number;
+  /** Device every journey emulates (devices.ts name). */
+  device?: string;
+  /** Page size for every journey. */
+  viewport?: { width: number; height: number };
   /** Output path for JSON report */
   output?: string;
   /** Generate HTML report */
@@ -5220,6 +5224,8 @@ export interface AIBenchmarkOptions {
   headless?: boolean;
   /** Max concurrent audits */
   maxConcurrency?: number;
+  /** Device every site is audited on (devices.ts name). */
+  device?: string;
 }
 
 // ============================================================================

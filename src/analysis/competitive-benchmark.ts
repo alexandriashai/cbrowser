@@ -685,6 +685,8 @@ export async function runCompetitiveBenchmark(
     maxTime = 180,
     headless = true,
     maxConcurrency = 3,
+    device,
+    viewport,
   } = options;
 
   const startTime = Date.now();
@@ -717,6 +719,8 @@ export async function runCompetitiveBenchmark(
             persistent: false,
             vision: false,
             verbose: false,
+            ...(device ? { device } : {}),
+            ...(viewport ? { viewport } : {}),
           });
 
           const _u = new URL(site.url);
@@ -958,6 +962,7 @@ export async function runAIReadinessBenchmark(
     urls,
     headless = true,
     maxConcurrency = 3,
+    device,
   } = options;
 
   const startTime = Date.now();
@@ -978,6 +983,7 @@ export async function runAIReadinessBenchmark(
         const retryResult = await withRetry(
           () => runAgentReadyAudit(url, {
             headless,
+            ...(device ? { device } : {}),
             spaMode: true,
             useRandomUserAgent: true,
           }),

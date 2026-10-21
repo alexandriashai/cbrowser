@@ -698,8 +698,9 @@ TEST EXPORT
 
 WEBHOOKS
   webhook add <name> <url>    Add webhook notification (http or https)
-    --events <events>         test.pass,test.fail (default: test.fail); test-suite
-                              sends one per run, JSON, 10s timeout, no retries
+    --events <events>         test.pass,test.fail,journey.complete (default: test.fail);
+                              test-suite sends one per run, cognitive-journey one per
+                              journey; JSON, 10s timeout, no retries
     --format <format>         slack, discord, or generic
   webhook list                List configured webhooks
   webhook delete <name>       Delete a webhook
@@ -6188,7 +6189,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               : String(options.events).split(",").map((e) => e.trim()).filter(Boolean);
             const unsent = events.filter((e) => !(SENT_WEBHOOK_EVENTS as readonly string[]).includes(e));
             if (events.length === 0 || unsent.length > 0) {
-              console.error(`Error: no command sends ${unsent.join(", ") || "an empty event list"}. Events sent: ${SENT_WEBHOOK_EVENTS.join(", ")} (by test-suite, once per run)`);
+              console.error(`Error: no command sends ${unsent.join(", ") || "an empty event list"}. Events sent: ${SENT_WEBHOOK_EVENTS.join(", ")} (test.pass/test.fail by test-suite once per run, journey.complete by cognitive-journey)`);
               process.exit(1);
             }
             const format = options.format === undefined ? "generic" : String(options.format);
@@ -6214,7 +6215,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             } else {
               console.log("\n🔔 Configured Webhooks:\n");
               for (const w of webhooks) {
-                // Saved before 20.0, an event nothing sends (journey.complete) is named as such.
+                // An event no command sends (a typo, or one stored before 20.0 checked) is named as such.
                 const unsent = w.events.filter((e) => !(SENT_WEBHOOK_EVENTS as readonly string[]).includes(e));
                 console.log(`  ${w.name}`);
                 console.log(`    URL: ${w.url}`);
@@ -7355,6 +7356,14 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
+        // A regression renders as its baseline was captured; a different
+        // device or size here would compare unlike pages (audit F20: these
+        // flags were accepted and dropped).
+        refuseBrowserFlags("perf-regression", browserFlagsOrExit("perf-regression", options), {
+          device: "it renders with the baseline's recorded device; capture a new baseline with perf-baseline save --device",
+          viewport: "it renders with the baseline's recorded size; capture a new baseline with perf-baseline save --viewport",
+          browser: "performance baselines are measured in Chromium",
+        });
         const sensitivity = (options.sensitivity as string) || "normal";
         if (!["strict", "normal", "ci", "lenient"].includes(sensitivity)) {
           console.error(`Error: --sensitivity must be strict, normal, ci or lenient, got: ${sensitivity}`);
@@ -7756,6 +7765,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           // goalAchieved genuinely means the persona reached the goal — unlike
           // the empathy audit's field of the same old name, which measured
           // barriers and was renamed to noBlockingBarriers.
+          // journey.complete, once per journey (audit O17: it was the default
+          // event and nothing ever sent it). Never fails the journey.
+          await sendWebhookEvent(browser.getDataDir(), "journey.complete", {
+            persona: personaName,
+            goal,
+            startUrl,
+            goalAchieved: result.goalAchieved,
+            ...(result.abandonmentReason ? { abandonmentReason: result.abandonmentReason } : {}),
+            stepCount: result.stepCount,
+            totalTimeSeconds: Math.round(result.totalTime * 10) / 10,
+          });
+
           // Keep a failure reportAutoCapture already set: a lost capture used
           // to be overwritten by the goal's 0.
           process.exit(result.goalAchieved ? (process.exitCode ?? 0) : 1);
@@ -7857,8 +7878,16 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         console.log(`\n🏁 Running AI Readiness Benchmark on ${urls.length} sites...\n`);
 
+        // --device was accepted and dropped (audit F20). The audit can emulate a
+        // device but not set a bare size or another engine.
+        const benchFlags = browserFlagsOrExit("ai-benchmark", options);
+        refuseBrowserFlags("ai-benchmark", benchFlags, {
+          viewport: "the agent-ready audit takes a device, not a bare size; use --device",
+          browser: "the agent-ready audit runs in Chromium",
+        });
         const result = await runAIReadinessBenchmark({
           urls,
+          ...(benchFlags.device ? { device: benchFlags.device } : {}),
           headless: options.headless !== false,
           maxConcurrency: options.concurrency ? parseInt(options.concurrency as string) : 3,
         });
@@ -8104,6 +8133,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log(`   Goal: ${goal}`);
         console.log(`   Persona: ${personaName}\n`);
 
+        // --device and --viewport were accepted and dropped (audit F20).
+        const journeyFlags = browserFlagsOrExit("competitive-benchmark", options);
+        refuseBrowserFlags("competitive-benchmark", journeyFlags, {
+          browser: "cognitive journeys run in Chromium",
+        });
         const result = await runCompetitiveBenchmark({
           sites,
           goal,
@@ -8111,6 +8145,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           maxSteps,
           maxTime,
           headless,
+          ...(journeyFlags.device ? { device: journeyFlags.device } : {}),
+          ...(journeyFlags.viewport ? { viewport: journeyFlags.viewport } : {}),
         });
 
         // Print formatted report

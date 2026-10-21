@@ -18,6 +18,7 @@
 
 import type { BrowserLaunchOptions } from "./browser-options.js";
 import { DEVICE_PRESETS, resolveDevice } from "./devices.js";
+import { VIEWPORT_PRESETS } from "./types.js";
 
 export type BrowserFlag = keyof BrowserLaunchOptions;
 
@@ -61,9 +62,15 @@ export function parseBrowserFlags(options: Record<string, string | boolean>): Br
   const sized = options.width !== undefined || options.height !== undefined;
   if (options.viewport !== undefined) {
     if (sized) throw new Error("give --viewport WIDTHxHEIGHT or --width/--height, not both");
+    // Size names (mobile, tablet, desktop-md...) work as on every other command.
+    const preset = VIEWPORT_PRESETS.find((p) => p.name === String(options.viewport).trim().toLowerCase());
     const match = /^(\d+)x(\d+)$/i.exec(String(options.viewport).trim());
-    if (!match) throw new Error(`--viewport takes one WIDTHxHEIGHT, e.g. 1280x720, got "${String(options.viewport)}"`);
-    flags.viewport = { width: pixels("viewport", match[1]), height: pixels("viewport", match[2]) };
+    if (preset) {
+      flags.viewport = { width: preset.width, height: preset.height };
+    } else {
+      if (!match) throw new Error(`--viewport takes one WIDTHxHEIGHT, e.g. 1280x720, or a size name, got "${String(options.viewport)}"`);
+      flags.viewport = { width: pixels("viewport", match[1]), height: pixels("viewport", match[2]) };
+    }
   } else if (sized) {
     flags.viewport = {
       width: options.width !== undefined ? pixels("width", options.width) : 1920,

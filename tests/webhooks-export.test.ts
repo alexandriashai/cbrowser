@@ -137,9 +137,10 @@ describe("webhook add refuses what could never be sent", () => {
   }, TIMEOUT);
 
   test("an event no command sends", async () => {
-    const r = await cli("webhook", "add", "x", "https://example.com/hook", "--events", "journey.complete");
+    // journey.complete was refused here until cognitive-journey sent it (20.0).
+    const r = await cli("webhook", "add", "x", "https://example.com/hook", "--events", "test.skip");
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain("journey.complete");
+    expect(r.stderr).toContain("test.skip");
   }, TIMEOUT);
 });
 

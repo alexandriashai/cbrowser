@@ -10,7 +10,8 @@
  * `webhook add` wrote webhooks.json and nothing ever read it except `webhook
  * list` and `webhook test`: no command sent test.fail or journey.complete, so a
  * configured webhook never fired (audit O17, 2026-10-21). test-suite now sends
- * test.pass or test.fail once per run. Events nothing sends are refused at
+ * test.pass or test.fail once per run, and cognitive-journey sends
+ * journey.complete once per journey. Events nothing sends are refused at
  * `webhook add` rather than stored to wait forever.
  *
  * Sending never fails the run it reports on: one POST per webhook, JSON, a
@@ -21,8 +22,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** Events a command sends. test-suite sends one of these per run. */
-export const SENT_WEBHOOK_EVENTS = ["test.pass", "test.fail"] as const;
+/** Events a command sends: test.pass/test.fail per test-suite run, journey.complete per cognitive journey. */
+export const SENT_WEBHOOK_EVENTS = ["test.pass", "test.fail", "journey.complete"] as const;
 export type SentWebhookEvent = (typeof SENT_WEBHOOK_EVENTS)[number];
 
 export const WEBHOOK_FORMATS = ["generic", "slack", "discord"] as const;
@@ -80,8 +81,31 @@ export interface TestRunEvent {
   failedTests: Array<{ name: string; error?: string }>;
 }
 
+/** What a cognitive journey reports (journey.complete). */
+export interface JourneyEvent {
+  persona: string;
+  goal: string;
+  startUrl: string;
+  goalAchieved: boolean;
+  abandonmentReason?: string;
+  stepCount: number;
+  totalTimeSeconds: number;
+}
+
+function isJourney(p: TestRunEvent | JourneyEvent): p is JourneyEvent {
+  return "goalAchieved" in p;
+}
+
 /** The request body for one webhook format. */
-export function webhookBody(format: string, event: SentWebhookEvent, run: TestRunEvent, timestamp: string): unknown {
+export function webhookBody(format: string, event: SentWebhookEvent, run: TestRunEvent | JourneyEvent, timestamp: string): unknown {
+  if (isJourney(run)) {
+    const text = `CBrowser journey "${run.goal}" as ${run.persona}: `
+      + (run.goalAchieved ? "goal achieved" : `abandoned${run.abandonmentReason ? ` (${run.abandonmentReason})` : ""}`)
+      + ` in ${run.stepCount} steps`;
+    if (format === "slack") return { text };
+    if (format === "discord") return { content: text };
+    return { event, ...run, timestamp };
+  }
   const { suite, summary, failedTests } = run;
   const text = `CBrowser test-suite "${suite}": ${summary.passed}/${summary.total} passed`
     + (failedTests.length > 0 ? `. Failed: ${failedTests.map((t) => t.name).join(", ")}` : "");
@@ -102,7 +126,7 @@ export interface WebhookSendResult {
 export async function sendWebhookEvent(
   dataDir: string,
   event: SentWebhookEvent,
-  run: TestRunEvent,
+  run: TestRunEvent | JourneyEvent,
   options: { timeoutMs?: number; quiet?: boolean } = {},
 ): Promise<WebhookSendResult> {
   const result: WebhookSendResult = { sent: [], failed: [] };
