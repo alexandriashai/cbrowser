@@ -1982,7 +1982,8 @@ For more help: https://playwright.dev/docs/browsers
     const cookies = await this.getCookies();
     const filtered = cookies.filter((c) => {
       if (c.name !== name) return true;
-      if (domain && c.domain !== domain) return true;
+      // ".example.com" and "example.com" name the same cookie domain.
+      if (domain && c.domain.replace(/^\./, "") !== domain.replace(/^\./, "")) return true;
       return false;
     });
 

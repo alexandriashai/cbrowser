@@ -74,3 +74,4 @@ tests/page-understand-labels-landing.test.ts
 tests/findability-testid-slug.test.ts
 tests/structured-data-suggest-browser.test.ts
 tests/generate-tests-safe-steps.test.ts
+tests/mcp-browser-state-tools.test.ts
