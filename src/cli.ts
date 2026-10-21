@@ -4705,8 +4705,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error(`Invalid location: ${location}`);
               process.exit(1);
             }
-            await browser.setGeolocationRuntime(geo);
+            // Saved to session state like `device set`: each command is its own
+            // process, so a runtime change here died with this one.
+            const geoBrowser = new CBrowser({ persistent: true, headless: true, verbose: false });
+            if (!geoBrowser.saveGeolocationSetting(geo)) process.exit(1);
             console.log(`✓ Geolocation set: ${geo.latitude}, ${geo.longitude}`);
+            console.log("  Applies to later commands in the persistent session (for an hour, like device set)");
             break;
           }
           default:

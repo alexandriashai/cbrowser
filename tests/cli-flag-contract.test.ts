@@ -163,3 +163,15 @@ describe("cognitive-journey replay", () => {
     expect(r.stdout).toMatch(/Step/);
   }, TIMEOUT * 3);
 });
+
+describe("geo set", () => {
+  test("a later command sees the location (geo set used to change nothing)", async () => {
+    const set = await run("geo", "set", "51.5,-0.12");
+    expect(set.code, set.stderr).toBe(0);
+    const r = await run("evaluate",
+      "new Promise((r) => navigator.geolocation.getCurrentPosition((p) => r(p.coords.latitude + ',' + p.coords.longitude), (e) => r('error: ' + e.message)))",
+      "--url", `${fixtures.base}static.html`, "--raw", "--force");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout.trim().split("\n").pop()).toBe("51.5,-0.12");
+  }, TIMEOUT * 2);
+});

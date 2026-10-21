@@ -118,6 +118,8 @@ interface SessionState {
   timestamp: number;
   viewport?: { width: number; height: number };
   device?: string;
+  /** Set by `cbrowser geo set`; restored at launch like device. */
+  geolocation?: { latitude: number; longitude: number; accuracy?: number };
 }
 
 /**
@@ -487,6 +489,7 @@ export class CBrowser {
         timestamp: Date.now(),
         viewport,
         device: device || this.config.device,
+        ...(this.config.geolocation ? { geolocation: this.config.geolocation } : {}),
       };
 
       const stateDir = join(this.paths.dataDir, "browser-state");
@@ -527,6 +530,29 @@ export class CBrowser {
       writeFileSync(this.sessionStateFile, JSON.stringify(state, null, 2));
     } catch (e) {
       console.error(`Failed to save device setting: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * Save a geolocation to session state, so later commands launch with it
+   * (`cbrowser geo set`). Returns false when the state could not be written.
+   * Before 2026-10-21, geo set changed a browser that was never launched and
+   * printed success, so nothing changed.
+   */
+  saveGeolocationSetting(geo: { latitude: number; longitude: number; accuracy?: number }): boolean {
+    try {
+      const stateDir = join(this.paths.dataDir, "browser-state");
+      if (!existsSync(stateDir)) mkdirSync(stateDir, { recursive: true });
+      const state: SessionState = existsSync(this.sessionStateFile)
+        ? JSON.parse(readFileSync(this.sessionStateFile, "utf-8"))
+        : { url: "", timestamp: Date.now() };
+      state.geolocation = geo;
+      state.timestamp = Date.now();
+      writeFileSync(this.sessionStateFile, JSON.stringify(state, null, 2));
+      return true;
+    } catch (e) {
+      console.error(`Failed to save geolocation: ${(e as Error).message}`);
+      return false;
     }
   }
 
@@ -650,6 +676,12 @@ For more help: https://playwright.dev/docs/browsers
         });
       }
       this.config.device = resolved.key;
+    }
+
+    // Restore a location saved by `cbrowser geo set` unless one was given.
+    if (this.config.persistent && !this.config.geolocation) {
+      const saved = this.loadSessionState();
+      if (saved?.geolocation) this.config.geolocation = saved.geolocation;
     }
 
     // Load saved session state to restore device setting if not explicitly set
