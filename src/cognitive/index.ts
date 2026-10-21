@@ -877,11 +877,18 @@ export interface CognitiveStep {
  * console.log(result.goalAchieved ? "Success!" : `Abandoned: ${result.abandonmentReason}`);
  * ```
  */
+/** Trace step index of the post-journey goal evaluation. */
+const FINAL_EVAL_STEP = -1;
+
 export async function runCognitiveJourney(
   options: CognitiveJourneyOptions
 ): Promise<CognitiveJourneyResult> {
+  // A key is needed only when a live model will answer. A replay, or an
+  // injected decisionProvider, makes no model calls; before 20.0 they were
+  // refused for want of a key anyway.
+  const usesLiveModel = !options.decisionProvider && !options.replayTrace;
   const apiKey = getAnthropicApiKey();
-  if (!apiKey) {
+  if (usesLiveModel && !apiKey) {
     throw new Error(
       "Anthropic API key not configured.\n\n" +
       "TWO OPTIONS:\n" +
@@ -890,20 +897,22 @@ export async function runCognitiveJourney(
     );
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
   const model = getAnthropicModel();
 
   // Decision-provider seam (v18.68.0): the per-step LLM call sits behind a
   // DecisionProvider so a recorded trace (or an injected fake) can stand in
   // for the live API. The default path is the same anthropic.messages.create
-  // call as before — params and text extraction unchanged. Note the
-  // post-journey goal eval below still uses the live API in all modes.
+  // call as before — params and text extraction unchanged. The post-journey
+  // goal evaluation goes through the same provider (FINAL_EVAL_STEP), so a
+  // replay reproduces the recorded verdict with no model call.
   const liveLLMProvider: DecisionProvider = {
     decide: async (ctx) => {
+      if (!anthropic) throw new Error("Anthropic API key not configured.");
       const response = await anthropic.messages.create({
         model,
         max_tokens: 2000,
-        system: ctx.systemPrompt,
+        ...(ctx.systemPrompt ? { system: ctx.systemPrompt } : {}),
         messages: ctx.messages.map((m) => ({ role: m.role, content: m.content })),
       });
       return response.content[0].type === "text" ? response.content[0].text : "";
@@ -2222,13 +2231,11 @@ Right now it's ${temporalState.description}.`;
       const finalPageText = await page.evaluate(() => document.body.innerText?.substring(0, 3000) || '');
       const finalUrl = page.url();
 
-      // Ask Claude: did we actually achieve the goal?
-      const evalResponse = await anthropic.messages.create({
-        model,
-        max_tokens: 200,
-        messages: [{
-          role: "user",
-          content: `The user's goal was: "${options.goal}"
+      // Ask Claude: did we actually achieve the goal? Through the decision
+      // provider, recorded as the trace's final step, so a replay answers
+      // from the trace. (Before 20.0 this always called the live API, so a
+      // "free" replay still needed a key and could reach a different verdict.)
+      const finalEvalPrompt = `The user's goal was: "${options.goal}"
 
 They ended on this page: ${finalUrl}
 
@@ -2243,11 +2250,24 @@ Be strict: "still searching", "looking for", "no results", or being on a search 
 The goal is only achieved if the page CURRENTLY SHOWS the specific content they were looking for.
 
 Answer with JSON:
-{"achieved": true/false, "evidence": "exact quote from the page that proves the goal was met, or null if not met"}`
-        }],
+{"achieved": true/false, "evidence": "exact quote from the page that proves the goal was met, or null if not met"}`;
+      const finalHash = hashPageState(finalUrl, finalPageText);
+      const evalText = await decisionProvider.decide({
+        stepIndex: FINAL_EVAL_STEP,
+        pageStateHash: finalHash,
+        persona: personaObj.name,
+        systemPrompt: "",
+        messages: [{ role: "user", content: finalEvalPrompt }],
       });
-
-      const evalText = evalResponse.content[0]?.type === 'text' ? evalResponse.content[0].text : '';
+      if (traceWriter) {
+        traceWriter.record({
+          step: FINAL_EVAL_STEP,
+          pageStateHash: finalHash,
+          persona: personaObj.name,
+          decision: evalText,
+          ts: new Date().toISOString(),
+        });
+      }
       try {
         const evalJson = JSON.parse(evalText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
         if (evalJson.achieved) {
@@ -2293,6 +2313,9 @@ Answer with JSON:
     goal: options.goal,
     goalAchieved,
     ...(captureResult ? { capture: captureResult } : {}),
+    // Where --trace wrote its file; nothing reported it before 20.0, so a
+    // trace could only be found by listing the traces directory.
+    ...(traceWriter ? { tracePath: traceWriter.filePath } : {}),
     abandonmentReason,
     abandonmentMessage,
     totalTime: (Date.now() - startTime) / 1000,

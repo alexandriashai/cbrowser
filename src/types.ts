@@ -2220,6 +2220,8 @@ export interface FrictionPoint {
 export interface CognitiveJourneyResult {
   /** Persona used */
   persona: string;
+  /** The JSONL trace this run wrote, when run with trace: true. Replay it with replayTrace. */
+  tracePath?: string;
   /** Goal attempted */
   goal: string;
   /** Whether goal was achieved */

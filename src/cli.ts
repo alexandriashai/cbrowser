@@ -207,10 +207,11 @@ COGNITIVE JOURNEY (API-powered, realistic user simulation)
     --verbose                 Show step-by-step narration and internal monologue
     --no-vision               Disable vision mode (text-only, less accurate but faster)
     --output <file>           Save JSON report to file
-    --html                    Generate HTML report
+    --trace                   Record the journey to ~/.cbrowser/traces/<id>.jsonl
+    --replay-trace <file>     Replay a recorded journey: no model calls, no API key
     --timezone <tz>           Override persona timezone (e.g., "America/New_York", "Europe/London")
     --locale <loc>            Override persona locale (e.g., "en-US", "de-DE")
-    --geolocation <lat,lng>   Override persona geolocation (e.g., "40.7128,-74.0060")
+    --geo <preset|lat,lon>    Override persona location (also --geolocation <lat,lng>)
 
     Why use this over 'explore'?
       • Tracks cognitive state: patience, frustration, confusion
@@ -604,7 +605,7 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
       cbrowser webmcp-ready "https://demo.cbrowser.ai/mcp"
       cbrowser webmcp-ready "https://your-server.com/mcp" --api-key KEY --html
 
-  hunt-bugs <url>             Automatically find UX bugs on a page
+  hunt-bugs <url>             Automatically find UX bugs on a page (alias: hunt)
     --max-pages <n>           Max pages to crawl (default: 10)
     --timeout <ms>            Timeout in ms (default: 60000)
     Examples:
@@ -718,11 +719,6 @@ VISUAL AI (v4.0.0)
       cbrowser ai find "login button"
       cbrowser ai find "search box"
   ai click "<intent>"         Find and click element by intent
-
-BUG HUNTER (v4.0.0)
-  hunt <url>                  Automatically find bugs on a page
-    --max-pages <n>           Max pages to crawl (default: 10)
-    --timeout <ms>            Timeout in ms (default: 60000)
 
 CROSS-BROWSER (v4.0.0)
   diff <url>                  Compare page across browsers
@@ -919,6 +915,12 @@ const COMMAND_ALIASES: Record<string, string> = {
   "chaos-test": "chaos",
   "generate-tests": "generate",
   journey: "explore",
+  // Dispatch aliases that `help` used to resolve by text search, so
+  // `help stats` showed "heal stats" (audit 2026-10-21).
+  hunt: "hunt-bugs",
+  flaky: "flaky-check",
+  repair: "repair-tests",
+  stats: "storage",
 };
 
 /** Escape a string for safe use inside a RegExp. */
@@ -1103,25 +1105,18 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   evaluate: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force"],
   eval: ["file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force"],
   keyboard: ["delay", "selector", "hold", "repeat", "text", "force"],
+  // test-suite and cognitive-journey list only the flags their code reads
+  // (measured 2026-10-21). They used to declare every report command's flags,
+  // so `test-suite --persona x` passed validation and did nothing.
   "test-suite": [
     "capture", "capture-fps", "capture-format", "capture-out",
-    "api-key", "auto-apply", "comprehensive", "concurrency", "continue-on-failure",
-    "delay", "disabilities", "dry-run", "exclude", "fuzzy-match", "goal",
-    "html", "include", "inline", "length", "lightpanda", "max-pages", "max-steps",
-    "max-time", "min-coverage", "name", "no-vision", "oauth-token", "output",
-    "persona", "retries", "runs", "screenshot-on-failure", "sensitivity",
-    "sitemap", "sites", "start", "step-through", "tests", "threshold",
-    "threshold-cls", "threshold-fcp", "threshold-lcp", "threshold-tbt",
-    "threshold-ttfb", "threshold-tti", "timeout", "trait", "urls", "value",
-    "verify", "wcag-level", "geolocation", "geo-region",
+    "continue-on-failure", "dry-run", "fuzzy-match", "html", "inline", "output",
+    "screenshot-on-failure", "step-through", "timeout",
   ],
   "cognitive-journey": [
     "capture", "capture-fps", "capture-format", "capture-out",
-    "api-key", "comprehensive", "concurrency", "disabilities", "goal", "html",
-    "length", "lightpanda", "max-steps", "max-time", "name", "no-vision",
-    "oauth-token", "output", "persona", "sites", "start", "timeout", "trait",
-    "urls", "value", "wcag-level", "geolocation", "geo-region", "vision",
-    "trace", "replay-trace",
+    "goal", "persona", "start", "max-steps", "max-time", "no-vision", "output",
+    "geolocation", "trace", "replay-trace",
   ],
 };
 
@@ -3479,7 +3474,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
         if (options.url) await browser.navigate(options.url as string);
         const page = await browser.getPage();
-        const delay = typeof options.delay === "number" ? options.delay : 50;
+        // parseArgs yields strings, so the old `typeof === "number"` test was
+        // never true and --delay was always 50 ms (audit 2026-10-21).
+        const delay = typeof options.delay === "string" ? Number(options.delay) : 50;
+        if (!Number.isFinite(delay) || delay < 0) {
+          console.error(`Error: --delay must be a number of milliseconds, got: ${options.delay}`);
+          process.exit(1);
+        }
         const refusal = await browser.keystrokeRedZone({ text }, options.force === true);
         if (refusal) {
           console.error(`✗ ${refusal}`);
@@ -4309,6 +4310,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("  cbrowser persona delete my-custom-persona");
             console.error("  cbrowser persona cleanup --dry-run    # Preview invalid personas");
             console.error("  cbrowser persona cleanup              # Remove invalid personas");
+            process.exit(1);
         }
         break;
       }
@@ -4502,6 +4504,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("  cleanup --older-than <days>    Delete old sessions");
             console.error("  export <name> --output <file>  Export session to file");
             console.error("  import <file> --name <name>    Import session from file");
+            process.exit(1);
         }
         break;
       }
@@ -4623,6 +4626,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser cookie [list|set|delete|clear]");
+            process.exit(1);
         }
         break;
       }
@@ -4667,6 +4671,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser device [list|set]");
+            process.exit(1);
         }
         break;
       }
@@ -4706,6 +4711,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser geo [list|set]");
+            process.exit(1);
         }
         break;
       }
@@ -4789,7 +4795,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const subcommand = args[0];
         if (subcommand !== "start" && subcommand !== "stop") {
           console.error("Usage: cbrowser har [start|stop]");
-          break;
+          process.exit(1);
         }
         // A recording has to span several commands, and each cbrowser command is
         // its own process: only the daemon's browser outlives them. Recorded here,
@@ -4872,7 +4878,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const subcommand = args[0];
         if (subcommand !== "list" && subcommand !== "clear") {
           console.error("Usage: cbrowser network [list|clear]");
-          break;
+          process.exit(1);
         }
         // Same reason as har: the request log lives in a browser, and only the
         // daemon's browser outlives a command. A fresh process always listed
@@ -5000,6 +5006,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser visual [save|compare|list|delete]");
+            process.exit(1);
         }
         break;
       }
@@ -5230,6 +5237,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("       cbrowser ai-visual list");
             console.error("       cbrowser ai-visual show <name>");
             console.error("       cbrowser ai-visual delete <name>");
+            process.exit(1);
         }
         break;
       }
@@ -5733,6 +5741,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser record [start|stop|save|list|generate]");
+            process.exit(1);
         }
         break;
       }
@@ -5914,6 +5923,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser webhook [add|list|delete|test]");
+            process.exit(1);
         }
         break;
       }
@@ -6040,6 +6050,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
           default:
             console.error("Usage: cbrowser parallel [devices|urls|perf]");
+            process.exit(1);
         }
         break;
       }
@@ -6168,6 +6179,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           default:
             console.error("Usage: cbrowser ai [find|click] \"<intent>\"");
+            process.exit(1);
         }
         break;
       }
@@ -7093,8 +7105,16 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       // =========================================================================
 
       case "cognitive-journey": {
+        // A replay makes no model calls, so it needs no key (audit 2026-10-21:
+        // the key gate blocked replays, and --replay-trace never reached the
+        // engine, so a "replay" was a live, paid run).
+        const replayTrace = typeof options["replay-trace"] === "string" ? resolve(options["replay-trace"]) : undefined;
+        if (replayTrace && !existsSync(replayTrace)) {
+          console.error(`Error: trace file not found: ${replayTrace}`);
+          process.exit(1);
+        }
         // Check API key first
-        if (!isApiKeyConfigured()) {
+        if (!replayTrace && !isApiKeyConfigured()) {
           // Output structured prompt for Claude Code integration
           // Format matches Claude Agent SDK's AskUserQuestion tool
           const apiKeyPrompt = {
@@ -7147,13 +7167,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const maxSteps = options["max-steps"] ? parseInt(options["max-steps"] as string) : 50;
         const maxTime = options["max-time"] ? parseInt(options["max-time"] as string) : 120;
         const verbose = options.verbose === true;
-        const headless = options.headless === true;
+        // Undefined unless asked, so the engine decides from $DISPLAY. This was
+        // `=== true`, which made a plain journey launch headed on a server
+        // with no display, unlike every other command.
+        const headless = options.headless === true ? true : options.headless === false ? false : undefined;
         const vision = options["no-vision"] !== true; // Vision ON by default (v17.1.0)
 
         // Parse location options
         let locationOverride: { timezone?: string; locale?: string; geolocation?: { latitude: number; longitude: number } } | undefined;
-        if (options.timezone || options.locale || options.geolocation) {
+        if (options.timezone || options.locale || options.geolocation || geolocation) {
           locationOverride = {};
+          // The global --geo (a preset or lat,lon) was accepted here and ignored.
+          if (geolocation) locationOverride.geolocation = { latitude: geolocation.latitude, longitude: geolocation.longitude };
           if (options.timezone) locationOverride.timezone = options.timezone as string;
           if (options.locale) locationOverride.locale = options.locale as string;
           if (options.geolocation) {
@@ -7209,6 +7234,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             headless,
             device: typeof options.device === "string" ? options.device : undefined,
             viewport: viewportOverride,
+            trace: options.trace === true,
+            replayTrace,
             vision,
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override
@@ -7220,6 +7247,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
           console.log("\n");
           reportAutoCapture(result.capture as AutoCaptureResult | undefined);
+          if (result.tracePath) {
+            console.log(`🧾 Trace: ${result.tracePath}`);
+            console.log(`   Replay it with no API calls: cbrowser cognitive-journey --start <url> --goal <goal> --replay-trace ${result.tracePath}`);
+          }
 
           if (result.goalAchieved) {
             console.log(`✅ GOAL ACHIEVED in ${result.stepCount} steps (${result.totalTime.toFixed(1)}s)`);
@@ -7630,7 +7661,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "empathy-audit": {
         const url = args[0];
         const goal = options.goal as string;
-        const disabilitiesArg = options.disabilities as string;
+        // --personas is what the help and its examples say; --disabilities is the
+        // older name. Before 2026-10-21 only --disabilities was read, so the
+        // documented form silently ran every accessibility persona.
+        const disabilitiesArg = (typeof options.personas === "string" ? options.personas : options.disabilities) as string;
 
         if (!url) {
           console.error("Error: URL required");
