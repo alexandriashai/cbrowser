@@ -15,6 +15,8 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+// Artifacts go to a temp dir, never the directory nginx serves (/var/www/cbrowser-data/heatmaps).
+process.env.CBROWSER_ARTIFACT_DIR ??= mkdtempSync(join(tmpdir(), "cb-artifacts-"));
 
 process.env.CBROWSER_DATA_DIR ??= mkdtempSync(join(tmpdir(), "cb-attn-session-"));
 const { CBrowser } = await import("../src/browser.js");

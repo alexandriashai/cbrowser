@@ -16,6 +16,8 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+// Artifacts go to a temp dir, never the directory nginx serves (/var/www/cbrowser-data/heatmaps).
+process.env.CBROWSER_ARTIFACT_DIR ??= mkdtempSync(join(tmpdir(), "cb-artifacts-"));
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
