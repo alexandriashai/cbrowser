@@ -507,3 +507,19 @@ describe("benchmarks and perf-regression refuse browser flags they cannot apply"
     expect(r.stderr).not.toContain("takes one WIDTHxHEIGHT");
   }, TIMEOUT);
 });
+
+describe("numeric and word options are checked (audit F21)", () => {
+  test("flaky-check --threshold is a percentage and refuses junk", async () => {
+    const file = join(dataDir, "flaky.txt");
+    await Bun.write(file, `# Test: one\ngo to ${fixtures.base}static.html\n`);
+    const r = await run("flaky-check", file, "--threshold", "lots");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--threshold must be a number from 0 to 100");
+  }, TIMEOUT);
+
+  test("visual --sensitivity must be low, medium or high", async () => {
+    const r = await run("ai-visual", "test", `${fixtures.base}static.html`, "nope", "--sensitivity", "extreme");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--sensitivity must be low, medium, high");
+  }, TIMEOUT);
+});

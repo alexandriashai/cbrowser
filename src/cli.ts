@@ -134,7 +134,7 @@ function helpText(): string {
 
 NAVIGATION
   navigate <url>              Navigate and take screenshot
-  screenshot [path]           Take screenshot of current page
+  screenshot [url] [path]     Take a screenshot (of <url> when given, else the current page)
     --no-restore                Don't reload saved URL (capture current state after interactions)
 
 INTERACTION
@@ -321,7 +321,7 @@ TEST COVERAGE MAP
     --exclude <pattern>        Exclude paths matching pattern
     --min-coverage <n>         Min coverage % to not flag (default: 50)
     --html                     Generate HTML report
-    --output <file>            Save JSON report to file
+    --output <file>            Save the report (JSON if the name ends in .json, else text)
     --device, --viewport, --browser, --no-headless   The crawl's browser (not with --sitemap)
     Examples:
       cbrowser coverage "https://example.com" --tests "tests/*.txt"
@@ -1261,6 +1261,31 @@ interface ActiveCapture {
 }
 
 /** Parse "5s", "2m", "1500ms" or a bare millisecond count. */
+/**
+ * A numeric option, checked. parseInt/parseFloat let "abc" through as NaN and
+ * read "0.2" as 0 (flaky-check --threshold flagged every test), so a value
+ * outside the range or not a number exits 1 naming the flag (audit F21).
+ */
+function numberOption(flag: string, value: string | boolean | undefined, fallback: number, range: { min: number; max: number }): number {
+  if (value === undefined) return fallback;
+  const n = typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+  if (!Number.isFinite(n) || n < range.min || n > range.max) {
+    console.error(`Error: --${flag} must be a number from ${range.min} to ${range.max}, got "${String(value)}"`);
+    process.exit(1);
+  }
+  return n;
+}
+
+/** An option from a fixed set of words; anything else exits 1 (audit F21). */
+function enumOption<T extends string>(flag: string, value: string | boolean | undefined, allowed: readonly T[]): T | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !(allowed as readonly string[]).includes(value)) {
+    console.error(`Error: --${flag} must be ${allowed.join(", ")}, got "${String(value)}"`);
+    process.exit(1);
+  }
+  return value as T;
+}
+
 /**
  * Where --html writes when --output names the JSON report. The HTML used to
  * take `output.replace(".json", ".html")`, so `--output report` or
@@ -5259,7 +5284,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             if (options.url) {
               await browser.navigate(options.url as string);
             }
-            const threshold = options.threshold ? parseFloat(options.threshold as string) : 0.1;
+            const threshold = numberOption("threshold", options.threshold, 0.1, { min: 0, max: 1 });
             const result = await browser.compareBaseline(name, threshold);
 
             console.log("\n🔍 Visual Comparison:\n");
@@ -5386,8 +5411,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`   Baseline: ${baselineName}\n`);
 
             const result = await runVisualRegression(url, baselineName, {
-              threshold: options.threshold ? parseFloat(options.threshold as string) : 0.9,
-              sensitivity: (options.sensitivity as "low" | "medium" | "high") || "medium",
+              threshold: numberOption("threshold", options.threshold, 0.9, { min: 0, max: 1 }),
+              sensitivity: enumOption("sensitivity", options.sensitivity, ["low", "medium", "high"] as const) ?? "medium",
               generateDiff: true,
               headless: flags.headless,
             });
@@ -5455,7 +5480,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`\n🔍 Running visual regression suite: ${suite.name}`);
 
             const result = await runVisualRegressionSuite(suite, {
-              threshold: options.threshold ? parseFloat(options.threshold as string) : 0.9,
+              threshold: numberOption("threshold", options.threshold, 0.9, { min: 0, max: 1 }),
               headless: flags.headless,
             });
 
@@ -5640,7 +5665,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             ...flags,
             waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
             waitForSelector: options["wait-for"] as string | undefined,
-            sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
+            sensitivity: enumOption("sensitivity", options.sensitivity, ["low", "medium", "high"] as const),
           });
 
           // Print report
@@ -5797,7 +5822,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             ...flags,
             waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
             waitForSelector: options["wait-for"] as string | undefined,
-            sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
+            sensitivity: enumOption("sensitivity", options.sensitivity, ["low", "medium", "high"] as const),
           });
 
           // Print report
@@ -5918,7 +5943,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             ...flags,
             waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
             waitForSelector: options["wait-for"] as string | undefined,
-            sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
+            sensitivity: enumOption("sensitivity", options.sensitivity, ["low", "medium", "high"] as const),
           });
 
           // Print report
@@ -7165,7 +7190,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           device: flakyFlags.device,
           viewport: flakyFlags.viewport,
           runs: options.runs ? parseInt(options.runs as string) : 5,
-          flakinessThreshold: options.threshold ? parseInt(options.threshold as string) : 20,
+          // A percentage: parseInt read "0.2" as 0, which flagged every test.
+          flakinessThreshold: numberOption("threshold", options.threshold, 20, { min: 0, max: 100 }),
           delayBetweenRuns: options.delay ? parseInt(options.delay as string) : 500,
         };
 
