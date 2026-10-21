@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.0.1](https://github.com/alexandriashai/cbrowser/compare/v20.0.0...v20.0.1) (2026-10-21)
+
+### Fixed
+
+* **cli:** doctor checks Node 20.9; help and error links match 20.0 ([58a320d](https://github.com/alexandriashai/cbrowser/commit/58a320df57ba84a6d88594898fab92493ba4ecfc)), references [docs/errors#E101](https://github.com/docs/errors/issues/E101) [#e101](https://github.com/alexandriashai/cbrowser/issues/e101)
+
 ## [20.0.0](https://github.com/alexandriashai/cbrowser/compare/v19.6.0...v20.0.0) (2026-10-21)
 
 ### ⚠ BREAKING CHANGES
