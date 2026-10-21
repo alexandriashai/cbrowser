@@ -41,7 +41,9 @@ import { join } from "node:path";
 
 // Audit side files go to a throwaway dir. Set before the module loads.
 const ORIGINAL_DATA_DIR = process.env.CBROWSER_DATA_DIR;
-const DATA_DIR = mkdtempSync(join(ORIGINAL_DATA_DIR ?? tmpdir(), "cbrowser-hover-self-"));
+// Always under the system temp dir: an earlier file in the same process can
+// leave CBROWSER_DATA_DIR pointing at a directory it already deleted.
+const DATA_DIR = mkdtempSync(join(tmpdir(), "cbrowser-hover-self-"));
 process.env.CBROWSER_DATA_DIR = DATA_DIR;
 const { runEmpathyAudit } = await import("../src/analysis/accessibility-empathy.js");
 const { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } = await import("../src/personas.js");

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const dir = mkdtempSync(join(tmpdir(), "cbrowser-list-baselines-"));
+const previousDataDir = process.env.CBROWSER_DATA_DIR;
 process.env.CBROWSER_DATA_DIR = dir;
 
 type Handler = (args: Record<string, unknown>) => Promise<{ content: Array<{ text: string }> }>;
@@ -32,7 +33,14 @@ beforeAll(async () => {
   const r = await handlers.get("list_baselines")!({});
   listed = JSON.parse(r.content[0]!.text);
 });
-afterAll(() => { rmSync(dir, { recursive: true, force: true }); });
+// Restore the variable as well as deleting the dir: files that run later in the
+// same process read CBROWSER_DATA_DIR, and CI's 20.0 release gate failed on one
+// that made its temp dir inside this deleted one (ENOENT).
+afterAll(() => {
+  rmSync(dir, { recursive: true, force: true });
+  if (previousDataDir === undefined) delete process.env.CBROWSER_DATA_DIR;
+  else process.env.CBROWSER_DATA_DIR = previousDataDir;
+});
 
 describe("list_baselines lists the smart baselines visual_baseline makes (v10 B36)", () => {
   test("the smart baseline is in the visual list, marked as smart", () => {

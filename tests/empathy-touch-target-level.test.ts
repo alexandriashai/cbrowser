@@ -36,7 +36,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const ORIGINAL_DATA_DIR = process.env.CBROWSER_DATA_DIR;
-const DATA_DIR = mkdtempSync(join(ORIGINAL_DATA_DIR ?? tmpdir(), "cbrowser-touch-level-"));
+// Always under the system temp dir: an earlier file in the same process can
+// leave CBROWSER_DATA_DIR pointing at a directory it already deleted.
+const DATA_DIR = mkdtempSync(join(tmpdir(), "cbrowser-touch-level-"));
 process.env.CBROWSER_DATA_DIR = DATA_DIR;
 const { runEmpathyAudit } = await import("../src/analysis/accessibility-empathy.js");
 const { weightedSeverity, barrierWeightFor } = await import("../src/visual/perceptual-transport.js");
