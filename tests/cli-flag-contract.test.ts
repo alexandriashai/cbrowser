@@ -227,3 +227,41 @@ describe("failures exit non-zero", () => {
     }, TIMEOUT);
   }
 });
+
+/**
+ * Settings reach the browser the way the docs say (audit 2026-10-21, daemon
+ * lane 3 and 12, output lane 15).
+ */
+describe("browser settings", () => {
+  const fresh = () => mkdtempSync(join(tmpdir(), "cbrowser-settings-"));
+  const width = "String(innerWidth)";
+
+  test("a one-off --device does not stick to the next command", async () => {
+    const dir = fresh();
+    try {
+      const a = await cli({ CBROWSER_DATA_DIR: dir }, "evaluate", width, "--url", `${fixtures.base}static.html`, "--device", "iphone-16", "--raw", "--force");
+      expect(a.stdout.trim().split("\n").pop()).toBe("393");
+      const b = await cli({ CBROWSER_DATA_DIR: dir }, "evaluate", width, "--url", `${fixtures.base}static.html`, "--raw", "--force");
+      expect(b.stdout.trim().split("\n").pop()).not.toBe("393");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, TIMEOUT * 2);
+
+  test("--viewport wins over the size the last run saved", async () => {
+    const dir = fresh();
+    try {
+      await cli({ CBROWSER_DATA_DIR: dir }, "evaluate", width, "--url", `${fixtures.base}static.html`, "--viewport", "500x700", "--raw", "--force");
+      const b = await cli({ CBROWSER_DATA_DIR: dir }, "evaluate", width, "--viewport", "800x600", "--raw", "--force");
+      expect(b.stdout.trim().split("\n").pop()).toBe("800");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, TIMEOUT * 2);
+
+  test("CBROWSER_DEVICE and CBROWSER_TIMEZONE are honoured", async () => {
+    const dir = fresh();
+    try {
+      const r = await cli({ CBROWSER_DATA_DIR: dir, CBROWSER_DEVICE: "iphone-16", CBROWSER_TIMEZONE: "Asia/Tokyo" },
+        "evaluate", "innerWidth + ' ' + Intl.DateTimeFormat().resolvedOptions().timeZone", "--url", `${fixtures.base}static.html`, "--raw", "--force");
+      expect(r.code, r.stderr).toBe(0);
+      expect(r.stdout.trim().split("\n").pop()).toBe("393 Asia/Tokyo");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, TIMEOUT);
+});

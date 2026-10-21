@@ -425,6 +425,9 @@ export class CBrowser {
   // Session State Persistence
   // =========================================================================
 
+  /** True when this run was given --device or --viewport (see launch). */
+  private explicitPageShape = false;
+
   private get sessionStateFile(): string {
     return join(this.paths.dataDir, "browser-state", "last-session.json");
   }
@@ -484,12 +487,20 @@ export class CBrowser {
       // Don't save about:blank or empty URLs
       if (!url || url === "about:blank" || url === "") return;
 
+      // Device and location persist only when set on purpose (`device set`,
+      // `geo set`), so carry those over from the file. Saving this run's
+      // values made a one-off --device or --geo stick to every later command
+      // for an hour (audit 2026-10-21).
+      let previous: SessionState | null = null;
+      try {
+        if (existsSync(this.sessionStateFile)) previous = JSON.parse(readFileSync(this.sessionStateFile, "utf-8")) as SessionState;
+      } catch { /* unreadable: start fresh */ }
       const state: SessionState = {
         url,
         timestamp: Date.now(),
         viewport,
-        device: device || this.config.device,
-        ...(this.config.geolocation ? { geolocation: this.config.geolocation } : {}),
+        device: device ?? previous?.device,
+        ...(previous?.geolocation ? { geolocation: previous.geolocation } : {}),
       };
 
       const stateDir = join(this.paths.dataDir, "browser-state");
@@ -677,6 +688,10 @@ For more help: https://playwright.dev/docs/browsers
       }
       this.config.device = resolved.key;
     }
+
+    // Was the page shape asked for on this run? Then the saved session's
+    // viewport must not overwrite it after launch.
+    this.explicitPageShape = !!this.config.device || !!this.config.viewportOverride;
 
     // Restore a location saved by `cbrowser geo set` unless one was given.
     if (this.config.persistent && !this.config.geolocation) {
@@ -967,7 +982,8 @@ For more help: https://playwright.dev/docs/browsers
           await this.page!.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
           await this.page!.waitForTimeout(1000);
           // Apply saved viewport if available
-          if (savedSession.viewport) {
+          // An explicit --device or --viewport wins over last run's size.
+          if (savedSession.viewport && !this.explicitPageShape) {
             await this.page!.setViewportSize(savedSession.viewport);
           }
         } catch (e) {
@@ -1104,7 +1120,7 @@ For more help: https://playwright.dev/docs/browsers
             // Wait for network idle and JS hydration
             await this.page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
             await this.page.waitForTimeout(1000);
-            if (savedSession.viewport) {
+            if (savedSession.viewport && !this.explicitPageShape) {
               await this.page.setViewportSize(savedSession.viewport);
             }
           } catch (e) {

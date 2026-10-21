@@ -3443,15 +3443,17 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     }
   }
 
+  // Only what the user passed: an unset flag leaves the env var or config file
+  // value in place (mergeConfig drops undefined keys too).
   const browser = new CBrowser({
-    browser: browserType,
-    headless,
+    ...(options.browser !== undefined ? { browser: browserType } : {}),
+    ...(options.headless !== undefined ? { headless } : {}),
     device: options.device as string,
     ...(viewportOverride ? { viewportWidth: viewportOverride.width, viewportHeight: viewportOverride.height, viewportOverride } : {}),
     geolocation,
     locale: options.locale as string,
     timezone: options.timezone as string,
-    recordVideo: options["record-video"] === true,
+    ...(options["record-video"] !== undefined ? { recordVideo: options["record-video"] === true } : {}),
     persistent: persistentMode,
     skipSessionRestore: skipRestore,
     verbose: true,

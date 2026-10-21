@@ -224,10 +224,12 @@ export function getDefaultConfig(): CBrowserConfig {
     timeout: parseInt(process.env.CBROWSER_TIMEOUT || (configFile?.timeout?.toString()) || "30000", 10) || 30000,
     verbose: process.env.CBROWSER_VERBOSE === "true",
     device: process.env.CBROWSER_DEVICE || configFile?.device,
-    // CBrowser defaults: America/Denver timezone, en-US locale
+    // No built-in locale or timezone: the browser uses the host's unless the
+    // env or config file sets one. These were en-US and America/Denver (the
+    // author's), hidden until 20.0 because the CLI overwrote them with undefined.
     // Priority: env var > config file > CBrowser default > (system default unused)
-    locale: process.env.CBROWSER_LOCALE || configFile?.locale || "en-US",
-    timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone || "America/Denver",
+    locale: process.env.CBROWSER_LOCALE || configFile?.locale || undefined,
+    timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone || undefined,
     colorScheme: (process.env.CBROWSER_COLOR_SCHEME as ColorScheme) || configFile?.colorScheme,
     recordVideo: process.env.CBROWSER_RECORD_VIDEO === "true" || configFile?.recordVideo || false,
     videoDir: join(dataDir, "videos"),
@@ -353,7 +355,12 @@ export function ensureDirectories(paths?: CBrowserPaths): CBrowserPaths {
  */
 export function mergeConfig(userConfig: Partial<CBrowserConfig>): CBrowserConfig {
   const defaults = getDefaultConfig();
-  return { ...defaults, ...userConfig };
+  // A key passed as undefined means "not set". Spreading it as-is replaced the
+  // env var / config file value with undefined, so CBROWSER_DEVICE, LOCALE,
+  // TIMEZONE and a config file's device were ignored by the CLI, which passes
+  // every option key whether or not its flag was given (audit 2026-10-21).
+  const given = Object.fromEntries(Object.entries(userConfig).filter(([, v]) => v !== undefined)) as Partial<CBrowserConfig>;
+  return { ...defaults, ...given };
 }
 
 /**
