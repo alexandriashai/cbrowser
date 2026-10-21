@@ -35,6 +35,14 @@ cbrowser cognitive-journey --persona first-timer --start "https://your-site.com"
 
 If the browser download was skipped (for example with `--ignore-scripts`), run `npx playwright install chromium`.
 
+**Stuck? Ask the docs.** `cbrowser ask` sends your question to cbrowser.ai and prints an AI answer grounded in the documentation, with its sources. No account or API key is needed; it is rate-limited.
+
+```bash
+cbrowser ask "Which persona should I use for a screen reader user?"
+```
+
+The `question_answer` MCP tool does the same from Claude, including on the local `npx cbrowser mcp-server`.
+
 ### What needs an API key
 
 | Free, no key | Needs an Anthropic API key (each step is a model call) |
@@ -43,7 +51,7 @@ If the browser download was skipped (for example with `--ignore-scripts`), run `
 | `agent-ready-audit`, `ai-benchmark`, `empathy-audit` (without `--goal`) | `explore` (a short cognitive journey) |
 | `test-suite`, `repair-tests`, `flaky-check`, `hunt-bugs`, `chaos` | `compare-personas` (one journey per persona) |
 | `ai-visual`, `cross-browser`, `responsive`, `ab`, `perf`, `a11y audit` | `competitive-benchmark` (one journey per site) |
-| `capture`, `har`, `network`, `console`, `daemon` | `empathy-audit --goal` (the journey part) |
+| `capture`, `har`, `network`, `console`, `daemon`, `ask` | `empathy-audit --goal` (the journey part) |
 
 Since 20.0 nothing falls back to a keyless guess. The old keyless modes of `explore` and `competitive-benchmark` reported goals as reached when a goal word, "the" included, appeared on the page, so they now refuse without a key. A journey that is replayed from a saved trace is free (see [Replay](#replay-a-journey-for-free)).
 

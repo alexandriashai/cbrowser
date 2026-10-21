@@ -825,6 +825,14 @@ LIGHTPANDA - High-Performance Headless Browser (OPT-IN ONLY)
       cbrowser lightpanda-status
       cbrowser agent-ready-audit https://example.com --lightpanda
 
+PRODUCT HELP
+  ask "<question>"            Ask the CBrowser docs a question; prints an AI answer and its sources
+    --context <text>          What you are looking at (a URL, a tool, a score)
+    --json                    Print the answer as JSON
+    Sends your question to cbrowser.ai. No account or API key; rate-limited.
+    Example:
+      cbrowser ask "Which persona should I use for a screen reader user?"
+
 DIAGNOSTICS
   version, -v, --version      Show version number
   status                      Show environment status and diagnostics
@@ -1138,6 +1146,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   // test-suite and cognitive-journey list only the flags their code reads
   // (measured 2026-10-21). They used to declare every report command's flags,
   // so `test-suite --persona x` passed validation and did nothing.
+  ask: ["context", "json"],
   "test-suite": [
     "capture", "capture-fps", "capture-format", "capture-out",
     "continue-on-failure", "dry-run", "fuzzy-match", "html", "inline", "output",
@@ -2985,6 +2994,33 @@ async function main(): Promise<void> {
     // Honour the exit code runDoctor set. A hard exit(0) here made the failure
     // path unreachable from a shell no matter what the checks found.
     process.exit(process.exitCode ?? 0);
+  }
+
+  // ask: product help from the CBrowser docs (src/help-client.ts). No browser.
+  if (command === "ask") {
+    const question = args.join(" ").trim();
+    if (!question) {
+      console.error('Usage: cbrowser ask "<question>" [--context <text>] [--json]');
+      console.error('  e.g. cbrowser ask "How do I test my site on an iPhone?"');
+      process.exit(1);
+    }
+    const { askCbrowser } = await import("./help-client.js");
+    try {
+      const r = await askCbrowser(question, { context: typeof options.context === "string" ? options.context : undefined });
+      if (options.json === true || getOutputOptions().json) {
+        printData("ask", { question: r.question, answer: r.answer, sources: r.sources });
+      } else {
+        console.log(r.answer);
+        if (r.sources.length > 0) {
+          console.log("\nSources:");
+          for (const s of r.sources) console.log(`  - ${s.split("\n")[0].slice(0, 120)}`);
+        }
+      }
+      process.exit(0);
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exit(1);
+    }
   }
 
   // MCP Server mode - runs before browser instantiation

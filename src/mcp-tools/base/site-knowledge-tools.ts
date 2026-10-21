@@ -616,7 +616,7 @@ export function registerSiteKnowledgeTools(
 
   server.registerTool("question_answer", {
     title: "Ask About CBrowser",
-    description: "Ask any question about CBrowser tools, features, personas, traits, scores, or workflows. Queries the CBrowser knowledge base (289 pages of documentation) and returns a grounded answer. Use this when you need to understand what a tool does, what a score means, how to use a feature, or how tools work together.",
+    description: "Ask any question about CBrowser tools, features, personas, traits, scores, or workflows. Queries the CBrowser documentation and returns a grounded answer (from cbrowser.ai when run locally; your question is sent there). Use this when you need to understand what a tool does, what a score means, how to use a feature, or how tools work together.",
     inputSchema: {
       question: z.string().describe("Your question about CBrowser (e.g., 'What does empathy_audit measure?', 'How do I test mobile accessibility?', 'What is CTC?', 'Which persona should I use for elderly users?')"),
       context: z.string().optional().describe("Optional context — the URL being tested, the tool being used, or the scores you're seeing"),
@@ -629,37 +629,22 @@ export function registerSiteKnowledgeTools(
       openWorldHint: true,
     },
   }, async ({ question, context }) => {
-    const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
+    // One client for this tool and `cbrowser ask` (src/help-client.ts). On a
+    // user's machine there is no CMS on localhost:3200, so before 20.0.0 this
+    // tool could only fail there; it now asks cbrowser.ai.
     const { getActiveKeyHash } = await import("../../mcp-tools/tier-gate.js");
-    const keyHash = getActiveKeyHash();
-
+    const { isHostedMode } = await import("../../mcp-tools/hosted-inputs.js");
+    const { askCbrowser } = await import("../../help-client.js");
     try {
-      const res = await fetch(`${cmsUrl}/api/ai/question`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(keyHash ? { Authorization: `Bearer ${keyHash}` } : {}),
-        },
-        body: JSON.stringify({ question, context }),
-      });
-
-      if (!res.ok) {
-        return {
-          isError: true,
-          content: [{ type: "text" as const, text: JSON.stringify({ error: `Knowledge base query failed (${res.status})`, question }, null, 2) }],
-        };
-      }
-
-      const data = await res.json() as { answer: string; sources: string[] };
-
+      const r = await askCbrowser(question, { context, keyHash: getActiveKeyHash(), hosted: isHostedMode() });
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
             question,
-            answer: data.answer,
-            sources: data.sources,
-            note: "Answer grounded in CBrowser documentation (289 pages). Sources listed for reference.",
+            answer: r.answer,
+            sources: r.sources,
+            note: "Answer grounded in the CBrowser documentation. Sources listed for reference.",
           }, null, 2),
         }],
       };
@@ -667,9 +652,8 @@ export function registerSiteKnowledgeTools(
       return {
         isError: true,
         content: [{ type: "text" as const, text: JSON.stringify({
-          error: "Could not reach CBrowser knowledge base",
+          error: (err as Error).message,
           question,
-          suggestion: "Try rephrasing or check https://cbrowser.ai/docs for documentation",
         }, null, 2) }],
       };
     }
