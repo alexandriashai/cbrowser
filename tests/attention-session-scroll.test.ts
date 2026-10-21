@@ -40,7 +40,10 @@ const TOKEN = "cb_attn_test";
 
 beforeAll(async () => {
   server = Bun.serve({ port: 0, fetch: () => new Response(PAGE, { headers: { "content-type": "text/html" } }) });
-  browser = new CBrowser({ headless: true });
+  // An explicit 800px-tall page: the fixture puts a CTA 1000px down so it is
+  // off-screen at scrollY 0. At the 20.0 default height (1080) it would be
+  // on-screen at 0 and the test would prove nothing.
+  browser = new CBrowser({ headless: true, viewportWidth: 1280, viewportHeight: 800 });
   await browser.launch();
   await browser.navigate(`http://localhost:${server.port}/`);
   registerVisualTestingTools({
