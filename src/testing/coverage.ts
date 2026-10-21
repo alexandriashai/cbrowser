@@ -15,7 +15,9 @@ import { existsSync, readFileSync } from "fs";
 import { VERSION } from "../version.js";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import type {
+  BrowserLaunchOptions,
   TestedPage,
   SitePage,
   CoverageGap,
@@ -215,15 +217,19 @@ export async function crawlSiteForCoverage(
   startUrl: string,
   maxPages: number = 100,
   includePattern?: string,
-  excludePattern?: string
+  excludePattern?: string,
+  launch: BrowserLaunchOptions = {}
 ): Promise<SitePage[]> {
   const pages: SitePage[] = [];
   const visited = new Set<string>();
   const queue: string[] = [startUrl];
 
+  // Headless chromium unless the caller says otherwise (audit D20: the CLI's
+  // --headless, --browser, --device and --viewport never reached the crawl).
   const browser = new CBrowser({
     headless: true,
     browser: "chromium",
+    ...browserLaunchConfig(launch),
   });
 
   const baseUrl = new URL(startUrl);
@@ -512,7 +518,8 @@ export async function generateCoverageMap(
       baseUrl,
       options.maxPages || 100,
       options.includePattern,
-      options.excludePattern
+      options.excludePattern,
+      options
     );
   }
 

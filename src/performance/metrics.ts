@@ -14,8 +14,10 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import { getPaths, ensureDirectories } from "../config.js";
 import type {
+  BrowserLaunchOptions,
   PerformanceBaseline,
   PerformanceRegressionThresholds,
   MetricRegression,
@@ -126,14 +128,19 @@ export const SENSITIVITY_PROFILES: Record<string, SensitivityProfile> = {
 // Interfaces
 // ============================================================================
 
-export interface PerformanceBaselineOptions {
+/**
+ * No engine choice: every run disables the HTTP cache through Chromium's
+ * DevTools protocol (disableHttpCache), so on another engine run 1 would be
+ * cold and the rest warm, the blend that measured a +179% phantom regression.
+ */
+export interface PerformanceBaselineOptions extends Omit<BrowserLaunchOptions, "browser"> {
   /** Number of runs to average (default: 3) */
   runs?: number;
   /** Human-readable name for baseline */
   name?: string;
   /** Headless mode */
   headless?: boolean;
-  /** Device to emulate */
+  /** Device to emulate; recorded, and perf-regression renders with it too */
   device?: string;
   /** Network throttling */
   throttle?: "3g" | "4g" | "wifi";
@@ -216,17 +223,23 @@ export async function capturePerformanceBaseline(
   url: string,
   options: PerformanceBaselineOptions = {}
 ): Promise<PerformanceBaseline> {
-  const { runs = 3, name, headless = true, device, throttle } = options;
+  const { runs = 3, name, headless = true, device, viewport, throttle } = options;
   const paths = getPaths();
   ensureDirectories();
 
-  const browser = new CBrowser({ headless });
+  // device was accepted and never reached the browser, and nor did a viewport
+  // (audit D20). Both are recorded as `requested`, so a regression check
+  // renders the same page shape.
+  const requested = { ...(device ? { device } : {}), ...(viewport ? { viewport } : {}) };
+  const browser = new CBrowser(browserLaunchConfig({ headless, ...requested }));
   const allMetrics: PerformanceMetrics[] = [];
+  let rendered: { width: number; height: number } | null = null;
 
   try {
     // Cache off BEFORE the first navigation, so run 1 and run N are alike.
     await browser.navigate("about:blank");
     await disableHttpCache(await browser.getPage());
+    rendered = (await browser.getPage()).viewportSize();
 
     for (let i = 0; i < runs; i++) {
       await browser.navigate(url);
@@ -269,9 +282,12 @@ export async function capturePerformanceBaseline(
     runsAveraged: runs,
     environment: {
       browser: "chromium",
-      viewport: { width: 1280, height: 720 },
+      // What the page had. This said 1280x720 for every baseline, which no
+      // run ever used (the default page is 1280x800).
+      viewport: rendered ?? { width: 1280, height: 800 },
       device,
       connection: throttle,
+      ...(Object.keys(requested).length > 0 ? { requested } : {}),
     },
   };
 
@@ -406,8 +422,9 @@ export async function detectPerformanceRegression(
     throw new Error(`Baseline not found: ${baselineIdOrName}`);
   }
 
-  // Capture current metrics
-  const browser = new CBrowser({ headless });
+  // Capture current metrics, at the page shape the baseline asked for. A
+  // baseline from before 20.0 records none and renders at the default.
+  const browser = new CBrowser(browserLaunchConfig({ headless, ...baseline.environment.requested }));
   let currentMetrics: PerformanceMetrics;
 
   try {

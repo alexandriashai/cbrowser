@@ -13,6 +13,10 @@
 
 import { CBrowser } from "./browser.js";
 import { parseArgs } from "./cli-args.js";
+import { browserFlagsOrExit, refuseBrowserFlags } from "./cli-browser-flags.js";
+import { browserLaunchConfig } from "./browser-options.js";
+import { SENT_WEBHOOK_EVENTS, WEBHOOK_FORMATS, WEBHOOK_TIMEOUT_MS, loadWebhooks, sendWebhookEvent, webhookUrlProblem, webhooksPath } from "./webhooks.js";
+import { loadSuiteForExport, resultsName, saveSuiteResult } from "./testing/suite-results.js";
 
 // Analysis module imports
 import { executeNaturalLanguage, executeNaturalLanguageScript, huntBugs, runChaosTest, comparePersonas, formatComparisonReport, findElementByIntent, runAgentReadyAudit, formatAgentReadyReport, generateAgentReadyHtmlReport, runCompetitiveBenchmark, formatCompetitiveBenchmarkReport, generateCompetitiveBenchmarkHtmlReport, runEmpathyAudit, formatEmpathyAuditReport, generateEmpathyAuditHtmlReport, runWebMCPReadyAudit, generateWebMCPReadyHtmlReport, runAIReadinessBenchmark } from "./analysis/index.js";
@@ -24,7 +28,7 @@ import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestRepor
 import { capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./performance/index.js";
 
 // Visual module imports
-import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff } from "./visual/index.js";
+import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, formatViewportPresetList, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff } from "./visual/index.js";
 import { VIEWPORT_PRESETS } from "./types.js";
 import type { NLTestCase, NLTestSuiteResult, PerformanceRegressionThresholds, CoverageMapOptions, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABSuite, ABSuiteResult } from "./types.js";
 import {
@@ -237,6 +241,8 @@ MULTI-PERSONA COMPARISON
     --goal <goal>             What to accomplish (required)
     --personas <list>         Comma-separated persona names
     --concurrency <n>         Max parallel browsers (default: 3)
+    --device <name>           Device every journey emulates
+    --viewport <WxH>          Page size for every journey
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Examples:
@@ -246,6 +252,8 @@ MULTI-PERSONA COMPARISON
 
 NATURAL LANGUAGE TEST SUITES
   test-suite <file.txt>        Run tests written in plain English
+                               Saves each run for 'export'; sends test.pass or
+                               test.fail to webhooks ('webhook add')
     --continue-on-failure      Keep running after a test fails
     --screenshot-on-failure    Take screenshots on failure (default: true)
     --output <file>            Save JSON report to file
@@ -286,6 +294,7 @@ AI TEST REPAIR
     --verify                   Re-run tests after repair to verify they pass
     --output <file>            Save repaired tests to new file
     --json-out <file>          Save repair report as JSON (--json prints it)
+    --device, --viewport, --browser, --no-headless   The browser the tests run in
     Examples:
       cbrowser repair-tests broken-test.txt
       cbrowser repair-tests tests.txt --auto-apply --verify
@@ -297,6 +306,7 @@ FLAKY TEST DETECTION
     --threshold <n>            Flakiness % threshold to flag (default: 20)
     --delay <ms>               Delay between runs (default: 500)
     --output <file>            Save JSON report to file
+    --device, --viewport, --browser, --no-headless   The browser every run uses
     Examples:
       cbrowser flaky-check tests.txt
       cbrowser flaky-check tests.txt --runs 10
@@ -312,6 +322,7 @@ TEST COVERAGE MAP
     --min-coverage <n>         Min coverage % to not flag (default: 50)
     --html                     Generate HTML report
     --output <file>            Save JSON report to file
+    --device, --viewport, --browser, --no-headless   The crawl's browser (not with --sitemap)
     Examples:
       cbrowser coverage "https://example.com" --tests "tests/*.txt"
       cbrowser coverage "https://example.com" --sitemap "https://example.com/sitemap.xml"
@@ -383,6 +394,8 @@ PERFORMANCE REGRESSION
   perf-baseline save <url>    Capture and save performance baseline
     --name <name>             Human-readable name for baseline
     --runs <n>                Number of runs to average (default: 3)
+    --device <name>           Device to measure as; perf-regression renders the same
+    --viewport <WxH>          Page size; perf-regression renders the same
     Examples:
       cbrowser perf-baseline save "https://example.com" --name "homepage"
       cbrowser perf-baseline save "https://example.com/checkout" --runs 5
@@ -432,14 +445,17 @@ AI VISUAL REGRESSION
     --name <name>             Baseline name (required)
     --selector <sel>          Capture specific element instead of viewport
     --device <device>         Device emulation (iphone-15, pixel-7, etc.)
+    --viewport <WxH>          Page size (default: 1920x1080)
     --width <n>               Viewport width (default: 1920)
     --height <n>              Viewport height (default: 1080)
+    --browser <engine>        chromium, firefox or webkit; the baseline keeps it
     --wait <ms|selector>      Wait before capture (ms or CSS selector)
     Examples:
       cbrowser ai-visual capture "https://example.com" --name homepage
       cbrowser ai-visual capture "https://example.com/dashboard" --name dashboard --device iphone-15
 
   ai-visual test <url> <baseline>  Test current page against baseline using AI
+    Renders with the baseline's engine, device and size
     --threshold <n>           Similarity threshold 0-1 (default: 0.9)
     --sensitivity <level>     Detection sensitivity: low, medium, high (default: medium)
     --html                    Generate HTML report
@@ -460,8 +476,10 @@ AI VISUAL REGRESSION
 CROSS-BROWSER VISUAL TESTING
   cross-browser <url>         Compare visual rendering across browsers
     --browsers <list>         Browsers to test: chromium,firefox,webkit (default: all)
+    --viewport <WxH>          Page size (default: 1920x1080)
     --width <n>               Viewport width (default: 1920)
     --height <n>              Viewport height (default: 1080)
+    --device <name>           Device preset (firefox cannot emulate a mobile one)
     --wait <ms>               Wait before screenshot (ms)
     --wait-for <selector>     Wait for selector before screenshot
     --sensitivity <level>     Comparison sensitivity: low, medium, high
@@ -486,6 +504,8 @@ CROSS-BROWSER VISUAL TESTING
 RESPONSIVE VISUAL TESTING
   responsive <url>            Test visual rendering across viewport sizes
     --viewports <list>        Viewports to test (default: mobile,tablet,desktop)
+    --browser <engine>        chromium, firefox or webkit (firefox cannot emulate
+                              the mobile and tablet presets)
     --wait <ms>               Wait before screenshot (ms)
     --wait-for <selector>     Wait for selector before screenshot
     --sensitivity <level>     Comparison sensitivity: low, medium, high
@@ -509,18 +529,19 @@ RESPONSIVE VISUAL TESTING
       "options": { "viewports": ["mobile", "tablet", "desktop"] }
     }
 
-    Available viewport presets:
-      mobile-sm (320x568)     mobile (375x667)      mobile-lg (414x896)
-      mobile-xl (428x926)     tablet (768x1024)     tablet-lg (1024x1366)
-      desktop-sm (1280x800)   desktop (1440x900)    desktop-lg (1920x1080)
-      desktop-xl (2560x1440)
+    Available viewport presets (mobile and tablet emulate their device: touch,
+    user agent, pixel ratio):
+${formatViewportPresetList("      ")}
 
 A/B VISUAL COMPARISON
   ab <urlA> <urlB>            Compare two URLs visually
     --label-a <name>          Label for URL A (default: "Version A")
     --label-b <name>          Label for URL B (default: "Version B")
+    --viewport <WxH>          Page size (default: 1920x1080)
     --width <n>               Viewport width (default: 1920)
     --height <n>              Viewport height (default: 1080)
+    --device <name>           Device preset
+    --browser <engine>        chromium, firefox or webkit
     --wait <ms>               Wait before screenshot (ms)
     --wait-for <selector>     Wait for selector before screenshot
     --sensitivity <level>     Comparison sensitivity: low, medium, high
@@ -673,10 +694,12 @@ SCREEN CAPTURE (video/GIF — distinct from 'record', which captures actions)
 TEST EXPORT
   export junit <name> [output]   Export test results as JUnit XML
   export tap <name> [output]     Export test results as TAP format
+    <name> is a suite test-suite has run (its file name); each run is saved
 
 WEBHOOKS
-  webhook add <name> <url>    Add webhook notification
-    --events <events>         Comma-separated: test.pass,test.fail,journey.complete
+  webhook add <name> <url>    Add webhook notification (http or https)
+    --events <events>         test.pass,test.fail (default: test.fail); test-suite
+                              sends one per run, JSON, 10s timeout, no retries
     --format <format>         slack, discord, or generic
   webhook list                List configured webhooks
   webhook delete <name>       Delete a webhook
@@ -694,10 +717,13 @@ PARALLEL EXECUTION
   parallel devices <url>      Run same URL across multiple devices
     --devices <list>          Comma-separated device names (default: all)
     --concurrency <n>         Max parallel browsers (default: 3)
+    --browser, --no-headless  The browser for every device
   parallel urls <urls>        Run same task across multiple URLs
     --concurrency <n>         Max parallel browsers (default: 3)
+    --device, --viewport, --browser, --no-headless   The browser for every URL
   parallel perf <urls>        Performance audit multiple URLs in parallel
     --concurrency <n>         Max parallel browsers (default: 3)
+    --device, --viewport, --browser, --no-headless   The browser for every URL
 
 NATURAL LANGUAGE
   run "<command>"             Execute natural language command
@@ -722,6 +748,8 @@ VISUAL AI
 BROWSER DIFF
   diff <url>                  Compare page across browsers
     --browsers <list>         chromium,firefox,webkit (default: all)
+    --viewport <WxH>          Page size (default: 1920x1080)
+    --device <name>           Device preset (firefox cannot emulate a mobile one)
 
 CHAOS ENGINEERING
   chaos <url>                 Test app resilience
@@ -4258,12 +4286,19 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           ? parseInt(options.concurrency as string)
           : 3;
 
+        const personaFlags = browserFlagsOrExit("compare-personas", options);
+        refuseBrowserFlags("compare-personas", personaFlags, {
+          browser: "it runs cognitive journeys, which take no engine option",
+        });
+
         const comparison = await comparePersonas({
           startUrl,
           goal,
           personas: personaNames,
           maxConcurrency: concurrency,
           headless,
+          device: personaFlags.device,
+          viewport: personaFlags.viewport,
         });
 
         // Print formatted report
@@ -5284,6 +5319,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "ai-visual": {
         const subcommand = args[0];
+        // A test renders the way its baseline was captured.
+        const BASELINE_SHAPE_FLAGS = {
+          browser: "a test renders with its baseline's engine; capture a new baseline to change it",
+          device: "a test renders with its baseline's device; capture a new baseline to change it",
+          viewport: "a test renders at its baseline's size; capture a new baseline to change it",
+        };
 
         switch (subcommand) {
           case "capture": {
@@ -5292,22 +5333,21 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Usage: cbrowser ai-visual capture <url> --name <name> [options]");
               console.error("  --selector <sel>    Capture specific element");
               console.error("  --device <device>   Device emulation");
-              console.error("  --width <n>         Viewport width");
-              console.error("  --height <n>        Viewport height");
+              console.error("  --viewport <WxH>    Page size (default: 1920x1080)");
+              console.error("  --width/--height    One side of the page size");
+              console.error("  --browser <engine>  chromium, firefox or webkit");
               console.error("  --wait <ms|sel>     Wait before capture");
               process.exit(1);
             }
+
+            const flags = browserFlagsOrExit("ai-visual capture", options);
 
             console.log(`📸 Capturing visual baseline: ${options.name}`);
             console.log(`   URL: ${url}`);
 
             const baseline = await captureVisualBaseline(url, options.name as string, {
               selector: options.selector as string | undefined,
-              device: options.device as string | undefined,
-              viewport: options.width || options.height ? {
-                width: parseInt(options.width as string) || 1920,
-                height: parseInt(options.height as string) || 1080,
-              } : undefined,
+              ...flags,
               waitFor: options.wait ? (
                 /^\d+$/.test(options.wait as string)
                   ? parseInt(options.wait as string)
@@ -5318,6 +5358,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`\n✅ Baseline captured successfully!`);
             console.log(`   ID: ${baseline.id}`);
             console.log(`   Viewport: ${baseline.viewport.width}x${baseline.viewport.height}`);
+            if (baseline.device) console.log(`   Device: ${baseline.device}`);
+            if (baseline.browser) console.log(`   Browser: ${baseline.browser}`);
             console.log(`   Screenshot: ${baseline.screenshotPath}`);
             break;
           }
@@ -5335,6 +5377,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               process.exit(1);
             }
 
+            const flags = browserFlagsOrExit("ai-visual test", options);
+            refuseBrowserFlags("ai-visual test", flags, BASELINE_SHAPE_FLAGS);
+
             console.log(`\n🔍 Running AI visual regression test...`);
             console.log(`   URL: ${url}`);
             console.log(`   Baseline: ${baselineName}\n`);
@@ -5343,6 +5388,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               threshold: options.threshold ? parseFloat(options.threshold as string) : 0.9,
               sensitivity: (options.sensitivity as "low" | "medium" | "high") || "medium",
               generateDiff: true,
+              headless: flags.headless,
             });
 
             // Print report
@@ -5401,11 +5447,15 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               process.exit(1);
             }
 
+            const flags = browserFlagsOrExit("ai-visual suite", options);
+            refuseBrowserFlags("ai-visual suite", flags, BASELINE_SHAPE_FLAGS);
+
             const suite: VisualTestSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
             console.log(`\n🔍 Running visual regression suite: ${suite.name}`);
 
             const result = await runVisualRegressionSuite(suite, {
               threshold: options.threshold ? parseFloat(options.threshold as string) : 0.9,
+              headless: flags.headless,
             });
 
             // Save outputs
@@ -5515,6 +5565,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "cross-browser": {
         const subcommand = args[0];
+        const flags = browserFlagsOrExit("cross-browser", options);
+        refuseBrowserFlags("cross-browser", flags, {
+          browser: "it runs each engine in turn; choose them with --browsers chromium,firefox,webkit",
+        });
 
         if (subcommand === "suite") {
           // Cross-browser suite
@@ -5533,7 +5587,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
 
           const suite: CrossBrowserSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
-          const result = await runCrossBrowserSuite(suite);
+          // Flags given on the command line win over the suite file's options.
+          const result = await runCrossBrowserSuite({ ...suite, options: { ...suite.options, ...flags } });
 
           // Save outputs
           if (options.output && !options.html) {
@@ -5564,8 +5619,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("       cbrowser cross-browser suite <file.json>");
             console.error("\nOptions:");
             console.error("  --browsers <list>   chromium,firefox,webkit (default: all)");
-            console.error("  --width <n>         Viewport width (default: 1920)");
-            console.error("  --height <n>        Viewport height (default: 1080)");
+            console.error("  --viewport <WxH>    Page size (default: 1920x1080)");
+            console.error("  --width/--height    One side of the page size");
+            console.error("  --device <name>     Device preset (firefox cannot emulate a mobile one)");
             console.error("  --wait <ms>         Wait before screenshot");
             console.error("  --wait-for <sel>    Wait for selector");
             console.error("  --sensitivity <l>   low, medium, high");
@@ -5580,10 +5636,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
           const result = await runCrossBrowserTest(url, {
             browsers,
-            viewport: options.width || options.height ? {
-              width: parseInt(options.width as string) || 1920,
-              height: parseInt(options.height as string) || 1080,
-            } : undefined,
+            ...flags,
             waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
             waitForSelector: options["wait-for"] as string | undefined,
             sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
@@ -5632,6 +5685,19 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "responsive": {
         const subcommand = args[0];
+        // Headless and the engine apply; the page shapes are the presets'.
+        const responsiveFlags = () => {
+          const flags = browserFlagsOrExit("responsive", options);
+          refuseBrowserFlags("responsive", flags, {
+            device: "the sizes come from --viewports, whose mobile and tablet presets emulate their own devices",
+            viewport: "the sizes come from --viewports ('cbrowser responsive viewports' lists them)",
+          });
+          // Only the flags given, so a suite file's own options stand otherwise.
+          return {
+            ...(flags.headless !== undefined ? { headless: flags.headless } : {}),
+            ...(flags.browser ? { browser: flags.browser } : {}),
+          };
+        };
 
         if (subcommand === "viewports") {
           // List viewport presets
@@ -5660,6 +5726,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log("");
         } else if (subcommand === "suite") {
           // Responsive suite
+          const flags = responsiveFlags();
           const suiteFile = args[1];
           if (!suiteFile) {
             console.error("Usage: cbrowser responsive suite <file.json> [options]");
@@ -5675,7 +5742,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
 
           const suite: ResponsiveSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
-          const result = await runResponsiveSuite(suite);
+          // Flags given on the command line win over the suite file's options.
+          const result = await runResponsiveSuite({ ...suite, options: { ...suite.options, ...flags } });
 
           // Save outputs
           if (options.output && !options.html) {
@@ -5713,18 +5781,19 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("  --sensitivity <l>   low, medium, high");
             console.error("  --html              Generate HTML report");
             console.error("  --output <file>     Save report");
-            console.error("\nViewport presets: mobile-sm, mobile, mobile-lg, mobile-xl,");
-            console.error("                  tablet, tablet-lg, desktop-sm, desktop,");
-            console.error("                  desktop-lg, desktop-xl");
+            console.error("\nViewport presets:");
+            console.error(formatViewportPresetList("  "));
             process.exit(1);
           }
 
+          const flags = responsiveFlags();
           const viewports = options.viewports
             ? (options.viewports as string).split(",")
             : undefined;
 
           const result = await runResponsiveTest(url, {
             viewports,
+            ...flags,
             waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
             waitForSelector: options["wait-for"] as string | undefined,
             sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
@@ -5775,6 +5844,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "ab": {
         const subcommand = args[0];
+        const flags = browserFlagsOrExit("ab", options);
 
         if (subcommand === "suite") {
           // A/B suite
@@ -5793,7 +5863,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
 
           const suite: ABSuite = JSON.parse(fs.readFileSync(suiteFile, "utf-8"));
-          const result = await runABSuite(suite);
+          // Flags given on the command line win over the suite file's options.
+          const result = await runABSuite({ ...suite, options: { ...suite.options, ...flags } });
 
           // Save outputs
           if (options.output && !options.html) {
@@ -5827,8 +5898,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("\nOptions:");
             console.error("  --label-a <name>    Label for URL A (default: 'Version A')");
             console.error("  --label-b <name>    Label for URL B (default: 'Version B')");
-            console.error("  --width <n>         Viewport width (default: 1920)");
-            console.error("  --height <n>        Viewport height (default: 1080)");
+            console.error("  --viewport <WxH>    Page size (default: 1920x1080)");
+            console.error("  --width/--height    One side of the page size");
+            console.error("  --device <name>     Device preset");
             console.error("  --wait <ms>         Wait before screenshot");
             console.error("  --wait-for <sel>    Wait for selector");
             console.error("  --sensitivity <l>   low, medium, high");
@@ -5842,10 +5914,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               a: (options["label-a"] as string) || "Version A",
               b: (options["label-b"] as string) || "Version B",
             } : undefined,
-            viewport: options.width || options.height ? {
-              width: parseInt(options.width as string) || 1920,
-              height: parseInt(options.height as string) || 1080,
-            } : undefined,
+            ...flags,
             waitBeforeCapture: options.wait ? parseInt(options.wait as string) : undefined,
             waitForSelector: options["wait-for"] as string | undefined,
             sensitivity: options.sensitivity as "low" | "medium" | "high" | undefined,
@@ -6064,30 +6133,25 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("Usage: cbrowser export [junit|tap] <name> [output]");
           process.exit(1);
         }
+        if (format !== "junit" && format !== "tap") {
+          console.error("Unknown export format. Use 'junit' or 'tap'");
+          process.exit(1);
+        }
 
-        // Load test results (for now, create a mock suite)
-        const fs = await import("fs");
-        const path = await import("path");
-        const resultsPath = path.join(browser.getDataDir(), "results", `${name}.json`);
-
-        let suite;
-        if (fs.existsSync(resultsPath)) {
-          suite = JSON.parse(fs.readFileSync(resultsPath, "utf-8"));
-        } else {
+        // The last `test-suite` run of that suite (it saves every run).
+        const suite = loadSuiteForExport(browser.getDataDir(), name);
+        if (!suite) {
           console.error(`Test results not found: ${name}`);
-          console.error("Run tests first to generate results");
+          console.error(`  Run 'cbrowser test-suite <file>' first; it saves results as ${resultsName(name)}.json under ${join(browser.getDataDir(), "results")}`);
           process.exit(1);
         }
 
         if (format === "junit") {
           const exportPath = browser.exportJUnit(suite, output);
           console.log(`✓ JUnit XML exported: ${exportPath}`);
-        } else if (format === "tap") {
+        } else {
           const exportPath = browser.exportTAP(suite, output);
           console.log(`✓ TAP exported: ${exportPath}`);
-        } else {
-          console.error("Unknown export format. Use 'junit' or 'tap'");
-          process.exit(1);
         }
         break;
       }
@@ -6099,14 +6163,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "webhook": {
         const subcommand = args[0];
         const fs = await import("fs");
-        const path = await import("path");
-        const webhooksPath = path.join(browser.getDataDir(), "webhooks.json");
+        const hooksFile = webhooksPath(browser.getDataDir());
 
         // Load existing webhooks
-        let webhooks: Array<{ name: string; url: string; events: string[]; format: string }> = [];
-        if (fs.existsSync(webhooksPath)) {
-          webhooks = JSON.parse(fs.readFileSync(webhooksPath, "utf-8"));
-        }
+        let webhooks = loadWebhooks(browser.getDataDir());
 
         switch (subcommand) {
           case "add": {
@@ -6116,16 +6176,32 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Usage: cbrowser webhook add <name> <url> [--events <events>] [--format <format>]");
               process.exit(1);
             }
-            const events = options.events
-              ? (options.events as string).split(",")
-              : ["test.fail", "journey.complete"];
-            const format = (options.format as string) || "generic";
+            const urlProblem = webhookUrlProblem(url);
+            if (urlProblem) {
+              console.error(`Error: ${urlProblem}`);
+              process.exit(1);
+            }
+            // Only events something sends. journey.complete was the default
+            // and nothing ever sent it, nor test.fail (audit O17).
+            const events = options.events === undefined
+              ? ["test.fail"]
+              : String(options.events).split(",").map((e) => e.trim()).filter(Boolean);
+            const unsent = events.filter((e) => !(SENT_WEBHOOK_EVENTS as readonly string[]).includes(e));
+            if (events.length === 0 || unsent.length > 0) {
+              console.error(`Error: no command sends ${unsent.join(", ") || "an empty event list"}. Events sent: ${SENT_WEBHOOK_EVENTS.join(", ")} (by test-suite, once per run)`);
+              process.exit(1);
+            }
+            const format = options.format === undefined ? "generic" : String(options.format);
+            if (!(WEBHOOK_FORMATS as readonly string[]).includes(format)) {
+              console.error(`Error: --format must be ${WEBHOOK_FORMATS.join(", ")}, got "${format}"`);
+              process.exit(1);
+            }
 
             // Remove existing webhook with same name
             webhooks = webhooks.filter(w => w.name !== name);
             webhooks.push({ name, url, events, format });
 
-            fs.writeFileSync(webhooksPath, JSON.stringify(webhooks, null, 2));
+            fs.writeFileSync(hooksFile, JSON.stringify(webhooks, null, 2));
             console.log(`✓ Webhook added: ${name}`);
             console.log(`  URL: ${url}`);
             console.log(`  Events: ${events.join(", ")}`);
@@ -6138,9 +6214,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             } else {
               console.log("\n🔔 Configured Webhooks:\n");
               for (const w of webhooks) {
+                // Saved before 20.0, an event nothing sends (journey.complete) is named as such.
+                const unsent = w.events.filter((e) => !(SENT_WEBHOOK_EVENTS as readonly string[]).includes(e));
                 console.log(`  ${w.name}`);
                 console.log(`    URL: ${w.url}`);
-                console.log(`    Events: ${w.events.join(", ")}`);
+                console.log(`    Events: ${w.events.join(", ")}${unsent.length > 0 ? ` (never sent: ${unsent.join(", ")})` : ""}`);
                 console.log(`    Format: ${w.format}`);
                 console.log("");
               }
@@ -6156,7 +6234,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             const originalLength = webhooks.length;
             webhooks = webhooks.filter(w => w.name !== name);
             if (webhooks.length < originalLength) {
-              fs.writeFileSync(webhooksPath, JSON.stringify(webhooks, null, 2));
+              fs.writeFileSync(hooksFile, JSON.stringify(webhooks, null, 2));
               console.log(`✓ Webhook deleted: ${name}`);
             } else {
               console.error(`✗ Webhook not found: ${name}`);
@@ -6176,6 +6254,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               process.exit(1);
             }
 
+            const urlProblem = webhookUrlProblem(webhook.url);
+            if (urlProblem) {
+              console.error(`✗ ${urlProblem}`);
+              process.exit(1);
+            }
+
             // Send test notification
             const testPayload = webhook.format === "slack"
               ? { text: "🔔 CBrowser test notification" }
@@ -6188,6 +6272,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(testPayload),
+                redirect: "error",
+                signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
               });
               if (response.ok) {
                 console.log(`✓ Test notification sent to: ${name}`);
@@ -6214,6 +6300,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
       case "parallel": {
         const subcommand = args[0];
+        const flags = browserFlagsOrExit("parallel", options);
 
         switch (subcommand) {
           case "devices": {
@@ -6222,6 +6309,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Usage: cbrowser parallel devices <url> [--devices <list>] [--concurrency <n>]");
               process.exit(1);
             }
+            refuseBrowserFlags("parallel devices", flags, {
+              device: "it runs every device in --devices; list them there",
+              viewport: "each device renders at its own size",
+            });
 
             // Without --devices, cbrowser's own presets, not all few hundred.
             const deviceList = options.devices
@@ -6241,7 +6332,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                 const screenshot = await b.screenshot();
                 return { title: nav.title, loadTime: nav.loadTime, screenshot };
               },
-              { maxConcurrency: concurrency }
+              { maxConcurrency: concurrency, config: browserLaunchConfig(flags) }
             );
 
             console.log("📊 Results:\n");
@@ -6278,7 +6369,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                 const nav = await b.navigate(url);
                 return { title: nav.title, loadTime: nav.loadTime };
               },
-              { maxConcurrency: concurrency }
+              { maxConcurrency: concurrency, config: browserLaunchConfig(flags) }
             );
 
             console.log("📊 Results:\n");
@@ -6312,7 +6403,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                 await b.navigate(url);
                 return await b.getPerformanceMetrics();
               },
-              { maxConcurrency: concurrency }
+              { maxConcurrency: concurrency, config: browserLaunchConfig(flags) }
             );
 
             console.log("📊 Performance Results:\n");
@@ -6529,9 +6620,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "diff": {
         const url = args[0];
         if (!url) {
-          console.error("Usage: cbrowser diff <url> [--browsers <list>]");
+          console.error("Usage: cbrowser diff <url> [--browsers <list>] [--viewport <WxH>] [--device <name>]");
           process.exit(1);
         }
+        const flags = browserFlagsOrExit("diff", options);
+        refuseBrowserFlags("diff", flags, {
+          browser: "it runs each engine in turn; choose them with --browsers chromium,firefox,webkit",
+        });
 
         const browserList = options.browsers
           ? (options.browsers as string).split(",") as Array<"chromium" | "firefox" | "webkit">
@@ -6541,7 +6636,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log(`   URL: ${url}`);
         console.log(`   Browsers: ${browserList.join(", ")}\n`);
 
-        const result = await crossBrowserDiff(url, [...browserList]);
+        const result = await crossBrowserDiff(url, [...browserList], {
+          headless: flags.headless,
+          device: flags.device,
+          viewport: flags.viewport,
+        });
 
         console.log(`📊 Results:\n`);
         console.log(`   Metrics:`);
@@ -6876,6 +6975,24 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log(report);
         reportAutoCapture(result.capture);
 
+        // Saved for `cbrowser export junit|tap`, which read this directory
+        // while nothing wrote it (audit O17).
+        const savedPath = saveSuiteResult(browser.getDataDir(), result);
+        console.log(`\n💾 Results saved: ${savedPath} (export: cbrowser export junit ${resultsName(result.name)})`);
+
+        // Webhooks: one event per run. A failed send is a warning, never the
+        // run's result.
+        await sendWebhookEvent(browser.getDataDir(), result.summary.failed > 0 ? "test.fail" : "test.pass", {
+          suite: result.name,
+          summary: {
+            total: result.summary.total,
+            passed: result.summary.passed,
+            failed: result.summary.failed,
+            skipped: result.summary.skipped,
+          },
+          failedTests: result.testResults.filter((t) => !t.passed).map((t) => ({ name: t.name, ...(t.error ? { error: t.error } : {}) })),
+        });
+
         // Save JSON output if requested
         if (options.output) {
           const fs = await import("fs");
@@ -6945,8 +7062,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
+        const repairFlags = browserFlagsOrExit("repair-tests", options);
         const repairOptions: RepairTestOptions = {
           headless,
+          browser: repairFlags.browser,
+          device: repairFlags.device,
+          viewport: repairFlags.viewport,
           autoApply: options["auto-apply"] === true,
           verifyRepairs: options.verify === true,
           maxRetries: options.retries ? parseInt(options.retries as string) : 3,
@@ -7036,8 +7157,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log(`   - ${test.name}: ${test.steps.length} steps`);
         }
 
+        const flakyFlags = browserFlagsOrExit("flaky-check", options);
         const flakyOptions: FlakyTestOptions = {
           headless,
+          browser: flakyFlags.browser,
+          device: flakyFlags.device,
+          viewport: flakyFlags.viewport,
           runs: options.runs ? parseInt(options.runs as string) : 5,
           flakinessThreshold: options.threshold ? parseInt(options.threshold as string) : 20,
           delayBetweenRuns: options.delay ? parseInt(options.delay as string) : 500,
@@ -7078,10 +7203,17 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               process.exit(1);
             }
 
+            const perfFlags = browserFlagsOrExit("perf-baseline save", options);
+            refuseBrowserFlags("perf-baseline save", perfFlags, {
+              browser: "each run disables the HTTP cache through Chromium's DevTools protocol; on another engine the runs would mix cold and warm loads",
+            });
+
             console.log(`\n📊 Capturing performance baseline for: ${url}`);
 
             const baselineOptions: PerformanceBaselineOptions = {
               headless,
+              device: perfFlags.device,
+              viewport: perfFlags.viewport,
               name: options.name as string | undefined,
               runs: options.runs ? parseInt(options.runs as string) : 3,
             };
@@ -7093,6 +7225,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`\n✅ Baseline saved: ${baseline.name}`);
             console.log(`   ID: ${baseline.id}`);
             console.log(`   URL: ${baseline.url}`);
+            const env = baseline.environment;
+            console.log(`   Page: ${env.viewport.width}x${env.viewport.height}${env.device ? ` (${env.device})` : ""}`);
             console.log(`   Timestamp: ${new Date(baseline.timestamp).toLocaleString()}`);
             console.log(`\n📈 Metrics (averaged over ${baseline.runsAveraged} runs):`);
             if (baseline.metrics.lcp !== undefined) {
@@ -7300,6 +7434,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           return files;
         }
 
+        // The browser flags reach the crawl. A sitemap is read without one.
+        const coverageFlags = browserFlagsOrExit("coverage", options);
+        if (options.sitemap) {
+          const noBrowser = "--sitemap reads the sitemap without a browser, so there is no page to apply it to";
+          refuseBrowserFlags("coverage", coverageFlags, { headless: noBrowser, browser: noBrowser, device: noBrowser, viewport: noBrowser });
+        }
+
         // Handle "coverage gaps" subcommand
         if (subcommand === "gaps") {
           const url = args[1];
@@ -7324,6 +7465,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             sitemapUrl: options.sitemap as string | undefined,
             maxPages: 50, // Quick mode
             minCoverage: 50,
+            ...coverageFlags,
           };
 
           const result = await generateCoverageMap(url, testFiles, coverageOptions);
@@ -7375,6 +7517,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           includePattern: options.include as string | undefined,
           excludePattern: options.exclude as string | undefined,
           minCoverage: options["min-coverage"] ? parseInt(options["min-coverage"] as string) : 50,
+          ...coverageFlags,
         };
 
         if (coverageOptions.sitemapUrl) {

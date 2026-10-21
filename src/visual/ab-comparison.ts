@@ -17,6 +17,7 @@ import { join } from "path";
 import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import type {
   ABScreenshot,
   ABComparisonResult,
@@ -81,9 +82,13 @@ async function captureForAB(
 ): Promise<ABScreenshot & { structure?: PageStructure }> {
   const startTime = Date.now();
 
+  // 1920x1080 unless a device or viewport says otherwise. Headless, the
+  // engine and the device reach the browser; the CLI's --viewport did not,
+  // only its --width/--height (audit D20).
   const browser = new CBrowser({
-    viewportWidth: options.viewport?.width || 1920,
-    viewportHeight: options.viewport?.height || 1080,
+    viewportWidth: 1920,
+    viewportHeight: 1080,
+    ...browserLaunchConfig(options),
   });
 
   try {
