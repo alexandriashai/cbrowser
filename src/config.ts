@@ -61,9 +61,9 @@ export interface CBrowserConfig {
   browser: BrowserType;
   /** Run browser in headless mode. Default: true (for CLI) */
   headless: boolean;
-  /** Browser viewport width. Default: 1280 */
+  /** Browser viewport width. Default: 1920 (since 20.0) */
   viewportWidth: number;
-  /** Browser viewport height. Default: 800 */
+  /** Browser viewport height. Default: 1080 (since 20.0) */
   viewportHeight: number;
   /** Default timeout for operations in ms. Default: 30000 */
   timeout: number;

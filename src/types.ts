@@ -3102,117 +3102,117 @@ export enum CBrowserErrorCode {
 export const ERROR_REMEDIATION: Record<CBrowserErrorCode, { howToFix: string; docUrl: string }> = {
   [CBrowserErrorCode.NAVIGATION_FAILED]: {
     howToFix: "Check that the URL is correct and the site is reachable. Try opening it in a regular browser first.",
-    docUrl: "https://cbrowser.ai/docs/errors#E101",
+    docUrl: "https://cbrowser.ai/docs/errors#e101",
   },
   [CBrowserErrorCode.NAVIGATION_TIMEOUT]: {
     howToFix: "The page took too long to load. Increase timeout with --timeout <ms> or set CBROWSER_TIMEOUT env var.",
-    docUrl: "https://cbrowser.ai/docs/errors#E102",
+    docUrl: "https://cbrowser.ai/docs/errors#e102",
   },
   [CBrowserErrorCode.PAGE_NOT_FOUND]: {
     howToFix: "The URL returned a 404. Verify the path is correct and the page exists.",
-    docUrl: "https://cbrowser.ai/docs/errors#E103",
+    docUrl: "https://cbrowser.ai/docs/errors#e103",
   },
   [CBrowserErrorCode.ELEMENT_NOT_FOUND]: {
     howToFix: "No element matched that selector. Try using smart-click with a text description instead of a CSS selector.",
-    docUrl: "https://cbrowser.ai/docs/errors#E201",
+    docUrl: "https://cbrowser.ai/docs/errors#e201",
   },
   [CBrowserErrorCode.ELEMENT_NOT_VISIBLE]: {
     howToFix: "The element exists but is hidden. It may be behind a modal, scrolled off-screen, or have display:none.",
-    docUrl: "https://cbrowser.ai/docs/errors#E202",
+    docUrl: "https://cbrowser.ai/docs/errors#e202",
   },
   [CBrowserErrorCode.ELEMENT_NOT_CLICKABLE]: {
     howToFix: "The element is visible but not interactive. It may be disabled, covered by another element, or not a clickable type.",
-    docUrl: "https://cbrowser.ai/docs/errors#E203",
+    docUrl: "https://cbrowser.ai/docs/errors#e203",
   },
   [CBrowserErrorCode.ELEMENT_INTERCEPTED]: {
     howToFix: "Another element is blocking the click (e.g., a cookie banner or modal overlay). Try dismissing it first.",
-    docUrl: "https://cbrowser.ai/docs/errors#E204",
+    docUrl: "https://cbrowser.ai/docs/errors#e204",
   },
   [CBrowserErrorCode.SESSION_NOT_FOUND]: {
     howToFix: "No active session found. Start a new session with 'cbrowser navigate <url>' first.",
-    docUrl: "https://cbrowser.ai/docs/errors#E301",
+    docUrl: "https://cbrowser.ai/docs/errors#e301",
   },
   [CBrowserErrorCode.SESSION_CORRUPTED]: {
     howToFix: "Session data is corrupted. Delete ~/.cbrowser/sessions/ and start fresh.",
-    docUrl: "https://cbrowser.ai/docs/errors#E302",
+    docUrl: "https://cbrowser.ai/docs/errors#e302",
   },
   [CBrowserErrorCode.SESSION_EXPIRED]: {
     howToFix: "The session has expired. Start a new one with 'cbrowser navigate <url>'.",
-    docUrl: "https://cbrowser.ai/docs/errors#E303",
+    docUrl: "https://cbrowser.ai/docs/errors#e303",
   },
   [CBrowserErrorCode.AUTH_REQUIRED]: {
     howToFix: "This operation requires authentication. Run 'cbrowser config set-api-key <key>' to set your API key.",
-    docUrl: "https://cbrowser.ai/docs/errors#E401",
+    docUrl: "https://cbrowser.ai/docs/errors#e401",
   },
   [CBrowserErrorCode.AUTH_FAILED]: {
     howToFix: "Authentication failed. Verify your API key is correct and hasn't expired.",
-    docUrl: "https://cbrowser.ai/docs/errors#E402",
+    docUrl: "https://cbrowser.ai/docs/errors#e402",
   },
   [CBrowserErrorCode.API_KEY_MISSING]: {
     howToFix: "No API key configured. Run 'cbrowser config set-api-key <key>' with your Anthropic API key (starts with sk-ant-).",
-    docUrl: "https://cbrowser.ai/docs/errors#E403",
+    docUrl: "https://cbrowser.ai/docs/errors#e403",
   },
   [CBrowserErrorCode.API_KEY_INVALID]: {
     howToFix: "The API key format is invalid. Anthropic keys start with 'sk-ant-'. Run 'cbrowser config set-api-key <key>' with a valid key.",
-    docUrl: "https://cbrowser.ai/docs/errors#E404",
+    docUrl: "https://cbrowser.ai/docs/errors#e404",
   },
   [CBrowserErrorCode.CONFIG_INVALID]: {
     howToFix: "Configuration file has invalid syntax. Check .cbrowserrc.json for JSON errors. Run 'cbrowser doctor' to diagnose.",
-    docUrl: "https://cbrowser.ai/docs/errors#E501",
+    docUrl: "https://cbrowser.ai/docs/errors#e501",
   },
   [CBrowserErrorCode.CONFIG_NOT_FOUND]: {
     howToFix: "Configuration file not found. This is usually fine — CBrowser uses sensible defaults. Create .cbrowserrc.json if you need custom config.",
-    docUrl: "https://cbrowser.ai/docs/errors#E502",
+    docUrl: "https://cbrowser.ai/docs/errors#e502",
   },
   [CBrowserErrorCode.BROWSER_NOT_INSTALLED]: {
     howToFix: "Chromium is not installed. Run 'npx playwright install chromium' to install it (~150MB download).",
-    docUrl: "https://cbrowser.ai/docs/errors#E503",
+    docUrl: "https://cbrowser.ai/docs/errors#e503",
   },
   [CBrowserErrorCode.FILE_NOT_FOUND]: {
     howToFix: "The specified file does not exist. Check the path and try again.",
-    docUrl: "https://cbrowser.ai/docs/errors#E601",
+    docUrl: "https://cbrowser.ai/docs/errors#e601",
   },
   [CBrowserErrorCode.FILE_PERMISSION_DENIED]: {
     howToFix: process.platform === "win32"
       ? "Permission denied. Try running your terminal as Administrator, or check file permissions in Properties."
       : "Permission denied. Check file ownership with 'ls -la' and fix with 'chmod' or 'chown'. On Linux: sudo chown $USER:$USER <path>",
-    docUrl: "https://cbrowser.ai/docs/errors#E602",
+    docUrl: "https://cbrowser.ai/docs/errors#e602",
   },
   [CBrowserErrorCode.PATH_TRAVERSAL_BLOCKED]: {
     howToFix: "Path contains directory traversal (../) which is blocked for security. Use absolute paths or paths within the project directory.",
-    docUrl: "https://cbrowser.ai/docs/errors#E603",
+    docUrl: "https://cbrowser.ai/docs/errors#e603",
   },
   [CBrowserErrorCode.TEST_FAILED]: {
     howToFix: "One or more test assertions failed. Check the test output for details on which assertions didn't match.",
-    docUrl: "https://cbrowser.ai/docs/errors#E701",
+    docUrl: "https://cbrowser.ai/docs/errors#e701",
   },
   [CBrowserErrorCode.ASSERTION_FAILED]: {
     howToFix: "An assertion did not match the expected value. Review the expected vs actual values in the error details.",
-    docUrl: "https://cbrowser.ai/docs/errors#E702",
+    docUrl: "https://cbrowser.ai/docs/errors#e702",
   },
   [CBrowserErrorCode.TEST_TIMEOUT]: {
     howToFix: "Test exceeded the time limit. Increase timeout with --timeout <ms> or check if the page is loading correctly.",
-    docUrl: "https://cbrowser.ai/docs/errors#E703",
+    docUrl: "https://cbrowser.ai/docs/errors#e703",
   },
   [CBrowserErrorCode.BROWSER_CRASHED]: {
     howToFix: "The browser process crashed. This can happen with memory-intensive pages. Try with --headless or reduce concurrent operations.",
-    docUrl: "https://cbrowser.ai/docs/errors#E801",
+    docUrl: "https://cbrowser.ai/docs/errors#e801",
   },
   [CBrowserErrorCode.BROWSER_DISCONNECTED]: {
     howToFix: "Lost connection to the browser. The browser may have been closed externally. CBrowser will attempt auto-recovery.",
-    docUrl: "https://cbrowser.ai/docs/errors#E802",
+    docUrl: "https://cbrowser.ai/docs/errors#e802",
   },
   [CBrowserErrorCode.BROWSER_UNRESPONSIVE]: {
     howToFix: "The browser stopped responding. A page may be consuming too many resources. Try navigating to a simpler page first.",
-    docUrl: "https://cbrowser.ai/docs/errors#E803",
+    docUrl: "https://cbrowser.ai/docs/errors#e803",
   },
   [CBrowserErrorCode.BROWSER_RECOVERY_FAILED]: {
     howToFix: "Automatic recovery failed. Try restarting CBrowser. If persistent, run 'cbrowser doctor' to check your environment.",
-    docUrl: "https://cbrowser.ai/docs/errors#E804",
+    docUrl: "https://cbrowser.ai/docs/errors#e804",
   },
   [CBrowserErrorCode.UNKNOWN]: {
     howToFix: "An unexpected error occurred. Run 'cbrowser doctor' to check your environment, or report this at https://github.com/alexandriashai/cbrowser/issues",
-    docUrl: "https://cbrowser.ai/docs/errors#E999",
+    docUrl: "https://cbrowser.ai/docs/errors#e999",
   },
 };
 

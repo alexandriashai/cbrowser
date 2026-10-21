@@ -577,7 +577,7 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Grades sites on: Findability (35%), Stability (30%),
-                     Accessibility (20%), Semantics (15%)
+                     Agent perceivability (20%), Semantics (15%)
     Examples:
       cbrowser agent-ready-audit "https://example.com"
       cbrowser agent-ready-audit "https://example.com" --html --output report.json
@@ -646,10 +646,9 @@ ACCESSIBILITY
   a11y audit [url]            Audit a specific URL
 
 TEST RECORDING
-  record start                Start recording interactions
-    --url <url>               Navigate to URL to begin recording
-  record stop                 Stop recording and show actions
-  record save <name>          Save recorded test
+  record start / stop / save  Refused since 20.0: each command is its own process, so
+                              nothing was ever recorded. Write the flow as a test and
+                              run it in one process: test-suite --inline "..." --capture
   record list                 List saved recordings
   record generate <name>      Generate Playwright test code
 
@@ -716,7 +715,7 @@ PERSONA QUESTIONNAIRE
 
 PARALLEL EXECUTION
   parallel devices <url>      Run same URL across multiple devices
-    --devices <list>          Comma-separated device names (default: all)
+    --devices <list>          Comma-separated device names (default: cbrowser's own presets, 'device list')
     --concurrency <n>         Max parallel browsers (default: 3)
     --browser, --no-headless  The browser for every device
   parallel urls <urls>        Run same task across multiple URLs
@@ -2825,15 +2824,16 @@ async function runDoctor(outputOpts: import("./output.js").OutputOptions): Promi
 
   // Check 1: Node.js version
   const nodeVersion = process.versions.node;
-  const nodeMajor = parseInt(nodeVersion.split(".")[0], 10);
-  if (nodeMajor >= 18) {
-    checks.push({ name: "Node.js", status: "pass", message: `v${nodeVersion} (>= 18 required)` });
+  const [nodeMajor, nodeMinor] = nodeVersion.split(".").map((n) => parseInt(n, 10));
+  // engines.node is >=20.9.0 since 20.0 (sharp 0.35 dropped Node 18).
+  if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 9)) {
+    checks.push({ name: "Node.js", status: "pass", message: `v${nodeVersion} (>= 20.9 required)` });
   } else {
     checks.push({
       name: "Node.js",
       status: "fail",
-      message: `v${nodeVersion} (>= 18 required)`,
-      fix: "Install Node.js 18+ from https://nodejs.org",
+      message: `v${nodeVersion} (>= 20.9 required)`,
+      fix: "Install Node.js 20.9 or newer from https://nodejs.org (or stay on cbrowser 19.x)",
     });
   }
 
