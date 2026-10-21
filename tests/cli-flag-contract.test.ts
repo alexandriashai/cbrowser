@@ -283,10 +283,12 @@ describe("audit and journey options", () => {
     expect(r.stderr).toContain("is not configured");
   }, TIMEOUT * 2);
 
-  test("explore stays free unless --cognitive, which needs a key", async () => {
+  test("explore needs a key: the keyless heuristic mode reported success it never measured", async () => {
+    // 19.6 said Success for "buy the blue widget" on a page with no widget, because "the" was on it.
     const r = await cli({ ANTHROPIC_API_KEY: undefined, CBROWSER_DATA_DIR: mkdtempSync(join(tmpdir(), "cbrowser-explore-")) },
-      "explore", "first-timer", "--start", `${fixtures.base}static.html`, "--cognitive");
+      "explore", "first-timer", "--start", `${fixtures.base}static.html`, "--goal", "buy the blue widget");
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain("--cognitive needs an Anthropic API key");
+    expect(r.stderr).toContain("explore needs an Anthropic API key");
+    expect(r.stdout).not.toContain("Success");
   }, TIMEOUT);
 });

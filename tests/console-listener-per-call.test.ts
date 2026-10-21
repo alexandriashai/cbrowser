@@ -87,27 +87,15 @@ describe("hunt_bugs", () => {
   }, 60_000);
 });
 
-describe("journey (heuristic)", () => {
-  test("three runs leave the tab's console listener count unchanged and still log the console errors", async () => {
+describe("journey", () => {
+  // The heuristic explorer this block used to pin was removed in 20.0.0. Without a
+  // key journey() now refuses before it touches the tab, so it cannot leak a listener.
+  test("without a key it refuses and leaves the tab's console listeners alone", async () => {
     expect(isApiKeyConfigured()).toBe(false);
     const page = await b.getPage();
     const before = page.listenerCount("console");
-    let last: Awaited<ReturnType<typeof b.journey>> | undefined;
-    for (let i = 0; i < 3; i++) {
-      last = await b.journey({ persona: "first-timer", startUrl: `${base}/`, goal: "zzqx", maxSteps: 1 });
-    }
-    expect(page.listenerCount("console")).toBe(before);
-    const texts = last!.consoleLogs.map((e) => e.text);
-    expect(texts).toContain("start-err");
-    expect(texts).toContain("next-err");
-    expect(last!.frictionPoints).toContain("Console error: start-err");
-  }, 180_000);
-
-  test("a run that throws removes its listener too", async () => {
-    expect(isApiKeyConfigured()).toBe(false);
-    const page = await b.getPage();
-    const before = page.listenerCount("console");
-    await failingNavigate(() => b.journey({ persona: "first-timer", startUrl: `${base}/`, goal: "zzqx", maxSteps: 1 }));
+    await expect(b.journey({ persona: "first-timer", startUrl: `${base}/`, goal: "zzqx", maxSteps: 1 }))
+      .rejects.toThrow("needs an Anthropic API key");
     expect(page.listenerCount("console")).toBe(before);
   }, 60_000);
 });

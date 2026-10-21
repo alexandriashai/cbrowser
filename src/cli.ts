@@ -187,13 +187,12 @@ KEYBOARD
       cbrowser keyboard "ArrowRight" --repeat 5 --hold Shift
       cbrowser keyboard "Tab" "Tab" "Enter" --selector "#email" --delay 120
 
-SITE EXPLORATION (Free, heuristic-based)
-  explore <persona>           Quick autonomous exploration using built-in heuristics
+SITE EXPLORATION (API-powered)
+  explore <persona>           Short cognitive journey (needs an Anthropic API key; costs tokens)
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish
     --record-video            Record exploration as video
-    --cognitive               Use the model instead (needs an Anthropic API key; costs tokens)
-    Note: No API key needed. Uses rule-based navigation - fast but not "smart".
+    Note: the keyless heuristic explorer was removed in 20.0.0; its success verdicts were not accurate.
 
 COGNITIVE JOURNEY (API-powered, realistic user simulation)
   cognitive-journey           Simulate a real user with emotions, patience, and abandonment
@@ -4053,20 +4052,17 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
-        console.log(`🔍 Starting exploration as "${persona}"...`);
-        console.log(`   Goal: ${goal}`);
-        // explore is documented as free; it used to switch to a paid model
-        // journey whenever a key was configured while printing "Heuristic"
-        // (audit 2026-10-21). --cognitive asks for the model on purpose.
-        const cognitive = options.cognitive === true && isApiKeyConfigured();
-        if (options.cognitive === true && !cognitive) {
-          console.error("Error: --cognitive needs an Anthropic API key (cbrowser config set-api-key <key>)");
+        // 20.0.0: no keyless mode. The heuristic explorer reported success
+        // whenever any goal word ("the" included) was on the page (2026-10-21).
+        if (!isApiKeyConfigured()) {
+          console.error("Error: explore needs an Anthropic API key (cbrowser config set-api-key <key>). The keyless heuristic mode was removed in 20.0.0 because its results were not accurate.");
           process.exit(1);
         }
-        console.log(`   Mode: ${cognitive ? "Cognitive (uses your Anthropic API key)" : "Heuristic (free, no API)"}`);
+        console.log(`🔍 Starting exploration as "${persona}"...`);
+        console.log(`   Goal: ${goal}`);
         console.log("");
 
-        const result = await browser.journey({ persona, startUrl, goal, heuristic: !cognitive });
+        const result = await browser.journey({ persona, startUrl, goal });
 
         console.log("");
         console.log(`📊 Journey Results`);

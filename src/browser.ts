@@ -6209,235 +6209,62 @@ For more help: https://playwright.dev/docs/browsers
   // =========================================================================
 
   /**
-   * Run an autonomous journey.
+   * Run an autonomous journey: a model-driven cognitive journey for one persona.
    *
-   * When API key is configured, uses AI-driven cognitive journeys (Claude API)
-   * for realistic user simulation with cognitive state tracking.
+   * Needs an Anthropic API key. There is no keyless fallback any more (20.0.0):
+   * the old heuristic explorer clicked the highest keyword match among the first
+   * twenty links and called the goal reached when any goal word, "the"
+   * included, appeared anywhere on the page. Measured 2026-10-21: "buy the blue
+   * widget" on a page with no widget reported success for every persona, with
+   * identical click paths. A result that is always yes is not a measurement.
    *
-   * Without API key, falls back to heuristic exploration (simplified).
-   *
-   * @requires ANTHROPIC_API_KEY for cognitive mode (set via `npx cbrowser config set-api-key`)
+   * @requires ANTHROPIC_API_KEY (set via `npx cbrowser config set-api-key`)
    */
   async journey(options: JourneyOptions): Promise<JourneyResult> {
     const { persona: personaName, startUrl, goal, maxSteps = 20, maxTime = 120 } = options;
 
-    // Check if cognitive journeys are available (API key configured)
-    if (!options.heuristic && isApiKeyConfigured()) {
-      try {
-        const cognitiveResult = await runCognitiveJourney({
-          persona: personaName,
-          startUrl,
-          goal,
-          maxSteps,
-          maxTime,
-          headless: this.config.headless,
-          vision: false,
-          verbose: false,
-        });
-
-        // Map cognitive journey result to JourneyResult format
-        return {
-          persona: personaName,
-          goal,
-          steps: cognitiveResult.frictionPoints.map((fp, _i) => ({
-            action: fp.type,
-            target: fp.element || 'page',
-            result: fp.monologue.substring(0, 100),
-            screenshot: fp.screenshot,
-            timestamp: new Date().toISOString(),
-          })),
-          success: cognitiveResult.goalAchieved,
-          frictionPoints: cognitiveResult.frictionPoints.map(fp =>
-            `${fp.type}: ${fp.monologue.substring(0, 80)}`
-          ),
-          totalTime: cognitiveResult.totalTime * 1000, // Convert to ms
-          consoleLogs: [],
-          cognitive: {
-            patienceRemaining: cognitiveResult.finalState.patienceRemaining,
-            frustrationLevel: cognitiveResult.finalState.frustrationLevel,
-            confusionLevel: cognitiveResult.finalState.confusionLevel,
-            abandonmentReason: cognitiveResult.abandonmentReason,
-            backtrackCount: cognitiveResult.summary.backtrackCount,
-            monologue: cognitiveResult.fullMonologue,
-          },
-        };
-      } catch (e) {
-        console.warn(`Cognitive journey failed, falling back to heuristic: ${(e as Error).message}`);
-        // Fall through to heuristic mode
-      }
+    if (!isApiKeyConfigured()) {
+      throw new Error("A journey needs an Anthropic API key (cbrowser config set-api-key <key>). The keyless heuristic explorer was removed in 20.0.0 because its results were not accurate.");
     }
+    // Refuse an unknown persona before spending tokens.
+    this.currentPersona = getPersonaOrRefuse(personaName);
 
-    // Heuristic mode (no API key or cognitive journey failed)
-    // NOTE: This is simplified exploration. For realistic user simulation,
-    // configure an API key: npx cbrowser config set-api-key YOUR_KEY
-
-    const persona = getPersonaOrRefuse(personaName);
-    this.currentPersona = persona;
-
-    // Set viewport based on persona
-    if (persona.context?.viewport) {
-      this.config.viewportWidth = persona.context.viewport[0];
-      this.config.viewportHeight = persona.context.viewport[1];
-    }
-
-    const page = await this.getPage();
-    const consoleLogs: ConsoleEntry[] = [];
-    const frictionPoints: string[] = [];
-    const startTime = Date.now();
-
-    // Capture console logs. Removed in the finally below (v8 B27, 2026-10-10):
-    // it used to stay on the tab, which is the shared page in a hosted session,
-    // so every heuristic journey left one more listener and log array behind
-    // (measured 4 -> 7 console listeners over three runs). Not read from the
-    // tab's console buffer instead: that keeps 500 entries and omits an empty
-    // location, so a noisy page or an inline script would change consoleLogs.
-    const onConsole = (msg: ConsoleMessage) => {
-      const entry: ConsoleEntry = {
-        type: msg.type() as ConsoleEntry["type"],
-        text: msg.text().substring(0, 500),
-        timestamp: new Date().toISOString(),
-        url: msg.location()?.url,
-        lineNumber: msg.location()?.lineNumber,
-      };
-      consoleLogs.push(entry);
-
-      if (msg.type() === "error") {
-        frictionPoints.push(`Console error: ${msg.text().substring(0, 100)}`);
-      }
-    };
-    page.on("console", onConsole);
-    try {
-      return await this.heuristicJourney(page, persona, options, consoleLogs, frictionPoints, startTime);
-    } finally {
-      page.off("console", onConsole);
-    }
-  }
-
-  /** journey()'s heuristic exploration; journey's listener fills `consoleLogs`. */
-  private async heuristicJourney(
-    page: Page,
-    persona: Persona,
-    options: JourneyOptions,
-    consoleLogs: ConsoleEntry[],
-    frictionPoints: string[],
-    startTime: number,
-  ): Promise<JourneyResult> {
-    const { persona: personaName, startUrl, goal, maxSteps = 20 } = options;
-    const steps: JourneyStep[] = [];
-
-    // Navigate to start
-    await this.navigate(startUrl);
-    steps.push({
-      action: "navigate",
-      target: startUrl,
-      result: `Loaded: ${await page.title()}`,
-      screenshot: await this.screenshot(),
-      timestamp: new Date().toISOString(),
+    const cognitiveResult = await runCognitiveJourney({
+      persona: personaName,
+      startUrl,
+      goal,
+      maxSteps,
+      maxTime,
+      headless: this.config.headless,
+      vision: false,
+      verbose: false,
     });
 
-    // Heuristic exploration (simplified - no API key available)
-    // For realistic AI-driven exploration, set API key: npx cbrowser config set-api-key
-    let stepCount = 0;
-    let success = false;
-
-    while (stepCount < maxSteps && !success) {
-      stepCount++;
-
-      // Wait with human-like timing
-      const delay = this.getHumanDelay(persona);
-      await new Promise((r) => setTimeout(r, delay));
-
-      // Try to find clickable elements
-      const clickable = await page.evaluate((goalText) => {
-        const elements = Array.from(
-          document.querySelectorAll('a, button, [role="button"], input[type="submit"]')
-        );
-
-        // Score elements by relevance to goal (deterministic, not random)
-        const scored = elements.slice(0, 20).map((el) => {
-          const text = el.textContent?.trim().substring(0, 50) || '';
-          const href = (el as HTMLAnchorElement).href || '';
-          const textLower = text.toLowerCase();
-          const goalWords = goalText.toLowerCase().split(' ').filter(w => w.length > 2);
-
-          // Calculate relevance score
-          let score = 0;
-          for (const word of goalWords) {
-            if (textLower.includes(word)) score += 3;
-            if (href.toLowerCase().includes(word)) score += 2;
-          }
-          // Boost common action words
-          if (textLower.match(/submit|continue|next|proceed|sign|login|register/)) score += 1;
-
-          return { tag: el.tagName, text, href, score };
-        });
-
-        // Sort by score (highest first) and return top 5
-        return scored.sort((a, b) => b.score - a.score).slice(0, 5);
-      }, goal);
-
-      if (clickable.length === 0) {
-        frictionPoints.push("No clickable elements found");
-        break;
-      }
-
-      // Select highest-scored element (deterministic)
-      const target = clickable[0];
-      const result = await this.click(target.text || target.tag);
-
-      steps.push({
-        action: "click",
-        target: target.text || target.tag,
-        result: result.message,
-        screenshot: result.screenshot,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Check if goal might be achieved
-      const pageText = await page.evaluate(() => document.body.innerText.toLowerCase());
-      if (goal.toLowerCase().split(" ").some((word) => pageText.includes(word))) {
-        success = true;
-      }
-    }
-
-    // Save final screenshot
-    steps.push({
-      action: "final",
-      result: `Final page: ${await page.title()}`,
-      screenshot: await this.screenshot(),
-      timestamp: new Date().toISOString(),
-    });
-
-    const result: JourneyResult = {
+    return {
       persona: personaName,
       goal,
-      steps,
-      success,
-      frictionPoints,
-      totalTime: Date.now() - startTime,
-      consoleLogs,
+      steps: cognitiveResult.frictionPoints.map((fp) => ({
+        action: fp.type,
+        target: fp.element || 'page',
+        result: fp.monologue.substring(0, 100),
+        screenshot: fp.screenshot,
+        timestamp: new Date().toISOString(),
+      })),
+      success: cognitiveResult.goalAchieved,
+      frictionPoints: cognitiveResult.frictionPoints.map(fp =>
+        `${fp.type}: ${fp.monologue.substring(0, 80)}`
+      ),
+      totalTime: cognitiveResult.totalTime * 1000, // Convert to ms
+      consoleLogs: [],
+      cognitive: {
+        patienceRemaining: cognitiveResult.finalState.patienceRemaining,
+        frustrationLevel: cognitiveResult.finalState.frustrationLevel,
+        confusionLevel: cognitiveResult.finalState.confusionLevel,
+        abandonmentReason: cognitiveResult.abandonmentReason,
+        backtrackCount: cognitiveResult.summary.backtrackCount,
+        monologue: cognitiveResult.fullMonologue,
+      },
     };
-
-    // Save journey results
-    const journeyFile = join(this.paths.dataDir, `journey-${Date.now()}.json`);
-    writeFileSync(journeyFile, JSON.stringify(result, null, 2));
-
-    return result;
-  }
-
-  /**
-   * Get human-like delay based on persona.
-   * Uses deterministic average of min/max (no random).
-   * For realistic variable timing, use cognitive journeys with API key.
-   */
-  private getHumanDelay(persona: Persona): number {
-    const timing = persona.humanBehavior?.timing;
-    if (!timing) return 500;
-
-    const min = timing.reactionTime.min;
-    const max = timing.reactionTime.max;
-    // Use midpoint for deterministic behavior (no random)
-    return Math.floor((min + max) / 2);
   }
 
   // =========================================================================
