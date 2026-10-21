@@ -39,6 +39,8 @@ interface DaemonState {
   port: number;
   startedAt: string;
   lastActivity: string;
+  /** Absent in state files written before 20.0, which always meant 30 minutes. */
+  idleTimeoutMs?: number;
   /**
    * Required (X-CBrowser-Daemon-Token) on /command and /shutdown. The daemon had no
    * authentication and reflected any Origin with credentials, so any local user, or
@@ -313,6 +315,10 @@ export async function stopDaemon(): Promise<{ success: boolean; message: string 
 /**
  * Get daemon status
  */
+function formatIdle(ms: number): string {
+  return ms >= 60_000 ? `${Math.round(ms / 60_000)} min` : `${Math.round(ms / 1000)}s`;
+}
+
 export async function getDaemonStatus(): Promise<string> {
   const running = await isDaemonRunning();
   const state = getDaemonState();
@@ -328,14 +334,24 @@ export async function getDaemonStatus(): Promise<string> {
   PID: ${state.pid}
   Port: ${state.port}
   Uptime: ${uptime}s
-  Last activity: ${lastActivity}s ago`;
+  Last activity: ${lastActivity}s ago
+  Idle timeout: ${formatIdle(state.idleTimeoutMs ?? DAEMON_TIMEOUT_MS)}`;
 }
 
 /**
  * Run the daemon server (called in foreground mode)
  */
-export async function runDaemonServer(config: Partial<CBrowserConfig>, port: number = DEFAULT_PORT): Promise<void> {
+export async function runDaemonServer(
+  config: Partial<CBrowserConfig>,
+  port: number = DEFAULT_PORT,
+  /** `daemon start --timeout`; documented since 6.4 and never read before 20.0. */
+  idleTimeoutMs: number = DAEMON_TIMEOUT_MS,
+): Promise<void> {
   let browser: CBrowser | null = null;
+  // The engine the daemon's browser actually runs. A capture used to take the
+  // engine from the client's --browser flag, so a firefox label on a chromium
+  // daemon picked the screenshot loop over CDP screencast (audit 2026-10-21).
+  let engine: "chromium" | "firefox" | "webkit" = "chromium";
   let idleTimer: NodeJS.Timeout | null = null;
   let lastActivity = new Date();
 
@@ -347,7 +363,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
     idleTimer = setTimeout(async () => {
       console.log(`[${new Date().toISOString()}] Daemon idle timeout, shutting down...`);
       await shutdown();
-    }, DAEMON_TIMEOUT_MS);
+    }, idleTimeoutMs);
   };
 
   const updateState = () => {
@@ -361,6 +377,7 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
   const getBrowser = async (): Promise<CBrowser> => {
     if (!browser) {
       const fullConfig = mergeConfig({ ...config, persistent: true });
+      engine = fullConfig.browser ?? "chromium";
       browser = new CBrowser(fullConfig);
     }
     return browser;
@@ -608,7 +625,6 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
           if (url) await b.navigate(url);
 
           const page = await b.getPage();
-          const engine = (req.args.engine as "chromium" | "firefox" | "webkit") ?? "chromium";
           const paths = getPaths();
 
           capture = new VideoCaptureSession(page, engine, join(paths.videosDir, paths.sessionId));
@@ -797,11 +813,12 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
       startedAt: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
       token,
+      idleTimeoutMs,
     };
     writeDaemonState(state);
 
     console.log(`[${new Date().toISOString()}] CBrowser daemon started on port ${port} (PID: ${process.pid})`);
-    console.log(`[${new Date().toISOString()}] Idle timeout: ${DAEMON_TIMEOUT_MS / 1000 / 60} minutes`);
+    console.log(`[${new Date().toISOString()}] Idle timeout: ${formatIdle(idleTimeoutMs)}`);
 
     resetIdleTimer();
   });

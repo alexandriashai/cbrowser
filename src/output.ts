@@ -73,6 +73,12 @@ const BOX_DRAWING_REGEX = /[\u2500-\u257F\u2580-\u259F\u25A0-\u25FF\u2550-\u256C
 // Emoji are already handled by EMOJI_REGEX — this only covers non-emoji symbols
 const DECORATIVE_REGEX = /[━┃┏┓┗┛┣┫╋┳┻•●○◎◉▶▷►▻▪▫★☆✓✗✔✘]/gu;
 
+// Checked before the generic emoji/decoration strip. The variation selector that
+// often follows (U+FE0F) is consumed with the glyph.
+const PASS_GLYPHS = /[\u2713\u2714\u2705\u2611]\uFE0F?/gu;
+const FAIL_GLYPHS = /[\u2717\u2718\u274C\u2716\u274E]\uFE0F?/gu;
+const WARN_GLYPHS = /\u26A0\uFE0F?/gu;
+
 /**
  * Strip ANSI color codes from a string.
  */
@@ -86,10 +92,16 @@ export function stripAnsi(text: string): string {
  */
 export function stripDecorations(text: string): string {
   return text
+    // Pass/fail glyphs carry meaning, so they become words, not nothing. Deleting
+    // them made a passing and a failing test line read the same in the
+    // screen-reader mode (audit 2026-10-21); doctor already printed [PASS]/[FAIL].
+    .replace(PASS_GLYPHS, "[PASS]")
+    .replace(FAIL_GLYPHS, "[FAIL]")
+    .replace(WARN_GLYPHS, "[WARN]")
     .replace(EMOJI_REGEX, "")
     .replace(BOX_DRAWING_REGEX, "-")
     .replace(DECORATIVE_REGEX, "")
-    .replace(/\s{2,}/g, " ")  // collapse multiple spaces left by removal
+    .replace(/[ \t]{2,}/g, " ")  // collapse spaces left by removal (never newlines: that rewrote multi-line text)
     .replace(/^\s+$/gm, "");  // remove lines that became whitespace-only
 }
 
@@ -296,7 +308,12 @@ export function installOutputWrappers(): void {
     const origError = console.error.bind(console);
     console.log = (...args: unknown[]) => {
       const line = args
-        .map((a) => (typeof a === "string" ? stripAnsi(stripDecorations(a)) : String(a)))
+        // Decorations stay stripped (the screen-reader contract); pass/fail
+        // glyphs now become [PASS]/[FAIL] instead of vanishing. Data commands
+        // (extract) emit a native envelope and skip this capture, so page text is
+        // not altered (audit 2026-10-21). Objects are captured as JSON, not
+        // "[object Object]".
+        .map((a) => (typeof a === "string" ? stripAnsi(stripDecorations(a)) : a !== null && typeof a === "object" ? JSON.stringify(a) : String(a)))
         .join(" ")
         .trim();
       if (!line) return;

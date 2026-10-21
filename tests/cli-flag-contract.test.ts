@@ -292,3 +292,104 @@ describe("audit and journey options", () => {
     expect(r.stdout).not.toContain("Success");
   }, TIMEOUT);
 });
+
+/** Help, flags and output (audit 2026-10-21: flags 10, 17-19, 24; output 6-9, 19, 24). */
+describe("help, flags and output", () => {
+  test("help documents no command that does not exist and carries no stale version labels", async () => {
+    const r = await run("help");
+    expect(r.code).toBe(0);
+    expect(r.stdout).not.toContain("smart-baseline");
+    expect(r.stdout).not.toContain("transport-map <");
+    expect(r.stdout).not.toMatch(/^[A-Z][^\n]* \(v\d+\.\d+\.\d+\)/m);
+    expect(r.stdout).not.toContain("screenshot https://example.com --lightpanda");
+  }, TIMEOUT);
+
+  test("help's questionnaire trait counts are the questionnaire's", async () => {
+    const { generatePersonaQuestionnaire } = await import("../src/persona-questionnaire.js");
+    const all = generatePersonaQuestionnaire({ comprehensive: true }).length;
+    const core = generatePersonaQuestionnaire({}).length;
+    const r = await run("help");
+    expect(r.stdout).toContain(`All ${all} traits (default: ${core} core traits)`);
+  }, TIMEOUT);
+
+  test("--quiet is no longer accepted: nothing ever read it", async () => {
+    const r = await run("evaluate", "1", "--quiet", "--force");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("quiet");
+  }, TIMEOUT);
+
+  test("an unknown a11y subcommand exits 1", async () => {
+    const r = await run("a11y", "audti");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("Usage: cbrowser a11y audit");
+  }, TIMEOUT);
+
+  test("perf-regression refuses an unknown --sensitivity instead of running at normal", async () => {
+    const r = await run("perf-regression", `${fixtures.base}static.html`, "home", "--sensitivity", "loose");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--sensitivity must be strict, normal, ci or lenient");
+  }, TIMEOUT);
+
+  test("a --timeout that is not a duration is refused (\"30s\" used to mean 30 ms)", async () => {
+    const file = join(dataDir, "t.txt");
+    await Bun.write(file, `# Test: one\ngo to ${fixtures.base}static.html\n`);
+    const r = await run("test-suite", file, "--timeout", "soon");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--timeout:");
+  }, TIMEOUT);
+
+  test("--viewport takes a size name", async () => {
+    const r = await run("evaluate", "window.innerWidth", "--viewport", "mobile", "--url", `${fixtures.base}static.html`, "--force", "--raw", "--no-persistent");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout.trim().split("\n").at(-1)).toBe("393");
+  }, TIMEOUT);
+
+  test("extract under --json-output puts the data in data, unaltered", async () => {
+    const r = await run("extract", `${fixtures.base}static.html`, "headings", "--json-output", "--no-persistent");
+    expect(r.code, r.stderr).toBe(0);
+    const env = JSON.parse(r.stdout) as { success: boolean; data: unknown };
+    expect(env.success).toBe(true);
+    expect(JSON.stringify(env.data)).toContain("Nothing moves here");
+    expect((env.data as { output?: unknown }).output).toBeUndefined();
+  }, TIMEOUT);
+
+  test("--html never overwrites the JSON report", async () => {
+    const file = join(dataDir, "h.txt");
+    await Bun.write(file, `# Test: loads\ngo to ${fixtures.base}static.html\nverify page contains "Nothing moves here"\n`);
+    const out = join(dataDir, "report.html");
+    const r = await run("test-suite", file, "--output", out, "--html", "--no-persistent");
+    expect(r.code, r.stderr).toBe(0);
+    expect(() => JSON.parse(readFileSync(out, "utf8"))).not.toThrow();
+    expect(readFileSync(join(dataDir, "report.report.html"), "utf8")).toContain("<html");
+  }, TIMEOUT * 2);
+
+  test("daemon status exits 1 when no daemon runs", async () => {
+    const r = await cli({ CBROWSER_DATA_DIR: mkdtempSync(join(tmpdir(), "cbrowser-nodaemon-")) }, "daemon", "status");
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("not running");
+  }, TIMEOUT);
+
+  test("daemon start --timeout is honoured: the daemon stops after its idle timeout", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cbrowser-idle-"));
+    const port = String(20000 + Math.floor(Math.random() * 20000));
+    const bad = await cli({ CBROWSER_DATA_DIR: dir }, "daemon", "start", "--port", port, "--timeout", "soon");
+    expect(bad.code).toBe(1);
+    const started = Date.now();
+    const s = await cli({ CBROWSER_DATA_DIR: dir }, "daemon", "start", "--port", port, "--timeout", "3s");
+    try {
+      expect(s.code, s.stderr).toBe(0);
+      const st = await cli({ CBROWSER_DATA_DIR: dir }, "daemon", "status");
+      expect(st.stdout).toContain("Idle timeout: 3s");
+      let stopped = false;
+      for (let i = 0; i < 40 && !stopped; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        stopped = (await cli({ CBROWSER_DATA_DIR: dir }, "daemon", "status")).code === 1;
+      }
+      expect(stopped).toBe(true);
+      expect(Date.now() - started).toBeGreaterThanOrEqual(3000);
+    } finally {
+      await cli({ CBROWSER_DATA_DIR: dir }, "daemon", "stop");
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 2);
+});

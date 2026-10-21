@@ -74,7 +74,8 @@ describe("--json-output never leaves stdout empty", () => {
     expect(parsed.command).toBe("navigate");
     expect(parsed.success).toBe(true);
     expect(parsed.meta.version).toBe("18.72.6");
-    expect(parsed.data.output).toContain("Navigated to: file:///x.html");
+    // The check mark is a pass marker, kept as a word since 20.0 (it used to vanish).
+    expect(parsed.data.output).toContain("[PASS] Navigated to: file:///x.html");
   });
 
   test("a command producing NO output still emits parseable JSON, not zero bytes", () => {

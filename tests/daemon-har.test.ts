@@ -371,6 +371,27 @@ describe("commands routed through the daemon", () => {
     expect(r.stdout).not.toContain('"screenshot"');
   }, TIMEOUT);
 
+  test("capture start through the daemon refuses a size it cannot apply", async () => {
+    const r = await cli(dataDir, "capture", "start", `${fixtures.base}static.html`, "--viewport", "390x844");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cannot change a running daemon");
+  }, TIMEOUT);
+
+  test("network list: newest first, --filter, and --json", async () => {
+    await cli(dataDir, "network", "clear");
+    expect((await cli(dataDir, "navigate", `${fixtures.base}static.html`)).code).toBe(0);
+    expect((await cli(dataDir, "navigate", `${fixtures.base}keyboard.html`)).code).toBe(0);
+    const r = await cli(dataDir, "network", "list", "--json");
+    expect(r.code, r.stderr).toBe(0);
+    const list = JSON.parse(r.stdout.slice(r.stdout.indexOf("{"))) as { requests: Array<{ url: string }> };
+    const urls = list.requests.map((q) => q.url);
+    expect(urls.findIndex((u) => u.endsWith("keyboard.html"))).toBeLessThan(urls.findIndex((u) => u.endsWith("static.html")));
+    const f = await cli(dataDir, "network", "list", "--json", "--filter", "static.html");
+    const only = JSON.parse(f.stdout.slice(f.stdout.indexOf("{"))) as { requests: Array<{ url: string }> };
+    expect(only.requests.length).toBeGreaterThan(0);
+    expect(only.requests.every((q) => q.url.includes("static.html"))).toBe(true);
+  }, TIMEOUT);
+
   test("a page command the daemon does not run is refused, not run in a second browser", async () => {
     const r = await cli(dataDir, "a11y", "audit", `${fixtures.base}static.html`);
     expect(r.code).toBe(1);

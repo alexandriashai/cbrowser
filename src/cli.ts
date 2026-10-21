@@ -25,8 +25,7 @@ import { capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBa
 
 // Visual module imports
 import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff } from "./visual/index.js";
-// Phase 3 imports — used by CLI command handlers (to be wired up)
-// import { captureSmartBaseline, listSmartBaselines, deleteSmartBaseline, runSmartRegression, generateTransportMap, runRegressionWithTransportMap } from "./visual/index.js";
+import { VIEWPORT_PRESETS } from "./types.js";
 import type { NLTestCase, NLTestSuiteResult, PerformanceRegressionThresholds, CoverageMapOptions, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABSuite, ABSuiteResult } from "./types.js";
 import {
   BUILTIN_PERSONAS,
@@ -166,6 +165,7 @@ SCRIPTING
     --raw                     Print the raw value, unquoted
     --wait-for <selector>     Wait for the selector before evaluating
     --expect-truthy           Exit 1 when the result is falsy (CI assertion)
+    --timeout <ms>            How long --wait-for waits: ms, or 5s / 2m (default: 30000)
     Examples:
       cbrowser evaluate "document.title" --force
       cbrowser evaluate --file check.js --arg '"#main"' --expect-truthy --force
@@ -178,6 +178,7 @@ KEYBOARD
     --hold <mod>              Hold a modifier across the whole sequence
     --repeat <n>              Repeat the whole sequence n times
     --text                    Treat every token as literal text (for "+" in text)
+    --url <url>               Navigate to URL first
     A token with modifiers is a chord (Control+A); a known key name is that key
     (Enter, Tab, ArrowLeft); anything else is typed as literal text. Unknown
     key names are rejected, not typed. For a single key use 'press', for a
@@ -230,7 +231,7 @@ COGNITIVE JOURNEY (API-powered, realistic user simulation)
 
     Note: Requires Anthropic API key. Set with: cbrowser config set-api-key <key>
 
-MULTI-PERSONA COMPARISON (v6.0.0)
+MULTI-PERSONA COMPARISON
   compare-personas            Compare multiple personas on the same journey
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish (required)
@@ -243,7 +244,7 @@ MULTI-PERSONA COMPARISON (v6.0.0)
         --goal "Complete checkout" \\
         --personas power-user,first-timer,elderly-user,mobile-user
 
-NATURAL LANGUAGE TEST SUITES (v6.1.0)
+NATURAL LANGUAGE TEST SUITES
   test-suite <file.txt>        Run tests written in plain English
     --continue-on-failure      Keep running after a test fails
     --screenshot-on-failure    Take screenshots on failure (default: true)
@@ -279,7 +280,7 @@ NATURAL LANGUAGE TEST SUITES (v6.1.0)
       click search button
       verify page contains "results"
 
-AI TEST REPAIR (v6.2.0)
+AI TEST REPAIR
   repair-tests <file.txt>      Analyze failing tests and suggest/apply repairs
     --auto-apply               Automatically apply the best repair
     --verify                   Re-run tests after repair to verify they pass
@@ -290,7 +291,7 @@ AI TEST REPAIR (v6.2.0)
       cbrowser repair-tests tests.txt --auto-apply --verify
       cbrowser repair-tests tests.txt --auto-apply --output fixed-tests.txt
 
-FLAKY TEST DETECTION (v6.3.0)
+FLAKY TEST DETECTION
   flaky-check <file.txt>       Run tests multiple times to detect flaky tests
     --runs <n>                 Number of runs per test (default: 5)
     --threshold <n>            Flakiness % threshold to flag (default: 20)
@@ -301,7 +302,7 @@ FLAKY TEST DETECTION (v6.3.0)
       cbrowser flaky-check tests.txt --runs 10
       cbrowser flaky-check tests.txt --runs 5 --threshold 30 --output flaky-report.json
 
-TEST COVERAGE MAP (v6.5.0)
+TEST COVERAGE MAP
   coverage <url>               Generate test coverage map for a site
     --tests <glob>             Test files to analyze (default: tests/*.txt)
     --sitemap <url>            Use sitemap.xml instead of crawling
@@ -333,6 +334,8 @@ PERSONAS
   persona delete <name>       Delete a custom persona
   persona export <name>       Export persona to JSON file
   persona import <file>       Import persona from JSON file
+  persona cleanup             Remove custom personas that fail validation
+    --dry-run                 List them without removing anything
 
 SESSION MANAGEMENT
   session save <name>         Save browser session (cookies, storage, URL)
@@ -340,6 +343,12 @@ SESSION MANAGEMENT
   session load <name>         Load a saved session
   session list                List all saved sessions
   session delete <name>       Delete a saved session
+  session show <name>         Show a saved session's cookies, storage and URL
+  session cleanup             Delete saved sessions older than N days
+    --older-than <days>       Age in days (default: 30)
+  session export <name>       Export a session to a JSON file
+    --output <file>           File to write (default: <name>.json)
+  session import <file>       Import a session from a JSON file
 
 COOKIE MANAGEMENT
   cookie list                 List all cookies for current page
@@ -370,7 +379,7 @@ PERFORMANCE
     --budget-fcp <ms>         FCP budget (default: 1800)
     --budget-cls <score>      CLS budget (default: 0.1)
 
-PERFORMANCE REGRESSION (v6.4.0)
+PERFORMANCE REGRESSION
   perf-baseline save <url>    Capture and save performance baseline
     --name <name>             Human-readable name for baseline
     --runs <n>                Number of runs to average (default: 3)
@@ -387,6 +396,9 @@ PERFORMANCE REGRESSION (v6.4.0)
     --threshold-lcp <n>       Max LCP increase % (default: 20)
     --threshold-cls <n>       Max CLS increase (default: 0.1)
     --threshold-fcp <n>       Max FCP increase % (default: 20)
+    --threshold-ttfb <n>      Max TTFB increase % (default: 30)
+    --threshold-tti <n>       Max TTI increase %
+    --threshold-tbt <n>       Max TBT increase %
     --output <file>           Save JSON report to file
     Examples:
       cbrowser perf-regression "https://example.com" homepage
@@ -397,14 +409,17 @@ NETWORK / HAR (need the daemon: each command is its own process)
   daemon start                Start the daemon first; it holds the browser between commands
   har start                   Start recording HAR in the daemon's browser
   har stop [output]           Stop and save HAR file
-  network list                List network requests the daemon's browser captured
+  network list                List network requests the daemon's browser captured, newest first
+    --filter <text>           Only requests whose URL contains <text>, or of that type or method
+    --all                     List every request (default: the newest 20)
+    --json                    Print the list as JSON
   network clear               Clear that list
   console                     List the daemon tab's console messages (errors, warnings, logs)
     --filter <type>           all | error | warning | log | info (default all)
     --clear                   Empty the console buffer after reading
     --json                    Print the raw messages as JSON
 
-VISUAL REGRESSION (v2.5.0)
+VISUAL REGRESSION
   visual save <name>          Save baseline screenshot
     --url <url>               Navigate to URL first
   visual compare <name>       Compare current page against baseline
@@ -412,7 +427,7 @@ VISUAL REGRESSION (v2.5.0)
   visual list                 List all saved baselines
   visual delete <name>        Delete a baseline
 
-AI VISUAL REGRESSION (v7.0.0)
+AI VISUAL REGRESSION
   ai-visual capture <url>     Capture AI-analyzed visual baseline
     --name <name>             Baseline name (required)
     --selector <sel>          Capture specific element instead of viewport
@@ -442,37 +457,7 @@ AI VISUAL REGRESSION (v7.0.0)
   ai-visual show <name>       Show baseline details
   ai-visual delete <name>     Delete a baseline
 
-SMART BASELINES & TRANSPORT MAP (v18.0.0)
-  smart-baseline capture <url>  Capture consensus baseline from multiple screenshots
-    --name <name>             Baseline name (required)
-    --captures <n>            Number of screenshots to take (default: 5)
-    --delay <ms>              Delay between captures (default: 1500)
-    --selector <sel>          Capture specific element
-    --device <device>         Device emulation
-    --outlier-threshold <n>   Outlier rejection threshold in stddev (default: 2.0)
-    Examples:
-      cbrowser smart-baseline capture "https://example.com" --name homepage
-      cbrowser smart-baseline capture "https://example.com" --name hero --captures 10
-
-  smart-baseline test <url> <name>  Test against smart baseline
-    --threshold <n>           Override adaptive threshold (0-1)
-    --transport-map           Also generate visual transport map
-    Examples:
-      cbrowser smart-baseline test "https://staging.example.com" homepage
-      cbrowser smart-baseline test "https://staging.example.com" homepage --transport-map
-
-  smart-baseline list         List all smart baselines
-  smart-baseline delete <name>  Delete a smart baseline
-
-  transport-map <baseline> <current>  Generate visual transport map between two screenshots
-    --cell-size <n>           Grid cell size in pixels (default: 32)
-    --output <file.svg>       Save SVG to file
-    --hotspots <n>            Number of hotspots to identify (default: 5)
-    Examples:
-      cbrowser transport-map baseline.png current.png
-      cbrowser transport-map baseline.png current.png --cell-size 16 --output changes.svg
-
-CROSS-BROWSER VISUAL TESTING (v7.3.0)
+CROSS-BROWSER VISUAL TESTING
   cross-browser <url>         Compare visual rendering across browsers
     --browsers <list>         Browsers to test: chromium,firefox,webkit (default: all)
     --width <n>               Viewport width (default: 1920)
@@ -498,7 +483,7 @@ CROSS-BROWSER VISUAL TESTING (v7.3.0)
       "options": { "browsers": ["chromium", "firefox"] }
     }
 
-RESPONSIVE VISUAL TESTING (v7.3.0)
+RESPONSIVE VISUAL TESTING
   responsive <url>            Test visual rendering across viewport sizes
     --viewports <list>        Viewports to test (default: mobile,tablet,desktop)
     --wait <ms>               Wait before screenshot (ms)
@@ -530,7 +515,7 @@ RESPONSIVE VISUAL TESTING (v7.3.0)
       desktop-sm (1280x800)   desktop (1440x900)    desktop-lg (1920x1080)
       desktop-xl (2560x1440)
 
-A/B VISUAL COMPARISON (v7.3.0)
+A/B VISUAL COMPARISON
   ab <urlA> <urlB>            Compare two URLs visually
     --label-a <name>          Label for URL A (default: "Version A")
     --label-b <name>          Label for URL B (default: "Version B")
@@ -565,6 +550,9 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
 
   agent-ready-audit <url>     Audit site for AI-agent friendliness (A-F grade)
     --headless                Run in headless mode (default: true)
+    --device <name>           Device to audit on, e.g. iphone-16
+    --geo-region <region>     Run through a configured regional proxy (exits 1 if not configured)
+    --lightpanda              Use Lightpanda instead of Chromium (see LIGHTPANDA)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Grades sites on: Findability (35%), Stability (30%),
@@ -575,6 +563,7 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
 
   ai-benchmark                Compare AI-friendliness across multiple sites
     --urls <list>             Comma-separated URLs to benchmark (required)
+    --concurrency <n>         Sites audited at once (default: 3)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Runs agent-ready-audit on each URL and produces ranked comparison.
@@ -588,6 +577,8 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
     --device <name>           Device to audit on, e.g. iphone-16
     --scope <scope>           viewport (default) or full_page
     --wcag-level <level>      WCAG level: A, AA, AAA (default: AA)
+    --max-steps <n>           Steps per persona when a goal is given
+    --max-time <s>            Seconds per persona when a goal is given
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Available personas:
@@ -628,12 +619,12 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
         --sites "https://yoursite.com,https://competitor.com" \\
         --goal "sign up for free trial" --html
 
-ACCESSIBILITY (v2.5.0)
+ACCESSIBILITY
   a11y audit                  Run WCAG accessibility audit
     --url <url>               Navigate to URL first
   a11y audit [url]            Audit a specific URL
 
-TEST RECORDING (v2.5.0)
+TEST RECORDING
   record start                Start recording interactions
     --url <url>               Navigate to URL to begin recording
   record stop                 Stop recording and show actions
@@ -645,7 +636,7 @@ SCREEN CAPTURE (video/GIF — distinct from 'record', which captures actions)
   capture start <url>         Capture the screen to GIF/WebP/video
     --fps <n>                 Target frames per second (default: 10)
     --duration <5s>           Auto-stop after this long (5s, 2m, 1500ms)
-    --viewport <WxH>          Viewport size, e.g. 1280x720
+    --viewport <WxH>          Viewport size, e.g. 1280x720, or a size name (mobile, tablet, desktop...)
     --region <x,y,w,h>        Capture a fixed region instead of the viewport
     --element <selector>      Track an element; crop follows it as it moves
     --element-padding <n>     Expand the element box by n CSS px per side
@@ -679,11 +670,11 @@ SCREEN CAPTURE (video/GIF — distinct from 'record', which captures actions)
     and the still stretches are reported as frame_gaps rather than padded out.
     mp4 needs a full ffmpeg (CBROWSER_FFMPEG_PATH); the bundled one does webm.
 
-TEST EXPORT (v2.5.0)
+TEST EXPORT
   export junit <name> [output]   Export test results as JUnit XML
   export tap <name> [output]     Export test results as TAP format
 
-WEBHOOKS (v2.5.0)
+WEBHOOKS
   webhook add <name> <url>    Add webhook notification
     --events <events>         Comma-separated: test.pass,test.fail,journey.complete
     --format <format>         slack, discord, or generic
@@ -693,13 +684,13 @@ WEBHOOKS (v2.5.0)
 
 PERSONA QUESTIONNAIRE
   persona-questionnaire start        Build a persona from a behavioural questionnaire
-    --comprehensive                  All 26 traits (default: 8 core traits)
+    --comprehensive                  All 30 traits (default: 13 core traits)
     --name <name>                    Persona name (prompted if omitted)
     --output <file>                  Save answers to JSON
   persona-questionnaire list-traits  List available traits with descriptions
   persona-questionnaire lookup       Look up behaviours for a trait value
 
-PARALLEL EXECUTION (v2.5.0)
+PARALLEL EXECUTION
   parallel devices <url>      Run same URL across multiple devices
     --devices <list>          Comma-separated device names (default: all)
     --concurrency <n>         Max parallel browsers (default: 3)
@@ -708,7 +699,7 @@ PARALLEL EXECUTION (v2.5.0)
   parallel perf <urls>        Performance audit multiple URLs in parallel
     --concurrency <n>         Max parallel browsers (default: 3)
 
-NATURAL LANGUAGE (v3.0.0)
+NATURAL LANGUAGE
   run "<command>"             Execute natural language command
     Examples:
       cbrowser run "go to https://example.com"
@@ -716,7 +707,7 @@ NATURAL LANGUAGE (v3.0.0)
       cbrowser run "type 'hello' in the search box"
   script <file>               Execute script file with natural language commands
 
-VISUAL AI (v4.0.0)
+VISUAL AI
   ai find "<intent>"          Find element by semantic intent
     Examples:
       cbrowser ai find "the cheapest product"
@@ -724,18 +715,18 @@ VISUAL AI (v4.0.0)
       cbrowser ai find "search box"
   ai click "<intent>"         Find and click element by intent
 
-CROSS-BROWSER (v4.0.0)
+BROWSER DIFF
   diff <url>                  Compare page across browsers
     --browsers <list>         chromium,firefox,webkit (default: all)
 
-CHAOS ENGINEERING (v4.0.0)
+CHAOS ENGINEERING
   chaos <url>                 Test app resilience
     --latency <ms>            Add network latency
     --offline                 Simulate offline mode
     --block <patterns>        Block URL patterns (comma-separated)
     --fail-api <pattern:status>  Fail specific API calls
 
-SMART RETRY & ASSERTIONS (v5.0.0)
+SMART RETRY & ASSERTIONS
   smart-click <selector>      Click with auto-retry and alternative selectors
     --url <url>               Navigate to URL first
     --max-retries <n>         Maximum retry attempts (default: 3)
@@ -754,7 +745,7 @@ SMART RETRY & ASSERTIONS (v5.0.0)
       cbrowser assert "'Login' button exists"
       cbrowser assert "page has 3 items"
 
-SELF-HEALING SELECTORS (v5.0.0)
+SELF-HEALING SELECTORS
   heal stats                  Show selector cache statistics
   heal list                   List all cached selector mappings
     --domain <domain>         Filter by domain
@@ -763,18 +754,21 @@ SELF-HEALING SELECTORS (v5.0.0)
   heal test <selector>        Test if a selector would be healed
     --url <url>               Navigate to URL first
 
-AI TEST GENERATION (v5.0.0)
+AI TEST GENERATION
   generate <url>              Analyze page and generate test scenarios
     --format <format>         Output: summary, cbrowser, playwright, all (default: summary)
     --output <file>           Save to file instead of stdout
   analyze <url>               Show page analysis without generating tests
 
-MCP SERVER (v5.0.0)
+MCP SERVER
   mcp-server                  Start CBrowser as MCP server for Claude integration
                               Use with Claude Desktop or other MCP-compatible clients
   mcp-remote                  Start remote HTTP MCP server for claude.ai connectors
     --port <port>             Port to listen on (default: 3000)
     --host <host>             Host to bind to (default: 0.0.0.0)
+    --stateful                Use stateful session mode
+    Smart visual baselines and transport maps have no CLI command; they are the
+    MCP tools visual_baseline / visual_regression (smart mode) and transport_map.
 
 UNINSTALL
   uninstall                   Remove CBrowser data: credentials, sessions, captures
@@ -789,40 +783,41 @@ CLAUDE SKILL INSTALLATION & SYNC
                               Downloads latest skill files from GitHub
                               Run after 'npm update -g cbrowser' to stay in sync
                               Add to skill-index.json after first installation
-    --stateful                Use stateful session mode
 
-DAEMON MODE (v6.4.0)
+DAEMON MODE
   daemon start                Start background daemon (keeps browser running)
     --port <port>             Daemon port (default: 9222)
     --device <name>           Device the daemon's browser emulates
     --viewport <WxH>          Page size of the daemon's browser
-    --timeout <min>           Idle timeout in minutes (default: 30)
+    --timeout <min>           Idle timeout: minutes, or 90s / 45m / 2h (default: 30)
   daemon stop                 Stop the running daemon
-  daemon status               Check if daemon is running
+  daemon status               Check if daemon is running (exits 1 when it is not)
   daemon run                  Run daemon in foreground (internal use)
-    Note: When daemon is running, all commands automatically connect to it
-          instead of launching a new browser - much faster for iteration!
+    Note: while the daemon runs, navigate, click, fill, hover, type, press,
+          keyboard, screenshot, extract, run, evaluate, capture, har, network
+          and console use its browser. Commands that would open a second
+          browser on its profile (script, ai, explore, a11y, perf, visual,
+          drag, upload, reset and others) refuse until you stop it.
 
-API CONFIGURATION (v8.0.0)
+API CONFIGURATION
   config set-api-key <key>    Set Anthropic API key for cognitive journeys
   config show-api-key         Show configured API key (masked)
   config remove-api-key       Remove stored API key
   config set-model <model>    Set Claude model (default: claude-sonnet-5)
 
-LIGHTPANDA (v18.20.0) - High-Performance Headless Browser (OPT-IN ONLY)
+LIGHTPANDA - High-Performance Headless Browser (OPT-IN ONLY)
   lightpanda-status           Check Lightpanda availability and configuration
   lightpanda-setup            Show setup instructions with security warnings
     ⚠️ SECURITY NOTICE:
       • Lightpanda is BETA software with no security audit
       • Cloud mode exposes traffic to lightpanda.io servers
       • NEVER use for auth, credentials, or payments
-      • Requires explicit --lightpanda flag (not automatic)
+      • Used only by agent-ready-audit, and only with --lightpanda
     Environment Variables:
       LIGHTPANDA_ENDPOINT     WebSocket endpoint (e.g., ws://127.0.0.1:9222)
       LIGHTPANDA_TOKEN        Cloud API token (⚠️ data visible to lightpanda.io)
     Examples:
       cbrowser lightpanda-status
-      cbrowser screenshot https://example.com --lightpanda
       cbrowser agent-ready-audit https://example.com --lightpanda
 
 DIAGNOSTICS
@@ -831,7 +826,7 @@ DIAGNOSTICS
                               Displays data directories, browsers, config, heal cache
   doctor                      Check environment health (Node, Playwright, API key)
 
-ACCESSIBILITY
+OUTPUT MODES (accessibility)
   --no-color                  Disable all color output (also respects NO_COLOR env var)
   --plain                     Disable emoji, box-drawing, and unicode decorations
   --json-output               Output structured JSON (for scripts and screen readers)
@@ -843,6 +838,7 @@ STORAGE & CLEANUP
     --older-than <days>       Delete files older than N days (default: 7)
     --keep-screenshots <n>    Keep at least N screenshots (default: 10)
     --keep-journeys <n>       Keep at least N journeys (default: 5)
+    --keep-sessions <n>       Keep at least N sessions (default: 3)
   reset                       Clear persistent browser state (cookies, storage)
 
 OPTIONS
@@ -850,6 +846,8 @@ OPTIONS
   --device <name>             Device preset: iphone-16, pixel-9, ipad-pro-13, ... ('device list')
   --viewport <WxH>            Page size, e.g. 390x844; with --device it sets the size and
                               the device keeps its pixel ratio, touch and user agent
+                              Size names work too (mobile, tablet, desktop-md...): size
+                              only; use --device for touch and a mobile user agent
   --geo <location>            Location preset or lat,lon coordinates
   --locale <locale>           Browser locale (e.g., en-US, fr-FR)
   --timezone <tz>             Timezone (e.g., America/New_York)
@@ -928,6 +926,20 @@ const COMMAND_ALIASES: Record<string, string> = {
 };
 
 /** Escape a string for safe use inside a RegExp. */
+/**
+ * Print a command result that is data. Under --json-output it becomes the
+ * envelope's `data`, untouched; otherwise pretty JSON on stdout. Before 20.0
+ * extract went through the text capture, which stored its JSON as text lines
+ * (audit 2026-10-21).
+ */
+function printData(command: string, data: unknown): void {
+  if (getOutputOptions().json) {
+    emitJson({ success: true, command, data, meta: { version: VERSION } });
+    return;
+  }
+  console.log(JSON.stringify(data, null, 2));
+}
+
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -1086,7 +1098,7 @@ const SHARED_BROWSER_FLAGS = [
  * output modes (src/output.ts); before 2026-10-21 the validated commands
  * rejected them.
  */
-const GLOBAL_FLAGS = [...SHARED_BROWSER_FLAGS, "help", "no-color", "quiet", "json", "plain", "json-output"];
+const GLOBAL_FLAGS = [...SHARED_BROWSER_FLAGS, "help", "no-color", "json", "plain", "json-output"];
 
 /**
  * Declared options per command.
@@ -1206,14 +1218,40 @@ interface ActiveCapture {
 }
 
 /** Parse "5s", "2m", "1500ms" or a bare millisecond count. */
+/**
+ * Where --html writes when --output names the JSON report. The HTML used to
+ * take `output.replace(".json", ".html")`, so `--output report` or
+ * `--output report.html` wrote the HTML over the JSON (audit 2026-10-21).
+ */
+function htmlReportPath(output: string | boolean | undefined, fallback: string): string {
+  if (typeof output !== "string" || output === "") return fallback;
+  const base = output.replace(/\.(json|html?)$/i, "");
+  const html = `${base}.html`;
+  return html === output ? `${base}.report.html` : html;
+}
+
+/**
+ * A --timeout value in milliseconds: a bare number is ms, and 5s / 2m / 1h work.
+ * Exits 1 on anything else rather than guessing.
+ */
+function timeoutOption(value: string | boolean | undefined, fallbackMs: number): number {
+  if (value === undefined) return fallbackMs;
+  try {
+    return parseDurationMs(String(value));
+  } catch (e) {
+    console.error(`Error: --timeout: ${(e as Error).message}`);
+    process.exit(1);
+  }
+}
+
 function parseDurationMs(input: string): number {
-  const match = /^(\d+(?:\.\d+)?)\s*(ms|s|m)?$/i.exec(input.trim());
+  const match = /^(\d+(?:\.\d+)?)\s*(ms|s|m|h)?$/i.exec(input.trim());
   if (!match) {
-    throw new Error(`Invalid duration "${input}" - use 5s, 2m, 1500ms or a millisecond count`);
+    throw new Error(`Invalid duration "${input}" - use 5s, 2m, 1h, 1500ms or a millisecond count`);
   }
   const value = parseFloat(match[1]);
   const unit = (match[2] || "ms").toLowerCase();
-  const ms = unit === "s" ? value * 1000 : unit === "m" ? value * 60_000 : value;
+  const ms = unit === "s" ? value * 1000 : unit === "m" ? value * 60_000 : unit === "h" ? value * 3_600_000 : value;
   if (ms <= 0) throw new Error(`Invalid duration "${input}" - must be greater than zero`);
   return Math.round(ms);
 }
@@ -1232,8 +1270,12 @@ function parseFormats(input: string): CaptureFormat[] {
 
 /** Parse "1280x720". */
 function parseViewportSize(input: string): { width: number; height: number } {
+  const preset = VIEWPORT_PRESETS.find((p) => p.name === input.trim().toLowerCase());
+  if (preset) return { width: preset.width, height: preset.height };
   const match = /^(\d+)x(\d+)$/i.exec(input.trim());
-  if (!match) throw new Error(`Invalid viewport "${input}" - use WIDTHxHEIGHT, e.g. 1280x720`);
+  if (!match) {
+    throw new Error(`Invalid viewport "${input}" - use WIDTHxHEIGHT, e.g. 1280x720, or a size name: ${VIEWPORT_PRESETS.map((p) => p.name).join(", ")}`);
+  }
   const width = parseInt(match[1], 10);
   const height = parseInt(match[2], 10);
   if (width <= 0 || height <= 0) {
@@ -1690,13 +1732,20 @@ async function runCaptureStartViaDaemon(
   url: string | undefined,
   options: Record<string, string | boolean>,
 ): Promise<void> {
+  // The daemon's page size and device are fixed when it starts. These were
+  // accepted here and dropped, so a capture "at 390x844" recorded at the
+  // daemon's size and reported success (audit 2026-10-21).
+  for (const flag of ["viewport", "device", "browser"] as const) {
+    if (options[flag] !== undefined) {
+      failCaptureCommand(`--${flag} cannot change a running daemon's browser. Restart it with: cbrowser daemon stop && cbrowser daemon start --${flag} <value>`);
+    }
+  }
   const target = buildCaptureTarget(options);
   const triggers = buildCaptureTriggers(options);
   const slug = slugFor(options);
 
   const response = await sendToDaemon("captureStart", {
     url,
-    engine: options.browser === "firefox" ? "firefox" : options.browser === "webkit" ? "webkit" : "chromium",
     options: {
       fps: options.fps !== undefined ? Number(options.fps) : undefined,
       quality: options.quality !== undefined ? Number(options.quality) : undefined,
@@ -1706,6 +1755,16 @@ async function runCaptureStartViaDaemon(
       contactSheet: options["contact-sheet"] === true,
       slug,
       target,
+      // Plain strings, so the overlay crosses the HTTP boundary intact; the
+      // daemon path used to drop it.
+      ...(options["attention-overlay"]
+        ? {
+            saliencyOverlay: {
+              ...(typeof options["overlay-persona"] === "string" ? { persona: options["overlay-persona"] } : {}),
+              ...(typeof options["overlay-goal"] === "string" ? { goal: options["overlay-goal"] } : {}),
+            },
+          }
+        : {}),
       ...triggers,
     },
   });
@@ -2104,9 +2163,7 @@ async function prepareEvaluate(
   if (waitFor) {
     const { getDefaultConfig } = await import("./config.js");
     const configuredMs = getDefaultConfig().timeout ?? 30_000;
-    waitMs = typeof options.timeout === "string" ? Number(options.timeout)
-      : typeof options.timeout === "number" ? options.timeout
-      : configuredMs;
+    waitMs = typeof options.timeout === "number" ? options.timeout : timeoutOption(options.timeout, configuredMs);
     if (!Number.isFinite(waitMs) || waitMs <= 0) {
       console.error(`Error: --timeout must be a positive number of milliseconds, got: ${options.timeout}`);
       process.exit(1);
@@ -3176,6 +3233,23 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           launchArgs.push("--geo", options.geo);
         }
+        // --timeout: a bare number is minutes, as the help has always said;
+        // 90s / 45m / 2h also work. It used to be accepted and ignored.
+        if (options.timeout !== undefined) {
+          const raw = String(options.timeout).trim();
+          let ms: number;
+          try {
+            ms = /^\d+(\.\d+)?$/.test(raw) ? Math.round(parseFloat(raw) * 60_000) : parseDurationMs(raw);
+          } catch (e) {
+            console.error(`Error: --timeout: ${(e as Error).message}`);
+            process.exit(1);
+          }
+          if (!(ms > 0)) {
+            console.error(`Error: --timeout must be greater than zero, got: ${raw}`);
+            process.exit(1);
+          }
+          launchArgs.push("--idle-timeout-ms", String(ms));
+        }
         console.log("🚀 Starting CBrowser daemon...");
         const result = await startDaemon(port, launchArgs);
         console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
@@ -3197,7 +3271,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "status": {
         const status = await getDaemonStatus();
         console.log(status);
-        process.exit(0);
+        // Non-zero when nothing is running, so `cbrowser daemon status && ...` works.
+        process.exit((await isDaemonRunning()) ? 0 : 1);
         break;
       }
 
@@ -3217,7 +3292,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
           ...(typeof options.timezone === "string" ? { timezone: options.timezone } : {}),
           ...(typeof options.geo === "string" && parseGeoLocation(options.geo) ? { geolocation: parseGeoLocation(options.geo)! } : {}),
-        }, port);
+        }, port, typeof options["idle-timeout-ms"] === "string" ? Number(options["idle-timeout-ms"]) : undefined);
         return;
       }
 
@@ -3383,7 +3458,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         printEvaluateResult(result.result, options);
       } else if (daemonCommand === "extract" && result.result && typeof result.result === "object" && "data" in result.result) {
         // As the local path prints it: the extracted data, not the wrapper.
-        console.log(JSON.stringify((result.result as { data: unknown }).data, null, 2));
+        printData("extract", (result.result as { data: unknown }).data);
       } else if (result.result) {
         console.log(JSON.stringify(result.result, null, 2));
       }
@@ -3692,7 +3767,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
         const result = await browser.extract(what);
-        console.log(JSON.stringify(result.data, null, 2));
+        printData("extract", result.data);
         break;
       }
 
@@ -3737,7 +3812,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         } else {
           console.error(`\n✗ ${result.message}`);
           if (result.aiSuggestion) {
-            console.log(`\n💡 Suggestion:\n${result.aiSuggestion}`);
+            console.error(`\n💡 Suggestion:\n${result.aiSuggestion}`);
           }
           process.exit(1);
         }
@@ -4044,7 +4119,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.warn("⚠️  'journey' is deprecated. Use 'explore' instead.\n");
         }
         const persona = args[0] || "first-timer";
-        const startUrl = options.start as string;
+        // --url works too (audit F25: four spellings of "start URL").
+        const startUrl = (options.start ?? options.url) as string;
         const goal = (options.goal as string) || "Explore the site";
 
         if (!startUrl) {
@@ -4133,7 +4209,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.html) {
           const fs = await import("fs");
           const htmlReport = generateHtmlReport(comparison);
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "comparison-report.html";
+          const htmlPath = htmlReportPath(options.output, "comparison-report.html");
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`\n🌐 HTML report saved: ${htmlPath}`);
         }
@@ -4250,7 +4326,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             // Save the persona
             const filepath = saveCustomPersona(persona);
             console.log(`\n✓ Persona saved: ${filepath}`);
-            console.log(`\nUse with: cbrowser journey ${personaName} --start <url> --goal "<goal>"`);
+            console.log(`\nUse with: cbrowser cognitive-journey --persona ${personaName} --start <url> --goal "<goal>"`);
             break;
           }
 
@@ -5012,18 +5088,30 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
         switch (subcommand) {
           case "list": {
-            const requests = (listed.result as { requests: ReturnType<typeof browser.getNetworkRequests> }).requests;
-            if (requests.length === 0) {
-              console.log("No network requests captured");
-              console.log("Navigate to a page first to capture requests");
+            const all = (listed.result as { requests: ReturnType<typeof browser.getNetworkRequests> }).requests;
+            // Newest first, as the MCP tool lists them; it used to print the
+            // oldest of the last 20 first and offered no way past 20.
+            const filter = typeof options.filter === "string" ? options.filter.toLowerCase() : undefined;
+            const matching = all.filter((r) => !filter || r.url.toLowerCase().includes(filter)
+              || r.resourceType.toLowerCase() === filter || r.method.toLowerCase() === filter);
+            const newestFirst = [...matching].reverse();
+            const shown = options.all === true ? newestFirst : newestFirst.slice(0, 20);
+            if (options.json === true || getOutputOptions().json) {
+              printData("network", { total: all.length, matching: matching.length, requests: shown });
+              break;
+            }
+            if (matching.length === 0) {
+              console.log(filter ? `No captured request matches "${filter}"` : "No network requests captured");
+              if (!filter) console.log("Navigate to a page first to capture requests");
             } else {
-              console.log(`\n🌐 Network Requests (${requests.length}):\n`);
-              for (const req of requests.slice(-20)) {
-                console.log(`  ${req.method} ${req.url.substring(0, 80)}${req.url.length > 80 ? "..." : ""}`);
+              console.log(`\n🌐 Network Requests (${matching.length}${filter ? ` of ${all.length}` : ""}, newest first):\n`);
+              for (const req of shown) {
+                const status = req.status !== undefined ? ` ${req.status}` : "";
+                console.log(`  ${req.method}${status} ${req.url.substring(0, 80)}${req.url.length > 80 ? "..." : ""}`);
                 console.log(`    Type: ${req.resourceType} | Time: ${req.timestamp}`);
               }
-              if (requests.length > 20) {
-                console.log(`\n  ... and ${requests.length - 20} more requests`);
+              if (matching.length > shown.length) {
+                console.log(`\n  ... and ${matching.length - shown.length} older requests (--all lists them)`);
               }
             }
             break;
@@ -5763,6 +5851,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
         } else {
           console.error("Usage: cbrowser a11y audit [url]");
+          process.exit(1);
         }
         break;
       }
@@ -6239,7 +6328,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           } else {
             console.log(`✗ ${r.command}`);
             process.exitCode = 1;
-            console.log(`  Error: ${r.error}`);
+            console.error(`  Error: ${r.error}`);
           }
         }
 
@@ -6282,7 +6371,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.log(`  Confidence: ${(result.confidence * 100).toFixed(0)}%`);
               console.log(`  Description: ${result.description}`);
             } else {
-              console.log(`✗ Could not find element matching: "${intent}"`);
+              console.error(`✗ Could not find element matching: "${intent}"`);
               process.exit(1);
             }
             break;
@@ -6301,7 +6390,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               }
               console.log(`✓ Clicked element`);
             } else {
-              console.log(`✗ Could not find element matching: "${intent}"`);
+              console.error(`✗ Could not find element matching: "${intent}"`);
               process.exit(1);
             }
             break;
@@ -6326,7 +6415,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
 
         const maxPages = options["max-pages"] ? parseInt(options["max-pages"] as string) : 10;
-        const timeout = options.timeout ? parseInt(options.timeout as string) : 60000;
+        const timeout = timeoutOption(options.timeout, 60000);
 
         console.log(`\n🔍 Bug Hunter starting...`);
         console.log(`   URL: ${url}`);
@@ -6495,10 +6584,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
 
           console.log("Usage (OPT-IN REQUIRED):");
-          console.log("  cbrowser screenshot https://example.com --lightpanda");
           console.log("  cbrowser agent-ready-audit https://example.com --lightpanda");
           console.log("");
-          console.log("Note: Lightpanda is NOT used automatically. The --lightpanda flag is required.");
+          console.log("Note: Lightpanda is NOT used automatically. Only agent-ready-audit uses it, with --lightpanda.");
         } else {
           console.log("⚠️  Configured but unavailable");
           console.log(`   Endpoint: ${status.endpoint}`);
@@ -6693,7 +6781,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         assertCaptureNamespaceFlags("test-suite", options);
 
         const suiteOptions: NLTestSuiteOptions = {
-          stepTimeout: options.timeout ? parseInt(options.timeout as string) : 30000,
+          stepTimeout: timeoutOption(options.timeout, 30000),
           continueOnFailure: options["continue-on-failure"] === true,
           screenshotOnFailure: options["screenshot-on-failure"] !== false,
           headless,
@@ -6721,7 +6809,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.html) {
           const fs = await import("fs");
           const htmlReport = generateTestSuiteHtmlReport(result);
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "test-report.html";
+          const htmlPath = htmlReportPath(options.output, "test-report.html");
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`\n🌐 HTML report saved: ${htmlPath}`);
         }
@@ -7056,6 +7144,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
 
         const sensitivity = (options.sensitivity as string) || "normal";
+        if (!["strict", "normal", "ci", "lenient"].includes(sensitivity)) {
+          console.error(`Error: --sensitivity must be strict, normal, ci or lenient, got: ${sensitivity}`);
+          process.exit(1);
+        }
         console.log(`\n🔍 Checking for performance regressions...`);
         console.log(`   URL: ${url}`);
         console.log(`   Baseline: ${baselineName}`);
@@ -7294,11 +7386,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
-        const startUrl = options.start as string;
+        const startUrl = (options.start ?? options.url) as string; // --url works too (audit F25)
         const goal = options.goal as string;
 
         if (!startUrl) {
-          console.error("Error: --start <url> is required");
+          console.error("Error: --start <url> is required (--url works too)");
           process.exit(1);
         }
         if (!goal) {
@@ -7516,7 +7608,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.html) {
           const fs = await import("fs");
           const htmlReport = generateAgentReadyHtmlReport(result);
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "agent-ready-report.html";
+          const htmlPath = htmlReportPath(options.output, "agent-ready-report.html");
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`🌐 HTML report saved: ${htmlPath}`);
         }
@@ -7609,7 +7701,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         // Generate HTML report if requested
         if (options.html) {
           const fs = await import("fs");
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "ai-benchmark-report.html";
+          const htmlPath = htmlReportPath(options.output, "ai-benchmark-report.html");
 
           // Simple HTML table report
           const html = `<!DOCTYPE html>
@@ -7701,7 +7793,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const result = await runWebMCPReadyAudit(url, {
           apiKey: options["api-key"] as string,
           oauthToken: options["oauth-token"] as string,
-          timeout: options.timeout ? parseInt(options.timeout as string) : 30000,
+          timeout: timeoutOption(options.timeout, 30000),
         });
 
         // Print formatted summary
@@ -7747,7 +7839,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         // Generate HTML report if requested
         if (options.html) {
           const fs = await import("fs");
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "webmcp-ready-report.html";
+          const htmlPath = htmlReportPath(options.output, "webmcp-ready-report.html");
           const htmlReport = generateWebMCPReadyHtmlReport(result);
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`🌐 HTML report saved: ${htmlPath}`);
@@ -7810,7 +7902,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.html) {
           const fs = await import("fs");
           const htmlReport = generateCompetitiveBenchmarkHtmlReport(result);
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "competitive-benchmark-report.html";
+          const htmlPath = htmlReportPath(options.output, "competitive-benchmark-report.html");
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`🌐 HTML report saved: ${htmlPath}`);
         }
@@ -7900,7 +7992,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (options.html) {
           const fs = await import("fs");
           const htmlReport = generateEmpathyAuditHtmlReport(result);
-          const htmlPath = (options.output as string)?.replace(".json", ".html") || "empathy-audit-report.html";
+          const htmlPath = htmlReportPath(options.output, "empathy-audit-report.html");
           fs.writeFileSync(htmlPath, htmlReport);
           console.log(`🌐 HTML report saved: ${htmlPath}`);
         }
@@ -7933,7 +8025,7 @@ Commands:
   persona-questionnaire lookup       Look up behaviors for a specific trait value
 
 Options for 'start':
-  --comprehensive     Include all 26 traits (default: 8 core traits)
+  --comprehensive     Include all 30 traits (default: 13 core traits)
   --name <name>       Name for the persona (prompted if not provided)
   --output <file>     Save questionnaire answers to JSON file
 
