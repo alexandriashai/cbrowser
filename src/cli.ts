@@ -706,6 +706,10 @@ NATURAL LANGUAGE
       cbrowser run "click the login button"
       cbrowser run "type 'hello' in the search box"
   script <file>               Execute script file with natural language commands
+  scroll <top|bottom|up|down> [px]  Scroll the page (up/down default 300px)
+    --url <url>               Navigate to URL first
+    Note: without the daemon the next command reloads the page, so the
+          scroll position does not carry over; start the daemon first.
 
 VISUAL AI
   ai find "<intent>"          Find element by semantic intent
@@ -794,8 +798,8 @@ DAEMON MODE
   daemon status               Check if daemon is running (exits 1 when it is not)
   daemon run                  Run daemon in foreground (internal use)
     Note: while the daemon runs, navigate, click, fill, hover, type, press,
-          keyboard, screenshot, extract, run, evaluate, capture, har, network
-          and console use its browser. Commands that would open a second
+          keyboard, screenshot, extract, run, scroll, evaluate, capture, har,
+          network and console use its browser. Commands that would open a second
           browser on its profile (script, ai, explore, a11y, perf, visual,
           drag, upload, reset and others) refuse until you stop it.
 
@@ -2913,8 +2917,27 @@ function parseGeoLocation(location: string): { latitude: number; longitude: numb
   return null;
 }
 
+/**
+ * `scroll <top|bottom|up|down> [px]` is `run "scroll ..."`: the same executor,
+ * the same daemon route. The CLI had no way to scroll at all (audit 2026-10-21,
+ * daemon lane: the likely cause of a screenshot stuck at the top of the page).
+ */
+function rewriteScroll(parsed: ReturnType<typeof parseArgs>): ReturnType<typeof parseArgs> {
+  if (parsed.command !== "scroll") return parsed;
+  const [where, px] = parsed.args;
+  const dir = (where ?? "").toLowerCase();
+  let nl: string | undefined;
+  if ((dir === "top" || dir === "bottom") && px === undefined) nl = `scroll to ${dir}`;
+  else if ((dir === "up" || dir === "down") && (px === undefined || /^\d+$/.test(px))) nl = `scroll ${dir}${px ? ` ${px}` : ""}`;
+  if (!nl) {
+    console.error("Usage: cbrowser scroll <top|bottom|up|down> [pixels]   (default 300 for up/down)");
+    process.exit(1);
+  }
+  return { command: "run", args: [nl], options: parsed.options };
+}
+
 async function main(): Promise<void> {
-  const { command, args, options } = parseArgs(process.argv.slice(2));
+  const { command, args, options } = rewriteScroll(parseArgs(process.argv.slice(2)));
 
   // Initialize accessible output system (v18.54.0)
   const outputOpts = detectOutputOptions(options);
@@ -3445,7 +3468,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         break;
       }
       case "run":
-        daemonArgs = { command: args.join(" ") };
+        daemonArgs = { command: args.join(" "), ...urlArg };
         break;
     }
 
@@ -6283,6 +6306,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         console.log(`\n🗣️  Executing: "${nlCommand}"\n`);
 
+        if (typeof options.url === "string") await browser.navigate(options.url);
         const result = await executeNaturalLanguage(browser, nlCommand);
 
         if (result.success) {
@@ -6293,6 +6317,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             if (r.title) console.log(`  Title: ${r.title}`);
             if (r.message) console.log(`  ${r.message}`);
             if (r.screenshot) console.log(`  Screenshot: ${r.screenshot}`);
+            if (typeof r.scrollY === "number") console.log(`  scrollY: ${r.scrollY}`);
           }
         } else {
           console.error(`✗ ${result.error}`);

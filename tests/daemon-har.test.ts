@@ -371,6 +371,21 @@ describe("commands routed through the daemon", () => {
     expect(r.stdout).not.toContain('"screenshot"');
   }, TIMEOUT);
 
+  test("scroll moves the daemon's page and reports where it ended", async () => {
+    expect((await cli(dataDir, "navigate", `${fixtures.base}static.html`)).code).toBe(0);
+    const grow = await cli(dataDir, "evaluate", "document.body.style.height = '5000px'; document.documentElement.style.height = 'auto'; 1", "--force");
+    expect(grow.code, grow.stderr).toBe(0);
+    const down = await cli(dataDir, "scroll", "down", "250");
+    expect(down.code, down.stderr).toBe(0);
+    expect(down.stdout).toMatch(/"scrollY": 250\b/);
+    const bottom = await cli(dataDir, "scroll", "bottom");
+    expect(bottom.code, bottom.stderr).toBe(0);
+    expect(Number(/"scrollY": (\d+)/.exec(bottom.stdout)?.[1])).toBeGreaterThan(3000);
+    const bad = await cli(dataDir, "scroll", "sideways");
+    expect(bad.code).toBe(1);
+    expect(bad.stderr).toContain("Usage: cbrowser scroll");
+  }, TIMEOUT);
+
   test("capture start through the daemon refuses a size it cannot apply", async () => {
     const r = await cli(dataDir, "capture", "start", `${fixtures.base}static.html`, "--viewport", "390x844");
     expect(r.code).toBe(1);
