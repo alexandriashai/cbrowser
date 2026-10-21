@@ -330,6 +330,54 @@ describe("evaluate through the daemon keeps function results", () => {
   }, TIMEOUT);
 });
 
+/**
+ * Routed commands report what happened (audit 2026-10-21, daemon lane 1, 2,
+ * 5, 11, 25). The daemon answered success: true whenever nothing threw, so a
+ * refused or failed click exited 0 with a daemon and 1 without one.
+ */
+describe("commands routed through the daemon", () => {
+  test("a refused click exits 1", async () => {
+    const r = await cli(dataDir, "click", "#delete-account", "--url", `${fixtures.base}red-zone.html`);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toMatch(/red zone|--force/i);
+  }, TIMEOUT);
+
+  test("a click on a missing element exits 1", async () => {
+    const r = await cli(dataDir, "click", "#no-such-element-anywhere", "--url", `${fixtures.base}static.html`);
+    expect(r.code).toBe(1);
+  }, TIMEOUT);
+
+  test("--url is honoured, and a relative screenshot path lands where the user is", async () => {
+    const name = `daemon-rel-${Date.now()}.png`;
+    const r = await cli(dataDir, "screenshot", name, "--url", `${fixtures.base}static.html`);
+    expect(r.code, r.stderr).toBe(0);
+    const where = join(process.cwd(), name);
+    expect(existsSync(where)).toBe(true);
+    rmSync(where, { force: true });
+    const title = await cli(dataDir, "evaluate", "document.title", "--raw", "--force");
+    const want = readFileSync(join(import.meta.dir, "fixtures", "static.html"), "utf8").match(/<title>([^<]*)<\/title>/)![1];
+    expect(title.stdout.trim()).toBe(want);
+  }, TIMEOUT);
+
+  test("the eval alias works through the daemon", async () => {
+    const r = await cli(dataDir, "eval", "20 + 22", "--force");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout.trim()).toBe("42");
+  }, TIMEOUT);
+
+  test("extract prints the data, as without a daemon", async () => {
+    const r = await cli(dataDir, "extract", "links", "--url", `${fixtures.base}static.html`);
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout).not.toContain('"screenshot"');
+  }, TIMEOUT);
+
+  test("keyboard --repeat 0 is refused before it reaches the daemon", async () => {
+    const r = await cli(dataDir, "keyboard", "Tab", "--repeat", "0");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--repeat must be a positive integer");
+  }, TIMEOUT);
+});
+
 describe("HAR without a daemon", () => {
   test("har start refuses and names the daemon, instead of claiming a recording", async () => {
     const r = await cli(lonelyDir, "har", "start");

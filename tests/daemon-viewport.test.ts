@@ -113,6 +113,25 @@ describe("daemon start --device --viewport", () => {
     expect(r.stderr).toContain("were not applied");
   }, TIMEOUT);
 
+  test("daemon start forwards --browser and --locale (it forwarded only device and size)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cb-daemon-browser-"));
+    try {
+      const start = await cli(dir, "daemon", "start", "--port", String(await freePort()), "--browser", "firefox", "--locale", "de-DE");
+      expect(start.code, start.stdout + start.stderr).toBe(0);
+      const r = await cli(dir, "evaluate", "navigator.userAgent + ' | ' + navigator.language", "--url", `${fixtures.base}static.html`, "--raw", "--force");
+      expect(r.code, r.stderr).toBe(0);
+      expect(r.stdout).toContain("Firefox");
+      expect(r.stdout).toContain("de-DE");
+    } finally {
+      await cli(dir, "daemon", "stop").catch(() => {});
+      try {
+        const state = JSON.parse(readFileSync(join(dir, "daemon.json"), "utf8"));
+        if (state.pid) process.kill(state.pid);
+      } catch { /* stopped */ }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 3);
+
   test("an unknown device fails before a daemon starts", async () => {
     const r = await cli(lonelyDir, "daemon", "start", "--port", String(await freePort()), "--device", "iphone-99");
     expect(r.code).toBe(1);

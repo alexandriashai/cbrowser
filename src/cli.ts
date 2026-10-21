@@ -2264,6 +2264,25 @@ function parseKeyboardToken(token: string, literal = false): KeyboardStep {
   return { kind: "text", text: token };
 }
 
+/**
+ * --delay and --repeat for keyboard, checked the same way whether the keys go
+ * to the local browser or the daemon. The daemon route used to skip this, so
+ * --repeat 0 typed nothing and reported success, and --repeat 2.5 ran 3 passes.
+ */
+function parseKeyboardNumbers(options: Record<string, string | boolean>): { delay: number; repeat: number } {
+  const delay = options.delay !== undefined ? Number(options.delay) : 50;
+  if (!Number.isFinite(delay) || delay < 0) {
+    console.error(`Error: --delay must be a non-negative number (got "${String(options.delay)}")`);
+    process.exit(1);
+  }
+  const repeat = options.repeat !== undefined ? Number(options.repeat) : 1;
+  if (!Number.isInteger(repeat) || repeat < 1) {
+    console.error(`Error: --repeat must be a positive integer (got "${String(options.repeat)}")`);
+    process.exit(1);
+  }
+  return { delay, repeat };
+}
+
 /** Flags `keyboard` understands. */
 const KEYBOARD_FLAGS = allowedFlags("keyboard");
 
@@ -2292,17 +2311,7 @@ async function runKeyboard(
     process.exit(1);
   }
 
-  const delay = options.delay !== undefined ? Number(options.delay) : 50;
-  if (!Number.isFinite(delay) || delay < 0) {
-    console.error(`Error: --delay must be a non-negative number (got "${String(options.delay)}")`);
-    process.exit(1);
-  }
-
-  const repeat = options.repeat !== undefined ? Number(options.repeat) : 1;
-  if (!Number.isInteger(repeat) || repeat < 1) {
-    console.error(`Error: --repeat must be a positive integer (got "${String(options.repeat)}")`);
-    process.exit(1);
-  }
+  const { delay, repeat } = parseKeyboardNumbers(options);
 
   const hold = typeof options.hold === "string"
     ? options.hold.split("+").map((m) => m.trim()).filter(Boolean)
@@ -3129,11 +3138,32 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           launchArgs.push("--viewport", options.viewport);
         }
+        // The rest of the shared browser settings. daemon start used to forward
+        // only --device and --viewport, so --browser firefox or --no-headless
+        // silently gave a headless chromium daemon.
+        if (typeof options.browser === "string") {
+          if (!["chromium", "firefox", "webkit"].includes(options.browser)) {
+            console.error(`Error: --browser must be chromium, firefox or webkit, got: ${options.browser}`);
+            process.exit(1);
+          }
+          launchArgs.push("--browser", options.browser);
+        }
+        if (options.headless === false) launchArgs.push("--no-headless");
+        for (const flag of ["locale", "timezone"] as const) {
+          if (typeof options[flag] === "string") launchArgs.push(`--${flag}`, options[flag] as string);
+        }
+        if (typeof options.geo === "string") {
+          if (!parseGeoLocation(options.geo)) {
+            console.error(`Error: invalid --geo: ${options.geo} (a preset name or lat,lon)`);
+            process.exit(1);
+          }
+          launchArgs.push("--geo", options.geo);
+        }
         console.log("🚀 Starting CBrowser daemon...");
         const result = await startDaemon(port, launchArgs);
         console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
         if (result.alreadyRunning && launchArgs.length > 0) {
-          console.error("⚠ --device and --viewport were not applied: the daemon was already running. Run cbrowser daemon stop first.");
+          console.error("⚠ The browser flags were not applied: the daemon was already running. Run cbrowser daemon stop first.");
         }
         process.exit(result.success ? 0 : 1);
         break;
@@ -3167,6 +3197,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           headless: options.headless !== false && options.headless !== "false",
           ...(typeof options.device === "string" ? { device: options.device } : {}),
           ...(runViewport ? { viewportWidth: runViewport.width, viewportHeight: runViewport.height, viewportOverride: runViewport } : {}),
+          ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
+          ...(typeof options.timezone === "string" ? { timezone: options.timezone } : {}),
+          ...(typeof options.geo === "string" && parseGeoLocation(options.geo) ? { geolocation: parseGeoLocation(options.geo)! } : {}),
         }, port);
         return;
       }
@@ -3195,28 +3228,34 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     // Status on stderr: stdout carries only the command's result, so piping
     // it (--raw, --json) works the same with and without a daemon.
     console.error("🔌 Connected to running daemon");
-    // The daemon's browser keeps the device and size it started with; a flag on
-    // a command it runs cannot change them, so say so instead of ignoring it.
-    if (typeof options.device === "string" || typeof options.viewport === "string") {
-      console.error("⚠ --device and --viewport do not apply to commands the daemon runs: its browser keeps the device and size it started with.");
-      console.error("  To change them: cbrowser daemon stop, then cbrowser daemon start --device <name> --viewport <WxH>");
+    // The daemon's browser keeps the settings it started with; a flag on a
+    // command it runs cannot change them, so say so instead of ignoring it.
+    const browserFlags = ["device", "viewport", "browser", "headless", "locale", "timezone", "geo"]
+      .filter((f) => options[f] !== undefined);
+    if (browserFlags.length > 0) {
+      console.error(`⚠ ${browserFlags.map((f) => `--${f}`).join(", ")} do not apply to commands the daemon runs: its browser keeps the settings it started with.`);
+      console.error("  To change them: cbrowser daemon stop, then cbrowser daemon start with those flags");
     }
 
-    const daemonCommand = command;
+    // The daemon knows "evaluate"; "eval" reached it unchanged and failed.
+    const daemonCommand = command === "eval" ? "evaluate" : command;
     let daemonArgs: Record<string, unknown> = {};
+    // --url means "act on this page" for every routed command; the daemon
+    // navigates first, as the local path does.
+    const urlArg = typeof options.url === "string" ? { url: options.url } : {};
 
     switch (command) {
       case "navigate":
         daemonArgs = { url: args[0] || options.url };
         break;
       case "click":
-        daemonArgs = { selector: args[0], force: options.force === true };
+        daemonArgs = { selector: args[0], force: options.force === true, ...urlArg };
         break;
       case "hover":
-        daemonArgs = { selector: args[0] };
+        daemonArgs = { selector: args[0], ...urlArg };
         break;
       case "fill":
-        daemonArgs = { selector: args[0], value: args[1] };
+        daemonArgs = { selector: args[0], value: args[1], ...urlArg };
         break;
       case "keyboard": {
         validateCommandFlags("keyboard", options);
@@ -3238,22 +3277,30 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             process.exit(1);
           }
         }
+        const { delay, repeat } = parseKeyboardNumbers(options);
         daemonArgs = {
           steps,
           hold,
-          delay: options.delay !== undefined ? Number(options.delay) : 50,
-          repeat: options.repeat !== undefined ? Number(options.repeat) : 1,
+          delay,
+          repeat,
           selector: typeof options.selector === "string" ? options.selector : undefined,
           force: options.force === true,
+          ...urlArg,
         };
         break;
       }
       case "press":
-        daemonArgs = { key: args[0], force: options.force === true };
+        daemonArgs = { key: args[0], force: options.force === true, ...urlArg };
         break;
-      case "type":
-        daemonArgs = { text: args[0], delay: options.delay !== undefined ? Number(options.delay) : 50, force: options.force === true };
+      case "type": {
+        const delay = options.delay !== undefined ? Number(options.delay) : 50;
+        if (!Number.isFinite(delay) || delay < 0) {
+          console.error(`Error: --delay must be a number of milliseconds, got: ${options.delay}`);
+          process.exit(1);
+        }
+        daemonArgs = { text: args[0], delay, force: options.force === true, ...urlArg };
         break;
+      }
       case "eval":
       case "evaluate": {
         validateCommandFlags(command, options);
@@ -3282,7 +3329,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             ssPath = args[0];
           }
         }
-        daemonArgs = { path: ssPath, url: ssUrl || options.url };
+        // Resolved here: the daemon's cwd is wherever `daemon start` ran, so a
+        // relative path used to land there instead of where the user is.
+        daemonArgs = { path: ssPath ? resolve(ssPath) : undefined, url: ssUrl || options.url };
         break;
       }
       case "extract": {
@@ -3311,6 +3360,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         // The same output and --expect-truthy rule as the local path; the
         // daemon used to print strings JSON-quoted.
         printEvaluateResult(result.result, options);
+      } else if (daemonCommand === "extract" && result.result && typeof result.result === "object" && "data" in result.result) {
+        // As the local path prints it: the extracted data, not the wrapper.
+        console.log(JSON.stringify((result.result as { data: unknown }).data, null, 2));
       } else if (result.result) {
         console.log(JSON.stringify(result.result, null, 2));
       }

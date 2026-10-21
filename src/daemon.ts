@@ -148,6 +148,18 @@ async function verifyDaemon(state: DaemonState, timeoutMs = 1000): Promise<"veri
     timingSafeEqual(Buffer.from(proof), Buffer.from(expected)) ? "verified" : "impostor";
 }
 
+/** Whether a process with this pid exists (signal 0 checks without signalling). */
+function processAlive(pid: number | undefined): boolean {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    // EPERM: it exists but belongs to someone else.
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 /**
  * Check if daemon is running
  */
@@ -156,8 +168,18 @@ export async function isDaemonRunning(): Promise<boolean> {
   if (!state) {
     return false;
   }
-  const v = await verifyDaemon(state);
+  let v = await verifyDaemon(state, 1500);
+  // A daemon busy encoding a capture can miss a short ping. If its process is
+  // alive, ask again with more time, and never delete the state file under a
+  // live daemon: the token exists only there, so deleting it orphaned the
+  // daemon and let the next command launch a second browser on its profile.
+  const alive = v === "unreachable" && processAlive(state.pid);
+  if (alive) v = await verifyDaemon(state, 5000);
   if (v !== "verified") {
+    if (alive) {
+      console.debug(`[CBrowser] Daemon pid ${state.pid} is alive but not answering on port ${state.port}; leaving its state in place`);
+      return false;
+    }
     console.debug(`[CBrowser] Daemon on port ${state.port} ${v === "unreachable" ? "not responding" : "did not prove it holds the token"}; cleaning up stale state`);
     clearDaemonState();
     return false;
@@ -183,7 +205,10 @@ export async function sendToDaemon(command: string, args: Record<string, unknown
       method: "POST",
       headers: { "Content-Type": "application/json", [TOKEN_HEADER]: state.token ?? "" },
       body: JSON.stringify({ command, args } as DaemonRequest),
-      signal: AbortSignal.timeout(120000), // 2 minute timeout for commands
+      // Above the daemon's own COMMAND_TIMEOUT_MS (180s, sized for a capture
+      // stop that has to encode). At 120s the client gave up and reported a
+      // failure while the daemon went on to finish and write the manifest.
+      signal: AbortSignal.timeout(190_000),
     });
 
     const data = await response.json() as DaemonResponse;
@@ -369,38 +394,54 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
     try {
       const b = await getBrowser();
 
+      // An action that ran but did not succeed (a red-zone refusal, an element
+      // not found, a navigation that landed elsewhere) is a failure. Before
+      // 20.0 every case answered success: true whenever nothing threw, so a
+      // refused click exited 0 through the daemon and 1 without it.
+      const outcome = (result: unknown): DaemonResponse => {
+        const r = result as { success?: boolean; message?: string; error?: string } | undefined;
+        if (r && r.success === false) {
+          return { success: false, error: r.message ?? r.error ?? "The action did not succeed", result };
+        }
+        return { success: true, result };
+      };
+
+      // A command given --url acts on that page, as it does without a daemon.
+      // The daemon used to ignore it and act on whatever page it had open.
+      if (req.command !== "navigate" && req.command !== "evaluate" && typeof req.args.url === "string" && req.args.url) {
+        const nav = await b.navigate(req.args.url);
+        if (nav.success === false) return { success: false, error: `Navigation to ${req.args.url} did not land on that page`, result: nav };
+      }
+
       switch (req.command) {
         case "navigate": {
           const url = req.args.url as string;
-          const result = await b.navigate(url);
-          return { success: true, result };
+          return outcome(await b.navigate(url));
         }
 
         case "click": {
+          // The same click as the local path. This used hoverClick, which first
+          // hovers guessed menu parents, so the same click resolved and timed
+          // differently with a daemon running; hoverClick stays available below.
           const selector = req.args.selector as string;
-          // Use hoverClick for better dropdown menu support (it carries the same red-zone gate as click)
-          const result = await b.hoverClick(selector, { force: req.args.force === true });
-          return { success: true, result };
+          return outcome(await b.click(selector, { force: req.args.force === true }));
         }
 
         case "hover": {
           const selector = req.args.selector as string;
-          const result = await b.hover(selector);
-          return { success: true, result };
+          return outcome(await b.hover(selector));
         }
 
         case "hoverClick": {
           const selector = req.args.selector as string;
           const hoverParent = req.args.hoverParent as string | undefined;
-          const result = await b.hoverClick(selector, { hoverParent, force: req.args.force === true });
-          return { success: true, result };
+          return outcome(await b.hoverClick(selector, { hoverParent, force: req.args.force === true }));
         }
 
         case "fill": {
           const selector = req.args.selector as string;
           const value = req.args.value as string;
-          const result = await b.fill(selector, value);
-          return { success: true, result };
+          return outcome(await b.fill(selector, value));
         }
 
         case "screenshot": {
@@ -417,20 +458,14 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
 
         case "run": {
           const command = req.args.command as string;
-          const result = await executeNaturalLanguage(b, command);
-          return { success: true, result };
+          return outcome(await executeNaturalLanguage(b, command));
         }
 
         case "getPage": {
-          // Navigate to about:blank to ensure page is loaded, then get info
-          const navResult = await b.navigate("about:blank");
-          return {
-            success: true,
-            result: {
-              url: navResult.url,
-              title: navResult.title,
-            },
-          };
+          // Read-only: the current URL and title. This used to navigate to
+          // about:blank first, wiping the page a capture was recording.
+          const page = await b.getPage();
+          return { success: true, result: { url: page.url(), title: await page.title() } };
         }
 
         case "keyboard": {
