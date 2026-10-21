@@ -33,10 +33,10 @@
           { "type": "fix", "section": "Fixed" },
           { "type": "perf", "section": "Changed" },
           { "type": "refactor", "section": "Changed" },
-          { "type": "docs", "section": "Documentation", "hidden": true },
-          { "type": "style", "section": "Changed", "hidden": true },
-          { "type": "test", "section": "Changed", "hidden": true },
-          { "type": "chore", "section": "Changed", "hidden": true }
+          { "type": "docs", "section": "Documentation", "effect": "hidden" },
+          { "type": "style", "section": "Changed", "effect": "hidden" },
+          { "type": "test", "section": "Changed", "effect": "hidden" },
+          { "type": "chore", "section": "Changed", "effect": "hidden" }
         ]
       },
       "infile": "CHANGELOG.md",
