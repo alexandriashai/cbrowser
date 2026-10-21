@@ -345,10 +345,17 @@ describe("evaluate is red zone", () => {
     expect(await deleted()).toBe("DELETE");
   }, TIMEOUT);
 
-  test("--force placed before the script is explained, not silently refused", async () => {
-    // The parser hands a flag the next word as its value, so this reads the
-    // script as the value of --force.
+  test("--force placed before the script works", async () => {
+    // Until 20.0 the parser handed every flag the next word as its value, so
+    // this read the script as the value of --force and had to explain that.
+    // --force never takes a value now (src/cli-args.ts BOOLEAN_FLAGS).
     const result = await cli("evaluate", "--force", "1 + 1", "--url", page());
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout.trim().split("\n").pop()).toBe("2");
+  }, TIMEOUT);
+
+  test("--force=<value> is still explained", async () => {
+    const result = await cli("evaluate", "1 + 1", "--force=yes", "--url", page());
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("--force takes no value");
   }, TIMEOUT);

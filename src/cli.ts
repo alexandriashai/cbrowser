@@ -280,7 +280,7 @@ AI TEST REPAIR (v6.2.0)
     --auto-apply               Automatically apply the best repair
     --verify                   Re-run tests after repair to verify they pass
     --output <file>            Save repaired tests to new file
-    --json <file>              Save repair report as JSON
+    --json-out <file>          Save repair report as JSON (--json prints it)
     Examples:
       cbrowser repair-tests broken-test.txt
       cbrowser repair-tests tests.txt --auto-apply --verify
@@ -1066,7 +1066,12 @@ const SHARED_BROWSER_FLAGS = [
   "locale", "timezone", "geo", "verbose",
 ];
 
-const GLOBAL_FLAGS = [...SHARED_BROWSER_FLAGS, "help", "no-color", "quiet", "json"];
+/**
+ * Globals every command accepts. --plain and --json-output are the documented
+ * output modes (src/output.ts); before 2026-10-21 the validated commands
+ * rejected them.
+ */
+const GLOBAL_FLAGS = [...SHARED_BROWSER_FLAGS, "help", "no-color", "quiet", "json", "plain", "json-output"];
 
 /**
  * Declared options per command.
@@ -1136,11 +1141,28 @@ const UNVALIDATED_REASON =
  * Fails on the FIRST invalid flag with the command's full accepted set, so a
  * typo is a one-command fix rather than a guessing game.
  */
+/**
+ * Every flag a validated command accepts: its declared flags, the globals, and
+ * both halves of each on/off pair. The parser turns --no-x into "no-x" and
+ * "x"=false, so declaring either half must accept both; before 2026-10-21
+ * --no-color failed with "does not support --color", a flag the user never
+ * typed. The capture, evaluate and keyboard gates read this same set, so one
+ * command line can no longer pass one gate and fail the other.
+ */
+function allowedFlags(command: string): Set<string> {
+  const allowed = new Set([...(COMMAND_FLAGS[command] ?? []), ...GLOBAL_FLAGS]);
+  for (const flag of [...allowed]) {
+    if (flag.startsWith("no-")) allowed.add(flag.slice(3));
+    else allowed.add(`no-${flag}`);
+  }
+  return allowed;
+}
+
 function validateCommandFlags(command: string, options: Record<string, string | boolean>): void {
   const declared = COMMAND_FLAGS[command];
   if (!declared) return; // UNVALIDATED_REASON
 
-  const allowed = new Set([...declared, ...GLOBAL_FLAGS]);
+  const allowed = allowedFlags(command);
   const unknown = Object.keys(options).filter((flag) => !allowed.has(flag));
   if (unknown.length === 0) return;
 
@@ -1243,15 +1265,7 @@ function parseRegion(input: string): { x: number; y: number; width: number; heig
  * confident "✓" for a capture the user did not ask for, which is worse than
  * an error. The globals are the ones the CLI itself consumes before dispatch.
  */
-const CAPTURE_FLAGS = new Set([
-  // capture-specific
-  "fps", "duration", "format", "out", "name", "quality", "max-frames",
-  "viewport", "region", "element", "element-padding",
-  "contact-sheet", "attention-overlay", "overlay-persona", "overlay-goal",
-  "after", "after-element", "after-delay",
-  "until-element", "until-element-gone", "until-idle", "timeout",
-  ...SHARED_BROWSER_FLAGS,
-]);
+const CAPTURE_FLAGS = allowedFlags("capture");
 
 /**
  * Resolve `--device` to a real preset key, or exit naming the bad value.
@@ -1941,10 +1955,7 @@ function reportAutoCapture(capture: AutoCaptureResult | undefined): void {
 // =========================================================================
 
 /** Flags `evaluate` understands; anything else is rejected rather than ignored. */
-const EVALUATE_FLAGS = new Set([
-  "file", "arg", "json", "raw", "wait-for", "timeout", "expect-truthy", "force",
-  ...SHARED_BROWSER_FLAGS,
-]);
+const EVALUATE_FLAGS = allowedFlags("evaluate");
 
 /**
  * `--force` is a bare flag, but the parser gives any flag the next non-flag
@@ -1988,11 +1999,26 @@ function repeatedFlag(name: string): string[] {
  * arguments (so a script is reusable instead of string-interpolated), an
  * explicit output mode, and an assertion mode for CI.
  */
-async function runEvaluate(
-  browser: CBrowser,
+interface PreparedEvaluate {
+  script: string;
+  evalArgs: unknown[];
+  /** Selector to wait for before evaluating, and how long. */
+  waitFor?: string;
+  waitMs: number;
+}
+
+/**
+ * Validate evaluate's flags and build the script, its arguments and the wait.
+ * Exits with a message on any error. Shared by the local path and the daemon
+ * route so they cannot drift: before 2026-10-21 the daemon route sent only the
+ * script, so --arg, --url, --wait-for, --timeout, --raw, --json and
+ * --expect-truthy did nothing when a daemon was running, and an
+ * --expect-truthy CI check passed on a falsy result.
+ */
+async function prepareEvaluate(
   args: string[],
   options: Record<string, string | boolean>,
-): Promise<void> {
+): Promise<PreparedEvaluate> {
   const unknown = Object.keys(options).filter((f) => !EVALUATE_FLAGS.has(f));
   if (unknown.length > 0) {
     console.error(`Error: 'evaluate' does not support ${unknown.map((f) => `--${f}`).join(", ")}`);
@@ -2064,53 +2090,25 @@ async function runEvaluate(
   // Said on stderr so stdout stays exactly the result (--raw / --json pipes).
   console.error("⚠ Red zone: running caller-supplied page script (--force)");
 
-  if (options.url) await browser.navigate(options.url as string);
-  const page = await browser.getPage();
 
-  if (typeof options["wait-for"] === "string") {
-    // Bounded by the caller, not by a constant.
-    //
-    // This was a hardcoded 30s, which is two defects wearing one number. For a
-    // user it meant no way to fail fast on a page that renders in 200ms and no
-    // way to wait longer on one that does not. For the suite it meant the test
-    // asserting that a never-matching selector fails loudly spent 30 of its 60
-    // second budget deliberately waiting, so browser launch plus teardown had
-    // to fit in the rest -- which held when the test ran alone and did not when
-    // the full suite ran browsers in parallel. The test read as flaky and was
-    // not: it was structurally tight against a constant it could not reach.
-    // (2026-08-02)
-    // Falls back to the configured default rather than a fresh literal.
-    // `CBROWSER_TIMEOUT` is documented in --help as "Default timeout in ms" and
-    // config.ts already resolves it; a second hardcoded 30_000 here would mean
-    // the documented env var silently did not apply to this one wait.
+  const waitFor = typeof options["wait-for"] === "string" ? options["wait-for"] : undefined;
+  let waitMs = 30_000;
+  if (waitFor) {
     const { getDefaultConfig } = await import("./config.js");
     const configuredMs = getDefaultConfig().timeout ?? 30_000;
-    const waitMs = typeof options.timeout === "string" ? Number(options.timeout)
+    waitMs = typeof options.timeout === "string" ? Number(options.timeout)
       : typeof options.timeout === "number" ? options.timeout
       : configuredMs;
     if (!Number.isFinite(waitMs) || waitMs <= 0) {
       console.error(`Error: --timeout must be a positive number of milliseconds, got: ${options.timeout}`);
       process.exit(1);
     }
-    try {
-      await page.waitForSelector(options["wait-for"], { timeout: waitMs });
-    } catch {
-      console.error(`✗ Timed out waiting for selector: ${options["wait-for"]} (after ${waitMs}ms)`);
-      process.exit(1);
-    }
   }
+  return { script, evalArgs, waitFor, waitMs };
+}
 
-  let result: unknown;
-  try {
-    result = await evaluateScript(page, script, evalArgs);
-  } catch (e) {
-    const error = e as Error;
-    console.error(`✗ ${error.message}`);
-    // The page-side stack is the part that says WHERE in the script it broke.
-    if (error.stack) console.error(error.stack.split("\n").slice(1).join("\n"));
-    process.exit(1);
-  }
-
+/** Print an evaluate result the same way for the local path and the daemon. */
+function printEvaluateResult(result: unknown, options: Record<string, string | boolean>): void {
   if (options.raw === true) {
     console.log(String(result));
   } else if (options.json === true) {
@@ -2124,6 +2122,39 @@ async function runEvaluate(
     console.error(`✗ Expected a truthy result, got ${JSON.stringify(result)}`);
     process.exit(1);
   }
+}
+
+async function runEvaluate(
+  browser: CBrowser,
+  args: string[],
+  options: Record<string, string | boolean>,
+): Promise<void> {
+  const prep = await prepareEvaluate(args, options);
+
+  if (options.url) await browser.navigate(options.url as string);
+  const page = await browser.getPage();
+
+  if (prep.waitFor) {
+    try {
+      await page.waitForSelector(prep.waitFor, { timeout: prep.waitMs });
+    } catch {
+      console.error(`✗ Timed out waiting for selector: ${prep.waitFor} (after ${prep.waitMs}ms)`);
+      process.exit(1);
+    }
+  }
+
+  let result: unknown;
+  try {
+    result = await evaluateScript(page, prep.script, prep.evalArgs);
+  } catch (e) {
+    const error = e as Error;
+    console.error(`✗ ${error.message}`);
+    // The page-side stack is the part that says WHERE in the script it broke.
+    if (error.stack) console.error(error.stack.split("\n").slice(1).join("\n"));
+    process.exit(1);
+  }
+
+  printEvaluateResult(result, options);
 }
 
 // =========================================================================
@@ -2239,10 +2270,7 @@ function parseKeyboardToken(token: string, literal = false): KeyboardStep {
 }
 
 /** Flags `keyboard` understands. */
-const KEYBOARD_FLAGS = new Set([
-  "delay", "selector", "hold", "repeat", "text", "force",
-  ...SHARED_BROWSER_FLAGS,
-]);
+const KEYBOARD_FLAGS = allowedFlags("keyboard");
 
 /**
  * Drive a keyboard sequence.
@@ -3169,7 +3197,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   ];
 
   if (daemonRunning && INTERACTION_COMMANDS.includes(command)) {
-    console.log("🔌 Connected to running daemon");
+    // Status on stderr: stdout carries only the command's result, so piping
+    // it (--raw, --json) works the same with and without a daemon.
+    console.error("🔌 Connected to running daemon");
     // The daemon's browser keeps the device and size it started with; a flag on
     // a command it runs cannot change them, so say so instead of ignoring it.
     if (typeof options.device === "string" || typeof options.viewport === "string") {
@@ -3232,27 +3262,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "eval":
       case "evaluate": {
         validateCommandFlags(command, options);
-        rejectForceValue(options);
-        const script = typeof options.file === "string"
-          ? readFileSync(resolve(options.file), "utf-8")
-          : args[0];
-        if (!script) {
-          console.error('Usage: cbrowser evaluate "<javascript>" | --file <path>');
-          process.exit(1);
-        }
-        // Refused here, before the request leaves, and again daemon-side
-        // (anything on this machine can POST to the daemon).
-        const refusal = evaluateScriptRefusal(options.force === true);
-        if (refusal) {
-          console.error(`✗ ${refusal}`);
-          console.error("  Re-run with --force to run it anyway.");
-          process.exit(1);
-        }
-        // The raw script: the daemon compiles it with the same evaluateScript as the
-        // local path. This hand-built body treated a "return" anywhere - even inside
-        // a nested function - as statements, and an IIFE's value was dropped.
-        // (2026-10-13)
-        daemonArgs = { script, args: [], force: true };
+        // Same validation as the local path (prepareEvaluate), then the whole
+        // request: refused here and again daemon-side, since anything on this
+        // machine can POST to the daemon. The daemon compiles the raw script
+        // with the same evaluateScript as the local path.
+        const prep = await prepareEvaluate(args, options);
+        daemonArgs = {
+          script: prep.script,
+          args: prep.evalArgs,
+          force: true,
+          ...(typeof options.url === "string" ? { url: options.url } : {}),
+          ...(prep.waitFor ? { waitFor: prep.waitFor, timeout: prep.waitMs } : {}),
+        };
         break;
       }
       case "screenshot": {
@@ -3290,10 +3311,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
     const result = await sendToDaemon(daemonCommand, daemonArgs);
     if (result.success) {
-      console.log("✓ Command executed via daemon");
-      // evaluate's value is the answer, so 0, false and "" print too; for other
-      // commands an empty result means nothing to show. (2026-10-13)
-      if (daemonCommand === "evaluate" ? result.result !== undefined : result.result) {
+      console.error("✓ Command executed via daemon");
+      if (daemonCommand === "evaluate") {
+        // The same output and --expect-truthy rule as the local path; the
+        // daemon used to print strings JSON-quoted.
+        printEvaluateResult(result.result, options);
+      } else if (result.result) {
         console.log(JSON.stringify(result.result, null, 2));
       }
     } else {
@@ -6582,7 +6605,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("  --auto-apply    Automatically apply the best repair suggestion");
           console.error("  --verify        Re-run repaired tests to verify they pass");
           console.error("  --output <file> Save repaired tests to a new file");
-          console.error("  --json <file>   Save repair report as JSON");
+          console.error("  --json-out <file>  Save repair report as JSON (--json prints it)");
           console.error("");
           console.error("Examples:");
           console.error("  cbrowser repair-tests broken-test.txt");
@@ -6619,10 +6642,17 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const report = formatRepairReport(result);
         console.log(report);
 
-        // Save JSON report if requested
-        if (options.json) {
-          fs.writeFileSync(options.json as string, JSON.stringify(result, null, 2));
-          console.log(`\n📄 JSON report saved: ${options.json}`);
+        // Save the JSON report: --json-out <file>, or the older --json=<file>.
+        // --json alone is the on/off flag every other command uses, so here it
+        // prints the report to stdout instead of passing `true` as a path.
+        // (Audit 2026-10-21: --json was a path here and a switch elsewhere.)
+        const jsonOut = typeof options["json-out"] === "string" ? options["json-out"]
+          : typeof options.json === "string" ? options.json : undefined;
+        if (jsonOut) {
+          fs.writeFileSync(jsonOut, JSON.stringify(result, null, 2));
+          console.log(`\n📄 JSON report saved: ${jsonOut}`);
+        } else if (options.json === true) {
+          console.log(JSON.stringify(result, null, 2));
         }
 
         // Save repaired tests if requested

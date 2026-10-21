@@ -140,7 +140,8 @@ describe("daemon evaluate", () => {
 describe("CLI evaluate routed through the daemon", () => {
   test("without --force the CLI refuses before the request leaves", async () => {
     const r = await cli("evaluate", "1 + 1");
-    expect(r.stdout).toContain("Connected to running daemon");
+    // Status lines go to stderr, so stdout stays the result alone.
+    expect(r.stderr).toContain("Connected to running daemon");
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("Red zone action requires --force: evaluate_script");
     // The daemon's own refusal would arrive as "Daemon error: ..."; this one
@@ -151,7 +152,7 @@ describe("CLI evaluate routed through the daemon", () => {
   test("with --force it runs through the daemon", async () => {
     const r = await cli("evaluate", "21 * 2", "--force");
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("Command executed via daemon");
-    expect(r.stdout).toContain("42");
+    expect(r.stderr).toContain("Command executed via daemon");
+    expect(r.stdout.trim()).toBe("42");
   }, TIMEOUT);
 });

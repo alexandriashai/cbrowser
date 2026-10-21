@@ -95,8 +95,8 @@ describe("daemon start --device --viewport", () => {
     expect((await cli(dataDir, "navigate", `${fixtures.base}static.html`)).code).toBe(0);
     const r = await cli(dataDir, "evaluate", SIZE, "--force");
     expect(r.code, r.stderr).toBe(0);
-    // The daemon prints its result as JSON, so the string keeps its quotes.
-    expect(lastLine(r.stdout)).toBe('"500x700 dpr3 touchtrue"');
+    // Printed like the local path: a string bare (it was JSON-quoted before 20.0).
+    expect(lastLine(r.stdout)).toBe("500x700 dpr3 touchtrue");
   }, TIMEOUT * 2);
 
   test("a command the daemon runs says its own --viewport does not apply", async () => {

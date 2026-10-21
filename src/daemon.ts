@@ -491,7 +491,16 @@ export async function runDaemonServer(config: Partial<CBrowserConfig>, port: num
           // Refused before the page is touched (src/security/script-gate.ts).
           const refusal = evaluateScriptRefusal(req.args.force);
           if (refusal) return { success: false, error: refusal, zone: "red" };
+          if (typeof req.args.url === "string") await b.navigate(req.args.url);
           const page = await b.getPage();
+          if (typeof req.args.waitFor === "string") {
+            const timeout = Number(req.args.timeout) > 0 ? Number(req.args.timeout) : 30_000;
+            try {
+              await page.waitForSelector(req.args.waitFor, { timeout });
+            } catch {
+              return { success: false, error: `Timed out waiting for selector: ${req.args.waitFor} (after ${timeout}ms)`, zone: "red" };
+            }
+          }
           const evalArgs = (req.args.args as unknown[]) ?? [];
           // `script`: a caller's script in any shape, compiled as the local CLI does
           // (src/eval-script.ts). `body`: a function body, kept for older clients.

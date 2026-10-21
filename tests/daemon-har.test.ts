@@ -283,7 +283,8 @@ describe("evaluate through the daemon keeps function results", () => {
   }
 
   // A daemon result was printed only when truthy, so 0, false and "" vanished.
-  for (const [script, printed] of [["1 - 1", "0"], ["false", "false"], ['""', '""']]) {
+  // Printed as the local path prints them: "" is an empty line, not '""'.
+  for (const [script, printed] of [["1 - 1", "0"], ["false", "false"], ['""', ""]]) {
     test(`a falsy result still prints: ${script}`, async () => {
       expect((await cli(dataDir, "navigate", `${fixtures.base}keyboard.html`)).code).toBe(0);
       const r = await cli(dataDir, "evaluate", script, "--force");
@@ -291,6 +292,42 @@ describe("evaluate through the daemon keeps function results", () => {
       expect(r.stdout.trim().split("\n").pop()).toBe(printed);
     }, TIMEOUT);
   }
+
+  // Audit 2026-10-21: the daemon route sent only the script, so these flags
+  // did nothing while a daemon was running.
+  test("--arg reaches the script", async () => {
+    const r = await cli(dataDir, "evaluate", "(a, b) => a + b", "--arg", "40", "--arg", "2", "--force");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stdout.trim()).toBe("42");
+  }, TIMEOUT);
+
+  test("--url navigates the daemon's page first", async () => {
+    const r = await cli(dataDir, "evaluate", "document.title", "--url", `${fixtures.base}static.html`, "--raw", "--force");
+    expect(r.code, r.stderr).toBe(0);
+    // static.html's own title, read from the fixture rather than compared with
+    // another daemon read (that version passed on the old route too).
+    const want = readFileSync(join(import.meta.dir, "fixtures", "static.html"), "utf8").match(/<title>([^<]*)<\/title>/)![1];
+    expect(r.stdout.trim()).toBe(want);
+  }, TIMEOUT);
+
+  test("--expect-truthy fails on a falsy result", async () => {
+    const r = await cli(dataDir, "evaluate", "0", "--expect-truthy", "--force");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("Expected a truthy result");
+  }, TIMEOUT);
+
+  test("--json keeps a string's quotes, --raw does not", async () => {
+    const j = await cli(dataDir, "evaluate", "'hi'", "--json", "--force");
+    expect(j.stdout.trim()).toBe('"hi"');
+    const raw = await cli(dataDir, "evaluate", "'hi'", "--raw", "--force");
+    expect(raw.stdout.trim()).toBe("hi");
+  }, TIMEOUT);
+
+  test("--wait-for with --timeout fails on a selector that never appears", async () => {
+    const r = await cli(dataDir, "evaluate", "1", "--wait-for", "#never-there", "--timeout", "500", "--force");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("#never-there");
+  }, TIMEOUT);
 });
 
 describe("HAR without a daemon", () => {
