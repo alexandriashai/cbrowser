@@ -24,7 +24,7 @@ import { parseNLInstruction, parseNLTestSuite, runNLTestSuite, formatNLTestRepor
 import { capturePerformanceBaseline, listPerformanceBaselines, loadPerformanceBaseline, deletePerformanceBaseline, detectPerformanceRegression, formatPerformanceRegressionReport, type PerformanceBaselineOptions, type PerformanceRegressionOptions } from "./performance/index.js";
 
 // Visual module imports
-import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff } from "./visual/index.js";
+import { captureVisualBaseline, listVisualBaselines, getVisualBaseline, deleteVisualBaseline, runVisualRegression, runVisualRegressionSuite, formatVisualRegressionReport, generateVisualRegressionHtmlReport, runCrossBrowserTest, runCrossBrowserSuite, formatCrossBrowserReport, generateCrossBrowserHtmlReport, runResponsiveTest, runResponsiveSuite, formatResponsiveReport, generateResponsiveHtmlReport, listViewportPresets, formatViewportPresetList, runABComparison, runABSuite, formatABReport, generateABHtmlReport, crossBrowserDiff } from "./visual/index.js";
 // Phase 3 imports — used by CLI command handlers (to be wired up)
 // import { captureSmartBaseline, listSmartBaselines, deleteSmartBaseline, runSmartRegression, generateTransportMap, runRegressionWithTransportMap } from "./visual/index.js";
 import type { NLTestCase, NLTestSuiteResult, PerformanceRegressionThresholds, CoverageMapOptions, VisualTestSuite, VisualTestSuiteResult, SupportedBrowser, CrossBrowserSuite, CrossBrowserSuiteResult, ResponsiveSuite, ResponsiveSuiteResult, ViewportPreset, ABSuite, ABSuiteResult } from "./types.js";
@@ -524,11 +524,9 @@ RESPONSIVE VISUAL TESTING (v7.3.0)
       "options": { "viewports": ["mobile", "tablet", "desktop"] }
     }
 
-    Available viewport presets:
-      mobile-sm (320x568)     mobile (375x667)      mobile-lg (414x896)
-      mobile-xl (428x926)     tablet (768x1024)     tablet-lg (1024x1366)
-      desktop-sm (1280x800)   desktop (1440x900)    desktop-lg (1920x1080)
-      desktop-xl (2560x1440)
+    Available viewport presets (mobile and tablet emulate their device: touch,
+    user agent, pixel ratio):
+${formatViewportPresetList("      ")}
 
 A/B VISUAL COMPARISON (v7.3.0)
   ab <urlA> <urlB>            Compare two URLs visually
@@ -5553,9 +5551,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.error("  --sensitivity <l>   low, medium, high");
             console.error("  --html              Generate HTML report");
             console.error("  --output <file>     Save report");
-            console.error("\nViewport presets: mobile-sm, mobile, mobile-lg, mobile-xl,");
-            console.error("                  tablet, tablet-lg, desktop-sm, desktop,");
-            console.error("                  desktop-lg, desktop-xl");
+            console.error("\nViewport presets:");
+            console.error(formatViewportPresetList("  "));
             process.exit(1);
           }
 

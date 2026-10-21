@@ -17,6 +17,8 @@ import { join } from "path";
 import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
+import type { CBrowserConfig } from "../config.js";
+import { resolveDevice } from "../devices.js";
 import type {
   ViewportPreset,
   ViewportIssue,
@@ -274,6 +276,44 @@ async function detectViewportIssues(page: import("playwright").Page, viewport: V
 }
 
 /**
+ * The browser for one viewport preset.
+ *
+ * A mobile or tablet preset is a device, not only a size: it emulates its named
+ * device (devices.ts: user agent, touch, pixel ratio, mobile layout) at the
+ * preset's size. A name devices.ts does not know ("iPad") falls back to the
+ * generic "mobile" or "tablet" device. A desktop preset is a plain size.
+ *
+ * Until 20.0 every preset set only the size, while `responsive viewports`
+ * listed "(touch)" and a device name: pointer:coarse, hover:none and
+ * user-agent layouts rendered as desktop at phone width. The mobile shots alone
+ * also ran with prefers-reduced-motion, a user preference no device implies,
+ * so the sizes differed in more than size. Now no size sets it. (audit D19)
+ */
+export function presetBrowserConfig(viewport: ViewportPreset): Partial<CBrowserConfig> {
+  const size = { width: viewport.width, height: viewport.height };
+  const config: Partial<CBrowserConfig> = { viewportWidth: size.width, viewportHeight: size.height, viewportOverride: size };
+  if (!viewport.isMobile && !viewport.hasTouch) return config;
+  const named = viewport.deviceName ? resolveDevice(viewport.deviceName) : undefined;
+  const device = named && "key" in named ? named.key : viewport.deviceType === "tablet" ? "tablet" : "mobile";
+  return { ...config, device };
+}
+
+/**
+ * The preset table as help text, one "name (WxH)" per column, so the help
+ * cannot list sizes the table no longer has (it said "mobile (375x667)" after
+ * mobile became 393x852, and left out tablet-sm and desktop-md).
+ */
+export function formatViewportPresetList(indent = "", perLine = 3): string {
+  const cells = VIEWPORT_PRESETS.map((p) => `${p.name} (${p.width}x${p.height})`);
+  const width = Math.max(...cells.map((c) => c.length)) + 2;
+  const lines: string[] = [];
+  for (let i = 0; i < cells.length; i += perLine) {
+    lines.push(indent + cells.slice(i, i + perLine).map((c) => c.padEnd(width)).join("").trimEnd());
+  }
+  return lines.join("\n");
+}
+
+/**
  * Capture screenshot at a specific viewport
  */
 async function captureAtViewport(
@@ -283,20 +323,12 @@ async function captureAtViewport(
 ): Promise<ResponsiveScreenshot> {
   const startTime = Date.now();
 
-  const browser = new CBrowser({
-    viewportWidth: viewport.width,
-    viewportHeight: viewport.height,
-  });
+  const browser = new CBrowser(presetBrowserConfig(viewport));
 
   try {
     await browser.launch();
 
     const page = await browser.getPage();
-
-    // Set mobile emulation if needed
-    if (viewport.isMobile || viewport.hasTouch) {
-      await page.emulateMedia({ reducedMotion: "reduce" });
-    }
 
     await browser.navigate(url);
 
@@ -317,7 +349,9 @@ async function captureAtViewport(
     const filename = `${viewport.name}-${Date.now()}.png`;
     const screenshotPath = join(screenshotsPath, filename);
 
-    await page.screenshot({ path: screenshotPath, fullPage: false });
+    // CSS pixels: a device's pixel ratio would make the phone shot three
+    // times the size of the desktop one in each dimension, for the same layout.
+    await page.screenshot({ path: screenshotPath, fullPage: false, scale: "css" });
 
     return {
       viewport,
