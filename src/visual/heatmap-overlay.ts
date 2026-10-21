@@ -7,7 +7,7 @@
  * @since v18.39.0
  */
 
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { readFileSync } from "fs";
 
 // Heatmap color palette — blue (low) → green → yellow → red (high)
@@ -122,7 +122,7 @@ export async function generateHeatmapOverlay(
   }).blur(blurSigma).png().toBuffer();
 
   // Build composite layers
-  const layers: sharp.OverlayOptions[] = [
+  const layers: OverlayOptions[] = [
     { input: heatmapPng, blend: "over" as const },
   ];
 

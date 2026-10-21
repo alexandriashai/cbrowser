@@ -7,7 +7,7 @@
  * @since v18.39.0
  */
 
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 
 // ── Color helpers ──
 
@@ -328,7 +328,7 @@ export async function generateCombinedStoryOverlay(
   const height = metadata.height || 1080;
   const scale = cssViewportWidth ? width / cssViewportWidth : 1;
 
-  const layers: sharp.OverlayOptions[] = [];
+  const layers: OverlayOptions[] = [];
 
   // Layer 1: Attention heatmap (semi-transparent underneath)
   if (heatmapCells && heatmapCells.length > 0) {

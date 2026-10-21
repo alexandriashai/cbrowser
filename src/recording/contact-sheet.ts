@@ -19,7 +19,7 @@
 
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { MAX_RESPONSE_SIZE } from "../mcp-tools/screenshot-utils.js";
 
 /**
@@ -234,7 +234,7 @@ export async function buildContactSheet(opts: ContactSheetOptions): Promise<Cont
       ),
     );
 
-    const layers: sharp.OverlayOptions[] = tiles.map((input, i) => ({
+    const layers: OverlayOptions[] = tiles.map((input, i) => ({
       input,
       left: placements[i]!.left,
       top: placements[i]!.top,

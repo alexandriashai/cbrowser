@@ -80,11 +80,11 @@ describe("cbrowser --device", () => {
   }, TIMEOUT);
 
   test("an unknown device fails and suggests the closest presets, instead of rendering desktop", async () => {
-    const out = join(dataDir, "iphone-17.png");
-    const r = await cli("screenshot", out, "--url", `${fixtures.base}static.html`, "--device", "iphone-17");
+    const out = join(dataDir, "iphone-99.png");
+    const r = await cli("screenshot", out, "--url", `${fixtures.base}static.html`, "--device", "iphone-99");
     expect(r.code).not.toBe(0);
-    expect(r.stdout + r.stderr).toContain("iphone-17");
-    expect(r.stdout + r.stderr).toContain("iphone-16");
+    expect(r.stdout + r.stderr).toContain("iphone-99");
+    expect(r.stdout + r.stderr).toMatch(/iphone-1[0-9]/);
     expect(existsSync(out)).toBe(false);
   }, TIMEOUT);
 
