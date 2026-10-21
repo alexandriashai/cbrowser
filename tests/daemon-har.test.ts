@@ -371,6 +371,12 @@ describe("commands routed through the daemon", () => {
     expect(r.stdout).not.toContain('"screenshot"');
   }, TIMEOUT);
 
+  test("a page command the daemon does not run is refused, not run in a second browser", async () => {
+    const r = await cli(dataDir, "a11y", "audit", `${fixtures.base}static.html`);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cannot run while the daemon holds the browser");
+  }, TIMEOUT);
+
   test("keyboard --repeat 0 is refused before it reaches the daemon", async () => {
     const r = await cli(dataDir, "keyboard", "Tab", "--repeat", "0");
     expect(r.code).toBe(1);

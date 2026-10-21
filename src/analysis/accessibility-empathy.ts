@@ -2351,6 +2351,8 @@ async function simulateAccessibilityJourney(
           maxSteps: Math.min(maxSteps, 5), // Cap steps to keep within timeout
           maxTime: Math.min(maxTime, 30),   // Cap journey time
           headless: true,
+          // Each persona starts as a new visitor, in its own profile.
+          persistent: false,
           vision: false,
           verbose: false,
         });

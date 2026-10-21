@@ -36,6 +36,7 @@ import {
   isBuiltinPersona,
   generatePersonaFromDescription,
   listAccessibilityPersonas,
+  PERSONA_ALIASES,
 } from "./personas.js";
 import { LOCATION_PRESETS } from "./types.js";
 import { CBROWSER_DEVICE_KEYS, DEVICE_PRESETS, resolveDevice } from "./devices.js";
@@ -191,6 +192,7 @@ SITE EXPLORATION (Free, heuristic-based)
     --start <url>             Starting URL (required)
     --goal <goal>             What to accomplish
     --record-video            Record exploration as video
+    --cognitive               Use the model instead (needs an Anthropic API key; costs tokens)
     Note: No API key needed. Uses rule-based navigation - fast but not "smart".
 
 COGNITIVE JOURNEY (API-powered, realistic user simulation)
@@ -209,6 +211,8 @@ COGNITIVE JOURNEY (API-powered, realistic user simulation)
     --output <file>           Save JSON report to file
     --trace                   Record the journey to ~/.cbrowser/traces/<id>.jsonl
     --replay-trace <file>     Replay a recorded journey: no model calls, no API key
+    --persistent              Run in the shared browser profile (default: a fresh one,
+                              so the persona starts as a new visitor)
     --timezone <tz>           Override persona timezone (e.g., "America/New_York", "Europe/London")
     --locale <loc>            Override persona locale (e.g., "en-US", "de-DE")
     --geo <preset|lat,lon>    Override persona location (also --geolocation <lat,lng>)
@@ -580,14 +584,15 @@ AI FRIENDLINESS - Audit sites for AI agent compatibility
       cbrowser ai-benchmark --urls "https://amazon.com,https://ebay.com" --html
 
   empathy-audit <url>         Simulate disability experience on site
-    --goal <goal>             Task goal (required)
-    --personas <list>         Disability personas (comma-separated)
+    --goal <goal>             Task goal (optional; without one the page is checked)
+    --personas <list>         Disability personas (comma-separated; also --disabilities)
+    --device <name>           Device to audit on, e.g. iphone-16
+    --scope <scope>           viewport (default) or full_page
     --wcag-level <level>      WCAG level: A, AA, AAA (default: AA)
     --output <file>           Save JSON report to file
     --html                    Generate HTML report
     Available personas:
-      motor-impairment-tremor, low-vision-magnified, cognitive-adhd,
-      dyslexic-user, deaf-user, elderly-low-vision, color-blind-deuteranopia
+      ${listAccessibilityPersonas().join(", ")}
     Examples:
       cbrowser empathy-audit "https://example.com" \\
         --goal "complete checkout" \\
@@ -1058,6 +1063,12 @@ const DRIVES_THE_PAGE = [
   "navigate", "click", "fill", "hover", "screenshot", "extract", "run",
   "keyboard", "press", "type", "evaluate", "eval", "drag", "upload",
   "smart-click", "dismiss-overlay", "assert",
+  // These also launch the shared profile the daemon holds, so they acted on
+  // a page the user was not watching or failed on its lock (audit
+  // 2026-10-21). reset deleted the profile under the daemon, which wrote its
+  // cookies back on exit.
+  "script", "ai", "explore", "analyze", "generate", "hunt", "hunt-bugs",
+  "chaos", "a11y", "perf", "visual", "reset",
 ];
 
 /**
@@ -4044,10 +4055,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         console.log(`🔍 Starting exploration as "${persona}"...`);
         console.log(`   Goal: ${goal}`);
-        console.log(`   Mode: Heuristic (free, no API)`);
+        // explore is documented as free; it used to switch to a paid model
+        // journey whenever a key was configured while printing "Heuristic"
+        // (audit 2026-10-21). --cognitive asks for the model on purpose.
+        const cognitive = options.cognitive === true && isApiKeyConfigured();
+        if (options.cognitive === true && !cognitive) {
+          console.error("Error: --cognitive needs an Anthropic API key (cbrowser config set-api-key <key>)");
+          process.exit(1);
+        }
+        console.log(`   Mode: ${cognitive ? "Cognitive (uses your Anthropic API key)" : "Heuristic (free, no API)"}`);
         console.log("");
 
-        const result = await browser.journey({ persona, startUrl, goal });
+        const result = await browser.journey({ persona, startUrl, goal, heuristic: !cognitive });
 
         console.log("");
         console.log(`📊 Journey Results`);
@@ -7364,6 +7383,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             viewport: viewportOverride,
             trace: options.trace === true,
             replayTrace,
+            // A persona is a new visitor: a fresh profile unless --persistent.
+            // The engine's default used the shared logged-in profile, so a
+            // "first-timer" carried the user's cookies (audit 2026-10-21).
+            persistent: options.persistent === true,
             vision,
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override
@@ -7462,7 +7485,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           if (geoProxy) {
             auditProxy = { server: geoProxy.server, username: geoProxy.username, password: geoProxy.password };
           } else {
-            console.error(`Warning: geo-region "${geoRegion}" not configured. Run without proxy.`);
+            // The README promises this fails loudly; it warned, ran from the
+            // local IP, and still printed "(via <region>)" (audit 2026-10-21).
+            console.error(`Error: geo-region "${geoRegion}" is not configured, so the audit would run from this machine's own IP.`);
+            console.error("  Configure it in ~/.cbrowser/geo-proxy.json, or run without --geo-region.");
+            process.exit(1);
           }
         }
 
@@ -7472,6 +7499,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           headless,
           useLightpanda,
           ...(auditProxy ? { proxy: auditProxy } : {}),
+          // Accepted by the engine and dropped here until 20.0, so a mobile
+          // audit from the CLI was silently a desktop audit.
+          ...(typeof options.device === "string" ? { device: resolveDevicePreset(options.device) } : {}),
+          ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
         });
 
         // Print formatted report
@@ -7800,41 +7831,19 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         if (!url) {
           console.error("Error: URL required");
-          console.error("Usage: cbrowser empathy-audit <url> --goal <goal> [--disabilities <list>] [--html]");
+          console.error("Usage: cbrowser empathy-audit <url> [--goal <goal>] [--personas <list>] [--device <name>] [--html]");
           process.exit(1);
         }
 
-        if (!goal) {
-          console.error("Error: --goal required");
-          console.error("Usage: cbrowser empathy-audit <url> --goal <goal> [--disabilities <list>] [--html]");
-          process.exit(1);
-        }
+        // --goal is optional, as it is over MCP: without one the audit checks
+        // the page rather than a task (it was required here only).
 
         // Parse disabilities or use all
         const allAccessibilityNames = listAccessibilityPersonas();
 
-        // Short alias mapping for convenience
-        const aliasMap: Record<string, string> = {
-          "motor-tremor": "motor-impairment-tremor",
-          "motor": "motor-impairment-tremor",
-          "tremor": "motor-impairment-tremor",
-          "low-vision": "low-vision-magnified",
-          "vision": "low-vision-magnified",
-          "magnified": "low-vision-magnified",
-          "adhd": "cognitive-adhd",
-          "cognitive": "cognitive-adhd",
-          "attention": "cognitive-adhd",
-          "dyslexia": "dyslexic-user",
-          "dyslexic": "dyslexic-user",
-          "reading": "dyslexic-user",
-          "deaf": "deaf-user",
-          "hearing": "deaf-user",
-          "elderly": "elderly-low-vision",
-          "senior": "elderly-low-vision",
-          "color-blind": "color-blind-deuteranopia",
-          "colorblind": "color-blind-deuteranopia",
-          "deuteranopia": "color-blind-deuteranopia",
-        };
+        // The shared alias table (personas.ts), as MCP uses. This command had its
+        // own stale copy, so --disabilities autism failed here and worked there.
+        const aliasMap = PERSONA_ALIASES;
 
         const disabilityNames = disabilitiesArg
           ? disabilitiesArg.split(",").map((d) => {
@@ -7848,7 +7857,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         if (invalidNames.length > 0) {
           console.error(`Error: Unknown disability persona(s): ${invalidNames.join(", ")}`);
           console.error(`Available: ${allAccessibilityNames.join(", ")}`);
-          console.error(`Aliases: motor-tremor, low-vision, adhd, dyslexia, deaf, elderly, color-blind`);
+          console.error(`Aliases: ${Object.keys(aliasMap).filter((a) => allAccessibilityNames.includes(aliasMap[a]) && a !== aliasMap[a]).join(", ")}`);
           process.exit(1);
         }
 
@@ -7862,13 +7871,22 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log(`   Disabilities: ${disabilityNames.join(", ")}`);
         console.log(`   WCAG Level: ${wcagLevel}\n`);
 
+        const scope = options.scope === undefined ? undefined : String(options.scope);
+        if (scope !== undefined && scope !== "viewport" && scope !== "full_page") {
+          console.error(`Error: --scope must be viewport or full_page, got: ${scope}`);
+          process.exit(1);
+        }
         const result = await runEmpathyAudit(url, {
-          goal,
+          ...(goal ? { goal } : {}),
           disabilities: disabilityNames,
           wcagLevel: wcagLevel as "A" | "AA" | "AAA",
           maxSteps,
           maxTime,
           headless,
+          // Accepted by the engine and dropped here until 20.0 (the MCP tool
+          // passed it), so a mobile empathy audit from the CLI was a desktop one.
+          ...(typeof options.device === "string" ? { device: resolveDevicePreset(options.device) } : {}),
+          ...(scope ? { scope: scope as "viewport" | "full_page" } : {}),
         });
 
         // Print formatted report

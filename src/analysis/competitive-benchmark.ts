@@ -1310,6 +1310,8 @@ export async function runCompetitiveBenchmark(
               maxSteps,
               maxTime,
               headless,
+              // Concurrent journeys need their own profiles (cognitive/index.ts).
+              persistent: false,
               vision: false,
               verbose: false,
             });

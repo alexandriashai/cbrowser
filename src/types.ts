@@ -3304,6 +3304,8 @@ export interface JourneyOptions {
   persona: string;
   startUrl: string;
   goal: string;
+  /** Use the free heuristic explorer even when an Anthropic API key is configured. */
+  heuristic?: boolean;
   maxSteps?: number;
   maxTime?: number;
   timeout?: number;

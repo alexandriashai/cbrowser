@@ -155,6 +155,10 @@ export async function comparePersonas(
           maxSteps,
           maxTime,
           headless,
+          // A fresh profile per journey: these run concurrently, and only one browser can
+          // own the shared persistent profile (cognitive/index.ts). Each persona also
+          // starts as a new visitor, not inside the user's logged-in session.
+          persistent: false,
           vision,
           verbose: false,
         });

@@ -6222,7 +6222,7 @@ For more help: https://playwright.dev/docs/browsers
     const { persona: personaName, startUrl, goal, maxSteps = 20, maxTime = 120 } = options;
 
     // Check if cognitive journeys are available (API key configured)
-    if (isApiKeyConfigured()) {
+    if (!options.heuristic && isApiKeyConfigured()) {
       try {
         const cognitiveResult = await runCognitiveJourney({
           persona: personaName,

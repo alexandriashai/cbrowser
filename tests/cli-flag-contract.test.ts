@@ -265,3 +265,28 @@ describe("browser settings", () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, TIMEOUT);
 });
+
+/** Audit and journey options reach their engines (audit 2026-10-21, daemon lane 15-18, 21; MCP lane 10). */
+describe("audit and journey options", () => {
+  test("empathy-audit knows the shared persona aliases and validates --scope", async () => {
+    // "autism" was missing from this command's own alias copy (MCP resolved it).
+    const r = await run("empathy-audit", `${fixtures.base}static.html`, "--personas", "autism", "--scope", "everything");
+    expect(r.code).toBe(1);
+    expect(r.stderr).not.toContain("Unknown disability persona");
+    expect(r.stderr).toContain("--scope must be viewport or full_page");
+  }, TIMEOUT);
+
+  test("agent-ready-audit refuses an unconfigured --geo-region instead of running from this IP", async () => {
+    const r = await cli({ CBROWSER_DATA_DIR: mkdtempSync(join(tmpdir(), "cbrowser-geo-")) },
+      "agent-ready-audit", `${fixtures.base}static.html`, "--geo-region", "atlantis");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("is not configured");
+  }, TIMEOUT * 2);
+
+  test("explore stays free unless --cognitive, which needs a key", async () => {
+    const r = await cli({ ANTHROPIC_API_KEY: undefined, CBROWSER_DATA_DIR: mkdtempSync(join(tmpdir(), "cbrowser-explore-")) },
+      "explore", "first-timer", "--start", `${fixtures.base}static.html`, "--cognitive");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--cognitive needs an Anthropic API key");
+  }, TIMEOUT);
+});
