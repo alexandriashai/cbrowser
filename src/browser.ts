@@ -62,7 +62,8 @@ import type {
   BrowserHealthResult,
   BrowserRecoveryResult,
 } from "./types.js";
-import { DEVICE_PRESETS, LOCATION_PRESETS, CBrowserErrorCode } from "./types.js";
+import { LOCATION_PRESETS, CBrowserError, CBrowserErrorCode } from "./types.js";
+import { DEVICE_PRESETS, resolveDevice } from "./devices.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
@@ -634,6 +635,23 @@ For more help: https://playwright.dev/docs/browsers
   async launch(): Promise<void> {
     if (this.browser || this.context) return;
 
+    // An unknown device is an error, never a silent desktop render (reported
+    // 2026-10-21: "iphone-16" captured 1280x800 and called it success, and so did
+    // "Pixel 7" from the MCP tools' own descriptions). Names are normalised here,
+    // so "iPhone 16" and "iphone-16" are the same preset.
+    if (this.config.device) {
+      const resolved = resolveDevice(this.config.device);
+      if ("error" in resolved) {
+        const closest = resolved.suggestions.length > 0 ? ` Closest presets: ${resolved.suggestions.join(", ")}.` : "";
+        throw new CBrowserError(CBrowserErrorCode.CONFIG_INVALID, `${resolved.error}.${closest}`, {
+          device: this.config.device,
+          suggestions: resolved.suggestions,
+          howToFix: "Use a preset name ('cbrowser device list' shows them all; case and spaces do not matter), or set a custom size with --viewport WIDTHxHEIGHT.",
+        });
+      }
+      this.config.device = resolved.key;
+    }
+
     // Load saved session state to restore device setting if not explicitly set
     if (this.config.persistent && !this.config.device) {
       const savedSession = this.loadSessionState();
@@ -666,7 +684,10 @@ For more help: https://playwright.dev/docs/browsers
     if (this.config.device && DEVICE_PRESETS[this.config.device]) {
       const device = DEVICE_PRESETS[this.config.device];
       contextOptions.viewport = device.viewport;
-      contextOptions.userAgent = device.userAgent;
+      // The DevTools laptops have no user agent of their own and keep the
+      // browser's. Playwright 1.58 already treats "" as unset; this does not
+      // rely on that.
+      if (device.userAgent) contextOptions.userAgent = device.userAgent;
       contextOptions.deviceScaleFactor = device.deviceScaleFactor;
       contextOptions.isMobile = device.isMobile;
       contextOptions.hasTouch = device.hasTouch;
@@ -1969,11 +1990,10 @@ For more help: https://playwright.dev/docs/browsers
    * Set device emulation (requires browser restart).
    */
   setDevice(deviceName: string): boolean {
-    if (DEVICE_PRESETS[deviceName]) {
-      this.config.device = deviceName;
-      return true;
-    }
-    return false;
+    const resolved = resolveDevice(deviceName);
+    if ("error" in resolved) return false;
+    this.config.device = resolved.key;
+    return true;
   }
 
   /**

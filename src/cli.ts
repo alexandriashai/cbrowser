@@ -37,7 +37,8 @@ import {
   generatePersonaFromDescription,
   listAccessibilityPersonas,
 } from "./personas.js";
-import { DEVICE_PRESETS, LOCATION_PRESETS } from "./types.js";
+import { LOCATION_PRESETS } from "./types.js";
+import { CBROWSER_DEVICE_KEYS, DEVICE_PRESETS, resolveDevice } from "./devices.js";
 import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
@@ -1245,22 +1246,18 @@ const CAPTURE_FLAGS = new Set([
 /**
  * Resolve `--device` to a real preset key, or exit naming the bad value.
  *
- * CBrowser silently ignores an unknown device name (browser.ts: the preset
- * lookup is inside the `if`), which would hand back a 1280x800 desktop capture
- * for `--device "iPhone 14"` and call it success. Spaces and case are
- * normalised so "iPhone 15" finds "iphone-15".
+ * `capture start` checks here, before it builds anything. Every other command
+ * gets the same check from CBrowser.launch() (src/devices.ts resolveDevice);
+ * before 2026-10-21 the browser skipped names it did not know and rendered
+ * 1280x800 desktop. Case and spaces do not matter: "iPhone 15" is "iphone-15".
  */
 function resolveDevicePreset(value: string): string {
-  const normalised = value.trim().toLowerCase().replace(/\s+/g, "-");
-  if (DEVICE_PRESETS[normalised]) return normalised;
-
-  const known = Object.keys(DEVICE_PRESETS);
-  const stem = normalised.replace(/-?\d+.*$/, "");
-  const close = known.filter((k) => k.startsWith(stem) && stem.length > 0);
+  const resolved = resolveDevice(value);
+  if ("key" in resolved) return resolved.key;
 
   console.error(`Error: unknown --device "${value}"`);
-  if (close.length > 0) console.error(`  Did you mean: ${close.join(", ")}?`);
-  console.error(`  Available presets: ${known.join(", ")}`);
+  if (resolved.suggestions.length > 0) console.error(`  Did you mean: ${resolved.suggestions.join(", ")}?`);
+  console.error(`  'cbrowser device list' shows all ${Object.keys(DEVICE_PRESETS).length} presets; --viewport WIDTHxHEIGHT sets any size.`);
   process.exit(1);
 }
 
@@ -4582,14 +4579,19 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         switch (subcommand) {
           case "list": {
-            console.log("\n📱 Available Device Presets:\n");
-            for (const [name, device] of Object.entries(DEVICE_PRESETS)) {
-              console.log(`  ${name}`);
-              console.log(`    ${device.name}`);
-              console.log(`    ${device.viewport.width}x${device.viewport.height} @${device.deviceScaleFactor}x`);
-              console.log(`    Mobile: ${device.isMobile} | Touch: ${device.hasTouch}`);
-              console.log("");
+            // One line per preset: there are a few hundred now. An optional
+            // filter matches the key or the display name.
+            const filter = (args[1] ?? "").toLowerCase();
+            const rows = Object.entries(DEVICE_PRESETS).filter(([key, d]) =>
+              !filter || key.includes(filter) || d.name.toLowerCase().includes(filter));
+            const width = Math.max(...rows.map(([key]) => key.length), 4);
+            console.log(`\n📱 Device presets${filter ? ` matching "${filter}"` : ""}: ${rows.length}\n`);
+            for (const [key, d] of rows) {
+              const kind = d.isMobile ? "mobile" : "desktop";
+              const touch = d.hasTouch ? ", touch" : "";
+              console.log(`  ${key.padEnd(width)}  ${d.viewport.width}x${d.viewport.height} @${d.deviceScaleFactor}x  ${kind}${touch}  (${d.name})`);
             }
+            console.log("\n  Case and spaces do not matter: --device \"iPhone 16\" is iphone-16.");
             break;
           }
           case "set": {
@@ -4598,15 +4600,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.error("Usage: cbrowser device set <name>");
               process.exit(1);
             }
-            if (!DEVICE_PRESETS[deviceName]) {
-              console.error(`Unknown device: ${deviceName}`);
-              console.error("Run 'cbrowser device list' to see available devices");
-              process.exit(1);
-            }
+            const presetKey = resolveDevicePreset(deviceName);
             // Save device setting to persistent session state
             const deviceBrowser = new CBrowser({ persistent: true, headless: true, verbose: false });
-            deviceBrowser.saveDeviceSetting(deviceName);
-            console.log(`✓ Device set: ${deviceName}`);
+            deviceBrowser.saveDeviceSetting(presetKey);
+            console.log(`✓ Device set: ${presetKey}`);
             console.log("  Device emulation will apply to all subsequent commands");
             break;
           }
@@ -5878,9 +5876,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               process.exit(1);
             }
 
+            // Without --devices, cbrowser's own presets, not all few hundred.
             const deviceList = options.devices
-              ? (options.devices as string).split(",")
-              : Object.keys(DEVICE_PRESETS);
+              ? (options.devices as string).split(",").map((d) => resolveDevicePreset(d))
+              : [...CBROWSER_DEVICE_KEYS];
             const concurrency = options.concurrency ? parseInt(options.concurrency as string) : 3;
 
             console.log(`\n🚀 Running parallel device tests...`);

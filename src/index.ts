@@ -24,6 +24,7 @@ export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./co
 export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export { getGeoProxy, listGeoRegions, isGeoProxyConfigured } from "./geo-proxy.js";
 export * from "./types.js";
+export * from "./devices.js";
 export {
   BUILTIN_PERSONAS,
   registerPersonas,

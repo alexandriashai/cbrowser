@@ -52,6 +52,9 @@ module.exports = {
     // read them and every commit touching one failed lint-staged. Same reasoning
     // as tests/ and src/**/*.test.ts above.
     "research/",
+    // scripts/*.ts are standalone runners outside tsconfig too (2026-10-21:
+    // gen-devtools-devices.ts hit the same parser error), same reasoning.
+    "scripts/**/*.ts",
     "docs/",
     "*.js",
     "*.cjs",

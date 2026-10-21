@@ -714,7 +714,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       persona: z.string().optional().default("cognitive-adhd").describe("Persona name"),
-      device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop', or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro'. Default: desktop (1920x1080)."),
+      device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop', or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: desktop (1920x1080)."),
       useValues: z.boolean().optional().default(false).describe("Enable motivational value influence on saliency map generation, attention scoring, and narrative. Default: false."),
       // Goal-directed attention is the largest single lever in the semantic
       // layer: computeGoalRelevance boosts any element whose text matches the
