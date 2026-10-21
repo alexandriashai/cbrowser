@@ -26,7 +26,7 @@ import { getPaths } from "../../config.js";
 import { artifactNonce, writeArtifact } from "../../artifact-store.js";
 import { scopedAccountId } from "../../persona-scope.js";
 import { buildContactSheet } from "../../recording/contact-sheet.js";
-import { VideoCaptureSession, type CaptureFormat, type VideoCaptureOptions } from "../../recording/engine.js";
+import { VideoCaptureSession, type CaptureFormat, type VideoCaptureOptions, type StartTrigger, type StopTrigger } from "../../recording/engine.js";
 import type { RecordingManifest } from "../../recording/types.js";
 import { VIEWPORT_PRESETS } from "../../types.js";
 import { buildContentWithScreenshots, MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
@@ -269,6 +269,10 @@ export interface CaptureStopPayload {
   console_errors_total: number;
   network_requests_total: number;
   frames_dir: string;
+  /** What started and stopped the capture (manual, duration, a selector, idle, ...). */
+  start_trigger: string | null;
+  stop_trigger: string | null;
+  trigger_timeout: boolean;
   contact_sheet?: string;
   contact_sheet_note?: string;
   /**
@@ -361,6 +365,11 @@ export function buildCaptureStopPayload(
     console_errors_total: consoleErrorTotal,
     network_requests_total: networkTotal,
     frames_dir: join(extra.outDir, "frames"),
+    // Recorded in the manifest and never surfaced, so a caller using a trigger
+    // could not tell whether it fired or timed out. (audit M16, 2026-10-21)
+    start_trigger: manifest.start_trigger ?? null,
+    stop_trigger: manifest.stop_trigger ?? null,
+    trigger_timeout: manifest.trigger_timeout ?? false,
     ...(extra.contactSheet ? { contact_sheet: extra.contactSheet } : {}),
     ...(extra.contactSheetNote ? { contact_sheet_note: extra.contactSheetNote } : {}),
     ...(extra.artifactUrls && Object.keys(extra.artifactUrls).length > 0
@@ -431,17 +440,105 @@ export interface CaptureStartArgs {
   fps?: number;
   duration?: string;
   viewport?: string;
+  /** Device preset to emulate (relaunches an already-running browser). */
+  device?: string;
   region?: string;
   element?: string;
   padding?: number;
   format?: string;
   quality?: number;
-  max_frames?: number;
+  maxFrames?: number;
   name?: string;
+  outDir?: string;
+  attentionOverlay?: boolean;
+  overlayPersona?: string;
+  overlayGoal?: string;
+  /** Start triggers, as the CLI's --after / --after-element / --after-delay. */
+  after?: "load" | "domcontentloaded" | "networkidle";
+  afterElement?: string;
+  afterDelay?: string;
+  /** Stop triggers, as the CLI's --until-element / --until-element-gone / --until-idle. */
+  untilElement?: string;
+  untilElementGone?: string;
+  untilIdle?: string;
+  /** How long a trigger may wait (the CLI's --timeout; default 30s). */
+  timeout?: string;
+  /** Pre-2026-10-21 snake_case names, still accepted. */
+  max_frames?: number;
   out_dir?: string;
   attention_overlay?: boolean;
   overlay_persona?: string;
   overlay_goal?: string;
+}
+
+/** camelCase and snake_case spellings of one option; both given and different is an error. */
+const CAPTURE_ALIASES = [
+  ["maxFrames", "max_frames"],
+  ["outDir", "out_dir"],
+  ["attentionOverlay", "attention_overlay"],
+  ["overlayPersona", "overlay_persona"],
+  ["overlayGoal", "overlay_goal"],
+] as const;
+
+/**
+ * One spelling per option. capture_start's names were snake_case (max_frames,
+ * out_dir) unlike every other tool; camelCase is now the documented form and the
+ * old names keep working. (audit M16, 2026-10-21)
+ */
+export function normalizeCaptureArgs(args: CaptureStartArgs): CaptureStartArgs {
+  const out: CaptureStartArgs = { ...args };
+  for (const [camel, snake] of CAPTURE_ALIASES) {
+    const a = args[camel];
+    const b = args[snake];
+    if (a !== undefined && b !== undefined && a !== b) {
+      throw new Error(`Pass ${camel} or ${snake}, not both with different values`);
+    }
+    (out as Record<string, unknown>)[camel] = a ?? b;
+    delete (out as Record<string, unknown>)[snake];
+  }
+  return out;
+}
+
+/**
+ * Start/stop triggers from capture_start's options, with the CLI's rules
+ * (buildCaptureTriggers in cli.ts): after and afterElement are exclusive, and
+ * so are the three stop triggers. Triggers compose with duration.
+ */
+export function buildCaptureTriggerOptions(args: CaptureStartArgs): {
+  startTrigger?: StartTrigger;
+  startDelayMs?: number;
+  stopTrigger?: StopTrigger;
+  triggerTimeoutMs?: number;
+} {
+  if (args.after !== undefined && args.afterElement !== undefined) {
+    throw new Error("after and afterElement are mutually exclusive - pick one");
+  }
+  const LIFECYCLE = ["load", "domcontentloaded", "networkidle"] as const;
+  let startTrigger: StartTrigger | undefined;
+  if (args.after !== undefined) {
+    const event = String(args.after).trim().toLowerCase();
+    if (!LIFECYCLE.includes(event as typeof LIFECYCLE[number])) {
+      throw new Error(`after must be one of ${LIFECYCLE.join(", ")} (got "${args.after}")`);
+    }
+    startTrigger = { kind: "lifecycle", event: event as typeof LIFECYCLE[number] };
+  } else if (args.afterElement !== undefined) {
+    if (!args.afterElement.trim()) throw new Error("afterElement requires a selector");
+    startTrigger = { kind: "element", selector: args.afterElement };
+  }
+
+  const stops = (["untilElement", "untilElementGone", "untilIdle"] as const).filter((k) => args[k] !== undefined);
+  if (stops.length > 1) throw new Error(`${stops.join(" and ")} are mutually exclusive - pick one`);
+  let stopTrigger: StopTrigger | undefined;
+  if (args.untilElement !== undefined) stopTrigger = { kind: "element-appears", selector: args.untilElement };
+  else if (args.untilElementGone !== undefined) stopTrigger = { kind: "element-disappears", selector: args.untilElementGone };
+  else if (args.untilIdle !== undefined) stopTrigger = { kind: "idle", idleMs: parseDurationMs(args.untilIdle) };
+
+  return {
+    ...(startTrigger ? { startTrigger } : {}),
+    ...(args.afterDelay !== undefined ? { startDelayMs: parseDurationMs(args.afterDelay) } : {}),
+    ...(stopTrigger ? { stopTrigger } : {}),
+    ...(args.timeout !== undefined ? { triggerTimeoutMs: parseDurationMs(args.timeout) } : {}),
+  };
 }
 
 /**
@@ -472,9 +569,12 @@ async function resolveElementRegion(
 /** Start a capture on the given browser. Returns the payload object. */
 export async function startCapture(
   browser: CBrowser,
-  args: CaptureStartArgs,
+  rawArgs: CaptureStartArgs,
   token?: string,
 ): Promise<Record<string, unknown>> {
+  const args = normalizeCaptureArgs(rawArgs);
+  // Validated before anything changes, so a bad trigger leaves the page alone.
+  const triggers = buildCaptureTriggerOptions(args);
   const key = sessionKey(token);
   const existing = sessions.get(key);
   if (existing && existing.session.status().state === "recording") {
@@ -483,6 +583,11 @@ export async function startCapture(
         "Call capture_stop before starting another.",
     );
   }
+
+  // Device before viewport and navigation: emulation is fixed at launch, so a
+  // running browser is relaunched with it (the CLI's --device). An unknown
+  // name throws with the closest presets.
+  if (args.device) await browser.emulate({ device: args.device });
 
   if (args.viewport) {
     const size = parseViewport(args.viewport);
@@ -520,16 +625,17 @@ export async function startCapture(
     ...(target ? { target } : {}),
     ...(args.format !== undefined ? { format: parseFormats(args.format) } : {}),
     ...(args.quality !== undefined ? { quality: args.quality } : {}),
-    ...(args.max_frames !== undefined ? { maxFrames: args.max_frames } : {}),
+    ...(args.maxFrames !== undefined ? { maxFrames: args.maxFrames } : {}),
     ...(args.name !== undefined ? { slug: args.name } : {}),
-    ...(args.out_dir !== undefined ? { outDir: resolve(args.out_dir) } : {}),
+    ...(args.outDir !== undefined ? { outDir: resolve(args.outDir) } : {}),
+    ...triggers,
     // Overlay is resolved at stop, against the still-live page, so the DOM it
     // reads is the page as recorded rather than a reconstruction.
     // Register the account's custom personas before the overlay resolves one.
     // They live in the CMS, not on disk, so without this a persona created
     // through the account is silently replaced by a generic profile and every
     // number is attributed to a persona that never ran.
-    ...(args.attention_overlay ? await (async () => {
+    ...(args.attentionOverlay ? await (async () => {
       try {
         const { loadAccountPersonas } = await import("../account-personas.js");
         const { getSessionApiKey } = await import("./cognitive-tools.js");
@@ -537,11 +643,11 @@ export async function startCapture(
       } catch { /* falls back to disk and built-ins */ }
       return {};
     })() : {}),
-    ...(args.attention_overlay
+    ...(args.attentionOverlay
       ? {
           saliencyOverlay: {
-            ...(args.overlay_persona ? { persona: args.overlay_persona } : {}),
-            ...(args.overlay_goal ? { goal: args.overlay_goal } : {}),
+            ...(args.overlayPersona ? { persona: args.overlayPersona } : {}),
+            ...(args.overlayGoal ? { goal: args.overlayGoal } : {}),
             // screen_capture is a free-tier tool, but the persona relevance
             // judge and the capture summary each cost a model call. Entitlement
             // is resolved from the live key's tier rather than from the tool's
@@ -1026,18 +1132,34 @@ export const captureStartSchema = {
   url: z.string().optional().describe("URL to navigate to before capturing. Omit to capture the current page."),
   fps: z.number().optional().describe("Target frames per second (default: 10)"),
   duration: z.string().optional().describe("Auto-stop after this long: 5s, 2m, 1500ms. Omit for an open-ended capture stopped by capture_stop."),
-  viewport: z.string().optional().describe("Viewport as WIDTHxHEIGHT (e.g. 1280x720) or a preset name (mobile, tablet, desktop, desktop-lg)"),
+  viewport: z.string().optional().describe("Viewport as WIDTHxHEIGHT (e.g. 1280x720) or a size preset (mobile 393x852, tablet 834x1194, desktop 1920x1080, desktop-lg, ...)"),
+  device: z.string().optional().describe("Device preset to emulate (user agent, touch, pixel ratio, size), e.g. 'mobile' or 'iPhone 15'; list_devices shows them. The CLI's --device. Relaunches a running browser on stdio; on the hosted server it applies only without _browserToken."),
   region: z.string().optional().describe("Capture a fixed region as x,y,width,height (e.g. 0,0,800,600). Clamped to the viewport."),
   element: z.string().optional().describe("CSS selector to capture. Resolved to the element's bounding box once at start; the region does not follow the element if it moves."),
   padding: z.number().optional().describe("Padding in pixels around the element region (default: 0)"),
   format: z.string().optional().describe("Comma-separated output formats: gif,webp,mp4,webm (default: gif). mp4 needs a full ffmpeg; the bundled one does webm."),
   quality: z.number().optional().describe("JPEG quality for captured frames, 1-100 (default: 80)"),
-  max_frames: z.number().optional().describe("Hard cap on retained frames (default: 3000)"),
+  maxFrames: z.number().optional().describe("Hard cap on retained frames (default: 3000)"),
   name: z.string().optional().describe("Capture name / slug"),
-  out_dir: z.string().optional().describe("Output directory (default: a slug directory under the recordings dir)"),
-  attention_overlay: z.boolean().optional().describe("Paint the predicted-attention heatmap over every frame before encoding. Uses the live DOM, so this is the full attention model (5% visual contrast + 95% DOM semantics), not contrast alone. Costs roughly 0.5-1s per frame. Default false."),
-  overlay_persona: z.string().optional().describe("Persona whose priorities weight the attention overlay (default: first-timer). Only used with attention_overlay."),
-  overlay_goal: z.string().optional().describe("Goal string that weights goal-relevance in the attention overlay. Only used with attention_overlay."),
+  outDir: z.string().optional().describe("Output directory (default: a slug directory under the recordings dir). Not available on the hosted server."),
+  attentionOverlay: z.boolean().optional().describe("Paint the predicted-attention heatmap over every frame before encoding. Uses the live DOM, so this is the full attention model (5% visual contrast + 95% DOM semantics), not contrast alone. Costs roughly 0.5-1s per frame. Default false."),
+  overlayPersona: z.string().optional().describe("Persona whose priorities weight the attention overlay (default: first-timer). Only used with attentionOverlay."),
+  overlayGoal: z.string().optional().describe("Goal string that weights goal-relevance in the attention overlay. Only used with attentionOverlay."),
+  // Triggers: the CLI's --after, --after-element, --after-delay, --until-element,
+  // --until-element-gone, --until-idle and --timeout. (audit M16, 2026-10-21)
+  after: z.enum(["load", "domcontentloaded", "networkidle"]).optional().describe("Start recording on this page event. Exclusive with afterElement. capture_start returns once recording has started."),
+  afterElement: z.string().optional().describe("Start recording when this selector is present and visible. Exclusive with after."),
+  afterDelay: z.string().optional().describe("Extra delay after the start trigger (500ms, 2s)"),
+  untilElement: z.string().optional().describe("Stop recording when this selector appears. One stop trigger at most; composes with duration."),
+  untilElementGone: z.string().optional().describe("Stop recording when this selector disappears (e.g. a spinner)."),
+  untilIdle: z.string().optional().describe("Stop recording once the page has not repainted for this long (800ms)."),
+  timeout: z.string().optional().describe("How long a trigger may wait before giving up (default 30s). A start trigger that never fires records nothing and reports trigger_timeout."),
+  // The names before 2026-10-21, still accepted; prefer the camelCase ones.
+  max_frames: z.number().optional().describe("Old name for maxFrames"),
+  out_dir: z.string().optional().describe("Old name for outDir"),
+  attention_overlay: z.boolean().optional().describe("Old name for attentionOverlay"),
+  overlay_persona: z.string().optional().describe("Old name for overlayPersona"),
+  overlay_goal: z.string().optional().describe("Old name for overlayGoal"),
   _browserToken: z.string().optional().describe("Browser session token from a previous tool call"),
 };
 
@@ -1097,13 +1219,22 @@ export function registerCaptureTools(
   }, async ({ _browserToken, ...args }) => {
     // Hosted: out_dir picked the directory the root-run server wrote frames and
     // video into, and name is joined into that path unchecked, so "../x" did
-    // the same. url must be http(s) (sec-paths, 2026-10-10).
+    // the same. url must be http(s) (sec-paths, 2026-10-10). outDir is the same
+    // parameter under its camelCase name and is refused the same way.
     const hostedRefusal = refuseHostedUrl("capture_start", { url: args.url })
       ?? refuseHostedPath("capture_start", "out_dir", args.out_dir,
         "Omit out_dir: capture_stop returns the contact sheet in its response and the GIF/video through the artifact store.")
+      ?? refuseHostedPath("capture_start", "outDir", args.outDir,
+        "Omit outDir: capture_stop returns the contact sheet in its response and the GIF/video through the artifact store.")
       ?? refuseHostedPathName("capture_start", "name", args.name,
         'Use a plain name such as "hero-animation".');
     if (hostedRefusal) return hostedRefusal;
+    // A device relaunches the browser, which would drop a session's state
+    // (logins, the page). On token-bound sessions it applies only to a new one,
+    // as with navigate.
+    if (args.device !== undefined && _browserToken && getBrowserByToken) {
+      return errorContent(new Error("device applies when capture_start starts a session. Call it without _browserToken (or navigate with device first and pass that token without device)."));
+    }
     try {
       const { browser, token } = await resolveBrowser(_browserToken);
       const payload = await startCapture(browser, args, token);
