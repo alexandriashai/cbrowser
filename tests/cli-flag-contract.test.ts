@@ -175,3 +175,55 @@ describe("geo set", () => {
     expect(r.stdout.trim().split("\n").pop()).toBe("51.5,-0.12");
   }, TIMEOUT * 2);
 });
+
+/**
+ * A command that fails exits non-zero (audit 2026-10-21, output lane 5, 12,
+ * 13, 22; daemon lane 4, 7; MCP lane 4, 22). Each of these printed a failure,
+ * or nothing, and exited 0.
+ */
+describe("failures exit non-zero", () => {
+  test("ai click on a red-zone control is refused, not reported as clicked", async () => {
+    const r = await run("ai", "click", "Delete account", "--url", `${fixtures.base}red-zone.html`);
+    expect(r.code).toBe(1);
+    expect(r.stdout).not.toContain("Clicked element");
+  }, TIMEOUT);
+
+  test("record start says it cannot capture, instead of recording nothing", async () => {
+    const r = await run("record", "start", "--url", `${fixtures.base}static.html`);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cannot capture anything");
+  }, TIMEOUT);
+
+  test("an unknown extract kind is an error, not the page text", async () => {
+    const r = await run("extract", "link", "--url", `${fixtures.base}static.html`);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("extract takes one of");
+  }, TIMEOUT);
+
+  test("generate rejects an unknown --format", async () => {
+    const r = await run("generate", `${fixtures.base}static.html`, "--format", "yaml");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--format must be");
+  }, TIMEOUT);
+
+  test("repair-tests --output without --auto-apply is refused before running", async () => {
+    const testFile = join(dataDir, "one.txt");
+    await Bun.write(testFile, "# Test: one\ngo to about:blank\n");
+    const r = await run("repair-tests", testFile, "--output", join(dataDir, "fixed.txt"));
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("needs --auto-apply");
+  }, TIMEOUT);
+
+  test("session delete of an unknown name exits 1", async () => {
+    const r = await run("session", "delete", "no-such-session-xyz");
+    expect(r.code).toBe(1);
+  }, TIMEOUT);
+
+  for (const phrase of ["scroll down 300", "scroll to bottom", "reload"]) {
+    test(`run "${phrase}" runs (the parser knew it; the executor said "Unsupported action")`, async () => {
+      const r = await run("run", phrase);
+      expect(r.code, r.stdout + r.stderr).toBe(0);
+      expect(r.stdout + r.stderr).not.toContain("Unsupported action");
+    }, TIMEOUT);
+  }
+});

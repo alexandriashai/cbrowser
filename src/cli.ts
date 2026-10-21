@@ -1051,6 +1051,9 @@ function showCommandHelp(command: string): boolean {
  * against a second browser while the daemon holds the first. Anything listed
  * here must either be daemon-routed or refuse to run.
  */
+/** What `extract` can return (browser.extract). */
+const EXTRACT_KINDS = ["text", "links", "headings", "images", "forms"];
+
 const DRIVES_THE_PAGE = [
   "navigate", "click", "fill", "hover", "screenshot", "extract", "run",
   "keyboard", "press", "type", "evaluate", "eval", "drag", "upload",
@@ -3050,19 +3053,10 @@ async function main(): Promise<void> {
       fs.mkdirSync(skillsDir, { recursive: true });
     }
 
-    // Check if skill exists
-    if (fs.existsSync(skillDir)) {
-      console.log("CBrowser skill already exists. Updating...");
-      fs.rmSync(skillDir, { recursive: true });
-    }
-
-    // Create directories
-    console.log("Creating skill directory structure...");
-    fs.mkdirSync(path.join(skillDir, "Workflows"), { recursive: true });
-    fs.mkdirSync(path.join(skillDir, "Tools"), { recursive: true });
-    fs.mkdirSync(path.join(skillDir, ".memory", "sessions"), { recursive: true });
-
-    // Download files using native fetch (cross-platform, better error handling)
+    // Download everything first and change nothing unless every file arrived.
+    // This used to delete the installed skill (its .memory/sessions included)
+    // before downloading, then print "Installed Successfully" even when every
+    // download failed (audit 2026-10-21).
     console.log("Downloading skill files...");
     const files = [
       "SKILL.md",
@@ -3080,20 +3074,33 @@ async function main(): Promise<void> {
       "Tools/CBrowser.ts",
     ];
 
+    const downloaded = new Map<string, string>();
+    const failed: string[] = [];
     for (const file of files) {
       try {
         const url = `${repoUrl}/skill/${file}`;
-        const dest = path.join(skillDir, file);
         console.log(`  - ${file}`);
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        const content = await response.text();
-        fs.writeFileSync(dest, content, "utf-8");
+        downloaded.set(file, await response.text());
       } catch (e) {
-        console.log(`  Warning: Could not download ${file} (${(e as Error).message})`);
+        failed.push(`${file} (${(e as Error).message})`);
       }
+    }
+    if (failed.length > 0) {
+      console.error(`✗ ${failed.length} of ${files.length} files could not be downloaded; the installed skill was left unchanged:`);
+      for (const f of failed) console.error(`  ${f}`);
+      process.exit(1);
+    }
+
+    console.log(fs.existsSync(skillDir) ? "Updating the installed skill..." : "Creating skill directory structure...");
+    fs.mkdirSync(path.join(skillDir, "Workflows"), { recursive: true });
+    fs.mkdirSync(path.join(skillDir, "Tools"), { recursive: true });
+    fs.mkdirSync(path.join(skillDir, ".memory", "sessions"), { recursive: true });
+    for (const [file, content] of downloaded) {
+      fs.writeFileSync(path.join(skillDir, file), content, "utf-8");
     }
 
     console.log(`
@@ -3173,7 +3180,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log("🛑 Stopping CBrowser daemon...");
         const result = await stopDaemon();
         console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
-        process.exit(0);
+        process.exit(result.success ? 0 : 1);
         break;
       }
 
@@ -3345,6 +3352,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             extractWhat = args[0];
           }
         }
+        if (!EXTRACT_KINDS.includes(extractWhat.toLowerCase())) {
+          console.error(`Error: extract takes one of: ${EXTRACT_KINDS.join(", ")} (got "${extractWhat}")`);
+          process.exit(1);
+        }
         daemonArgs = { what: extractWhat, url: extractUrl || options.url };
         break;
       }
@@ -3455,7 +3466,14 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
         const result = await browser.navigate(url);
-        console.log(`✓ Navigated to: ${result.url}`);
+        // A navigation that landed somewhere else (an interstitial, a
+        // cross-host redirect) reports success: false; it used to print
+        // "Navigated to" and exit 0.
+        if (result.success === false) {
+          console.error(`✗ Navigation to ${url} did not land on that page (now at ${result.url})`);
+          process.exitCode = 1;
+        }
+        console.log(`${result.success === false ? "✗" : "✓"} Navigated to: ${result.url}`);
         console.log(`  Title: ${result.title}`);
         console.log(`  Load time: ${result.loadTime}ms`);
         console.log(`  Screenshot: ${result.screenshot}`);
@@ -3653,6 +3671,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         }
         if (url) {
           await browser.navigate(url);
+        }
+        // Five kinds exist. Anything else used to return the whole page text, so
+        // a typo ("link") or a description ("all product names") looked like a
+        // result (audit 2026-10-21).
+        if (!EXTRACT_KINDS.includes(what.toLowerCase())) {
+          console.error(`Error: extract takes one of: ${EXTRACT_KINDS.join(", ")} (got "${what}")`);
+          process.exit(1);
         }
         const result = await browser.extract(what);
         console.log(JSON.stringify(result.data, null, 2));
@@ -3889,6 +3914,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         const result = await browser.generateTests(url);
         const format = (options.format as string) || "summary";
+        // An unknown format printed nothing and exited 0.
+        if (!["summary", "cbrowser", "playwright", "all"].includes(format)) {
+          console.error(`Error: --format must be summary, cbrowser, playwright or all, got: ${format}`);
+          process.exit(1);
+        }
         const outputFile = options.output as string | undefined;
 
         let output = "";
@@ -4020,6 +4050,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         console.log("");
         console.log(`📊 Journey Results`);
         console.log(`   Success: ${result.success ? "✓" : "✗"}`);
+        if (!result.success) process.exitCode = 1;
         console.log(`   Steps: ${result.steps.length}`);
         console.log(`   Time: ${result.totalTime}ms`);
         console.log(`   Friction points: ${result.frictionPoints.length}`);
@@ -4543,6 +4574,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
               console.log(`✓ Session deleted: ${name}`);
             } else {
               console.error(`✗ Session not found: ${name}`);
+              process.exit(1);
             }
             break;
           }
@@ -4802,6 +4834,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log("\n📊 Performance Audit:\n");
           console.log(`  URL: ${result.url}`);
           console.log(`  Result: ${result.passed ? "✓ PASSED" : "✗ FAILED"}`);
+          if (!result.passed) process.exitCode = 1;
           console.log("");
           console.log("  Metrics:");
           if (result.metrics.lcp) console.log(`    LCP: ${result.metrics.lcp.toFixed(0)}ms (${result.metrics.lcpRating})`);
@@ -5021,6 +5054,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`  Difference: ${(result.diffPercentage * 100).toFixed(2)}%`);
             console.log(`  Threshold: ${(threshold * 100).toFixed(0)}%`);
             console.log(`  Result: ${result.passed ? "✓ PASSED" : "✗ FAILED"}`);
+            if (!result.passed) process.exitCode = 1;
             if (result.diffPath) {
               console.log(`  Diff image: ${result.diffPath}`);
             }
@@ -5723,6 +5757,18 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       case "record": {
         const subcommand = args[0];
 
+        // A recording has to span several commands, and each command is its own
+        // process, so start / stop / save each saw a fresh, empty recorder: stop
+        // always reported 0 actions and save wrote an empty test (audit
+        // 2026-10-21, the class HAR had until 19.4.3). Only list and generate
+        // work on their own; the rest are refused instead of pretending.
+        if (subcommand === "start" || subcommand === "stop" || subcommand === "save") {
+          console.error(`Error: 'record ${subcommand}' cannot capture anything: each cbrowser command is its own process, so a recording does not survive between them.`);
+          console.error("  To record a flow, write it as a test and run it in one process:");
+          console.error('    cbrowser test-suite --inline "go to https://example.com ; click Sign in ; verify page contains Welcome" --capture');
+          process.exit(1);
+        }
+
         switch (subcommand) {
           case "start": {
             const url = options.url as string;
@@ -6024,6 +6070,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             for (const r of results) {
               if (r.error) {
                 console.log(`  ✗ ${r.device}: ${r.error} (${r.duration}ms)`);
+                process.exitCode = 1;
               } else {
                 console.log(`  ✓ ${r.device}: ${r.result?.title} - ${r.result?.loadTime}ms (${r.duration}ms total)`);
               }
@@ -6060,6 +6107,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             for (const r of results) {
               if (r.error) {
                 console.log(`  ✗ ${r.url}: ${r.error}`);
+                process.exitCode = 1;
               } else {
                 console.log(`  ✓ ${r.url}: ${r.result?.title} (${r.result?.loadTime}ms)`);
               }
@@ -6093,6 +6141,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             for (const r of results) {
               if (r.error) {
                 console.log(`  ✗ ${r.url}: ${r.error}`);
+                process.exitCode = 1;
               } else {
                 const m = r.result;
                 console.log(`  ✓ ${r.url}`);
@@ -6172,6 +6221,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`✓ ${r.command}`);
           } else {
             console.log(`✗ ${r.command}`);
+            process.exitCode = 1;
             console.log(`  Error: ${r.error}`);
           }
         }
@@ -6225,7 +6275,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             const result = await findElementByIntent(browser, intent);
             if (result) {
               console.log(`✓ Found: ${result.description}`);
-              await browser.click(result.selector);
+              // The click's own result decides: a red-zone refusal or a miss used
+              // to print "Clicked element" and exit 0 (audit 2026-10-21).
+              const clicked = await browser.click(result.selector, { force: options.force === true });
+              if (!clicked.success) {
+                console.error(`✗ ${clicked.message}`);
+                process.exit(1);
+              }
               console.log(`✓ Clicked element`);
             } else {
               console.log(`✗ Could not find element matching: "${intent}"`);
@@ -6366,6 +6422,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 
         console.log(`📊 Results:\n`);
         console.log(`   Passed: ${result.passed ? "✅ Yes" : "❌ No"}`);
+        if (!result.passed) process.exitCode = 1;
         console.log(`   Duration: ${result.duration}ms`);
 
         if (result.errors.length > 0) {
@@ -6605,6 +6662,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
                   console.log(`  ✓ Completed (${Date.now() - start}ms)`);
                 } catch (e: any) {
                   console.log(`  ✗ Failed: ${e.message} (${Date.now() - start}ms)`);
+                  process.exitCode = 1;
                 }
               }
             }
@@ -6697,6 +6755,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.log(`   - ${test.name}: ${test.steps.length} steps`);
         }
 
+        // --output writes the repaired file, which only exists with --auto-apply;
+        // without it the flag used to do nothing and say nothing.
+        if (options.output && options["auto-apply"] !== true) {
+          console.error("Error: --output saves the repaired tests, which needs --auto-apply");
+          process.exit(1);
+        }
+
         const repairOptions: RepairTestOptions = {
           headless,
           autoApply: options["auto-apply"] === true,
@@ -6739,6 +6804,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         // Exit with status based on whether repairs were needed
         if (result.summary.testsWithFailures > 0 && !repairOptions.autoApply) {
           console.log("\n💡 Run with --auto-apply to automatically fix issues");
+          process.exit(1);
+        }
+        // With --auto-apply, a test that failed and was not repaired still fails.
+        if (result.summary.testsRepaired < result.summary.testsWithFailures) {
+          console.error(`✗ ${result.summary.testsWithFailures - result.summary.testsRepaired} failing test(s) could not be repaired`);
           process.exit(1);
         }
         break;
@@ -7352,7 +7422,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           // goalAchieved genuinely means the persona reached the goal — unlike
           // the empathy audit's field of the same old name, which measured
           // barriers and was renamed to noBlockingBarriers.
-          process.exit(result.goalAchieved ? 0 : 1);
+          // Keep a failure reportAutoCapture already set: a lost capture used
+          // to be overwritten by the goal's 0.
+          process.exit(result.goalAchieved ? (process.exitCode ?? 0) : 1);
         } catch (error: any) {
           console.error(`\n❌ Error: ${error.message}`);
           process.exit(1);
@@ -7459,6 +7531,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         for (const site of result.sites) {
           const rank = result.ranking.find(r => r.site === site.siteName)?.rank || "-";
           const score = site.score !== null ? site.score.toString().padStart(3) : "ERR";
+          // A site that could not be scored is a failed run, not a blank row.
+          if (site.score === null) process.exitCode = 1;
           const grade = site.grade || "-";
           const find = site.scoreBreakdown?.findability?.toString().padStart(3) || "-";
           const stab = site.scoreBreakdown?.stability?.toString().padStart(3) || "-";

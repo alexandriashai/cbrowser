@@ -104,6 +104,43 @@ export async function executeNaturalLanguage(browser: CBrowser, command: string)
       case "fill":
         result = await browser.fill(params.selector, params.value);
         break;
+      // The parser has always recognised these; until 20.0 they fell through
+      // to "Unsupported action", so `run "scroll down"` never scrolled.
+      case "back":
+        await (await browser.getPage()).goBack();
+        result = { url: (await browser.getPage()).url() };
+        break;
+      case "forward":
+        await (await browser.getPage()).goForward();
+        result = { url: (await browser.getPage()).url() };
+        break;
+      case "reload":
+        await (await browser.getPage()).reload();
+        result = { url: (await browser.getPage()).url() };
+        break;
+      case "select": {
+        const locator = await browser.resolveElementLocator(params.selector);
+        if (!locator) return { success: false, action, error: `No element matched: ${params.selector}` };
+        result = { selected: await locator.selectOption(params.value) };
+        break;
+      }
+      case "waitFor":
+        await (await browser.getPage()).waitForSelector(params.selector, { timeout: 30_000 });
+        result = { found: params.selector };
+        break;
+      case "scroll": {
+        const page = await browser.getPage();
+        await page.evaluate((dir) => window.scrollTo(0, dir === "top" ? 0 : document.documentElement.scrollHeight), params.direction.toLowerCase());
+        result = { scrollY: await page.evaluate(() => window.scrollY) };
+        break;
+      }
+      case "scrollBy": {
+        const page = await browser.getPage();
+        const amount = Number(params.amount) * (params.direction.toLowerCase() === "up" ? -1 : 1);
+        await page.evaluate((dy) => window.scrollBy(0, dy), amount);
+        result = { scrollY: await page.evaluate(() => window.scrollY) };
+        break;
+      }
       case "screenshot":
         result = await browser.screenshot(params.path || undefined);
         break;
@@ -122,6 +159,10 @@ export async function executeNaturalLanguage(browser: CBrowser, command: string)
         return { success: false, action, error: `Unsupported action: ${action}` };
     }
 
+    // A click or fill that ran but failed (refused, not found) is a failure;
+    // it used to be wrapped as success.
+    const r = result as { success?: boolean; message?: string } | undefined;
+    if (r && r.success === false) return { success: false, action, result, error: r.message ?? "The action did not succeed" };
     return { success: true, action, result };
   } catch (e: any) {
     return { success: false, action, error: e.message };
