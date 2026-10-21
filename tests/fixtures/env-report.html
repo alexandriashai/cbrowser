@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Environment report</title></head>
+<body>
+<!-- Prints what the browser was configured with, so a test can assert that a
+     CLI flag reached the browser rather than being accepted and dropped. -->
+<p id="tz"></p><p id="lang"></p>
+<script>
+document.getElementById("tz").textContent = "tz=" + Intl.DateTimeFormat().resolvedOptions().timeZone;
+document.getElementById("lang").textContent = "lang=" + navigator.language;
+</script>
+</body>
+</html>

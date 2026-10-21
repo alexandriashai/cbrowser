@@ -393,3 +393,12 @@ describe("help, flags and output", () => {
     }
   }, TIMEOUT * 2);
 });
+
+describe("test-suite takes the global browser flags", () => {
+  test("--timezone and --locale reach the suite's browser", async () => {
+    const file = join(dataDir, "env.txt");
+    await Bun.write(file, `# Test: env\ngo to ${fixtures.base}env-report.html\nverify page contains "tz=Asia/Tokyo"\nverify page contains "lang=fr-FR"\n`);
+    const r = await run("test-suite", file, "--timezone", "Asia/Tokyo", "--locale", "fr-FR", "--no-persistent");
+    expect(r.code, r.stdout + r.stderr).toBe(0);
+  }, TIMEOUT * 2);
+});

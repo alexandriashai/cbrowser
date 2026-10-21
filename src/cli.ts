@@ -6812,6 +6812,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           headless,
           device: typeof options.device === "string" ? options.device : undefined,
           viewport: viewportOverride,
+          ...(options.browser !== undefined ? { browser: browserType } : {}),
+          ...(geolocation ? { geolocation } : {}),
+          ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
+          ...(typeof options.timezone === "string" ? { timezone: options.timezone } : {}),
           fuzzyMatch: options["fuzzy-match"] === true,
           capture: buildAutoCaptureSetting(options, `test-suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
         };

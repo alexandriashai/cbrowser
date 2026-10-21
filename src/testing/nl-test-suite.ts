@@ -394,6 +394,15 @@ export interface NLTestSuiteOptions {
   device?: string;
   /** Page size for the run; wins over the device preset's size */
   viewport?: { width: number; height: number };
+  /**
+   * The CLI's other global browser flags (--browser, --geo, --locale,
+   * --timezone). test-suite accepted them and built its browser without them
+   * (audit 2026-10-21).
+   */
+  browser?: "chromium" | "firefox" | "webkit";
+  geolocation?: { latitude: number; longitude: number; accuracy?: number };
+  locale?: string;
+  timezone?: string;
   /** Use fuzzy matching for text assertions */
   fuzzyMatch?: boolean;
   /**
@@ -558,6 +567,10 @@ export async function runNLTestSuite(
     capture,
     device,
     viewport,
+    browser: engine,
+    geolocation,
+    locale,
+    timezone,
   } = options;
 
   const startTime = Date.now();
@@ -571,6 +584,10 @@ export async function runNLTestSuite(
 
   const browser = new CBrowser({
     headless,
+    ...(engine ? { browser: engine } : {}),
+    ...(geolocation ? { geolocation } : {}),
+    ...(locale ? { locale } : {}),
+    ...(timezone ? { timezone } : {}),
     ...(device ? { device } : {}),
     ...(viewport ? { viewportWidth: viewport.width, viewportHeight: viewport.height, viewportOverride: viewport } : {}),
   });
