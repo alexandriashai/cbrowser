@@ -16,10 +16,12 @@ import { VERSION } from "../version.js";
 import { join } from "path";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import { resolveDevice } from "../devices.js";
 import { VIEWPORT_PRESETS } from "../types.js";
 import { effectiveDataDir, getPaths } from "../config.js";
 import type {
+  BrowserLaunchOptions,
   VisualBaseline,
   VisualChange,
   AIVisualAnalysis,
@@ -172,17 +174,18 @@ function saveVisualBaselines(baselines: VisualBaseline[]): void {
 export async function captureVisualBaseline(
   url: string,
   name: string,
-  options: {
+  options: BrowserLaunchOptions & {
     selector?: string;
-    device?: string;
-    viewport?: { width: number; height: number };
     waitFor?: string | number;
   } = {}
 ): Promise<VisualBaseline> {
+  // 1920x1080 unless a device or viewport says otherwise. A viewport with a
+  // device now sets the size (the device used to win silently), and headless
+  // and the engine reach the browser (audit D20).
   const browser = new CBrowser({
-    device: options.device,
-    viewportWidth: options.viewport?.width || 1920,
-    viewportHeight: options.viewport?.height || 1080,
+    viewportWidth: 1920,
+    viewportHeight: 1080,
+    ...browserLaunchConfig(options),
   });
 
   try {
@@ -224,6 +227,7 @@ export async function captureVisualBaseline(
       dimensions: viewport,
       viewport,
       device: options.device,
+      ...(options.browser ? { browser: options.browser } : {}),
       timestamp: new Date().toISOString(),
       selector: options.selector,
     };
@@ -1230,12 +1234,15 @@ export async function runVisualRegression(
     };
   }
 
-  // Capture current screenshot with same settings as baseline
-  const browser = new CBrowser({
+  // Capture current screenshot with same settings as baseline: its device,
+  // size and engine. The size is an explicit viewport, so a baseline captured
+  // with a device AND a size renders at that size again.
+  const browser = new CBrowser(browserLaunchConfig({
+    headless: options.headless,
+    browser: baseline.browser,
     device: baseline.device,
-    viewportWidth: baseline.viewport.width,
-    viewportHeight: baseline.viewport.height,
-  });
+    viewport: baseline.viewport,
+  }));
 
   try {
     await browser.launch();

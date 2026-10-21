@@ -7505,11 +7505,13 @@ For more help: https://playwright.dev/docs/browsers
   static async parallelDevices<T>(
     devices: string[],
     run: (browser: CBrowser, device: string) => Promise<T>,
-    options: { maxConcurrency?: number } = {}
+    options: { maxConcurrency?: number; config?: Partial<import("./config.js").CBrowserConfig> } = {}
   ): Promise<Array<{ device: string; result?: T; error?: string; duration: number }>> {
+    // `config` is shared by every device (headless, engine); each task's own
+    // device wins over one in it.
     const tasks = devices.map(device => ({
       name: device,
-      config: { device },
+      config: { ...options.config, device },
       run: (browser: CBrowser) => run(browser, device),
     }));
 

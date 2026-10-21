@@ -17,6 +17,7 @@ import { join } from "path";
 import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import type { CBrowserConfig } from "../config.js";
 import { resolveDevice } from "../devices.js";
 import type {
@@ -323,7 +324,10 @@ async function captureAtViewport(
 ): Promise<ResponsiveScreenshot> {
   const startTime = Date.now();
 
-  const browser = new CBrowser(presetBrowserConfig(viewport));
+  const browser = new CBrowser({
+    ...presetBrowserConfig(viewport),
+    ...browserLaunchConfig({ headless: options.headless, browser: options.browser }),
+  });
 
   try {
     await browser.launch();

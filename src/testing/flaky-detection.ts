@@ -14,7 +14,9 @@
 import type { Page } from "playwright";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import type {
+  BrowserLaunchOptions,
   NLTestCase,
   FlakyTestRun,
   FlakyStepAnalysis,
@@ -22,7 +24,7 @@ import type {
   FlakyTestSuiteResult,
 } from "../types.js";
 
-export interface FlakyTestOptions {
+export interface FlakyTestOptions extends BrowserLaunchOptions {
   /** Number of times to run each test (default: 5) */
   runs?: number;
   /** Run headless */
@@ -74,9 +76,11 @@ function classifyTest(
 async function runTestOnce(
   test: NLTestCase,
   runNumber: number,
-  headless: boolean
+  launch: BrowserLaunchOptions
 ): Promise<FlakyTestRun> {
-  const browser = new CBrowser({ headless });
+  // Engine, device and viewport too: only headless reached the browser
+  // (audit D20), so `flaky-check --device iphone-15` tested the desktop page.
+  const browser = new CBrowser(browserLaunchConfig(launch));
   const stepResults: { instruction: string; passed: boolean; error?: string }[] = [];
   let testPassed = true;
   let testError: string | undefined;
@@ -190,7 +194,12 @@ async function analyzeTestFlakiness(
   console.log(`\n   🔄 Running ${runs} times...`);
 
   for (let i = 1; i <= runs; i++) {
-    const result = await runTestOnce(test, i, headless);
+    const result = await runTestOnce(test, i, {
+      headless,
+      browser: options.browser,
+      device: options.device,
+      viewport: options.viewport,
+    });
     testRuns.push(result);
 
     const icon = result.passed ? "✓" : "✗";

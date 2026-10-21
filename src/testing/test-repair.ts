@@ -14,7 +14,9 @@
 import type { Page } from "playwright";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
 import type {
+  BrowserLaunchOptions,
   NLTestStep,
   NLTestCase,
   FailureType,
@@ -359,7 +361,7 @@ async function analyzeFailure(
   };
 }
 
-export interface RepairTestOptions {
+export interface RepairTestOptions extends BrowserLaunchOptions {
   /** Run headless */
   headless?: boolean;
   /** Automatically apply the best repair */
@@ -384,7 +386,10 @@ export async function repairTest(
     maxRetries = 3,
   } = options;
 
-  const browser = new CBrowser({ headless });
+  // Engine, device and viewport too: only headless reached the browser (audit
+  // D20). The verify run below uses the same ones.
+  const launch = browserLaunchConfig({ headless, browser: options.browser, device: options.device, viewport: options.viewport });
+  const browser = new CBrowser(launch);
   const failureAnalyses: FailureAnalysis[] = [];
   const repairedSteps: NLTestStep[] = [];
   let failedSteps = 0;
@@ -565,7 +570,7 @@ export async function repairTest(
       console.log(`\n   🔄 Verifying repaired test...`);
       await browser.close();
 
-      const verifyBrowser = new CBrowser({ headless });
+      const verifyBrowser = new CBrowser(launch);
       try {
         await verifyBrowser.launch();
 

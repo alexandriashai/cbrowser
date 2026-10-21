@@ -17,8 +17,11 @@ import { join } from "path";
 import { effectiveDataDir } from "../config.js";
 
 import { CBrowser } from "../browser.js";
+import { browserLaunchConfig } from "../browser-options.js";
+import { DEVICE_PRESETS, resolveDevice } from "../devices.js";
 import { navigationError } from "../navigation-errors.js";
 import type {
+  BrowserLaunchOptions,
   SupportedBrowser,
   BrowserScreenshot,
   BrowserComparison,
@@ -97,10 +100,13 @@ async function captureWithBrowser(
 ): Promise<BrowserScreenshot> {
   const startTime = Date.now();
 
+  // 1920x1080 unless a device or viewport says otherwise; headless, the device
+  // and the viewport reach the browser (audit D20). The engine is this run's.
   const browser = new CBrowser({
+    viewportWidth: 1920,
+    viewportHeight: 1080,
+    ...browserLaunchConfig({ headless: options.headless, device: options.device, viewport: options.viewport }),
     browser: browserType,
-    viewportWidth: options.viewport?.width || 1920,
-    viewportHeight: options.viewport?.height || 1080,
   });
 
   try {
@@ -720,11 +726,35 @@ export interface BrowserDiffResult {
 
 /**
  * Compare page behavior across multiple browsers.
+ *
+ * `options` sets headless, a device and the page size for every browser. The
+ * page was always headless at Playwright's 1280x720 while cross-browser
+ * captures at 1920x1080; it is now 1920x1080 too (audit D20). Firefox cannot
+ * emulate a mobile device, so with one it reports an error for itself.
  */
 export async function crossBrowserDiff(
   url: string,
-  browsers: Array<"chromium" | "firefox" | "webkit"> = ["chromium", "firefox", "webkit"]
+  browsers: Array<"chromium" | "firefox" | "webkit"> = ["chromium", "firefox", "webkit"],
+  options: Omit<BrowserLaunchOptions, "browser"> = {}
 ): Promise<BrowserDiffResult> {
+  let descriptor: (typeof DEVICE_PRESETS)[string] | undefined;
+  if (options.device) {
+    const resolved = resolveDevice(options.device);
+    if ("error" in resolved) throw new Error(resolved.error);
+    descriptor = DEVICE_PRESETS[resolved.key];
+  }
+  const contextOptions = {
+    viewport: options.viewport ?? descriptor?.viewport ?? { width: 1920, height: 1080 },
+    ...(descriptor
+      ? {
+          ...(descriptor.userAgent ? { userAgent: descriptor.userAgent } : {}),
+          deviceScaleFactor: descriptor.deviceScaleFactor,
+          isMobile: descriptor.isMobile,
+          hasTouch: descriptor.hasTouch,
+        }
+      : {}),
+  };
+
   // Check browser availability upfront
   const { available, missing } = await checkBrowserAvailability(browsers);
 
@@ -763,8 +793,8 @@ export async function crossBrowserDiff(
     const launcher = browserLaunchers[browserName];
     let browser: any = null;
     try {
-      browser = await launcher.launch({ headless: true });
-      const page = await browser.newPage();
+      browser = await launcher.launch({ headless: options.headless ?? true });
+      const page = await browser.newPage(contextOptions);
 
       const startTime = Date.now();
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })

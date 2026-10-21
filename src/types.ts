@@ -3828,6 +3828,8 @@ export interface PerformanceBaseline {
     viewport: { width: number; height: number };
     device?: string;
     connection?: string;
+    /** The device and page size the capture was asked for; a regression check renders with the same */
+    requested?: { device?: string; viewport?: { width: number; height: number } };
   };
 }
 
@@ -4055,7 +4057,7 @@ export interface CoverageMapResult {
   recommendations: string[];
 }
 
-export interface CoverageMapOptions {
+export interface CoverageMapOptions extends BrowserLaunchOptions {
   /** Sitemap URL to use instead of crawling */
   sitemapUrl?: string;
   /** Max pages to crawl (default: 100) */
@@ -4089,6 +4091,8 @@ export interface VisualBaseline {
   viewport: { width: number; height: number };
   /** Device emulation if any */
   device?: string;
+  /** Browser engine, when one was chosen at capture; a test renders with the same one */
+  browser?: SupportedBrowser;
   /** Timestamp of capture */
   timestamp: string;
   /** Optional element selector for partial screenshot */
@@ -4172,6 +4176,8 @@ export interface VisualRegressionOptions {
   generateDiff?: boolean;
   /** Wait time before capture (ms) */
   waitBeforeCapture?: number;
+  /** Run headless. The page shape and engine are the baseline's. */
+  headless?: boolean;
 }
 
 export interface VisualTestSuite {
@@ -4215,6 +4221,24 @@ export interface VisualTestSuiteResult {
 // ============================================================================
 
 export type SupportedBrowser = "chromium" | "firefox" | "webkit";
+
+/**
+ * The browser a library function launches for its caller (browserLaunchConfig
+ * in browser-options.ts builds the CBrowser config). The visual, testing and
+ * performance functions each build their own browser and took at most
+ * `headless`, so the CLI's --browser, --device and --viewport changed nothing
+ * on them (audit D20/F20, 2026-10-21).
+ */
+export interface BrowserLaunchOptions {
+  /** Run headless. Unset: the configured default (headless). */
+  headless?: boolean;
+  /** Browser engine. Unset: the configured default (chromium). */
+  browser?: SupportedBrowser;
+  /** Device preset (devices.ts): user agent, touch, pixel ratio and size */
+  device?: string;
+  /** Page size. With a device, it sets the size and the device keeps its pixel ratio, touch and user agent. */
+  viewport?: { width: number; height: number };
+}
 
 /**
  * Layout element for content-aware cross-browser comparison (v14.3.0)
@@ -4291,10 +4315,10 @@ export interface CrossBrowserResult {
   suggestion?: string;
 }
 
-export interface CrossBrowserOptions {
+export interface CrossBrowserOptions extends Omit<BrowserLaunchOptions, "browser"> {
   /** Browsers to test (default: all three) */
   browsers?: SupportedBrowser[];
-  /** Viewport dimensions */
+  /** Viewport dimensions (default: 1920x1080) */
   viewport?: { width: number; height: number };
   /** Wait before screenshot (ms) */
   waitBeforeCapture?: number;
@@ -4465,7 +4489,7 @@ export interface ResponsiveTestResult {
 }
 
 /** Options for responsive testing */
-export interface ResponsiveTestOptions {
+export interface ResponsiveTestOptions extends Pick<BrowserLaunchOptions, "headless" | "browser"> {
   /** Viewport presets to test (default: mobile, tablet, desktop) */
   viewports?: (string | ViewportPreset)[];
   /** Wait before screenshot (ms) */
@@ -4581,10 +4605,10 @@ export interface ABComparisonResult {
 }
 
 /** Options for A/B comparison */
-export interface ABComparisonOptions {
+export interface ABComparisonOptions extends BrowserLaunchOptions {
   /** Custom labels for A and B */
   labels?: { a: string; b: string };
-  /** Viewport dimensions */
+  /** Viewport dimensions (default: 1920x1080) */
   viewport?: { width: number; height: number };
   /** Wait before screenshot (ms) */
   waitBeforeCapture?: number;
