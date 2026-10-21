@@ -372,7 +372,7 @@ describe("help, flags and output", () => {
     await Bun.write(file, `# Test: one\ngo to ${fixtures.base}static.html\n`);
     const r = await run("test-suite", file, "--timeout", "soon");
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain("--timeout:");
+    expect(r.stderr).toContain("--timeout must be a positive number");
   }, TIMEOUT);
 
   test("--viewport takes a size name", async () => {

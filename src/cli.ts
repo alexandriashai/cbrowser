@@ -1306,8 +1306,8 @@ function timeoutOption(value: string | boolean | undefined, fallbackMs: number):
   if (value === undefined) return fallbackMs;
   try {
     return parseDurationMs(String(value));
-  } catch (e) {
-    console.error(`Error: --timeout: ${(e as Error).message}`);
+  } catch {
+    console.error(`Error: --timeout must be a positive number of milliseconds or a duration (5s, 2m, 1h), got "${String(value)}"`);
     process.exit(1);
   }
 }
@@ -3354,8 +3354,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           let ms: number;
           try {
             ms = /^\d+(\.\d+)?$/.test(raw) ? Math.round(parseFloat(raw) * 60_000) : parseDurationMs(raw);
-          } catch (e) {
-            console.error(`Error: --timeout: ${(e as Error).message}`);
+          } catch {
+            console.error(`Error: --timeout must be a positive number of minutes or a duration (90s, 45m, 2h), got "${raw}"`);
             process.exit(1);
           }
           if (!(ms > 0)) {
