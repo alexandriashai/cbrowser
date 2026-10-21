@@ -235,7 +235,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US') — for readability calibration"),
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing (e.g., 'http://user:pass@proxy.example.com:12321'). Routes browser through the proxy so sites see the proxy's IP/location instead of the server's."),
       geoRegion: z.string().optional().describe("Route through a residential proxy in this region. Available: us-west, us-east, us-central, uk, germany, japan. Overrides proxy parameter."),
-      device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: no emulation, at the configured viewport (1280x800 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used."),
+      device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used."),
       waitAfterLoad: z.number().optional().describe("Extra milliseconds to wait after page loads. Use for sites with client-side translation or deferred rendering (e.g., 3000-5000 for i18n sites)."),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load. Example: '[data-translated]', '.content-loaded'. Times out gracefully."),
       scope: z.enum(["viewport", "full_page"]).optional().default("viewport").describe("What to measure: 'viewport' (first impression, above-the-fold — default) or 'full_page' (scroll through entire page). Viewport is right for landing page optimization; full_page for WCAG compliance."),
@@ -719,7 +719,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       persona: z.string().optional().default("cognitive-adhd").describe("Persona name"),
-      device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop' (1920x1080), or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: no emulation, at the configured viewport (1280x800 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used. Ignored with _browserToken (the session keeps its own)."),
+      device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop' (1920x1080), or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used. Ignored with _browserToken (the session keeps its own)."),
       useValues: z.boolean().optional().default(false).describe("Enable motivational value influence on saliency map generation, attention scoring, and narrative. Default: false."),
       // Goal-directed attention is the largest single lever in the semantic
       // layer: computeGoalRelevance boosts any element whose text matches the

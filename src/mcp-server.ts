@@ -45,9 +45,6 @@ import {
   calculateDecisionSpeedModifier,
 } from "./cognitive/emotions.js";
 import type {
-  CognitiveState,
-  AbandonmentThresholds,
-  CognitiveProfile,
   AccessibilityPersona,
   AccessibilityBarrier,
   AccessibilityBarrierType,
@@ -70,35 +67,6 @@ async function getBrowser(): Promise<CBrowser> {
   return browser;
 }
 
-// =========================================================================
-// Comparison Session Bridge (for API-free persona comparisons via Claude)
-// =========================================================================
-
-interface ComparisonSession {
-  id: string;
-  url: string;
-  goal: string;
-  personas: Array<{
-    name: string;
-    description: string;
-    profile: CognitiveProfile;
-    initialState: CognitiveState;
-    thresholds: AbandonmentThresholds;
-  }>;
-  results: Array<{
-    persona: string;
-    goalAchieved: boolean;
-    abandonmentReason?: string;
-    finalState: CognitiveState;
-    stepCount: number;
-    timeElapsed: number;
-    frictionPoints: Array<{ type: string; description: string }>;
-  }>;
-  createdAt: number;
-}
-
-// Session storage (in-memory, cleared when server restarts)
-const comparisonSessions = new Map<string, ComparisonSession>();
 
 // =========================================================================
 // Empathy Audit Session Bridge (for API-free accessibility testing via Claude)
@@ -183,11 +151,6 @@ const empathyAuditSessions = new Map<string, EmpathyAuditSession>();
 // Cleanup old sessions (older than 1 hour)
 function cleanupOldSessions(): void {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  for (const [id, session] of comparisonSessions) {
-    if (session.createdAt < oneHourAgo) {
-      comparisonSessions.delete(id);
-    }
-  }
   for (const [id, session] of empathyAuditSessions) {
     if (session.createdAt < oneHourAgo) {
       empathyAuditSessions.delete(id);
@@ -350,198 +313,11 @@ async function registerCBrowserTools(): Promise<McpServer> {
 
   // Only stdio-only tools below: session bridges whose state lives in this
   // process. Anything that exists on the shared path belongs there, not here.
-  // =========================================================================
-  // Persona Comparison Session Bridge (API-free via Claude orchestration)
-  // =========================================================================
-
-
-  server.tool(
-    "compare_personas_record_result",
-    "Record the journey result for a persona in the comparison session. Call this when a persona's journey is complete (success or abandonment).",
-    {
-      sessionId: z.string().describe("Session ID from compare_personas_init"),
-      persona: z.string().describe("Persona name"),
-      goalAchieved: z.boolean().describe("Whether the goal was accomplished"),
-      abandonmentReason: z.enum(["patience", "confusion", "frustration", "no_progress", "loop", "timeout"]).optional().describe("Why the persona abandoned (if goalAchieved is false)"),
-      finalState: z.object({
-        patienceRemaining: z.number().describe("Final patience level (0-1)"),
-        confusionLevel: z.number().describe("Final confusion level (0-1)"),
-        frustrationLevel: z.number().describe("Final frustration level (0-1)"),
-        stepCount: z.number().describe("Total number of actions taken"),
-        timeElapsed: z.number().describe("Total seconds elapsed"),
-      }).describe("Final cognitive state"),
-      frictionPoints: z.array(z.object({
-        type: z.string().describe("Type of friction (e.g., 'navigation', 'form', 'loading')"),
-        description: z.string().describe("Description of the friction point"),
-      })).optional().describe("Friction points encountered during journey"),
-    },
-    async ({ sessionId, persona, goalAchieved, abandonmentReason, finalState, frictionPoints }) => {
-      const session = comparisonSessions.get(sessionId);
-      if (!session) {
-        return {
-          isError: true,
-          content: [{ type: "text", text: JSON.stringify({ error: "Session not found", sessionId }) }],
-        };
-      }
-
-      // Add result
-      session.results.push({
-        persona,
-        goalAchieved,
-        abandonmentReason,
-        finalState: {
-          ...finalState,
-          goalProgress: goalAchieved ? 1.0 : 0.5,
-          confidenceLevel: goalAchieved ? 0.9 : 0.3,
-          currentMood: goalAchieved ? "relieved" : "defeated",
-          memory: {
-            pagesVisited: [],
-            actionsAttempted: [],
-            errorsEncountered: [],
-            backtrackCount: 0,
-          },
-        },
-        stepCount: finalState.stepCount,
-        timeElapsed: finalState.timeElapsed,
-        frictionPoints: frictionPoints || [],
-      });
-
-      const remaining = session.personas.length - session.results.length;
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              recorded: true,
-              persona,
-              goalAchieved,
-              resultCount: session.results.length,
-              totalPersonas: session.personas.length,
-              remaining,
-              nextStep: remaining > 0
-                ? `Run journey for ${remaining} more persona(s), then call compare_personas_summarize`
-                : "All personas complete. Call compare_personas_summarize to get the comparison report.",
-            }, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  server.tool(
-    "compare_personas_summarize",
-    "Generate the final comparison summary after all persona journeys are complete. Returns rankings, insights, and recommendations.",
-    {
-      sessionId: z.string().describe("Session ID from compare_personas_init"),
-    },
-    async ({ sessionId }) => {
-      const session = comparisonSessions.get(sessionId);
-      if (!session) {
-        return {
-          isError: true,
-          content: [{ type: "text", text: JSON.stringify({ error: "Session not found", sessionId }) }],
-        };
-      }
-
-      if (session.results.length === 0) {
-        return {
-          isError: true,
-          content: [{ type: "text", text: JSON.stringify({ error: "No results recorded yet", sessionId }) }],
-        };
-      }
-
-      // Generate summary (deterministic aggregation)
-      const successfulResults = session.results.filter(r => r.goalAchieved);
-      const failedResults = session.results.filter(r => !r.goalAchieved);
-
-      const sortedByTime = [...successfulResults].sort((a, b) => a.timeElapsed - b.timeElapsed);
-      const sortedBySteps = [...successfulResults].sort((a, b) => a.stepCount - b.stepCount);
-      const sortedByFriction = [...session.results].sort((a, b) => b.frictionPoints.length - a.frictionPoints.length);
-
-      // Collect all friction points
-      const allFrictionPoints = session.results.flatMap(r => r.frictionPoints.map(fp => fp.type));
-      const frictionCounts = allFrictionPoints.reduce((acc, fp) => {
-        acc[fp] = (acc[fp] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const commonFriction = Object.entries(frictionCounts)
-        .filter(([_, count]) => count > 1)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([fp]) => fp);
-
-      // Generate recommendations
-      const recommendations: string[] = [];
-
-      // Abandonment analysis
-      const abandonedByPatience = failedResults.filter(r => r.abandonmentReason === "patience");
-      const abandonedByFrustration = failedResults.filter(r => r.abandonmentReason === "frustration");
-      const abandonedByConfusion = failedResults.filter(r => r.abandonmentReason === "confusion");
-
-      if (abandonedByPatience.length > 0) {
-        recommendations.push(`${abandonedByPatience.length} persona(s) abandoned due to PATIENCE exhaustion: ${abandonedByPatience.map(r => r.persona).join(", ")} - consider shorter flows`);
-      }
-      if (abandonedByFrustration.length > 0) {
-        recommendations.push(`${abandonedByFrustration.length} persona(s) abandoned due to FRUSTRATION: ${abandonedByFrustration.map(r => r.persona).join(", ")} - review error messages and feedback`);
-      }
-      if (abandonedByConfusion.length > 0) {
-        recommendations.push(`${abandonedByConfusion.length} persona(s) abandoned due to CONFUSION: ${abandonedByConfusion.map(r => r.persona).join(", ")} - improve UI clarity and labeling`);
-      }
-
-      if (sortedByFriction[0]?.frictionPoints.length > 0) {
-        recommendations.push(`"${sortedByFriction[0].persona}" experienced the most friction (${sortedByFriction[0].frictionPoints.length} points)`);
-      }
-
-      // Calculate averages
-      const avgTime = session.results.reduce((sum, r) => sum + r.timeElapsed, 0) / session.results.length;
-      const avgSteps = session.results.reduce((sum, r) => sum + r.stepCount, 0) / session.results.length;
-
-      const summary = {
-        sessionId,
-        url: session.url,
-        goal: session.goal,
-        timestamp: new Date().toISOString(),
-        totalPersonas: session.personas.length,
-        successCount: successfulResults.length,
-        failureCount: failedResults.length,
-        successRate: `${Math.round((successfulResults.length / session.results.length) * 100)}%`,
-        fastestPersona: sortedByTime[0]?.persona || "N/A",
-        slowestPersona: sortedByTime[sortedByTime.length - 1]?.persona || "N/A",
-        fewestSteps: sortedBySteps[0]?.persona || "N/A",
-        mostFriction: sortedByFriction[0]?.persona || "N/A",
-        leastFriction: sortedByFriction[sortedByFriction.length - 1]?.persona || "N/A",
-        avgCompletionTime: Math.round(avgTime),
-        avgSteps: Math.round(avgSteps),
-        commonFrictionPoints: commonFriction,
-        recommendations,
-        results: session.results.map(r => ({
-          persona: r.persona,
-          success: r.goalAchieved,
-          abandonmentReason: r.abandonmentReason,
-          timeElapsed: r.timeElapsed,
-          stepCount: r.stepCount,
-          frictionCount: r.frictionPoints.length,
-          finalPatience: Math.round(r.finalState.patienceRemaining * 100) + "%",
-          finalFrustration: Math.round(r.finalState.frustrationLevel * 100) + "%",
-          finalConfusion: Math.round(r.finalState.confusionLevel * 100) + "%",
-        })),
-      };
-
-      // Clean up session after summarizing
-      comparisonSessions.delete(sessionId);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(summary, null, 2),
-          },
-        ],
-      };
-    }
-  );
+  // compare_personas_record_result and compare_personas_summarize were removed
+  // in 20.0.0: nothing created the session they looked up (the stdio
+  // compare_personas_init went 2026-08-01 and the shared one returns no
+  // sessionId), so both always answered "Session not found" (audit M, Alexa
+  // 2026-10-21).
 
   // =========================================================================
   // Empathy Audit Session Bridge (API-free via Claude orchestration)

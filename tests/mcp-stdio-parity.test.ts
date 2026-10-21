@@ -37,9 +37,9 @@ afterAll(() => {
 });
 
 /** Tools only the stdio server has: session bridges that keep state in its process. */
+// compare_personas_record_result and compare_personas_summarize were removed in
+// 20.0.0: nothing created the session they read (Alexa, 2026-10-21).
 const STDIO_ONLY = [
-  "compare_personas_record_result",
-  "compare_personas_summarize",
   "empathy_audit_complete_persona",
   "empathy_audit_init",
   "empathy_audit_record_barrier",

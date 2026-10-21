@@ -219,8 +219,11 @@ export function getDefaultConfig(): CBrowserConfig {
     dataDir,
     browser: parseBrowserType(process.env.CBROWSER_BROWSER || configFile?.browser),
     headless: process.env.CBROWSER_HEADLESS !== "false" && (configFile?.headless !== false),
-    viewportWidth: parseInt(process.env.CBROWSER_VIEWPORT_WIDTH || (configFile?.viewport?.width?.toString()) || "1280", 10) || 1280,
-    viewportHeight: parseInt(process.env.CBROWSER_VIEWPORT_HEIGHT || (configFile?.viewport?.height?.toString()) || "800", 10) || 800,
+    // 1920x1080 since 20.0.0 (Alexa, 2026-10-21): the size "desktop" means
+    // everywhere else. It was 1280x800, so a run with no device measured a
+    // smaller page than one asking for "desktop".
+    viewportWidth: parseInt(process.env.CBROWSER_VIEWPORT_WIDTH || (configFile?.viewport?.width?.toString()) || "1920", 10) || 1920,
+    viewportHeight: parseInt(process.env.CBROWSER_VIEWPORT_HEIGHT || (configFile?.viewport?.height?.toString()) || "1080", 10) || 1080,
     timeout: parseInt(process.env.CBROWSER_TIMEOUT || (configFile?.timeout?.toString()) || "30000", 10) || 30000,
     verbose: process.env.CBROWSER_VERBOSE === "true",
     device: process.env.CBROWSER_DEVICE || configFile?.device,

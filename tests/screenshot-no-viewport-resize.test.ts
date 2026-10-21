@@ -242,10 +242,17 @@ describe("the budget holds where the quality-ladder-only fix regressed", () => {
     const reset = () => page.evaluate(() => { (window as unknown as { __r: string[] }).__r = []; });
     await page.screenshot({ type: "jpeg", quality: 85, fullPage: true });
     await page.waitForTimeout(150);
-    await reset();
-    await page.screenshot({ type: "jpeg", quality: 85, fullPage: true });
-    await page.waitForTimeout(150);
-    const native = (await page.evaluate(() => (window as unknown as { __r: string[] }).__r)).length;
+    // One sample was the allowance, and Playwright fires one OR two resizes on a
+    // later capture from run to run (measured 2026-10-21: native 1, then seen 2,
+    // in 1 of 2 runs alone). The allowance is the most any of three native
+    // captures fired, so the test compares like with like.
+    let native = 0;
+    for (let i = 0; i < 3; i++) {
+      await reset();
+      await page.screenshot({ type: "jpeg", quality: 85, fullPage: true });
+      await page.waitForTimeout(150);
+      native = Math.max(native, (await page.evaluate(() => (window as unknown as { __r: string[] }).__r)).length);
+    }
     expect(native).toBeGreaterThan(0);
     await reset();
 
