@@ -28,6 +28,15 @@ process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-attn-inline-data-
 process.env.CBROWSER_ARTIFACT_DIR = mkdtempSync(join(tmpdir(), "cb-attn-inline-art-"));
 // No model call: the keyword path is deterministic and costs nothing.
 delete process.env.ANTHROPIC_API_KEY;
+// 1280x800, not the 1920x1080 default. Under Bun (this test runner), a second
+// attention call in one process at 1920x1080 hangs inside Playwright: its
+// context.close() and browser.close() never return, though the event loop is
+// free (max lag 178 ms). Measured 2026-10-21: the same analysis-then-compare
+// sequence from dist/ under Node finishes in 8.2 s, and so does this file
+// under Bun at 1280x800 (10 s). The hosted servers and the npm CLI run on Node,
+// so this pins the test, not the product; the stall is a Bun transport limit.
+process.env.CBROWSER_VIEWPORT_WIDTH = "1280";
+process.env.CBROWSER_VIEWPORT_HEIGHT = "800";
 
 const sharp = (await import("sharp")).default;
 const { registerVisualTestingTools } = await import("../src/mcp-tools/base/visual-testing-tools.js");
