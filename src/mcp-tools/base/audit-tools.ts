@@ -515,7 +515,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
         // ── Gate 3: Per-Persona Cognitive Effort ──
         const personaResults: Record<string, unknown> = {};
+        // Set by every persona's chain run (the reads are the same for each);
+        // reported once on the response so the caller can see that every
+        // constant behind these numbers is a hand-set hypothesis today.
+        let ctcProvenance: import("../../visual/model-provenance.js").ProvenanceSummary | undefined;
         const { buildOTCognitiveProfile } = await import("../../visual/cognitive-transport.js");
+        const { withProvenance } = await import("../../visual/model-provenance.js");
         const { computeDemandDistribution, computeSequentialCTC } = await import("../../visual/cognitive-transport-chain.js");
         const { extractPageMetrics } = await import("../../visual/cognitive-transport.js");
         const { getAnyPersona, createCognitivePersona, resolvePersonaOrThrow } = await import("../../personas.js");
@@ -616,7 +621,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
               (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
 
             const otProfile = buildOTCognitiveProfile(personaName, traits);
-            const result = computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true });
+            const { result, provenance } = withProvenance(() =>
+              computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true }));
+            ctcProvenance = provenance;
 
             personaResults[personaName] = {
               totalCTC: Math.round(result.totalCTC * 1000) / 1000,
@@ -642,6 +649,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         }
 
         response.gate3 = { status: "complete", personas: personaResults };
+        if (ctcProvenance) response.modelProvenance = ctcProvenance;
         response.pageMetrics = {
           informationDensity: Math.round(pageMetrics.informationDensity * 1000) / 1000,
           visualComplexity: Math.round(pageMetrics.visualComplexity * 1000) / 1000,

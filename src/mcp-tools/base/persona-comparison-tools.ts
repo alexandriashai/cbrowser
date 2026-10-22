@@ -38,6 +38,7 @@ import {
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
+import { withProvenance } from "../../visual/model-provenance.js";
 
 /**
  * Most base64 characters cognitive_effort spends on its inline motor-overlay
@@ -1077,7 +1078,11 @@ Begin with the first persona: ${personas[0]}
         }
       } catch { /* values not available — proceed without */ }
 
-      const result = computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true });
+      // Run under provenance recording so the response can say which hand-set
+      // constants the headline numbers rest on (every one in this chain is a
+      // hypothesis today; see src/visual/provenance/chain.ts).
+      const { result, provenance: ctcProvenance } = withProvenance(() =>
+        computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true }));
 
       // Also compute motor and readability from formal models
       let motorResult = null;
@@ -1237,6 +1242,10 @@ Begin with the first persona: ${personas[0]}
           redirectNote: `Requested ${hostOf(url)} and landed on ${hostOf(landedUrl)}. Every number below describes ${hostOf(landedUrl)}.`,
         } : { resolvedUrl: landedUrl }),
         persona: personaName,
+        // Status counts of every registry constant the aggregate chain read for
+        // this answer, and the ids of the hand-set ones. The sequential curve
+        // below reads the same registry.
+        modelProvenance: ctcProvenance,
         cognitiveTransportCost: {
           total: Math.round(result.totalCTC * 1000) / 1000,
           additive: Math.round(result.additiveCTC * 1000) / 1000,
