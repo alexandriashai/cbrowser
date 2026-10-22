@@ -23,6 +23,9 @@
  * @see https://github.com/alexandriashai/cbrowser/issues/159
  */
 
+import { param } from "./model-provenance.js";
+import { exactW1 } from "./exact-w1.js";
+
 // ── Types ──
 
 export interface OTCognitiveProfile {
@@ -140,11 +143,17 @@ export type CognitiveTrait = typeof COGNITIVE_TRAITS[number];
  * Traits in the same domain are closer. This is the critical design
  * decision — it determines what "nearby" means in cognitive space.
  *
- * Organized by domain proximity:
- * - Same subdomain (e.g. both "Core"): distance 0.2
- * - Same domain (e.g. both "Perception"): distance 0.4
- * - Related domains: distance 0.6
- * - Unrelated domains: distance 1.0
+ * Organized by domain proximity (the values are read from the provenance
+ * registry, provenance/distance.ts, where each is labelled `hypothesis`: the
+ * grouping and the three levels are hand-assigned, untested against data):
+ * - Same trait: 0
+ * - Same domain (e.g. both "core"): distance.groundSameDomain (0.2)
+ * - Related domains: distance.groundRelatedDomain (0.5)
+ * - Unrelated domains, or either trait unknown: distance.groundUnrelatedDomain /
+ *   distance.groundUnknownTrait (both 0.8)
+ *
+ * The docstring used to say 0.2 / 0.4 / 0.6 / 1.0, which the code never
+ * returned. (2026-10-21)
  */
 function traitGroundDistance(a: string, b: string): number {
   if (a === b) return 0;
@@ -190,10 +199,41 @@ function traitGroundDistance(a: string, b: string): number {
   // subdomain" — the closest possible relationship, awarded for being unknown.
   // That is how the phantom vocabulary above stayed invisible for so long.
   // Treat unknown as maximally distant instead. (2026-07-28)
-  if (!domainA || !domainB) return 0.8;
-  if (domainA === domainB) return 0.2; // Same subdomain
-  if (related.has(`${domainA}-${domainB}`)) return 0.5; // Related
-  return 0.8; // Unrelated
+  if (!domainA || !domainB) return param("distance.groundUnknownTrait");
+  if (domainA === domainB) return param("distance.groundSameDomain");
+  if (related.has(`${domainA}-${domainB}`)) return param("distance.groundRelatedDomain");
+  return param("distance.groundUnrelatedDomain");
+}
+
+/**
+ * The 29 x 29 ground-cost matrix C[i][j] = traitGroundDistance(trait_i, trait_j),
+ * built once and reused by every distance call.
+ *
+ * The four registry values are still read through `param()` on every call (four
+ * lookups, negligible), so a provenance recording started at any point sees the
+ * ids the distance depends on; the matrix is rebuilt only if one of them changes.
+ */
+let groundCostCache: { key: string; matrix: number[][] } | null = null;
+function groundCostMatrix(): number[][] {
+  const key = [
+    param("distance.groundSameDomain"),
+    param("distance.groundRelatedDomain"),
+    param("distance.groundUnrelatedDomain"),
+    param("distance.groundUnknownTrait"),
+  ].join(",");
+  if (groundCostCache && groundCostCache.key === key) return groundCostCache.matrix;
+  const d = COGNITIVE_TRAITS.length;
+  const matrix: number[][] = Array.from({ length: d }, () => new Array<number>(d).fill(0));
+  for (let i = 0; i < d; i++)
+    for (let j = i + 1; j < d; j++)
+      matrix[i][j] = matrix[j][i] = traitGroundDistance(COGNITIVE_TRAITS[i], COGNITIVE_TRAITS[j]);
+  groundCostCache = { key, matrix };
+  return matrix;
+}
+
+/** The ground-cost matrix the distance uses, exposed for tests (a copy). */
+export function traitGroundCostMatrix(): number[][] {
+  return groundCostMatrix().map(row => row.slice());
 }
 
 // ── Core: Trait Distribution Operations ──
@@ -203,13 +243,19 @@ function traitGroundDistance(a: string, b: string): number {
  * This is the fundamental operation: traits → distribution.
  */
 export function traitsToDistribution(traits: Record<string, number>): Float64Array {
-  // The 0.01 floor is load-bearing, not defensive: optimal transport needs a
-  // measure with no zero atoms. It is also the one place the mapping is LOSSY —
-  // a trait of exactly 0 (first-timer's siteFamiliarity is the only one across
-  // all built-in personas) round-trips back as 0.01, not 0. That bound is
-  // asserted in tests/cognitive-interpolate.test.ts rather than left for someone
-  // to rediscover as a mystery 0.01 discrepancy.
-  const values = COGNITIVE_TRAITS.map(t => Math.max(0.01, traits[t] ?? 0.5));
+  // The floor (distance.simplexFloor, 0.01) is a numerical encoding choice, not
+  // a requirement of the transport problem: the exact W1 solver handles zero
+  // atoms. It is kept because it is the one place the mapping is LOSSY and
+  // callers depend on the exact behaviour — a trait of exactly 0 (first-timer's
+  // siteFamiliarity is the only one across all built-in personas) round-trips
+  // back as 0.01, not 0. That bound is asserted in
+  // tests/cognitive-interpolate.test.ts rather than left for someone to
+  // rediscover as a mystery 0.01 discrepancy. The missing-trait default
+  // (distance.missingTraitDefault, 0.5) is a hypothesis: it claims an unmeasured
+  // trait sits at the midpoint.
+  const floor = param("distance.simplexFloor");
+  const missing = param("distance.missingTraitDefault");
+  const values = COGNITIVE_TRAITS.map(t => Math.max(floor, traits[t] ?? missing));
   const sum = values.reduce((a, b) => a + b, 0);
   return new Float64Array(values.map(v => v / sum));
 }
@@ -253,8 +299,10 @@ export function distributionToTraits(
 export function buildOTCognitiveProfile(name: string, traits: Record<string, number>): OTCognitiveProfile {
   const distribution = traitsToDistribution(traits);
   // Same flooring traitsToDistribution applies, or the inverse would not be one.
+  const floor = param("distance.simplexFloor");
+  const missing = param("distance.missingTraitDefault");
   const traitScale = COGNITIVE_TRAITS.reduce(
-    (sum, t) => sum + Math.max(0.01, traits[t] ?? 0.5),
+    (sum, t) => sum + Math.max(floor, traits[t] ?? missing),
     0,
   );
 
@@ -275,12 +323,6 @@ export function buildOTCognitiveProfile(name: string, traits: Record<string, num
 // ── Cognitive Distance ──
 
 /**
- * Compute the Wasserstein-1 distance between two cognitive profiles.
- * Uses the ground metric between traits to weight the transport.
- *
- * This is the "true cognitive distance" — how different two minds are.
- */
-/**
  * Fixed seed for the sliced-Wasserstein projection set. Any constant works; what
  * matters is that it never changes, so the same pair of profiles always yields
  * the same sliced distance across processes and releases.
@@ -299,28 +341,76 @@ function seededRandom(seed: number): () => number {
   };
 }
 
+/**
+ * Distance between two cognitive profiles.
+ *
+ * `w1` is the EXACT Wasserstein-1 (earth mover's) distance between the two
+ * trait distributions under the ground metric `traitGroundDistance`: the
+ * minimum, over every transport plan P with row sums `a` and column sums `b`,
+ * of sum_ij P[i][j] * d(trait_i, trait_j). It is solved as a min-cost flow
+ * (successive shortest paths; see exact-w1.ts). Before 2026-10-21 this field
+ * was a "simplified weighted L1" — sum_i |a_i - b_i| times the mean ground
+ * distance of trait i — which is not optimal transport and ignores WHICH traits
+ * the mass moved between. The old values ran roughly 0.05-0.7; the exact
+ * distance is bounded by max ground cost (0.8) times total variation, so it is
+ * smaller. The MCP tool reports percentiles within the built-in roster, which
+ * absorbs the rescale.
+ *
+ * `traitContributions[t]` is the transport cost attributed to trait t under the
+ * optimal plan: half the cost of mass shipped OUT of t plus half the cost of
+ * mass shipped INTO t, i.e. 0.5 * (sum_j P[t][j] d(t,j) + sum_i P[i][t] d(i,t)).
+ * Each unit of cost is split between the two endpoints it connects, so the
+ * contributions sum to `w1` exactly and are symmetric in the two profiles
+ * (swapping A and B transposes P and leaves every contribution unchanged).
+ * Mass that stays put (P[t][t]) costs 0 and contributes nothing. The optimal
+ * plan is often not unique (ties are common under a three-level cost); the
+ * attribution is the plan the solver finds for the pair in a canonical order,
+ * so it is deterministic and the same for (A, B) and (B, A). `w1` itself is
+ * unique.
+ *
+ * MODELLING LIMIT (deliberate, unchanged): both profiles are normalised to the
+ * simplex before transport, so the absolute scale of the trait vector is
+ * discarded. Two personas whose trait vectors are proportional — all traits
+ * 0.2 versus all traits 0.8 — have identical distributions and are at
+ * distance 0 on `w1`, `w2` and `sliced` alike, although they are very
+ * different people. The distance measures the SHAPE of a profile (how traits
+ * are weighted against each other), not its level. `OTCognitiveProfile.traitScale`
+ * keeps the discarded total so interpolation can restore it; the distance does
+ * not use it.
+ */
 export function cognitiveDistance(profileA: OTCognitiveProfile, profileB: OTCognitiveProfile): CognitiveDistance {
   const d = COGNITIVE_TRAITS.length;
   const a = profileA.distribution;
   const b = profileB.distribution;
 
-  // W1 with ground metric: solve the discrete OT problem
-  // For d=25 with full ground metric, use the LP formulation
-  // Simplified: weighted L1 with ground metric as scaling
-  let w1 = 0;
-  const traitContributions: Record<string, number> = {};
-
+  // W1 with ground metric: the exact discrete optimal transport problem.
+  //
+  // The pair is solved in a canonical order (lexicographically smaller
+  // distribution as the source) and the plan transposed back when needed. The
+  // optimal COST is unique, but the optimal PLAN is not: with 29 traits and a
+  // three-level cost many plans tie, and the solver run on (b, a) does not in
+  // general find the transpose of its (a, b) plan. Fixing the order makes the
+  // per-trait attribution below identical for (A, B) and (B, A).
+  const cost = groundCostMatrix();
+  let swapped = false;
   for (let i = 0; i < d; i++) {
-    const diff = Math.abs(a[i] - b[i]);
-    // Weight by average ground distance to other traits (captures trait importance)
-    let avgDist = 0;
+    if (a[i] === b[i]) continue;
+    swapped = a[i] > b[i];
+    break;
+  }
+  const solved = swapped ? exactW1(b, a, cost) : exactW1(a, b, cost);
+  const w1 = solved.cost;
+  const plan = swapped ? solved.plan.map((_, i) => solved.plan.map(row => row[i])) : solved.plan;
+  const traitContributions: Record<string, number> = {};
+  for (let t = 0; t < d; t++) {
+    let out = 0, into = 0;
+    const row = plan[t];
+    const costRow = cost[t];
     for (let j = 0; j < d; j++) {
-      if (i !== j) avgDist += traitGroundDistance(COGNITIVE_TRAITS[i], COGNITIVE_TRAITS[j]);
+      if (row[j] > 0) out += row[j] * costRow[j];
+      if (plan[j][t] > 0) into += plan[j][t] * cost[j][t];
     }
-    avgDist /= (d - 1);
-    const weighted = diff * avgDist;
-    w1 += weighted;
-    traitContributions[COGNITIVE_TRAITS[i]] = weighted;
+    traitContributions[COGNITIVE_TRAITS[t]] = 0.5 * (out + into);
   }
 
   // W2: Bures-Wasserstein for Gaussians
