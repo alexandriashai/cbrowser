@@ -655,7 +655,17 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   }
 
   // ── animationLevel → changeBlindness, emotionalContagion
-  const animDemand = sigmoid(animLevel, D.animationSigmoidThreshold, D.animationSigmoidScale);
+  //
+  // ZERO AT REST, as of 21.0. The logistic is centred at the threshold (0.3),
+  // so at animationLevel 0 it already reads 0.119, and that offset was demand:
+  // a page with nothing moving asked ~0.107 of changeBlindness and ~0.083 of
+  // emotionalContagion and fed distractor pressure, so an empty page had a
+  // non-zero raw cost. The curve is now shifted and rescaled by its own value at
+  // 0: still monotone in animationLevel, 0 at rest, below 1 and approaching it.
+  // No new constant: the offset is the registered curve evaluated at 0.
+  const animRaw = sigmoid(animLevel, D.animationSigmoidThreshold, D.animationSigmoidScale);
+  const animAtRest = sigmoid(0, D.animationSigmoidThreshold, D.animationSigmoidScale);
+  const animDemand = animAtRest < 1 ? Math.max(0, (animRaw - animAtRest) / (1 - animAtRest)) : 0;
   demands.changeBlindness = Math.max(demands.changeBlindness, animDemand * D.animationChangeBlindness);
   demands.emotionalContagion = Math.max(demands.emotionalContagion, animDemand * D.animationEmotionalContagion);
 

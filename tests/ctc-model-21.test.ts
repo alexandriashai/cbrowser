@@ -312,3 +312,42 @@ describe("abandonment reads the patience and resilience the page left, not the s
     for (let i = 1; i < tolerances.length; i++) expect(tolerances[i]).toBeLessThan(tolerances[i - 1]);
   });
 });
+
+describe("a page with no motion makes no animation demand", () => {
+  // The motion curve is a logistic centred at animationLevel 0.3, which is
+  // 0.119 at animationLevel 0. Through 21.0's first pin that offset was demand:
+  // a page with nothing moving still asked ~0.107 of changeBlindness and ~0.083
+  // of emotionalContagion, and fed distractor pressure, so the all-zero page
+  // carried a non-zero raw cost.
+  const anim = (level: number) =>
+    computeDemandFromRawMetrics(0, 0, 0, 0, level, 0, 0).demands.emotionalContagion / reg("chain.demand.animation.emotionalContagion");
+
+  test("animationLevel 0 yields zero animation demand", () => {
+    const { demands } = computeDemandFromRawMetrics(0, 0, 0, 0, 0, 0, 0);
+    expect(demands.emotionalContagion).toBe(0);
+    expect(demands.changeBlindness).toBe(0);
+    // With visual complexity present and no motion, changeBlindness is the visual term alone.
+    expect(computeDemandFromRawMetrics(0, 0.4, 0, 0, 0, 0, 0).demands.changeBlindness).toBe(0.4);
+  });
+
+  test("the all-zero page costs nothing in any layer, raw cost 0, abandonment 0, for every persona", () => {
+    const empty = computeDemandFromRawMetrics(0, 0, 0, 0, 0, 0, 0);
+    for (const prof of allPersonas()) {
+      const r = computeSequentialCTC(prof, empty, { asymmetric: true, interactions: true });
+      expect({ p: prof.name, raw: r.rawCTC, ab: r.abandonmentRisk, layers: r.layers.map((l) => l.transportCost) })
+        .toEqual({ p: prof.name, raw: 0, ab: 0, layers: r.layers.map(() => 0) });
+    }
+  });
+
+  test("motion demand still rises monotonically with animation and stays in [0, 1]", () => {
+    const levels = [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1, 2, 10];
+    const v = levels.map(anim);
+    for (let i = 0; i < v.length; i++) {
+      expect(v[i]).toBeGreaterThanOrEqual(0);
+      expect(v[i]).toBeLessThanOrEqual(1);
+      if (i > 0) expect(v[i]).toBeGreaterThan(v[i - 1]);
+    }
+    expect(v[0]).toBe(0);
+    expect(v[levels.indexOf(1)]).toBeGreaterThan(0.95);
+  });
+});
