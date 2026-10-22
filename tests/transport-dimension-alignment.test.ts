@@ -76,6 +76,11 @@ const KNOWN_UNLAYERED = [
   // asks only about layer membership, and covered by its own describe block
   // below which asserts the demand consumer exists and behaves.
   "readingTendency",
+  // Removed from the frustration layer in 21.0, deliberately. No page feature
+  // writes demand to either, so in a layer they cost nothing and only halved
+  // frustration's content gate. resilience is read by abandonment (blended
+  // tolerance); selfEfficacy currently reaches no score.
+  "resilience", "selfEfficacy",
 ].sort();
 
 /** Traits with no demand term today. Same status: recorded, not blessed. */

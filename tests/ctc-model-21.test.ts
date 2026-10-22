@@ -11,8 +11,10 @@ import { join } from "node:path";
 import {
   LAYER_DEFINITIONS,
   INTERACTION_PAIRS,
+  computeDemandDistribution,
   computeDemandFromRawMetrics,
   computeSequentialCTC,
+  DEMAND_DIMENSIONS,
 } from "../src/visual/cognitive-transport-chain.js";
 import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
 import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
@@ -64,5 +66,38 @@ describe("layer 1 is named for what it computes (visualComplexity, not saliency)
     const readme = read("README.md");
     expect(readme).not.toMatch(/\|\s*\*\*Saliency\*\*\s*\|/);
     expect(readme).toMatch(/\|\s*\*\*Visual Complexity\*\*\s*\|/);
+  });
+});
+
+/** Every page input at its maximum, readability fields included. */
+const MAX_PAGE = {
+  informationDensity: 1, visualComplexity: 1, interactiveElementCount: 1000, textDensity: 1,
+  animationLevel: 1, choiceCount: 500, navigationDepth: 30,
+  avgWordLength: 1, avgSentenceLength: 1, lexicalDiversity: 1, longWordRatio: 1, technicalDensity: 1,
+};
+
+describe("every trait in a layer can receive demand", () => {
+  // Every demand term is a non-negative weight on a feature that only rises
+  // with its input, combined by max (and one product of rising terms), so the
+  // all-maximum page is where every dimension's demand is largest. A layer
+  // trait with zero demand there has zero demand on every page: it costs
+  // nothing as surplus-free capacity and only dilutes the layer's content
+  // gate, which is the mean demand over the layer's traits.
+  //
+  // resilience and selfEfficacy sat in frustration on these terms through
+  // 20.x, halving its gate (mean over four traits, two always zero).
+  test("at the all-maximum page, every layer trait has demand above zero", () => {
+    const { demands } = computeDemandDistribution(MAX_PAGE);
+    const demandless = LAYER_DEFINITIONS.flatMap((l) => l.traits.filter((t) => !(demands[t] > 0)).map((t) => `${l.name}.${t}`));
+    expect(demandless).toEqual([]);
+  });
+
+  test("resilience and selfEfficacy stay dimensions, read by abandonment, in no layer", () => {
+    const inLayers = new Set(LAYER_DEFINITIONS.flatMap((l) => l.traits));
+    expect(inLayers.has("resilience")).toBe(false);
+    expect(inLayers.has("selfEfficacy")).toBe(false);
+    expect(DEMAND_DIMENSIONS as readonly string[]).toContain("resilience");
+    expect(DEMAND_DIMENSIONS as readonly string[]).toContain("selfEfficacy");
+    expect(LAYER_DEFINITIONS.find((l) => l.name === "frustration")?.traits).toEqual(["patience", "emotionalContagion"]);
   });
 });
