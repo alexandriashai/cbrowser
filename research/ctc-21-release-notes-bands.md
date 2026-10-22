@@ -298,10 +298,54 @@ totalCTC already a percentile, read with the logistic-era sentences.
 - **`IDEAL_PROFILES[].thresholds.maxCTC`** is an enumerable getter. It
   serialises as the plain number.
 
+## CIF's overloadThreshold on the bands (on `feat/int-fix`)
+
+`computeCIFScore`'s `sensory.overloadThreshold` cut totalCTC at cut points of
+its own, which were cuts on the logistic:
+
+- `cif.sensory.overload.easyCTC` 0.3;
+- `cif.sensory.overload.kneeCTC` 0.6.
+
+It called anything at or below 0.3 "within easy range". The CMS audit worker
+(cbrowser-web `cms/audit-worker-service.ts`) passes cognitive_effort's
+totalCTC, a percentile since 21.x, straight in.
+
+**Cut points.**
+
+- Full marks through `ctcBands.upperHalf` (0.5). The knee is `ctcBands.high`
+  (0.8).
+- The two CIF entries are retired, so `CIF_PROVENANCE` holds 87 entries, not 89.
+- The slopes are kept: 130 below the knee and 100 above it.
+  - The knee still scores 61, because 0.5 to 0.8 is as wide as the old 0.3 to
+    0.6.
+  - The lowest reachable score is 41 at totalCTC 1. On the logistic it was 21.
+
+**Details.** They state the rank, never a comfort word. For example: "Total
+CTC 0.340: costlier than 34% of the real pages we measured. Band: lower half
+(below the 50th percentile)."
+
+**Out-of-range input.** A totalCTC outside zero to one is not measured. It is
+not a percentile, so it comes from another scale and has no rank. The details
+read: "Not measured: no percentile total CTC (1.42 is not a percentile, ...)
+supplied".
+
+**Golden re-pin** (`tests/golden/golden-scores.json`). Four of the eight
+fixtures move, and no grade or certification changes:
+
+| fixture | totalCTC | overloadThreshold | sensory | composite |
+|---|---|---|---|---|
+| aria-rich | 0.34 | 95 -> 100 | 79 -> 80 | 75 (unchanged) |
+| keyboard-trap | 0.55 | 68 -> 94 | 72 -> 75 | 73 -> 74 |
+| cognitive-overload | 1.42 | 0 -> not measured (50) | 64 -> 69 | 46 -> 47 |
+| perfect-page | 0.18 | 100 (details text only) | 83 | 86 |
+
+cognitive-overload's input 1.42 can be neither a percentile nor a logistic
+value. That fixture's overloadThreshold now joins `notMeasured` and leaves its
+top issues. If the fixture should keep exercising a costly page, its input
+should become a percentile (for example 0.98). I left the input as it was
+written.
+
 ## Not changed here
 
-- **CIF.** `src/cif-score.ts` still compares totalCTC against its own CTC
-  thresholds (`easyCTC`, `kneeCTC`), and its detail text says "within easy
-  range". Those thresholds are remapped after `feat/b-cifp` merges.
 - **Abandonment risk.** `abandonmentRisk`, `abandonmentBasis` and the sequential
   hazard are unchanged.
