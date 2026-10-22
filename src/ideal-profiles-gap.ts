@@ -72,6 +72,7 @@ export interface StructuralMetrics {
 }
 
 export interface CognitiveMetrics {
+  /** The chain's totalCTC: a percentile of the real reference pages (21.x), not a logistic of the raw cost. */
   totalCTC: number;
   abandonmentRisk: number;
   decisionComplexity: number;
@@ -150,10 +151,19 @@ function makeStructuralFix(rule: string, actual: number | boolean, limit: number
   }
 }
 
+/** 0.62 -> "62nd": a totalCTC as the percentile it is. */
+function percentileOrdinal(t: number): string {
+  const n = Math.floor(t * 100 + 1e-9);
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
+
 function makeCognitiveFix(metric: string, actual: number, max: number): string {
   switch (metric) {
     case 'totalCTC':
-      return `Reduce cognitive transaction cost from ${actual.toFixed(2)} to max ${max.toFixed(2)}: simplify forms, reduce steps, add autofill`;
+      // A percentile of the reference since 21.x, so the fix names ranks.
+      return `Lower the cognitive transport cost from the ${percentileOrdinal(actual)} to at most the ${percentileOrdinal(max)} percentile of the real pages in the reference: simplify forms, reduce steps, add autofill`;
     case 'abandonmentRisk':
       return `Reduce abandonment risk from ${actual.toFixed(0)}% to max ${max.toFixed(0)}%: add progress indicators, reduce friction, provide clear value proposition`;
     case 'decisionComplexity':

@@ -84,7 +84,10 @@ describe("the reference set", () => {
       expect(e.source).toContain(CTC_REFERENCE.id);
       expect(e.source).toMatch(/not a fit/);
     }
-    expect(CTC_REFERENCE_PROVENANCE.map((e) => e.id).sort()).toEqual(["ctcReference.full_page", "ctcReference.viewport"]);
+    // The file also registers what is defined ON the percentile (ctcBands.*,
+    // idealProfiles.maxCTC.*; tests/ctc-bands.test.ts, tests/ideal-profiles-ctc.test.ts).
+    expect(CTC_REFERENCE_PROVENANCE.map((e) => e.id).filter((id) => id.startsWith("ctcReference.")).sort())
+      .toEqual(["ctcReference.full_page", "ctcReference.viewport"]);
     const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
     const prof = toolProfile("first-timer", ROSTER["first-timer"]);
     // A registry that disagrees with the shipped data is refused, not ranked against.
