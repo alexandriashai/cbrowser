@@ -65,6 +65,35 @@ export function ctcBandsDescription(): string {
   return `below ${upperHalf} ${name(0)}, ${upperHalf} to ${high} ${name(upperHalf)}, ${high} to ${top} ${name(high)}, ${top} and above ${name(top)}`;
 }
 
+/** floor(t x 100), the N in "costlier than N%". The 1e-9 keeps binary fractions honest: 0.29 x 100 is 28.999999999999996. */
+const percentOf = (t: number) => Math.floor(t * 100 + 1e-9);
+
+/** True when `t` is a percentile: a number within zero to one. */
+export function isPercentile(t: number): boolean {
+  return Number.isFinite(t) && t >= 0 && t <= 1;
+}
+
+/**
+ * The rank clause for a percentile, lower-case: "costlier than N% of the real
+ * pages we measured", or, at the ends, "at or below the cheapest real page we
+ * measured" and "at least as costly as the costliest real page we measured".
+ * `pool`, when given, follows "measured". N rounds down (percentOf). For a
+ * value isPercentile accepts.
+ */
+export function rankStatement(t: number, pool?: string): string {
+  const measured = pool ? `we measured ${pool}` : "we measured";
+  if (t === 0) return `at or below the cheapest real page ${measured}`;
+  if (t === 1) return `at least as costly as the costliest real page ${measured}`;
+  const percent = percentOf(t);
+  return `costlier than ${percent === 0 ? "under 1" : percent}% of the real pages ${measured}`;
+}
+
+/** "Band: high (80th-95th percentile)." for a percentile, "No band." otherwise. */
+export function bandSentence(t: number): string {
+  const band = isPercentile(t) ? ctcBand(t) : null;
+  return band ? `Band: ${band.name} (${band.range}).` : "No band.";
+}
+
 export interface CtcRank {
   /** floor(totalCTC x 100): the N in "costlier than N%". Null when the cost could not be ranked. */
   percent: number | null;
@@ -88,21 +117,13 @@ export interface CtcRank {
 export function ctcRank(result: { totalCTC: number; rawCTC: number; referenceScope: MetricScope }): CtcRank {
   const { totalCTC: t, rawCTC: raw, referenceScope: scope } = result;
   const pool = `(${param(`ctcReference.${scope}`)} sites x ${referencePersonaCount()} personas, ${scope} scope)`;
-  const band = ctcBand(t);
-  if (!band || t < 0 || t > 1) {
+  const band = bandSentence(t);
+  if (!isPercentile(t)) {
     const statement = `not rankable among the real pages we measured ${pool}: totalCTC is ${t} and rawCTC ${raw}`;
-    const bandSentence = "No band.";
-    return { percent: null, band: null, statement, bandSentence, sentence: `This cost is ${statement}. ${bandSentence}` };
+    return { percent: null, band: null, statement, bandSentence: band, sentence: `This cost is ${statement}. ${band}` };
   }
-  // The 1e-9 keeps binary fractions honest: 0.29 * 100 is 28.999999999999996.
-  const percent = Math.floor(t * 100 + 1e-9);
-  const rawNote = `rawCTC ${raw.toFixed(2)} tells such pages apart`;
-  const statement = t === 0
-    ? `at or below the cheapest real page we measured ${pool}; ${rawNote}`
-    : t === 1
-    ? `at least as costly as the costliest real page we measured ${pool}; ${rawNote}`
-    : `costlier than ${percent === 0 ? "under 1" : percent}% of the real pages we measured ${pool}`;
-  const bandSentence = `Band: ${band.name} (${band.range}).`;
-  const sentence = `${statement[0].toUpperCase()}${statement.slice(1)}. ${bandSentence}`;
-  return { percent, band: band.name, statement, bandSentence, sentence };
+  const atEnd = t === 0 || t === 1 ? `; rawCTC ${raw.toFixed(2)} tells such pages apart` : "";
+  const statement = rankStatement(t, pool) + atEnd;
+  const sentence = `${statement[0].toUpperCase()}${statement.slice(1)}. ${band}`;
+  return { percent: percentOf(t), band: ctcBand(t)!.name, statement, bandSentence: band, sentence };
 }

@@ -65,6 +65,7 @@ tests/click-suggestion-same-list.test.ts
 tests/hunt-bugs-resource-url.test.ts
 tests/view-image-block.test.ts
 tests/effort-widget-render.test.ts
+tests/story-attention-traits.test.ts
 tests/handle-dialog-arm.test.ts
 tests/chaos-block-pattern.test.ts
 tests/v8-p3-browser.test.ts

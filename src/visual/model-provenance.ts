@@ -137,8 +137,46 @@ export interface ProvenanceSummary {
   note: string;
 }
 
+/** What a block says it covers. Tools report the score's block with the defaults below. */
+export interface ProvenanceText {
+  scope?: string;
+  note?: string;
+}
+
+/**
+ * The score block's scope: what a tool's `modelProvenance` counts. The
+ * attention maps a tool draws as context are recorded apart
+ * (isolatedProvenanceAsync) and carry ATTENTION_PROVENANCE_TEXT instead.
+ */
+const SCORE_SCOPE =
+  "Every registered constant the score in this answer read: the page-metric extraction that measured the page (pageMetrics.*), " +
+  "the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation " +
+  "when values were applied), the reference set totalCTC is ranked against and the verdict bands cut on it (definitions), and the two " +
+  "persona-distance constants the persona profile reads. It does not count the attention model: an attention map in this answer " +
+  "(cognitive_effort's saliency overlay, visual_cognitive_story's attention analysis) is context for the page, not an input to the " +
+  "score, and carries its own block for the attention model's constants: published colour science, the gaze constants fitted on " +
+  "UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) where a map applies them, and hand-set weights and filters.";
+
+const SCORE_NOTE =
+  "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; " +
+  "it is not a validation of the score. See MODEL_PROVENANCE for each source.";
+
+/** The text of an attention map's own block. */
+export const ATTENTION_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Object.freeze({
+  scope:
+    "Every registered constant the attention model read to draw this map. The model's constants are the colour-science conversion " +
+    "(published: sRGB, CIE XYZ and L*a*b*), the gaze blend, smoothing width and spatial prior fitted on UEyes eye-tracking (held-out " +
+    "AUC 0.7367, GAZE_CALIBRATION), and hand-set channel weights, element weights and persona filters (hypotheses); the counts say " +
+    "which of them this map read. The map is context for the page, not an input to the cognitive transport score, whose constants " +
+    "are counted in modelProvenance.",
+  note:
+    "Constants labelled fitted were estimated from free-viewing eye-tracking pooled over many people, so they say nothing about a " +
+    "particular persona; those labelled hypothesis are set by hand. This reports where each number in the map comes from; it is " +
+    "not a validation of the map. See MODEL_PROVENANCE for each source.",
+});
+
 /** Summarise a set of ids (what one computation read) for a tool response. */
-export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
+export function provenanceSummary(ids: Iterable<string>, text: ProvenanceText = {}): ProvenanceSummary {
   const counts: Record<ProvenanceStatus, number> = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
   const hypotheses: string[] = [];
   for (const id of ids) {
@@ -151,8 +189,8 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
   return {
     counts,
     hypotheses,
-    scope: "Every registered constant this answer read, from: the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation when values were applied), the reference set totalCTC is ranked against (a definition), and the persona distance. The page metrics themselves are measured from the page, not set. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
-    note: "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; it is not a validation of the score. See MODEL_PROVENANCE for each source.",
+    scope: text.scope ?? SCORE_SCOPE,
+    note: text.note ?? SCORE_NOTE,
   };
 }
 
@@ -208,6 +246,28 @@ export async function withProvenanceAsync<T>(fn: () => Promise<T>): Promise<{ re
     return { result, provenance: provenanceSummary(mine) };
   } finally {
     if (outer) for (const id of mine) outer.add(id);
+  }
+}
+
+/**
+ * withProvenanceAsync whose reads do NOT land in an enclosing recording: a
+ * block of its own. For work a tool does beside its score, such as the
+ * attention map cognitive_effort draws as context, whose constants (fitted
+ * gaze calibration, published colour science) would otherwise be counted as
+ * the score's and make it look partly fitted. Recordings nested inside it land
+ * in it as usual. A process-wide session (startProvenanceRecording) still sees
+ * its reads, since coverage tests count every read the process makes.
+ */
+export async function isolatedProvenanceAsync<T>(
+  fn: () => Promise<T>,
+  text: ProvenanceText = {},
+): Promise<{ result: T; provenance: ProvenanceSummary }> {
+  const mine = new Set<string>();
+  try {
+    const result = await scoped.run(mine, fn);
+    return { result, provenance: provenanceSummary(mine, text) };
+  } finally {
+    if (session) for (const id of mine) session.add(id);
   }
 }
 

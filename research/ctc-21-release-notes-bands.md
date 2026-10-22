@@ -163,6 +163,17 @@ full_page. The gap score's fix text changed:
 - **Changed: the `useValues` description.** It no longer claims that values
   change the saliency map; they never reached `analyzeAttention`.
 - **Added: `modelProvenance`.**
+- **Changed: the attention map's perceptual filter** (ISC-48). The
+  attention pass now hands `analyzeAttention` the persona record's
+  `accessibilityTraits` when it has any, as `attention_analysis` does since
+  `8d97c38`. So the built-in accessibility personas with no perceptual profile
+  (autism-spectrum, intellectual-disability, aphasia-receptive, dyscalculia) and
+  custom personas with traits on record are drawn through a filter synthesized
+  from those traits, not the default. A built-in profile still wins. Before the
+  change, autism-spectrum, dyscalculia and a custom persona with traits all
+  resolved "default" on the fixture in `tests/story-attention-traits.test.ts`.
+- **Added: `attention.perceptualProfile`**, `{ resolution, name }`: which filter
+  drew the map, as `attention_analysis` reports it.
 
 ### The effort widget (`ui://cbrowser/effort`)
 
@@ -202,16 +213,47 @@ the profile's traits. They are counted rather than hidden: the block's contract
 is "every registered constant this answer read", and an exclusion mechanism
 could later hide a read that does matter.
 
-Once the attention, perceptual-profile and page-metric registries merge
-(`feat/b-attn`), their ids join these blocks. That includes `attention.*`
-constants with status `fitted` and `published`, from the saliency overlay and
-the story's attention analysis. So these tests will need a decision at
-integration:
+### Attention maps carry their own block (on `feat/int-fix`)
 
-- `expectHonestSummary` in `tests/ctc-tool-provenance.test.ts` asserts zero
-  fitted and zero published;
-- its block-equality checks compare against a direct run of page measurement,
-  profile, chain and verdict.
+Once the attention and page-metric registries merged (`feat/b-attn`), a block
+that records the whole answer also counted the attention model's constants: the
+Lab-saliency overlay `cognitive_effort` draws as context, and the story's
+attention analysis. Counting them was accurate, but `modelProvenance` is
+presented as the score's provenance, and a reader would conclude the CTC has
+fitted parts. The map does not feed the score.
+
+- **`isolatedProvenanceAsync`** (`model-provenance.ts`) is a recording whose
+  reads do not land in the enclosing one. A process-wide test session still sees
+  them.
+- **`cognitive_effort`** records the saliency overlay in it. The overlay's block
+  is on its entry: `layerOverlays[visualComplexity].provenance`.
+- **`visual_cognitive_story`** records its attention analysis in it and reports
+  the block as **`attentionProvenance`**.
+- **`modelProvenance` scope text** now says what the score block counts:
+  - page-metric extraction (`pageMetrics.*`);
+  - demand, chain and values;
+  - the reference and the bands;
+  - the two distance constants.
+
+  It also says that attention maps carry their own block. The old text said
+  "The attention model (Layer 1) ... is not counted here", which was false in
+  both directions after the merge.
+- **The attention blocks** carry their own scope and note
+  (`ATTENTION_PROVENANCE_TEXT`).
+
+Block counts on the test fixtures (fitted / published / definition / hypothesis):
+
+| block | counts |
+|---|---|
+| `cognitive_effort` `modelProvenance` (noisy fixture) | 0 / 0 / 8 / 90 |
+| its saliency overlay | 0 / 23 / 8 / 5 |
+| `visual_cognitive_story` `modelProvenance` (prose fixture) | 0 / 0 / 8 / 90 |
+| its `attentionProvenance` | 4 / 23 / 22 / 75 |
+| `site_cognitive_assessment` `modelProvenance` (prose fixture) | 0 / 0 / 8 / 90 |
+
+- **The overlay** reads no fitted constant. It is bottom-up Lab contrast; the
+  fitted gaze calibration enters where `analyzeAttention` calibrates a map.
+- **The 90 hypotheses** include the `pageMetrics.*` constants, now registered.
 
 ## Examples, before and after
 
@@ -256,10 +298,54 @@ totalCTC already a percentile, read with the logistic-era sentences.
 - **`IDEAL_PROFILES[].thresholds.maxCTC`** is an enumerable getter. It
   serialises as the plain number.
 
+## CIF's overloadThreshold on the bands (on `feat/int-fix`)
+
+`computeCIFScore`'s `sensory.overloadThreshold` cut totalCTC at cut points of
+its own, which were cuts on the logistic:
+
+- `cif.sensory.overload.easyCTC` 0.3;
+- `cif.sensory.overload.kneeCTC` 0.6.
+
+It called anything at or below 0.3 "within easy range". The CMS audit worker
+(cbrowser-web `cms/audit-worker-service.ts`) passes cognitive_effort's
+totalCTC, a percentile since 21.x, straight in.
+
+**Cut points.**
+
+- Full marks through `ctcBands.upperHalf` (0.5). The knee is `ctcBands.high`
+  (0.8).
+- The two CIF entries are retired, so `CIF_PROVENANCE` holds 87 entries, not 89.
+- The slopes are kept: 130 below the knee and 100 above it.
+  - The knee still scores 61, because 0.5 to 0.8 is as wide as the old 0.3 to
+    0.6.
+  - The lowest reachable score is 41 at totalCTC 1. On the logistic it was 21.
+
+**Details.** They state the rank, never a comfort word. For example: "Total
+CTC 0.340: costlier than 34% of the real pages we measured. Band: lower half
+(below the 50th percentile)."
+
+**Out-of-range input.** A totalCTC outside zero to one is not measured. It is
+not a percentile, so it comes from another scale and has no rank. The details
+read: "Not measured: no percentile total CTC (1.42 is not a percentile, ...)
+supplied".
+
+**Golden re-pin** (`tests/golden/golden-scores.json`). Four of the eight
+fixtures move, and no grade or certification changes:
+
+| fixture | totalCTC | overloadThreshold | sensory | composite |
+|---|---|---|---|---|
+| aria-rich | 0.34 | 95 -> 100 | 79 -> 80 | 75 (unchanged) |
+| keyboard-trap | 0.55 | 68 -> 94 | 72 -> 75 | 73 -> 74 |
+| cognitive-overload | 1.42 | 0 -> not measured (50) | 64 -> 69 | 46 -> 47 |
+| perfect-page | 0.18 | 100 (details text only) | 83 | 86 |
+
+cognitive-overload's input 1.42 can be neither a percentile nor a logistic
+value. That fixture's overloadThreshold now joins `notMeasured` and leaves its
+top issues. If the fixture should keep exercising a costly page, its input
+should become a percentile (for example 0.98). I left the input as it was
+written.
+
 ## Not changed here
 
-- **CIF.** `src/cif-score.ts` still compares totalCTC against its own CTC
-  thresholds (`easyCTC`, `kneeCTC`), and its detail text says "within easy
-  range". Those thresholds are remapped after `feat/b-cifp` merges.
 - **Abandonment risk.** `abandonmentRisk`, `abandonmentBasis` and the sequential
   hazard are unchanged.

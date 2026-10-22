@@ -23,6 +23,7 @@
 import { describe, test, expect } from "bun:test";
 import {
   activeProvenance,
+  isolatedProvenanceAsync,
   param,
   readsOf,
   startProvenanceRecording,
@@ -220,5 +221,60 @@ describe("withProvenance keeps its synchronous behaviour", () => {
   test("an unregistered id still throws inside an async recording", async () => {
     await expect(withProvenanceAsync(async () => { await tick(); param("chain.doesNotExist"); }))
       .rejects.toThrow(/unregistered/);
+  });
+});
+
+describe("isolatedProvenanceAsync keeps a block of its own", () => {
+  // The attention maps tools draw as context read their own constants
+  // (attention.*, some fitted, some published). Counted in the score's block
+  // they made the score look partly fitted; they are reported apart.
+  test("its reads, before and after awaits, do not land in the enclosing recording", async () => {
+    const { provenance: outer } = await withProvenanceAsync(async () => {
+      param(H1);
+      const inner = await isolatedProvenanceAsync(async () => {
+        param(H2);
+        await tick();
+        param(D1);
+      });
+      expect(ids(inner.provenance)).toEqual([H2]);
+      expect(inner.provenance.counts.definition).toBe(1);
+      await tick();
+      param(H3);
+    });
+    expect(ids(outer)).toEqual([H1, H3].sort());
+    expect(outer.counts.definition).toBe(0);
+  });
+
+  test("recordings nested inside it land in it, and stop there", async () => {
+    const { provenance: outer } = await withProvenanceAsync(async () => {
+      const inner = await isolatedProvenanceAsync(async () => {
+        withProvenance(() => param(H1));
+        readsOf(() => param(D2));
+        await withProvenanceAsync(async () => { await tick(); param(H2); });
+      });
+      expect(ids(inner.provenance)).toEqual([H1, H2].sort());
+      expect(inner.provenance.counts.definition).toBe(1);
+    });
+    expect(outer.hypotheses).toEqual([]);
+    expect(outer.counts.definition).toBe(0);
+  });
+
+  test("a process-wide session still sees its reads (coverage tests count every read)", async () => {
+    const session = startProvenanceRecording();
+    try {
+      await isolatedProvenanceAsync(async () => { await tick(); param(H3); });
+    } finally {
+      stopProvenanceRecording();
+    }
+    expect([...session]).toEqual([H3]);
+  });
+
+  test("it carries the scope and note it is given; the default is the score block's", async () => {
+    const own = await isolatedProvenanceAsync(async () => { param(H1); }, { scope: "map scope", note: "map note" });
+    expect(own.provenance.scope).toBe("map scope");
+    expect(own.provenance.note).toBe("map note");
+    const plain = await withProvenanceAsync(async () => { param(H1); });
+    const dflt = await isolatedProvenanceAsync(async () => { param(H1); });
+    expect(dflt.provenance.scope).toBe(plain.provenance.scope);
   });
 });

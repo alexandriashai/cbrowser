@@ -31,6 +31,7 @@
  */
 
 import { param } from "./visual/model-provenance.js";
+import { bandSentence, isPercentile, rankStatement } from "./visual/ctc-bands.js";
 
 // ============================================================================
 // Types
@@ -685,8 +686,11 @@ const SENSORY_IDS = {
   audioBarrierPenalty: "cif.sensory.audio.barrierPenalty",
   calmDensityWeight: "cif.sensory.calm.densityWeight",
   calmAnimationPenalty: "cif.sensory.calm.animationPenalty",
-  easyCTC: "cif.sensory.overload.easyCTC",
-  kneeCTC: "cif.sensory.overload.kneeCTC",
+  // The verdict bands' cut points (provenance/ctc-reference.ts), not CIF's own:
+  // totalCTC is a percentile of real pages since 21.x, and CIF's 0.3 and 0.6
+  // were cuts on the logistic it used to be.
+  easyCTC: "ctcBands.upperHalf",
+  kneeCTC: "ctcBands.high",
   overloadSlopeBelow: "cif.sensory.overload.slopeBelowKnee",
   overloadSlopeAbove: "cif.sensory.overload.slopeAboveKnee",
   wAnimation: "cif.sensory.weight.animationControl",
@@ -773,17 +777,23 @@ function computeSensoryFitness(data: CIFInput): CIFScore["sensory"] {
     : notMeasured("agent-ready score");
 
   // --- overloadThreshold (10%) ---
-  // CTC up to easyCTC is "easy" per our scale, up to kneeCTC moderate, then hard
+  // totalCTC is a percentile of real pages. Full marks through the lower half
+  // (ctcBands.upperHalf), sloping to the knee at the high band (ctcBands.high),
+  // then steeper. The details state the rank; the CTC is untested against
+  // human data, so they say nothing about how easy the page is.
   let overloadThreshold: CIFComponentScore;
-  if (supplied(data.totalCTC)) {
+  if (supplied(data.totalCTC) && !isPercentile(data.totalCTC)) {
+    // A value outside zero to one is from another scale (a raw cost, or a
+    // number from before 21.x): it has no rank to score.
+    overloadThreshold = notMeasured(`percentile total CTC (${data.totalCTC} is not a percentile, so it is from another scale and has no rank among the real pages we measured)`);
+  } else if (supplied(data.totalCTC)) {
     const totalCTC = data.totalCTC;
     const overloadScore = totalCTC <= P.easyCTC ? P.scale
       : totalCTC <= P.kneeCTC ? clamp(Math.round(P.scale - (totalCTC - P.easyCTC) * P.overloadSlopeBelow))
       : clamp(Math.round(kneeScore(P.scale, P.easyCTC, P.kneeCTC, P.overloadSlopeBelow) - (totalCTC - P.kneeCTC) * P.overloadSlopeAbove));
     overloadThreshold = measured(
       overloadScore,
-      totalCTC <= P.easyCTC ? `Total CTC: ${totalCTC.toFixed(P.costDecimals)} — within easy range`
-        : `Total CTC: ${totalCTC.toFixed(P.costDecimals)} (lower = less cognitive overload risk)`,
+      `Total CTC ${totalCTC.toFixed(P.costDecimals)}: ${rankStatement(totalCTC)}. ${bandSentence(totalCTC)}`,
     );
   } else {
     overloadThreshold = notMeasured("total CTC");
