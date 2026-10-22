@@ -19,7 +19,16 @@
 
 import { withProvenanceAsync } from "../../visual/model-provenance.js";
 
+/**
+ * Where a recordedAnswer wrapper keeps the handler it wraps. Code that reads a
+ * handler's own parameter list (tests/mcp-manifest-vs-handler.test.ts checks it
+ * against the declared schema) reads it here: the wrapper's own parameters are
+ * a rest argument and name nothing.
+ */
+export const WRAPPED_HANDLER = Symbol.for("cbrowser.recordedAnswer.handler");
+
 /** Wrap a tool handler so its whole run is one provenance recording. Same signature in and out. */
 export function recordedAnswer<A extends unknown[], R>(handler: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
-  return async (...args: A) => (await withProvenanceAsync(() => handler(...args))).result;
+  const wrapped = async (...args: A) => (await withProvenanceAsync(() => handler(...args))).result;
+  return Object.assign(wrapped, { [WRAPPED_HANDLER]: handler });
 }

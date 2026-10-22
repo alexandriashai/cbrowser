@@ -48,7 +48,11 @@ function scanDrift(): { toolsScanned: number; drifts: Drift[] } {
 
   for (const file of tsFiles(TOOLS_DIR)) {
     const src = readFileSync(file, "utf-8");
-    const re = /inputSchema:\s*\{([\s\S]*?)\n\s{4}\},[\s\S]*?\}, async \(\{([^}]*)\}/g;
+    // `}, recordedAnswer(async ({` is the same handler, wrapped so its whole
+    // answer is one provenance recording (answer-provenance.ts). Without the
+    // optional wrapper the lazy match ran on to the NEXT tool's handler and
+    // paired this tool's schema with it.
+    const re = /inputSchema:\s*\{([\s\S]*?)\n\s{4}\},[\s\S]*?\}, (?:recordedAnswer\()?async \(\{([^}]*)\}/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(src)) !== null) {
       const schemaKeys = [...m[1].matchAll(/^\s{6}([a-zA-Z_][a-zA-Z0-9_]*):\s*z\./gm)].map((x) => x[1]);
@@ -93,6 +97,12 @@ describe("every declared MCP tool argument is bound by its handler", () => {
     const keys = [...m![1].matchAll(/^\s{6}([a-zA-Z_][a-zA-Z0-9_]*):\s*z\./gm)].map((x) => x[1]);
     const bound = m![2].split(",").map((s) => s.split("=")[0].split(":")[0].trim()).filter(Boolean);
     expect(keys.filter((k) => !bound.includes(k))).toEqual(["ignoredArg"]);
+
+    // And through the recordedAnswer wrapper, paired with its own handler.
+    const wrapped = synthetic.replace("}, async ({ url }) => {", "}, recordedAnswer(async ({ url }) => {");
+    const w = /inputSchema:\s*\{([\s\S]*?)\n\s{4}\},[\s\S]*?\}, (?:recordedAnswer\()?async \(\{([^}]*)\}/.exec(wrapped);
+    expect(w).not.toBeNull();
+    expect(w![2].trim()).toBe("url");
   });
 
   test("no tool declares an argument its handler ignores", () => {
