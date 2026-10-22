@@ -179,3 +179,215 @@ changes demand only.
 `research/study1/*.py` still describe the six-layer 20.x chain (saliency, a
 four-trait frustration layer, the offset motion curve). They are frozen copies of
 what that study ran and were left as they are.
+
+## 21.x: totalCTC as a percentile against real pages; capacityConsumed as the real drawdown
+
+Measured 2026-10-22 on `feat/b-scale` (base `0a974f1`).
+
+### What changed
+
+- **totalCTC.** It was `1 / (1 + exp(-2.5 (rawCTC - 1.2)))`, with both constants
+  hand-set (`chain.ctcSigmoidSlope`, `chain.ctcSigmoidCentre`; both removed from
+  the registry and the code). It is now rawCTC's percentile against a reference:
+  - the raw cost of every graded reference page for every one of the 25 built-in
+    personas, through the live chain, pooled into one distribution;
+  - one distribution per scope (viewport, full_page) and per asymmetric x
+    interactions pair. Schwartz values and carried capacity do not select a curve;
+  - read through a piecewise-linear interpolated ECDF (type-7 inverse, ties at
+    their mean rank). It is 0 at and below the cheapest pooled pair and 1 at and
+    above the costliest.
+- **The reference.** `src/data/ctc-reference-2026-10-22.ts` stores page metrics,
+  not scores, so a changed chain constant re-derives the curve.
+  - It was crawled by `research/ctc-reference/crawl.ts`: cbrowser's own browser,
+    1920x1080, cognitive_effort's blocked-page check, then extractPageMetrics at
+    viewport and at full_page.
+  - Registered as `ctcReference.viewport` and `ctcReference.full_page`, status
+    `definition`, value 111.
+- **capacityConsumed.** It was `depletionRate x layerCost` in every case. It is now
+  the capacity the layer actually removed, summed over all 30 dimensions (direct
+  and indirect). The content gate, the drawdown cap and the floor are all inside
+  it.
+- **The DRO bound** is on rawCTC. The logistic's slope factor is gone from the
+  derivation. A percentile bound is offered too: raw L times the curve's steepest
+  slope over [0, rawMax].
+
+The golden matrix was re-pinned in place. Before it was regenerated, the diff
+against the previous pin was confined to four fields, 16,570 numbers in all:
+
+| field | numbers changed |
+|---|---|
+| totalCTC | 2052 |
+| capacityConsumed | 13958 |
+| screenCTC | 458 |
+| reachWeightedCTC | 102 |
+
+Every other number was bit-identical, rawCTC, layer costs, abandonment and
+remaining capacity included.
+
+### The crawl
+
+199 sites attempted: 111 graded, 77 blocked, 11 errors.
+
+- **Blocked.** 55 by a block signature in the title or first 500 characters
+  ("just a moment", "access denied", "press & hold" and the rest of the tool's
+  list), 20 by HTTP status (401, 403, 429), and 2 with no interactive element on
+  the whole document (cnn.com, wholefoodsmarket.com).
+- **Errors.** Timeouts (netflix, ikea, google, adidas, fedex, rei), DNS failures
+  (unitedhealth, chick-fil-a), refused (delta), HTTP/2 protocol error (etrade), and
+  an extraction TypeError (walmart).
+
+The blocked share is a selection effect. Retail, media, travel, fashion and real
+estate are over-represented among the blocked, and this server's IP is plainly on
+several bot lists. The reference describes "the web that lets cbrowser in from
+here", not the web.
+
+The first pass lost 127 sites to "no result". The tree was being edited
+mid-crawl, and the worker processes could not import it. Those 127 were crawled
+again, once, from an isolated snapshot (`crawl.ts --resume`). The snapshot's
+measurement code (browser.ts, config.ts, cognitive-transport.ts) is byte-identical
+to `0a974f1`.
+
+### Distribution of totalCTC, before and after
+
+`bun research/ctc-percentile-deltas.ts --before-pin <git show 0a974f1:tests/fixtures/ctc-golden-21.0.0.json>`
+
+"Before" is the old logistic on today's rawCTC. The script checked it against the
+previous pin: 1900 of 1900 cells match bit for bit, and rawCTC is unchanged.
+
+Golden matrix, 25 human personas x 19 demands x 4 option sets:
+
+| | min / p10 / p25 / median / p75 / p90 / max | above 0.95 | below 0.05 |
+|---|---|---|---|
+| before, all 1900 | 0.047 / 0.058 / 0.089 / 0.187 / 0.475 / 0.806 / 1.000 | 102 (5.4%) | 175 (9.2%) |
+| after, all 1900 | 0.000 / 0.000 / 0.273 / 0.561 / 0.819 / 0.958 / 1.000 | 201 (10.6%) | 256 (13.5%) |
+| before, tool default (475) | 0.047 / 0.047 / 0.082 / 0.146 / 0.296 / 0.653 / 1.000 | 25 (5.3%) | 50 (10.5%) |
+| after, tool default (475) | 0.000 / 0.000 / 0.247 / 0.547 / 0.792 / 0.943 / 1.000 | 45 (9.5%) | 69 (14.5%) |
+
+After the change, 53 golden cells (2.8%) are exactly 1, costlier than any real
+(page, persona) pair, and 191 (10.1%) are exactly 0. The empty, sparse and
+gate-edge pages are lighter than any real first screen.
+
+Reference pages, 111 pages x 25 personas = 2775 pairs, tool default:
+
+| scope | | min / p10 / p25 / median / p75 / p90 / max | above 0.95 | below 0.05 |
+|---|---|---|---|---|
+| viewport | before | 0.055 / 0.068 / 0.083 / 0.133 / 0.252 / 0.503 / 0.987 | 11 (0.4%) | 0 |
+| viewport | after | 0.000 / 0.100 / 0.250 / 0.500 / 0.750 / 0.900 / 1.000 | 139 (5.0%) | 139 (5.0%) |
+| full_page | before | 0.060 / 0.114 / 0.201 / 0.415 / 0.715 / 0.917 / 0.999 | 193 (7.0%) | 0 |
+| full_page | after | 0.000 / 0.100 / 0.250 / 0.500 / 0.750 / 0.900 / 1.000 | 139 (5.0%) | 139 (5.0%) |
+
+**What the logistic was actually doing.** The measured defect is compression at
+the bottom, not saturation at the top.
+
+- On the golden matrix only 5.4% of cells sat above 0.95.
+- On real first screens, half of all (page, persona) scores fell between 0.055
+  and 0.133.
+- The logistic's floor at raw 0 is 0.047, so no page could score below it.
+
+A "0.2" read as low while it was costlier than about two thirds of real
+(first screen, persona) pairs (0.676 on the new scale). At full_page the logistic used its range better (median 0.415, 7%
+above 0.95).
+
+The percentile spreads real pages evenly by construction. On the golden matrix it
+puts more cells above 0.95 than before (10.6% against 5.4%). The golden pages
+include synthetic extremes (max, dense, control-heavy) that are costlier than
+anything in the reference. Those cells now read 1, "costlier than every reference
+page", instead of 0.99 on a curve nobody fitted.
+
+Spearman rho between old and new totalCTC, per persona:
+
+- **Tool default, 19 golden pages.** 1.0000 for 24 personas and 0.9987 for
+  careful-reader. Within one option set and scope, both scales are monotone in
+  rawCTC; the one tie is at the percentile's end.
+- **All four option sets, 76 cells.** 0.8542 (mobile-user) to 0.9837
+  (power-user). Each asymmetric/interactions pair now has its own reference
+  curve, so a symmetric cost is ranked among symmetric costs. Under the logistic
+  the four option sets shared one scale.
+- **Reference pages, 111 per scope.** 1.0000 for every persona.
+
+Persona spread survives the pooling. On the reference pages, the per-persona
+median totalCTC runs:
+
+- viewport: 0.128 (color-blind-deuteranopia) to 0.874 (intellectual-disability);
+  the same two personas read 0.071 and 0.433 before;
+- full_page: 0.099 (mobile-user) to 0.913 (intellectual-disability).
+
+### What a threshold on the old scale means now
+
+Old thresholds converted through rawCTC (tool default options):
+
+| old totalCTC (logistic) | rawCTC | new totalCTC, viewport | new totalCTC, full_page |
+|---|---|---|---|
+| 0.0474 | 0.000 | 0.000 | 0.000 |
+| 0.3 | 0.861 | 0.795 | 0.381 |
+| 0.5 | 1.200 | 0.899 | 0.576 |
+| 0.6 | 1.362 | 0.930 | 0.663 |
+| 0.7 | 1.539 | 0.955 | 0.739 |
+| 0.8 | 1.755 | 0.974 | 0.806 |
+
+A band defined on the old scale ("total < 0.3 comfortable") covered about 80% of
+real first screens. The same number on the new scale covers 30%. Keeping the old
+verdicts means different thresholds per scope, because full-page raw costs run
+higher. Defining the bands as percentiles ("costlier than 90% of real pages")
+needs no conversion. Either is a decision about the verdict text, not about the
+chain.
+
+### capacityConsumed
+
+Red first, on `0a974f1`, with the new tests in `tests/capacity-depletion.test.ts`:
+4 fail, 7 pass. After the change: 11 pass.
+
+- **A light page with every layer gated off.** Before, it reported 0.00091
+  (visualComplexity) and 0.00078 (frustration) while nothing was drawn. It now
+  reports 0, and the remaining capacity equals the starting capacity.
+- **A heavy layer.** This is boundary-floor on the second of two maximal screens:
+  cognitiveLoad costs 3.36, so depletionRate x cost is 0.504, above the 0.5 cap.
+  It now reports exactly the capacity removed under the cap.
+- **All dimensions at 0.** The floor lifts every dimension to 1e-4 and nothing can
+  be drawn. It reports 0 on every layer; depletionRate x cost was about 0.5.
+
+Units changed from a fraction to capacity summed over dimensions. Across the
+tool-default golden cells the mean per layer went from 0.0142 to 0.0969, mostly
+from the indirect share. In the old figure that share was not there at all, and
+it is the part later layers on the same page feel.
+
+### The DRO bound
+
+`tests/dro-bound.test.ts` passes 38 of 38. The adversary's tightest observed/bound
+ratio per page is 0.970 to 0.99995 on rawCTC, and 80 upward populations reach
+0.9708 of epsilon x L.
+
+`tests/dro-bound-mutants.test.ts` passes 20 of 20. Every must-kill mutant is
+killed on 3 of 3 seeds; M11 and M14 survive, informational, as before. M4 (sigma'
+at rawMax) is retired: the code it mutated is gone.
+
+`research/latency/dro-sensitivity.ts`, on rawCTC now:
+
+| page | L / steepest observed |
+|---|---|
+| empty | 0 / 0 (flat) |
+| light | 0.5989 / 0.5071 (1.2x) |
+| mid | 2.9585 / 1.1607 (2.5x) |
+| busy | 8.1490 / 2.0128 (4.0x) |
+| max | 13.1912 / 3.0633 (4.3x) |
+
+**The percentile bound is sound and nearly vacuous.**
+
+- The viewport curve's steepest segment has slope 7429.6. Two of its 2775 knots
+  sit 4.85e-8 apart; the median gap is 2.79e-4. On the mid page that gives
+  L_pct = 2.9585 x 7429.6 = 21,980, and the full_page curve's slope is 494.4.
+- The steepest totalCTC slope any search found was 5.37, which is 3.5e-4 of the
+  bound.
+- The upper bound is capped at 1, so with any realistic epsilon it reads 1.
+
+It is offered because it is cheap and correct. A useful bound on the percentile
+would need the curve's modulus of continuity at the scale of epsilon x L, not its
+worst single segment.
+
+### Cost
+
+- One curve (111 pages x 25 personas) takes 19 ms to build. There are at most
+  2 scopes x 4 option pairs, each built once per process.
+- A scored call with the curve cached costs 8.2 microseconds, against 7.9 before.
+- `tests/ctc-no-dead-constants.test.ts` rebuilds the curves for every perturbed
+  constant, so it takes 7.1 s instead of 2.1 s.
