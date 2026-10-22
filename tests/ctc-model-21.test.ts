@@ -11,6 +11,7 @@ import { join } from "node:path";
 import {
   LAYER_DEFINITIONS,
   INTERACTION_PAIRS,
+  capacityVector,
   computeDemandDistribution,
   computeDemandFromRawMetrics,
   computeSequentialCTC,
@@ -99,5 +100,34 @@ describe("every trait in a layer can receive demand", () => {
     expect(DEMAND_DIMENSIONS as readonly string[]).toContain("resilience");
     expect(DEMAND_DIMENSIONS as readonly string[]).toContain("selfEfficacy");
     expect(LAYER_DEFINITIONS.find((l) => l.name === "frustration")?.traits).toEqual(["patience", "emotionalContagion"]);
+  });
+});
+
+describe("no layer trait is the same number for every persona", () => {
+  // attentionPattern is not a CognitiveTraits field, so in the tool path its
+  // capacity was chain.missingTraitCapacity (0.5) for every persona: a
+  // persona-invariant term inside layer 1 that moved every score and
+  // distinguished no one. siteFamiliarity is the one dimension allowed to be
+  // the same across the roster, because it is a per-run parameter (the
+  // caller's value, else 0 for a first visit), not a persona property.
+  const RUN_SCOPED = new Set(["siteFamiliarity"]);
+
+  test("every layer trait's capacity varies across the roster as cognitive_effort builds it", () => {
+    const caps = Object.entries(ROSTER).map(([n, p]) => capacityVector(toolProfile(n, p).traits));
+    const invariant = LAYER_DEFINITIONS.flatMap((l) => l.traits
+      .filter((t) => !RUN_SCOPED.has(t) && new Set(caps.map((c) => c[t])).size === 1)
+      .map((t) => `${l.name}.${t} = ${caps[0][t]}`));
+    expect(invariant).toEqual([]);
+  });
+
+  test("attentionPattern's demand weight and its five string levels are gone from the registry", () => {
+    for (const id of ["chain.demand.visual.attentionPattern", "chain.attentionString.targeted", "chain.attentionString.sequential",
+      "chain.attentionString.fPattern", "chain.attentionString.zPattern", "chain.attentionString.exploratory"]) {
+      expect({ id, registered: id in MODEL_PROVENANCE }).toEqual({ id, registered: false });
+    }
+  });
+
+  test("a string-valued trait reads as a missing trait, not as one of the retired levels", () => {
+    expect(capacityVector({ attentionPattern: "targeted" }).attentionPattern).toBe(MODEL_PROVENANCE["chain.missingTraitCapacity"].value);
   });
 });

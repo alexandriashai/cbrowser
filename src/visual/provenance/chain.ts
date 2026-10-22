@@ -33,7 +33,6 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("demand.info.informationForaging", 0.8, DEMAND("informationDensity", "informationForaging")),
 
   h("demand.visual.mentalModelFlexibility", 0.7, DEMAND("visualComplexity", "mentalModelFlexibility")),
-  h("demand.visual.attentionPattern", 0.85, DEMAND("visualComplexity", "attentionPattern")),
 
   h("demand.interactive.halfSaturation", 20, "Hand-set element count at which interactive demand reaches 0.5 (n/(n+20)); task-time or error rate against interactive element count across pages would fit the half-saturation point."),
   h("demand.interactive.riskTolerance", 0.75, DEMAND("interactiveElementCount", "riskTolerance")),
@@ -85,11 +84,6 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
 
   // ── Trait resolution ──
   h("missingTraitCapacity", 0.5, "Capacity assumed for a trait the persona does not carry; measured trait distributions across the roster (or refusing to score an absent trait) would replace it."),
-  h("attentionString.targeted", 0.9, "Hand-set capacity for a persona whose attentionPattern is the string 'targeted'; eye-tracking scan efficiency per declared pattern would fit the five string levels."),
-  h("attentionString.sequential", 0.8, "Hand-set capacity for attentionPattern 'sequential'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
-  h("attentionString.fPattern", 0.7, "Hand-set capacity for attentionPattern 'f-pattern'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
-  h("attentionString.zPattern", 0.6, "Hand-set capacity for attentionPattern 'z-pattern'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
-  h("attentionString.exploratory", 0.3, "Hand-set capacity for attentionPattern 'exploratory'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
 
   // ── Demand modulation by the persona ──
   h("engagement.atSkim", 0.75, "Hand-set share of attentional demand a pure skimmer (readingTendency 0) engages; reading time or fixation coverage against readingTendency would fit the bound."),

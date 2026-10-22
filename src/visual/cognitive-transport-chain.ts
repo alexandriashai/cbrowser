@@ -166,8 +166,13 @@ export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
     // have. Its demand is pageMetrics.visualComplexity (a count of visual
     // elements) and the animation level; the fitted attention model (UEyes,
     // attention-transport.ts) never reaches it. The name now says what it reads.
+    //
+    // attentionPattern left this layer in 21.0. It is not a CognitiveTraits
+    // field, so as cognitive_effort builds a persona its capacity was the
+    // missing-trait fallback for everyone: a term that moved every score and
+    // told no two personas apart.
     name: 'visualComplexity',
-    traits: ['changeBlindness', 'attentionPattern'],
+    traits: ['changeBlindness'],
   },
   {
     name: 'cognitiveLoad',
@@ -462,7 +467,6 @@ const DEMAND_IDS = {
   infoReadingTendency: 'chain.demand.info.readingTendency',
   infoInformationForaging: 'chain.demand.info.informationForaging',
   visualMentalModelFlexibility: 'chain.demand.visual.mentalModelFlexibility',
-  visualAttentionPattern: 'chain.demand.visual.attentionPattern',
   interactiveHalfSaturation: 'chain.demand.interactive.halfSaturation',
   interactiveRiskTolerance: 'chain.demand.interactive.riskTolerance',
   interactiveSatisficing: 'chain.demand.interactive.satisficing',
@@ -506,11 +510,6 @@ const DEMAND_IDS = {
 
 const CHAIN_IDS = {
   missingTraitCapacity: 'chain.missingTraitCapacity',
-  attentionTargeted: 'chain.attentionString.targeted',
-  attentionSequential: 'chain.attentionString.sequential',
-  attentionFPattern: 'chain.attentionString.fPattern',
-  attentionZPattern: 'chain.attentionString.zPattern',
-  attentionExploratory: 'chain.attentionString.exploratory',
   engagementAtSkim: 'chain.engagement.atSkim',
   engagementRange: 'chain.engagement.range',
   weightDeficit: 'chain.weightDeficit',
@@ -596,11 +595,10 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   demands.readingTendency = Math.max(demands.readingTendency, infoDemand * D.infoReadingTendency);
   demands.informationForaging = Math.max(demands.informationForaging, infoDemand * D.infoInformationForaging);
 
-  // ── visualComplexity → changeBlindness, mentalModelFlexibility, attentionPattern (inferred)
+  // ── visualComplexity → changeBlindness, mentalModelFlexibility
   const visDemand = visCplx; // already 0-1 from logScale
   demands.changeBlindness = Math.max(demands.changeBlindness, visDemand);
   demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, visDemand * D.visualMentalModelFlexibility);
-  demands.attentionPattern = Math.max(demands.attentionPattern, visDemand * D.visualAttentionPattern);
 
   // ── interactiveElementCount → riskTolerance, satisficing, proceduralFluency, motorPrecision (inferred)
   // Use logScale for element count — 20 elements = 0.5, 100 = 0.83, 500 = 0.96
@@ -770,7 +768,7 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
 /**
  * A persona's capacity vector over DEMAND_DIMENSIONS, exactly as the chain reads
  * it at the start of a page: each trait through traitValue (clamped to [0, 1],
- * string attention patterns mapped, missing traits at chain.missingTraitCapacity).
+ * missing or non-numeric traits at chain.missingTraitCapacity).
  * The Wasserstein-DRO bound (dro-bound.ts) works on these vectors.
  */
 export function capacityVector(traits: Record<string, number | string>): Record<string, number> {
@@ -782,17 +780,9 @@ export function capacityVector(traits: Record<string, number | string>): Record<
 
 function traitValue(traits: Record<string, number | string>, trait: string, P: ChainParams): number {
   const v = traits?.[trait];
-  // Handle string enum traits (e.g. attentionPattern: "targeted" | "f-pattern" | ...)
-  if (typeof v === 'string') {
-    const STRING_TRAIT_MAP: Record<string, number> = {
-      'targeted': P.attentionTargeted,
-      'sequential': P.attentionSequential,
-      'f-pattern': P.attentionFPattern,
-      'z-pattern': P.attentionZPattern,
-      'exploratory': P.attentionExploratory,
-    };
-    return STRING_TRAIT_MAP[v] ?? P.missingTraitCapacity;
-  }
+  // A string attentionPattern ("targeted", "f-pattern", ...) used to map to five
+  // hand-set levels. attentionPattern is in no layer since 21.0, so the levels
+  // moved nothing and were removed; a non-numeric trait reads as missing.
   if (typeof v === 'number' && !isNaN(v)) return Math.max(0, Math.min(1, v));
   return P.missingTraitCapacity;
 }
