@@ -597,7 +597,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       scrollY: z.number().min(0).optional().describe("Vertical scroll offset in CSS pixels to analyze at. The screenshot, heatmap and DOM coordinates are all taken in the viewport at this offset. Clamped to the page's maximum scroll; the applied value is reported in `scroll`."),
       persona: z.string().optional().default("first-timer").describe("Persona name"),
       goal: z.string().optional().describe("Task goal — elements matching this goal get boosted attention (e.g., 'find pricing', 'sign up for an account')"),
-      cellSize: z.number().optional().default(4).describe("Saliency grid cell size in pixels (smaller = finer heatmap, default: 4)"),
+      // A whole number of pixels: the grid indexes pixel rows with it, and the
+      // calibrated smoothing divides by it.
+      cellSize: z.number().int().min(1).optional().default(4).describe("Saliency grid cell size in pixels of the half-resolution analysis image (smaller = finer heatmap, default: 4). Changes resolution only: the calibrated foveal smoothing keeps its fitted width in pixels at any cell size."),
       heatmap: z.boolean().optional().default(true).describe("Generate the heatmap overlay (default: true). The heatmap is the main finding. false returns the metrics only: no inline preview, and the attention view shows no picture."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device name"),
       useValues: z.boolean().optional().default(false).describe("Include the persona's motivational values in the attention-quality score. The saliency map always reflects the persona's Schwartz values when the persona has them, whatever this flag says. Default: false."),

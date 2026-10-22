@@ -1059,6 +1059,27 @@ const WEB_SPATIAL_PRIOR = [
 /** Fitted operating point, all five CV folds unanimous. See `applyGazeCalibration`. */
 export const GAZE_CALIBRATION = { visualWeight: 0.2, sigmaCells: 2.5, spatialPrior: 1.0 } as const;
 
+/**
+ * The cell size the calibration was fitted at: research/study1 runs every
+ * stimulus at CELL = 16 (run-optimize.ts, run-semantic.ts). computeLabSaliency
+ * halves the image before celling, so one fitted cell spans 32 capture px and
+ * `sigmaCells` 2.5 is 80 capture px.
+ */
+export const GAZE_CALIBRATION_CELL_SIZE = 16;
+
+/**
+ * `GAZE_CALIBRATION.sigmaCells` rescaled to a grid of `cellSize`, so the
+ * smoothing keeps its fitted width in pixels.
+ *
+ * The blur runs in cells, and until 2026-10-21 every caller passed 2.5 cells
+ * whatever its grid: attention_analysis (cellSize 4) smoothed at a quarter of the
+ * fitted width, journey_heatmap_gif (8) at half. Exactly 2.5 at 16, so the
+ * Study 1 numbers do not move.
+ */
+export function gazeSigmaCells(cellSize: number): number {
+  return GAZE_CALIBRATION.sigmaCells * (GAZE_CALIBRATION_CELL_SIZE / cellSize);
+}
+
 /** Separable Gaussian blur over the cell grid. */
 export function smoothSaliency(map: Float64Array, rows: number, cols: number, sigma: number): Float64Array {
   if (sigma <= 0) return map;
@@ -1093,6 +1114,10 @@ export function smoothSaliency(map: Float64Array, rows: number, cols: number, si
  * 0.0005. Human inter-observer ceiling on the same data is 0.8112, so this
  * closes about 52% of the reachable gap. All five folds selected the same
  * values.
+ *
+ * `sigma` is in cells and its default is right only on the fitted grid
+ * (GAZE_CALIBRATION_CELL_SIZE); on any other grid pass `gazeSigmaCells(cellSize)`.
+ * The spatial prior needs no rescaling: it is looked up by normalised position.
  */
 export function applyGazeCalibration(
   map: Float64Array, rows: number, cols: number,
@@ -1207,9 +1232,16 @@ export async function analyzeAttentionFromDOM(
   // own docstring says so). Calibrating one and not the other would silently
   // make the fast path and the full path disagree about where a persona looks --
   // the live cognitive-journey overlay drawing a different map from the audit.
+  //
+  // Sigma is scaled to this grid like analyzeAttention's. This grid is NOT
+  // halved, though, so a cell here spans cellSize px where the fitted cell
+  // spanned 2x that: this path smooths at half the fitted physical width, at
+  // every cellSize, as it did at 16 before the rescale. Not changed here, since
+  // matching it would move every live overlay. (2026-10-21)
   const filtered = applyGazeCalibration(
     applyPersonaFilter(semanticMap, rows, cols, profile.visualFilter, values),
     rows, cols,
+    gazeSigmaCells(cellSize),
   );
 
   // Hotspots, entropy, concentration — same shape as analyzeAttention
@@ -1347,7 +1379,8 @@ export async function analyzeAttention(
     domElements && domElements.length > 0 ? "visual+semantic" : "visual-only";
 
   // Apply persona perceptual filter + value-driven attention modulation, then
-  // foveal smoothing and the fitted spatial prior (see applyGazeCalibration).
+  // foveal smoothing and the fitted spatial prior (see applyGazeCalibration),
+  // the smoothing scaled to this grid so its width in pixels is the fitted one.
   const filtered = applyGazeCalibration(
     applyPersonaFilter(
       combinedSaliency, baseSaliency.rows, baseSaliency.cols,
@@ -1355,6 +1388,7 @@ export async function analyzeAttention(
       values,
     ),
     baseSaliency.rows, baseSaliency.cols,
+    gazeSigmaCells(cellSize),
   );
 
   // Build saliency map with hotspots
