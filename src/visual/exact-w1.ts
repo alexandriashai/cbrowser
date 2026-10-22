@@ -20,23 +20,32 @@
  * of augmentations K is bounded by the number of edges whose residual capacity
  * can be exhausted (each augmentation saturates a supply edge, a demand edge or
  * cancels a reverse edge), so the total is O(K * n^2) with K = O(n^2) in the
- * worst case. Measured on the 29-trait persona problem across all 300 roster
- * pairs (2026-10-21): K = 54 min, 67 median, 120 max, i.e. roughly 2n to 4n,
- * and a 25 x 25 distance matrix takes ~65 ms.
+ * worst case. cognitiveDistance now calls it on 30 points (29 traits plus the
+ * slack bin of the generalized distance). Measured across all 300 roster pairs
+ * in the canonical order cognitiveDistance uses (2026-10-21, after the end-node
+ * fix below): K = 41 min, 51 median, 57 max on the 30-point problem (the
+ * 29-point simplex problem it replaced: 48 / 57 / 57; 54 / 72 / 161 with the
+ * old end-node rule), i.e. roughly 1.5n to 2n, and a 25 x 25 distance matrix
+ * takes ~62 ms median (research/latency/bench-ctc.ts; ~73 ms before).
  * Mass is floating point, so "saturated" means residual <= EPS and the loop
- * stops once the unshipped supply is below EPS.
+ * stops once every supply point or every demand point is at or below EPS.
  *
  * `cognitiveDistance` used to call its result "W1" while computing a weighted
  * L1 sum (|a_i - b_i| times the mean ground distance of trait i), which is not
  * optimal transport and does not respect the ground metric. This module is the
  * exact replacement. Its oracle test (tests/cognitive-distance-w1.test.ts)
- * checks it against an independent dense two-phase simplex on the same LP.
+ * checks it against an independent dense two-phase simplex on the same LP, and,
+ * with a slack bin, against the Piccoli-Rossi unbalanced LP it stands in for.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 
-/** Mass below this is treated as zero. Both inputs sum to 1, so 1e-12 is far below any real atom. */
+/**
+ * Mass below this is treated as zero. Atoms can be smaller than this (the
+ * generalized persona measure has no floor), so termination is decided per
+ * point, not on the total; see the main loop.
+ */
 const EPS = 1e-12;
 
 export interface TransportResult {
@@ -53,7 +62,8 @@ export interface TransportResult {
  * the same total up to EPS) under cost matrix `cost` (n x n, non-negative).
  *
  * Throws if the shapes disagree or the masses differ by more than 1e-9: unequal
- * mass is an unbalanced problem and W1 is undefined for it.
+ * mass is an unbalanced problem and W1 is undefined for it. (cognitiveDistance
+ * balances its measures first with a slack bin; see traitsToLevelMeasure.)
  */
 export function exactW1(a: ArrayLike<number>, b: ArrayLike<number>, cost: ArrayLike<ArrayLike<number>>): TransportResult {
   const n = a.length;
@@ -93,7 +103,21 @@ export function exactW1(a: ArrayLike<number>, b: ArrayLike<number>, cost: ArrayL
   let total = 0;
   let augmentations = 0;
 
-  while (remaining > EPS) {
+  for (;;) {
+    // Done once either side has nothing above EPS left at any point. The loop
+    // used to run while the TOTAL unshipped supply exceeded EPS, which threw
+    // "no augmenting path" when several atoms each below EPS added up to more
+    // than EPS: every one of them is treated as zero, so nothing could ship.
+    // Unreachable while cognitiveDistance floored every trait to 0.01; reachable
+    // on the generalized measure, which has no floor (fast-check found trait
+    // values of 1e-11 and 6e-12, 2026-10-21). What is left on the other side
+    // is at most the 1e-9 imbalance the entry check allows plus one sub-EPS
+    // crumb per point, and it changes the cost by less than that mass times the
+    // largest cost.
+    let open = false, need = false;
+    for (let i = 0; i < n; i++) { if (supply[i] > EPS) open = true; if (demand[i] > EPS) need = true; }
+    if (!open || !need) break;
+
     // Dijkstra over the residual graph with reduced costs.
     distL.fill(Infinity); distR.fill(Infinity);
     doneL.fill(0); doneR.fill(0);
@@ -127,8 +151,20 @@ export function exactW1(a: ArrayLike<number>, b: ArrayLike<number>, cost: ArrayL
     }
 
     // Cheapest reachable demand node with remaining capacity ends the path.
+    // "Cheapest" by TRUE distance, distR[j] + potR[j]: distR is reduced by j's
+    // own potential, which differs per j after the first round. This used to
+    // compare distR alone. That still ends at an optimal plan when every demand
+    // is filled (no residual sink arc is left to form a cycle through), but
+    // once the loop may stop with mass left over, the end chosen here decides
+    // which demand goes unfilled, and the reduced comparison picked a dearer
+    // flow (measured 2026-10-21: 1e-11 above the true min-cost flow on an
+    // 11-point line with a 3.7e-11 shortfall).
     let endJ = -1, endD = Infinity;
-    for (let j = 0; j < n; j++) if (demand[j] > EPS && distR[j] < endD) { endD = distR[j]; endJ = j; }
+    for (let j = 0; j < n; j++) {
+      if (demand[j] <= EPS) continue;
+      const d = distR[j] + potR[j];
+      if (d < endD) { endD = d; endJ = j; }
+    }
     if (endJ < 0) throw new Error(`exactW1: no augmenting path with ${remaining} mass unshipped (masses unbalanced beyond tolerance?)`);
 
     // Walk the path back to find the bottleneck, then ship it.
