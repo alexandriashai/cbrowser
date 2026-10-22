@@ -1,0 +1,15 @@
+{
+  "ran": "2026-10-22T17:06:19.219Z",
+  "images": 495,
+  "skipped_thin": 0,
+  "logs": 554,
+  "persons": 62,
+  "person_half_a": 31,
+  "person_image_pairs": 4764,
+  "person_image_pairs_in_more_than_one_log": 0,
+  "legacy_grid": "24x32",
+  "legacy_sigma_cells": 1.5,
+  "model_grid": "ceil(height*0.5/16) x ceil(width*0.5/16)",
+  "random_splits": 200,
+  "split_seed": "mulberry32(0x0c311)"
+}

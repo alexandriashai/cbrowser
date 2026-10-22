@@ -1,0 +1,99 @@
+{
+ "study1": "research/paper-calcs/inputs/study1-v20.0.1/per_image.csv",
+ "ceiling": "research/paper-calcs/ceiling-per-image.csv",
+ "model_arm": "neurotypical (first-timer)",
+ "resamples": 10000,
+ "seed": 20261022,
+ "rows": [
+  {
+   "metric": "auc",
+   "ceiling_arm": "legacy32_logsplit",
+   "pages": 494,
+   "model_minus_cb": 0.08574725708502023,
+   "ceiling_minus_cb": 0.15881913765182187,
+   "share": 0.5399050665607024,
+   "boot_lo": 0.5036984340676767,
+   "boot_hi": 0.574479056940497
+  },
+  {
+   "metric": "nss",
+   "ceiling_arm": "legacy32_logsplit",
+   "pages": 494,
+   "model_minus_cb": 0.3623890020242915,
+   "ceiling_minus_cb": 0.9367353380566802,
+   "share": 0.38686381019434113,
+   "boot_lo": 0.3563402011580102,
+   "boot_hi": 0.41722602353247085
+  },
+  {
+   "metric": "auc",
+   "ceiling_arm": "model_s1",
+   "pages": 494,
+   "model_minus_cb": 0.08574725708502023,
+   "ceiling_minus_cb": 0.15429857287449392,
+   "share": 0.5557229434310248,
+   "boot_lo": 0.5185732149407243,
+   "boot_hi": 0.5930897425547047
+  },
+  {
+   "metric": "nss",
+   "ceiling_arm": "model_s1",
+   "pages": 494,
+   "model_minus_cb": 0.3623890020242915,
+   "ceiling_minus_cb": 0.949234516194332,
+   "share": 0.38176972691340844,
+   "boot_lo": 0.3496885745486906,
+   "boot_hi": 0.41363790996547783
+  },
+  {
+   "metric": "cc",
+   "ceiling_arm": "model_s1",
+   "pages": 494,
+   "model_minus_cb": 0.18075522874493927,
+   "ceiling_minus_cb": 0.37447289676113366,
+   "share": 0.48269241995432915,
+   "boot_lo": 0.4446445836965637,
+   "boot_hi": 0.5213547773710303
+  },
+  {
+   "metric": "sim",
+   "ceiling_arm": "model_s1",
+   "pages": 489,
+   "model_minus_cb": 0.0645902044989775,
+   "ceiling_minus_cb": 0.156150591002045,
+   "share": 0.413640474137761,
+   "boot_lo": 0.37806264700664355,
+   "boot_hi": 0.4507289786438958
+  },
+  {
+   "metric": "auc",
+   "ceiling_arm": "model_s32eq",
+   "pages": 494,
+   "model_minus_cb": 0.08574725708502023,
+   "ceiling_minus_cb": 0.158119479757085,
+   "share": 0.5422940754469443,
+   "boot_lo": 0.5076760582889197,
+   "boot_hi": 0.5771310879698838
+  },
+  {
+   "metric": "cc",
+   "ceiling_arm": "model_s32eq",
+   "pages": 494,
+   "model_minus_cb": 0.18075522874493927,
+   "ceiling_minus_cb": 0.4015639291497976,
+   "share": 0.4501281505229797,
+   "boot_lo": 0.4143115406250899,
+   "boot_hi": 0.48493766378967446
+  },
+  {
+   "metric": "sim",
+   "ceiling_arm": "model_s32eq",
+   "pages": 489,
+   "model_minus_cb": 0.0645902044989775,
+   "ceiling_minus_cb": 0.17889242126789365,
+   "share": 0.3610561254702504,
+   "boot_lo": 0.3303642581469256,
+   "boot_hi": 0.39171319861982984
+  }
+ ]
+}

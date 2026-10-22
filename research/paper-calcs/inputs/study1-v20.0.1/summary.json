@@ -1,0 +1,629 @@
+{
+  "ran": "2026-10-22T01:25:47.435Z",
+  "commit": "cdcb30c3ad756c08cb07e7b2ed3c39bad23ea3d5",
+  "src_dirty": false,
+  "package_version": "20.0.1",
+  "scope": "UEyes web category",
+  "images": 494,
+  "participant_logs": 554,
+  "skipped": {
+    "no_fixations": 0,
+    "grid_mismatch": 0,
+    "error": 1
+  },
+  "model": "analyzeAttention (shipped path)",
+  "attention_models_seen": [
+    "visual+semantic"
+  ],
+  "gaze_calibration": {
+    "visualWeight": 0.2,
+    "sigmaCells": 2.5,
+    "spatialPrior": 1
+  },
+  "cell_size": 16,
+  "elements_from": "research/study1/ocr-extract.ts (tesseract 5.3.4 + sharp; no model)",
+  "personas": {
+    "neurotypical (first-timer)": {
+      "persona": "first-timer",
+      "values": true,
+      "traits": true
+    },
+    "ADHD": {
+      "persona": "cognitive-adhd",
+      "values": true,
+      "traits": true
+    },
+    "elderly": {
+      "persona": "elderly-user",
+      "values": true,
+      "traits": true
+    },
+    "dyslexic": {
+      "persona": "dyslexic-user",
+      "values": true,
+      "traits": true
+    },
+    "low-vision": {
+      "persona": "low-vision-magnified",
+      "values": true,
+      "traits": true
+    },
+    "color-blind": {
+      "persona": "color-blind-deuteranopia",
+      "values": true,
+      "traits": true
+    },
+    "power-user": {
+      "persona": "power-user",
+      "values": true,
+      "traits": true
+    }
+  },
+  "ground_truth": {
+    "auc_nss": "discrete fixation points per 16px-cell grid (all 554 logs pooled)",
+    "cc_kld_sim": "fixationsToGrid density, sigma 1 cell",
+    "cc_counts": "raw per-cell fixation counts (2026-08-04 convention)"
+  },
+  "metric_refs": "KLD and SIM per Bylinskii et al. 2019; eps 2.2204e-16; KLD lower is better",
+  "persona_auc_spread": 0.0097,
+  "wall_seconds": 3761.7,
+  "caveat": "UEyes ground truth pools 62 free-viewing participants with no group labels. Persona scores measure distance from that average viewer, not accuracy for the modelled population.",
+  "summary": [
+    {
+      "arm": "neurotypical (first-timer)",
+      "n": 494,
+      "auc": {
+        "mean": 0.7373,
+        "sd": 0.0786
+      },
+      "nss": {
+        "mean": 0.8566,
+        "sd": 0.3739
+      },
+      "cc": {
+        "mean": 0.4818,
+        "sd": 0.1753
+      },
+      "cc_counts": {
+        "mean": 0.2786,
+        "sd": 0.1193
+      },
+      "kld": {
+        "mean": 0.6766,
+        "sd": 0.2153
+      },
+      "sim": {
+        "mean": 0.5541,
+        "sd": 0.0676
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 439,
+          "pages": 494,
+          "rate": 0.8887,
+          "mean_delta": 0.0857
+        },
+        "nss": {
+          "wins": 421,
+          "pages": 494,
+          "rate": 0.8522,
+          "mean_delta": 0.3624
+        },
+        "cc": {
+          "wins": 410,
+          "pages": 494,
+          "rate": 0.83,
+          "mean_delta": 0.1808
+        },
+        "cc_counts": {
+          "wins": 421,
+          "pages": 494,
+          "rate": 0.8522,
+          "mean_delta": 0.1168
+        },
+        "kld": {
+          "wins": 423,
+          "pages": 494,
+          "rate": 0.8563,
+          "mean_delta": -0.213
+        },
+        "sim": {
+          "wins": 424,
+          "pages": 494,
+          "rate": 0.8583,
+          "mean_delta": 0.0645
+        }
+      }
+    },
+    {
+      "arm": "ADHD",
+      "n": 494,
+      "auc": {
+        "mean": 0.7416,
+        "sd": 0.0765
+      },
+      "nss": {
+        "mean": 0.8709,
+        "sd": 0.3601
+      },
+      "cc": {
+        "mean": 0.4901,
+        "sd": 0.1685
+      },
+      "cc_counts": {
+        "mean": 0.2833,
+        "sd": 0.1155
+      },
+      "kld": {
+        "mean": 0.6627,
+        "sd": 0.1909
+      },
+      "sim": {
+        "mean": 0.553,
+        "sd": 0.063
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 437,
+          "pages": 494,
+          "rate": 0.8846,
+          "mean_delta": 0.0901
+        },
+        "nss": {
+          "wins": 418,
+          "pages": 494,
+          "rate": 0.8462,
+          "mean_delta": 0.3766
+        },
+        "cc": {
+          "wins": 409,
+          "pages": 494,
+          "rate": 0.8279,
+          "mean_delta": 0.1891
+        },
+        "cc_counts": {
+          "wins": 418,
+          "pages": 494,
+          "rate": 0.8462,
+          "mean_delta": 0.1215
+        },
+        "kld": {
+          "wins": 430,
+          "pages": 494,
+          "rate": 0.8704,
+          "mean_delta": -0.227
+        },
+        "sim": {
+          "wins": 425,
+          "pages": 494,
+          "rate": 0.8603,
+          "mean_delta": 0.0635
+        }
+      }
+    },
+    {
+      "arm": "elderly",
+      "n": 494,
+      "auc": {
+        "mean": 0.7343,
+        "sd": 0.0797
+      },
+      "nss": {
+        "mean": 0.8488,
+        "sd": 0.379
+      },
+      "cc": {
+        "mean": 0.477,
+        "sd": 0.1787
+      },
+      "cc_counts": {
+        "mean": 0.2761,
+        "sd": 0.121
+      },
+      "kld": {
+        "mean": 0.7036,
+        "sd": 0.2512
+      },
+      "sim": {
+        "mean": 0.5513,
+        "sd": 0.0718
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 435,
+          "pages": 494,
+          "rate": 0.8806,
+          "mean_delta": 0.0828
+        },
+        "nss": {
+          "wins": 419,
+          "pages": 494,
+          "rate": 0.8482,
+          "mean_delta": 0.3545
+        },
+        "cc": {
+          "wins": 409,
+          "pages": 494,
+          "rate": 0.8279,
+          "mean_delta": 0.176
+        },
+        "cc_counts": {
+          "wins": 419,
+          "pages": 494,
+          "rate": 0.8482,
+          "mean_delta": 0.1143
+        },
+        "kld": {
+          "wins": 402,
+          "pages": 494,
+          "rate": 0.8138,
+          "mean_delta": -0.186
+        },
+        "sim": {
+          "wins": 415,
+          "pages": 494,
+          "rate": 0.8401,
+          "mean_delta": 0.0618
+        }
+      }
+    },
+    {
+      "arm": "dyslexic",
+      "n": 494,
+      "auc": {
+        "mean": 0.7319,
+        "sd": 0.081
+      },
+      "nss": {
+        "mean": 0.8404,
+        "sd": 0.3843
+      },
+      "cc": {
+        "mean": 0.472,
+        "sd": 0.1819
+      },
+      "cc_counts": {
+        "mean": 0.2733,
+        "sd": 0.1226
+      },
+      "kld": {
+        "mean": 0.7181,
+        "sd": 0.2691
+      },
+      "sim": {
+        "mean": 0.5492,
+        "sd": 0.0733
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 428,
+          "pages": 494,
+          "rate": 0.8664,
+          "mean_delta": 0.0804
+        },
+        "nss": {
+          "wins": 413,
+          "pages": 494,
+          "rate": 0.836,
+          "mean_delta": 0.3461
+        },
+        "cc": {
+          "wins": 404,
+          "pages": 494,
+          "rate": 0.8178,
+          "mean_delta": 0.171
+        },
+        "cc_counts": {
+          "wins": 413,
+          "pages": 494,
+          "rate": 0.836,
+          "mean_delta": 0.1115
+        },
+        "kld": {
+          "wins": 381,
+          "pages": 494,
+          "rate": 0.7713,
+          "mean_delta": -0.1716
+        },
+        "sim": {
+          "wins": 410,
+          "pages": 494,
+          "rate": 0.83,
+          "mean_delta": 0.0597
+        }
+      }
+    },
+    {
+      "arm": "low-vision",
+      "n": 494,
+      "auc": {
+        "mean": 0.7344,
+        "sd": 0.0795
+      },
+      "nss": {
+        "mean": 0.8502,
+        "sd": 0.3777
+      },
+      "cc": {
+        "mean": 0.4775,
+        "sd": 0.1778
+      },
+      "cc_counts": {
+        "mean": 0.2766,
+        "sd": 0.1206
+      },
+      "kld": {
+        "mean": 0.7039,
+        "sd": 0.2519
+      },
+      "sim": {
+        "mean": 0.5511,
+        "sd": 0.0718
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 434,
+          "pages": 494,
+          "rate": 0.8785,
+          "mean_delta": 0.0828
+        },
+        "nss": {
+          "wins": 414,
+          "pages": 494,
+          "rate": 0.8381,
+          "mean_delta": 0.3559
+        },
+        "cc": {
+          "wins": 407,
+          "pages": 494,
+          "rate": 0.8239,
+          "mean_delta": 0.1765
+        },
+        "cc_counts": {
+          "wins": 414,
+          "pages": 494,
+          "rate": 0.8381,
+          "mean_delta": 0.1148
+        },
+        "kld": {
+          "wins": 398,
+          "pages": 494,
+          "rate": 0.8057,
+          "mean_delta": -0.1857
+        },
+        "sim": {
+          "wins": 413,
+          "pages": 494,
+          "rate": 0.836,
+          "mean_delta": 0.0616
+        }
+      }
+    },
+    {
+      "arm": "color-blind",
+      "n": 494,
+      "auc": {
+        "mean": 0.7388,
+        "sd": 0.0776
+      },
+      "nss": {
+        "mean": 0.8632,
+        "sd": 0.37
+      },
+      "cc": {
+        "mean": 0.4851,
+        "sd": 0.1725
+      },
+      "cc_counts": {
+        "mean": 0.2807,
+        "sd": 0.118
+      },
+      "kld": {
+        "mean": 0.6702,
+        "sd": 0.2082
+      },
+      "sim": {
+        "mean": 0.5548,
+        "sd": 0.0667
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 440,
+          "pages": 494,
+          "rate": 0.8907,
+          "mean_delta": 0.0872
+        },
+        "nss": {
+          "wins": 420,
+          "pages": 494,
+          "rate": 0.8502,
+          "mean_delta": 0.3689
+        },
+        "cc": {
+          "wins": 410,
+          "pages": 494,
+          "rate": 0.83,
+          "mean_delta": 0.184
+        },
+        "cc_counts": {
+          "wins": 420,
+          "pages": 494,
+          "rate": 0.8502,
+          "mean_delta": 0.1189
+        },
+        "kld": {
+          "wins": 423,
+          "pages": 494,
+          "rate": 0.8563,
+          "mean_delta": -0.2194
+        },
+        "sim": {
+          "wins": 423,
+          "pages": 494,
+          "rate": 0.8563,
+          "mean_delta": 0.0652
+        }
+      }
+    },
+    {
+      "arm": "power-user",
+      "n": 494,
+      "auc": {
+        "mean": 0.7389,
+        "sd": 0.0777
+      },
+      "nss": {
+        "mean": 0.8671,
+        "sd": 0.3702
+      },
+      "cc": {
+        "mean": 0.4871,
+        "sd": 0.1724
+      },
+      "cc_counts": {
+        "mean": 0.282,
+        "sd": 0.1181
+      },
+      "kld": {
+        "mean": 0.6709,
+        "sd": 0.2107
+      },
+      "sim": {
+        "mean": 0.5552,
+        "sd": 0.0668
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 439,
+          "pages": 494,
+          "rate": 0.8887,
+          "mean_delta": 0.0874
+        },
+        "nss": {
+          "wins": 419,
+          "pages": 494,
+          "rate": 0.8482,
+          "mean_delta": 0.3728
+        },
+        "cc": {
+          "wins": 412,
+          "pages": 494,
+          "rate": 0.834,
+          "mean_delta": 0.186
+        },
+        "cc_counts": {
+          "wins": 419,
+          "pages": 494,
+          "rate": 0.8482,
+          "mean_delta": 0.1202
+        },
+        "kld": {
+          "wins": 425,
+          "pages": 494,
+          "rate": 0.8603,
+          "mean_delta": -0.2188
+        },
+        "sim": {
+          "wins": 423,
+          "pages": 494,
+          "rate": 0.8563,
+          "mean_delta": 0.0656
+        }
+      }
+    },
+    {
+      "arm": "CenterBias",
+      "n": 494,
+      "auc": {
+        "mean": 0.6515,
+        "sd": 0.0736
+      },
+      "nss": {
+        "mean": 0.4943,
+        "sd": 0.3102
+      },
+      "cc": {
+        "mean": 0.301,
+        "sd": 0.1713
+      },
+      "cc_counts": {
+        "mean": 0.1618,
+        "sd": 0.1018
+      },
+      "kld": {
+        "mean": 0.8897,
+        "sd": 0.2491
+      },
+      "sim": {
+        "mean": 0.4896,
+        "sd": 0.0723
+      }
+    },
+    {
+      "arm": "Uniform",
+      "n": 494,
+      "auc": {
+        "mean": 0.5,
+        "sd": 0
+      },
+      "nss": {
+        "mean": 0,
+        "sd": 0
+      },
+      "cc": {
+        "mean": 0,
+        "sd": 0
+      },
+      "cc_counts": {
+        "mean": 0,
+        "sd": 0
+      },
+      "kld": {
+        "mean": 1.0247,
+        "sd": 0.2447
+      },
+      "sim": {
+        "mean": 0.4287,
+        "sd": 0.0718
+      },
+      "vs_center_bias": {
+        "auc": {
+          "wins": 10,
+          "pages": 494,
+          "rate": 0.0202,
+          "mean_delta": -0.1515
+        },
+        "nss": {
+          "wins": 24,
+          "pages": 494,
+          "rate": 0.0486,
+          "mean_delta": -0.4943
+        },
+        "cc": {
+          "wins": 20,
+          "pages": 494,
+          "rate": 0.0405,
+          "mean_delta": -0.301
+        },
+        "cc_counts": {
+          "wins": 24,
+          "pages": 494,
+          "rate": 0.0486,
+          "mean_delta": -0.1618
+        },
+        "kld": {
+          "wins": 118,
+          "pages": 494,
+          "rate": 0.2389,
+          "mean_delta": 0.1351
+        },
+        "sim": {
+          "wins": 76,
+          "pages": 494,
+          "rate": 0.1538,
+          "mean_delta": -0.0609
+        }
+      }
+    }
+  ]
+}
