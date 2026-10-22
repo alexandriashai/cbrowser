@@ -514,8 +514,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
         // ── Gate 3: Per-Persona Cognitive Effort ──
         const personaResults: Record<string, unknown> = {};
-        // Set by every persona's chain run (the reads are the same for each);
-        // reported once on the response so the caller can see that every
+        // Set by every persona's demand + chain run (the reads are the same for
+        // each); reported once on the response so the caller can see that every
         // constant behind these numbers is a hand-set hypothesis today.
         let ctcProvenance: import("../../visual/model-provenance.js").ProvenanceSummary | undefined;
         const { buildOTCognitiveProfile } = await import("../../visual/cognitive-transport.js");
@@ -546,7 +546,6 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         // extractPageMetrics runs its own lazy-load scroll walk at full_page, so
         // forwarding the scope is the entire fix.
         const pageMetrics = await extractPageMetrics(metricsPage, auditScope);
-        const demand = computeDemandDistribution(pageMetrics);
 
         // Page understanding
         let pageUnderstanding: Record<string, unknown> | null = null;
@@ -609,8 +608,13 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
               (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
 
             const otProfile = buildOTCognitiveProfile(personaName, traits);
+            // The demand is built INSIDE the recording, so the hand-set curves that
+            // turn page metrics into demand are counted with the chain's constants.
+            // Rebuilt for each persona from the same metrics, so every persona is
+            // scored against the same demand; this tool has no values option.
+            // (2026-10-22)
             const { result, provenance } = withProvenance(() =>
-              computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true }));
+              computeSequentialCTC(otProfile, computeDemandDistribution(pageMetrics), { asymmetric: true, interactions: true }));
             ctcProvenance = provenance;
 
             personaResults[personaName] = {

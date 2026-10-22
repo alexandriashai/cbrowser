@@ -815,8 +815,11 @@ function traitValue(traits: Record<string, number | string>, trait: string, P: C
  * @see Schwartz (1992) "Universals in the content and structure of values"
  * @see Section 4.2 of "Cognitive Optimal Transport: A Unified Framework"
  * @since v18.54.0
+ *
+ * Exported so cognitive_effort's useValues description can be checked against
+ * it; this table is the only place values reach a transport score.
  */
-const VALUE_DEMAND_MODULATION: Array<{
+export const VALUE_DEMAND_MODULATION: Array<{
   value: string;
   trait: string;
   coefficient: string; // provenance id; positive = amplifies demand, negative = dampens

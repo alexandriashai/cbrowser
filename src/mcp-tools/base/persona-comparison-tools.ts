@@ -40,6 +40,8 @@ import {
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import { withProvenance } from "../../visual/model-provenance.js";
+import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
+import type { SchwartzValues } from "../../values/schwartz-values.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
 
 /**
@@ -50,6 +52,26 @@ import { resolveSiteFamiliarity } from "./site-familiarity.js";
  * picture into it instead of dropping it.
  */
 const MOTOR_PREVIEW_MAX_CHARS = 40_000;
+
+const SCHWARTZ_KEYS: Array<keyof SchwartzValues> = [
+  "selfDirection", "stimulation", "hedonism", "achievement", "power",
+  "security", "conformity", "tradition", "benevolence", "universalism",
+];
+
+/**
+ * The ten Schwartz scores of a persona's values record, the shape the chain's
+ * value modulation reads. A record carries higher-order values, SDT needs and
+ * a Maslow level beside them; only the ten are passed on. Undefined when none
+ * is a number, so "values applied" is never reported for an empty record.
+ */
+function schwartzScores(values: object): Record<string, number> | undefined {
+  const v = values as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  for (const k of SCHWARTZ_KEYS) {
+    if (typeof v[k] === "number" && Number.isFinite(v[k])) out[k] = v[k] as number;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 /**
  * Reference distribution of cognitive distances across the built-in persona set.
@@ -774,7 +796,7 @@ Begin with the first persona: ${personas[0]}
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver')"),
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US')"),
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing"),
-      useValues: z.boolean().optional().default(false).describe("Enable motivational value modulation (Schwartz values). When true, persona values scale decision and frustration demand. Default: false (trait-only mode)."),
+      useValues: z.boolean().optional().default(false).describe("Apply the persona's Schwartz values (opt-in). When true, the values modulate the page's demand inside the chain, through its ten registered coefficients (chain.valueModulation.*, hand-set hypotheses, counted in modelProvenance): stimulation and security on changeBlindness; achievement on satisficing and riskTolerance; conformity on socialProofSensitivity and anchoringBias; selfDirection on socialProofSensitivity; power on fearOfMissingOut; stimulation on patience; benevolence on emotionalContagion. Each adds coefficient x score x max(chain.valueModulation.demandFloor, demand) to that trait's demand, clamped to [0, 1]; hedonism, tradition and universalism change nothing. Applies to the aggregate score and, at scope 'sequential', to every screen. Scores come from the persona registry, the persona's own schwartzValues, its Big Five, or an account persona in the CMS; `valueModulation` in the response says whether any were found. Default: false (trait-only mode)."),
       waitAfterLoad: z.number().optional().describe("Extra ms to wait after page loads (e.g., 3000 for sites with client-side translation)"),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load (e.g., '[data-translated]')"),
       scope: z.enum(["viewport", "full_page", "sequential"]).optional().default("viewport").describe("What to measure: 'viewport' (first impression, above-the-fold — default), 'full_page' (scroll the whole page, count every element), or 'sequential' (score each screen on its own content, carrying capacity forward, and report where people stop). Viewport and full_page match empathy_audit's parameter. 'sequential' answers a different question from either: not 'what would the whole page cost' but 'how far do they get'. NOTE: every published CTC number predates this parameter and is a viewport measurement."),
@@ -973,68 +995,23 @@ Begin with the first persona: ${personas[0]}
       );
 
       // Compute full COT
-      const { computeDemandDistribution, computeSequentialCTC } = await import("../../visual/cognitive-transport-chain.js");
-      const demand = computeDemandDistribution(pageMetrics);
+      const { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } = await import("../../visual/cognitive-transport-chain.js");
 
-      // SEQUENTIAL PASS. Runs before the aggregate so a failure here degrades to
-      // the normal answer rather than losing the whole call.
-      let sequentialResult: Record<string, unknown> | undefined;
-      if (measureScope === "sequential") {
-        try {
-          const { extractPerScreenMetrics } = await import("../../visual/cognitive-transport.js");
-          const { computeSequentialScrollCTC } = await import("../../visual/cognitive-transport-chain.js");
-          // The SAME measurement the caption came from, so the curve length and the
-          // caption cannot disagree.
-          const perScreen = await extractPerScreenMetrics(page, 20, sharedGeometry);
-          const seqProfile = buildOTProfile(personaName, traits);
-          const seq = computeSequentialScrollCTC(
-            seqProfile,
-            perScreen.map((m) => computeDemandDistribution(m)),
-            { asymmetric: true, interactions: true },
-          );
-          sequentialResult = {
-            screensMeasured: seq.screens.length,
-            // The INPUTS the screen count came from, published so a differing curve is
-            // diagnosable instead of guessable. An external client measured 5.8 screens
-            // on a session's first navigation and 6.7 on every later one; with only
-            // `screensMeasured: 7` in the payload a 6-screen curve is internally
-            // consistent and unmarked, which is the shape of every defect this tool has
-            // had. An invisible variance is indistinguishable from no variance.
-            geometry: {
-              documentHeight: sharedGeometry.documentHeight,
-              viewportHeight: sharedGeometry.viewportHeight,
-              pageScreens: sharedGeometry.pageScreens,
-              screenCount: sharedGeometry.screenCount,
-              note: "One measurement, shared by the curve length and by the pageScreens caption, so the two cannot disagree. Page height can change between navigations; if two runs of the same URL differ, compare documentHeight before anything else.",
-            },
-            totalAbandonment: `${Math.round(seq.totalAbandonment * 100)}%`,
-            expectedDepthScreens: seq.expectedDepthScreens,
-            dropOff: seq.dropOff
-              ? { screen: seq.dropOff.screen, layer: seq.dropOff.layer, shareOfSessions: `${Math.round(seq.dropOff.share * 100)}%` }
-              : null,
-            reachWeightedCTC: seq.reachWeightedCTC,
-            curve: seq.screens.map((x) => ({
-              screen: x.screen,
-              reach: `${Math.round(x.reachProbability * 100)}%`,
-              stopHere: `${Math.round(x.stopHazard * 100)}%`,
-              cumulativeAbandonment: `${Math.round(x.cumulativeAbandonment * 100)}%`,
-              screenCTC: x.screenCTC,
-              bottleneck: x.bottleneckLayer,
-            })),
-            note: "Each screen is measured on ITS OWN content, and capacity carries forward -- screen 7 is scored against what screens 1-6 left, not against a fresh persona. Count-based demands (interactive elements, choices) charge only elements not seen on an earlier screen, so a sticky nav is one decision rather than one per screen; text and visual density are NOT deduplicated, because re-encountering text is re-reading it.",
-            differsFrom: "The aggregate `abandonmentRisk` above asks what the whole document would cost if it were all processed. This asks how far they get. They are different questions and will not agree.",
-            uncalibrated: "The per-screen hazard uses the same ABANDONMENT_HILL_EXPONENT as the aggregate, which nothing empirical set. At 2 the curve is superlinear, so this model inherits a thumb on the scale.",
-            readThisFirst: "TRUST THE SHAPE, NOT THE TOTAL. `totalAbandonment` compounds a per-screen hazard across every screen, so on a long page it saturates toward 100% almost regardless of the page -- measured, elderly-user reached 100% on a 7-screen university homepage. That is the uncalibrated exponent compounding, not a finding about that page. `expectedDepthScreens` and `dropOff` are the numbers to act on: they say how far people get and what stops them, and both depend on the RANKING of per-screen hazards rather than their absolute level, which is the part the exponent least disturbs. `dropOff` is persona-dependent by design and that is not noise: an impatient reader drops on screen one, a patient one survives to whichever screen is genuinely hardest, and the two answers are both correct for their reader.",
-          };
-        } catch (e) {
-          sequentialResult = { error: `sequential pass failed: ${(e as Error).message}`, note: "The aggregate figures below are unaffected." };
-        }
-      }
-
-      // Modulate demand by motivational values (opt-in, default off)
+      // Motivational values (opt-in, default off). Resolved here and handed to
+      // the chain, which applies them through its own registered modulation
+      // (VALUE_DEMAND_MODULATION, chain.valueModulation.*) and clamps the result
+      // to [0, 1].
+      //
+      // Through 21.0 this tool had a second path of its own: a
+      // conservation/openness formula with unregistered 0.3 and 0.5 constants
+      // that scaled five decision demands and emotionalContagion in place,
+      // unclamped (up to 1.3), while the chain's modulation was reached from no
+      // tool at all. Two hand-set models of one effect, and the one that ran was
+      // the one the provenance block could not see. (2026-10-22)
+      let schwartzValues: Record<string, number> | undefined;
       if (useValues) try {
         // regPV2 writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
-        const { getPersonaValues, registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
+        const { registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
         let pValues = resolveValuesForPersona(personaName);
 
         // Custom persona CMS fallback
@@ -1061,37 +1038,93 @@ Begin with the first persona: ${personas[0]}
             }
           } catch { /* CMS fallback failed */ }
         }
-        if (pValues && demand.demands) {
-          // Conservation (security+conformity+tradition)/3 amplifies decision layer
-          const conservation = (pValues.security + pValues.conformity + pValues.tradition) / 3;
-          // Openness (selfDirection+stimulation)/2 reduces decision cost (comfortable with choices)
-          const openness = (pValues.selfDirection + pValues.stimulation) / 2;
-          // Achievement amplifies frustration layer (impatience)
-          const achMod = 1 + (pValues.achievement - 0.5) * 0.3;
+        if (pValues) schwartzValues = schwartzScores(pValues);
+      } catch { /* values not available — proceed without */ }
+      const chainOptions = { asymmetric: true, interactions: true, ...(schwartzValues ? { schwartzValues } : {}) };
 
-          // Scale decision-related demands: satisficing, anchoringBias, riskTolerance, fearOfMissingOut
-          const decisionScale = 1 + (conservation - openness) * 0.3; // -0.15 to +0.15 range
-          for (const dim of ["satisficing", "anchoringBias", "riskTolerance", "fearOfMissingOut", "socialProofSensitivity"]) {
-            if (demand.demands[dim] !== undefined) {
-              demand.demands[dim] *= decisionScale;
-            }
-          }
-          // Scale frustration-related demands. resilience and selfEfficacy were
-          // listed here too; neither carries demand nor sits in a layer (21.0),
-          // so scaling them changed nothing.
-          for (const dim of ["emotionalContagion"]) {
-            if (demand.demands[dim] !== undefined) {
-              demand.demands[dim] *= achMod;
-            }
+      // SEQUENTIAL PASS, measuring half. The per-screen metrics are read here and
+      // the curve is scored in the block below with everything else, so its
+      // constants are counted too. A failure here degrades to the normal answer
+      // rather than losing the whole call.
+      let perScreen: PageMetrics[] | undefined;
+      let sequentialError: string | undefined;
+      if (measureScope === "sequential") {
+        try {
+          const { extractPerScreenMetrics } = await import("../../visual/cognitive-transport.js");
+          // The SAME measurement the caption came from, so the curve length and the
+          // caption cannot disagree.
+          perScreen = await extractPerScreenMetrics(page, 20, sharedGeometry);
+        } catch (e) {
+          sequentialError = (e as Error).message;
+        }
+      }
+
+      // Everything the reported numbers are computed from, under ONE provenance
+      // recording: the demand curves, the chain, the value modulation when
+      // useValues applied it, and the sequential curve when scope asks for it.
+      //
+      // The demand used to be built before this block, so the 35 hand-set
+      // weights that turn page metrics into per-trait demand were read and not
+      // reported: the block listed 22 hypotheses for an answer that read 57.
+      // Synchronous on purpose: the recording is module state, and an await in
+      // here would let another request's reads land in this answer's block. The
+      // persona profile stays outside: its distance.* reads shape the distance
+      // model's distribution, not the traits the chain reads. (2026-10-22)
+      const { result: scored, provenance: ctcProvenance } = withProvenance(() => {
+        let seq: ReturnType<typeof computeSequentialScrollCTC> | undefined;
+        let seqError = sequentialError;
+        if (perScreen) {
+          try {
+            seq = computeSequentialScrollCTC(otProfile, perScreen.map((m) => computeDemandDistribution(m)), chainOptions);
+          } catch (e) {
+            seqError = (e as Error).message;
           }
         }
-      } catch { /* values not available — proceed without */ }
+        const demand = computeDemandDistribution(pageMetrics);
+        return { aggregate: computeSequentialCTC(otProfile, demand, chainOptions), seq, seqError };
+      });
+      const result = scored.aggregate;
 
-      // Run under provenance recording so the response can say which hand-set
-      // constants the headline numbers rest on (every one in this chain is a
-      // hypothesis today; see src/visual/provenance/chain.ts).
-      const { result, provenance: ctcProvenance } = withProvenance(() =>
-        computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true }));
+      let sequentialResult: Record<string, unknown> | undefined;
+      if (scored.seq) {
+        const seq = scored.seq;
+        sequentialResult = {
+          screensMeasured: seq.screens.length,
+          // The INPUTS the screen count came from, published so a differing curve is
+          // diagnosable instead of guessable. An external client measured 5.8 screens
+          // on a session's first navigation and 6.7 on every later one; with only
+          // `screensMeasured: 7` in the payload a 6-screen curve is internally
+          // consistent and unmarked, which is the shape of every defect this tool has
+          // had. An invisible variance is indistinguishable from no variance.
+          geometry: {
+            documentHeight: sharedGeometry.documentHeight,
+            viewportHeight: sharedGeometry.viewportHeight,
+            pageScreens: sharedGeometry.pageScreens,
+            screenCount: sharedGeometry.screenCount,
+            note: "One measurement, shared by the curve length and by the pageScreens caption, so the two cannot disagree. Page height can change between navigations; if two runs of the same URL differ, compare documentHeight before anything else.",
+          },
+          totalAbandonment: `${Math.round(seq.totalAbandonment * 100)}%`,
+          expectedDepthScreens: seq.expectedDepthScreens,
+          dropOff: seq.dropOff
+            ? { screen: seq.dropOff.screen, layer: seq.dropOff.layer, shareOfSessions: `${Math.round(seq.dropOff.share * 100)}%` }
+            : null,
+          reachWeightedCTC: seq.reachWeightedCTC,
+          curve: seq.screens.map((x) => ({
+            screen: x.screen,
+            reach: `${Math.round(x.reachProbability * 100)}%`,
+            stopHere: `${Math.round(x.stopHazard * 100)}%`,
+            cumulativeAbandonment: `${Math.round(x.cumulativeAbandonment * 100)}%`,
+            screenCTC: x.screenCTC,
+            bottleneck: x.bottleneckLayer,
+          })),
+          note: "Each screen is measured on ITS OWN content, and capacity carries forward -- screen 7 is scored against what screens 1-6 left, not against a fresh persona. Count-based demands (interactive elements, choices) charge only elements not seen on an earlier screen, so a sticky nav is one decision rather than one per screen; text and visual density are NOT deduplicated, because re-encountering text is re-reading it.",
+          differsFrom: "The aggregate `abandonmentRisk` above asks what the whole document would cost if it were all processed. This asks how far they get. They are different questions and will not agree.",
+          uncalibrated: "The per-screen hazard uses the same ABANDONMENT_HILL_EXPONENT as the aggregate, which nothing empirical set. At 2 the curve is superlinear, so this model inherits a thumb on the scale.",
+          readThisFirst: "TRUST THE SHAPE, NOT THE TOTAL. `totalAbandonment` compounds a per-screen hazard across every screen, so on a long page it saturates toward 100% almost regardless of the page -- measured, elderly-user reached 100% on a 7-screen university homepage. That is the uncalibrated exponent compounding, not a finding about that page. `expectedDepthScreens` and `dropOff` are the numbers to act on: they say how far people get and what stops them, and both depend on the RANKING of per-screen hazards rather than their absolute level, which is the part the exponent least disturbs. `dropOff` is persona-dependent by design and that is not noise: an impatient reader drops on screen one, a patient one survives to whichever screen is genuinely hardest, and the two answers are both correct for their reader.",
+        };
+      } else if (scored.seqError !== undefined) {
+        sequentialResult = { error: `sequential pass failed: ${scored.seqError}`, note: "The aggregate figures below are unaffected." };
+      }
 
       // Also compute motor and readability from formal models
       let motorResult = null;
@@ -1251,10 +1284,17 @@ Begin with the first persona: ${personas[0]}
           redirectNote: `Requested ${hostOf(url)} and landed on ${hostOf(landedUrl)}. Every number below describes ${hostOf(landedUrl)}.`,
         } : { resolvedUrl: landedUrl }),
         persona: personaName,
-        // Status counts of every registry constant the aggregate chain read for
-        // this answer, and the ids of the hand-set ones. The sequential curve
-        // below reads the same registry.
+        // Status counts of every registry constant this answer read -- demand
+        // curves, chain, value modulation if applied, sequential curve if
+        // scored -- and the ids of the hand-set ones.
         modelProvenance: ctcProvenance,
+        // Only when useValues asked for it, so a persona with no values is
+        // visibly scored without them rather than silently.
+        ...(useValues ? {
+          valueModulation: schwartzValues
+            ? { applied: true, scores: schwartzValues }
+            : { applied: false, reason: "No Schwartz values were found for this persona (registry, its own schwartzValues, its Big Five, or an account persona in the CMS), so it was scored without them." },
+        } : {}),
         cognitiveTransportCost: {
           total: Math.round(result.totalCTC * 1000) / 1000,
           additive: Math.round(result.additiveCTC * 1000) / 1000,
