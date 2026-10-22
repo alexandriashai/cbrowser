@@ -19,7 +19,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import fc from "fast-check";
-import { ctcBand, ctcBands, ctcRank } from "../src/visual/ctc-bands.js";
+import { ctcBand, ctcBands, ctcBandsDescription, ctcRank } from "../src/visual/ctc-bands.js";
 import { MODEL_PROVENANCE, readsOf, withParamOverrides } from "../src/visual/model-provenance.js";
 import { CTC_REFERENCE, referencePopulation } from "../src/visual/ctc-reference.js";
 import { computeDemandFromRawMetrics, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
@@ -69,6 +69,10 @@ describe("ctcBand maps a percentile to its band", () => {
     for (const [t, name, range] of cases) expect({ t, ...pick(ctcBand(t)!) }).toEqual({ t, name, range });
   });
 
+  test("the bands in words, as the tools print them", () => {
+    expect(ctcBandsDescription()).toBe("below 0.5 lower half, 0.5 to 0.8 upper half, 0.8 to 0.95 high, 0.95 and above top 5%");
+  });
+
   test("a percentile that is not a number has no band", () => {
     expect(ctcBand(Number.NaN)).toBeNull();
   });
@@ -98,6 +102,8 @@ describe("ctcRank states the rank in the required form", () => {
   test("the interior: 'Costlier than N% of the real pages we measured (...). Band: ...'", () => {
     const r = ctcRank({ totalCTC: 0.873, rawCTC: 1.5, referenceScope: "viewport" });
     expect(r.sentence).toBe(`Costlier than 87% of the real pages we measured ${POOL}. Band: high (80th-95th percentile).`);
+    expect(r.statement).toBe(`costlier than 87% of the real pages we measured ${POOL}`);
+    expect(r.bandSentence).toBe("Band: high (80th-95th percentile).");
     expect(r.band).toBe("high");
     expect(r.percent).toBe(87);
   });
@@ -137,7 +143,8 @@ describe("ctcRank states the rank in the required form", () => {
     const r = ctcRank({ totalCTC: Number.NaN, rawCTC: Number.NaN, referenceScope: "viewport" });
     expect(r.band).toBeNull();
     expect(r.percent).toBeNull();
-    expect(r.sentence).toMatch(/could not be ranked/);
+    expect(r.sentence).toMatch(/^This cost is not rankable among the real pages we measured/);
+    expect(r.bandSentence).toBe("No band.");
   });
 
   test("no sentence, at any rank, describes how a person feels or predicts abandonment", () => {

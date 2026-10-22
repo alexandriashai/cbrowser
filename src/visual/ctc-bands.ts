@@ -58,6 +58,13 @@ export function ctcBand(totalCTC: number): CtcBand | null {
   return { name: "lower half", range: `below the ${ordinal(pct(upperHalf))} percentile` };
 }
 
+/** The bands in words, from the registered cut points: "below 0.5 lower half, 0.5 to 0.8 upper half, ...". */
+export function ctcBandsDescription(): string {
+  const { upperHalf, high, top } = ctcBands();
+  const name = (t: number) => ctcBand(t)!.name;
+  return `below ${upperHalf} ${name(0)}, ${upperHalf} to ${high} ${name(upperHalf)}, ${high} to ${top} ${name(high)}, ${top} and above ${name(top)}`;
+}
+
 export interface CtcRank {
   /** floor(totalCTC x 100): the N in "costlier than N%". Null when the cost could not be ranked. */
   percent: number | null;
@@ -65,8 +72,10 @@ export interface CtcRank {
   band: string | null;
   /** "Costlier than N% of the real pages we measured (P sites x Q personas, S scope). Band: B (R)." */
   sentence: string;
-  /** The rank clause alone, lower-case, for a tool to build its own sentence around. */
+  /** The rank clause alone, lower-case, to follow "<subject> is": "costlier than N% of ... scope)". */
   statement: string;
+  /** "Band: B (R)." The sentence that follows the statement. */
+  bandSentence: string;
 }
 
 /**
@@ -81,8 +90,9 @@ export function ctcRank(result: { totalCTC: number; rawCTC: number; referenceSco
   const pool = `(${param(`ctcReference.${scope}`)} sites x ${referencePersonaCount()} personas, ${scope} scope)`;
   const band = ctcBand(t);
   if (!band || t < 0 || t > 1) {
-    const statement = `could not be ranked: totalCTC is ${t} and rawCTC ${raw}, so there is no rank among the real pages we measured ${pool}`;
-    return { percent: null, band: null, statement, sentence: `This cost ${statement}.` };
+    const statement = `not rankable among the real pages we measured ${pool}: totalCTC is ${t} and rawCTC ${raw}`;
+    const bandSentence = "No band.";
+    return { percent: null, band: null, statement, bandSentence, sentence: `This cost is ${statement}. ${bandSentence}` };
   }
   // The 1e-9 keeps binary fractions honest: 0.29 * 100 is 28.999999999999996.
   const percent = Math.floor(t * 100 + 1e-9);
@@ -92,6 +102,7 @@ export function ctcRank(result: { totalCTC: number; rawCTC: number; referenceSco
     : t === 1
     ? `at least as costly as the costliest real page we measured ${pool}; ${rawNote}`
     : `costlier than ${percent === 0 ? "under 1" : percent}% of the real pages we measured ${pool}`;
-  const sentence = `${statement[0].toUpperCase()}${statement.slice(1)}. Band: ${band.name} (${band.range}).`;
-  return { percent, band: band.name, statement, sentence };
+  const bandSentence = `Band: ${band.name} (${band.range}).`;
+  const sentence = `${statement[0].toUpperCase()}${statement.slice(1)}. ${bandSentence}`;
+  return { percent, band: band.name, statement, bandSentence, sentence };
 }
