@@ -11,7 +11,6 @@
  * @license MIT
  */
 
-import { resolveValuesForPersona } from "../../values/persona-values.js";
 import type { SchwartzValues } from "../../values/schwartz-values.js";
 
 const SCHWARTZ_KEYS: Array<keyof SchwartzValues> = [
@@ -43,8 +42,15 @@ export function schwartzScores(values: object): Record<string, number> | undefin
  */
 export async function resolveChainValues(personaName: string): Promise<Record<string, number> | undefined> {
   try {
+    // Imported here, not at the top. audit-tools.ts loads this module, and
+    // with persona-values imported statically, empathy_audit in
+    // tests/v8-p3-browser.test.ts (B49) hung until its 120 s timeout whenever
+    // another browser test had run first in the process (alone it passed in
+    // 3 s). The mechanism is not identified; loading it lazily, as audit-tools
+    // loads most modules, removes the hang (6 of 6 in 6 s).
     // regPV2 writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
     const { registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
+    const { resolveValuesForPersona } = await import("../../values/persona-values.js");
     let pValues = resolveValuesForPersona(personaName);
 
     // Custom persona CMS fallback
