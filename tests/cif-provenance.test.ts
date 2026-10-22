@@ -35,7 +35,7 @@ describe("CIF provenance registry", () => {
   test("the registry is pinned, unique and cif-prefixed", () => {
     // Pinned exactly: a constant added to or removed from cif-score.ts must
     // change this number on purpose.
-    expect(CIF_PROVENANCE.length).toBe(93);
+    expect(CIF_PROVENANCE.length).toBe(87);
     expect(registered.size).toBe(CIF_PROVENANCE.length);
     for (const e of CIF_PROVENANCE) expect(e.id.startsWith("cif.")).toBe(true);
   });
@@ -69,7 +69,7 @@ describe("CIF provenance registry", () => {
       counts[e.status]++;
       if (e.status === "hypothesis") expect(e.source).toMatch(/would (fit|set|test|place)/);
     }
-    expect(counts).toEqual({ fitted: 0, published: 3, definition: 4, hypothesis: 86 });
+    expect(counts).toEqual({ fitted: 0, published: 3, definition: 4, hypothesis: 80 });
     expect(CIF_PROVENANCE.filter((e) => e.status === "definition").map((e) => e.id).sort()).toEqual([
       "cif.display.costDecimals",
       "cif.emptyAverage",

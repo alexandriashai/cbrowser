@@ -232,6 +232,17 @@ function notMeasured(missing: string): CIFComponentScore {
   return { score: param("cif.noData.score"), details: `Not measured: no ${missing} supplied`, measured: false };
 }
 
+/**
+ * Score at the knee of a two-slope piecewise component: where the slope from
+ * the free point reaches it. Derived rather than registered, so the branch
+ * above the knee always starts where the branch below ends. overloadThreshold
+ * stepped from 61 to 60 at its knee because its knee score was a separate
+ * constant (21.0).
+ */
+function kneeScore(top: number, free: number, knee: number, slopeBelow: number): number {
+  return top - (knee - free) * slopeBelow;
+}
+
 /** Count barriers of a given type */
 function countBarriersByType(
   barriers: CIFInput["barriers"],
@@ -281,7 +292,6 @@ const MOTOR_IDS = {
   interactiveFree: "cif.motor.interactive.freeCount",
   interactiveKnee: "cif.motor.interactive.kneeCount",
   interactiveSlopeBelow: "cif.motor.interactive.slopeBelowKnee",
-  interactiveKneeScore: "cif.motor.interactive.kneeScore",
   interactiveSlopeAbove: "cif.motor.interactive.slopeAboveKnee",
   spacingBarrierPenalty: "cif.motor.spacing.barrierPenalty",
   spacingGapPx: "cif.motor.spacing.minGapPx",
@@ -353,7 +363,7 @@ function computeMotorFitness(data: CIFInput): CIFScore["motor"] {
     const interactiveCount = data.interactiveCount;
     const interactionCountScore = interactiveCount <= P.interactiveFree ? P.scale
       : interactiveCount <= P.interactiveKnee ? clamp(Math.round(P.scale - (interactiveCount - P.interactiveFree) * P.interactiveSlopeBelow))
-      : clamp(Math.round(P.interactiveKneeScore - (interactiveCount - P.interactiveKnee) * P.interactiveSlopeAbove));
+      : clamp(Math.round(kneeScore(P.scale, P.interactiveFree, P.interactiveKnee, P.interactiveSlopeBelow) - (interactiveCount - P.interactiveKnee) * P.interactiveSlopeAbove));
     interactionCount = measured(
       interactionCountScore,
       interactiveCount <= P.interactiveFree
@@ -564,14 +574,10 @@ const COGNITIVE_IDS = {
   densityFree: "cif.cognitive.density.freeCount",
   densityKnee: "cif.cognitive.density.kneeCount",
   densityDivisorBelow: "cif.cognitive.density.divisorBelowKnee",
-  densityKneeScore: "cif.cognitive.density.kneeScore",
   densityDivisorAbove: "cif.cognitive.density.divisorAboveKnee",
   captureGain: "cif.cognitive.attention.captureGain",
   navFree: "cif.cognitive.predictability.freeCount",
-  navKnee: "cif.cognitive.predictability.kneeCount",
-  navSlopeBelow: "cif.cognitive.predictability.slopeBelowKnee",
-  navKneeScore: "cif.cognitive.predictability.kneeScore",
-  navSlopeAbove: "cif.cognitive.predictability.slopeAboveKnee",
+  navSlope: "cif.cognitive.predictability.slope",
   wDecision: "cif.cognitive.weight.decisionComplexity",
   wReadability: "cif.cognitive.weight.readability",
   wDensity: "cif.cognitive.weight.informationDensity",
@@ -610,7 +616,7 @@ function computeCognitiveFitness(data: CIFInput): CIFScore["cognitive"] {
     const elemCount = data.elementCount;
     const infoScore = elemCount <= P.densityFree ? P.scale
       : elemCount <= P.densityKnee ? clamp(Math.round(P.scale - (elemCount - P.densityFree) / P.densityDivisorBelow))
-      : clamp(Math.round(P.densityKneeScore - (elemCount - P.densityKnee) / P.densityDivisorAbove));
+      : clamp(Math.round(kneeScore(P.scale, P.densityFree, P.densityKnee, 1 / P.densityDivisorBelow) - (elemCount - P.densityKnee) / P.densityDivisorAbove));
     informationDensity = measured(
       infoScore,
       elemCount <= P.densityFree
@@ -633,16 +639,10 @@ function computeCognitiveFitness(data: CIFInput): CIFScore["cognitive"] {
   let predictability: CIFComponentScore;
   if (supplied(data.navItemCount)) {
     const navItems = data.navItemCount;
-    let predictScore: number;
-    if (navItems <= P.navFree) {
-      predictScore = P.scale;
-    } else if (navItems <= P.navKnee) {
-      predictScore = clamp(Math.round(P.scale - (navItems - P.navFree) * P.navSlopeBelow));
-    } else {
-      predictScore = clamp(Math.round(P.navKneeScore - (navItems - P.navKnee) * P.navSlopeAbove));
-    }
+    // One slope above the free count. The knee at 12 it replaced joined two equal
+    // slopes, so it changed no score (21.0).
     predictability = measured(
-      predictScore,
+      navItems <= P.navFree ? P.scale : clamp(Math.round(P.scale - (navItems - P.navFree) * P.navSlope)),
       navItems <= P.navFree
         ? `${navItems} navigation items — clear, predictable structure`
         : `${navItems} navigation items (${P.navFree} or fewer is optimal for cognitive predictability)`,
@@ -686,7 +686,6 @@ const SENSORY_IDS = {
   easyCTC: "cif.sensory.overload.easyCTC",
   kneeCTC: "cif.sensory.overload.kneeCTC",
   overloadSlopeBelow: "cif.sensory.overload.slopeBelowKnee",
-  overloadKneeScore: "cif.sensory.overload.kneeScore",
   overloadSlopeAbove: "cif.sensory.overload.slopeAboveKnee",
   wAnimation: "cif.sensory.weight.animationControl",
   wIndependence: "cif.sensory.weight.sensoryIndependence",
@@ -778,7 +777,7 @@ function computeSensoryFitness(data: CIFInput): CIFScore["sensory"] {
     const totalCTC = data.totalCTC;
     const overloadScore = totalCTC <= P.easyCTC ? P.scale
       : totalCTC <= P.kneeCTC ? clamp(Math.round(P.scale - (totalCTC - P.easyCTC) * P.overloadSlopeBelow))
-      : clamp(Math.round(P.overloadKneeScore - (totalCTC - P.kneeCTC) * P.overloadSlopeAbove));
+      : clamp(Math.round(kneeScore(P.scale, P.easyCTC, P.kneeCTC, P.overloadSlopeBelow) - (totalCTC - P.kneeCTC) * P.overloadSlopeAbove));
     overloadThreshold = measured(
       overloadScore,
       totalCTC <= P.easyCTC ? `Total CTC: ${totalCTC.toFixed(P.costDecimals)} — within easy range`
