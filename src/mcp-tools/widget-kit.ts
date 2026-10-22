@@ -164,7 +164,7 @@ export type BlockSpec =
    * Built for cognitive_effort, whose whole thesis is that the layers are
    * SEQUENTIAL, not additive: each layer hands its residual capacity to the
    * next, so a cost late in the chain lands on an already-depleted budget. The
-   * payload states that outright as `chainCoefficient = total / additive`
+   * payload states that outright as `chainCoefficient = raw / additive`
    * and the JSON buries it in a nested object.
    *
    * So the block shows two bars against one scale -- what the layers cost added
@@ -177,7 +177,11 @@ export type BlockSpec =
       nameKey?: string; costKey?: string; capacityKey?: string;
       /** Where the named bottleneck layer lives. */
       bottleneckField?: FieldPath;
-      /** Sum-of-parts and in-sequence totals, for the amplification bars. */
+      /**
+       * Sum-of-parts and in-sequence totals, for the amplification bars. Both in
+       * layer-cost units, the scale of the bars above them: for cognitive_effort
+       * that is `raw`, never `total` (a percentile since 21.x).
+       */
       additiveField?: FieldPath; totalField?: FieldPath;
       /**
        * Per-layer overlays, so a bar opens into the thing it measured.
@@ -1492,18 +1496,20 @@ const RUNTIME = String.raw`
     });
     wrap.appendChild(pane);
 
-    if (isFinite(additive) && isFinite(total) && additive > 0) {
+    if (isFinite(additive) && additive > 0) {
       var amp = el("div", "amp");
       // Computed BEFORE the bars that read it. var hoists, so declaring this
       // below its first use left the guard comparing undefined !== null, which
       // is true -- the guard passed and the bar was drawn with no value.
       //
-      // raw, not total: total is a sigmoid of raw, so plotting additive against
-      // it drew a 1.034 bar beside a 0.410 bar and told the 60%-less story in
-      // pixels while the caption underneath said +2%. Both bars are in
+      // The in-sequence total comes from totalField, which must be in
+      // layer-cost units like additive: cognitive_effort points it at raw. Its
+      // total was a logistic of raw and is now a percentile; plotting additive
+      // against it drew a 1.034 bar beside a 0.410 bar and told the 60%-less
+      // story in pixels while the caption underneath said +2%. Both bars are in
       // layer-cost units or the comparison is omitted.
-      var rawTotal = at(data, "cognitiveTransportCost.raw");
-      var ratio = typeof rawTotal === "number" ? rawTotal / additive : null;
+      var rawTotal = isFinite(total) ? total : null;
+      var ratio = rawTotal === null ? null : rawTotal / additive;
       var pct = ratio === null ? 0 : Math.round(Math.abs(1 - ratio) * 100);
       if (ratio !== null) {
         amp.appendChild(bar("sum of layers", additive, 205, false, null));
@@ -1520,11 +1526,12 @@ const RUNTIME = String.raw`
       // The mock payload used to build it had additive < total, which is the
       // one shape the tool has never actually produced. (2026-08-02)
       amp.appendChild(el("p", "ampnote",
-        // No raw total, no claim. Falling back to the sigmoid-squashed total
-        // here is what produced "about 60% less" on a chain that actually adds
-        // ~1%: total is a sigmoid and additive is not, so their ratio measures
-        // the squash, not the chain. A payload from before raw existed cannot
-        // answer this, and saying so beats answering it wrongly.
+        // No raw total, no claim. Falling back to the 0-1 total here is what
+        // produced "about 60% less" on a chain that actually adds ~1%: total
+        // was then a logistic of raw (now a percentile) and additive is a sum,
+        // so their ratio measures the mapping, not the chain. A payload from
+        // before raw existed cannot answer this, and saying so beats answering
+        // it wrongly.
         ratio === null
           ? "This result predates the raw cost being reported, so the chain's effect cannot be computed from it. The bars above are still exact; only the comparison below them is unavailable."
           : ratio > 1.0005
