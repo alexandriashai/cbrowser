@@ -36,7 +36,7 @@ delete process.env.ANTHROPIC_API_KEY;
 const { CBrowser } = await import("../src/browser.js");
 const { registerPersonaComparisonTools } = await import("../src/mcp-tools/base/persona-comparison-tools.js");
 const { registerAuditTools } = await import("../src/mcp-tools/base/audit-tools.js");
-const { withProvenance } = await import("../src/visual/model-provenance.js");
+const { withProvenance, readsOf } = await import("../src/visual/model-provenance.js");
 const { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } = await import("../src/visual/cognitive-transport-chain.js");
 const { extractPageMetrics, measurePageGeometry } = await import("../src/visual/cognitive-transport.js");
 const { ROSTER, toolProfile, schwartzFor } = await import("./fixtures/ctc-golden-matrix.js");
@@ -137,14 +137,21 @@ describe("tool responses carry the provenance of the whole answer", () => {
     expectDemandCounted(block);
     expectHonestSummary(block);
 
-    // Which ids are read does not depend on the page, so one screen of the
-    // same metrics reads what the tool's screens read.
+    // Which ids are read does not depend on the page, so one screen reads what
+    // the tool's screens read. extractPerScreenMetrics measures each screen at
+    // viewport scope, so screens are ranked against the viewport reference and
+    // the aggregate against the full_page one: the answer reads both.
     const metrics = await metricsNow("full_page");
+    const screen = await metricsNow("viewport");
     const profile = toolProfile("first-timer", ROSTER["first-timer"]);
     const direct = withProvenance(() => {
       computeSequentialCTC(profile, computeDemandDistribution(metrics), CHAIN_OPTIONS);
-      return computeSequentialScrollCTC(profile, [computeDemandDistribution(metrics)], CHAIN_OPTIONS);
+      return computeSequentialScrollCTC(profile, [computeDemandDistribution(screen)], CHAIN_OPTIONS);
     });
+    const screenReads = readsOf(() => computeSequentialScrollCTC(profile, [computeDemandDistribution(screen)], CHAIN_OPTIONS)).ids;
+    const aggregateReads = readsOf(() => computeSequentialCTC(profile, computeDemandDistribution(metrics), CHAIN_OPTIONS)).ids;
+    expect(screenReads.has("ctcReference.viewport")).toBe(true);
+    expect(aggregateReads.has("ctcReference.full_page")).toBe(true);
     expect(block.hypotheses).toEqual(direct.provenance.hypotheses);
     // chain.depthRoundingScale (a definition) is read by the curve alone.
     expect(block.counts).toEqual(direct.provenance.counts);
