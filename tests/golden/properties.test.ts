@@ -9,6 +9,9 @@
  *   3. monotonicity -- adding a keyboard barrier never raises navigation,
  *      an additional contrast issue never raises visual, and more
  *      uncontrolled animations never raise sensory
+ *   4. the missing-input rule -- every component that is not measured scores
+ *      cif.noData.score, says so, is listed in notMeasured and is never a top
+ *      issue
  */
 
 import { describe, test, expect } from "bun:test";
@@ -19,6 +22,7 @@ import {
   type CIFInput,
   type CIFScore,
 } from "../../src/cif-score.js";
+import { param } from "../../src/visual/model-provenance.js";
 
 const NUM_RUNS = 1000;
 
@@ -157,8 +161,14 @@ describe("CIF scoring properties", () => {
   });
 
   test("monotonicity: adding a keyboard-trap barrier never raises the navigation score", () => {
+    // Base is always audited (barriers an array, possibly empty): going from
+    // no audit to an audit switches the barrier components from not measured
+    // (cif.noData.score) to measured, a different scale by design, like the
+    // contrast proxy-to-measured switch below. Monotonicity holds within the
+    // measured path, so both sides must be on it.
     fc.assert(
-      fc.property(cifInputArb, severityArb, (input, severity) => {
+      fc.property(cifInputArb, severityArb, (raw, severity) => {
+        const input: CIFInput = { ...raw, barriers: raw.barriers ?? [] };
         const withTrap: CIFInput = {
           ...input,
           barriers: [...(input.barriers ?? []), { type: "keyboard_trap", severity }],
@@ -210,6 +220,33 @@ describe("CIF scoring properties", () => {
           );
         },
       ),
+      { numRuns: NUM_RUNS },
+    );
+  });
+
+  test("missing inputs: an unmeasured component scores the one no-data value, says so, and is never a top issue", () => {
+    const noData = param("cif.noData.score");
+    fc.assert(
+      fc.property(cifInputArb, (input) => {
+        const result = computeCIFScore(input);
+        const unmeasured: string[] = [];
+        for (const cat of ["motor", "visual", "cognitive", "sensory", "navigation"] as const) {
+          for (const [name, c] of Object.entries(result[cat].components)) {
+            expect(typeof c.measured).toBe("boolean");
+            if (c.measured) {
+              expect(c.details.startsWith("Not measured")).toBe(false);
+            } else {
+              unmeasured.push(`${cat}.${name}`);
+              expect(c.score).toBe(noData);
+              expect(c.details.startsWith("Not measured: no ")).toBe(true);
+            }
+          }
+        }
+        expect(result.notMeasured).toEqual(unmeasured);
+        for (const issue of result.topIssues) {
+          expect(unmeasured).not.toContain(`${issue.category}.${issue.component}`);
+        }
+      }),
       { numRuns: NUM_RUNS },
     );
   });

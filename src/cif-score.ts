@@ -16,6 +16,15 @@
  * four are units or display choices, and the rest (the weights above among
  * them) were set by hand. tests/cif-no-literals.test.ts keeps it that way.
  *
+ * MISSING INPUTS follow one rule, stated with its rationale at cif.noData.score
+ * in visual/provenance/cif.ts: a component scores only from inputs the caller
+ * supplied, no assumed value ever stands in for a missing one, and a component
+ * with none of its inputs supplied is marked `measured: false`, scores
+ * cif.noData.score, says "Not measured" in its details, is listed in
+ * `notMeasured` and is never a top issue. `barriers` counts as supplied when it
+ * is an array, even an empty one (an audit ran and found nothing); undefined
+ * means no audit ran.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  * @since v19.0.0
@@ -30,6 +39,12 @@ import { param } from "./visual/model-provenance.js";
 export interface CIFComponentScore {
   score: number;
   details: string;
+  /**
+   * False when none of the inputs this component reads was supplied: it then
+   * scores cif.noData.score, its details begin "Not measured", and it is left
+   * out of topIssues.
+   */
+  measured: boolean;
 }
 
 export interface CIFScore {
@@ -98,6 +113,8 @@ export interface CIFScore {
     score: number;
     fix: string;
   }>;
+  /** "category.component" for every component that was not measured, so the grade is never read without them. */
+  notMeasured: string[];
   url: string;
   timestamp: string;
 }
@@ -193,10 +210,19 @@ function weightedAvg(components: Array<{ score: number; weight: number }>): numb
   return totalWeight > 0 ? totalScore / totalWeight : empty;
 }
 
-/** Safe number that defaults if input is null/undefined/NaN */
-function safe(val: number | undefined | null, fallback: number): number {
-  if (val == null || isNaN(val)) return fallback;
-  return val;
+/** True when the caller supplied a usable number (not null, undefined or NaN). */
+function supplied(val: number | undefined | null): val is number {
+  return val != null && !Number.isNaN(val);
+}
+
+/** A measured component score. */
+function measured(score: number, details: string): CIFComponentScore {
+  return { score, details, measured: true };
+}
+
+/** A component none of whose inputs was supplied; `missing` names them. See cif.noData.score. */
+function notMeasured(missing: string): CIFComponentScore {
+  return { score: param("cif.noData.score"), details: `Not measured: no ${missing} supplied`, measured: false };
 }
 
 /** Count barriers of a given type */
@@ -233,8 +259,6 @@ const MOTOR_IDS = {
   touchBarrierFloor: "cif.motor.touchTarget.barrierFloor",
   hitMidpointPx: "cif.motor.hit.midpointPx",
   hitScalePx: "cif.motor.hit.scalePx",
-  hitNoData: "cif.motor.hit.noData",
-  interactiveNoData: "cif.motor.interactive.noData",
   interactiveFree: "cif.motor.interactive.freeCount",
   interactiveKnee: "cif.motor.interactive.kneeCount",
   interactiveSlopeBelow: "cif.motor.interactive.slopeBelowKnee",
@@ -251,89 +275,102 @@ const MOTOR_IDS = {
 
 function computeMotorFitness(data: CIFInput): CIFScore["motor"] {
   const P = readParams(MOTOR_IDS);
+  const targets = data.touchTargets && data.touchTargets.length > 0 ? data.touchTargets : null;
 
   // --- touchTargetCompliance (30%) ---
   let touchTargetCompliance: CIFComponentScore;
-  if (data.touchTargets && data.touchTargets.length > 0) {
-    const nonExempt = data.touchTargets.filter((t) => !t.exempt);
+  if (targets) {
+    const nonExempt = targets.filter((t) => !t.exempt);
     if (nonExempt.length === 0) {
-      touchTargetCompliance = { score: P.scale, details: "All interactive elements are exempt from size requirements" };
+      touchTargetCompliance = measured(P.scale, "All interactive elements are exempt from size requirements");
     } else {
       const compliant = nonExempt.filter(
         (t) => Math.min(t.width, t.height) >= P.targetPx,
       ).length;
       const pct = (compliant / nonExempt.length) * P.scale;
-      touchTargetCompliance = {
-        score: clamp(Math.round(pct)),
-        details: `${compliant}/${nonExempt.length} interactive elements meet ${P.targetPx}px minimum (${Math.round(pct)}%)`,
-      };
+      touchTargetCompliance = measured(
+        clamp(Math.round(pct)),
+        `${compliant}/${nonExempt.length} interactive elements meet ${P.targetPx}px minimum (${Math.round(pct)}%)`,
+      );
     }
-  } else {
-    // Fall back to barrier count as proxy
+  } else if (data.barriers) {
+    // No sizes: fall back to the audit's touch_target barriers
     const touchBarriers = countBarriersByType(data.barriers, "touch_target");
-    touchTargetCompliance = {
-      score: clamp(Math.max(P.touchBarrierFloor, P.scale - touchBarriers * P.touchBarrierPenalty)),
-      details: touchBarriers > 0
-        ? `${touchBarriers} touch target barriers detected (no size data available)`
-        : "No touch target data available -- estimated from barriers",
-    };
+    touchTargetCompliance = measured(
+      clamp(Math.max(P.touchBarrierFloor, P.scale - touchBarriers * P.touchBarrierPenalty)),
+      touchBarriers > 0
+        ? `${touchBarriers} touch target barriers detected (no size data; scored from barriers)`
+        : "No touch target barriers detected (no size data; scored from barriers)",
+    );
+  } else {
+    touchTargetCompliance = notMeasured("touch target sizes or audit barriers");
   }
 
   // --- hitProbability (25%) ---
   let hitProbability: CIFComponentScore;
-  if (data.touchTargets && data.touchTargets.length > 0) {
-    const nonExempt = data.touchTargets.filter((t) => !t.exempt);
+  if (targets) {
+    const nonExempt = targets.filter((t) => !t.exempt);
     if (nonExempt.length === 0) {
-      hitProbability = { score: P.scale, details: "No non-exempt interactive elements" };
+      hitProbability = measured(P.scale, "No non-exempt interactive elements");
     } else {
       const avgMinDim =
         nonExempt.reduce((sum, t) => sum + Math.min(t.width, t.height), 0) /
         nonExempt.length;
       const score = sigmoid((avgMinDim - P.hitMidpointPx) / P.hitScalePx) * P.scale;
-      hitProbability = {
-        score: clamp(Math.round(score)),
-        details: `Average minimum dimension: ${Math.round(avgMinDim)}px (sigmoid-scored)`,
-      };
+      hitProbability = measured(
+        clamp(Math.round(score)),
+        `Average minimum dimension: ${Math.round(avgMinDim)}px (sigmoid-scored)`,
+      );
     }
   } else {
-    hitProbability = {
-      score: P.hitNoData,
-      details: "No touch target barriers detected",
-    };
+    hitProbability = notMeasured("touch target sizes");
   }
 
   // --- interactionCount (20%) ---
   // Under the free count interactive elements are fine; penalize progressively above that
-  const interactiveCount = safe(data.interactiveCount, P.interactiveNoData);
-  const interactionCountScore = interactiveCount <= P.interactiveFree ? P.scale
-    : interactiveCount <= P.interactiveKnee ? clamp(Math.round(P.scale - (interactiveCount - P.interactiveFree) * P.interactiveSlopeBelow))
-    : clamp(Math.round(P.interactiveKneeScore - (interactiveCount - P.interactiveKnee) * P.interactiveSlopeAbove));
-  const interactionCount: CIFComponentScore = {
-    score: interactionCountScore,
-    details: interactiveCount <= P.interactiveFree
-      ? `${interactiveCount} interactive elements — manageable for motor impairments`
-      : `${interactiveCount} interactive elements on page (fewer is easier for motor impairments)`,
-  };
+  let interactionCount: CIFComponentScore;
+  if (supplied(data.interactiveCount)) {
+    const interactiveCount = data.interactiveCount;
+    const interactionCountScore = interactiveCount <= P.interactiveFree ? P.scale
+      : interactiveCount <= P.interactiveKnee ? clamp(Math.round(P.scale - (interactiveCount - P.interactiveFree) * P.interactiveSlopeBelow))
+      : clamp(Math.round(P.interactiveKneeScore - (interactiveCount - P.interactiveKnee) * P.interactiveSlopeAbove));
+    interactionCount = measured(
+      interactionCountScore,
+      interactiveCount <= P.interactiveFree
+        ? `${interactiveCount} interactive elements — manageable for motor impairments`
+        : `${interactiveCount} interactive elements on page (fewer is easier for motor impairments)`,
+    );
+  } else {
+    interactionCount = notMeasured("interactive element count");
+  }
 
   // --- spacingAdequacy (15%) ---
-  const touchTargetBarriers = countBarriersByType(data.barriers, "touch_target");
-  const spacingScore = clamp(Math.round(P.scale - touchTargetBarriers * P.spacingBarrierPenalty));
-  const spacingAdequacy: CIFComponentScore = {
-    score: spacingScore,
-    details: touchTargetBarriers > 0
-      ? `${touchTargetBarriers} touch target/spacing barriers detected`
-      : "No spacing barriers detected",
-  };
+  let spacingAdequacy: CIFComponentScore;
+  if (data.barriers) {
+    const touchTargetBarriers = countBarriersByType(data.barriers, "touch_target");
+    spacingAdequacy = measured(
+      clamp(Math.round(P.scale - touchTargetBarriers * P.spacingBarrierPenalty)),
+      touchTargetBarriers > 0
+        ? `${touchTargetBarriers} touch target/spacing barriers detected`
+        : "No spacing barriers detected",
+    );
+  } else {
+    spacingAdequacy = notMeasured("audit barriers");
+  }
 
   // --- dragFreeAlternatives (10%) ---
-  const dragBarriers = countBarriersMatching(data.barriers, "drag");
-  const dragScore = clamp(P.scale - dragBarriers * P.dragBarrierPenalty);
-  const dragFreeAlternatives: CIFComponentScore = {
-    score: dragScore,
-    details: dragBarriers > 0
-      ? `${dragBarriers} drag-dependent interactions found without alternatives`
-      : "No drag-dependent interactions detected",
-  };
+  let dragFreeAlternatives: CIFComponentScore;
+  if (data.barriers) {
+    const dragBarriers = countBarriersMatching(data.barriers, "drag");
+    dragFreeAlternatives = measured(
+      clamp(P.scale - dragBarriers * P.dragBarrierPenalty),
+      dragBarriers > 0
+        ? `${dragBarriers} drag-dependent interactions found without alternatives`
+        : "No drag-dependent interactions detected",
+    );
+  } else {
+    dragFreeAlternatives = notMeasured("audit barriers");
+  }
 
   const components = {
     touchTargetCompliance,
@@ -362,16 +399,12 @@ const VISUAL_IDS = {
   scale: "cif.scale.max",
   normalText: "cif.wcag.contrastNormalText",
   largeText: "cif.wcag.contrastLargeText",
-  elementCountNoData: "cif.visual.contrast.elementCountNoData",
   contrastBarrierPenalty: "cif.visual.contrast.barrierPenalty",
-  agentReadyNoData: "cif.visual.contrast.agentReadyNoData",
   proxySlope: "cif.visual.contrast.proxySlope",
   proxyIntercept: "cif.visual.contrast.proxyIntercept",
-  densityNoData: "cif.visual.densityNoData",
   densityKnee: "cif.visual.textScalability.densityKnee",
   scalabilitySlope: "cif.visual.textScalability.slope",
   colorBarrierPenalty: "cif.visual.color.barrierPenalty",
-  focusNoData: "cif.visual.focus.agentReadyNoData",
   wContrast: "cif.visual.weight.contrastCompliance",
   wScalability: "cif.visual.weight.textScalability",
   wColor: "cif.visual.weight.colorIndependence",
@@ -384,77 +417,98 @@ function computeVisualFitness(data: CIFInput): CIFScore["visual"] {
 
   // --- contrastCompliance (30%) ---
   let contrastCompliance: CIFComponentScore;
+  const contrastBarriers = countBarriersByType(data.barriers, "contrast");
   if (data.contrastIssues && data.contrastIssues.length > 0) {
-    // Use element count as proxy for total text elements
-    const totalTextEstimate = Math.max(
-      safe(data.elementCount, P.elementCountNoData),
-      data.contrastIssues.length,
-    );
-    const failRatio = data.contrastIssues.length / totalTextEstimate;
-    const score = clamp(Math.round(P.scale - failRatio * P.scale));
+    const issues = data.contrastIssues.length;
     const failingNormalText = data.contrastIssues.filter(
       (c) => !c.isLargeText && c.ratio < P.normalText,
     ).length;
     const failingLargeText = data.contrastIssues.filter(
       (c) => c.isLargeText && c.ratio < P.largeText,
     ).length;
-    contrastCompliance = {
-      score,
-      details: `${data.contrastIssues.length} contrast issues (${failingNormalText} normal text below ${P.normalText}:1, ${failingLargeText} large text below ${P.largeText}:1)`,
-    };
-  } else {
-    // Fall back to contrast barriers
-    const contrastBarriers = countBarriersByType(data.barriers, "contrast");
-    if (contrastBarriers > 0) {
-      contrastCompliance = {
-        score: clamp(P.scale - contrastBarriers * P.contrastBarrierPenalty),
-        details: `${contrastBarriers} contrast barriers detected`,
-      };
+    const breakdown = `${failingNormalText} normal text below ${P.normalText}:1, ${failingLargeText} large text below ${P.largeText}:1`;
+    if (supplied(data.elementCount)) {
+      // Share of elements with an issue, the element count standing in for the text elements checked
+      const failRatio = issues / Math.max(data.elementCount, issues);
+      contrastCompliance = measured(
+        clamp(Math.round(P.scale - failRatio * P.scale)),
+        `${issues} contrast issues among ${Math.max(data.elementCount, issues)} elements (${breakdown})`,
+      );
     } else {
-      // Use agent_ready accessibility subscore as proxy
-      const accessibilityProxy = safe(data.agentReadyScore, P.agentReadyNoData);
-      contrastCompliance = {
-        score: clamp(Math.round(accessibilityProxy * P.proxySlope + P.proxyIntercept)),
-        details: "No contrast data -- estimated from agent-ready accessibility score",
-      };
+      // No element count, so no share: scored per issue, like contrast barriers
+      contrastCompliance = measured(
+        clamp(P.scale - issues * P.contrastBarrierPenalty),
+        `${issues} contrast issues (${breakdown}); no element count, so scored per issue`,
+      );
     }
+  } else if (contrastBarriers > 0) {
+    contrastCompliance = measured(
+      clamp(P.scale - contrastBarriers * P.contrastBarrierPenalty),
+      `${contrastBarriers} contrast barriers detected`,
+    );
+  } else if (supplied(data.agentReadyScore)) {
+    // Use agent_ready accessibility subscore as proxy
+    contrastCompliance = measured(
+      clamp(Math.round(data.agentReadyScore * P.proxySlope + P.proxyIntercept)),
+      "No contrast data -- estimated from agent-ready accessibility score",
+    );
+  } else {
+    contrastCompliance = notMeasured("contrast issues, contrast barriers or agent-ready score");
   }
 
   // --- textScalability (20%) ---
   // Assume text scales correctly unless density is very high (which breaks at zoom)
-  const density = safe(data.informationDensity, P.densityNoData);
-  const scalabilityDeduction = density > P.densityKnee ? (density - P.densityKnee) * P.scalabilitySlope : 0;
-  const textScalability: CIFComponentScore = {
-    score: clamp(Math.round(P.scale - scalabilityDeduction)),
-    details: scalabilityDeduction > 0
-      ? `High density (${(density * P.scale).toFixed(0)}%) may cause overlap at 200% zoom (-${Math.round(scalabilityDeduction)})`
-      : "Text content can scale to 200% without loss of functionality",
-  };
+  let textScalability: CIFComponentScore;
+  if (supplied(data.informationDensity)) {
+    const density = data.informationDensity;
+    const scalabilityDeduction = density > P.densityKnee ? (density - P.densityKnee) * P.scalabilitySlope : 0;
+    textScalability = measured(
+      clamp(Math.round(P.scale - scalabilityDeduction)),
+      scalabilityDeduction > 0
+        ? `High density (${(density * P.scale).toFixed(0)}%) may cause overlap at 200% zoom (-${Math.round(scalabilityDeduction)})`
+        : "Text content can scale to 200% without loss of functionality",
+    );
+  } else {
+    textScalability = notMeasured("information density");
+  }
 
   // --- colorIndependence (20%) ---
-  const colorOnlyBarriers = countBarriersMatching(data.barriers, "color");
-  const colorScore = clamp(P.scale - colorOnlyBarriers * P.colorBarrierPenalty);
-  const colorIndependence: CIFComponentScore = {
-    score: colorScore,
-    details: colorOnlyBarriers > 0
-      ? `${colorOnlyBarriers} color-only information barriers detected`
-      : "No color-only information barriers detected",
-  };
+  let colorIndependence: CIFComponentScore;
+  if (data.barriers) {
+    const colorOnlyBarriers = countBarriersMatching(data.barriers, "color");
+    colorIndependence = measured(
+      clamp(P.scale - colorOnlyBarriers * P.colorBarrierPenalty),
+      colorOnlyBarriers > 0
+        ? `${colorOnlyBarriers} color-only information barriers detected`
+        : "No color-only information barriers detected",
+    );
+  } else {
+    colorIndependence = notMeasured("audit barriers");
+  }
 
   // --- focusVisibility (15%) ---
-  const semanticProxy = safe(data.semanticScore, safe(data.agentReadyScore, P.focusNoData));
-  const focusScore = clamp(Math.round((semanticProxy / P.scale) * P.scale));
-  const focusVisibility: CIFComponentScore = {
-    score: focusScore,
-    details: `Estimated from semantic score (${Math.round(semanticProxy)}/100)`,
-  };
+  let focusVisibility: CIFComponentScore;
+  if (supplied(data.semanticScore)) {
+    focusVisibility = measured(
+      clamp(Math.round(data.semanticScore)),
+      `Estimated from semantic score (${Math.round(data.semanticScore)}/${P.scale})`,
+    );
+  } else if (supplied(data.agentReadyScore)) {
+    focusVisibility = measured(
+      clamp(Math.round(data.agentReadyScore)),
+      `Estimated from agent-ready score (${Math.round(data.agentReadyScore)}/${P.scale})`,
+    );
+  } else {
+    focusVisibility = notMeasured("semantic or agent-ready score");
+  }
 
   // --- spacingDensity (15%) ---
-  const spacingDensityScore = clamp(Math.round(P.scale - density * P.scale));
-  const spacingDensity: CIFComponentScore = {
-    score: spacingDensityScore,
-    details: `Information density: ${(density * P.scale).toFixed(0)}% (lower is better for visual processing)`,
-  };
+  const spacingDensity: CIFComponentScore = supplied(data.informationDensity)
+    ? measured(
+      clamp(Math.round(P.scale - data.informationDensity * P.scale)),
+      `Information density: ${(data.informationDensity * P.scale).toFixed(0)}% (lower is better for visual processing)`,
+    )
+    : notMeasured("information density");
 
   const components = {
     contrastCompliance,
@@ -482,19 +536,14 @@ function computeVisualFitness(data: CIFInput): CIFScore["visual"] {
 const COGNITIVE_IDS = {
   scale: "cif.scale.max",
   costDecimals: "cif.display.costDecimals",
-  decisionNoDataCost: "cif.cognitive.decision.noDataCost",
   decisionCostSlope: "cif.cognitive.decision.costSlope",
   fleschGain: "cif.cognitive.readability.fleschGain",
-  readabilityNoData: "cif.cognitive.readability.noData",
-  elementCountNoData: "cif.cognitive.density.elementCountNoData",
   densityFree: "cif.cognitive.density.freeCount",
   densityKnee: "cif.cognitive.density.kneeCount",
   densityDivisorBelow: "cif.cognitive.density.divisorBelowKnee",
   densityKneeScore: "cif.cognitive.density.kneeScore",
   densityDivisorAbove: "cif.cognitive.density.divisorAboveKnee",
   captureGain: "cif.cognitive.attention.captureGain",
-  attentionNoData: "cif.cognitive.attention.noData",
-  navItemsNoData: "cif.cognitive.predictability.navItemsNoData",
   navFree: "cif.cognitive.predictability.freeCount",
   navKnee: "cif.cognitive.predictability.kneeCount",
   navSlopeBelow: "cif.cognitive.predictability.slopeBelowKnee",
@@ -511,76 +560,73 @@ function computeCognitiveFitness(data: CIFInput): CIFScore["cognitive"] {
   const P = readParams(COGNITIVE_IDS);
 
   // --- decisionComplexity (25%) ---
-  let decisionCost = P.decisionNoDataCost;
-  if (data.layers && data.layers.length > 0) {
-    const decisionLayer = data.layers.find(
-      (l) => l.name.toLowerCase().includes("decision") || l.name.toLowerCase().includes("choice"),
-    );
-    decisionCost = decisionLayer ? decisionLayer.cost : P.decisionNoDataCost;
-  }
-  const decisionScore = clamp(Math.round(P.scale - decisionCost * P.decisionCostSlope));
-  const decisionComplexity: CIFComponentScore = {
-    score: decisionScore,
-    details: decisionCost > 0
-      ? `Decision layer cost: ${decisionCost.toFixed(P.costDecimals)} (lower is better)`
-      : "No CTC decision layer data available",
-  };
+  const decisionLayer = data.layers?.find(
+    (l) => l.name.toLowerCase().includes("decision") || l.name.toLowerCase().includes("choice"),
+  );
+  const decisionComplexity: CIFComponentScore = decisionLayer
+    ? measured(
+      clamp(Math.round(P.scale - decisionLayer.cost * P.decisionCostSlope)),
+      `Decision layer cost: ${decisionLayer.cost.toFixed(P.costDecimals)} (lower is better)`,
+    )
+    : notMeasured(data.layers && data.layers.length > 0 ? "decision or choice layer among the CTC layers" : "CTC layers");
 
   // --- readability (20%) ---
-  const flesch = data.fleschScore;
-  const readabilityScore = flesch != null
-    ? clamp(Math.round(Math.min(P.scale, flesch * P.fleschGain)))
-    : P.readabilityNoData; // No data = assume mediocre readability (not optimistic)
-  const readability: CIFComponentScore = {
-    score: readabilityScore,
-    details: flesch != null
-      ? `Flesch readability score: ${Math.round(flesch)} (higher = more readable)`
-      : `No readability data available — estimated ${P.readabilityNoData} (conservative)`,
-  };
+  const readability: CIFComponentScore = supplied(data.fleschScore)
+    ? measured(
+      clamp(Math.round(Math.min(P.scale, data.fleschScore * P.fleschGain))),
+      `Flesch readability score: ${Math.round(data.fleschScore)} (higher = more readable)`,
+    )
+    : notMeasured("Flesch reading-ease score");
 
   // --- informationDensity (20%) ---
   // A well-structured page can have many elements without being overwhelming.
   // Only penalize when element count is extremely high relative to viewport.
   // Threshold: the free count is fine, the knee starts getting dense, 2000+ is overwhelming.
-  const elemCount = safe(data.elementCount, P.elementCountNoData);
-  const infoScore = elemCount <= P.densityFree ? P.scale
-    : elemCount <= P.densityKnee ? clamp(Math.round(P.scale - (elemCount - P.densityFree) / P.densityDivisorBelow))
-    : clamp(Math.round(P.densityKneeScore - (elemCount - P.densityKnee) / P.densityDivisorAbove));
-  const informationDensity: CIFComponentScore = {
-    score: infoScore,
-    details: elemCount <= P.densityFree
-      ? `${elemCount} elements — well within cognitive limits`
-      : `${elemCount} elements on page (progressive penalty above ${P.densityFree})`,
-  };
+  let informationDensity: CIFComponentScore;
+  if (supplied(data.elementCount)) {
+    const elemCount = data.elementCount;
+    const infoScore = elemCount <= P.densityFree ? P.scale
+      : elemCount <= P.densityKnee ? clamp(Math.round(P.scale - (elemCount - P.densityFree) / P.densityDivisorBelow))
+      : clamp(Math.round(P.densityKneeScore - (elemCount - P.densityKnee) / P.densityDivisorAbove));
+    informationDensity = measured(
+      infoScore,
+      elemCount <= P.densityFree
+        ? `${elemCount} elements — well within cognitive limits`
+        : `${elemCount} elements on page (progressive penalty above ${P.densityFree})`,
+    );
+  } else {
+    informationDensity = notMeasured("element count");
+  }
 
   // --- attentionClarity (20%) ---
-  const captureRate = data.ctaCaptureRate;
-  const attentionScore = captureRate != null
-    ? clamp(Math.round(Math.min(P.scale, captureRate * P.captureGain)))
-    : P.attentionNoData; // No data = assume mediocre CTA clarity (not optimistic)
-  const attentionClarity: CIFComponentScore = {
-    score: attentionScore,
-    details: captureRate != null
-      ? `CTA capture rate: ${(captureRate * P.scale).toFixed(1)}% (higher = clearer attention guidance)`
-      : `No attention data available — estimated ${P.attentionNoData} (conservative)`,
-  };
+  const attentionClarity: CIFComponentScore = supplied(data.ctaCaptureRate)
+    ? measured(
+      clamp(Math.round(Math.min(P.scale, data.ctaCaptureRate * P.captureGain))),
+      `CTA capture rate: ${(data.ctaCaptureRate * P.scale).toFixed(1)}% (higher = clearer attention guidance)`,
+    )
+    : notMeasured("CTA capture rate");
 
   // --- predictability (15%) ---
-  const navItems = safe(data.navItemCount, P.navItemsNoData);
-  let predictScore: number;
-  if (navItems <= P.navFree) {
-    predictScore = P.scale;
-  } else if (navItems <= P.navKnee) {
-    predictScore = clamp(Math.round(P.scale - (navItems - P.navFree) * P.navSlopeBelow));
+  let predictability: CIFComponentScore;
+  if (supplied(data.navItemCount)) {
+    const navItems = data.navItemCount;
+    let predictScore: number;
+    if (navItems <= P.navFree) {
+      predictScore = P.scale;
+    } else if (navItems <= P.navKnee) {
+      predictScore = clamp(Math.round(P.scale - (navItems - P.navFree) * P.navSlopeBelow));
+    } else {
+      predictScore = clamp(Math.round(P.navKneeScore - (navItems - P.navKnee) * P.navSlopeAbove));
+    }
+    predictability = measured(
+      predictScore,
+      navItems <= P.navFree
+        ? `${navItems} navigation items — clear, predictable structure`
+        : `${navItems} navigation items (${P.navFree} or fewer is optimal for cognitive predictability)`,
+    );
   } else {
-    predictScore = clamp(Math.round(P.navKneeScore - (navItems - P.navKnee) * P.navSlopeAbove));
+    predictability = notMeasured("navigation item count");
   }
-  const predictability: CIFComponentScore = {
-    score: predictScore,
-    details: navItems <= P.navFree
-      ? `${navItems} navigation items — clear, predictable structure`
-      : `${navItems} navigation items (${P.navFree} or fewer is optimal for cognitive predictability)`,
-  };
 
   const components = {
     decisionComplexity,
@@ -608,16 +654,12 @@ function computeCognitiveFitness(data: CIFInput): CIFScore["cognitive"] {
 const SENSORY_IDS = {
   scale: "cif.scale.max",
   costDecimals: "cif.display.costDecimals",
-  animationNoData: "cif.sensory.animation.noData",
   controlledFloor: "cif.sensory.animation.controlledFloor",
   controlledPenalty: "cif.sensory.animation.controlledPenalty",
   uncontrolledPenalty: "cif.sensory.animation.uncontrolledPenalty",
   audioBarrierPenalty: "cif.sensory.audio.barrierPenalty",
-  densityNoData: "cif.sensory.densityNoData",
   calmDensityWeight: "cif.sensory.calm.densityWeight",
   calmAnimationPenalty: "cif.sensory.calm.animationPenalty",
-  agentReadyNoData: "cif.sensory.layout.agentReadyNoData",
-  ctcNoData: "cif.sensory.overload.ctcNoData",
   easyCTC: "cif.sensory.overload.easyCTC",
   kneeCTC: "cif.sensory.overload.kneeCTC",
   overloadSlopeBelow: "cif.sensory.overload.slopeBelowKnee",
@@ -634,65 +676,95 @@ function computeSensoryFitness(data: CIFInput): CIFScore["sensory"] {
   const P = readParams(SENSORY_IDS);
 
   // --- animationControl (30%) ---
-  const animCount = safe(data.animationCount, P.animationNoData);
-  const hasMotionSupport = !!data.hasReducedMotionSupport;
-  // If prefers-reduced-motion is supported, animations are user-controllable → a small tax per animation, down to the floor
-  // Without support, each animation is a hard penalty
-  const animScore = hasMotionSupport
-    ? clamp(Math.max(P.controlledFloor, P.scale - animCount * P.controlledPenalty))  // floor-to-top range — minor tax for quantity
-    : animCount === 0 ? P.scale : clamp(Math.round(P.scale - animCount * P.uncontrolledPenalty));
-  const animationControl: CIFComponentScore = {
-    score: animScore,
-    details: animCount === 0
-      ? "No animations detected"
-      : hasMotionSupport
-        ? `${animCount} animations detected — prefers-reduced-motion supported (user can disable)`
-        : `${animCount} animations detected without motion preference support (each deducts ${P.uncontrolledPenalty} points)`,
-  };
+  // With prefers-reduced-motion support, animations are user-controllable → a small tax per animation, down to the floor.
+  // Without support, each animation is a hard penalty. With animations and no support flag, the score is not measured.
+  const motionSupport = data.hasReducedMotionSupport;
+  let animationControl: CIFComponentScore;
+  if (!supplied(data.animationCount)) {
+    animationControl = notMeasured("animation count");
+  } else if (data.animationCount === 0) {
+    animationControl = measured(P.scale, "No animations detected");
+  } else if (motionSupport === true) {
+    animationControl = measured(
+      clamp(Math.max(P.controlledFloor, P.scale - data.animationCount * P.controlledPenalty)), // floor-to-top range — minor tax for quantity
+      `${data.animationCount} animations detected — prefers-reduced-motion supported (user can disable)`,
+    );
+  } else if (motionSupport === false) {
+    animationControl = measured(
+      clamp(Math.round(P.scale - data.animationCount * P.uncontrolledPenalty)),
+      `${data.animationCount} animations detected without motion preference support (each deducts ${P.uncontrolledPenalty} points)`,
+    );
+  } else {
+    animationControl = notMeasured(`prefers-reduced-motion support flag for the ${data.animationCount} animations detected`);
+  }
 
   // --- sensoryIndependence (25%) ---
-  const captionBarriers = countBarriersMatching(data.barriers, "caption");
-  const audioBarriers = countBarriersMatching(data.barriers, "audio");
-  const sensoryDeductions = (captionBarriers + audioBarriers) * P.audioBarrierPenalty;
-  const sensoryScore = clamp(P.scale - sensoryDeductions);
-  const sensoryIndependence: CIFComponentScore = {
-    score: sensoryScore,
-    details: sensoryDeductions > 0
-      ? `${captionBarriers + audioBarriers} audio/caption barriers (each deducts ${P.audioBarrierPenalty})`
-      : "No audio/caption accessibility barriers detected",
-  };
+  let sensoryIndependence: CIFComponentScore;
+  if (data.barriers) {
+    const captionBarriers = countBarriersMatching(data.barriers, "caption");
+    const audioBarriers = countBarriersMatching(data.barriers, "audio");
+    const sensoryDeductions = (captionBarriers + audioBarriers) * P.audioBarrierPenalty;
+    sensoryIndependence = measured(
+      clamp(P.scale - sensoryDeductions),
+      sensoryDeductions > 0
+        ? `${captionBarriers + audioBarriers} audio/caption barriers (each deducts ${P.audioBarrierPenalty})`
+        : "No audio/caption accessibility barriers detected",
+    );
+  } else {
+    sensoryIndependence = notMeasured("audit barriers");
+  }
 
   // --- visualCalm (20%) ---
-  const density = safe(data.informationDensity, P.densityNoData);
-  // If animations are user-controllable, they don't contribute to visual noise
-  const animCalmPenalty = hasMotionSupport ? 0 : animCount * P.calmAnimationPenalty;
-  const calmScore = clamp(Math.round(P.scale - density * P.calmDensityWeight - animCalmPenalty));
-  const visualCalm: CIFComponentScore = {
-    score: calmScore,
-    details: hasMotionSupport
-      ? `Information density: ${(density * P.scale).toFixed(0)}% (animations controllable via prefers-reduced-motion)`
-      : `Information density: ${(density * P.scale).toFixed(0)}%, ${animCount} uncontrolled animations`,
-  };
+  // Density is the input; animations adjust it only when their count and, if any, their motion support are known.
+  // If animations are user-controllable, they don't contribute to visual noise.
+  let visualCalm: CIFComponentScore;
+  if (supplied(data.informationDensity)) {
+    const density = data.informationDensity;
+    const densityText = `Information density: ${(density * P.scale).toFixed(0)}%`;
+    let animCalmPenalty = 0;
+    let animText: string;
+    if (!supplied(data.animationCount)) {
+      animText = ", animations not measured";
+    } else if (motionSupport === true) {
+      animText = " (animations controllable via prefers-reduced-motion)";
+    } else if (motionSupport === false || data.animationCount === 0) {
+      animCalmPenalty = data.animationCount * P.calmAnimationPenalty;
+      animText = `, ${data.animationCount} uncontrolled animations`;
+    } else {
+      animText = `, ${data.animationCount} animations (prefers-reduced-motion support not measured)`;
+    }
+    visualCalm = measured(
+      clamp(Math.round(P.scale - density * P.calmDensityWeight - animCalmPenalty)),
+      `${densityText}${animText}`,
+    );
+  } else {
+    visualCalm = notMeasured("information density");
+  }
 
   // --- layoutConsistency (15%) ---
-  const agentReady = safe(data.agentReadyScore, P.agentReadyNoData);
-  const consistencyScore = clamp(Math.round(agentReady));
-  const layoutConsistency: CIFComponentScore = {
-    score: consistencyScore,
-    details: `Layout consistency derived from structural score (${Math.round(agentReady)}/100)`,
-  };
+  const layoutConsistency: CIFComponentScore = supplied(data.agentReadyScore)
+    ? measured(
+      clamp(Math.round(data.agentReadyScore)),
+      `Layout consistency derived from structural score (${Math.round(data.agentReadyScore)}/${P.scale})`,
+    )
+    : notMeasured("agent-ready score");
 
   // --- overloadThreshold (10%) ---
   // CTC up to easyCTC is "easy" per our scale, up to kneeCTC moderate, then hard
-  const totalCTC = safe(data.totalCTC, P.ctcNoData);
-  const overloadScore = totalCTC <= P.easyCTC ? P.scale
-    : totalCTC <= P.kneeCTC ? clamp(Math.round(P.scale - (totalCTC - P.easyCTC) * P.overloadSlopeBelow))
-    : clamp(Math.round(P.overloadKneeScore - (totalCTC - P.kneeCTC) * P.overloadSlopeAbove));
-  const overloadThreshold: CIFComponentScore = {
-    score: overloadScore,
-    details: totalCTC <= P.easyCTC ? `Total CTC: ${totalCTC.toFixed(P.costDecimals)} — within easy range`
-      : `Total CTC: ${totalCTC.toFixed(P.costDecimals)} (lower = less cognitive overload risk)`,
-  };
+  let overloadThreshold: CIFComponentScore;
+  if (supplied(data.totalCTC)) {
+    const totalCTC = data.totalCTC;
+    const overloadScore = totalCTC <= P.easyCTC ? P.scale
+      : totalCTC <= P.kneeCTC ? clamp(Math.round(P.scale - (totalCTC - P.easyCTC) * P.overloadSlopeBelow))
+      : clamp(Math.round(P.overloadKneeScore - (totalCTC - P.kneeCTC) * P.overloadSlopeAbove));
+    overloadThreshold = measured(
+      overloadScore,
+      totalCTC <= P.easyCTC ? `Total CTC: ${totalCTC.toFixed(P.costDecimals)} — within easy range`
+        : `Total CTC: ${totalCTC.toFixed(P.costDecimals)} (lower = less cognitive overload risk)`,
+    );
+  } else {
+    overloadThreshold = notMeasured("total CTC");
+  }
 
   const components = {
     animationControl,
@@ -719,11 +791,8 @@ function computeSensoryFitness(data: CIFInput): CIFScore["sensory"] {
 
 const NAVIGATION_IDS = {
   scale: "cif.scale.max",
-  agentReadyNoData: "cif.navigation.semantic.agentReadyNoData",
   keyboardBarrierPenalty: "cif.navigation.keyboard.barrierPenalty",
   skipBarrierPenalty: "cif.navigation.skip.barrierPenalty",
-  ariaNoData: "cif.navigation.linkButton.ariaNoData",
-  formLabelNoData: "cif.navigation.form.labelNoData",
   formBarrierPenalty: "cif.navigation.form.barrierPenalty",
   wSemantic: "cif.navigation.weight.semanticStructure",
   wKeyboard: "cif.navigation.weight.keyboardOperability",
@@ -740,56 +809,73 @@ function computeNavigationFitness(data: CIFInput): CIFScore["navigation"] {
   if (data.semanticScore != null) subScores.push(data.semanticScore);
   if (data.headingScore != null) subScores.push(data.headingScore);
   if (data.landmarkScore != null) subScores.push(data.landmarkScore);
-  const semanticAvg =
-    subScores.length > 0
-      ? subScores.reduce((a, b) => a + b, 0) / subScores.length
-      : safe(data.agentReadyScore, P.agentReadyNoData);
-  const semanticStructure: CIFComponentScore = {
-    score: clamp(Math.round(semanticAvg)),
-    details: subScores.length > 0
-      ? `Average of ${subScores.length} semantic sub-scores: ${Math.round(semanticAvg)}/100`
-      : `Estimated from agent-ready score: ${Math.round(semanticAvg)}/100`,
-  };
+  let semanticStructure: CIFComponentScore;
+  if (subScores.length > 0) {
+    const semanticAvg = subScores.reduce((a, b) => a + b, 0) / subScores.length;
+    semanticStructure = measured(
+      clamp(Math.round(semanticAvg)),
+      `Average of ${subScores.length} semantic sub-scores: ${Math.round(semanticAvg)}/${P.scale}`,
+    );
+  } else if (supplied(data.agentReadyScore)) {
+    semanticStructure = measured(
+      clamp(Math.round(data.agentReadyScore)),
+      `Estimated from agent-ready score: ${Math.round(data.agentReadyScore)}/${P.scale}`,
+    );
+  } else {
+    semanticStructure = notMeasured("semantic, heading or landmark score, or agent-ready score");
+  }
 
   // --- keyboardOperability (25%) ---
-  const keyboardBarriers = countBarriersMatching(data.barriers, "keyboard");
-  const motorPrecision = countBarriersByType(data.barriers, "motor_precision");
-  const kbDeductions = (keyboardBarriers + motorPrecision) * P.keyboardBarrierPenalty;
-  const kbScore = clamp(P.scale - kbDeductions);
-  const keyboardOperability: CIFComponentScore = {
-    score: kbScore,
-    details: kbDeductions > 0
-      ? `${keyboardBarriers + motorPrecision} keyboard/motor barriers detected`
-      : "No keyboard accessibility barriers detected",
-  };
+  let keyboardOperability: CIFComponentScore;
+  if (data.barriers) {
+    const keyboardBarriers = countBarriersMatching(data.barriers, "keyboard");
+    const motorPrecision = countBarriersByType(data.barriers, "motor_precision");
+    const kbDeductions = (keyboardBarriers + motorPrecision) * P.keyboardBarrierPenalty;
+    keyboardOperability = measured(
+      clamp(P.scale - kbDeductions),
+      kbDeductions > 0
+        ? `${keyboardBarriers + motorPrecision} keyboard/motor barriers detected`
+        : "No keyboard accessibility barriers detected",
+    );
+  } else {
+    keyboardOperability = notMeasured("audit barriers");
+  }
 
   // --- skipMechanisms (15%) ---
-  const skipBarriers = countBarriersMatching(data.barriers, "skip");
-  const skipScore = clamp(P.scale - skipBarriers * P.skipBarrierPenalty);
-  const skipMechanisms: CIFComponentScore = {
-    score: skipScore,
-    details: skipBarriers > 0
-      ? `${skipBarriers} skip mechanism issues detected`
-      : "No skip navigation issues detected",
-  };
+  let skipMechanisms: CIFComponentScore;
+  if (data.barriers) {
+    const skipBarriers = countBarriersMatching(data.barriers, "skip");
+    skipMechanisms = measured(
+      clamp(P.scale - skipBarriers * P.skipBarrierPenalty),
+      skipBarriers > 0
+        ? `${skipBarriers} skip mechanism issues detected`
+        : "No skip navigation issues detected",
+    );
+  } else {
+    skipMechanisms = notMeasured("audit barriers");
+  }
 
   // --- linkButtonClarity (15%) ---
-  const ariaProxy = safe(data.ariaScore, P.ariaNoData);
-  const linkButtonClarity: CIFComponentScore = {
-    score: clamp(Math.round(ariaProxy)),
-    details: `ARIA label score: ${Math.round(ariaProxy)}/100`,
-  };
+  const linkButtonClarity: CIFComponentScore = supplied(data.ariaScore)
+    ? measured(clamp(Math.round(data.ariaScore)), `ARIA label score: ${Math.round(data.ariaScore)}/${P.scale}`)
+    : notMeasured("ARIA score");
 
   // --- formAccessibility (20%) ---
-  let formScore = safe(data.formLabelScore, P.formLabelNoData);
-  const formBarriers = countBarriersMatching(data.barriers, "form");
-  formScore = clamp(formScore - formBarriers * P.formBarrierPenalty);
-  const formAccessibility: CIFComponentScore = {
-    score: clamp(Math.round(formScore)),
-    details: formBarriers > 0
-      ? `Form label score: ${Math.round(safe(data.formLabelScore, P.formLabelNoData))}/100, ${formBarriers} form barriers`
-      : `Form label score: ${Math.round(safe(data.formLabelScore, P.formLabelNoData))}/100`,
-  };
+  // The label score is the base; the audit's form barriers deduct from it. Either alone is a measurement.
+  let formAccessibility: CIFComponentScore;
+  if (supplied(data.formLabelScore) || data.barriers) {
+    const labelScore = supplied(data.formLabelScore) ? data.formLabelScore : null;
+    const formBarriers = data.barriers ? countBarriersMatching(data.barriers, "form") : 0;
+    const labelText = labelScore !== null ? `Form label score: ${Math.round(labelScore)}/${P.scale}` : "Form label score not measured";
+    const barrierText = !data.barriers ? ", form barriers not measured"
+      : formBarriers > 0 ? `, ${formBarriers} form barriers` : "";
+    formAccessibility = measured(
+      clamp(Math.round((labelScore ?? P.scale) - formBarriers * P.formBarrierPenalty)),
+      `${labelText}${barrierText}`,
+    );
+  } else {
+    formAccessibility = notMeasured("form label score or audit barriers");
+  }
 
   const components = {
     semanticStructure,
@@ -890,7 +976,7 @@ function generateFixRecommendation(
     case "motor.hitProbability":
       return "Increase average interactive element dimensions -- target 48px minimum for reliable motor access";
     case "motor.interactionCount":
-      return `Reduce interactive elements from ${safe(data.interactiveCount, 0)} to under 30 on a single view`;
+      return `Reduce interactive elements from ${data.interactiveCount} to under 30 on a single view`;
     case "motor.spacingAdequacy":
       return "Add at least 8px spacing between adjacent interactive elements to prevent mis-taps";
     case "motor.dragFreeAlternatives":
@@ -910,23 +996,23 @@ function generateFixRecommendation(
       return "Increase whitespace between content blocks -- reduce information density below 60%";
 
     case "cognitive.decisionComplexity": {
-      const choices = safe(data.interactiveCount, 0);
-      if (choices > F.choiceThreshold) {
+      const choices = data.interactiveCount;
+      if (supplied(choices) && choices > F.choiceThreshold) {
         return `Reduce choices from ${choices} to 5-7 options per decision point (Hick's Law)`;
       }
       return "Simplify decision points -- group related options, provide defaults, reduce choices per step";
     }
     case "cognitive.readability":
-      return `Simplify text to 8th-grade reading level (current Flesch: ${Math.round(safe(data.fleschScore, 0))})`;
+      return `Simplify text to 8th-grade reading level (current Flesch: ${Math.round(data.fleschScore as number)})`;
     case "cognitive.informationDensity":
-      return `Reduce visible elements from ${safe(data.elementCount, 0)} -- use progressive disclosure to reveal content incrementally`;
+      return `Reduce visible elements from ${data.elementCount} -- use progressive disclosure to reveal content incrementally`;
     case "cognitive.attentionClarity":
       return "Make primary CTA visually dominant -- increase size, contrast, and whitespace around conversion elements";
     case "cognitive.predictability":
-      return `Reduce navigation items from ${safe(data.navItemCount, 0)} to ${F.navFree} or fewer -- group secondary items in submenus`;
+      return `Reduce navigation items from ${data.navItemCount} to ${F.navFree} or fewer -- group secondary items in submenus`;
 
     case "sensory.animationControl":
-      return `Add prefers-reduced-motion support for ${safe(data.animationCount, 0)} animations and provide pause controls`;
+      return `Add prefers-reduced-motion support for ${data.animationCount} animations and provide pause controls`;
     case "sensory.sensoryIndependence":
       return "Add captions/transcripts for all audio and video content";
     case "sensory.visualCalm":
@@ -956,6 +1042,18 @@ function generateFixRecommendation(
 // Top Issues
 // ============================================================================
 
+/** Every component of the five categories, in category order. */
+function everyComponent(
+  ...categories: Array<{ components: Record<string, CIFComponentScore> }>
+): Array<{ category: string; component: string; score: number; measured: boolean }> {
+  const names = ["motor", "visual", "cognitive", "sensory", "navigation"];
+  return categories.flatMap((cat, i) =>
+    Object.entries(cat.components).map(([component, val]) => ({
+      category: names[i], component, score: val.score, measured: val.measured,
+    })),
+  );
+}
+
 function buildTopIssues(
   motor: CIFScore["motor"],
   visual: CIFScore["visual"],
@@ -964,27 +1062,9 @@ function buildTopIssues(
   navigation: CIFScore["navigation"],
   data: CIFInput,
 ): CIFScore["topIssues"] {
-  const allComponents: Array<{
-    category: string;
-    component: string;
-    score: number;
-  }> = [];
-
-  for (const [name, val] of Object.entries(motor.components)) {
-    allComponents.push({ category: "motor", component: name, score: val.score });
-  }
-  for (const [name, val] of Object.entries(visual.components)) {
-    allComponents.push({ category: "visual", component: name, score: val.score });
-  }
-  for (const [name, val] of Object.entries(cognitive.components)) {
-    allComponents.push({ category: "cognitive", component: name, score: val.score });
-  }
-  for (const [name, val] of Object.entries(sensory.components)) {
-    allComponents.push({ category: "sensory", component: name, score: val.score });
-  }
-  for (const [name, val] of Object.entries(navigation.components)) {
-    allComponents.push({ category: "navigation", component: name, score: val.score });
-  }
+  // A component that was not measured is not an issue found, so it is never listed
+  const allComponents = everyComponent(motor, visual, cognitive, sensory, navigation)
+    .filter((c) => c.measured);
 
   // Sort by score ascending (worst first)
   allComponents.sort((a, b) => a.score - b.score);
@@ -1006,8 +1086,9 @@ function buildTopIssues(
  * Compute the CIF (Cognitive Interface Fitness) score from raw tool data.
  *
  * Accepts data from empathy_audit, agent_ready_audit, cognitive_effort CTC,
- * page_understand, and attention_analysis. All fields are optional --
- * missing data produces conservative estimates with lower confidence.
+ * page_understand, and attention_analysis. All fields are optional; a
+ * component whose inputs are all missing is reported as not measured (see
+ * MISSING INPUTS at the top of this file), never estimated.
  */
 const COMPOSITE_IDS = {
   motor: "cif.weight.motor",
@@ -1045,6 +1126,9 @@ export function computeCIFScore(data: CIFInput): CIFScore {
   );
 
   const topIssues = buildTopIssues(motor, visual, cognitive, sensory, navigation, data);
+  const notMeasuredComponents = everyComponent(motor, visual, cognitive, sensory, navigation)
+    .filter((c) => !c.measured)
+    .map((c) => `${c.category}.${c.component}`);
 
   return {
     composite,
@@ -1056,6 +1140,7 @@ export function computeCIFScore(data: CIFInput): CIFScore {
     sensory,
     navigation,
     topIssues,
+    notMeasured: notMeasuredComponents,
     url: data.url,
     timestamp: new Date().toISOString(),
   };
