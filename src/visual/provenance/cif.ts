@@ -2,8 +2,9 @@
  * Provenance entries for the CIF score's constants (cif-score.ts).
  * See ../model-provenance.ts for the statuses.
  *
- * Three numbers are published: WCAG 2.2's 44 px enhanced target size and its
- * 4.5:1 and 3:1 text-contrast minimums. Four are definitions: the 0-100
+ * Five numbers are published, all WCAG 2.2's: the 44 px enhanced target size,
+ * the 4.5:1 and 3:1 text-contrast minimums, the 200% text resize and the 3:1
+ * non-text contrast that a focus indicator needs. Four are definitions: the 0-100
  * scale, an unreachable empty-average value, how many top issues to list and
  * how many decimals to print. Everything else (every category and component
  * weight, every per-barrier deduction, every knee and slope of the piecewise
@@ -69,6 +70,8 @@ export const CIF_PROVENANCE: ProvenanceEntry[] = [
   // ── Published thresholds ──
   p("wcag.targetSizeEnhancedPx", 44, "WCAG 2.2 Success Criterion 2.5.5 Target Size (Enhanced), Level AAA: pointer targets at least 44 by 44 CSS pixels. touchTargetCompliance counts the non-exempt targets whose smaller side reaches it, and the details and fix text quote it. Scoring against this AAA criterion rather than 2.5.8 Target Size (Minimum), Level AA (24 by 24), is this scorer's choice; the number is WCAG's. 2.5.5's exceptions (equivalent, inline, user agent control, essential) are not checked beyond the caller's `exempt` flag."),
   p("wcag.contrastNormalText", 4.5, "WCAG 2.2 Success Criterion 1.4.3 Contrast (Minimum), Level AA: a contrast ratio of at least 4.5:1 for text. Used only to count, in the details and fix text, which reported issues fall below it; the contrastCompliance score itself is the share of elements with any reported issue (or, with no element count supplied, a deduction per issue)."),
+  p("wcag.resizeTextPercent", 200, "WCAG 2.2 Success Criterion 1.4.4 Resize Text, Level AA: except for captions and images of text, text can be resized without assistive technology up to 200 percent without loss of content or functionality. Quoted in textScalability's details and fix text. The score never resizes anything; it is estimated from information density (visual.textScalability.densityKnee), and the details say the criterion was not checked."),
+  p("wcag.nonTextContrast", 3, "WCAG 2.2 Success Criterion 1.4.11 Non-text Contrast, Level AA: visual information required to identify user interface components and their states, which includes a focus indicator, has a contrast ratio of at least 3:1 against adjacent colors. Quoted in focusVisibility's fix text only; focusVisibility is scored from the semantic or agent-ready score and never measures a focus indicator."),
   p("wcag.contrastLargeText", 3, "WCAG 2.2 Success Criterion 1.4.3 Contrast (Minimum), Level AA: at least 3:1 for large-scale text. Used only in the details and fix text, as for wcag.contrastNormalText."),
 
   // ── Composite ──
@@ -164,5 +167,5 @@ export const CIF_PROVENANCE: ProvenanceEntry[] = [
   h("certification.bronze", 50, CERTIFICATION("bronze (below it there is none)")),
 
   // ── Fix recommendations ──
-  h("fix.decision.choiceThreshold", 10, "Hand-set interactive-element count above which the decisionComplexity fix names a choice count to cut to; it changes recommendation text only. Decision time against option count on real pages (Hick-Hyman style data) would place it."),
+  h("fix.decision.choiceThreshold", 10, "Hand-set interactive-element count above which the decisionComplexity fix asks to cut choices, and the count it asks to cut to; it changes recommendation text only. Until 21.0 the fix asked for '5-7 options per decision point (Hick's Law)', but the Hick-Hyman law gives decision time as a function of the number of options and names no target count. Decision time against option count on real pages would place it."),
 ];

@@ -43,7 +43,7 @@
         },
         "textScalability": {
           "score": 100,
-          "details": "Text content can scale to 200% without loss of functionality",
+          "details": "Information density 44% is at or below 60%, so no deduction; resizing text to 200% (WCAG 1.4.4) was not checked",
           "measured": true
         },
         "colorIndependence": {
@@ -158,19 +158,19 @@
         "category": "cognitive",
         "component": "informationDensity",
         "score": 53,
-        "fix": "Reduce visible elements from 480 -- use progressive disclosure to reveal content incrementally"
+        "fix": "Reduce visible elements from 480 toward 200 -- use progressive disclosure to reveal content incrementally"
       },
       {
         "category": "motor",
         "component": "interactionCount",
         "score": 55,
-        "fix": "Reduce interactive elements from 38 to under 30 on a single view"
+        "fix": "Reduce interactive elements on a single view from 38 to 20 or fewer"
       },
       {
         "category": "visual",
         "component": "spacingDensity",
         "score": 56,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 44%); above 60% textScalability is penalised too"
       },
       {
         "category": "motor",
@@ -239,7 +239,7 @@
         },
         "textScalability": {
           "score": 86,
-          "details": "High density (78%) may cause overlap at 200% zoom (-14)",
+          "details": "High density (78%) may cause overlap at 200% zoom (-14); estimated from density, the page was not zoomed",
           "measured": true
         },
         "colorIndependence": {
@@ -354,13 +354,13 @@
         "category": "motor",
         "component": "interactionCount",
         "score": 0,
-        "fix": "Reduce interactive elements from 96 to under 30 on a single view"
+        "fix": "Reduce interactive elements on a single view from 96 to 20 or fewer"
       },
       {
         "category": "cognitive",
         "component": "informationDensity",
         "score": 0,
-        "fix": "Reduce visible elements from 2350 -- use progressive disclosure to reveal content incrementally"
+        "fix": "Reduce visible elements from 2350 toward 200 -- use progressive disclosure to reveal content incrementally"
       },
       {
         "category": "sensory",
@@ -378,7 +378,7 @@
         "category": "visual",
         "component": "spacingDensity",
         "score": 22,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 78%); above 60% textScalability is penalised too"
       }
     ],
     "notMeasured": [
@@ -437,7 +437,7 @@
         },
         "textScalability": {
           "score": 100,
-          "details": "Text content can scale to 200% without loss of functionality",
+          "details": "Information density 48% is at or below 60%, so no deduction; resizing text to 200% (WCAG 1.4.4) was not checked",
           "measured": true
         },
         "colorIndependence": {
@@ -558,7 +558,7 @@
         "category": "visual",
         "component": "spacingDensity",
         "score": 52,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 48%); above 60% textScalability is penalised too"
       },
       {
         "category": "navigation",
@@ -570,7 +570,7 @@
         "category": "motor",
         "component": "interactionCount",
         "score": 65,
-        "fix": "Reduce interactive elements from 34 to under 30 on a single view"
+        "fix": "Reduce interactive elements on a single view from 34 to 20 or fewer"
       },
       {
         "category": "sensory",
@@ -631,7 +631,7 @@
         },
         "textScalability": {
           "score": 100,
-          "details": "Text content can scale to 200% without loss of functionality",
+          "details": "Information density 50% is at or below 60%, so no deduction; resizing text to 200% (WCAG 1.4.4) was not checked",
           "measured": true
         },
         "colorIndependence": {
@@ -746,7 +746,7 @@
         "category": "visual",
         "component": "spacingDensity",
         "score": 50,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 50%); above 60% textScalability is penalised too"
       },
       {
         "category": "cognitive",
@@ -758,7 +758,7 @@
         "category": "cognitive",
         "component": "readability",
         "score": 70,
-        "fix": "Simplify text to 8th-grade reading level (current Flesch: 58)"
+        "fix": "Simplify text to raise Flesch reading ease from 58 to 84 or more, where readability scores full marks"
       },
       {
         "category": "navigation",
@@ -1009,7 +1009,7 @@
         },
         "textScalability": {
           "score": 100,
-          "details": "Text content can scale to 200% without loss of functionality",
+          "details": "Information density 55% is at or below 60%, so no deduction; resizing text to 200% (WCAG 1.4.4) was not checked",
           "measured": true
         },
         "colorIndependence": {
@@ -1130,7 +1130,7 @@
         "category": "visual",
         "component": "spacingDensity",
         "score": 45,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 55%); above 60% textScalability is penalised too"
       },
       {
         "category": "sensory",
@@ -1148,7 +1148,7 @@
         "category": "visual",
         "component": "focusVisibility",
         "score": 62,
-        "fix": "Ensure all interactive elements have visible focus indicators with at least 3:1 contrast"
+        "fix": "Ensure every interactive element has a visible focus indicator (WCAG 2.4.7) with at least 3:1 contrast against adjacent colors (WCAG 1.4.11)"
       }
     ],
     "notMeasured": [
@@ -1203,7 +1203,7 @@
         },
         "textScalability": {
           "score": 100,
-          "details": "Text content can scale to 200% without loss of functionality",
+          "details": "Information density 32% is at or below 60%, so no deduction; resizing text to 200% (WCAG 1.4.4) was not checked",
           "measured": true
         },
         "colorIndependence": {
@@ -1318,7 +1318,7 @@
         "category": "visual",
         "component": "spacingDensity",
         "score": 68,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 32%); above 60% textScalability is penalised too"
       },
       {
         "category": "sensory",
@@ -1330,7 +1330,7 @@
         "category": "cognitive",
         "component": "readability",
         "score": 89,
-        "fix": "Simplify text to 8th-grade reading level (current Flesch: 74)"
+        "fix": "Simplify text to raise Flesch reading ease from 74 to 84 or more, where readability scores full marks"
       },
       {
         "category": "navigation",
@@ -1342,7 +1342,7 @@
         "category": "motor",
         "component": "hitProbability",
         "score": 94,
-        "fix": "Increase average interactive element dimensions -- target 48px minimum for reliable motor access"
+        "fix": "Increase interactive element sizes (smaller side 47px on average) toward 44x44px (WCAG 2.5.5 AAA) for reliable motor access"
       }
     ],
     "notMeasured": [
@@ -1399,7 +1399,7 @@
         },
         "textScalability": {
           "score": 98,
-          "details": "High density (62%) may cause overlap at 200% zoom (-2)",
+          "details": "High density (62%) may cause overlap at 200% zoom (-2); estimated from density, the page was not zoomed",
           "measured": true
         },
         "colorIndependence": {
@@ -1520,13 +1520,13 @@
         "category": "visual",
         "component": "spacingDensity",
         "score": 38,
-        "fix": "Increase whitespace between content blocks -- reduce information density below 60%"
+        "fix": "Increase whitespace between content blocks to lower information density (now 62%); above 60% textScalability is penalised too"
       },
       {
         "category": "motor",
         "component": "interactionCount",
         "score": 42,
-        "fix": "Reduce interactive elements from 48 to under 30 on a single view"
+        "fix": "Reduce interactive elements on a single view from 48 to 20 or fewer"
       },
       {
         "category": "navigation",
@@ -1538,7 +1538,7 @@
         "category": "cognitive",
         "component": "informationDensity",
         "score": 63,
-        "fix": "Reduce visible elements from 420 -- use progressive disclosure to reveal content incrementally"
+        "fix": "Reduce visible elements from 420 toward 200 -- use progressive disclosure to reveal content incrementally"
       }
     ],
     "notMeasured": [

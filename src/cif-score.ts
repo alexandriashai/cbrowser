@@ -12,7 +12,7 @@
  * 5. Navigation Fitness (20%) -- can they get around?
  *
  * Every number the score computes with is read through param() from
- * visual/provenance/cif.ts, which says where it comes from: three are WCAG's,
+ * visual/provenance/cif.ts, which says where it comes from: five are WCAG's,
  * four are units or display choices, and the rest (the weights above among
  * them) were set by hand. tests/cif-no-literals.test.ts keeps it that way.
  *
@@ -437,6 +437,7 @@ const VISUAL_IDS = {
   proxyIntercept: "cif.visual.contrast.proxyIntercept",
   densityKnee: "cif.visual.textScalability.densityKnee",
   scalabilitySlope: "cif.visual.textScalability.slope",
+  resizePct: "cif.wcag.resizeTextPercent",
   colorBarrierPenalty: "cif.visual.color.barrierPenalty",
   wContrast: "cif.visual.weight.contrastCompliance",
   wScalability: "cif.visual.weight.textScalability",
@@ -490,7 +491,8 @@ function computeVisualFitness(data: CIFInput): CIFScore["visual"] {
   }
 
   // --- textScalability (20%) ---
-  // Assume text scales correctly unless density is very high (which breaks at zoom)
+  // A proxy: nothing is zoomed. Penalised only when density is high enough that
+  // zooming would plausibly break the layout; the details say it was not checked.
   let textScalability: CIFComponentScore;
   if (supplied(data.informationDensity)) {
     const density = data.informationDensity;
@@ -498,8 +500,8 @@ function computeVisualFitness(data: CIFInput): CIFScore["visual"] {
     textScalability = measured(
       clamp(Math.round(P.scale - scalabilityDeduction)),
       scalabilityDeduction > 0
-        ? `High density (${(density * P.scale).toFixed(0)}%) may cause overlap at 200% zoom (-${Math.round(scalabilityDeduction)})`
-        : "Text content can scale to 200% without loss of functionality",
+        ? `High density (${(density * P.scale).toFixed(0)}%) may cause overlap at ${P.resizePct}% zoom (-${Math.round(scalabilityDeduction)}); estimated from density, the page was not zoomed`
+        : `Information density ${(density * P.scale).toFixed(0)}% is at or below ${(P.densityKnee * P.scale).toFixed(0)}%, so no deduction; resizing text to ${P.resizePct}% (WCAG 1.4.4) was not checked`,
     );
   } else {
     textScalability = notMeasured("information density");
@@ -973,15 +975,26 @@ function computeCertification(
 // Fix Recommendations
 // ============================================================================
 
+// Every number a fix quotes is one of these, so the advice cannot drift from
+// the scorer (tests/cif-fix-text.test.ts parses this file to hold it there).
 const FIX_IDS = {
+  scale: "cif.scale.max",
   targetPx: "cif.wcag.targetSizeEnhancedPx",
   normalText: "cif.wcag.contrastNormalText",
   largeText: "cif.wcag.contrastLargeText",
+  nonTextContrast: "cif.wcag.nonTextContrast",
+  resizePct: "cif.wcag.resizeTextPercent",
+  interactiveFree: "cif.motor.interactive.freeCount",
+  spacingGapPx: "cif.motor.spacing.minGapPx",
+  densityKnee: "cif.visual.textScalability.densityKnee",
   choiceThreshold: "cif.fix.decision.choiceThreshold",
+  fleschGain: "cif.cognitive.readability.fleschGain",
+  elementsFree: "cif.cognitive.density.freeCount",
   navFree: "cif.cognitive.predictability.freeCount",
 } as const;
 
-function generateFixRecommendation(
+/** Fix text for a measured component. Exported for tests; topIssues is the only caller. */
+export function generateFixRecommendation(
   category: string,
   component: string,
   score: number,
@@ -996,12 +1009,15 @@ function generateFixRecommendation(
         : countBarriersByType(data.barriers, "touch_target");
       return `Increase ${count || "undersized"} interactive element sizes to at least ${F.targetPx}x${F.targetPx}px (WCAG 2.5.5 AAA)`;
     }
-    case "motor.hitProbability":
-      return "Increase average interactive element dimensions -- target 48px minimum for reliable motor access";
+    case "motor.hitProbability": {
+      const sizes = (data.touchTargets ?? []).filter((t) => !t.exempt).map((t) => Math.min(t.width, t.height));
+      const avg = sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : null;
+      return `Increase interactive element sizes${avg !== null ? ` (smaller side ${avg}px on average)` : ""} toward ${F.targetPx}x${F.targetPx}px (WCAG 2.5.5 AAA) for reliable motor access`;
+    }
     case "motor.interactionCount":
-      return `Reduce interactive elements from ${data.interactiveCount} to under 30 on a single view`;
+      return `Reduce interactive elements on a single view from ${data.interactiveCount} to ${F.interactiveFree} or fewer`;
     case "motor.spacingAdequacy":
-      return "Add at least 8px spacing between adjacent interactive elements to prevent mis-taps";
+      return `Space adjacent interactive elements at least ${F.spacingGapPx}px apart (the gap below which the close-spacing barrier is reported) to prevent mis-taps`;
     case "motor.dragFreeAlternatives":
       return "Provide keyboard/click alternatives for all drag-and-drop interactions";
 
@@ -1010,25 +1026,25 @@ function generateFixRecommendation(
       return `Fix ${count} elements with contrast ratios below ${F.normalText}:1 for normal text or ${F.largeText}:1 for large text`;
     }
     case "visual.textScalability":
-      return "Ensure text scales to 200% without loss of content or functionality (WCAG 1.4.4)";
+      return `Ensure text resizes to ${F.resizePct}% without loss of content or functionality (WCAG 1.4.4); this score is estimated from information density and the page was not zoomed`;
     case "visual.colorIndependence":
       return "Add non-color indicators (icons, patterns, text labels) wherever color conveys meaning";
     case "visual.focusVisibility":
-      return "Ensure all interactive elements have visible focus indicators with at least 3:1 contrast";
+      return `Ensure every interactive element has a visible focus indicator (WCAG 2.4.7) with at least ${F.nonTextContrast}:1 contrast against adjacent colors (WCAG 1.4.11)`;
     case "visual.spacingDensity":
-      return "Increase whitespace between content blocks -- reduce information density below 60%";
+      return `Increase whitespace between content blocks to lower information density${supplied(data.informationDensity) ? ` (now ${(data.informationDensity * F.scale).toFixed(0)}%)` : ""}; above ${(F.densityKnee * F.scale).toFixed(0)}% textScalability is penalised too`;
 
     case "cognitive.decisionComplexity": {
       const choices = data.interactiveCount;
       if (supplied(choices) && choices > F.choiceThreshold) {
-        return `Reduce choices from ${choices} to 5-7 options per decision point (Hick's Law)`;
+        return `Reduce choices from ${choices} to ${F.choiceThreshold} or fewer per decision point (decision time grows with the number of options: Hick-Hyman law)`;
       }
       return "Simplify decision points -- group related options, provide defaults, reduce choices per step";
     }
     case "cognitive.readability":
-      return `Simplify text to 8th-grade reading level (current Flesch: ${Math.round(data.fleschScore as number)})`;
+      return `Simplify text to raise Flesch reading ease from ${Math.round(data.fleschScore as number)} to ${Math.ceil(F.scale / F.fleschGain)} or more, where readability scores full marks`;
     case "cognitive.informationDensity":
-      return `Reduce visible elements from ${data.elementCount} -- use progressive disclosure to reveal content incrementally`;
+      return `Reduce visible elements from ${data.elementCount} toward ${F.elementsFree} -- use progressive disclosure to reveal content incrementally`;
     case "cognitive.attentionClarity":
       return "Make primary CTA visually dominant -- increase size, contrast, and whitespace around conversion elements";
     case "cognitive.predictability":
@@ -1057,7 +1073,7 @@ function generateFixRecommendation(
       return "Associate every form field with a visible label using <label for> or aria-labelledby";
 
     default:
-      return `Improve ${component} in ${category} category (current score: ${score}/100)`;
+      return `Improve ${component} in ${category} category (current score: ${score}/${F.scale})`;
   }
 }
 

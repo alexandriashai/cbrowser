@@ -5,9 +5,9 @@
  * score reads must be registered (param() throws otherwise, so the run itself
  * proves that), and every CIF_PROVENANCE id must have been read, so an entry
  * cannot describe a number the code no longer uses. The statuses are pinned:
- * exactly the three WCAG numbers are published, exactly four entries are
+ * exactly the five WCAG numbers are published, exactly four entries are
  * definitions, and every other entry is a hypothesis that names what would
- * test it. The golden pins (tests/golden/) prove the move changed no score.
+ * test it. The golden pins (tests/golden/) catch any score the registry moves.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -35,7 +35,7 @@ describe("CIF provenance registry", () => {
   test("the registry is pinned, unique and cif-prefixed", () => {
     // Pinned exactly: a constant added to or removed from cif-score.ts must
     // change this number on purpose.
-    expect(CIF_PROVENANCE.length).toBe(87);
+    expect(CIF_PROVENANCE.length).toBe(89);
     expect(registered.size).toBe(CIF_PROVENANCE.length);
     for (const e of CIF_PROVENANCE) expect(e.id.startsWith("cif.")).toBe(true);
   });
@@ -48,17 +48,21 @@ describe("CIF provenance registry", () => {
     }
   });
 
-  test("exactly the WCAG numbers are published, each citing its success criterion", () => {
+  test("exactly the five WCAG numbers are published, each citing its success criterion", () => {
     const published = CIF_PROVENANCE.filter((e) => e.status === "published");
     expect(published.map((e) => `${e.id}=${e.value}`).sort()).toEqual([
       "cif.wcag.contrastLargeText=3",
       "cif.wcag.contrastNormalText=4.5",
+      "cif.wcag.nonTextContrast=3",
+      "cif.wcag.resizeTextPercent=200",
       "cif.wcag.targetSizeEnhancedPx=44",
     ]);
     const cites: Record<string, RegExp> = {
       "cif.wcag.targetSizeEnhancedPx": /WCAG 2\.2 Success Criterion 2\.5\.5 Target Size \(Enhanced\), Level AAA: .*44 by 44 CSS pixels/,
       "cif.wcag.contrastNormalText": /WCAG 2\.2 Success Criterion 1\.4\.3 Contrast \(Minimum\), Level AA: .*4\.5:1/,
       "cif.wcag.contrastLargeText": /WCAG 2\.2 Success Criterion 1\.4\.3 Contrast \(Minimum\), Level AA: .*3:1 for large-scale text/,
+      "cif.wcag.resizeTextPercent": /WCAG 2\.2 Success Criterion 1\.4\.4 Resize Text, Level AA: .*200 percent without loss of content or functionality/,
+      "cif.wcag.nonTextContrast": /WCAG 2\.2 Success Criterion 1\.4\.11 Non-text Contrast, Level AA: .*focus indicator.*3:1/,
     };
     for (const e of published) expect(e.source).toMatch(cites[e.id]);
   });
@@ -69,7 +73,7 @@ describe("CIF provenance registry", () => {
       counts[e.status]++;
       if (e.status === "hypothesis") expect(e.source).toMatch(/would (fit|set|test|place)/);
     }
-    expect(counts).toEqual({ fitted: 0, published: 3, definition: 4, hypothesis: 80 });
+    expect(counts).toEqual({ fitted: 0, published: 5, definition: 4, hypothesis: 80 });
     expect(CIF_PROVENANCE.filter((e) => e.status === "definition").map((e) => e.id).sort()).toEqual([
       "cif.display.costDecimals",
       "cif.emptyAverage",
