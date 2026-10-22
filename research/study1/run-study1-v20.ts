@@ -28,7 +28,12 @@
  * its accuracy for the population it models.
  *
  * Usage:
- *   bun research/study1/run-study1-v20.ts [--limit N] [--out DIR]
+ *   bun research/study1/run-study1-v20.ts [--limit N] [--out DIR] [--no-values]
+ *
+ * --no-values runs every persona arm with traits but without Schwartz values: it
+ * passes all ten values at attention.value.neutral, the point where every value
+ * modulation is zero (provenance/attention.ts), so the product's own default
+ * lookup never fires. Research-only; src/ is not touched.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -42,6 +47,7 @@ import { getPerceptualProfile } from "../../src/visual/perceptual-transport.js";
 import { computeAUCJudd, computeNSS, computeCC, type SaliencyGrid, type Fixation } from "../../src/visual/saliency-metrics.js";
 import { loadUEyesCorpus, parseGazepointLog, fixationsToGrid, toGridFixations, type RawFixation } from "../../src/visual/fixation-corpus.js";
 import { extractElements } from "./ocr-extract.js";
+import { param } from "../../src/visual/model-provenance.js";
 
 const ROOT = join(import.meta.dir, "UEyes_dataset");
 const CELL = 16;
@@ -155,6 +161,12 @@ async function main() {
   const arg = (n: string) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
   const limit = arg("--limit") ? Number(arg("--limit")) : Infinity;
   const outDir = arg("--out") ?? join(import.meta.dir, "results/2026-10-21_v20-personas");
+  const noValues = args.includes("--no-values");
+  const neutral = param("attention.value.neutral");
+  const neutralValues: Record<string, number> | undefined = noValues
+    ? Object.fromEntries(["selfDirection", "stimulation", "hedonism", "achievement", "power",
+        "security", "conformity", "tradition", "benevolence", "universalism"].map((k) => [k, neutral]))
+    : undefined;
 
   selfCheck();
 
@@ -226,7 +238,7 @@ async function main() {
       const maps: Array<[string, Float64Array]> = [];
       let bad = false;
       for (const [label, p] of PERSONAS) {
-        const a = await analyzeAttention(st.imagePath, p, CELL, undefined, ex.elements);
+        const a = await analyzeAttention(st.imagePath, p, CELL, neutralValues, ex.elements);
         if (a.saliencyMap.rows !== R || a.saliencyMap.cols !== C) { bad = true; break; }
         models.add(a.saliencyMap.attentionModel);
         maps.push([label, a.saliencyMap.cells]);
@@ -281,6 +293,7 @@ async function main() {
     scope: "UEyes web category", images: n, participant_logs: logs,
     skipped: { no_fixations: skippedNoFix, grid_mismatch: skippedGrid, error: skippedErr },
     model: "analyzeAttention (shipped path)", attention_models_seen: [...models],
+    values_mode: noValues ? `off: all ten Schwartz values passed at attention.value.neutral (${neutral})` : "on: the product's default per-persona lookup",
     gaze_calibration: GAZE_CALIBRATION, cell_size: CELL,
     elements_from: "research/study1/ocr-extract.ts (tesseract 5.3.4 + sharp; no model)",
     personas: Object.fromEntries(PERSONAS.map(([l, p]) => [l, { persona: p, ...resolution[p] }])),
