@@ -2,11 +2,13 @@
  * No hand-set number may live inline in extractPageMetrics.
  *
  * Parses cognitive-transport.ts with the TypeScript compiler and walks
- * extractPageMetrics, including the callback it runs inside the page, and the
- * helper that reads its constants. Only 0, 1 and 2 are allowed (with -1 from
+ * extractPageMetrics and the two halves it is made of: measurePageRaw,
+ * including the callback it runs inside the page, and deriveMetrics, plus the
+ * helpers that read their constants. Only 0, 1 and 2 are allowed (with -1 from
  * unary minus on 1). Anything else belongs in visual/provenance/page-metrics.ts,
- * read through param() in Node and handed to the page; the golden
- * (tests/page-metrics-golden.test.ts) proves that move changed no output.
+ * read through param() in Node (and handed to the page for the measurement);
+ * the golden (tests/page-metrics-golden.test.ts) proves that move changed no
+ * output.
  *
  * Numbers inside strings, comments and regular expressions are not literals.
  * The one quantifier that was a constant ({3,} on CJK runs) is now built from
@@ -25,9 +27,10 @@ import ts from "typescript";
 import { PAGE_METRICS_PROVENANCE } from "../src/visual/provenance/page-metrics.js";
 import { MODEL_PROVENANCE, startProvenanceRecording, stopProvenanceRecording } from "../src/visual/model-provenance.js";
 import { extractPageMetrics, extractPerScreenMetrics } from "../src/visual/cognitive-transport.js";
+import { RAW_LATIN } from "./fixtures/raw-page-measurements.js";
 
 const PATH = join(import.meta.dir, "..", "src", "visual", "cognitive-transport.ts");
-const WATCHED = ["extractPageMetrics", "readPageMetricParams"];
+const WATCHED = ["extractPageMetrics", "measurePageRaw", "deriveMetrics", "readMeasureParams", "readDeriveParams"];
 const ALLOWED = new Set([0, 1, 2]);
 
 export function pageMetricLiterals(source: string): Array<{ fn: string; value: number; line: number }> {
@@ -62,21 +65,26 @@ describe("extractPageMetrics carries no inline constants", () => {
     expect(pageMetricLiterals(source).map((o) => `${o.fn}:${o.line} = ${o.value}`)).toEqual([]);
   });
 
-  test("the detector goes red on a literal put back, in the page callback too (absence test)", () => {
+  test("the detector goes red on a literal put back, in the derivation and in the page callback (absence test)", () => {
     const marker = "const informationDensity = logScale(textLength, P.informationMidpoint);";
     expect(source).toContain(marker);
     const found = pageMetricLiterals(source.replace(marker, "const informationDensity = logScale(textLength, 5000);"));
-    expect(found.map((o) => `${o.fn} = ${o.value}`)).toEqual(["extractPageMetrics = 5000"]);
+    expect(found.map((o) => `${o.fn} = ${o.value}`)).toEqual(["deriveMetrics = 5000"]);
+    const inPage = "if (t && t.length > P.proseLengthAbove) {";
+    expect(source).toContain(inPage);
+    const foundInPage = pageMetricLiterals(source.replace(inPage, "if (t && t.length > 5) {"));
+    expect(foundInPage.map((o) => `${o.fn} = ${o.value}`)).toEqual(["measurePageRaw = 5"]);
   });
 });
 
 describe("page-metrics provenance registry", () => {
   const registered = new Set(PAGE_METRICS_PROVENANCE.map((e) => e.id));
 
-  test("pinned, unique, prefixed; one definition, the rest hypotheses naming what would set them", () => {
-    // 35 at registration (2026-10-22).
-    expect(PAGE_METRICS_PROVENANCE.length).toBe(35);
-    expect(registered.size).toBe(35);
+  test("pinned, unique, prefixed; the definitions are units and storage bounds, the rest hypotheses naming what would set them", () => {
+    // 35 at registration (2026-10-22); 39 with the raw measurement's four
+    // storage bounds (the measure/derive split).
+    expect(PAGE_METRICS_PROVENANCE.length).toBe(39);
+    expect(registered.size).toBe(39);
     for (const e of PAGE_METRICS_PROVENANCE) {
       expect(e.id.startsWith("pageMetrics.")).toBe(true);
       expect(Number.isFinite(e.value)).toBe(true);
@@ -85,7 +93,13 @@ describe("page-metrics provenance registry", () => {
       if (e.status === "hypothesis") expect(e.source).toMatch(/would (fit|set|test|place|show)/);
     }
     expect(PAGE_METRICS_PROVENANCE.filter((e) => e.status !== "hypothesis").map((e) => `${e.id}:${e.status}`))
-      .toEqual(["pageMetrics.textDensity.areaUnit:definition"]);
+      .toEqual([
+        "pageMetrics.textDensity.areaUnit:definition",
+        "pageMetrics.raw.lengthBins:definition",
+        "pageMetrics.raw.maxBoxes:definition",
+        "pageMetrics.raw.maxTextBlocks:definition",
+        "pageMetrics.raw.maxChoiceGroups:definition",
+      ]);
   });
 
   test("the midpoints a source-text test used to pin are the registered values", () => {
@@ -95,10 +109,11 @@ describe("page-metrics provenance registry", () => {
   });
 
   test("every registered id is read, and only registered ids are (stub page, no browser)", async () => {
-    // The ids are read in Node before the page callback runs, so a stub that
-    // never runs the callback is enough to record them.
+    // The ids are read in Node, so a stub that never runs the callback is
+    // enough to record them. Its measurement is a hand-built raw record, which
+    // deriveMetrics then turns into metrics, reading the rest.
     const stub = {
-      evaluate: async (_fn: unknown, arg?: unknown) => (Array.isArray(arg) ? {} : { viewportHeight: 800, documentHeight: 1600 }),
+      evaluate: async (_fn: unknown, arg?: unknown) => (Array.isArray(arg) ? structuredClone(RAW_LATIN) : { viewportHeight: 800, documentHeight: 1600 }),
       waitForTimeout: async () => {},
     };
     startProvenanceRecording();

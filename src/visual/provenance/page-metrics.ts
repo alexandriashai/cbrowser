@@ -15,11 +15,16 @@
  * hand-labelled pages and tokenised corpora per script. The only `definition`
  * is the area unit text density is expressed in.
  *
- * extractPageMetrics reads these through param() in Node at entry and passes
- * them into the page, where the measurement runs; the browser side cannot call
- * param(). tests/page-metrics-no-literals.test.ts fails on any other numeric
- * literal in the function, and tests/page-metrics-golden.test.ts proves the
- * outputs did not move when the literals became entries.
+ * extractPageMetrics is measurePageRaw then deriveMetrics (cognitive-transport.ts).
+ * The ids in PAGE_METRICS_MEASURE_IDS decide what is counted at all, so
+ * measurePageRaw reads them in Node and hands them to the page (the browser
+ * side cannot call param()); a stored raw measurement cannot be re-derived
+ * under another value of one of them. Every other id is applied by
+ * deriveMetrics to the raw counts and length histograms, so a stored
+ * measurement (the CTC reference set) re-derives under a changed value.
+ * tests/page-metrics-no-literals.test.ts fails on any other numeric literal in
+ * those functions, and tests/page-metrics-golden.test.ts proves the outputs did
+ * not move when the literals became entries, nor when the extractor was split.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -90,4 +95,33 @@ export const PAGE_METRICS_PROVENANCE: ProvenanceEntry[] = [
   h("wordLength.span", 7.5, "Hand-set span of average word length over which avgWordLength rises from 0 to 1. The same word-length distribution and difficulty ratings would set it."),
   h("sentenceLength.saturation", 40, "Hand-set average words per sentence at which avgSentenceLength reaches 1 (a linear ramp, capped). The distribution of sentence length across a reference set of real pages, against rated reading difficulty, would set it."),
   h("lexicalDiversity.window", 100, "Hand-set word count the type-token ratio is computed over at most (unique words / min(words, 100)), since the raw ratio falls with text length. The type-token curve of a reference corpus of web text would set the window."),
+
+  // ── Storage bounds of a raw measurement (measurePageRaw) ──
+  // No PageMetrics field reads these; they bound what a RawPageMeasurement
+  // keeps, and the uncapped totals are kept beside each list.
+  d("raw.lengthBins", 32, "Resolution of the run-length and sentence-fragment-length histograms in a raw page measurement: lengths at or above it share one bin. A storage choice, not a model claim; a sentence or run threshold must sit below it for deriveMetrics to re-derive a stored measurement, and it refuses otherwise."),
+  d("raw.maxBoxes", 300, "Interactive elements whose box a raw page measurement keeps, in document order (the count is kept uncapped). A storage bound, not a model claim: it covers the 95th percentile at viewport scope (139) and about the 90th at full_page (300) on the 2026-10-22 reference crawl."),
+  d("raw.maxTextBlocks", 128, "Prose blocks whose size and typography a raw page measurement keeps, in document order (the count is kept uncapped). A storage bound, not a model claim."),
+  d("raw.maxChoiceGroups", 64, "Choice groups (nav lists, selects, radio and checkbox groups, menus) a raw page measurement keeps, in document order (the count is kept uncapped). A storage bound, not a model claim."),
 ];
+
+/**
+ * The ids measurePageRaw applies while measuring: they decide what is counted
+ * (the lazy-load walk, the colour sample, the prose filter, script detection)
+ * or what a raw record keeps. A stored measurement carries their effect and
+ * cannot be re-derived under another value; everything else in
+ * PAGE_METRICS_PROVENANCE is applied by deriveMetrics.
+ */
+export const PAGE_METRICS_MEASURE_IDS: readonly string[] = Object.freeze([
+  "pageMetrics.walk.maxSteps",
+  "pageMetrics.walk.settleMs",
+  "pageMetrics.visual.colourSample",
+  "pageMetrics.prose.lengthAbove",
+  "pageMetrics.script.minChars",
+  "pageMetrics.script.textShare",
+  "pageMetrics.script.keyShare",
+  "pageMetrics.raw.lengthBins",
+  "pageMetrics.raw.maxBoxes",
+  "pageMetrics.raw.maxTextBlocks",
+  "pageMetrics.raw.maxChoiceGroups",
+]);

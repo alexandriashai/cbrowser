@@ -81,7 +81,9 @@ describe("full_page actually measures the full page", () => {
   test("it scrolls first, so lazy content exists to be counted", () => {
     // Everything before the measurement callback: the walk must be in it. (This
     // read the first 2,600 characters, which the registry reads pushed past.)
-    const fn = transport.slice(transport.indexOf("export async function extractPageMetrics"));
+    // The walk is in measurePageRaw since extractPageMetrics became
+    // measurePageRaw then deriveMetrics.
+    const fn = transport.slice(transport.indexOf("export async function measurePageRaw"));
     const head = fn.slice(0, fn.indexOf("return page.evaluate(([measureScope"));
     expect(head.length).toBeGreaterThan(0);
     expect(head).toContain('if (scope === "full_page")');
@@ -97,7 +99,9 @@ describe("full_page actually measures the full page", () => {
     // formulas reading them. tests/page-metrics-golden.test.ts proves the
     // outputs did not move when the literals became entries.
     expect(transport).toContain("logScale(textLength, P.informationMidpoint)");
-    expect(transport).toContain("uniqueColors.size * P.colourWeight + imageCount * P.imageWeight + visibleCount * P.elementWeight,\n      P.visualMidpoint");
+    // Applied in deriveMetrics to the counts measurePageRaw stored (uniqueColors.size
+    // is raw.colours, imageCount raw.images, visibleCount raw.visibleElements).
+    expect(transport).toContain("raw.colours * P.colourWeight + raw.images * P.imageWeight + raw.visibleElements * P.elementWeight,\n    P.visualMidpoint");
     expect(transport).toContain("logScale(textLength / Math.max(1, viewportArea * P.areaUnit), P.textDensityMidpoint)");
     const v = (id: string) => MODEL_PROVENANCE[`pageMetrics.${id}`].value;
     expect([v("informationDensity.midpoint"), v("visual.colourWeight"), v("visual.imageWeight"), v("visual.elementWeight"), v("visual.midpoint")])
