@@ -1149,8 +1149,15 @@ export function computeSequentialCTC(
   // comfort, so it no longer offsets the deficit; chain.abandonment.surplusRelief
   // is gone. The per-screen hazard in computeSequentialScrollCTC reads this
   // value, so it changed with it.
-  const patienceCapacity = traitValue(persona.traits, 'patience', P);
-  const resilienceCapacity = traitValue(persona.traits, 'resilience', P);
+  //
+  // RESIDUAL TOLERANCE, as of 21.0. The page spends patience in the
+  // frustration layer and drains resilience through cross-layer depletion;
+  // judging abandonment against the persona as it ARRIVED treated that spending
+  // as free. Tolerance now comes from what the page left (residualCapacity at
+  // the end of the layer loop), so a later screen in a scroll is judged against
+  // the smaller budget it actually has.
+  const patienceCapacity = residualCapacity.patience;
+  const resilienceCapacity = residualCapacity.resilience;
   const effectivePatience = patienceCapacity * P.patienceShare + resilienceCapacity * P.resilienceShare; // blended tolerance
   const unmetDemand = totalDeficit;
   // Floored so a persona with no patience at all does not divide by zero and

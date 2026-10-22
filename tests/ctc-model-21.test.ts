@@ -184,9 +184,12 @@ const hazard = (cost: number, tolerance: number) => {
 };
 const toleranceOf = (patience: number, resilience: number) => Math.max(reg("chain.abandonment.toleranceFloor"),
   (patience * reg("chain.abandonment.patienceShare") + resilience * reg("chain.abandonment.resilienceShare")) * reg("chain.abandonment.toleranceGain"));
-/** Which patience and resilience the hazard reads: the persona's starting values. */
-const toleranceFor = (initial: Record<string, number>, _r: { remainingCapacity: Record<string, number> }) =>
-  toleranceOf(initial.patience, initial.resilience);
+/**
+ * Which patience and resilience the hazard reads: what the page LEFT, i.e. the
+ * run's remainingCapacity (21.0). Through 20.x it was the starting values.
+ */
+const toleranceFor = (_initial: Record<string, number>, r: { remainingCapacity: Record<string, number> }) =>
+  toleranceOf(r.remainingCapacity.patience, r.remainingCapacity.resilience);
 const allPersonas = () => [
   ...Object.entries(ROSTER).map(([n, p]) => toolProfile(n, p)),
   ...Object.entries(BOUNDARY_PERSONAS).map(([n, t]) => buildOTCognitiveProfile(n, { ...t })),
@@ -256,5 +259,56 @@ describe("abandonment is driven by unmet demand, not relieved by surplus", () =>
 
   test("surplus relief is gone from the registry", () => {
     expect("chain.abandonment.surplusRelief" in MODEL_PROVENANCE).toBe(false);
+  });
+});
+
+describe("abandonment reads the patience and resilience the page left, not the starting values", () => {
+  // The chain spends patience in the frustration layer and drains resilience
+  // through cross-layer depletion, then used to judge abandonment against the
+  // persona as it arrived, as if the page had cost nothing. Tolerance now comes
+  // from the run's residual capacity, so the same account that paid for the
+  // page is the one deciding whether to leave.
+  test("the change can only raise the risk, and does on pages that drain", () => {
+    let rose = 0;
+    for (const prof of allPersonas()) {
+      const initial = capacityVector(prof.traits);
+      for (const { demand } of allDemands()) {
+        const r = computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true });
+        const fresh = hazard(r.deficitCost, toleranceOf(initial.patience, initial.resilience));
+        expect(r.remainingCapacity.patience).toBeLessThanOrEqual(Math.max(initial.patience, reg("chain.capacityEpsilon")));
+        expect(r.abandonmentRisk).toBeGreaterThanOrEqual(fresh - 1e-15);
+        if (r.abandonmentRisk > fresh) rose++;
+        if (r.deficitCost === 0) expect(r.abandonmentRisk).toBe(0);
+      }
+    }
+    expect(rose).toBeGreaterThan(0);
+  });
+
+  test("both directions: arriving drained raises the risk, arriving rested lowers it", () => {
+    const prof = toolProfile("first-timer", ROSTER["first-timer"]);
+    const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
+    const start = capacityVector(prof.traits);
+    const at = (patience: number, resilience: number) =>
+      computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true,
+        carriedCapacity: { ...start, patience, resilience } });
+    const base = at(start.patience, start.resilience);
+    const drained = at(start.patience * 0.5, start.resilience * 0.5);
+    const rested = at(Math.min(1, start.patience + 0.2), Math.min(1, start.resilience + 0.2));
+    expect(base.deficitCost).toBeGreaterThan(0);
+    expect(drained.abandonmentRisk).toBeGreaterThan(base.abandonmentRisk);
+    expect(rested.abandonmentRisk).toBeLessThan(base.abandonmentRisk);
+  });
+
+  test("deeper screens are judged against a smaller budget: tolerance falls as the scroll goes on", () => {
+    const prof = toolProfile("cognitive-adhd", ROSTER["cognitive-adhd"]);
+    const wall = Array.from({ length: 4 }, () => computeDemandFromRawMetrics(0.6, 0.6, 30, 0.6, 0.3, 10, 2));
+    let carried: Record<string, number> | undefined;
+    const tolerances: number[] = [];
+    for (const d of wall) {
+      const r = computeSequentialCTC(prof, d, { asymmetric: true, interactions: true, carriedCapacity: carried });
+      carried = r.remainingCapacity;
+      tolerances.push(toleranceOf(r.remainingCapacity.patience, r.remainingCapacity.resilience));
+    }
+    for (let i = 1; i < tolerances.length; i++) expect(tolerances[i]).toBeLessThan(tolerances[i - 1]);
   });
 });

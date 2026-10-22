@@ -1317,8 +1317,8 @@ Begin with the first persona: ${personas[0]}
         // A run can read "easy" on CTC and 53% on abandonment and both be
         // correct, which looks like a contradiction and is not one:
         // abandonmentRisk is a Hill hazard of the deficit (unmet demand; surplus
-        // no longer relieves it, 21.0) against this persona's blended patience
-        // and resilience, and never touches
+        // no longer relieves it, 21.0) against the blended patience and
+        // resilience this persona has LEFT after the page (21.0), and never touches
         // totalCTC. CTC asks how expensive the page is; abandonment asks
         // whether THIS persona's tolerance runs out first. A page can be cheap
         // in absolute terms and still exceed someone with little patience.

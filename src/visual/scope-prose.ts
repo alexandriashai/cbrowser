@@ -60,7 +60,7 @@ export function scopeProse(scope: MetricScope | "sequential", personaName = "thi
       scopeNote:
         "Whole-page measurement: every laid-out element counted, densities normalised against document area, and the page scrolled first so lazy content exists. Not comparable with viewport-scoped numbers, including every CTC this tool published before 2026-08-02.",
       abandonmentBasis:
-        "P(this persona's budget is exhausted | they process the ENTIRE document). A conditional upper bound, not a prediction of observed behaviour: almost nobody reads a whole page. Deficit is summed across the whole document and compared against this persona's blended patience and resilience. Independent of totalCTC, so the two can disagree without either being wrong.",
+        "P(this persona's budget is exhausted | they process the ENTIRE document). A conditional upper bound, not a prediction of observed behaviour: almost nobody reads a whole page. Deficit is summed across the whole document and compared against the blended patience and resilience this persona has left after it. Independent of totalCTC, so the two can disagree without either being wrong.",
     };
   }
 
@@ -70,7 +70,7 @@ export function scopeProse(scope: MetricScope | "sequential", personaName = "thi
     scopeNote:
       "VIEWPORT ONLY: demand is computed from elements intersecting the first screenful. Content below the fold contributed nothing. This was the tool's undeclared behaviour until 2026-08-02 — measured on a 229-link, 8-screen page it saw 4 links and 47 words and reported LOWER cognitive load than a shorter homepage. Pass scope='full_page' to measure the whole page.",
     abandonmentBasis:
-      "P(this persona's budget is exhausted ON THE FIRST SCREEN). Real and interpretable, and it ignores everything below the fold. Deficit is summed across the viewport only and compared against this persona's blended patience and resilience. Independent of totalCTC, so the two can disagree without either being wrong.",
+      "P(this persona's budget is exhausted ON THE FIRST SCREEN). Real and interpretable, and it ignores everything below the fold. Deficit is summed across the viewport only and compared against the blended patience and resilience this persona has left after it. Independent of totalCTC, so the two can disagree without either being wrong.",
   };
 }
 
