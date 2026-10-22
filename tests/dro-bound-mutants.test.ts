@@ -13,11 +13,15 @@
  * Must be killed on 3 of 3 seeds: M1, M2, M6, M7, M9, M10 (the six unsound
  * variants a 2026-10-21 cross-vendor audit found passing the previous tests;
  * the edits here are reconstructions from its descriptions), and every
- * reconstructed mutant shown unsound. M11 and M14 are reported and not
- * required: no slope above them was found anywhere (all 254 pages with any
- * subset of the generator's inputs at the max or mid value, 4 option sets),
- * because the derivation's depletion-coupling term over-counts by more than
- * twice, so halving or truncating it still leaves a valid bound.
+ * reconstructed mutant shown unsound. The interaction mutants (M2, M2b, M10)
+ * are refuted on the fixture's INTERACTION_PAGES, found by a scan after the
+ * 21.0 chain changes emptied the page that refuted them before. M11 and M14
+ * are reported and not required: no slope above them was found anywhere (on
+ * the 21.0 chain, 508 pages with any subset of the generator's inputs at max,
+ * mid, 0.1x or 0.03x plus 2000 random sparse pages, 4 option sets: best ratio
+ * 0.9999, the same as the shipped bound), because the derivation's
+ * depletion-coupling term over-counts by more than twice, so halving or
+ * truncating it still leaves a valid bound.
  *
  * An unmutated copy goes through the same pipeline and must survive every
  * check on every seed; without it, a broken import path would "kill" every

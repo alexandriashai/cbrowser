@@ -10,11 +10,12 @@
  * So this searches. For each capacity coordinate it hill-climbs over the whole
  * capacity vector for the steepest finite-difference slope of the product's
  * CTC along that coordinate, from several starts, on pages the product's own
- * demand generator makes (golden pages, each input alone at its maximum, and
- * random pages over the whole input range), under every option set. A secant slope never exceeds the
- * supremum of the derivative along its segment (mean value theorem), so an
- * observed slope above a bound refutes the bound; no tolerance beyond floating
- * point is needed.
+ * demand generator makes (golden pages, each input alone at its maximum,
+ * light pages where the interaction terms are tight, and random pages over
+ * the whole input range), under every option set. A secant slope never
+ * exceeds the supremum of the derivative along its segment (mean value
+ * theorem), so an observed slope above a bound refutes the bound; no
+ * tolerance beyond floating point is needed.
  *
  * The search never reads a bound: it maximises the slope alone. That is what
  * lets one search check the shipped bound and every mutant of it.
@@ -110,23 +111,62 @@ const INPUTS = ["informationDensity", "visualComplexity", "interactiveElementCou
 const INPUT_MAX = [1, 1, 1000, 1, 1, 500, 30];
 
 /**
- * The fixed pages every seed searches, plus `extra` random ones:
- *  - the golden matrix's empty, sparse, light, mid and max pages;
+ * Light pages where one interaction partner is barely loaded (its content gate
+ * is under the depletion gate, so no depletion coupling inflates its bound)
+ * and the other carries cost. There the interaction product is a large share
+ * of the slope, so a derivation that drops or shrinks it is refuted.
+ *
+ * Found by a scan of the 21.0 chain (feat/cot-integration e9b4f03, after
+ * frustration lost resilience and selfEfficacy and animation at rest stopped
+ * making demand, which emptied the earlier killer "informationDensity alone"):
+ * 508 pages with any subset of inputs at max, mid, 0.1x or 0.03x, and 2000
+ * random pages with a random subset of inputs at levels skewed low, all four
+ * option sets. A bound without interaction terms was exceeded by up to 1.18x
+ * on 743 pages, one with half the layer maxCost in the interaction terms by up
+ * to 1.08x on 329; the shipped bound never (max 0.9999). Each page below kills
+ * both on 14 of 14 seeds at margins of at least 1.17x and 1.07x.
+ */
+const INTERACTION_PAGES: Array<[string, Parameters<typeof computeDemandFromRawMetrics>]> = [
+  ["trace-text+choices", [0, 0.009, 0, 0.038, 0, 13, 0]],
+  ["trace-text+depth", [0.03, 0, 0, 0.075, 0.002, 0, 11]],
+  ["info+trace-visual+depth", [0.243, 0.027, 0, 0, 0, 0, 7]],
+  ["light-text+choices", [0, 0, 0, 0.16, 0, 15, 0]],
+];
+
+/** A page with a random subset of the generator's inputs, each at a level skewed low: the family the interaction scan drew from. */
+export function sparsePage(u: () => number): DemandDistribution {
+  const args = INPUT_MAX.map((v, i) => {
+    if (u() < 0.5) return 0;
+    const r = u() ** 2;
+    return i === 2 || i === 5 || i === 6 ? Math.round(v * r * r) : v * r;
+  }) as Parameters<typeof computeDemandFromRawMetrics>;
+  return computeDemandFromRawMetrics(...args);
+}
+
+/**
+ * The fixed pages every seed searches, plus `extra` random ones and one
+ * sparse random page:
+ *  - the golden matrix's sparse, light, mid, max and empty pages;
  *  - each generator input alone at its maximum. A page that loads one or two
  *    layers is where a term the derivation adds on top of a single layer's
  *    slope (an interaction product, the readingTendency path) is a large share
  *    of the bound rather than lost under depletion coupling, which the bound
- *    over-counts. Measured over all 254 pages with any subset of inputs at the
- *    max or mid value, a bound without interaction terms is exceeded by up to
- *    12% only on pages like "informationDensity alone".
+ *    over-counts;
+ *  - INTERACTION_PAGES, where the interaction terms are tight.
  */
 export function searchPages(u: () => number, extra: number): Page[] {
-  const pages: Page[] = ["empty", "sparse", "light", "mid", "max"].map((id) => ({ id, demand: golden(id) }));
+  // "empty" is not first: on the 21.0 chain it is flat, and when the first CTC
+  // evaluations a process makes are on it, every later evaluation in the
+  // process runs about 2.4x slower (measured: mid page 1.25 s after "sparse",
+  // 2.99 s after "empty"; the same evaluations, a JIT effect).
+  const pages: Page[] = ["sparse", "light", "mid", "max", "empty"].map((id) => ({ id, demand: golden(id) }));
   INPUTS.forEach((name, i) => {
     const args = INPUT_MAX.map((v, j) => (j === i ? v : 0)) as Parameters<typeof computeDemandFromRawMetrics>;
     pages.push({ id: `only-${name}`, demand: computeDemandFromRawMetrics(...args) });
   });
+  for (const [id, args] of INTERACTION_PAGES) pages.push({ id, demand: computeDemandFromRawMetrics(...args) });
   for (let i = 0; i < extra; i++) pages.push({ id: `random-${i}`, demand: randomPage(u) });
+  pages.push({ id: "sparse-random", demand: sparsePage(u) });
   return pages;
 }
 
@@ -250,8 +290,8 @@ const searches = new Map<number, SearchResult>();
 
 /**
  * The adversarial search for one seed: every coordinate, every option set,
- * on the fixed pages plus three random product pages. Cached per seed,
- * because the search does not depend on the bound it is used to check.
+ * on the fixed pages plus four random product pages (one sparse). Cached per
+ * seed, because the search does not depend on the bound it is used to check.
  */
 export function adversarialSearch(seed: number): SearchResult {
   const hit = searches.get(seed);
