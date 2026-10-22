@@ -16,9 +16,9 @@
  * What it does NOT answer. This is a property of the MODEL: how far the
  * model's own output can move when the population moves. It says nothing about
  * whether the model predicts people. The chain's constants are hand-set
- * hypotheses (see provenance/chain.ts) and CTC has a measured null correlation
- * with real fixations; a bound around such a function is not evidence about
- * users and must never be reported as such.
+ * hypotheses (see provenance/chain.ts) and CTC has not been tested against
+ * human data; a bound around such a function is not evidence about users and
+ * must never be reported as such.
  *
  * epsilon has no default. No data fixes how far a real population sits from a
  * persona roster, so the radius is the caller's assumption and must be named
