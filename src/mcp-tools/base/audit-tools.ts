@@ -81,25 +81,10 @@ export function writeAuditScreenshot(
 /**
  * Register audit tools (4 tools + site_cognitive_assessment + visual_cognitive_story)
  */
-type PerceptualTraits = NonNullable<Parameters<typeof import("../../visual/perceptual-transport.js").resolvePerceptualProfile>[1]>;
-
-/**
- * The persona's own accessibility traits, when its record carries any; the
- * same helper as visual-testing-tools.ts's personaAccessibilityTraits.
- *
- * The attention model synthesizes a perceptual filter from them for a persona
- * with no built-in profile, which is how empathy_audit and attention_analysis
- * draw the same persona. visual_cognitive_story passed none, so the built-in
- * accessibility personas without a perceptual profile (autism-spectrum,
- * intellectual-disability, aphasia-receptive, dyscalculia) and every custom
- * persona with traits on record were drawn with the default filter. A
- * built-in profile still wins over the traits. (ISC-48, 2026-10-22)
- */
-async function personaAccessibilityTraits(name: string): Promise<PerceptualTraits | undefined> {
-  const { getAnyPersona } = await import("../../personas.js");
-  const a11y = (getAnyPersona(name) as { accessibilityTraits?: PerceptualTraits } | undefined)?.accessibilityTraits;
-  return a11y && Object.keys(a11y).length > 0 ? a11y : undefined;
-}
+// One shared helper for every attention caller (ISC-48, ISC-48.1): the persona
+// record's own accessibilityTraits, only the fields it sets. It used to be
+// copied here and in the other tool file.
+import { personaStoredAccessibilityTraits as personaAccessibilityTraits } from "../../visual/stored-accessibility-traits.js";
 
 export function registerAuditTools(server: McpServer, context?: ToolRegistrationContext): void {
   const getBrowserByToken = context?.getBrowserByToken;

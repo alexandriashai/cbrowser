@@ -290,7 +290,7 @@
       }
     },
     "sensory": {
-      "score": 69,
+      "score": 68,
       "components": {
         "animationControl": {
           "score": 100,
@@ -313,9 +313,9 @@
           "measured": true
         },
         "overloadThreshold": {
-          "score": 50,
-          "details": "Not measured: no percentile total CTC (1.42 is not a percentile, so it is from another scale and has no rank among the real pages we measured) supplied",
-          "measured": false
+          "score": 43,
+          "details": "Total CTC 0.980: costlier than 98% of the real pages we measured. Band: top 5% (95th percentile and above).",
+          "measured": true
         }
       }
     },
@@ -388,7 +388,6 @@
       "motor.dragFreeAlternatives",
       "visual.colorIndependence",
       "sensory.sensoryIndependence",
-      "sensory.overloadThreshold",
       "navigation.keyboardOperability",
       "navigation.skipMechanisms"
     ],
