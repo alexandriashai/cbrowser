@@ -982,7 +982,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
           // A miss throws instead of yielding an all-midpoint stand-in.
           const personaObj = getAnyPersona(persona) || resolvePersonaOrThrow(persona) as ReturnType<typeof createCognitivePersona>;
-          const traits = ((personaObj as unknown as Record<string, unknown>).cognitiveTraits || {}) as Record<string, number>;
+          // A copy, because the bridge writes into what it is given. This was the
+          // registry's own object, so one story run left the persona carrying
+          // three derived capacities for the rest of the process, which
+          // cognitive_distance then read as stored traits (first-timer to
+          // power-user moved 0.1512 -> 0.1550). (2026-10-21)
+          const traits = { ...((personaObj as unknown as Record<string, unknown>).cognitiveTraits || {}) as Record<string, number> };
           // Same bridge as Gate 3 and cognitive_effort. Without it this tool has
           // the identical missing-capacity defect and would reproduce the motor
           // disagreement against cognitive_effort the moment anyone compared them.

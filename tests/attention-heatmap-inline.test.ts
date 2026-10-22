@@ -78,6 +78,9 @@ describe("attention_analysis", () => {
     expect(content[0].type).toBe("text");
     const data = JSON.parse(content[0].text!);
 
+    // Says which perceptual filter shaped the map (perceptual-profile-resolution.test.ts).
+    expect(data.perceptualProfile).toEqual({ resolution: "builtin", name: "first-timer" });
+
     // The full-resolution PNG is in the artifact store, at full size, and is
     // far over the old 100k budget: the case that used to come back imageless.
     expect(typeof data.heatmapFile).toBe("string");
