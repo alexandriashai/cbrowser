@@ -11,6 +11,8 @@ dist/
 # CBrowser data (user-specific, sensitive)
 .cbrowser/
 data/
+# ...except src/data/, which is shipped model data (the CTC reference set), not user data.
+!src/data/
 *.memory/
 
 # Credentials (NEVER commit)
@@ -83,6 +85,8 @@ research/study1/.cache-features.json
 research/study1/features.json
 research/benchmark/results/
 research/benchmark/.tmp-audits/
+# Raw crawl output; the shipped reference is src/data/ctc-reference-*.ts.
+research/ctc-reference/results/
 research/**/*.zip
 research/**/*.tar.gz
 research/**/__pycache__/
