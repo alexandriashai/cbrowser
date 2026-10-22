@@ -25,93 +25,54 @@ const d = (id: string, value: number, source: string): ProvenanceEntry => ({ id:
 // pages that vary the named page feature alone, regressed on the feature.
 const DEMAND = (feature: string, trait: string) =>
   `Hand-set share of ${feature} that lands on ${trait}; a regression of measured ${trait}-driven effort on pages varying ${feature} alone would fit it.`;
-// What would fit a variance coefficient: the spread of the same demand across
-// regions of one page, measured rather than scaled from the page-level value.
-const VARIANCE = (feature: string, trait: string) =>
-  `Hand-set spread of ${trait} demand attributed to ${feature}; region-by-region demand measurement on one page would fit it (nothing in the chain reads variance today).`;
 
 export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   // ── Demand curves: page feature -> trait demand ──
   h("demand.info.workingMemory", 0.9, DEMAND("informationDensity", "workingMemory")),
   h("demand.info.readingTendency", 0.85, DEMAND("informationDensity", "readingTendency")),
   h("demand.info.informationForaging", 0.8, DEMAND("informationDensity", "informationForaging")),
-  h("variance.info.comprehension", 0.1, VARIANCE("informationDensity", "comprehension")),
-  h("variance.info.workingMemory", 0.08, VARIANCE("informationDensity", "workingMemory")),
-  h("variance.info.readingTendency", 0.07, VARIANCE("informationDensity", "readingTendency")),
-  h("variance.info.informationForaging", 0.06, VARIANCE("informationDensity", "informationForaging")),
 
   h("demand.visual.mentalModelFlexibility", 0.7, DEMAND("visualComplexity", "mentalModelFlexibility")),
   h("demand.visual.attentionPattern", 0.85, DEMAND("visualComplexity", "attentionPattern")),
-  h("variance.visual.changeBlindness", 0.12, VARIANCE("visualComplexity", "changeBlindness")),
-  h("variance.visual.mentalModelFlexibility", 0.08, VARIANCE("visualComplexity", "mentalModelFlexibility")),
-  h("variance.visual.attentionPattern", 0.1, VARIANCE("visualComplexity", "attentionPattern")),
 
   h("demand.interactive.halfSaturation", 20, "Hand-set element count at which interactive demand reaches 0.5 (n/(n+20)); task-time or error rate against interactive element count across pages would fit the half-saturation point."),
   h("demand.interactive.riskTolerance", 0.75, DEMAND("interactiveElementCount", "riskTolerance")),
   h("demand.interactive.satisficing", 0.8, DEMAND("interactiveElementCount", "satisficing")),
   h("demand.interactive.proceduralFluency", 0.9, DEMAND("interactiveElementCount", "proceduralFluency")),
   h("demand.interactive.motorCapacity", 0.9, DEMAND("interactiveElementCount", "motorCapacity")),
-  h("variance.interactive.riskTolerance", 0.06, VARIANCE("interactiveElementCount", "riskTolerance")),
-  h("variance.interactive.satisficing", 0.07, VARIANCE("interactiveElementCount", "satisficing")),
-  h("variance.interactive.proceduralFluency", 0.08, VARIANCE("interactiveElementCount", "proceduralFluency")),
-  h("variance.interactive.motorPrecision", 0.1, VARIANCE("interactiveElementCount", "motorPrecision")),
-  h("variance.interactive.motorCapacity", 0.08, VARIANCE("interactiveElementCount", "motorCapacity")),
 
   h("demand.text.patience", 0.7, DEMAND("textDensity", "patience")),
   h("demand.text.comprehension", 0.85, DEMAND("textDensity", "comprehension")),
   h("demand.text.readingCapacity", 0.9, DEMAND("max(textDensity, informationDensity)", "readingCapacity")),
-  h("variance.text.readingTendency", 0.09, VARIANCE("textDensity", "readingTendency")),
-  h("variance.text.patience", 0.06, VARIANCE("textDensity", "patience")),
-  h("variance.text.comprehension", 0.08, VARIANCE("textDensity", "comprehension")),
-  h("variance.text.readingCapacity", 0.08, VARIANCE("textDensity", "readingCapacity")),
 
   h("demand.wordLength.comprehension", 0.9, DEMAND("avgWordLength", "comprehension")),
   h("demand.wordLength.readingTendency", 0.85, DEMAND("avgWordLength", "readingTendency")),
-  h("variance.wordLength.comprehension", 0.12, VARIANCE("avgWordLength", "comprehension")),
-  h("variance.wordLength.readingTendency", 0.1, VARIANCE("avgWordLength", "readingTendency")),
   h("demand.sentenceLength.workingMemory", 0.85, DEMAND("avgSentenceLength", "workingMemory")),
   h("demand.sentenceLength.patience", 0.7, DEMAND("avgSentenceLength", "patience")),
   h("demand.sentenceLength.comprehension", 0.8, DEMAND("avgSentenceLength", "comprehension")),
-  h("variance.sentenceLength.workingMemory", 0.1, VARIANCE("avgSentenceLength", "workingMemory")),
-  h("variance.sentenceLength.patience", 0.07, VARIANCE("avgSentenceLength", "patience")),
   h("demand.lexicalDiversity.comprehension", 0.75, DEMAND("lexicalDiversity", "comprehension")),
   h("demand.lexicalDiversity.transferLearning", 0.65, DEMAND("lexicalDiversity", "transferLearning")),
-  h("variance.lexicalDiversity.comprehension", 0.08, VARIANCE("lexicalDiversity", "comprehension")),
   h("demand.longWords.readingTendency", 0.9, DEMAND("longWordRatio", "readingTendency")),
   h("demand.longWords.comprehension", 0.8, DEMAND("longWordRatio", "comprehension")),
-  h("variance.longWords.readingTendency", 0.11, VARIANCE("longWordRatio", "readingTendency")),
   h("demand.technical.comprehension", 0.95, DEMAND("technicalDensity", "comprehension")),
   h("demand.technical.transferLearning", 0.8, DEMAND("technicalDensity", "transferLearning")),
   h("demand.technical.mentalModelFlexibility", 0.7, DEMAND("technicalDensity", "mentalModelFlexibility")),
-  h("variance.technical.comprehension", 0.13, VARIANCE("technicalDensity", "comprehension")),
-  h("variance.technical.transferLearning", 0.09, VARIANCE("technicalDensity", "transferLearning")),
-  h("variance.technical.mentalModelFlexibility", 0.07, VARIANCE("technicalDensity", "mentalModelFlexibility")),
 
   h("demand.animation.sigmoidThreshold", 0.3, "Hand-set animation level at which motion demand reaches 0.5; a fit of measured distraction cost against animation level would place the threshold."),
   h("demand.animation.sigmoidScale", 0.15, "Hand-set width of the motion-demand sigmoid; the same distraction-cost fit would set its slope."),
   h("demand.animation.changeBlindness", 0.9, DEMAND("animationLevel", "changeBlindness")),
   h("demand.animation.interruptRecovery", 0.85, DEMAND("animationLevel", "interruptRecovery")),
   h("demand.animation.emotionalContagion", 0.7, DEMAND("animationLevel", "emotionalContagion")),
-  h("variance.animation.changeBlindness", 0.1, VARIANCE("animationLevel", "changeBlindness")),
-  h("variance.animation.interruptRecovery", 0.09, VARIANCE("animationLevel", "interruptRecovery")),
-  h("variance.animation.emotionalContagion", 0.07, VARIANCE("animationLevel", "emotionalContagion")),
 
   h("demand.distractor.animationShare", 0.7, "Hand-set share of distractor pressure from motion (vs static clutter); re-reading rates on text beside animated vs cluttered-static panels would fit it."),
   h("demand.distractor.visualShare", 0.3, "Hand-set share of distractor pressure from static visual complexity; the same re-reading measurement would fit it."),
   h("demand.sustained.base", 0.7, "Hand-set attentional demand per unit of text, kept below readingCapacity's 0.9 so decoding dominates on a still page; measured line-loss or re-reading rates on still prose would fit it."),
   h("demand.sustained.distractorGain", 0.7, "Hand-set gain by which distractor pressure raises attentional demand; re-reading rates on the same prose with and without peripheral motion would fit it."),
-  h("variance.sustained.text", 0.1, VARIANCE("textDensity", "sustainedAttention")),
-  h("variance.sustained.animation", 0.08, VARIANCE("animationLevel", "sustainedAttention")),
 
   h("demand.choice.halfSaturation", 10, "Hand-set choice count at which decision demand reaches 0.5 (c/(c+10)); decision time against option count (Hick-Hyman style data on real pages) would fit it."),
   h("demand.choice.anchoringBias", 0.85, DEMAND("choiceCount", "anchoringBias")),
   h("demand.choice.fearOfMissingOut", 0.75, DEMAND("choiceCount", "fearOfMissingOut")),
   h("demand.choice.socialProofSensitivity", 0.7, DEMAND("choiceCount", "socialProofSensitivity")),
-  h("variance.choice.scale", 20, "Hand-set choice count at which decision variance saturates (min(1, c/20)); region-level choice counts across pages would fit it."),
-  h("variance.choice.satisficing", 0.1, VARIANCE("choiceCount", "satisficing")),
-  h("variance.choice.anchoringBias", 0.08, VARIANCE("choiceCount", "anchoringBias")),
-  h("variance.choice.fearOfMissingOut", 0.07, VARIANCE("choiceCount", "fearOfMissingOut")),
-  h("variance.choice.socialProofSensitivity", 0.06, VARIANCE("choiceCount", "socialProofSensitivity")),
 
   h("demand.nav.halfSaturation", 3, "Hand-set navigation depth at which wayfinding demand reaches 0.5 (d/(d+3)); task completion against click depth would fit it."),
   h("demand.nav.workingMemory", 0.95, DEMAND("navigationDepth", "workingMemory")),
@@ -119,12 +80,6 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("demand.nav.persistence", 0.7, DEMAND("navigationDepth", "persistence")),
   h("demand.nav.transferLearning", 0.65, DEMAND("navigationDepth", "transferLearning")),
   h("demand.nav.siteFamiliarity", 0.85, DEMAND("navigationDepth", "siteFamiliarity")),
-  h("variance.nav.scale", 5, "Hand-set depth at which navigation variance saturates (min(1, d/5)); per-region depth measurement would fit it."),
-  h("variance.nav.siteFamiliarity", 0.08, VARIANCE("navigationDepth", "siteFamiliarity")),
-  h("variance.nav.workingMemory", 0.09, VARIANCE("navigationDepth", "workingMemory")),
-  h("variance.nav.metacognitivePlanning", 0.07, VARIANCE("navigationDepth", "metacognitivePlanning")),
-  h("variance.nav.persistence", 0.06, VARIANCE("navigationDepth", "persistence")),
-  h("variance.nav.transferLearning", 0.05, VARIANCE("navigationDepth", "transferLearning")),
 
   d("sigmoidExponentClamp", 500, "Overflow guard on the logistic's exponent; exp(+-500) is already 0 or 1 to double precision, so the clamp changes no reachable value."),
 

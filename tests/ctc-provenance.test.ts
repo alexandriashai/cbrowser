@@ -28,7 +28,10 @@ const registered = new Set(CHAIN_PROVENANCE.map((e) => e.id));
 
 describe("chain provenance registry", () => {
   test("the registry is non-trivial and every id is unique and chain-prefixed", () => {
-    expect(CHAIN_PROVENANCE.length).toBeGreaterThan(100);
+    // Pinned exactly: a constant added to or removed from the chain must change
+    // this number on purpose. 135 at the refactor; 94 after the 41 variance
+    // coefficients, which no output read, were removed (2026-10-21).
+    expect(CHAIN_PROVENANCE.length).toBe(94);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });
@@ -58,7 +61,7 @@ describe("chain provenance registry", () => {
     // it for the ids the chain read; this asserts the recorded set agrees.
     const unregistered = chainReads.filter((id) => !registered.has(id));
     expect(unregistered).toEqual([]);
-    expect(chainReads.length).toBeGreaterThan(100);
+    expect(chainReads.length).toBe(CHAIN_PROVENANCE.length);
   });
 
   test("every registered id was read at least once (no dead entries)", () => {
@@ -73,7 +76,7 @@ describe("chain provenance registry", () => {
 
   test("withProvenance on one chain run reports hypothesis counts above zero", () => {
     const { provenance } = withProvenance(() => buildGoldenMatrix());
-    expect(provenance.counts.hypothesis).toBeGreaterThan(100);
+    expect(provenance.counts.hypothesis).toBeGreaterThanOrEqual(90);
     expect(provenance.counts.definition).toBeGreaterThan(0);
     expect(provenance.counts.fitted).toBe(0);
     expect(provenance.counts.published).toBe(0);
