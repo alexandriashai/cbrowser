@@ -110,3 +110,4 @@ bun.lock
 # Browser state
 browser-state/
 .test-scratch-autocapture-*
+research/latency/results-*/
