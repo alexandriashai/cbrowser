@@ -844,6 +844,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         const data: Record<string, unknown> = {
             persona: result.persona,
             ...(resolved.resolvedFrom ? { resolvedFrom: resolved.resolvedFrom } : {}),
+            // Which perceptual filter shaped the map: a built-in, one inferred
+            // from the name, or the generic default for a name nothing matched.
+            perceptualProfile: result.perceptualProfile,
             // Stated, because two tools silently rendering at different sizes is
             // exactly what made these coordinates incomparable with a CTC run.
             // A reader can now check instead of assuming they match.

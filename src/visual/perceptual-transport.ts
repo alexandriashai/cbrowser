@@ -443,13 +443,66 @@ const DEFAULT_PROFILE: PerceptualProfile = {
 // ── Public API ──
 
 /**
- * Get the perceptual profile for a persona.
+ * How a perceptual profile was found for a persona name.
+ *
+ * "builtin"     the name is one of PERCEPTUAL_PROFILES
+ * "synthesized" built from the caller's accessibility traits
+ * "inferred"    a built-in borrowed because of a keyword in the name
+ * "default"     nothing matched; DEFAULT_PROFILE, which models no one
+ */
+export type PerceptualResolution = 'builtin' | 'synthesized' | 'inferred' | 'default';
+
+export interface ResolvedPerceptualProfile {
+  profile: PerceptualProfile;
+  resolution: PerceptualResolution;
+  /**
+   * The profile actually used: the persona itself for builtin and synthesized,
+   * the borrowed built-in for inferred, "default" for default.
+   */
+  resolvedProfile: string;
+}
+
+/**
+ * Name keywords -> the built-in a custom persona borrows. First match wins, so
+ * a specific condition sits above the general one it would otherwise fall into.
+ *
+ * Until 2026-10-21 the vision row ran first and caught every "color-blind" name
+ * on "blind", leaving the deuteranopia row unreachable for any name spelled
+ * that way, and "dyslexic" borrowed cognitive-adhd although dyslexic-user exists
+ * ("dyslexia" matched nothing). Tritanopia and protanopia borrow deuteranopia,
+ * the only colour-vision built-in.
+ */
+const NAME_INFERENCE: Array<{ matches: (name: string) => boolean; profile: string }> = [
+  {
+    matches: (n) => ((n.includes('color') || n.includes('colour')) && n.includes('blind'))
+      || n.includes('deuteranop') || n.includes('protanop') || n.includes('tritanop'),
+    profile: 'color-blind-deuteranopia',
+  },
+  {
+    matches: (n) => n.includes('vision') || n.includes('blind') || n.includes('magnif') || n.includes('elderly'),
+    profile: 'elderly-low-vision',
+  },
+  { matches: (n) => n.includes('motor') || n.includes('tremor') || n.includes('parkinson'), profile: 'motor-impairment-tremor' },
+  { matches: (n) => n.includes('dyslexi'), profile: 'dyslexic-user' },
+  { matches: (n) => n.includes('adhd') || n.includes('cognitive'), profile: 'cognitive-adhd' },
+  {
+    matches: (n) => n.includes('screen-reader') || n.includes('screenreader')
+      || n.includes('nvda') || n.includes('jaws') || n.includes('voiceover'),
+    profile: 'screen-reader-user',
+  },
+  { matches: (n) => n.includes('deaf') || n.includes('hearing'), profile: 'deaf-user' },
+];
+
+/**
+ * Get the perceptual profile for a persona, and say how it was found.
  *
  * For built-in personas, returns the hardcoded profile.
  * For custom personas, synthesizes a profile from accessibility traits if provided,
- * or infers from the persona name as a fallback.
+ * or infers from the persona name as a fallback. An unknown name never throws
+ * (custom personas rely on the inference); it resolves to "default", and the
+ * resolution is what lets a caller tell that apart from a real profile.
  */
-export function getPerceptualProfile(
+export function resolvePerceptualProfile(
   personaName: string,
   accessibilityTraits?: {
     motorControl?: number;
@@ -460,41 +513,41 @@ export function getPerceptualProfile(
     attentionSpan?: number;
     fatigueSusceptibility?: number;
   },
-): PerceptualProfile {
+): ResolvedPerceptualProfile {
   // Built-in profiles take priority
   if (PERCEPTUAL_PROFILES[personaName]) {
-    return PERCEPTUAL_PROFILES[personaName];
+    return { profile: PERCEPTUAL_PROFILES[personaName], resolution: 'builtin', resolvedProfile: personaName };
   }
 
   // Synthesize from accessibility traits if provided
   if (accessibilityTraits) {
-    return synthesizePerceptualProfile(personaName, accessibilityTraits);
+    return {
+      profile: synthesizePerceptualProfile(personaName, accessibilityTraits),
+      resolution: 'synthesized',
+      resolvedProfile: personaName,
+    };
   }
 
   // Name-based inference as last resort
   const name = personaName.toLowerCase();
-  if (name.includes('vision') || name.includes('blind') || name.includes('magnif') || name.includes('elderly')) {
-    // Clone elderly-low-vision as a reasonable default for vision-related custom personas
-    return { ...PERCEPTUAL_PROFILES['elderly-low-vision'], persona: personaName };
-  }
-  if (name.includes('motor') || name.includes('tremor') || name.includes('parkinson')) {
-    return { ...PERCEPTUAL_PROFILES['motor-impairment-tremor'], persona: personaName };
-  }
-  if (name.includes('adhd') || name.includes('cognitive') || name.includes('dyslexic')) {
-    return { ...PERCEPTUAL_PROFILES['cognitive-adhd'], persona: personaName };
-  }
-  if (name.includes('screen-reader') || name.includes('screenreader')
-      || name.includes('nvda') || name.includes('jaws') || name.includes('voiceover')) {
-    return { ...PERCEPTUAL_PROFILES['screen-reader-user'], persona: personaName };
-  }
-  if (name.includes('deaf') || name.includes('hearing')) {
-    return { ...PERCEPTUAL_PROFILES['deaf-user'], persona: personaName };
-  }
-  if (name.includes('color') && name.includes('blind') || name.includes('deuteranop')) {
-    return { ...PERCEPTUAL_PROFILES['color-blind-deuteranopia'], persona: personaName };
+  const hit = NAME_INFERENCE.find((row) => row.matches(name));
+  if (hit) {
+    return {
+      profile: { ...PERCEPTUAL_PROFILES[hit.profile], persona: personaName },
+      resolution: 'inferred',
+      resolvedProfile: hit.profile,
+    };
   }
 
-  return DEFAULT_PROFILE;
+  return { profile: DEFAULT_PROFILE, resolution: 'default', resolvedProfile: DEFAULT_PROFILE.persona };
+}
+
+/** `resolvePerceptualProfile` without the resolution. */
+export function getPerceptualProfile(
+  personaName: string,
+  accessibilityTraits?: Parameters<typeof resolvePerceptualProfile>[1],
+): PerceptualProfile {
+  return resolvePerceptualProfile(personaName, accessibilityTraits).profile;
 }
 
 /**

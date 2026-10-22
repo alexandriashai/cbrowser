@@ -20,7 +20,7 @@
  * @see https://github.com/alexandriashai/cbrowser/issues/159
  */
 
-import { getPerceptualProfile, type PerceptualFilter } from './perceptual-transport.js';
+import { resolvePerceptualProfile, type PerceptualFilter, type PerceptualResolution } from './perceptual-transport.js';
 
 // ── Types ──
 
@@ -58,6 +58,13 @@ export interface SaliencyMap {
 export interface AttentionAnalysis {
   /** Persona name */
   persona: string;
+  /**
+   * How the persona's perceptual filter was found (see resolvePerceptualProfile)
+   * and which profile was used. A name nothing recognises still gets a map,
+   * from the generic profile; "default" is how a caller can tell. "synthesized"
+   * appears only when the caller passes accessibility traits.
+   */
+  perceptualProfile: { resolution: PerceptualResolution; name: string };
   /** Persona-specific saliency map */
   saliencyMap: SaliencyMap;
   /** Attention alignment: how well persona's attention matches the page's intended hierarchy */
@@ -1179,9 +1186,11 @@ export async function analyzeAttentionFromDOM(
   goal?: string,
   cognitiveTraits?: Record<string, number>,
   relevanceScores?: Record<number, number>,
+  accessibilityTraits?: Parameters<typeof resolvePerceptualProfile>[1],
 ): Promise<AttentionAnalysis> {
   const startTime = performance.now();
-  const profile = getPerceptualProfile(personaName);
+  const resolvedProfile = resolvePerceptualProfile(personaName, accessibilityTraits);
+  const profile = resolvedProfile.profile;
 
   // Look up Schwartz values from built-in profiles if caller didn't pass any
   let values = schwartzValues;
@@ -1270,6 +1279,7 @@ export async function analyzeAttentionFromDOM(
 
   return {
     persona: personaName,
+    perceptualProfile: { resolution: resolvedProfile.resolution, name: resolvedProfile.resolvedProfile },
     saliencyMap: {
       cells: filtered,
       rows, cols,
@@ -1298,9 +1308,11 @@ export async function analyzeAttention(
   goal?: string,
   cognitiveTraits?: Record<string, number>,
   relevanceScores?: Record<number, number>,
+  accessibilityTraits?: Parameters<typeof resolvePerceptualProfile>[1],
 ): Promise<AttentionAnalysis> {
   const startTime = performance.now();
-  const profile = getPerceptualProfile(personaName);
+  const resolvedProfile = resolvePerceptualProfile(personaName, accessibilityTraits);
+  const profile = resolvedProfile.profile;
 
   // v18.54.0: If no values passed, try to look them up from the built-in value profiles
   let values = schwartzValues;
@@ -1467,6 +1479,7 @@ export async function analyzeAttention(
 
   return {
     persona: personaName,
+    perceptualProfile: { resolution: resolvedProfile.resolution, name: resolvedProfile.resolvedProfile },
     saliencyMap,
     alignmentScore: Math.round(alignmentScore * 1000) / 1000,
     entropy: Math.round(entropy * 1000) / 1000,
