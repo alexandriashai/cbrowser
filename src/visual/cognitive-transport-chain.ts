@@ -162,7 +162,11 @@ export const DEMAND_DIMENSIONS = [
  */
 export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
   {
-    name: 'saliency',
+    // Named `saliency` until 21.0, which claimed a mechanism this layer does not
+    // have. Its demand is pageMetrics.visualComplexity (a count of visual
+    // elements) and the animation level; the fitted attention model (UEyes,
+    // attention-transport.ts) never reaches it. The name now says what it reads.
+    name: 'visualComplexity',
     traits: ['changeBlindness', 'attentionPattern'],
   },
   {
@@ -291,7 +295,7 @@ export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
  */
 export const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> = [
   { a: 'cognitiveLoad', b: 'decision', weight: 'chain.interaction.cognitiveLoadXdecision' },
-  { a: 'saliency', b: 'cognitiveLoad', weight: 'chain.interaction.saliencyXcognitiveLoad' },
+  { a: 'visualComplexity', b: 'cognitiveLoad', weight: 'chain.interaction.visualComplexityXcognitiveLoad' },
   { a: 'frustration', b: 'readability', weight: 'chain.interaction.frustrationXreadability' },
   { a: 'cognitiveLoad', b: 'motor', weight: 'chain.interaction.cognitiveLoadXmotor' },
   { a: 'frustration', b: 'decision', weight: 'chain.interaction.frustrationXdecision' },
@@ -692,7 +696,7 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // Sharing the base makes the two halves of reading agree about how much there is
   // to read; the 0.7 vs 0.9 coefficients still order them.
   //
-  // NOT applied to saliency, whose fall has a different cause: its inputs
+  // NOT applied to visualComplexity, whose fall has a different cause: its inputs
   // (visualComplexity, animationLevel) are counts and RISE with page size. It falls
   // because its traits are surplus-BILLED, so rising demand shrinks the surplus gap
   // and the 0.3-weighted cost with it. Same symptom, unrelated mechanism, and it
@@ -813,15 +817,15 @@ const VALUE_DEMAND_MODULATION: Array<{
   coefficient: string; // provenance id; positive = amplifies demand, negative = dampens
   layer: string;       // which layer this modulation applies to
 }> = [
-  // ── Saliency Layer Modulations ──
+  // ── Visual Complexity Layer Modulations ──
   // Stimulation → reduces changeBlindness threshold (novelty-seekers notice changes more)
-  { value: 'stimulation', trait: 'changeBlindness', coefficient: 'chain.valueModulation.stimulation.changeBlindness', layer: 'saliency' },
+  { value: 'stimulation', trait: 'changeBlindness', coefficient: 'chain.valueModulation.stimulation.changeBlindness', layer: 'visualComplexity' },
   // Stimulation → amplifies attentionPattern demand (drawn to novel visual elements)
-  { value: 'stimulation', trait: 'attentionPattern', coefficient: 'chain.valueModulation.stimulation.attentionPattern', layer: 'saliency' },
+  { value: 'stimulation', trait: 'attentionPattern', coefficient: 'chain.valueModulation.stimulation.attentionPattern', layer: 'visualComplexity' },
   // Security → amplifies changeBlindness demand (vigilant scanners notice more changes)
-  { value: 'security', trait: 'changeBlindness', coefficient: 'chain.valueModulation.security.changeBlindness', layer: 'saliency' },
+  { value: 'security', trait: 'changeBlindness', coefficient: 'chain.valueModulation.security.changeBlindness', layer: 'visualComplexity' },
   // Conformity → dampens attentionPattern (follows expected scan patterns, less exploratory)
-  { value: 'conformity', trait: 'attentionPattern', coefficient: 'chain.valueModulation.conformity.attentionPattern', layer: 'saliency' },
+  { value: 'conformity', trait: 'attentionPattern', coefficient: 'chain.valueModulation.conformity.attentionPattern', layer: 'visualComplexity' },
 
   // ── Frustration Layer ──
   // Security → amplifies trust demand (Fogg 2003: high-security users need more trust signals)
@@ -865,10 +869,10 @@ const VALUE_DEMAND_MODULATION: Array<{
  *
  * Unlike additive cognitive load models, the sequential chain depletes
  * capacity at each processing layer. A user who spends cognitive resources
- * on saliency detection has LESS available for subsequent decision-making.
+ * on visual clutter and motion has LESS available for subsequent decision-making.
  *
  * The algorithm processes the eight layers of LAYER_DEFINITIONS in order:
- *   saliency -> cognitiveLoad -> decision -> motor -> motorProcedure
+ *   visualComplexity -> cognitiveLoad -> decision -> motor -> motorProcedure
  *   -> frustration -> readability -> readingAttention
  *
  * Each layer:
@@ -1130,7 +1134,7 @@ export function computeSequentialCTC(
 
   // Find bottleneck layer
   let maxLayerCost = 0;
-  let bottleneckLayer = layers[0]?.name ?? 'saliency';
+  let bottleneckLayer = layers[0]?.name ?? LAYER_DEFINITIONS[0].name;
   for (const layer of layers) {
     if (layer.transportCost > maxLayerCost) {
       maxLayerCost = layer.transportCost;

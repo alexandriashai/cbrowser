@@ -744,7 +744,7 @@ Begin with the first persona: ${personas[0]}
   server.registerTool("cognitive_effort", {
     _meta: { ui: { resourceUri: "ui://cbrowser/effort" } },
     title: "Cognitive Effort Analysis",
-    description: "Compute total cognitive effort for a persona to use a page. MEASURES THE VIEWPORT BY DEFAULT (above the fold); pass scope='full_page' to measure the whole page. Uses the 8-layer Sequential Transport Chain: saliency → cognitive load → decision → motor (target acquisition) → motor procedure (executing a sequence) → frustration → readability (decoding) → reading attention (holding the line, re-reading). IMPORTANT: High-familiarity personas (power-user, confident-user) require site knowledge. If the user asks for these personas, first check if site knowledge exists by running site_model_status. If no site knowledge exists, either (1) ask the user if they want to build it first by navigating the site, or (2) warn them that results will treat the persona as a first-time visitor. The tool returns a familiarityWarning when site knowledge is missing.",
+    description: "Compute total cognitive effort for a persona to use a page. MEASURES THE VIEWPORT BY DEFAULT (above the fold); pass scope='full_page' to measure the whole page. Uses the 8-layer Sequential Transport Chain: visual complexity (a count of visual elements and motion, not the attention model) → cognitive load → decision → motor (target acquisition) → motor procedure (executing a sequence) → frustration → readability (decoding) → reading attention (holding the line, re-reading). IMPORTANT: High-familiarity personas (power-user, confident-user) require site knowledge. If the user asks for these personas, first check if site knowledge exists by running site_model_status. If no site knowledge exists, either (1) ask the user if they want to build it first by navigating the site, or (2) warn them that results will treat the persona as a first-time visitor. The tool returns a familiarityWarning when site knowledge is missing.",
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       // Per RUN, not per persona. A persona is familiar with one site and new
@@ -758,7 +758,7 @@ Begin with the first persona: ${personas[0]}
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver')"),
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US')"),
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing"),
-      useValues: z.boolean().optional().default(false).describe("Enable motivational value modulation (Schwartz values). When true, persona values modulate saliency maps, decision costs, and frustration costs. Default: false (trait-only mode)."),
+      useValues: z.boolean().optional().default(false).describe("Enable motivational value modulation (Schwartz values). When true, persona values scale decision and frustration demand. Default: false (trait-only mode)."),
       waitAfterLoad: z.number().optional().describe("Extra ms to wait after page loads (e.g., 3000 for sites with client-side translation)"),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load (e.g., '[data-translated]')"),
       scope: z.enum(["viewport", "full_page", "sequential"]).optional().default("viewport").describe("What to measure: 'viewport' (first impression, above-the-fold — default), 'full_page' (scroll the whole page, count every element), or 'sequential' (score each screen on its own content, carrying capacity forward, and report where people stop). Viewport and full_page match empathy_audit's parameter. 'sequential' answers a different question from either: not 'what would the whole page cost' but 'how far do they get'. NOTE: every published CTC number predates this parameter and is a viewport measurement."),
@@ -1579,18 +1579,22 @@ Begin with the first persona: ${personas[0]}
         const ssPath = joinPath(getTmpDir(), `cog-effort-layers-${Date.now()}.png`);
         await page.screenshot({ path: ssPath, fullPage: false });
 
-        // saliency -- keyless. Lab-space centre-surround over the screenshot,
-        // so this needs no API key and no model call.
+        // visualComplexity -- keyless. Lab-space centre-surround over the
+        // screenshot, so this needs no API key and no model call. It is shown as
+        // visual context for the layer, NOT as its input: the layer's cost comes
+        // from the visual-complexity count and the animation level, and this map
+        // never reaches the chain. The legend says so, because the layer was
+        // called "saliency" until 21.0 and this heatmap read as its evidence.
         try {
           const { computeLabSaliency } = await import("../../visual/attention-transport.js");
           const { generateHeatmapOverlay } = await import("../../visual/heatmap-overlay.js");
           const sal = await computeLabSaliency(ssPath);
           const b64 = await generateHeatmapOverlay(ssPath, sal.cells, sal.rows, sal.cols, `${personaName} — saliency`);
           const w = writeArtifact(Buffer.from(b64, "base64"), `saliency-${personaName}-${Date.now()}.png`);
-          if (w) layerOverlays.push({ layer: "saliency", file: w.url.split("/").pop(), available: true,
-            legend: "Hotter = more visually salient before any reading happens." });
+          if (w) layerOverlays.push({ layer: "visualComplexity", file: w.url.split("/").pop(), available: true,
+            legend: "Lab-space saliency of the screenshot, shown as context. Hotter = more visually salient. The layer's cost is not computed from this map: it comes from the page's visual-complexity count and animation level." });
         } catch (e) {
-          layerOverlays.push({ layer: "saliency", available: false, reason: `saliency map failed: ${(e as Error).message}` });
+          layerOverlays.push({ layer: "visualComplexity", available: false, reason: `saliency map failed: ${(e as Error).message}` });
         }
 
         // motor -- already drawn above; surfaced here so the chain has one list.

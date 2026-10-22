@@ -20,7 +20,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildGoldenMatrix, diffExact, type GoldenMatrix } from "./fixtures/ctc-golden-matrix.js";
 
-const pinned = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "ctc-golden-20.0.1.json"), "utf8")) as GoldenMatrix & { pinnedOn: string };
+// Layer 1 was renamed saliency -> visualComplexity in 21.0 (a name, not a
+// number). The 20.0.1 pin is read through the rename so the comparison stays
+// exact on every number and proves the rename moved none of them.
+const RENAMED = (json: string) => json
+  .replaceAll('"saliencyxcognitiveLoad"', '"visualComplexityxcognitiveLoad"')
+  .replaceAll('"saliency"', '"visualComplexity"');
+const pinned = JSON.parse(RENAMED(readFileSync(join(import.meta.dir, "fixtures", "ctc-golden-20.0.1.json"), "utf8"))) as GoldenMatrix & { pinnedOn: string };
 const actual = buildGoldenMatrix();
 
 describe("CTC golden matrix (20.0.1)", () => {

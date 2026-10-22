@@ -123,7 +123,7 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("maxDrawdownFraction", 0.5, "Hand-set cap on the fraction of remaining capacity one layer may draw; within-session effort measurements across a task sequence would fit it (same status as the Hill exponent)."),
   d("capacityEpsilon", 1e-4, "Numerical floor on residual capacity, NOT a behavioural limit: keeps the proportional drawdown away from denormals and the demand gap finite, three orders of magnitude below anything a persona reaches."),
   h("interaction.cognitiveLoadXdecision", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
-  h("interaction.saliencyXcognitiveLoad", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
+  h("interaction.visualComplexityXcognitiveLoad", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.frustrationXreadability", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.cognitiveLoadXmotor", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.frustrationXdecision", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
