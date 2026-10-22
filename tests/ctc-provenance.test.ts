@@ -36,8 +36,9 @@ describe("chain provenance registry", () => {
     // and seven Schwartz modulations that wrote to dimensions in no layer, and
     // so moved no number, were removed (21.0); 72 after the logistic's overflow
     // clamp, which no sanitised input can reach, was removed (21.0, found by
-    // ctc-no-dead-constants.test.ts).
-    expect(CHAIN_PROVENANCE.length).toBe(72);
+    // ctc-no-dead-constants.test.ts); 71 after abandonment stopped subtracting
+    // surplus from deficit (chain.abandonment.surplusRelief, 21.0).
+    expect(CHAIN_PROVENANCE.length).toBe(71);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });

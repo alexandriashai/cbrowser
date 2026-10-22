@@ -15,10 +15,12 @@ import {
   computeDemandDistribution,
   computeDemandFromRawMetrics,
   computeSequentialCTC,
+  computeSequentialScrollCTC,
   DEMAND_DIMENSIONS,
 } from "../src/visual/cognitive-transport-chain.js";
+import { buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
-import { ROSTER, RAW_DEMANDS, PAGE_DEMANDS, toolProfile } from "./fixtures/ctc-golden-matrix.js";
+import { ROSTER, RAW_DEMANDS, PAGE_DEMANDS, SCROLL_INPUTS, BOUNDARY_PERSONAS, toolProfile, allDemands } from "./fixtures/ctc-golden-matrix.js";
 
 const ROOT = join(import.meta.dir, "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -170,5 +172,89 @@ describe("demand is written only where a layer reads it", () => {
       .filter((e) => !LAYER_DEFINITIONS.find((l) => l.name === e.layer)?.traits.includes(e.trait))
       .map((e) => `${e.id} -> ${e.trait} labelled ${e.layer}`);
     expect(wrong).toEqual([]);
+  });
+});
+
+// ── Abandonment ──
+const reg = (id: string) => MODEL_PROVENANCE[id].value;
+/** The chain's Hill hazard, restated from the registry. */
+const hazard = (cost: number, tolerance: number) => {
+  const n = reg("chain.abandonmentHillExponent");
+  return cost <= 0 ? 0 : Math.max(0, Math.min(1, Math.pow(cost, n) / (Math.pow(cost, n) + Math.pow(tolerance, n))));
+};
+const toleranceOf = (patience: number, resilience: number) => Math.max(reg("chain.abandonment.toleranceFloor"),
+  (patience * reg("chain.abandonment.patienceShare") + resilience * reg("chain.abandonment.resilienceShare")) * reg("chain.abandonment.toleranceGain"));
+/** Which patience and resilience the hazard reads: the persona's starting values. */
+const toleranceFor = (initial: Record<string, number>, _r: { remainingCapacity: Record<string, number> }) =>
+  toleranceOf(initial.patience, initial.resilience);
+const allPersonas = () => [
+  ...Object.entries(ROSTER).map(([n, p]) => toolProfile(n, p)),
+  ...Object.entries(BOUNDARY_PERSONAS).map(([n, t]) => buildOTCognitiveProfile(n, { ...t })),
+];
+
+describe("abandonment is driven by unmet demand, not relieved by surplus", () => {
+  // CTC bills surplus on disposition dimensions as a COST (over-deliberating a
+  // trivial page is effort spent). Abandonment used to subtract 0.3 x that same
+  // surplus from the deficit as RELIEF, so one quantity counted as harder in
+  // the score and as more comfortable in the risk. A disposition surplus is not
+  // comfort, so it no longer relieves anything.
+  test("abandonmentRisk is the hazard of deficitCost alone, for every persona and reference page", () => {
+    const off: string[] = [];
+    for (const prof of allPersonas()) {
+      const initial = capacityVector(prof.traits);
+      for (const { id, demand } of allDemands()) {
+        const r = computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true });
+        const want = hazard(r.deficitCost, toleranceFor(initial, r));
+        if (Math.abs(r.abandonmentRisk - want) > 1e-12) off.push(`${prof.name}/${id}: ${r.abandonmentRisk} vs ${want}`);
+      }
+    }
+    expect(off.slice(0, 5)).toEqual([]);
+  });
+
+  test("both directions: billed surplus now raises the risk over the old relieved figure, and with no surplus nothing changes", () => {
+    let rose = 0, unchanged = 0;
+    for (const prof of allPersonas()) {
+      const initial = capacityVector(prof.traits);
+      for (const { demand } of allDemands()) {
+        const r = computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true });
+        const t = toleranceFor(initial, r);
+        const relieved = hazard(Math.max(0, r.deficitCost - r.surplusCost * 0.3), t); // the 20.x figure
+        if (r.surplusCost > 0 && r.deficitCost > 0) {
+          expect(r.abandonmentRisk).toBeGreaterThanOrEqual(relieved);
+          if (r.abandonmentRisk > relieved) rose++;
+        } else {
+          expect(r.abandonmentRisk).toBe(relieved);
+          unchanged++;
+        }
+      }
+    }
+    expect(rose).toBeGreaterThan(0);
+    expect(unchanged).toBeGreaterThan(0);
+  });
+
+  test("the per-screen hazard in the scroll path is the same quantity: unmet demand on that screen, no relief", () => {
+    const R = reg("chain.roundingScale");
+    const off: string[] = [];
+    for (const prof of allPersonas()) {
+      const initial = capacityVector(prof.traits);
+      for (const s of SCROLL_INPUTS) {
+        const demands = s.screens.map((a) => computeDemandFromRawMetrics(...a));
+        const scroll = computeSequentialScrollCTC(prof, demands, { asymmetric: true, interactions: true });
+        let carried: Record<string, number> | undefined;
+        demands.forEach((d, i) => {
+          const r = computeSequentialCTC(prof, d, { asymmetric: true, interactions: true, carriedCapacity: carried });
+          carried = r.remainingCapacity;
+          const want = Math.round(hazard(r.deficitCost, toleranceFor(initial, r)) * R) / R;
+          if (scroll.screens[i].stopHazard !== want) off.push(`${prof.name}/${s.id}#${i + 1}: ${scroll.screens[i].stopHazard} vs ${want}`);
+          // And the aggregate run of that screen reports the same hazard.
+          expect(Math.round(r.abandonmentRisk * R) / R).toBe(scroll.screens[i].stopHazard);
+        });
+      }
+    }
+    expect(off.slice(0, 5)).toEqual([]);
+  });
+
+  test("surplus relief is gone from the registry", () => {
+    expect("chain.abandonment.surplusRelief" in MODEL_PROVENANCE).toBe(false);
   });
 });

@@ -517,7 +517,6 @@ const CHAIN_IDS = {
   ctcSigmoidCentre: 'chain.ctcSigmoidCentre',
   patienceShare: 'chain.abandonment.patienceShare',
   resilienceShare: 'chain.abandonment.resilienceShare',
-  surplusRelief: 'chain.abandonment.surplusRelief',
   toleranceGain: 'chain.abandonment.toleranceGain',
   toleranceFloor: 'chain.abandonment.toleranceFloor',
   abandonmentHillExponent: 'chain.abandonmentHillExponent',
@@ -1142,19 +1141,27 @@ export function computeSequentialCTC(
   // equal to tolerance gives 50%, and it approaches 1 from below. The
   // "centre at 1.5x blended patience" intent is unchanged and so is the
   // persona ordering; what is gone is the offset. (2026-08-03, BUG-17)
+  //
+  // UNMET DEMAND ONLY, as of 21.0. Through 20.x the hazard's input was
+  // deficit - 0.3 x surplus: billed surplus (a maximiser over-deliberating a
+  // trivial page) was RELIEF here while the same surplus was COST in totalCTC.
+  // One quantity cannot be both. A disposition surplus is effort spent, not
+  // comfort, so it no longer offsets the deficit; chain.abandonment.surplusRelief
+  // is gone. The per-screen hazard in computeSequentialScrollCTC reads this
+  // value, so it changed with it.
   const patienceCapacity = traitValue(persona.traits, 'patience', P);
   const resilienceCapacity = traitValue(persona.traits, 'resilience', P);
   const effectivePatience = patienceCapacity * P.patienceShare + resilienceCapacity * P.resilienceShare; // blended tolerance
-  const adjustedCost = Math.max(0, totalDeficit - totalSurplus * P.surplusRelief); // surplus comfort (30%)
+  const unmetDemand = totalDeficit;
   // Floored so a persona with no patience at all does not divide by zero and
   // read as certain abandonment on a blank page.
   const tolerance = Math.max(P.toleranceFloor, effectivePatience * P.toleranceGain);
   // The same registry value ABANDONMENT_HILL_EXPONENT exports; read here so the
   // dependency is recorded per run.
   const ABANDONMENT_STEEPNESS = P.abandonmentHillExponent;
-  const abandonmentRisk = adjustedCost <= 0 ? 0 : Math.max(0, Math.min(1,
-    Math.pow(adjustedCost, ABANDONMENT_STEEPNESS) /
-    (Math.pow(adjustedCost, ABANDONMENT_STEEPNESS) + Math.pow(tolerance, ABANDONMENT_STEEPNESS))
+  const abandonmentRisk = unmetDemand <= 0 ? 0 : Math.max(0, Math.min(1,
+    Math.pow(unmetDemand, ABANDONMENT_STEEPNESS) /
+    (Math.pow(unmetDemand, ABANDONMENT_STEEPNESS) + Math.pow(tolerance, ABANDONMENT_STEEPNESS))
   ));
 
   return {
@@ -1372,20 +1379,16 @@ export function computeSequentialScrollCTC(
   let carried: Record<string, number> | undefined;
   let survive = 1;
 
-  const patience = traitValue(persona.traits, 'patience', P);
-  const resilience = traitValue(persona.traits, 'resilience', P);
-  const tolerance = Math.max(P.toleranceFloor, (patience * P.patienceShare + resilience * P.resilienceShare) * P.toleranceGain);
-
   for (let i = 0; i < screenDemands.length; i++) {
     const r = computeSequentialCTC(persona, screenDemands[i], { ...options, carriedCapacity: carried });
     carried = r.remainingCapacity;
 
-    // Hazard for THIS screen, from this screen's own unmet demand. Surplus
-    // relief applies as it does in the aggregate.
-    const screenCost = Math.max(0, r.deficitCost - r.surplusCost * P.surplusRelief);
-    const stopHazard = screenCost <= 0 ? 0 : Math.min(1,
-      Math.pow(screenCost, P.abandonmentHillExponent) /
-      (Math.pow(screenCost, P.abandonmentHillExponent) + Math.pow(tolerance, P.abandonmentHillExponent)));
+    // Hazard for THIS screen: the screen's own abandonment risk, which is the
+    // Hill hazard of its unmet demand. One formula, read from the chain run,
+    // rather than a second copy here that could drift from it (the copy that
+    // was here applied surplus relief in step with the aggregate; 21.0 removed
+    // it from both by removing this copy).
+    const stopHazard = r.abandonmentRisk;
 
     const reachProbability = survive;
     survive = survive * (1 - stopHazard);

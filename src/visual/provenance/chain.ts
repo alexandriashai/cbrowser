@@ -110,7 +110,6 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   // ── Abandonment ──
   h("abandonment.patienceShare", 0.7, "Hand-set weight of patience in the blended tolerance; observed abandonment against measured patience and resilience would fit the blend."),
   h("abandonment.resilienceShare", 0.3, "Hand-set weight of resilience in the blended tolerance; the same abandonment data would fit it."),
-  h("abandonment.surplusRelief", 0.3, "Hand-set share of surplus cost that offsets deficit before the hazard; abandonment on pages mixing over- and under-demand would fit it."),
   h("abandonment.toleranceGain", 1.5, "Hand-set multiple of blended patience at which abandonment reaches 50%; observed abandonment against measured task difficulty would fit it."),
   h("abandonment.toleranceFloor", 0.05, "Hand-set floor on tolerance so a zero-patience persona does not read as certain abandonment on a blank page; abandonment data from very low-patience users would test it."),
   h("abandonmentHillExponent", 2, "Hand-set Hill exponent on the abandonment curve, UNCALIBRATED and load-bearing (a fixed deficit split over 14 screens falls from 22% to 2%); a dose-response fit of observed abandonment against task difficulty would set it."),
