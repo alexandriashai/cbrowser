@@ -6,10 +6,11 @@ and it was called `results_final`.
 
 | folder | scored what | verdict |
 |---|---|---|
-| `2026-04_published-RETRACTED/` | a Python **port** of the model | **retracted — do not cite** |
-| `2026-07_rerun-logs/` | first re-run against shipped code | logs only, no summary was saved |
+| `2026-04_published-RETRACTED/` | `run_full_study.py`, a separate Python model (not the shipped code, not the port) | **retracted — do not cite** |
+| `2026-07_rerun-logs/` | despite the name, the April Python runs (04-13, 04-16, 04-19) reproducing 0.663 / 0.605 | logs only. The July re-run against shipped code is not in this repo (see below) |
 | `2026-08-04_shipped/` | the **visual channel** on 1,980 stimuli, real fixations | current |
-| `2026-08-04_semantic/` | the **shipped model** on 495 web stimuli | **current headline** |
+| `2026-08-04_semantic/` | the **shipped model** on 495 web stimuli (written 2026-08-05 09:51 MDT) | **current headline** |
+| `2026-10-21_v20-personas/` | seven personas through the shipped model at v20.0.1, AUC/NSS/CC/KLD/SIM | current (`run-study1-v20.ts`) |
 | `2026-08-04_ceiling/` | human inter-observer ceiling (0.8112) | current |
 | `2026-08-04_optimize*/` | the parameter fits behind the shipped config | current |
 | `2026-08-04_blend-sweep/` | blend-weight sweep with 5-fold CV | current |
@@ -61,9 +62,10 @@ ceiling is 31 real participants predicting the other 31, scored by the identical
 metric.
 
 **Two independent estimates agree.** Nested 5-fold cross-validation put held-out
-accuracy at 0.7367; this straight full-corpus measurement gives 0.7371. A fitted
-number and an unfitted one landing 0.0004 apart is the strongest validation
-available here.
+accuracy at 0.7367; this full-corpus measurement gives 0.7371. The 0.7371 is
+in-sample: the spatial prior and the blend were fitted on these same 495 stimuli,
+so cite 0.7367 as the held-out estimate. (Corrected 2026-10-21: this paragraph
+previously called 0.7371 "unfitted".)
 
 **It also beats two frontier vision models**, paired on the same 60 stimuli:
 0.7567 against Claude Fable-5 at 0.7067 (p=0.0002) and GPT-5.6 Sol at 0.6985
@@ -82,20 +84,35 @@ behaviour into a model meant for goal-directed use.
 ## Why the April numbers are retracted
 
 `2026-04_published-RETRACTED/` reports the model at 0.6625 and center bias at 0.6146 —
-the model winning by 0.048. Three defects, each on its own sufficient:
+the model winning by 0.048. **Corrected 2026-10-21** (verified against git and file
+times): this section used to blame a port of the shipped code. That was wrong.
 
-1. **It scored a port, not the product.** `cot_saliency.py` describes itself as a
-   "vectorized Python port of `computeLabSaliency()`". The TypeScript weights
-   chrominance 3× (`wA = wB = 3.0`); the port summed the Lab channels flat. The two had
-   already diverged on the day the numbers were written.
-2. **The "fixation map" was not fixations.** `fix = (fixation_map > 0)` over a
-   Gaussian-smoothed density image marks **18.8% of all pixels** as positives. AUC-Judd
-   is defined over discrete points. The corpus ships 554 raw logs; the harness even had
-   a parser for them, never wired to the metric.
-3. **An AUC tie-handling bug** that scored a flat map 0.25 instead of 0.5.
+1. **It scored a different model.** The log's first line is printed by
+   `run_full_study.py:431`, which does not import `cot_saliency.py`. Its model is a
+   multi-scale difference-of-Gaussians on Lab plus novelty, text and peripheral maps,
+   multiplied by a built-in Gaussian centre bias (sigma 0.3 x min(h, w),
+   `run_full_study.py:81-86, 200-215`). The shipped model had no positional prior until
+   2da2058 (2026-08-04). Its Python ADHD profile is not the shipped `cognitive-adhd`.
+2. **Port drift is not the explanation.** Results were written 2026-04-13 10:34 MDT on
+   v18.42.5, whose `computeLabSaliency` was also flat-weighted; `wA = wB = 3.0` arrived
+   in f36cd88 eight hours later.
+3. **Ground truth.** April used the binary `fixmaps_3s` images (about 0.64% of pixels
+   positive), not real fixation points. The "18.8% of all pixels" figure this README
+   used to quote came from a July attribution script that resized those maps to the
+   grid before thresholding; it never applied to April.
+4. **AUC.** April used 100 linear thresholds (`run_full_study.py:281-286`). The
+   "flat map scores 0.25" tie bug was in an unreleased TypeScript draft fixed before
+   2930a84 and never touched a published number.
+5. **The centre-bias baseline changed every run:** 0.615 (April Gaussian), 0.658 (July
+   linear cone), 0.6515 (August Gaussian sigma rows/4).
 
-`_duplicate-of-final/` inside that folder was `results_full/` — byte-comparable content,
-a second authoritative-sounding name for the same retracted run.
+The July re-run that first reversed the result (centre bias wins 78.0% of pages,
+persona spread 0.0047) ran 2026-07-29 19:01 MDT from a script kept outside git
+(`rerun-study1-v2.mjs`), scoring the visual channel only.
+
+`_duplicate-of-final/` inside that folder is the 2026-04-19 run, not a byte copy: it has
+`color_blind` instead of `power_user` and six extra COTv arms. Only the neurotypical and
+ADHD values match.
 
 ## What the 2026-08-04 run does differently
 

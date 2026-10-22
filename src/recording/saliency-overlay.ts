@@ -6,7 +6,7 @@
  * the normal encoders as an ordinary frame sequence.
  *
  * WHY THIS USES THE DOM. Capture runs against a LIVE page, so the DOM is right
- * there — and `analyzeAttention` blends 35% bottom-up colour contrast with 65%
+ * there — and `analyzeAttention` blends 20% bottom-up colour contrast with 80%
  * DOM semantics (element type x persona priority x goal relevance). Overlaying
  * the bottom-up half alone would paint the one component that has been
  * benchmarked and LOST: on 495 web pages against real human fixations it scored
@@ -54,7 +54,7 @@ export interface AttentionOverlayOptions {
   persona?: string;
   /**
    * DOM elements as the attention model consumes them. Supply these and the
-   * overlay reflects the full 35/65 blend; omit them and it degrades to
+   * overlay reflects the full 20/80 blend; omit them and it degrades to
    * bottom-up contrast only.
    */
   domElements?: DOMAttentionElement[];
@@ -288,7 +288,7 @@ export async function overlayAttentionOnFrames(
    *
    * Used by BOTH rendering and judging. Rendering previously passed one
    * stop-time DOM into every frame, which made the semantic half of the blend —
-   * 65% of it — byte-identical across the whole recording. Only the visual 35%
+   * 80% of it — byte-identical across the whole recording. Only the visual 20%
    * varied, so the overlay looked static no matter what happened on the page,
    * and a capture measured nothing a single screenshot did not.
    */

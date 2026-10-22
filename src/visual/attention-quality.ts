@@ -589,7 +589,7 @@ export function computeAttentionQuality(
 /**
  * Collect DOM elements ready for the attention model's semantic layer.
  *
- * `analyzeAttention` blends 35% bottom-up saliency with 65% DOM semantics — but
+ * `analyzeAttention` blends 20% bottom-up saliency with 80% DOM semantics (GAZE_CALIBRATION) — but
  * ONLY when it is given elements. Passed nothing, it silently falls back to the
  * visual layer alone, which is colour-contrast pop-out and not a model of where
  * a person looks. Two of the three production callers were doing exactly that.

@@ -1273,7 +1273,7 @@ export class VideoCaptureSession {
     // The DOM is read from the still-live page here rather than per frame: a
     // per-frame extract would cost a page.evaluate on every screencast frame,
     // and supplying the DOM at all is what upgrades this from bottom-up
-    // contrast (benchmarked, lost to centre-bias) to the full 35/65 model.
+    // contrast (benchmarked, lost to centre-bias) to the full 20/80 model.
     if (this.opts.saliencyOverlay) {
       const cfg = typeof this.opts.saliencyOverlay === "object" ? this.opts.saliencyOverlay : {};
       try {

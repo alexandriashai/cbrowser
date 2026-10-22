@@ -1654,7 +1654,7 @@ async function runOneCapture(
     contactSheet: options["contact-sheet"] === true || typeof options["contact-sheet"] === "string",
     // Overlay the model's predicted-attention map on every frame. Opt-in: it
     // costs one attention pass per frame. DOM is read from the live page at
-    // stop, so this is the full 35/65 model, not bottom-up contrast alone.
+    // stop, so this is the full 20/80 model, not bottom-up contrast alone.
     ...(options["attention-overlay"]
       ? {
           saliencyOverlay: {

@@ -264,7 +264,7 @@ export const RecordingManifestSchema = z.object({
    * Present when frames were overlaid with the attention map.
    *
    * `quantity` records WHAT was painted, because the two cases carry different
-   * evidential weight: with DOM it is the full 35/65 production model, without
+   * evidential weight: with DOM it is the full 20/80 production model, without
    * it only the bottom-up contrast half that lost to a centre-bias baseline.
    * A consumer that renders these frames should label them from this field
    * rather than assuming.
