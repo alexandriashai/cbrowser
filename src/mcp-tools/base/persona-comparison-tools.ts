@@ -35,6 +35,7 @@ import {
   generateAdversarialPersonas,
   estimateCognitiveLoad,
   COGNITIVE_TRAITS,
+  OVERALL_LEVEL_KEY,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
@@ -513,8 +514,11 @@ Begin with the first persona: ${personas[0]}
       const otB = buildOTProfile(personaB, profileB.traits as unknown as Record<string, number> || {});
       const dist = cognitiveDistance(otA, otB);
 
-      // Top 5 trait contributions
+      // Top 5 trait contributions. The generalized W1's level term is reported
+      // on its own: it is not a trait, and listing it among traits read as one.
+      const overallLevelContribution = dist.traitContributions[OVERALL_LEVEL_KEY] ?? 0;
       const topTraits = Object.entries(dist.traitContributions)
+        .filter(([trait]) => trait !== OVERALL_LEVEL_KEY)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
         .map(([trait, contrib]) => ({ trait, contribution: Math.round(contrib * 10000) / 10000 }));
@@ -533,6 +537,9 @@ Begin with the first persona: ${personas[0]}
             w1Distance: Math.round(dist.w1 * 10000) / 10000,
             w2Distance: Math.round(dist.w2 * 10000) / 10000,
             slicedWasserstein: Math.round(dist.sliced * 10000) / 10000,
+            // The part of w1 forced by the difference in mean trait level; the
+            // rest is shape. topDifferentiatingTraits lists traits only.
+            overallLevelContribution: Math.round(overallLevelContribution * 10000) / 10000,
 
             // The comparable view: where this pair sits within all built-in
             // persona pairs, per metric. 0 = closest pair seen, 100 = farthest.
@@ -554,8 +561,8 @@ Begin with the first persona: ${personas[0]}
               "and its overall level: each trait t carries mass t/" + COGNITIVE_TRAITS.length + ", moving mass " +
               "between traits costs the trait ground metric (0.2 / 0.5 / 0.8) and creating or destroying it " +
               "costs 0.4 per unit (a hand-set hypothesis), so w1 ranges from 0 to 0.4 and all traits 0.2 " +
-              "versus all traits 0.8 is 0.24. topDifferentiatingTraits can include overallLevel, which is not " +
-              "a trait: it is half the cost the difference in mean trait level forces, 0.5 x 0.4 x |mean A - " +
+              "versus all traits 0.8 is 0.24. overallLevelContribution, reported apart from the traits, is " +
+              "half the cost the difference in mean trait level forces, 0.5 x 0.4 x |mean A - " +
               "mean B| (the other half is charged to the traits where mass is created or destroyed). w2 and " +
               "sliced are computed on profiles normalised to the simplex, so they measure shape only: " +
               "proportional trait vectors are at distance 0 on both.",
