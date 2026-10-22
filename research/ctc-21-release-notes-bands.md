@@ -163,6 +163,17 @@ full_page. The gap score's fix text changed:
 - **Changed: the `useValues` description.** It no longer claims that values
   change the saliency map; they never reached `analyzeAttention`.
 - **Added: `modelProvenance`.**
+- **Changed: the attention map's perceptual filter** (ISC-48). The
+  attention pass now hands `analyzeAttention` the persona record's
+  `accessibilityTraits` when it has any, as `attention_analysis` does since
+  `8d97c38`. So the built-in accessibility personas with no perceptual profile
+  (autism-spectrum, intellectual-disability, aphasia-receptive, dyscalculia) and
+  custom personas with traits on record are drawn through a filter synthesized
+  from those traits, not the default. A built-in profile still wins. Before the
+  change, autism-spectrum, dyscalculia and a custom persona with traits all
+  resolved "default" on the fixture in `tests/story-attention-traits.test.ts`.
+- **Added: `attention.perceptualProfile`**, `{ resolution, name }`: which filter
+  drew the map, as `attention_analysis` reports it.
 
 ### The effort widget (`ui://cbrowser/effort`)
 
