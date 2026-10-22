@@ -109,6 +109,11 @@ describe("the replacement constants are named and honest", () => {
     expect(e?.status).toBe("definition");
     expect(e?.value).toBe(1e-4);
     expect(e?.source).toContain("NOT a behavioural limit");
+    // Not out of reach either: until 21.0 the source said it sat "three orders
+    // of magnitude below anything a persona reaches", while siteFamiliarity is
+    // 0 in the tool path and the first gated layer lifts it to the floor.
+    expect(e?.source).not.toMatch(/orders of magnitude below/);
+    expect(e?.source).toMatch(/does bind/);
     expect(CHAIN).toContain("const CAPACITY_EPSILON = P.capacityEpsilon;");
   });
 

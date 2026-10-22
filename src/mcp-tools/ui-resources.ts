@@ -606,9 +606,8 @@ export const EFFORT_SPEC: WidgetSpec = {
       // Each bar opens into that layer's overlay on the real page. Layers with
       // no overlay stay inert and say why.
       overlaysField: "layerOverlays", fetchTool: "artifact_fetch" },
-    // Surfaced when the run was told, or forced, to treat the persona as new to
-    // the site. It changes every number above and is easy to miss in JSON.
-    { type: "note", field: "familiarityWarning" },
+    // familiarityWarning had a note here; 21.0 removed the site-knowledge
+    // downgrade that produced it, so nothing emits the field any more.
     { type: "note", field: "languageWarning" },
     // Everything below the chain is behind an accordion.
     //
@@ -617,9 +616,9 @@ export const EFFORT_SPEC: WidgetSpec = {
     // <details>, so each one is keyboard operable and announced as an expander
     // without any ARIA of our own.
     //
-    // The two warnings above stay OUT of the accordions on purpose: a familiarity
-    // downgrade or a language mismatch changes how every number below should be
-    // read, and a warning behind a click is a warning nobody reads.
+    // The warning above stays OUT of the accordions on purpose: a language
+    // mismatch changes how every number below should be read, and a warning
+    // behind a click is a warning nobody reads.
     { type: "drawer", title: "Where the cost sits", blocks: [
       { type: "kv", title: "Deficit vs surplus", field: "deficitVsSurplus" },
       { type: "kv", title: "Layer interactions", field: "interactions" },

@@ -52,13 +52,35 @@ export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Objec
 );
 
 let recording: Set<string> | null = null;
+let overrides: Readonly<Record<string, number>> | null = null;
 
 /** Read a registered constant. Throws on an unregistered id, so a typo cannot fall back silently. */
 export function param(id: string): number {
   const e = MODEL_PROVENANCE[id];
   if (!e) throw new Error(`unregistered model constant "${id}"`);
   if (recording) recording.add(id);
+  if (overrides && id in overrides) return overrides[id];
   return e.value;
+}
+
+/**
+ * TEST ONLY: run `fn` with some registered constants replaced, then restore
+ * them. It exists so tests/ctc-no-dead-constants.test.ts can perturb every
+ * constant and check that the output moves; no shipped code may call it (a
+ * test asserts that). Calls nest, the innermost value winning, and an
+ * unregistered id throws exactly as param() does.
+ */
+export function withParamOverrides<T>(values: Record<string, number>, fn: () => T): T {
+  for (const id of Object.keys(values)) {
+    if (!MODEL_PROVENANCE[id]) throw new Error(`unregistered model constant "${id}"`);
+  }
+  const outer = overrides;
+  overrides = { ...(outer ?? {}), ...values };
+  try {
+    return fn();
+  } finally {
+    overrides = outer;
+  }
 }
 
 /** Start recording which ids `param()` reads. Returns the live set. Test and reporting use only. */

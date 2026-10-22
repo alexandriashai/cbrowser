@@ -30,8 +30,15 @@ describe("chain provenance registry", () => {
   test("the registry is non-trivial and every id is unique and chain-prefixed", () => {
     // Pinned exactly: a constant added to or removed from the chain must change
     // this number on purpose. 135 at the refactor; 94 after the 41 variance
-    // coefficients, which no output read, were removed (2026-10-21).
-    expect(CHAIN_PROVENANCE.length).toBe(94);
+    // coefficients, which no output read, were removed (2026-10-21); 88 after
+    // attentionPattern left layer 1 and took its demand weight and the five
+    // string-level capacities with it (21.0); 73 after the eight demand weights
+    // and seven Schwartz modulations that wrote to dimensions in no layer, and
+    // so moved no number, were removed (21.0); 72 after the logistic's overflow
+    // clamp, which no sanitised input can reach, was removed (21.0, found by
+    // ctc-no-dead-constants.test.ts); 71 after abandonment stopped subtracting
+    // surplus from deficit (chain.abandonment.surplusRelief, 21.0).
+    expect(CHAIN_PROVENANCE.length).toBe(71);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });
@@ -76,7 +83,9 @@ describe("chain provenance registry", () => {
 
   test("withProvenance on one chain run reports hypothesis counts above zero", () => {
     const { provenance } = withProvenance(() => buildGoldenMatrix());
-    expect(provenance.counts.hypothesis).toBeGreaterThanOrEqual(90);
+    // Every chain hypothesis is read by the matrix (the dead-entry test above),
+    // so the count is at least that many; a fixed 90 went stale as constants left.
+    expect(provenance.counts.hypothesis).toBeGreaterThanOrEqual(CHAIN_PROVENANCE.filter((e) => e.status === "hypothesis").length);
     expect(provenance.counts.definition).toBeGreaterThan(0);
     expect(provenance.counts.fitted).toBe(0);
     expect(provenance.counts.published).toBe(0);

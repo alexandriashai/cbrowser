@@ -210,7 +210,7 @@ describe("the served manifest matches the handler it fronts", () => {
     const desc = (MANIFEST.get("cognitive_effort")?.description ?? "").toLowerCase();
     expect(desc).toContain("8-layer");
     // Every layer the code has must appear, in the prose form the description uses.
-    for (const layer of ["saliency", "cognitive load", "decision", "motor", "frustration", "readability"]) {
+    for (const layer of ["visual complexity", "cognitive load", "decision", "motor", "frustration", "readability"]) {
       expect(desc).toContain(layer);
     }
     expect(known.size).toBe(LAYER_DEFINITIONS.length);

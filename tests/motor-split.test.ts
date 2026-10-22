@@ -56,7 +56,7 @@ describe("the chain is eight layers, in order", () => {
   test("motorProcedure sits directly after motor", () => {
     const block = CHAIN.slice(CHAIN.indexOf("LAYER_DEFINITIONS"), CHAIN.indexOf("INTERACTION_PAIRS"));
     const names = Array.from(block.matchAll(/name: '([a-zA-Z]+)'/g), (m) => m[1]);
-    expect(names).toEqual(["saliency", "cognitiveLoad", "decision", "motor", "motorProcedure",
+    expect(names).toEqual(["visualComplexity", "cognitiveLoad", "decision", "motor", "motorProcedure",
       "frustration", "readability", "readingAttention"]);
   });
 

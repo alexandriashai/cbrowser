@@ -219,17 +219,16 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
   server.registerTool("site_cognitive_assessment", {
     title: "Site Cognitive Assessment",
-    description: "Three-gate pipeline: (1) bot-detection probe, (2) agent-ready qualification, (3) per-persona cognitive effort analysis. IMPORTANT: If the user requests high-familiarity personas (power-user, confident-user), check site_model_status first. Without site knowledge, these personas are tested as first-time visitors and a familiarityWarning is returned. Ask the user if they want to build site knowledge first.",
+    description: "Three-gate pipeline: (1) bot-detection probe, (2) agent-ready qualification, (3) per-persona cognitive effort analysis. Site familiarity is per run: pass siteFamiliarity (0 first visit, 1 regular user) or every persona is scored as a first visit. No persona carries a familiarity of its own, and site knowledge from crawling is reported but does not change the score.",
     inputSchema: {
       url: z.string().url().describe("URL to assess"),
       personas: z.string().optional().default("first-timer,cognitive-adhd").describe("Comma-separated persona names (default: first-timer,cognitive-adhd)"),
       threshold: z.number().optional().default(60).describe("Minimum agent-ready score to proceed to persona analysis (default: 60)"),
       // Per RUN, not per persona. The same person is familiar with one site and new
-      // to another, so this has no value until a site is named -- a stored value only
-      // ever answered "familiar with which site?" by accident. The persona's value is
-      // the fallback when a caller does not pass one. (2026-08-01)
+      // to another, so this has no value until a site is named. Omitted, the run
+      // scores a first visit (0.0); see site-familiarity.ts. (2026-08-01, 21.0)
       siteFamiliarity: z.number().min(0).max(1).optional()
-        .describe("How familiar these personas are with THIS site: 0 first visit, 1 regular user. Overrides any value stored on the persona. Familiarity is a persona-site pair, not a disposition, so set it per run."),
+        .describe("How familiar these personas are with THIS site: 0 first visit, 1 regular user. Omitted, every persona is scored as a first visit (0). Familiarity is a persona-site pair, not a disposition, so set it per run; site knowledge does not supply it."),
       userLocation: z.string().optional().describe("User's approximate location (e.g., 'Denver, Colorado, US') — for geo-aware content expectations"),
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver') — for time-sensitive content evaluation"),
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US') — for readability calibration"),
@@ -566,8 +565,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           };
         } catch {}
 
-        // Check site knowledge — binary gate for siteFamiliarity
-        // Has data = persona keeps its familiarity. No data = forced to 0.0 (first visit).
+        // Site knowledge is looked up only to report it. siteFamiliarity is the
+        // caller's value or 0.0 (first visit), whatever this install has crawled.
         let hasSiteKnowledge = false;
         try {
           const domain = new URL(url).hostname;
@@ -584,23 +583,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             const personaObj = existingPersona || createCognitivePersona(personaName, personaName, {});
             const traits = { ...((personaObj as unknown as Record<string, unknown>).cognitiveTraits || {}) as Record<string, number> };
 
-            // Familiarity is a persona-SITE pair, so the caller's value for THIS
-            // run wins over anything stored on the persona. A stored value only
-            // ever answered "familiar with which site?" by accident.
-            // (2026-08-01)
-            const reqFam = traits.siteFamiliarity ?? 0.5;
-            const familiarityFromCaller = typeof siteFamiliarity === "number";
-            if (familiarityFromCaller) {
-              traits.siteFamiliarity = siteFamiliarity;
-            } else {
-              // v18.61.0: without an explicit value it stays a binary gate on
-              // whether this install has crawled the site at all.
-              if (hasSiteKnowledge) {
-                if (reqFam > 0.5) traits.siteFamiliarity = 1.0;
-              } else {
-                traits.siteFamiliarity = 0.0;
-              }
-            }
+            // Familiarity is a persona-SITE pair: the caller's value for THIS
+            // run, else 0.0. Through 20.x a site-knowledge branch left it unset,
+            // which the chain read as 0.5 (site-familiarity.ts).
+            const { resolveSiteFamiliarity } = await import("./site-familiarity.js");
+            const familiarity = resolveSiteFamiliarity(siteFamiliarity, hasSiteKnowledge);
+            traits.siteFamiliarity = familiarity.value;
 
             // Bridge the derived capacities before building the profile. This was
             // MISSING here and present in cognitive_effort, so the motor layer --
@@ -635,13 +623,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
                 name: l.name,
                 cost: Math.round(l.transportCost * 1000) / 1000,
               })),
-              // Only warn about the automatic downgrade. A caller who SET the
-              // value for this run has already answered the question the
-              // downgrade exists to answer.
-              ...(!familiarityFromCaller && reqFam > 0.5 && !hasSiteKnowledge ? {
-                familiarityWarning: `siteFamiliarity downgraded from ${reqFam} to 0.0 — no site knowledge exists for this domain. Pass siteFamiliarity on this call to state it directly, or run page_understand first.`,
-              } : {}),
-              ...(familiarityFromCaller ? { siteFamiliaritySource: "supplied for this run" } : {}),
+              siteFamiliarity: familiarity.value,
+              siteFamiliaritySource: familiarity.source,
+              siteKnowledgeAvailable: familiarity.siteKnowledgeAvailable,
             };
           } catch (personaErr) {
             personaResults[personaName] = { error: personaErr instanceof Error ? personaErr.message : String(personaErr) };
