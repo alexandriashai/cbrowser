@@ -94,3 +94,7 @@ tests/visual-story-registry.test.ts
 tests/page-metrics-golden.test.ts
 # Runs attention_analysis, attention_compare and runEmpathyAudit on a served page with custom personas on disk.
 tests/attention-accessibility-traits.test.ts
+# Runs runEmpathyAudit (one shared page) and journey_heatmap_gif with custom personas on disk.
+tests/attention-traits-callers.test.ts
+# Runs the in-page journey heatmap script in chromium and reads the weights it painted.
+tests/attention-overlay-config.test.ts
