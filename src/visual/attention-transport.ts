@@ -1352,18 +1352,20 @@ export async function analyzeAttentionFromDOM(
   //
   // This path exists so callers are INTERCHANGEABLE with analyzeAttention (its
   // own docstring says so). Calibrating one and not the other would silently
-  // make the fast path and the full path disagree about where a persona looks --
-  // the live cognitive-journey overlay drawing a different map from the audit.
+  // make the fast path and the full path disagree about where a persona looks.
   //
-  // Sigma is scaled to this grid like analyzeAttention's. This grid is NOT
-  // halved, though, so a cell here spans cellSize px where the fitted cell
-  // spanned 2x that: this path smooths at half the fitted physical width, at
-  // every cellSize, as it did at 16 before the rescale. Not changed here, since
-  // matching it would move every live overlay. (2026-10-21)
+  // Sigma keeps the fitted width in PIXELS (80, at device pixel ratio 1). This
+  // grid is not halved, so a cell here spans cellSize px, which is the cell
+  // analyzeAttention gets from cellSize x downscale. gazeSigmaCells(cellSize)
+  // alone smoothed this path at 40 px, half the fitted width, at every
+  // cellSize (ISC-47, fixed 2026-10-22; tests/attention-dom-gaze-width.test.ts).
+  // The live cognitive-journey overlay does NOT run this function: it draws
+  // its own in-page copy (ATTENTION_OVERLAY_SCRIPT in cognitive/index.ts), so
+  // no shipped overlay moved with this fix.
   const filtered = applyGazeCalibration(
     applyPersonaFilter(semanticMap, rows, cols, profile.visualFilter, values),
     rows, cols,
-    gazeSigmaCells(cellSize),
+    gazeSigmaCells(cellSize * param("attention.lab.downscale")),
   );
 
   // Hotspots, entropy, concentration — same shape as analyzeAttention
