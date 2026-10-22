@@ -291,7 +291,7 @@ export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
  * calibration exists for them; an earlier comment claimed one). The weight
  * is read through param() so a run records that it depended on it.
  */
-const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> = [
+export const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> = [
   { a: 'cognitiveLoad', b: 'decision', weight: 'chain.interaction.cognitiveLoadXdecision' },
   { a: 'saliency', b: 'cognitiveLoad', weight: 'chain.interaction.saliencyXcognitiveLoad' },
   { a: 'frustration', b: 'readability', weight: 'chain.interaction.frustrationXreadability' },
@@ -343,7 +343,7 @@ const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> = [
  * rather than as effort spent, so it is treated as the ability its high end
  * describes.
  */
-const SURPLUS_FREE_DIMENSIONS = new Set([
+export const SURPLUS_FREE_DIMENSIONS = new Set([
   // Derived capacity bridges -- pure abilities by construction.
   'readingCapacity', 'motorCapacity', 'sustainedAttention', 'processingSpeed', 'textProcessing', 'motorPrecision',
   // Experience. Knowing a site better cannot make it harder to use.
@@ -837,6 +837,19 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
  * Resolve a trait value from the persona's trait record.
  * Falls back to chain.missingTraitCapacity (0.5, a hypothesis) for missing traits.
  */
+/**
+ * A persona's capacity vector over DEMAND_DIMENSIONS, exactly as the chain reads
+ * it at the start of a page: each trait through traitValue (clamped to [0, 1],
+ * string attention patterns mapped, missing traits at chain.missingTraitCapacity).
+ * The Wasserstein-DRO bound (dro-bound.ts) works on these vectors.
+ */
+export function capacityVector(traits: Record<string, number | string>): Record<string, number> {
+  const P = readParams(CHAIN_IDS);
+  const out: Record<string, number> = {};
+  for (const dim of DEMAND_DIMENSIONS) out[dim] = traitValue(traits, dim, P);
+  return out;
+}
+
 function traitValue(traits: Record<string, number | string>, trait: string, P: ChainParams): number {
   const v = traits?.[trait];
   // Handle string enum traits (e.g. attentionPattern: "targeted" | "f-pattern" | ...)
