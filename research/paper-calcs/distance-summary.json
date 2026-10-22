@@ -1,0 +1,694 @@
+{
+  "ran": "2026-10-22T17:09:02.344Z",
+  "personas": 25,
+  "pairs": 300,
+  "profile_construction": "getCognitiveProfile(p).traits -> buildOTCognitiveProfile -> cognitiveDistance().w1 (as cognitive_distance's reference)",
+  "baseline_constants": {
+    "same": 0.2,
+    "related": 0.5,
+    "unrelated": 0.8,
+    "unknown": 0.8,
+    "slack": 0.4
+  },
+  "w1": {
+    "mean": 0.04739540229885057,
+    "sd": 0.01786910727253869,
+    "q0": 0.01689655172413793,
+    "q5": 0.022758620689655173,
+    "q10": 0.025810344827586172,
+    "q25": 0.03392241379310341,
+    "q50": 0.044827586206896544,
+    "q75": 0.059008620689655164,
+    "q90": 0.06913793103448274,
+    "q95": 0.08036206896551713,
+    "q100": 0.11844827586206894
+  },
+  "level_share_median": 0.18418803418803453,
+  "histogram": [
+    {
+      "lo": 0.01689655172413793,
+      "hi": 0.023666666666666662,
+      "count": 18
+    },
+    {
+      "lo": 0.023666666666666662,
+      "hi": 0.0304367816091954,
+      "count": 38
+    },
+    {
+      "lo": 0.0304367816091954,
+      "hi": 0.03720689655172413,
+      "count": 39
+    },
+    {
+      "lo": 0.03720689655172413,
+      "hi": 0.043977011494252864,
+      "count": 46
+    },
+    {
+      "lo": 0.043977011494252864,
+      "hi": 0.0507471264367816,
+      "count": 46
+    },
+    {
+      "lo": 0.0507471264367816,
+      "hi": 0.05751724137931033,
+      "count": 31
+    },
+    {
+      "lo": 0.05751724137931033,
+      "hi": 0.06428735632183906,
+      "count": 32
+    },
+    {
+      "lo": 0.06428735632183906,
+      "hi": 0.0710574712643678,
+      "count": 25
+    },
+    {
+      "lo": 0.0710574712643678,
+      "hi": 0.07782758620689653,
+      "count": 7
+    },
+    {
+      "lo": 0.07782758620689653,
+      "hi": 0.08459770114942526,
+      "count": 7
+    },
+    {
+      "lo": 0.08459770114942526,
+      "hi": 0.09136781609195399,
+      "count": 2
+    },
+    {
+      "lo": 0.09136781609195399,
+      "hi": 0.09813793103448273,
+      "count": 6
+    },
+    {
+      "lo": 0.09813793103448273,
+      "hi": 0.10490804597701146,
+      "count": 1
+    },
+    {
+      "lo": 0.10490804597701146,
+      "hi": 0.11167816091954019,
+      "count": 1
+    },
+    {
+      "lo": 0.11167816091954019,
+      "hi": 0.11844827586206894,
+      "count": 1
+    }
+  ],
+  "closest10": [
+    {
+      "a": "screen-reader-user",
+      "b": "deaf-user",
+      "w1": 0.01689655172413793,
+      "overallLevel": 0.0037931034482758617
+    },
+    {
+      "a": "deaf-user",
+      "b": "color-blind-deuteranopia",
+      "w1": 0.017586206896551715,
+      "overallLevel": 0.002758620689655178
+    },
+    {
+      "a": "motor-impairment-tremor",
+      "b": "low-vision-magnified",
+      "w1": 0.01793103448275862,
+      "overallLevel": 0.00206896551724138
+    },
+    {
+      "a": "elderly-user",
+      "b": "elderly-low-vision",
+      "w1": 0.018793103448275863,
+      "overallLevel": 0.005862068965517242
+    },
+    {
+      "a": "dyslexic-user",
+      "b": "dyscalculia",
+      "w1": 0.0193103448275862,
+      "overallLevel": 0.004482758620689654
+    },
+    {
+      "a": "distracted-user",
+      "b": "cognitive-adhd",
+      "w1": 0.020344827586206884,
+      "overallLevel": 0.005862068965517264
+    },
+    {
+      "a": "screen-reader-user",
+      "b": "motor-impairment-tremor",
+      "w1": 0.02086206896551724,
+      "overallLevel": 0.0062068965517241515
+    },
+    {
+      "a": "low-vision-magnified",
+      "b": "color-blind-deuteranopia",
+      "w1": 0.021551724137931032,
+      "overallLevel": 0.005172413793103448
+    },
+    {
+      "a": "motor-impairment-tremor",
+      "b": "dyslexic-user",
+      "w1": 0.022068965517241364,
+      "overallLevel": 0.0017241379310344751
+    },
+    {
+      "a": "mobile-user",
+      "b": "cognitive-adhd",
+      "w1": 0.022068965517241367,
+      "overallLevel": 0.0037931034482758586
+    }
+  ],
+  "farthest10": [
+    {
+      "a": "explorer",
+      "b": "intellectual-disability",
+      "w1": 0.11844827586206894,
+      "overallLevel": 0.028275862068965534
+    },
+    {
+      "a": "power-user",
+      "b": "intellectual-disability",
+      "w1": 0.10603448275862062,
+      "overallLevel": 0.022413793103448314
+    },
+    {
+      "a": "task-focused",
+      "b": "intellectual-disability",
+      "w1": 0.09862068965517241,
+      "overallLevel": 0.024827586206896554
+    },
+    {
+      "a": "intellectual-disability",
+      "b": "confident-user",
+      "w1": 0.09603448275862067,
+      "overallLevel": 0.023103448275862082
+    },
+    {
+      "a": "intellectual-disability",
+      "b": "stoic-user",
+      "w1": 0.09551724137931028,
+      "overallLevel": 0.020344827586206923
+    },
+    {
+      "a": "careful-reader",
+      "b": "intellectual-disability",
+      "w1": 0.09431034482758621,
+      "overallLevel": 0.014827586206896549
+    },
+    {
+      "a": "screen-reader-user",
+      "b": "intellectual-disability",
+      "w1": 0.09327586206896551,
+      "overallLevel": 0.025862068965517244
+    },
+    {
+      "a": "color-blind-deuteranopia",
+      "b": "intellectual-disability",
+      "w1": 0.0932758620689655,
+      "overallLevel": 0.026896551724137942
+    },
+    {
+      "a": "deaf-user",
+      "b": "intellectual-disability",
+      "w1": 0.09189655172413791,
+      "overallLevel": 0.029655172413793122
+    },
+    {
+      "a": "explorer",
+      "b": "aphasia-receptive",
+      "w1": 0.08896551724137922,
+      "overallLevel": 0.02931034482758625
+    }
+  ],
+  "nearest_neighbour": [
+    {
+      "persona": "power-user",
+      "nn": "confident-user",
+      "d": 0.02241379310344823,
+      "second": "stoic-user",
+      "d2": 0.028620689655172414,
+      "margin": 0.006206896551724184
+    },
+    {
+      "persona": "first-timer",
+      "nn": "elderly-user",
+      "d": 0.022758620689655173,
+      "second": "elderly-low-vision",
+      "d2": 0.02448275862068964,
+      "margin": 0.0017241379310344654
+    },
+    {
+      "persona": "mobile-user",
+      "nn": "cognitive-adhd",
+      "d": 0.022068965517241367,
+      "second": "emotional-user",
+      "d2": 0.02224137931034476,
+      "margin": 0.00017241379310339172
+    },
+    {
+      "persona": "screen-reader-user",
+      "nn": "deaf-user",
+      "d": 0.01689655172413793,
+      "second": "motor-impairment-tremor",
+      "d2": 0.02086206896551724,
+      "margin": 0.003965517241379311
+    },
+    {
+      "persona": "elderly-user",
+      "nn": "elderly-low-vision",
+      "d": 0.018793103448275863,
+      "second": "anxious-user",
+      "d2": 0.02258620689655172,
+      "margin": 0.0037931034482758565
+    },
+    {
+      "persona": "impatient-user",
+      "nn": "mobile-user",
+      "d": 0.026379310344827572,
+      "second": "distracted-user",
+      "d2": 0.027241379310344826,
+      "margin": 0.0008620689655172535
+    },
+    {
+      "persona": "distracted-user",
+      "nn": "cognitive-adhd",
+      "d": 0.020344827586206884,
+      "second": "mobile-user",
+      "d2": 0.025344827586206882,
+      "margin": 0.0049999999999999975
+    },
+    {
+      "persona": "careful-reader",
+      "nn": "stoic-user",
+      "d": 0.027241379310344746,
+      "second": "screen-reader-user",
+      "d2": 0.03155172413793103,
+      "margin": 0.004310344827586285
+    },
+    {
+      "persona": "explorer",
+      "nn": "task-focused",
+      "d": 0.031206896551724133,
+      "second": "confident-user",
+      "d2": 0.03224137931034482,
+      "margin": 0.0010344827586206869
+    },
+    {
+      "persona": "task-focused",
+      "nn": "screen-reader-user",
+      "d": 0.027068965517241354,
+      "second": "color-blind-deuteranopia",
+      "d2": 0.028275862068965513,
+      "margin": 0.0012068965517241584
+    },
+    {
+      "persona": "motor-impairment-tremor",
+      "nn": "low-vision-magnified",
+      "d": 0.01793103448275862,
+      "second": "screen-reader-user",
+      "d2": 0.02086206896551724,
+      "margin": 0.0029310344827586203
+    },
+    {
+      "persona": "low-vision-magnified",
+      "nn": "motor-impairment-tremor",
+      "d": 0.01793103448275862,
+      "second": "color-blind-deuteranopia",
+      "d2": 0.021551724137931032,
+      "margin": 0.0036206896551724127
+    },
+    {
+      "persona": "cognitive-adhd",
+      "nn": "distracted-user",
+      "d": 0.020344827586206884,
+      "second": "mobile-user",
+      "d2": 0.022068965517241367,
+      "margin": 0.0017241379310344827
+    },
+    {
+      "persona": "dyslexic-user",
+      "nn": "dyscalculia",
+      "d": 0.0193103448275862,
+      "second": "motor-impairment-tremor",
+      "d2": 0.022068965517241364,
+      "margin": 0.0027586206896551627
+    },
+    {
+      "persona": "deaf-user",
+      "nn": "screen-reader-user",
+      "d": 0.01689655172413793,
+      "second": "color-blind-deuteranopia",
+      "d2": 0.017586206896551715,
+      "margin": 0.0006896551724137855
+    },
+    {
+      "persona": "elderly-low-vision",
+      "nn": "elderly-user",
+      "d": 0.018793103448275863,
+      "second": "first-timer",
+      "d2": 0.02448275862068964,
+      "margin": 0.005689655172413776
+    },
+    {
+      "persona": "color-blind-deuteranopia",
+      "nn": "deaf-user",
+      "d": 0.017586206896551715,
+      "second": "low-vision-magnified",
+      "d2": 0.021551724137931032,
+      "margin": 0.003965517241379318
+    },
+    {
+      "persona": "autism-spectrum",
+      "nn": "anxious-user",
+      "d": 0.029655172413793063,
+      "second": "elderly-user",
+      "d2": 0.03258620689655165,
+      "margin": 0.002931034482758589
+    },
+    {
+      "persona": "intellectual-disability",
+      "nn": "aphasia-receptive",
+      "d": 0.03896551724137929,
+      "second": "elderly-user",
+      "d2": 0.0408620689655172,
+      "margin": 0.0018965517241379126
+    },
+    {
+      "persona": "aphasia-receptive",
+      "nn": "elderly-user",
+      "d": 0.029999999999999992,
+      "second": "distracted-user",
+      "d2": 0.03206896551724138,
+      "margin": 0.0020689655172413876
+    },
+    {
+      "persona": "dyscalculia",
+      "nn": "dyslexic-user",
+      "d": 0.0193103448275862,
+      "second": "mobile-user",
+      "d2": 0.022758620689655163,
+      "margin": 0.003448275862068962
+    },
+    {
+      "persona": "anxious-user",
+      "nn": "elderly-user",
+      "d": 0.02258620689655172,
+      "second": "elderly-low-vision",
+      "d2": 0.02741379310344826,
+      "margin": 0.00482758620689654
+    },
+    {
+      "persona": "confident-user",
+      "nn": "power-user",
+      "d": 0.02241379310344823,
+      "second": "color-blind-deuteranopia",
+      "d2": 0.023275862068965515,
+      "margin": 0.0008620689655172847
+    },
+    {
+      "persona": "emotional-user",
+      "nn": "mobile-user",
+      "d": 0.02224137931034476,
+      "second": "cognitive-adhd",
+      "d2": 0.023965517241379235,
+      "margin": 0.0017241379310344758
+    },
+    {
+      "persona": "stoic-user",
+      "nn": "color-blind-deuteranopia",
+      "d": 0.024137931034482713,
+      "second": "confident-user",
+      "d2": 0.025862068965517203,
+      "margin": 0.0017241379310344897
+    }
+  ],
+  "robustness": {
+    "one_at_a_time": [
+      {
+        "label": "same x0.75",
+        "values": {
+          "same": 0.15000000000000002,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 0.8,
+          "slack": 0.4
+        },
+        "tau": 0.9681297354829883,
+        "nn_changed": [
+          "impatient-user",
+          "confident-user"
+        ]
+      },
+      {
+        "label": "same x1.25",
+        "values": {
+          "same": 0.25,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 0.8,
+          "slack": 0.4
+        },
+        "tau": 0.9684851612815523,
+        "nn_changed": [
+          "mobile-user",
+          "explorer",
+          "deaf-user"
+        ]
+      },
+      {
+        "label": "related x0.75",
+        "values": {
+          "same": 0.2,
+          "related": 0.375,
+          "unrelated": 0.8,
+          "unknown": 0.8,
+          "slack": 0.4
+        },
+        "tau": 0.9131094388293788,
+        "nn_changed": [
+          "first-timer",
+          "mobile-user",
+          "autism-spectrum"
+        ]
+      },
+      {
+        "label": "related x1.25",
+        "values": {
+          "same": 0.2,
+          "related": 0.625,
+          "unrelated": 0.8,
+          "unknown": 0.8,
+          "slack": 0.4
+        },
+        "tau": 0.9281086820707244,
+        "nn_changed": [
+          "explorer",
+          "deaf-user",
+          "confident-user"
+        ]
+      },
+      {
+        "label": "unrelated x0.75",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 0.6000000000000001,
+          "unknown": 0.8,
+          "slack": 0.4
+        },
+        "tau": 0.9480481829644269,
+        "nn_changed": [
+          "mobile-user",
+          "explorer",
+          "deaf-user",
+          "stoic-user"
+        ]
+      },
+      {
+        "label": "unrelated x1.25",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 1,
+          "unknown": 0.8,
+          "slack": 0.4
+        },
+        "refused": "2 x slack below the largest ground cost: not a metric, cognitiveDistance refuses"
+      },
+      {
+        "label": "unknown x0.75",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 0.6000000000000001,
+          "slack": 0.4
+        },
+        "tau": 1,
+        "nn_changed": []
+      },
+      {
+        "label": "unknown x1.25",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 1,
+          "slack": 0.4
+        },
+        "refused": "2 x slack below the largest ground cost: not a metric, cognitiveDistance refuses"
+      },
+      {
+        "label": "slack x0.75",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 0.8,
+          "slack": 0.30000000000000004
+        },
+        "refused": "2 x slack below the largest ground cost: not a metric, cognitiveDistance refuses"
+      },
+      {
+        "label": "slack x1.25",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 0.8,
+          "slack": 0.5
+        },
+        "tau": 0.9140021236027172,
+        "nn_changed": [
+          "first-timer",
+          "mobile-user",
+          "autism-spectrum",
+          "stoic-user"
+        ]
+      },
+      {
+        "label": "unrelated x1.25 (+slack 0.50)",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 1,
+          "unknown": 0.8,
+          "slack": 0.5
+        },
+        "tau": 0.9265632590209683,
+        "nn_changed": [
+          "first-timer",
+          "mobile-user",
+          "autism-spectrum"
+        ]
+      },
+      {
+        "label": "unknown x1.25 (+slack 0.50)",
+        "values": {
+          "same": 0.2,
+          "related": 0.5,
+          "unrelated": 0.8,
+          "unknown": 1,
+          "slack": 0.5
+        },
+        "tau": 0.9140021236027172,
+        "nn_changed": [
+          "first-timer",
+          "mobile-user",
+          "autism-spectrum",
+          "stoic-user"
+        ]
+      }
+    ],
+    "joint": {
+      "tied": {
+        "seed": "0x9e3779b9",
+        "accepted": 200,
+        "draws": 361,
+        "rejected_order": 1,
+        "rejected_metric": 160,
+        "tau_median": 0.9291242278739751,
+        "tau_p5": 0.8709427323343187,
+        "tau_min": 0.849528337970175,
+        "tau_max": 0.9923504391032476,
+        "draws_with_any_nn_change": 0.95,
+        "mean_personas_with_nn_change": 3.7,
+        "accepted_slack_median": 0.44726414182223384,
+        "nn_change_rate": {
+          "power-user": 0,
+          "first-timer": 0.425,
+          "mobile-user": 0.795,
+          "screen-reader-user": 0,
+          "elderly-user": 0,
+          "impatient-user": 0.09,
+          "distracted-user": 0,
+          "careful-reader": 0,
+          "explorer": 0.32,
+          "task-focused": 0.195,
+          "motor-impairment-tremor": 0,
+          "low-vision-magnified": 0,
+          "cognitive-adhd": 0.06,
+          "dyslexic-user": 0.01,
+          "deaf-user": 0.62,
+          "elderly-low-vision": 0,
+          "color-blind-deuteranopia": 0,
+          "autism-spectrum": 0.41,
+          "intellectual-disability": 0,
+          "aphasia-receptive": 0.13,
+          "dyscalculia": 0,
+          "anxious-user": 0.08,
+          "confident-user": 0.1,
+          "emotional-user": 0.035,
+          "stoic-user": 0.43
+        }
+      },
+      "independent": {
+        "seed": "0x85ebca6b",
+        "accepted": 200,
+        "draws": 688,
+        "rejected_order": 0,
+        "rejected_metric": 488,
+        "tau_median": 0.9308637850083255,
+        "tau_p5": 0.8630322077759333,
+        "tau_min": 0.8368607937097776,
+        "tau_max": 0.9928410834231925,
+        "draws_with_any_nn_change": 0.98,
+        "mean_personas_with_nn_change": 3.83,
+        "accepted_slack_median": 0.4595721614081413,
+        "nn_change_rate": {
+          "power-user": 0,
+          "first-timer": 0.5,
+          "mobile-user": 0.85,
+          "screen-reader-user": 0,
+          "elderly-user": 0,
+          "impatient-user": 0.095,
+          "distracted-user": 0,
+          "careful-reader": 0,
+          "explorer": 0.255,
+          "task-focused": 0.125,
+          "motor-impairment-tremor": 0,
+          "low-vision-magnified": 0,
+          "cognitive-adhd": 0.11,
+          "dyslexic-user": 0.005,
+          "deaf-user": 0.605,
+          "elderly-low-vision": 0,
+          "color-blind-deuteranopia": 0,
+          "autism-spectrum": 0.44,
+          "intellectual-disability": 0,
+          "aphasia-receptive": 0.16,
+          "dyscalculia": 0,
+          "anxious-user": 0.125,
+          "confident-user": 0.06,
+          "emotional-user": 0,
+          "stoic-user": 0.5
+        }
+      }
+    },
+    "rng": "mulberry32, each constant uniform on [0.75, 1.25] x baseline; tied seed 0x9e3779b9, independent seed 0x85ebca6b"
+  }
+}
