@@ -34,8 +34,10 @@ describe("chain provenance registry", () => {
     // attentionPattern left layer 1 and took its demand weight and the five
     // string-level capacities with it (21.0); 73 after the eight demand weights
     // and seven Schwartz modulations that wrote to dimensions in no layer, and
-    // so moved no number, were removed (21.0).
-    expect(CHAIN_PROVENANCE.length).toBe(73);
+    // so moved no number, were removed (21.0); 72 after the logistic's overflow
+    // clamp, which no sanitised input can reach, was removed (21.0, found by
+    // ctc-no-dead-constants.test.ts).
+    expect(CHAIN_PROVENANCE.length).toBe(72);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });

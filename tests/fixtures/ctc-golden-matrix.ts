@@ -1,7 +1,8 @@
 /**
  * The golden matrix for the cognitive transport chain: every human persona,
- * built the way cognitive_effort builds it, against a spread of demand
- * vectors, under every option set the tools use.
+ * built the way cognitive_effort builds it, plus two synthetic boundary
+ * personas, against a spread of demand vectors, under every option set the
+ * tools use.
  *
  * Shared by three callers so they cannot drift from each other:
  *   generate-ctc-golden.ts   writes tests/fixtures/ctc-golden-20.0.1.json
@@ -54,9 +55,10 @@ export const RAW_DEMANDS: Array<{ id: string; args: [number, number, number, num
 ];
 
 /**
- * Two full PageMetrics with the v18.56 readability fields set, so the
+ * Full PageMetrics with the v18.56 readability fields set, so the
  * text-difficulty branch of computeDemandDistribution (which
- * computeDemandFromRawMetrics never reaches) is pinned too.
+ * computeDemandFromRawMetrics never reaches) is pinned too, plus boundary
+ * pages that put each threshold or max-term in play.
  */
 export const PAGE_DEMANDS: Array<{ id: string; metrics: PageMetrics }> = [
   { id: "readable-prose", metrics: {
@@ -69,9 +71,48 @@ export const PAGE_DEMANDS: Array<{ id: string; metrics: PageMetrics }> = [
     animationLevel: 0.2, choiceCount: 10, navigationDepth: 4,
     avgWordLength: 0.9, avgSentenceLength: 0.85, lexicalDiversity: 0.9, longWordRatio: 0.8, technicalDensity: 0.95,
   } },
+  // Added in 21.0. comprehension demand is a max over seven terms, and on the
+  // two pages above the density and technical terms always won, so the four
+  // readability weights below never set a number (the dead-constant test found
+  // them). One page per term, each where that term is the largest.
+  ...(["avgWordLength", "avgSentenceLength", "lexicalDiversity", "longWordRatio"] as const).map((field) => ({
+    id: `dominant-${field}`,
+    metrics: {
+      informationDensity: 0.2, visualComplexity: 0.3, interactiveElementCount: 10, textDensity: 0.2,
+      animationLevel: 0.1, choiceCount: 4, navigationDepth: 2,
+      avgWordLength: 0.1, avgSentenceLength: 0.1, lexicalDiversity: 0.1, longWordRatio: 0.1, technicalDensity: 0.05,
+      [field]: 0.95,
+    } as PageMetrics,
+  })),
+  // Just above the depletion gate: cognitiveLoad's content scale is 0.1004
+  // against chain.depletionGate 0.1, so the gate decides whether this page
+  // depletes. Without a page near it, the threshold changed no number.
+  { id: "gate-edge", metrics: {
+    informationDensity: 0.062, visualComplexity: 0, interactiveElementCount: 0, textDensity: 0,
+    animationLevel: 0, choiceCount: 0, navigationDepth: 0,
+  } },
 ];
 
-/** Three multi-screen inputs for computeSequentialScrollCTC (3, 5 and 8 screens). */
+/**
+ * Two synthetic personas at the edges of the capacity space, added in 21.0.
+ * They are not people and are not in ROSTER (the DRO tests and the delta
+ * report iterate ROSTER): they pin branches no human persona reaches.
+ *
+ *   boundary-floor   every dimension at 0.02 (siteFamiliarity 0): the only
+ *                    persona deep enough in deficit for the drawdown cap
+ *                    (chain.maxDrawdownFraction) and the tolerance floor
+ *                    (chain.abandonment.toleranceFloor) to bind.
+ *   boundary-sparse  no traits at all: every dimension reads
+ *                    chain.missingTraitCapacity, the path a caller takes with
+ *                    a partial trait record (computeSequentialCTC and the DRO
+ *                    population both accept one).
+ */
+export const BOUNDARY_PERSONAS: Record<string, Record<string, number>> = {
+  "boundary-floor": Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, d === "siteFamiliarity" ? 0 : 0.02])),
+  "boundary-sparse": {},
+};
+
+/** Multi-screen inputs for computeSequentialScrollCTC (3, 5, 8 and 2 screens). */
 export const SCROLL_INPUTS: Array<{ id: string; screens: Array<[number, number, number, number, number, number, number]> }> = [
   { id: "short-3", screens: [[0.4, 0.5, 20, 0.4, 0.2, 8, 1], [0.6, 0.4, 10, 0.7, 0.1, 4, 1], [0.3, 0.3, 30, 0.2, 0.0, 12, 1]] },
   { id: "article-5", screens: [
@@ -83,6 +124,12 @@ export const SCROLL_INPUTS: Array<{ id: string; screens: Array<[number, number, 
     [0.7, 0.5, 10, 0.7, 0.1, 4, 1], [0.5, 0.8, 50, 0.3, 0.6, 24, 1], [0.6, 0.4, 12, 0.6, 0.0, 6, 1],
     [0.9, 0.3, 6, 0.9, 0.0, 3, 1], [0.4, 0.6, 60, 0.3, 0.3, 30, 1],
   ] },
+  // Added in 21.0: two maximal screens. The drawdown cap only binds for a layer
+  // costing more than 1/depletionRate x the cap, and only a layer's OWN traits
+  // feel it, which nothing reads again on the same page. A second screen is
+  // where that capped capacity is read, so this is what pins
+  // chain.maxDrawdownFraction (via boundary-floor).
+  { id: "wall-2", screens: [[1, 1, 1000, 1, 1, 500, 30], [1, 1, 1000, 1, 1, 500, 30]] },
 ];
 
 const SCHWARTZ_KEYS = ["selfDirection", "stimulation", "hedonism", "achievement", "power", "security", "conformity", "tradition", "benevolence", "universalism"];
@@ -175,13 +222,15 @@ function pickRun(r: ReturnType<typeof computeSequentialCTC>): GoldenRun {
 }
 
 export function buildGoldenMatrix(): GoldenMatrix {
-  const personas = Object.keys(ROSTER);
+  const personas = [...Object.keys(ROSTER), ...Object.keys(BOUNDARY_PERSONAS)];
   const demands = allDemands();
   const runs: GoldenMatrix["runs"] = {};
   const scroll: GoldenMatrix["scroll"] = {};
   const valuesSource: Record<string, string> = {};
   for (const name of personas) {
-    const profile = toolProfile(name, ROSTER[name]);
+    const profile = name in BOUNDARY_PERSONAS
+      ? buildOTCognitiveProfile(name, { ...BOUNDARY_PERSONAS[name] })
+      : toolProfile(name, ROSTER[name]);
     const sv = schwartzFor(name);
     valuesSource[name] = sv.source;
     runs[name] = {};

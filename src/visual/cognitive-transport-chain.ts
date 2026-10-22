@@ -533,11 +533,12 @@ type ChainParams = Record<keyof typeof CHAIN_IDS, number>;
  * chosen so typical web pages produce demands in [0.1, 0.9]; not calibrated.
  */
 function sigmoid(raw: number, threshold: number, scale: number): number {
+  // No exponent clamp. One was registered (chain.sigmoidExponentClamp, 500)
+  // and could not change a value: x > 500 needs raw below zero, which the
+  // input sanitiser forbids, and for x < -500 the plain form already returns
+  // exactly 1. Math.exp overflows to Infinity, which this form maps to 0, not
+  // NaN. Removed in 21.0 when the dead-constant test found it.
   const x = -(raw - threshold) / scale;
-  // Clamp exponent to prevent overflow
-  const clamp = param('chain.sigmoidExponentClamp');
-  if (x > clamp) return 0;
-  if (x < -clamp) return 1;
   return 1 / (1 + Math.exp(x));
 }
 

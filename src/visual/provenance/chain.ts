@@ -6,7 +6,7 @@
  * weight, rate, cap and modulation coefficient was set by hand, so it is a
  * `hypothesis` whose `source` names the data that would test or fit it. The
  * only `definition` entries are pure encoding choices with no empirical
- * claim: a numerical epsilon, an overflow clamp, output rounding.
+ * claim: a numerical epsilon and output rounding.
  *
  * The chain reads these through `param()` at function entry, so a tool that
  * runs it under `withProvenance` reports exactly which hand-set numbers its
@@ -71,8 +71,6 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("demand.nav.workingMemory", 0.95, DEMAND("navigationDepth", "workingMemory")),
   h("demand.nav.transferLearning", 0.65, DEMAND("navigationDepth", "transferLearning")),
   h("demand.nav.siteFamiliarity", 0.85, DEMAND("navigationDepth", "siteFamiliarity")),
-
-  d("sigmoidExponentClamp", 500, "Overflow guard on the logistic's exponent; exp(+-500) is already 0 or 1 to double precision, so the clamp changes no reachable value."),
 
   // ── Trait resolution ──
   h("missingTraitCapacity", 0.5, "Capacity assumed for a trait the persona does not carry; measured trait distributions across the roster (or refusing to score an absent trait) would replace it."),
