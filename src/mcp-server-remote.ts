@@ -1370,12 +1370,11 @@ TIPS:
 • Use site_cognitive_assessment for comprehensive site analysis (runs all gates automatically)
 • For disability testing, pass one persona at a time to empathy_audit to avoid timeouts
 
-SITE KNOWLEDGE WORKFLOW (IMPORTANT):
-• High-familiarity personas (power-user, confident-user) REQUIRE site knowledge to produce accurate results
-• Before using these personas, run site_model_status to check if knowledge exists
-• If site knowledge EXISTS: ask the user "Site knowledge exists. Use it for experienced-user simulation, or test as first-time visitor?"
-• If NO site knowledge: warn the user and offer to build it (run page_understand or navigate the site first)
-• Without site knowledge, power-user/confident-user are automatically downgraded to first-time visitors
+SITE FAMILIARITY AND SITE KNOWLEDGE:
+• Familiarity is per run, not per persona: no persona (power-user included) carries one
+• cognitive_effort and site_cognitive_assessment score the siteFamiliarity you pass (0 first visit, 1 daily user), else a first visit (0)
+• Site knowledge (site_model_status) is reported in their results but does not change the score
+• cognitive_journey_init caps a journey's familiarity by how many pages this install has crawled
 • navigate, click, and page_understand all build site knowledge automatically
 
 SELF-HELP:

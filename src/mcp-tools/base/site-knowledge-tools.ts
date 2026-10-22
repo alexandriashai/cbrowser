@@ -213,7 +213,7 @@ export function registerSiteKnowledgeTools(
 
   server.registerTool("site_model_status", {
     title: "Site Model Status",
-    description: "Check if site knowledge exists for a domain. Run this BEFORE using high-familiarity personas (power-user, confident-user) to verify site knowledge is available. Returns navigation graph stats, element reliability scores, known goal paths, and failure patterns. If empty, run page_understand or navigate the site to build knowledge.",
+    description: "Check if site knowledge exists for a domain. Returns navigation graph stats, element reliability scores, known goal paths, and failure patterns. If empty, run page_understand or navigate the site to build knowledge.",
     inputSchema: {
       domain: z.string().describe("Domain to check (e.g., 'example.com')"),
     },

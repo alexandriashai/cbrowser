@@ -39,6 +39,7 @@ import {
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import { withProvenance } from "../../visual/model-provenance.js";
+import { resolveSiteFamiliarity } from "./site-familiarity.js";
 
 /**
  * Most base64 characters cognitive_effort spends on its inline motor-overlay
@@ -744,15 +745,15 @@ Begin with the first persona: ${personas[0]}
   server.registerTool("cognitive_effort", {
     _meta: { ui: { resourceUri: "ui://cbrowser/effort" } },
     title: "Cognitive Effort Analysis",
-    description: "Compute total cognitive effort for a persona to use a page. MEASURES THE VIEWPORT BY DEFAULT (above the fold); pass scope='full_page' to measure the whole page. Uses the 8-layer Sequential Transport Chain: visual complexity (a count of visual elements and motion, not the attention model) → cognitive load → decision → motor (target acquisition) → motor procedure (executing a sequence) → frustration → readability (decoding) → reading attention (holding the line, re-reading). IMPORTANT: High-familiarity personas (power-user, confident-user) require site knowledge. If the user asks for these personas, first check if site knowledge exists by running site_model_status. If no site knowledge exists, either (1) ask the user if they want to build it first by navigating the site, or (2) warn them that results will treat the persona as a first-time visitor. The tool returns a familiarityWarning when site knowledge is missing.",
+    description: "Compute total cognitive effort for a persona to use a page. MEASURES THE VIEWPORT BY DEFAULT (above the fold); pass scope='full_page' to measure the whole page. Uses the 8-layer Sequential Transport Chain: visual complexity (a count of visual elements and motion, not the attention model) → cognitive load → decision → motor (target acquisition) → motor procedure (executing a sequence) → frustration → readability (decoding) → reading attention (holding the line, re-reading). Site familiarity is per run: pass siteFamiliarity (0 first visit, 1 daily user) or every persona is scored as a first visit. No persona carries a familiarity of its own, and site knowledge from crawling is reported but does not change the score.",
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       // Per RUN, not per persona. A persona is familiar with one site and new
       // to another, so this only has an answer once a URL is named. The
       // persona's stored value, where one exists, is the fallback. (2026-08-01)
       siteFamiliarity: z.number().min(0).max(1).optional()
-        .describe("How familiar this persona is with THIS url: 0 first visit, 1 daily user. Set it per run — familiarity is a persona-site pair, not a disposition. Supplying it also skips the site-knowledge downgrade, which exists only to stop a stored value asserting experience of a site nobody has crawled."),
-      persona: z.string().describe("Persona name. WORKFLOW: For power-user, confident-user, or any persona the user describes as 'experienced' — check site_model_status first. If site knowledge exists, ask the user: 'Site knowledge exists for this domain. Should I use it to simulate an experienced user, or test as a first-time visitor?' If no site knowledge exists, warn: 'No site knowledge for this domain. power-user will be tested as a first-time visitor. Run page_understand first to build site knowledge.'"),
+        .describe("How familiar this persona is with THIS url: 0 first visit, 1 daily user. Omitted, the run scores a first visit (0). Familiarity is a persona-site pair, not a disposition: no persona carries one, and site knowledge does not supply one."),
+      persona: z.string().describe("Persona name (e.g. first-timer, power-user, cognitive-adhd). To simulate someone who already knows this site, pass siteFamiliarity; the persona name does not imply it."),
       _browserToken: z.string().optional().describe("Browser session token"),
       userLocation: z.string().optional().describe("User's approximate location (e.g., 'Denver, Colorado, US')"),
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver')"),
@@ -865,12 +866,10 @@ Begin with the first persona: ${personas[0]}
         ? createCognitivePersona(personaName, personaName, {})
         : existingPersona as Persona;
 
-      // v18.61.0: siteFamiliarity is a binary gate based on site knowledge
-      // Has site knowledge → persona keeps its familiarity (maxed to 1.0 for experts)
-      // No site knowledge → forced to 0.0 (first visit)
+      // siteFamiliarity: the caller's value for this run, else 0.0 (first
+      // visit). Site knowledge is looked up only to report it; it does not
+      // change the number (site-familiarity.ts has the 20.x history).
       const traits = { ...(personaObj.cognitiveTraits || {}) as Record<string, number> };
-      const requestedFamiliarity = traits.siteFamiliarity ?? 0.5;
-      let familiarityWarning: string | undefined;
 
       let hasSiteKnowledge = false;
       try {
@@ -882,23 +881,8 @@ Begin with the first persona: ${personas[0]}
         hasSiteKnowledge = !!(stats && stats.navigationNodes > 0);
       } catch {}
 
-      // A caller who states familiarity for THIS run has answered the question
-      // the downgrade exists to answer. The gate guards against a value STORED
-      // on a persona claiming experience of a site nobody has crawled -- it was
-      // never meant to overrule someone naming the pair directly.
-      const familiarityFromCaller = typeof siteFamiliarity === "number";
-      if (familiarityFromCaller) {
-        traits.siteFamiliarity = siteFamiliarity;
-      } else if (hasSiteKnowledge) {
-        // Site knowledge exists — high-familiarity personas get max familiarity
-        if (requestedFamiliarity > 0.5) traits.siteFamiliarity = 1.0;
-      } else {
-        // No site knowledge — everyone is a first-time visitor
-        traits.siteFamiliarity = 0.0;
-        if (requestedFamiliarity > 0.5) {
-          familiarityWarning = `"${personaName}" has siteFamiliarity=${requestedFamiliarity.toFixed(1)} stored on the persona but no site knowledge exists for this domain. Downgraded to 0.0 (first visit). Familiarity is a persona-site pair: pass siteFamiliarity on this call to state it for this run, or build knowledge by navigating the site (page_understand goes deeper).`;
-        }
-      }
+      const familiarity = resolveSiteFamiliarity(siteFamiliarity, hasSiteKnowledge);
+      traits.siteFamiliarity = familiarity.value;
 
       // Bridge the formal models into the trait vector BEFORE the chain runs.
       //
@@ -931,7 +915,7 @@ Begin with the first persona: ${personas[0]}
         console.debug(`[cognitive_effort] capacity bridge unavailable: ${(e as Error).message}`);
       }
 
-      // Build OT profile (with potentially adjusted siteFamiliarity)
+      // Build OT profile
       const otProfile = buildOTProfile(
         personaName,
         traits
@@ -1481,7 +1465,6 @@ Begin with the first persona: ${personas[0]}
         scope: measureScope,
         pageScreens: pageMetrics.pageScreens,
         scopeNote: prose.scopeNote,
-        ...(familiarityWarning ? { familiarityWarning, siteFamiliarityAdjusted: true, originalFamiliarity: requestedFamiliarity, effectiveFamiliarity: traits.siteFamiliarity } : {}),
         // Reports what was USED, not what was passed.
         //
         // This previously said "supplied for this run" whenever the caller sent
@@ -1491,12 +1474,11 @@ Begin with the first persona: ${personas[0]}
         // asserting the parameter had been applied. An attestation nobody
         // verifies is worse than no attestation, because it makes an
         // output-level audit report the knob as working. (2026-08-02)
-        siteFamiliarity: traits.siteFamiliarity,
-        siteFamiliaritySource: familiarityFromCaller
-          ? "supplied for this run"
-          : hasSiteKnowledge
-          ? "derived from this install's crawl of the site"
-          : "defaulted to first visit — no site knowledge and none supplied",
+        siteFamiliarity: familiarity.value,
+        siteFamiliaritySource: familiarity.source,
+        // Reported, not applied: crawling a site says nothing about whether
+        // THIS persona has used it.
+        siteKnowledgeAvailable: familiarity.siteKnowledgeAvailable,
         siteFamiliarityEffect: `Consumed by the cognitiveLoad layer against a demand set by navigation depth. A page reachable in one click demands no site knowledge, so this changes nothing there.`,
         ...(languageWarning ? { languageWarning } : {}),
         ...(userLocation ? { userContext: { location: userLocation, timezone: userTimezone, language: userLanguage } } : {}),
