@@ -20,7 +20,9 @@
  * @license MIT
  */
 
-export type ProvenanceStatus = "fitted" | "published" | "definition" | "hypothesis";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+export type ProvenanceStatus ="fitted" | "published" | "definition" | "hypothesis";
 
 export interface ProvenanceEntry {
   /** Stable id, `<area>.<name>`, e.g. "chain.weightDeficit". */
@@ -52,14 +54,31 @@ export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Objec
   index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE),
 );
 
-let recording: Set<string> | null = null;
+/**
+ * WHERE A READ IS RECORDED. Every recording (withProvenance, readsOf,
+ * withProvenanceAsync) is a set bound to the async context it runs in, so a
+ * read lands in the recording of the code that made it, across awaits, and
+ * never in a concurrent request's. Through 21.0 this was one module-level
+ * set: correct only while every recorded computation was synchronous, which
+ * is why a tool could record its chain run and not the page measurement or
+ * verdict around it (both happen across awaits). startProvenanceRecording is
+ * the one recording outside any context: a whole-process session for tests,
+ * seen by any read that no scoped recording claims.
+ */
+const scoped = new AsyncLocalStorage<Set<string>>();
+let session: Set<string> | null = null;
 let overrides: Readonly<Record<string, number>> | null = null;
+
+/** The recording a read made here lands in: the innermost scoped one, else the session, else none. */
+function current(): Set<string> | null {
+  return scoped.getStore() ?? session;
+}
 
 /** Read a registered constant. Throws on an unregistered id, so a typo cannot fall back silently. */
 export function param(id: string): number {
   const e = MODEL_PROVENANCE[id];
   if (!e) throw new Error(`unregistered model constant "${id}"`);
-  if (recording) recording.add(id);
+  current()?.add(id);
   if (overrides && id in overrides) return overrides[id];
   return e.value;
 }
@@ -96,13 +115,13 @@ export function activeOverrides(): Readonly<Record<string, number>> | null {
 
 /** Start recording which ids `param()` reads. Returns the live set. Test and reporting use only. */
 export function startProvenanceRecording(): Set<string> {
-  recording = new Set();
-  return recording;
+  session = new Set();
+  return session;
 }
 
 export function stopProvenanceRecording(): Set<string> {
-  const r = recording ?? new Set<string>();
-  recording = null;
+  const r = session ?? new Set<string>();
+  session = null;
   return r;
 }
 
@@ -141,27 +160,62 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
  * would have.
  */
 export function readsOf<T>(fn: () => T): { result: T; ids: ReadonlySet<string> } {
-  const outer = recording;
+  const outer = current();
   const mine = new Set<string>();
-  recording = mine;
   try {
-    return { result: fn(), ids: mine };
+    return { result: scoped.run(mine, fn), ids: mine };
   } finally {
     if (outer) for (const id of mine) outer.add(id);
-    recording = outer;
   }
 }
 
-/** Run `fn` and return its result with the provenance of every constant it read. */
+/**
+ * Run `fn` and return its result with the provenance of every constant it read.
+ *
+ * Synchronous: it records what `fn` reads before returning, so an async `fn`
+ * is recorded only up to its first await. Use withProvenanceAsync for that.
+ */
 export function withProvenance<T>(fn: () => T): { result: T; provenance: ProvenanceSummary } {
-  const outer = recording;
+  const outer = current();
   const mine = new Set<string>();
-  recording = mine;
   try {
-    const result = fn();
+    const result = scoped.run(mine, fn);
     return { result, provenance: provenanceSummary(mine) };
   } finally {
     if (outer) for (const id of mine) outer.add(id);
-    recording = outer;
   }
+}
+
+/**
+ * withProvenance for an async function: every param() read inside `fn`,
+ * before and after each await, is recorded, and nothing read by code running
+ * concurrently in another context is. Nests like withProvenance in both
+ * directions: its reads land in any enclosing recording when it settles, and
+ * withProvenance, readsOf or another withProvenanceAsync inside it land in it.
+ *
+ * Covers what `fn` awaits. Work it starts and does not await (a fire-and-forget
+ * promise) can still read into this recording after the summary is taken, and
+ * is then counted nowhere; a tool answer awaits everything it reports.
+ */
+export async function withProvenanceAsync<T>(fn: () => Promise<T>): Promise<{ result: T; provenance: ProvenanceSummary }> {
+  const outer = current();
+  const mine = new Set<string>();
+  try {
+    const result = await scoped.run(mine, fn);
+    return { result, provenance: provenanceSummary(mine) };
+  } finally {
+    if (outer) for (const id of mine) outer.add(id);
+  }
+}
+
+/**
+ * The provenance of the recording this code runs inside, as read so far, or
+ * null outside any. A tool handler running under withProvenanceAsync calls it
+ * as the last step before serialising its answer, so the block it reports is
+ * everything that answer read. Nested recordings that have finished are
+ * already merged into it; ones still running are not.
+ */
+export function activeProvenance(): ProvenanceSummary | null {
+  const r = current();
+  return r ? provenanceSummary(r) : null;
 }
