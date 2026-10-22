@@ -1613,6 +1613,10 @@ export async function analyzeAttention(
  * Returns the L1 divergence between their normalized saliency maps (described
  * elsewhere as Wasserstein; it is not, see attentionDivergence) and the
  * connected regions where attention differs most.
+ *
+ * `accessibilityTraitsA` / `B` are each persona's own accessibility traits, so
+ * a persona without a built-in perceptual profile is filtered through one
+ * synthesized from them, as analyzeAttention does when given them (ISC-48).
  */
 export async function compareAttention(
   screenshotPath: string,
@@ -1621,12 +1625,14 @@ export async function compareAttention(
   cellSize: number = param("attention.gaze.cellSize"),
   domElements?: DOMAttentionElement[],
   goal?: string,
+  accessibilityTraitsA?: Parameters<typeof resolvePerceptualProfile>[1],
+  accessibilityTraitsB?: Parameters<typeof resolvePerceptualProfile>[1],
 ): Promise<AttentionComparisonResult> {
   const r4 = param("attention.rounding.tenThousandths");
   const regionCount = param("attention.report.divergentRegions");
   const [analysisA, analysisB] = await Promise.all([
-    analyzeAttention(screenshotPath, personaA, cellSize, undefined, domElements, goal),
-    analyzeAttention(screenshotPath, personaB, cellSize, undefined, domElements, goal),
+    analyzeAttention(screenshotPath, personaA, cellSize, undefined, domElements, goal, undefined, undefined, accessibilityTraitsA),
+    analyzeAttention(screenshotPath, personaB, cellSize, undefined, domElements, goal, undefined, undefined, accessibilityTraitsB),
   ]);
 
   // One pass computes the aggregate AND the regions from the same normalized

@@ -80,6 +80,27 @@ async function resolveOrRefuse(requested: string): Promise<
     }, null, 2) }] } };
   }
 }
+
+type PerceptualTraits = NonNullable<Parameters<typeof import("../../visual/perceptual-transport.js").resolvePerceptualProfile>[1]>;
+
+/**
+ * The persona's own accessibility traits, when its record carries any.
+ *
+ * The attention model synthesizes a perceptual filter from them for a persona
+ * with no built-in profile, which is how empathy_audit scores the same persona.
+ * Without them the attention tools fell back to name inference or the generic
+ * default, so one persona was drawn through two different filters, and the
+ * built-in accessibility personas without a perceptual profile (autism-spectrum,
+ * intellectual-disability, aphasia-receptive, dyscalculia) always got the
+ * default. A built-in profile still wins over the traits. Resolved after
+ * resolveOrRefuse, which loaded the account's personas. (ISC-48, 2026-10-22)
+ */
+async function personaAccessibilityTraits(name: string): Promise<PerceptualTraits | undefined> {
+  const { getAnyPersona } = await import("../../personas.js");
+  const a11y = (getAnyPersona(name) as { accessibilityTraits?: PerceptualTraits } | undefined)?.accessibilityTraits;
+  return a11y && Object.keys(a11y).length > 0 ? a11y : undefined;
+}
+
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { confineToAccountDir, refuseHostedUrl } from "../hosted-inputs.js";
 import {
@@ -767,7 +788,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
 
         const result = await analyzeAttention(
           screenshotPath, persona, cellSize, undefined, domAttentionElements, goal,
-          undefined, relevanceScores,
+          undefined, relevanceScores, await personaAccessibilityTraits(persona),
         );
 
         // Compute attention quality — cross-reference hotspots with classified elements
@@ -1099,7 +1120,10 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         }));
 
         const { compareAttention } = await import("../../visual/attention-transport.js");
-        const result = await compareAttention(screenshotPath, personaA, personaB, 4, domEls);
+        const result = await compareAttention(
+          screenshotPath, personaA, personaB, 4, domEls, undefined,
+          await personaAccessibilityTraits(personaA), await personaAccessibilityTraits(personaB),
+        );
 
         const responseData: Record<string, unknown> = {
           url: pageUrl,
