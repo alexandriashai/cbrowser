@@ -139,7 +139,7 @@ const POPULATIONS: Record<string, { population: string } | { archetype: string }
 /** Persona-level research notes in personas.ts. They support the persona's design, not a trait value. */
 const PERSONA_NOTES: Record<string, string> = {
   "motor-impairment-tremor": "essential tremor prevalence 0.4-5.6% (npj Digital Medicine 2019) and 1-15 Hz tremor filtering",
-  "cognitive-adhd": "75-81% of ADHD cases showing central-executive working-memory impairment (PMC7483636)",
+  "cognitive-adhd": "75-81% of ADHD cases showing central-executive working-memory impairment (Kofler et al. 2020, Neuropsychology, PMC7483636; children aged 8-13)",
   "dyslexic-user": "dyslexic adults reading about 178 vs 248 words per minute (Scientific Reports 2021)",
   "elderly-low-vision": "memory loss in over a third of people over 70 (ScienceDaily 2025), faster decline after 70 (Nature Communications 2026) and an unnamed PMC review on inhibitory control",
   "autism-spectrum": "Yaneva et al. eye tracking (2018, Behaviour & Information Technology; 2020, W4A) and the AASPIRE guidelines (Raymaker/Nicolaidis 2019)",
@@ -189,17 +189,17 @@ const VALUE_CITATIONS: Record<string, ValueCitation> = {
   ...readingProfile("low-vision-magnified", "Legge et al. 2007", "central scotoma and crowding"),
   "low-vision-magnified.selfEfficacy": { cite: "Brody et al. 2002 (AMD and depression)", claim: "reduced vision correlating with lower confidence in task completion" },
   "low-vision-magnified.satisficing": {
-    cite: "Pachur & Hertwig 2006",
+    cite: "Pachur & Hertwig 2006 (J Exp Psychol Learn Mem Cogn 32(5):983-1002)",
     claim: "limited information access increasing satisficing",
-    note: "the value 0.4 sits below the trait default of 0.5, on the opposite side from the cited direction",
+    note: "the paper studies recognition-based inference, which is faster and more prevalent under time pressure; it is not a study of low vision or of satisficing, so it supports the direction only by analogy. Until 21.0 the value was 0.4, on the opposite side from the cited direction",
   },
   "low-vision-magnified.trustCalibration": { cite: "Brody 2002", claim: "vision impairment increasing caution" },
   "low-vision-magnified.interruptRecovery": { cite: "Mark's interruption research", claim: "a limited visible area making context recovery harder" },
   ...readingProfile("cognitive-adhd", "Dhar et al. 2010", "intact decoding with reduced sustained attention"),
   "cognitive-adhd.workingMemory": {
-    cite: "an effect size (d = 1.63-2.03; no source named)",
-    claim: "a large-magnitude working-memory impairment",
-    note: "an effect size is a group difference in standard deviations, and no mapping from it to this value is stated",
+    cite: "Kofler et al. 2020 (Neuropsychology 34(6):686-698, PMC7483636)",
+    claim: "a very large central-executive working-memory impairment (d = 1.63-2.03, 75-81% of cases impaired)",
+    note: "the sample is 172 children aged 8-13 and the persona is adults aged 18-45; and an effect size is a group difference in standard deviations, with no mapping from it to this value stated. Until 21.0 personas.ts gave the effect size with no source; it is not Martinussen et al. 2005 (largest effect 1.06) nor Kasper et al. 2012",
   },
   ...readingProfile("dyslexic-user", "Perry, Zorzi & Ziegler 2019 (Psychological Science)", "the dyslexic reading profile"),
   "dyslexic-user.workingMemory": { cite: "de Jong 2006 and an n-back fNIRS study (PMC3496727)", claim: "a working-memory deficit that persists into adulthood" },
@@ -208,8 +208,8 @@ const VALUE_CITATIONS: Record<string, ValueCitation> = {
   "dyslexic-user.informationForaging": { cite: DYSLEXIA_COMPENSATION, claim: "text-structure use as a compensator" },
   "dyslexic-user.resilience": {
     cite: "Kapur & Agrawal 2026",
-    claim: "secondary anxiety in dyslexia",
-    note: "the comment says the value was pulled down from 0.6, and the value is 0.6",
+    claim: "secondary anxiety in dyslexia pulling the value down from 0.6, held at neutral by the compensation literature",
+    note: "until 21.0 the value was 0.6, the value the comment says it was pulled down from",
   },
   "dyslexic-user.selfEfficacy": { cite: "PMC11488781 (Nigerian undergraduate cohort)", claim: "dyslexia predicting lower academic self-efficacy" },
   "dyslexic-user.attributionStyle": { cite: "Kapur & Agrawal 2026", claim: "psychoeducation reducing self-blame, which places the untreated baseline above neutral" },
