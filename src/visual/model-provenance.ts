@@ -37,6 +37,9 @@ import { DRO_PROVENANCE } from "./provenance/dro.js";
 import { PERSONA_PROVENANCE } from "./provenance/personas.js";
 import { CIF_PROVENANCE } from "./provenance/cif.js";
 import { CTC_REFERENCE_PROVENANCE } from "./provenance/ctc-reference.js";
+import { ATTENTION_PROVENANCE } from "./provenance/attention.js";
+import { PERCEPTUAL_PROVENANCE } from "./provenance/perceptual.js";
+import { PAGE_METRICS_PROVENANCE } from "./provenance/page-metrics.js";
 
 function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> {
   const out: Record<string, ProvenanceEntry> = {};
@@ -49,7 +52,7 @@ function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> 
 }
 
 export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Object.freeze(
-  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE),
+  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE),
 );
 
 let recording: Set<string> | null = null;

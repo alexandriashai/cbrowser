@@ -72,8 +72,13 @@ export interface PerceptualAnalysis {
 const BARRIER_DEDUCTION_CEILING = 30;
 
 // ── Persona Perceptual Profiles ──
+//
+// Every number in these profiles is catalogued in provenance/perceptual.ts
+// (status and what would test it), built from these objects at load; edit a
+// value here and the registry follows, add a barrier key or field and the
+// catalogue test fails until it is described there.
 
-const PERCEPTUAL_PROFILES: Record<string, PerceptualProfile> = {
+export const PERCEPTUAL_PROFILES: Record<string, PerceptualProfile> = {
   // Non-disabled baseline personas. These existed conceptually in the persona
   // registry but had no perceptual profile, so they fell through to DEFAULT_PROFILE
   // (every weight = 1.0). That meant a non-disabled "first-timer" got full
@@ -425,7 +430,7 @@ const PERCEPTUAL_PROFILES: Record<string, PerceptualProfile> = {
 };
 
 // Default profile for unknown personas
-const DEFAULT_PROFILE: PerceptualProfile = {
+export const DEFAULT_PROFILE: PerceptualProfile = {
   persona: 'default',
   category: 'general',
   barrierWeights: {
