@@ -239,11 +239,14 @@ export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
   {
     name: 'frustration',
     // Two traits, not four, as of 21.0. resilience and selfEfficacy sat here
-    // through 20.x, but no page feature writes demand to either, so they could
-    // only ever be surplus on surplus-free dimensions: cost 0, every time. All
-    // they did was halve the content gate, which is the mean demand over this
-    // list, so frustration scored at roughly half its own demand. They remain
-    // dimensions -- abandonment reads resilience -- and are no longer in a layer.
+    // through 20.x, but no page feature writes demand to either, so in the
+    // asymmetric mode every tool runs they could only ever be surplus on
+    // surplus-free dimensions: cost 0, every time. All they did there was halve
+    // the content gate, which is the mean demand over this list, so frustration
+    // scored at roughly half its own demand. (In the symmetric ablation, where
+    // all surplus is billed, they instead charged their whole capacity squared
+    // against a page that asked nothing of them.) They remain dimensions --
+    // abandonment reads resilience -- and are no longer in a layer.
     traits: ['patience', 'emotionalContagion'],
   },
   {
