@@ -1,48 +1,50 @@
 /**
  * The Wasserstein-DRO bound on CTC (src/visual/dro-bound.ts).
  *
- * Three claims, each tested against the real chain, never a copy of it:
+ * Claims, each tested against the real chain, never a copy of it:
  *   1. ctcOfCapacity reproduces computeSequentialCTC for every roster persona,
  *      so the bound is about the function the product computes.
- *   2. The Lipschitz constant is sound: |CTC(x) - CTC(y)| <= L |x - y|_1 for
- *      random x, y and random pages, and per coordinate for one-axis moves.
- *   3. The worst-case bound is sound: any population Q built by moving P's
- *      atoms with total mean L1 movement <= epsilon (a coupling, so
- *      W1(P, Q) <= epsilon) has E_Q[CTC] <= upper.
- * Plus: the soundness tests have teeth (they fail for a bound half the
- * largest observed ratio), and epsilon has no default.
+ *   2. The Lipschitz constant is sound where it is tight. An adversary
+ *      (tests/fixtures/dro-adversary.ts) hill-climbs, per coordinate, for the
+ *      steepest finite-difference slope on product pages under every option
+ *      set; no slope may exceed perDimension, and the L1 constant must be
+ *      their maximum. Random points were not enough: uniform pairs reached
+ *      0.048 of L, and six unsound variants of the derivation passed.
+ *   3. The worst-case bound is sound for populations built to sit near it:
+ *      atoms at the adversary's steep points, moved along their locally
+ *      steepest coordinate (a coupling, so W1(P, Q) <= epsilon).
+ *   4. Neither is vacuous: on the mid page the adversary reaches at least half
+ *      of the bound on some coordinate, and on every page it reaches half of
+ *      the bound somewhere, so a bound loosened twofold fails too.
+ *   5. The derivation's preconditions are checked on every call and each one
+ *      fires on an input that breaks it; the live chain satisfies all of them.
+ * Plus: epsilon has no default. tests/dro-bound-mutants.test.ts shows the
+ * checks in 2-5 kill unsound variants of the derivation.
  */
 import { describe, test, expect } from "bun:test";
-import fc from "fast-check";
 import {
   computeSequentialCTC,
   computeDemandFromRawMetrics,
   capacityVector,
-  DEMAND_DIMENSIONS,
   type DemandDistribution,
 } from "../src/visual/cognitive-transport-chain.js";
-import { ctcLipschitzBound, ctcOfCapacity, worstCaseCTCBound } from "../src/visual/dro-bound.js";
+import * as dro from "../src/visual/dro-bound.js";
+import { ctcOfCapacity, droPreconditionViolations, worstCaseCTCBound } from "../src/visual/dro-bound.js";
 import { ROSTER, toolProfile, allDemands } from "./fixtures/ctc-golden-matrix.js";
+import {
+  DIMS,
+  OPTION_SETS,
+  adversarialSearch,
+  adversarialPopulations,
+  checkCoordinates,
+  checkPopulations,
+  checkPreconditions,
+  liveLayout,
+  preconditionCases,
+} from "./fixtures/dro-adversary.js";
 
-const DIMS = DEMAND_DIMENSIONS as readonly string[];
-const RUNS = 1000;
-
-// Uniform on [0, 1] by construction. fast-check doubles are neither: biased to the
-// ends by default, and uniform over representable doubles under noBias, which puts
-// nearly every sample near 0. Capacity vectors
-// near the corners saturate CTC at 1, where every slope is ~0. Biased samples
-// made the soundness tests pass over a flat function (measured: steepest slope
-// 0.0000 on a page whose real steepest slope is 0.97).
-const unit = fc.noBias(fc.integer({ min: 0, max: 1_000_000 })).map((i) => i / 1_000_000);
-const vecArb = fc.array(unit, { minLength: DIMS.length, maxLength: DIMS.length });
-const toRec = (v: number[]) => Object.fromEntries(DIMS.map((d, i) => [d, v[i]])) as Record<string, number>;
-const l1 = (a: Record<string, number>, b: Record<string, number>) => DIMS.reduce((s, d) => s + Math.abs(a[d] - b[d]), 0);
-
-// Pages: the raw-metric generator the product uses, over its whole input range.
-const demandArb = fc
-  .tuple(unit, unit, fc.integer({ min: 0, max: 200 }), unit, unit, fc.integer({ min: 0, max: 60 }), fc.integer({ min: 0, max: 8 }))
-  .map(([a, b, c, d, e, f, g]) => computeDemandFromRawMetrics(a, b, c, d, e, f, g));
-const optsArb = fc.record({ asymmetric: fc.boolean(), interactions: fc.boolean() });
+const SEED = 1;
+const MID = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
 
 describe("ctcOfCapacity is the product's CTC", () => {
   test("equals computeSequentialCTC on every roster persona and reference page, bit for bit", () => {
@@ -60,97 +62,88 @@ describe("ctcOfCapacity is the product's CTC", () => {
   });
 });
 
-describe("Lipschitz constant", () => {
-  test("is sound for random pairs: |CTC(x)-CTC(y)| <= L |x-y|_1", () => {
-    fc.assert(
-      fc.property(vecArb, vecArb, demandArb, optsArb, (a, b, demand, opts) => {
-        const x = toRec(a), y = toRec(b);
-        const { lipschitz } = ctcLipschitzBound(demand, opts);
-        const diff = Math.abs(ctcOfCapacity(x, demand, opts) - ctcOfCapacity(y, demand, opts));
-        return diff <= lipschitz * l1(x, y) + 1e-12;
-      }),
-      { numRuns: RUNS },
-    );
-  });
+describe("Lipschitz constant, against an adversary", () => {
+  test("no steepest slope found on any page, option set or coordinate exceeds perDimension or L", () => {
+    const search = adversarialSearch(SEED);
+    const { violations, tightest } = checkCoordinates(search, dro);
+    expect(violations).toEqual([]);
+    expect(search.rows.length).toBe(search.pages.length * OPTION_SETS.length * DIMS.length);
+    const table = Object.entries(tightest).map(([page, t]) => `  ${page.padEnd(30)} ${t.ratio.toFixed(5)}  ${t.dim} (${t.optsId})`);
+    console.log(`[dro] seed ${SEED}: ${search.rows.length} searches, ${search.evals} CTC evaluations, ${(search.ms / 1000).toFixed(1)} s; tightest observed/bound per page:\n${table.join("\n")}`);
+  }, 120_000);
 
-  test("is sound per coordinate for small one-axis moves", () => {
-    fc.assert(
-      fc.property(vecArb, fc.integer({ min: 0, max: DIMS.length - 1 }), fc.double({ min: -0.05, max: 0.05, noNaN: true }), demandArb, optsArb,
-        (a, i, h, demand, opts) => {
-          const x = toRec(a);
-          const y = { ...x, [DIMS[i]]: Math.max(0, Math.min(1, x[DIMS[i]] + h)) };
-          const step = Math.abs(y[DIMS[i]] - x[DIMS[i]]);
-          if (step === 0) return true;
-          const { perDimension } = ctcLipschitzBound(demand, opts);
-          const diff = Math.abs(ctcOfCapacity(x, demand, opts) - ctcOfCapacity(y, demand, opts));
-          return diff <= perDimension[DIMS[i]] * step + 1e-12;
-        }),
-      { numRuns: RUNS },
-    );
-  });
-
-  test("is not vacuous: the samples exercise a steep part of the function, and a bound below it is refuted", () => {
-    const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
-    const { lipschitz } = ctcLipschitzBound(demand);
-    const slopes: number[] = [];
-    for (const [a, i] of fc.sample(fc.tuple(vecArb, fc.integer({ min: 0, max: DIMS.length - 1 })), { numRuns: 2000, seed: 7 })) {
-      const x = toRec(a);
-      const y = { ...x, [DIMS[i]]: Math.min(1, x[DIMS[i]] + 0.01) };
-      const step = y[DIMS[i]] - x[DIMS[i]];
-      if (step > 0) slopes.push(Math.abs(ctcOfCapacity(x, demand) - ctcOfCapacity(y, demand)) / step);
-    }
-    const steepest = Math.max(...slopes);
-    // A flat function would make every soundness test above pass vacuously.
-    expect(steepest).toBeGreaterThan(0.3);
-    expect(lipschitz).toBeGreaterThanOrEqual(steepest);
-    // The derived constant may not be loose without limit either: within 10x of what is observed here.
-    expect(lipschitz / steepest).toBeLessThan(10);
-    // The checker refutes a constant below the observed slope.
-    expect(slopes.some((s) => s > 0.5 * steepest)).toBe(true);
-    console.log(`[dro] mid page: steepest observed slope ${steepest.toFixed(4)}, derived L ${lipschitz.toFixed(4)} (${(lipschitz / steepest).toFixed(2)}x)`);
-  });
+  test("is not vacuous: the adversary reaches at least half the bound on the mid page, and on every page", () => {
+    const { tightest } = checkCoordinates(adversarialSearch(SEED), dro);
+    expect(tightest.mid.ratio).toBeGreaterThanOrEqual(0.5);
+    for (const [page, t] of Object.entries(tightest)) expect({ page, ratio: t.ratio >= 0.5 }).toEqual({ page, ratio: true });
+  }, 120_000);
 });
 
-describe("worst-case bound", () => {
-  const popArb = fc.array(fc.record({ v: vecArb, w: fc.double({ min: 0.01, max: 1, noNaN: true }) }), { minLength: 1, maxLength: 5 });
-  const moveArb = fc.array(fc.double({ min: -0.3, max: 0.3, noNaN: true }), { minLength: DIMS.length, maxLength: DIMS.length });
-
-  test("no population within W1 epsilon has a higher mean CTC than upper (coupling construction)", () => {
-    fc.assert(
-      fc.property(popArb, fc.array(moveArb, { minLength: 5, maxLength: 5 }), demandArb, optsArb, fc.double({ min: 0, max: 0.5, noNaN: true }),
-        (pop, moves, demand, opts, slack) => {
-          const total = pop.reduce((s, m) => s + m.w, 0);
-          const P = pop.map((m) => ({ traits: toRec(m.v), weight: m.w }));
-          let cost = 0, eQ = 0;
-          pop.forEach((m, k) => {
-            const x = toRec(m.v);
-            const y = Object.fromEntries(DIMS.map((d, i) => [d, Math.max(0, Math.min(1, x[d] + moves[k][i]))])) as Record<string, number>;
-            cost += (m.w / total) * l1(x, y);
-            eQ += (m.w / total) * ctcOfCapacity(y, demand, opts);
-          });
-          const eps = cost + slack; // W1(P, Q) <= cost <= eps
-          const b = worstCaseCTCBound(P, demand, eps, opts);
-          return eQ <= b.upper + 1e-12 && eQ >= b.lower - 1e-12 && b.upper <= 1 && b.lower >= 0;
-        }),
-      { numRuns: RUNS },
-    );
-  });
+describe("worst-case bound, against populations built to reach it", () => {
+  test("E_Q <= upper and E_Q >= lower for every constructed population, nominal = E_P", () => {
+    const { violations, tightest, upward, uncapped } = checkPopulations(adversarialPopulations(SEED), dro);
+    expect(violations).toEqual([]);
+    // The cap at 1 must not be what makes the check pass.
+    expect(uncapped).toBe(upward);
+    // Non-vacuous: some population moves E_Q by more than half of epsilon * L.
+    expect(Math.max(...Object.values(tightest))).toBeGreaterThanOrEqual(0.5);
+    console.log(`[dro] populations: ${upward} upward, tightest (E_Q - E_P) / (epsilon L) ${Math.max(...Object.values(tightest)).toFixed(4)}`);
+  }, 120_000);
 
   test("epsilon has no default and must be finite and non-negative", () => {
-    const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
-    const pop = [{ traits: toRec(DIMS.map(() => 0.5)) }];
+    const pop = [{ traits: Object.fromEntries(DIMS.map((d) => [d, 0.5])) }];
     for (const bad of [undefined, -0.1, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(() => worstCaseCTCBound(pop, demand, bad as unknown as number)).toThrow(/epsilon/);
+      expect(() => worstCaseCTCBound(pop, MID, bad as unknown as number)).toThrow(/epsilon/);
     }
-    expect(() => worstCaseCTCBound([], demand, 0.1)).toThrow(/empty/);
+    expect(() => worstCaseCTCBound([], MID, 0.1)).toThrow(/empty/);
   });
 
   test("epsilon 0 returns the nominal mean exactly", () => {
-    const demand: DemandDistribution = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
     const pop = Object.entries(ROSTER).map(([n, p]) => ({ traits: toolProfile(n, p).traits }));
-    const b = worstCaseCTCBound(pop, demand, 0);
+    const b = worstCaseCTCBound(pop, MID, 0);
     expect(b.upper).toBe(b.nominal);
     expect(b.lower).toBe(b.nominal);
     expect(b.note).toMatch(/not of people/);
+  });
+});
+
+describe("the derivation's preconditions", () => {
+  test("the live chain satisfies every one, on every adversary page and option set", () => {
+    for (const page of adversarialSearch(SEED).pages)
+      for (const { id, opts } of OPTION_SETS)
+        expect({ page: page.id, id, broken: droPreconditionViolations(page.demand, opts) }).toEqual({ page: page.id, id, broken: [] });
+  }, 120_000);
+
+  for (const c of preconditionCases(MID)) {
+    test(`fires on: ${c.name}`, () => {
+      const got = droPreconditionViolations(c.demand, c.options, c.chain);
+      expect(got.length).toBe(1);
+      expect(got[0]).toMatch(c.says);
+      if (c.public) {
+        expect(() => dro.ctcLipschitzBound(c.demand, c.options)).toThrow(c.says);
+        expect(() => worstCaseCTCBound([{ traits: { patience: 0.5 } }], c.demand, 0.1, c.options)).toThrow(c.says);
+      }
+    });
+  }
+
+  test("a negative interaction weight is not a violation when interactions are off", () => {
+    const live = liveLayout();
+    const layout = { layers: live.layers, pairs: live.pairs.map((p) => ({ ...p, weight: -0.15 })) };
+    expect(droPreconditionViolations(MID, { interactions: false }, { layout })).toEqual([]);
+    expect(droPreconditionViolations(MID, { interactions: true }, { layout })).toHaveLength(live.pairs.length);
+  });
+
+  test("every case is covered by the shared checker the mutant harness uses", () => {
+    expect(checkPreconditions(dro, MID)).toEqual([]);
+  });
+
+  test("ctcLipschitzBound names every broken assumption at once", () => {
+    const demand: DemandDistribution = { demands: { ...MID.demands, patience: -1, comprehension: Number.NaN } };
+    let msg = "";
+    try { dro.ctcLipschitzBound(demand, { schwartzValues: { universalism: 1 } } as unknown as dro.DroOptions); } catch (e) { msg = (e as Error).message; }
+    expect(msg).toMatch(/^ctcLipschitzBound: the derivation does not cover this input: /);
+    expect(msg).toMatch(/option "schwartzValues"/);
+    expect(msg).toMatch(/demand patience = -1/);
+    expect(msg).toMatch(/demand comprehension = NaN/);
   });
 });
