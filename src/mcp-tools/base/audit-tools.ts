@@ -81,6 +81,26 @@ export function writeAuditScreenshot(
 /**
  * Register audit tools (4 tools + site_cognitive_assessment + visual_cognitive_story)
  */
+type PerceptualTraits = NonNullable<Parameters<typeof import("../../visual/perceptual-transport.js").resolvePerceptualProfile>[1]>;
+
+/**
+ * The persona's own accessibility traits, when its record carries any; the
+ * same helper as visual-testing-tools.ts's personaAccessibilityTraits.
+ *
+ * The attention model synthesizes a perceptual filter from them for a persona
+ * with no built-in profile, which is how empathy_audit and attention_analysis
+ * draw the same persona. visual_cognitive_story passed none, so the built-in
+ * accessibility personas without a perceptual profile (autism-spectrum,
+ * intellectual-disability, aphasia-receptive, dyscalculia) and every custom
+ * persona with traits on record were drawn with the default filter. A
+ * built-in profile still wins over the traits. (ISC-48, 2026-10-22)
+ */
+async function personaAccessibilityTraits(name: string): Promise<PerceptualTraits | undefined> {
+  const { getAnyPersona } = await import("../../personas.js");
+  const a11y = (getAnyPersona(name) as { accessibilityTraits?: PerceptualTraits } | undefined)?.accessibilityTraits;
+  return a11y && Object.keys(a11y).length > 0 ? a11y : undefined;
+}
+
 export function registerAuditTools(server: McpServer, context?: ToolRegistrationContext): void {
   const getBrowserByToken = context?.getBrowserByToken;
   server.registerTool("agent_ready_audit", {
@@ -815,7 +835,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           : "not available (the artifact store was unavailable, so the full-resolution PNG was not saved)";
 
         // ── 1. Attention Heatmap ──
-        let attentionData: { entropy: number; concentration: number; hotspots: Array<{ x: number; y: number; saliency: number; row: number; col: number }>; saliencyMap?: { cells: Float64Array; rows: number; cols: number } } | null = null;
+        let attentionData: { entropy: number; concentration: number; hotspots: Array<{ x: number; y: number; saliency: number; row: number; col: number }>; saliencyMap?: { cells: Float64Array; rows: number; cols: number }; perceptualProfile?: { resolution: string; name: string } } | null = null;
         try {
           const { analyzeAttention } = await import("../../visual/attention-transport.js");
           // Feed the DOM in. Without it analyzeAttention falls back to the
@@ -825,12 +845,16 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // different model wearing the same name. (2026-07-29)
           const { collectDomAttentionElements } = await import("../../visual/attention-quality.js");
           const domAttentionElements = await collectDomAttentionElements(page).catch(() => []);
-          const attnResult = await analyzeAttention(ssPath, persona, 4, undefined, domAttentionElements, goal);
+          const attnResult = await analyzeAttention(
+            ssPath, persona, 4, undefined, domAttentionElements, goal,
+            undefined, undefined, await personaAccessibilityTraits(persona),
+          );
           attentionData = {
             entropy: attnResult.entropy,
             concentration: attnResult.concentration,
             hotspots: attnResult.saliencyMap?.hotspots || [],
             saliencyMap: attnResult.saliencyMap,
+            perceptualProfile: attnResult.perceptualProfile,
           };
 
           if (attnResult.saliencyMap) {
@@ -1191,6 +1215,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           attention: {
             entropy: Math.round(entropy * 1000) / 1000,
             concentration: Math.round(concentration * 1000) / 1000,
+            // Which perceptual filter drew the map, as attention_analysis reports it.
+            perceptualProfile: attentionData?.perceptualProfile ?? null,
           },
           quality: qualityData ? {
             ctaCaptureRate: qualityData.ctaCaptureRate,
