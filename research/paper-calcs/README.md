@@ -568,7 +568,7 @@ rather than computes, but that is a guess.
 | `power.py` | calculation 4 |
 | `power-{viewport,full_page}.json`, `power-study2-*.csv`, `power-study3-*.csv`, `study3-ctc-differences-*.csv` | its outputs |
 | `page-latency.ts`, `page-latency.{csv,json}` | calculation 5 |
-| `logs/` | console output of the Study 1 runs, the ceiling, the power runs and the latency run |
+| `logs/` (not committed: the repo ignores `*.log`) | console output of the Study 1 runs, the ceiling, the power runs and the latency run, left in the worktree |
 
 Rerun, as the tree's owner from the worktree root (corpus symlinked first):
 
