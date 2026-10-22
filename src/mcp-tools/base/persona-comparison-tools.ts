@@ -41,6 +41,7 @@ import {
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import { withProvenance } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
+import type { SchwartzValues } from "../../values/schwartz-values.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
 
 /**
@@ -51,6 +52,26 @@ import { resolveSiteFamiliarity } from "./site-familiarity.js";
  * picture into it instead of dropping it.
  */
 const MOTOR_PREVIEW_MAX_CHARS = 40_000;
+
+const SCHWARTZ_KEYS: Array<keyof SchwartzValues> = [
+  "selfDirection", "stimulation", "hedonism", "achievement", "power",
+  "security", "conformity", "tradition", "benevolence", "universalism",
+];
+
+/**
+ * The ten Schwartz scores of a persona's values record, the shape the chain's
+ * value modulation reads. A record carries higher-order values, SDT needs and
+ * a Maslow level beside them; only the ten are passed on. Undefined when none
+ * is a number, so "values applied" is never reported for an empty record.
+ */
+function schwartzScores(values: object): Record<string, number> | undefined {
+  const v = values as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  for (const k of SCHWARTZ_KEYS) {
+    if (typeof v[k] === "number" && Number.isFinite(v[k])) out[k] = v[k] as number;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 /**
  * Reference distribution of cognitive distances across the built-in persona set.
@@ -775,7 +796,7 @@ Begin with the first persona: ${personas[0]}
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver')"),
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US')"),
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing"),
-      useValues: z.boolean().optional().default(false).describe("Enable motivational value modulation (Schwartz values). When true, persona values scale decision and frustration demand. Default: false (trait-only mode)."),
+      useValues: z.boolean().optional().default(false).describe("Apply the persona's Schwartz values (opt-in). When true, the values modulate the page's demand inside the chain, through its ten registered coefficients (chain.valueModulation.*, hand-set hypotheses, counted in modelProvenance): stimulation and security on changeBlindness; achievement on satisficing and riskTolerance; conformity on socialProofSensitivity and anchoringBias; selfDirection on socialProofSensitivity; power on fearOfMissingOut; stimulation on patience; benevolence on emotionalContagion. Each adds coefficient x score x max(chain.valueModulation.demandFloor, demand) to that trait's demand, clamped to [0, 1]; hedonism, tradition and universalism change nothing. Applies to the aggregate score and, at scope 'sequential', to every screen. Scores come from the persona registry, the persona's own schwartzValues, its Big Five, or an account persona in the CMS; `valueModulation` in the response says whether any were found. Default: false (trait-only mode)."),
       waitAfterLoad: z.number().optional().describe("Extra ms to wait after page loads (e.g., 3000 for sites with client-side translation)"),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load (e.g., '[data-translated]')"),
       scope: z.enum(["viewport", "full_page", "sequential"]).optional().default("viewport").describe("What to measure: 'viewport' (first impression, above-the-fold — default), 'full_page' (scroll the whole page, count every element), or 'sequential' (score each screen on its own content, carrying capacity forward, and report where people stop). Viewport and full_page match empathy_audit's parameter. 'sequential' answers a different question from either: not 'what would the whole page cost' but 'how far do they get'. NOTE: every published CTC number predates this parameter and is a viewport measurement."),
@@ -976,9 +997,18 @@ Begin with the first persona: ${personas[0]}
       // Compute full COT
       const { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } = await import("../../visual/cognitive-transport-chain.js");
 
-      // Modulate demand by motivational values (opt-in, default off). Resolved
-      // here; applied to the demand inside the provenance block below.
-      let personaValues: ReturnType<typeof resolveValuesForPersona>;
+      // Motivational values (opt-in, default off). Resolved here and handed to
+      // the chain, which applies them through its own registered modulation
+      // (VALUE_DEMAND_MODULATION, chain.valueModulation.*) and clamps the result
+      // to [0, 1].
+      //
+      // Through 21.0 this tool had a second path of its own: a
+      // conservation/openness formula with unregistered 0.3 and 0.5 constants
+      // that scaled five decision demands and emotionalContagion in place,
+      // unclamped (up to 1.3), while the chain's modulation was reached from no
+      // tool at all. Two hand-set models of one effect, and the one that ran was
+      // the one the provenance block could not see. (2026-10-22)
+      let schwartzValues: Record<string, number> | undefined;
       if (useValues) try {
         // regPV2 writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
         const { registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
@@ -1008,9 +1038,9 @@ Begin with the first persona: ${personas[0]}
             }
           } catch { /* CMS fallback failed */ }
         }
-        personaValues = pValues;
+        if (pValues) schwartzValues = schwartzScores(pValues);
       } catch { /* values not available — proceed without */ }
-      const chainOptions = { asymmetric: true, interactions: true };
+      const chainOptions = { asymmetric: true, interactions: true, ...(schwartzValues ? { schwartzValues } : {}) };
 
       // SEQUENTIAL PASS, measuring half. The per-screen metrics are read here and
       // the curve is scored in the block below with everything else, so its
@@ -1030,8 +1060,8 @@ Begin with the first persona: ${personas[0]}
       }
 
       // Everything the reported numbers are computed from, under ONE provenance
-      // recording: the demand curves, the chain, and the sequential curve when
-      // scope asks for it.
+      // recording: the demand curves, the chain, the value modulation when
+      // useValues applied it, and the sequential curve when scope asks for it.
       //
       // The demand used to be built before this block, so the 35 hand-set
       // weights that turn page metrics into per-trait demand were read and not
@@ -1051,31 +1081,6 @@ Begin with the first persona: ${personas[0]}
           }
         }
         const demand = computeDemandDistribution(pageMetrics);
-        const pValues = personaValues;
-        if (pValues && demand.demands) {
-          // Conservation (security+conformity+tradition)/3 amplifies decision layer
-          const conservation = (pValues.security + pValues.conformity + pValues.tradition) / 3;
-          // Openness (selfDirection+stimulation)/2 reduces decision cost (comfortable with choices)
-          const openness = (pValues.selfDirection + pValues.stimulation) / 2;
-          // Achievement amplifies frustration layer (impatience)
-          const achMod = 1 + (pValues.achievement - 0.5) * 0.3;
-
-          // Scale decision-related demands: satisficing, anchoringBias, riskTolerance, fearOfMissingOut
-          const decisionScale = 1 + (conservation - openness) * 0.3; // -0.15 to +0.15 range
-          for (const dim of ["satisficing", "anchoringBias", "riskTolerance", "fearOfMissingOut", "socialProofSensitivity"]) {
-            if (demand.demands[dim] !== undefined) {
-              demand.demands[dim] *= decisionScale;
-            }
-          }
-          // Scale frustration-related demands. resilience and selfEfficacy were
-          // listed here too; neither carries demand nor sits in a layer (21.0),
-          // so scaling them changed nothing.
-          for (const dim of ["emotionalContagion"]) {
-            if (demand.demands[dim] !== undefined) {
-              demand.demands[dim] *= achMod;
-            }
-          }
-        }
         return { aggregate: computeSequentialCTC(otProfile, demand, chainOptions), seq, seqError };
       });
       const result = scored.aggregate;
@@ -1280,9 +1285,16 @@ Begin with the first persona: ${personas[0]}
         } : { resolvedUrl: landedUrl }),
         persona: personaName,
         // Status counts of every registry constant this answer read -- demand
-        // curves, chain, sequential curve if scored -- and the ids of the
-        // hand-set ones.
+        // curves, chain, value modulation if applied, sequential curve if
+        // scored -- and the ids of the hand-set ones.
         modelProvenance: ctcProvenance,
+        // Only when useValues asked for it, so a persona with no values is
+        // visibly scored without them rather than silently.
+        ...(useValues ? {
+          valueModulation: schwartzValues
+            ? { applied: true, scores: schwartzValues }
+            : { applied: false, reason: "No Schwartz values were found for this persona (registry, its own schwartzValues, its Big Five, or an account persona in the CMS), so it was scored without them." },
+        } : {}),
         cognitiveTransportCost: {
           total: Math.round(result.totalCTC * 1000) / 1000,
           additive: Math.round(result.additiveCTC * 1000) / 1000,

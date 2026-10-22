@@ -16,6 +16,10 @@
  * hypotheses for an answer that read 57. Each tool block is now compared with
  * the same demand + chain run under withProvenance directly.
  *
+ * useValues goes through the chain's registered Schwartz modulation and nothing
+ * else: the tool's numbers with useValues on equal computeSequentialCTC with
+ * the persona's schwartzValues, on the same page.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
@@ -35,7 +39,7 @@ const { registerAuditTools } = await import("../src/mcp-tools/base/audit-tools.j
 const { withProvenance } = await import("../src/visual/model-provenance.js");
 const { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } = await import("../src/visual/cognitive-transport-chain.js");
 const { extractPageMetrics, measurePageGeometry } = await import("../src/visual/cognitive-transport.js");
-const { ROSTER, toolProfile } = await import("./fixtures/ctc-golden-matrix.js");
+const { ROSTER, toolProfile, schwartzFor } = await import("./fixtures/ctc-golden-matrix.js");
 
 type Block = { type: string; text?: string };
 type Handler = (args: Record<string, unknown>) => Promise<{ content: Block[]; isError?: boolean }>;
@@ -165,5 +169,45 @@ describe("tool responses carry the provenance of the whole answer", () => {
       computeSequentialCTC(profile, computeDemandDistribution(metrics), CHAIN_OPTIONS));
     expect(block.hypotheses).toEqual(direct.provenance.hypotheses);
     expect(block.counts).toEqual(direct.provenance.counts);
+  }, 240_000);
+});
+
+describe("useValues has one path: the chain's registered modulation", () => {
+  const persona = "first-timer";
+  const url = () => `${fixtures.base}prose-page.html`;
+
+  test("cognitive_effort with useValues equals computeSequentialCTC with the persona's schwartzValues", async () => {
+    const own = schwartzFor(persona);
+    expect(own.source).toBe(persona); // the persona's own values, not the fixture's fallback
+
+    const off = await effort({ url: url(), persona, useValues: false });
+    const on = await effort({ url: url(), persona, useValues: true });
+    const metrics = await metricsNow("viewport");
+    const profile = toolProfile(persona, ROSTER[persona]);
+    const plain = computeSequentialCTC(profile, computeDemandDistribution(metrics), CHAIN_OPTIONS);
+    const valued = withProvenance(() =>
+      computeSequentialCTC(profile, computeDemandDistribution(metrics), { ...CHAIN_OPTIONS, schwartzValues: own.values }));
+
+    // Guard: the re-measured page is the page the tool scored.
+    expect(off.cognitiveTransportCost.total).toBe(r3(plain.totalCTC));
+    // The claim: with values on, the tool's numbers are the chain's.
+    expect(valued.result.totalCTC).not.toBe(plain.totalCTC); // values move this page, so the check has teeth
+    expect(on.cognitiveTransportCost.total).toBe(r3(valued.result.totalCTC));
+    expect(on.cognitiveTransportCost.raw).toBe(r3(valued.result.rawCTC));
+    expect(on.layers.map((l: { name: string; cost: number }) => [l.name, l.cost]))
+      .toEqual(valued.result.layers.map((l) => [l.name, r3(l.transportCost)]));
+
+    // Every modulation coefficient the chain could apply is in the block, and
+    // the block is exactly the direct run's.
+    const block = on.modelProvenance as Summary;
+    expectHonestSummary(block);
+    expect(block.hypotheses.filter((id) => id.startsWith("chain.valueModulation.")).length).toBe(11);
+    expect(block.hypotheses).toEqual(valued.provenance.hypotheses);
+    expect(block.counts).toEqual(valued.provenance.counts);
+
+    // And the response says values were applied, with the scores it used.
+    expect(on.valueModulation?.applied).toBe(true);
+    expect(on.valueModulation?.scores).toEqual(own.values);
+    expect(off.valueModulation).toBeUndefined();
   }, 240_000);
 });
