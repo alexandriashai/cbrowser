@@ -75,6 +75,8 @@ export interface ProvenanceSummary {
   counts: Record<ProvenanceStatus, number>;
   /** Ids of the hand-set constants the computation depended on. */
   hypotheses: string[];
+  /** What the counts cover, so "0 fitted" is not read as "nothing in cbrowser is fitted". */
+  scope: string;
   note: string;
 }
 
@@ -92,7 +94,8 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
   return {
     counts,
     hypotheses,
-    note: "Constants labelled hypothesis are set by hand and untested against human data. See MODEL_PROVENANCE for each source.",
+    scope: "Constants of the cognitive transport chain and the persona distance. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
+    note: "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; it is not a validation of the score. See MODEL_PROVENANCE for each source.",
   };
 }
 

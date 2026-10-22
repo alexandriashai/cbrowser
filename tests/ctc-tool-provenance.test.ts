@@ -44,6 +44,9 @@ function expectHonestSummary(p: Summary) {
   expect(p.hypotheses).toContain("chain.ctcSigmoidSlope");
   expect(p.hypotheses.every((id) => id.startsWith("chain."))).toBe(true);
   expect(p.note).toContain("hypothesis");
+  // The counts cover the chain and the distance only; say so, and point at the fitted layer.
+  expect(p.scope).toContain("Layer 1");
+  expect(p.scope).toContain("not counted here");
 }
 
 beforeAll(async () => {
