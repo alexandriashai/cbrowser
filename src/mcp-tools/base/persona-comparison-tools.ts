@@ -53,16 +53,18 @@ const MOTOR_PREVIEW_MAX_CHARS = 40_000;
  * Reference distribution of cognitive distances across the built-in persona set.
  *
  * cognitive_distance returns three numbers — w1, w2 and sliced — that look like
- * peers but are not on one scale: w1 is the exact Wasserstein-1 (earth mover's)
- * distance over every COGNITIVE_TRAITS entry under the trait ground metric, w2
- * is an L2 norm, and sliced is a mean random projection. The roster is 25 human
- * personas (BUILTIN + ACCESSIBILITY + EMOTIONAL), i.e. 300 pairs; the "210
- * pairs" this comment used to cite was the 21-persona roster before the
- * emotional personas joined. Means measured 2026-07-29 on the old weighted-L1
- * w1 were 0.296 / 0.128 / 0.016; the exact W1 shipped 2026-10-21 is smaller
- * (bounded by 0.8 x total variation), so compare the percentiles, never the raw
- * numbers across metrics. A reader comparing them directly draws a false
- * conclusion.
+ * peers but are not on one scale: w1 is the exact generalized Wasserstein-1
+ * distance over every COGNITIVE_TRAITS entry (trait ground metric for moving
+ * mass, distance.slackCost for creating or destroying it, so it sees overall
+ * level as well as shape; see cognitiveDistance), w2 is an L2 norm and sliced
+ * a mean random projection, both on the simplex and so shape-only. The roster
+ * is 25 human personas (BUILTIN + ACCESSIBILITY + EMOTIONAL), i.e. 300 pairs;
+ * the "210 pairs" this comment used to cite was the 21-persona roster before
+ * the emotional personas joined. Means measured 2026-07-29 on the old
+ * weighted-L1 w1 were 0.296 / 0.128 / 0.016; on the 300 pairs the simplex W1
+ * shipped 2026-10-21 averaged 0.085 and the generalized W1 averages 0.047
+ * (w2 0.109, sliced 0.013), so compare the percentiles, never the raw numbers
+ * across metrics. A reader comparing them directly draws a false conclusion.
  *
  * The verdict was worse. Its bands (0.01 / 0.03 / 0.06) were calibrated for a
  * scale w1 does not occupy: the old w1 spanned 0.055 to 0.684, so 209 of the
@@ -487,7 +489,7 @@ Begin with the first persona: ${personas[0]}
 
   server.registerTool("cognitive_distance", {
     title: "Cognitive Distance Between Personas",
-    description: "Compute the Wasserstein cognitive distance between two personas. Returns W₁ distance (true cognitive distance), per-trait contributions, and Bures-Wasserstein W₂ distance. Based on optimal transport theory — transport cost = cognitive processing cost.",
+    description: "Compute the cognitive distance between two personas as a generalized (unbalanced) Wasserstein-1 distance over their trait vectors: it counts both the shape of the profile and its overall level, so a persona with every trait at 0.2 is far from one with every trait at 0.8. Moving trait mass between traits costs a hand-set ground metric (0.2 same domain, 0.5 related, 0.8 unrelated); creating or destroying it costs 0.4 per unit, also hand-set. Both are hypotheses, untested against human data. Returns w1 with per-trait contributions (plus overallLevel, the share due to a difference in level), the shape-only Bures-Wasserstein W2 and sliced distances, and each metric's percentile among built-in persona pairs.",
     inputSchema: {
       personaA: z.string().describe("First persona name"),
       personaB: z.string().describe("Second persona name"),
@@ -546,11 +548,17 @@ Begin with the first persona: ${personas[0]}
             scaleNote:
               // The count is read from the list: "26" went stale when the three bridge
               // traits arrived (v10 B42).
-              `w1 (exact Wasserstein-1 / earth mover's distance over ${COGNITIVE_TRAITS.length} traits), ` +
+              `w1 (exact generalized Wasserstein-1 distance over ${COGNITIVE_TRAITS.length} traits), ` +
               "w2 (L2 norm) and sliced (mean random projection) are different quantities on different " +
-              "scales. Compare the percentiles, not the raw values. w1 is computed on profiles normalised " +
-              "to the simplex, so it measures the shape of a profile, not its level: proportional trait " +
-              "vectors are at distance 0.",
+              "scales. Compare the percentiles, not the raw values. w1 sees both the shape of a profile " +
+              "and its overall level: each trait t carries mass t/" + COGNITIVE_TRAITS.length + ", moving mass " +
+              "between traits costs the trait ground metric (0.2 / 0.5 / 0.8) and creating or destroying it " +
+              "costs 0.4 per unit (a hand-set hypothesis), so w1 ranges from 0 to 0.4 and all traits 0.2 " +
+              "versus all traits 0.8 is 0.24. topDifferentiatingTraits can include overallLevel, which is not " +
+              "a trait: it is half the cost the difference in mean trait level forces, 0.5 x 0.4 x |mean A - " +
+              "mean B| (the other half is charged to the traits where mass is created or destroyed). w2 and " +
+              "sliced are computed on profiles normalised to the simplex, so they measure shape only: " +
+              "proportional trait vectors are at distance 0 on both.",
 
             // Verdict is a percentile band, not an absolute threshold. The former
             // absolute bands put 209 of the then 210 built-in pairs in one bucket.
@@ -570,7 +578,7 @@ Begin with the first persona: ${personas[0]}
 
   server.registerTool("cognitive_coverage", {
     title: "Maximum Coverage Persona Selection",
-    description: "Select the N most cognitively different personas from a list for maximum test coverage. Uses greedy farthest-point sampling in Wasserstein space.",
+    description: "Select the N most cognitively different personas from a list for maximum test coverage. Uses greedy farthest-point sampling under the generalized Wasserstein-1 distance of cognitive_distance, which counts differences in overall trait level as well as in profile shape.",
     inputSchema: {
       personas: z.array(z.string()).describe("List of persona names to select from"),
       count: z.number().describe("Number of personas to select"),
