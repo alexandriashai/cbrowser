@@ -464,9 +464,7 @@ function readParams<K extends string>(ids: Record<K, string>): Record<K, number>
 
 const DEMAND_IDS = {
   infoWorkingMemory: 'chain.demand.info.workingMemory',
-  infoReadingTendency: 'chain.demand.info.readingTendency',
   infoInformationForaging: 'chain.demand.info.informationForaging',
-  visualMentalModelFlexibility: 'chain.demand.visual.mentalModelFlexibility',
   interactiveHalfSaturation: 'chain.demand.interactive.halfSaturation',
   interactiveRiskTolerance: 'chain.demand.interactive.riskTolerance',
   interactiveSatisficing: 'chain.demand.interactive.satisficing',
@@ -476,21 +474,17 @@ const DEMAND_IDS = {
   textComprehension: 'chain.demand.text.comprehension',
   textReadingCapacity: 'chain.demand.text.readingCapacity',
   wordLengthComprehension: 'chain.demand.wordLength.comprehension',
-  wordLengthReadingTendency: 'chain.demand.wordLength.readingTendency',
   sentenceLengthWorkingMemory: 'chain.demand.sentenceLength.workingMemory',
   sentenceLengthPatience: 'chain.demand.sentenceLength.patience',
   sentenceLengthComprehension: 'chain.demand.sentenceLength.comprehension',
   lexicalDiversityComprehension: 'chain.demand.lexicalDiversity.comprehension',
   lexicalDiversityTransferLearning: 'chain.demand.lexicalDiversity.transferLearning',
-  longWordsReadingTendency: 'chain.demand.longWords.readingTendency',
   longWordsComprehension: 'chain.demand.longWords.comprehension',
   technicalComprehension: 'chain.demand.technical.comprehension',
   technicalTransferLearning: 'chain.demand.technical.transferLearning',
-  technicalMentalModelFlexibility: 'chain.demand.technical.mentalModelFlexibility',
   animationSigmoidThreshold: 'chain.demand.animation.sigmoidThreshold',
   animationSigmoidScale: 'chain.demand.animation.sigmoidScale',
   animationChangeBlindness: 'chain.demand.animation.changeBlindness',
-  animationInterruptRecovery: 'chain.demand.animation.interruptRecovery',
   animationEmotionalContagion: 'chain.demand.animation.emotionalContagion',
   distractorAnimationShare: 'chain.demand.distractor.animationShare',
   distractorVisualShare: 'chain.demand.distractor.visualShare',
@@ -502,8 +496,6 @@ const DEMAND_IDS = {
   choiceSocialProofSensitivity: 'chain.demand.choice.socialProofSensitivity',
   navHalfSaturation: 'chain.demand.nav.halfSaturation',
   navWorkingMemory: 'chain.demand.nav.workingMemory',
-  navMetacognitivePlanning: 'chain.demand.nav.metacognitivePlanning',
-  navPersistence: 'chain.demand.nav.persistence',
   navTransferLearning: 'chain.demand.nav.transferLearning',
   navSiteFamiliarity: 'chain.demand.nav.siteFamiliarity',
 } as const;
@@ -587,30 +579,32 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   const choices = safe(pageMetrics.choiceCount);
   const navDepth = safe(pageMetrics.navigationDepth);
 
-  // ── informationDensity → comprehension, workingMemory, readingTendency, informationForaging
+  // Demand is written only to dimensions some layer reads. Through 20.x these
+  // curves also wrote readingTendency, mentalModelFlexibility,
+  // interruptRecovery, metacognitivePlanning, persistence and motorPrecision,
+  // none of which is in a layer, so those terms (and eight registered weights)
+  // changed no number. Removed in 21.0; the dimensions themselves remain.
+
+  // ── informationDensity → comprehension, workingMemory, informationForaging
   // Page metrics already use logScale (0-1) — pass through directly for differentiation
   const infoDemand = infoDensity;
   demands.comprehension = Math.max(demands.comprehension, infoDemand);
   demands.workingMemory = Math.max(demands.workingMemory, infoDemand * D.infoWorkingMemory);
-  demands.readingTendency = Math.max(demands.readingTendency, infoDemand * D.infoReadingTendency);
   demands.informationForaging = Math.max(demands.informationForaging, infoDemand * D.infoInformationForaging);
 
-  // ── visualComplexity → changeBlindness, mentalModelFlexibility
+  // ── visualComplexity → changeBlindness
   const visDemand = visCplx; // already 0-1 from logScale
   demands.changeBlindness = Math.max(demands.changeBlindness, visDemand);
-  demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, visDemand * D.visualMentalModelFlexibility);
 
-  // ── interactiveElementCount → riskTolerance, satisficing, proceduralFluency, motorPrecision (inferred)
+  // ── interactiveElementCount → riskTolerance, satisficing, proceduralFluency
   // Use logScale for element count — 20 elements = 0.5, 100 = 0.83, 500 = 0.96
   const interDemand = interactiveCount / (interactiveCount + D.interactiveHalfSaturation);
   demands.riskTolerance = Math.max(demands.riskTolerance, interDemand * D.interactiveRiskTolerance);
   demands.satisficing = Math.max(demands.satisficing, interDemand * D.interactiveSatisficing);
   demands.proceduralFluency = Math.max(demands.proceduralFluency, interDemand * D.interactiveProceduralFluency);
-  demands.motorPrecision = Math.max(demands.motorPrecision, interDemand);
 
-  // ── textDensity → readingTendency, patience, comprehension
+  // ── textDensity → patience, comprehension
   const textDemand = textDens; // already 0-1 from logScale
-  demands.readingTendency = Math.max(demands.readingTendency, textDemand);
   demands.patience = Math.max(demands.patience, textDemand * D.textPatience);
   demands.comprehension = Math.max(demands.comprehension, textDemand * D.textComprehension);
 
@@ -624,10 +618,9 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   const techDens = safe((pageMetrics as any).technicalDensity);
 
   if (avgWordLen > 0 || avgSentLen > 0) {
-    // avgWordLength → comprehension, readingTendency
+    // avgWordLength → comprehension
     // Longer words = harder to parse (especially for dyslexic, ADHD, non-native speakers)
     demands.comprehension = Math.max(demands.comprehension, avgWordLen * D.wordLengthComprehension);
-    demands.readingTendency = Math.max(demands.readingTendency, avgWordLen * D.wordLengthReadingTendency);
 
     // avgSentenceLength → workingMemory, patience, comprehension
     // Longer sentences demand more working memory to hold clause structure
@@ -640,22 +633,19 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
     demands.comprehension = Math.max(demands.comprehension, lexDiv * D.lexicalDiversityComprehension);
     demands.transferLearning = Math.max(demands.transferLearning, lexDiv * D.lexicalDiversityTransferLearning);
 
-    // longWordRatio → readingTendency, comprehension
+    // longWordRatio → comprehension
     // Pages with many 7+ character words are harder to skim
-    demands.readingTendency = Math.max(demands.readingTendency, longWordR * D.longWordsReadingTendency);
     demands.comprehension = Math.max(demands.comprehension, longWordR * D.longWordsComprehension);
 
-    // technicalDensity → comprehension, transferLearning, mentalModelFlexibility
+    // technicalDensity → comprehension, transferLearning
     // 10+ character words signal compound terms, jargon, domain-specific vocabulary
     demands.comprehension = Math.max(demands.comprehension, techDens * D.technicalComprehension);
     demands.transferLearning = Math.max(demands.transferLearning, techDens * D.technicalTransferLearning);
-    demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, techDens * D.technicalMentalModelFlexibility);
   }
 
-  // ── animationLevel → changeBlindness, interruptRecovery, emotionalContagion
+  // ── animationLevel → changeBlindness, emotionalContagion
   const animDemand = sigmoid(animLevel, D.animationSigmoidThreshold, D.animationSigmoidScale);
   demands.changeBlindness = Math.max(demands.changeBlindness, animDemand * D.animationChangeBlindness);
-  demands.interruptRecovery = Math.max(demands.interruptRecovery, animDemand * D.animationInterruptRecovery);
   demands.emotionalContagion = Math.max(demands.emotionalContagion, animDemand * D.animationEmotionalContagion);
 
   // ── textDensity × distractor pressure → sustainedAttention
@@ -717,12 +707,10 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   demands.fearOfMissingOut = Math.max(demands.fearOfMissingOut, choiceDemand * D.choiceFearOfMissingOut);
   demands.socialProofSensitivity = Math.max(demands.socialProofSensitivity, choiceDemand * D.choiceSocialProofSensitivity);
 
-  // ── navigationDepth → workingMemory, metacognitivePlanning, persistence, transferLearning
+  // ── navigationDepth → workingMemory, transferLearning
   // LogScale: depth 2 = 0.4, depth 5 = 0.63, depth 10 = 0.77
   const navDemand = navDepth / (navDepth + D.navHalfSaturation);
   demands.workingMemory = Math.max(demands.workingMemory, navDemand * D.navWorkingMemory);
-  demands.metacognitivePlanning = Math.max(demands.metacognitivePlanning, navDemand * D.navMetacognitivePlanning);
-  demands.persistence = Math.max(demands.persistence, navDemand * D.navPersistence);
   demands.transferLearning = Math.max(demands.transferLearning, navDemand * D.navTransferLearning);
   // ── navigationDepth → siteFamiliarity
   //
@@ -811,22 +799,21 @@ const VALUE_DEMAND_MODULATION: Array<{
   value: string;
   trait: string;
   coefficient: string; // provenance id; positive = amplifies demand, negative = dampens
-  layer: string;       // which layer this modulation applies to
+  layer: string;       // the layer whose trait this modulates (a test checks the trait is in it)
 }> = [
+  // Seven entries were removed in 21.0 because their trait is in no layer, so
+  // the modulated demand was never read: stimulation and conformity on
+  // attentionPattern, security on trustCalibration, stimulation on curiosity,
+  // selfDirection on metacognitivePlanning, tradition on mentalModelFlexibility
+  // and universalism on readingTendency.
+
   // ── Visual Complexity Layer Modulations ──
   // Stimulation → reduces changeBlindness threshold (novelty-seekers notice changes more)
   { value: 'stimulation', trait: 'changeBlindness', coefficient: 'chain.valueModulation.stimulation.changeBlindness', layer: 'visualComplexity' },
-  // Stimulation → amplifies attentionPattern demand (drawn to novel visual elements)
-  { value: 'stimulation', trait: 'attentionPattern', coefficient: 'chain.valueModulation.stimulation.attentionPattern', layer: 'visualComplexity' },
   // Security → amplifies changeBlindness demand (vigilant scanners notice more changes)
   { value: 'security', trait: 'changeBlindness', coefficient: 'chain.valueModulation.security.changeBlindness', layer: 'visualComplexity' },
-  // Conformity → dampens attentionPattern (follows expected scan patterns, less exploratory)
-  { value: 'conformity', trait: 'attentionPattern', coefficient: 'chain.valueModulation.conformity.attentionPattern', layer: 'visualComplexity' },
 
-  // ── Frustration Layer ──
-  // Security → amplifies trust demand (Fogg 2003: high-security users need more trust signals)
-  { value: 'security', trait: 'trustCalibration', coefficient: 'chain.valueModulation.security.trustCalibration', layer: 'frustration' },
-
+  // ── Decision Layer ──
   // Achievement → reduces satisficing demand (optimizers don't settle for "good enough")
   { value: 'achievement', trait: 'satisficing', coefficient: 'chain.valueModulation.achievement.satisficing', layer: 'decision' },
   // Achievement → increases riskTolerance capacity (confident decision-makers)
@@ -837,27 +824,19 @@ const VALUE_DEMAND_MODULATION: Array<{
   // Conformity → amplifies anchoring (defer to first/default option)
   { value: 'conformity', trait: 'anchoringBias', coefficient: 'chain.valueModulation.conformity.anchoringBias', layer: 'decision' },
 
-  // Stimulation → amplifies curiosity demand (explore more, bored faster)
-  { value: 'stimulation', trait: 'curiosity', coefficient: 'chain.valueModulation.stimulation.curiosity', layer: 'cognitiveLoad' },
-  // Stimulation → depletes patience (novelty-seekers abandon monotonous pages)
-  { value: 'stimulation', trait: 'patience', coefficient: 'chain.valueModulation.stimulation.patience', layer: 'motor' },
-
   // Self-Direction → reduces conformity-related demand (independent thinkers)
   { value: 'selfDirection', trait: 'socialProofSensitivity', coefficient: 'chain.valueModulation.selfDirection.socialProofSensitivity', layer: 'decision' },
-  // Self-Direction → amplifies metacognitive planning (plan their own path)
-  { value: 'selfDirection', trait: 'metacognitivePlanning', coefficient: 'chain.valueModulation.selfDirection.metacognitivePlanning', layer: 'cognitiveLoad' },
-
-  // Tradition → amplifies mentalModelFlexibility (resist new UI patterns)
-  { value: 'tradition', trait: 'mentalModelFlexibility', coefficient: 'chain.valueModulation.tradition.mentalModelFlexibility', layer: 'cognitiveLoad' },
-
-  // Benevolence → reduces emotionalContagion cost (emotionally regulated)
-  { value: 'benevolence', trait: 'emotionalContagion', coefficient: 'chain.valueModulation.benevolence.emotionalContagion', layer: 'frustration' },
 
   // Power → reduces fear of missing out (confident, not swayed by urgency)
   { value: 'power', trait: 'fearOfMissingOut', coefficient: 'chain.valueModulation.power.fearOfMissingOut', layer: 'decision' },
 
-  // Universalism → amplifies readingTendency (reads everything, values completeness)
-  { value: 'universalism', trait: 'readingTendency', coefficient: 'chain.valueModulation.universalism.readingTendency', layer: 'readability' },
+  // ── Frustration Layer ──
+  // Stimulation → depletes patience (novelty-seekers abandon monotonous pages).
+  // Labelled `motor` through 20.x; patience is in frustration.
+  { value: 'stimulation', trait: 'patience', coefficient: 'chain.valueModulation.stimulation.patience', layer: 'frustration' },
+
+  // Benevolence → reduces emotionalContagion cost (emotionally regulated)
+  { value: 'benevolence', trait: 'emotionalContagion', coefficient: 'chain.valueModulation.benevolence.emotionalContagion', layer: 'frustration' },
 ];
 
 /**

@@ -32,8 +32,10 @@ describe("chain provenance registry", () => {
     // this number on purpose. 135 at the refactor; 94 after the 41 variance
     // coefficients, which no output read, were removed (2026-10-21); 88 after
     // attentionPattern left layer 1 and took its demand weight and the five
-    // string-level capacities with it (21.0).
-    expect(CHAIN_PROVENANCE.length).toBe(88);
+    // string-level capacities with it (21.0); 73 after the eight demand weights
+    // and seven Schwartz modulations that wrote to dimensions in no layer, and
+    // so moved no number, were removed (21.0).
+    expect(CHAIN_PROVENANCE.length).toBe(73);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });

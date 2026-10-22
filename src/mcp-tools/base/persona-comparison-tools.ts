@@ -1077,8 +1077,10 @@ Begin with the first persona: ${personas[0]}
               demand.demands[dim] *= decisionScale;
             }
           }
-          // Scale frustration-related demands
-          for (const dim of ["resilience", "selfEfficacy", "emotionalContagion"]) {
+          // Scale frustration-related demands. resilience and selfEfficacy were
+          // listed here too; neither carries demand nor sits in a layer (21.0),
+          // so scaling them changed nothing.
+          for (const dim of ["emotionalContagion"]) {
             if (demand.demands[dim] !== undefined) {
               demand.demands[dim] *= achMod;
             }

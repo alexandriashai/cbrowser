@@ -18,7 +18,7 @@ import {
   DEMAND_DIMENSIONS,
 } from "../src/visual/cognitive-transport-chain.js";
 import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
-import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
+import { ROSTER, RAW_DEMANDS, PAGE_DEMANDS, toolProfile } from "./fixtures/ctc-golden-matrix.js";
 
 const ROOT = join(import.meta.dir, "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -129,5 +129,46 @@ describe("no layer trait is the same number for every persona", () => {
 
   test("a string-valued trait reads as a missing trait, not as one of the retired levels", () => {
     expect(capacityVector({ attentionPattern: "targeted" }).attentionPattern).toBe(MODEL_PROVENANCE["chain.missingTraitCapacity"].value);
+  });
+});
+
+describe("demand is written only where a layer reads it", () => {
+  // A demand weight on a dimension that is in no layer changes no number: the
+  // chain reads demand per layer trait and nothing else. Through 20.x the
+  // demand curves wrote to readingTendency, mentalModelFlexibility,
+  // interruptRecovery, metacognitivePlanning, persistence and motorPrecision,
+  // all outside every layer, and eight of those weights sat in the registry as
+  // hypotheses that could not be tested because they did nothing.
+  const inLayers = new Set(LAYER_DEFINITIONS.flatMap((l) => l.traits));
+  const pages = [
+    MAX_PAGE,
+    ...RAW_DEMANDS.map((d) => {
+      const [informationDensity, visualComplexity, interactiveElementCount, textDensity, animationLevel, choiceCount, navigationDepth] = d.args;
+      return { informationDensity, visualComplexity, interactiveElementCount, textDensity, animationLevel, choiceCount, navigationDepth };
+    }),
+    ...PAGE_DEMANDS.map((d) => d.metrics),
+  ];
+
+  test("every dimension outside every layer gets zero demand, on every reference page", () => {
+    const written = new Set<string>();
+    for (const page of pages) {
+      const { demands } = computeDemandDistribution(page);
+      for (const dim of DEMAND_DIMENSIONS) if (!inLayers.has(dim) && demands[dim] !== 0) written.add(dim);
+    }
+    expect([...written].sort()).toEqual([]);
+  });
+
+  test("every Schwartz modulation targets a trait inside the layer it names", () => {
+    // Read from the source so the layer label is checked too: a label naming a
+    // layer the trait is not in is a claim about the model that is false.
+    const src = read("src/visual/cognitive-transport-chain.ts");
+    const block = src.slice(src.indexOf("const VALUE_DEMAND_MODULATION"), src.indexOf("export function computeSequentialCTC"));
+    const entries = Array.from(block.matchAll(/\{ value: '(\w+)', trait: '(\w+)', coefficient: '([\w.]+)', layer: '(\w+)' \}/g),
+      (m) => ({ value: m[1], trait: m[2], id: m[3], layer: m[4] }));
+    expect(entries.length).toBeGreaterThanOrEqual(10);
+    const wrong = entries
+      .filter((e) => !LAYER_DEFINITIONS.find((l) => l.name === e.layer)?.traits.includes(e.trait))
+      .map((e) => `${e.id} -> ${e.trait} labelled ${e.layer}`);
+    expect(wrong).toEqual([]);
   });
 });
