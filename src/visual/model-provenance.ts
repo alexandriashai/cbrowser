@@ -118,7 +118,7 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
   return {
     counts,
     hypotheses,
-    scope: "Constants of the cognitive transport chain and the persona distance. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
+    scope: "Every registered constant this answer read, from: the demand curves that turn page metrics into per-trait demand, the cognitive transport chain, and the persona distance. The page metrics themselves are measured from the page, not set. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
     note: "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; it is not a validation of the score. See MODEL_PROVENANCE for each source.",
   };
 }

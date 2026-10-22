@@ -40,6 +40,7 @@ import {
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import { withProvenance } from "../../visual/model-provenance.js";
+import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
 
 /**
@@ -973,68 +974,14 @@ Begin with the first persona: ${personas[0]}
       );
 
       // Compute full COT
-      const { computeDemandDistribution, computeSequentialCTC } = await import("../../visual/cognitive-transport-chain.js");
-      const demand = computeDemandDistribution(pageMetrics);
+      const { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } = await import("../../visual/cognitive-transport-chain.js");
 
-      // SEQUENTIAL PASS. Runs before the aggregate so a failure here degrades to
-      // the normal answer rather than losing the whole call.
-      let sequentialResult: Record<string, unknown> | undefined;
-      if (measureScope === "sequential") {
-        try {
-          const { extractPerScreenMetrics } = await import("../../visual/cognitive-transport.js");
-          const { computeSequentialScrollCTC } = await import("../../visual/cognitive-transport-chain.js");
-          // The SAME measurement the caption came from, so the curve length and the
-          // caption cannot disagree.
-          const perScreen = await extractPerScreenMetrics(page, 20, sharedGeometry);
-          const seqProfile = buildOTProfile(personaName, traits);
-          const seq = computeSequentialScrollCTC(
-            seqProfile,
-            perScreen.map((m) => computeDemandDistribution(m)),
-            { asymmetric: true, interactions: true },
-          );
-          sequentialResult = {
-            screensMeasured: seq.screens.length,
-            // The INPUTS the screen count came from, published so a differing curve is
-            // diagnosable instead of guessable. An external client measured 5.8 screens
-            // on a session's first navigation and 6.7 on every later one; with only
-            // `screensMeasured: 7` in the payload a 6-screen curve is internally
-            // consistent and unmarked, which is the shape of every defect this tool has
-            // had. An invisible variance is indistinguishable from no variance.
-            geometry: {
-              documentHeight: sharedGeometry.documentHeight,
-              viewportHeight: sharedGeometry.viewportHeight,
-              pageScreens: sharedGeometry.pageScreens,
-              screenCount: sharedGeometry.screenCount,
-              note: "One measurement, shared by the curve length and by the pageScreens caption, so the two cannot disagree. Page height can change between navigations; if two runs of the same URL differ, compare documentHeight before anything else.",
-            },
-            totalAbandonment: `${Math.round(seq.totalAbandonment * 100)}%`,
-            expectedDepthScreens: seq.expectedDepthScreens,
-            dropOff: seq.dropOff
-              ? { screen: seq.dropOff.screen, layer: seq.dropOff.layer, shareOfSessions: `${Math.round(seq.dropOff.share * 100)}%` }
-              : null,
-            reachWeightedCTC: seq.reachWeightedCTC,
-            curve: seq.screens.map((x) => ({
-              screen: x.screen,
-              reach: `${Math.round(x.reachProbability * 100)}%`,
-              stopHere: `${Math.round(x.stopHazard * 100)}%`,
-              cumulativeAbandonment: `${Math.round(x.cumulativeAbandonment * 100)}%`,
-              screenCTC: x.screenCTC,
-              bottleneck: x.bottleneckLayer,
-            })),
-            note: "Each screen is measured on ITS OWN content, and capacity carries forward -- screen 7 is scored against what screens 1-6 left, not against a fresh persona. Count-based demands (interactive elements, choices) charge only elements not seen on an earlier screen, so a sticky nav is one decision rather than one per screen; text and visual density are NOT deduplicated, because re-encountering text is re-reading it.",
-            differsFrom: "The aggregate `abandonmentRisk` above asks what the whole document would cost if it were all processed. This asks how far they get. They are different questions and will not agree.",
-            uncalibrated: "The per-screen hazard uses the same ABANDONMENT_HILL_EXPONENT as the aggregate, which nothing empirical set. At 2 the curve is superlinear, so this model inherits a thumb on the scale.",
-            readThisFirst: "TRUST THE SHAPE, NOT THE TOTAL. `totalAbandonment` compounds a per-screen hazard across every screen, so on a long page it saturates toward 100% almost regardless of the page -- measured, elderly-user reached 100% on a 7-screen university homepage. That is the uncalibrated exponent compounding, not a finding about that page. `expectedDepthScreens` and `dropOff` are the numbers to act on: they say how far people get and what stops them, and both depend on the RANKING of per-screen hazards rather than their absolute level, which is the part the exponent least disturbs. `dropOff` is persona-dependent by design and that is not noise: an impatient reader drops on screen one, a patient one survives to whichever screen is genuinely hardest, and the two answers are both correct for their reader.",
-          };
-        } catch (e) {
-          sequentialResult = { error: `sequential pass failed: ${(e as Error).message}`, note: "The aggregate figures below are unaffected." };
-        }
-      }
-
-      // Modulate demand by motivational values (opt-in, default off)
+      // Modulate demand by motivational values (opt-in, default off). Resolved
+      // here; applied to the demand inside the provenance block below.
+      let personaValues: ReturnType<typeof resolveValuesForPersona>;
       if (useValues) try {
         // regPV2 writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
-        const { getPersonaValues, registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
+        const { registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
         let pValues = resolveValuesForPersona(personaName);
 
         // Custom persona CMS fallback
@@ -1061,6 +1008,50 @@ Begin with the first persona: ${personas[0]}
             }
           } catch { /* CMS fallback failed */ }
         }
+        personaValues = pValues;
+      } catch { /* values not available — proceed without */ }
+      const chainOptions = { asymmetric: true, interactions: true };
+
+      // SEQUENTIAL PASS, measuring half. The per-screen metrics are read here and
+      // the curve is scored in the block below with everything else, so its
+      // constants are counted too. A failure here degrades to the normal answer
+      // rather than losing the whole call.
+      let perScreen: PageMetrics[] | undefined;
+      let sequentialError: string | undefined;
+      if (measureScope === "sequential") {
+        try {
+          const { extractPerScreenMetrics } = await import("../../visual/cognitive-transport.js");
+          // The SAME measurement the caption came from, so the curve length and the
+          // caption cannot disagree.
+          perScreen = await extractPerScreenMetrics(page, 20, sharedGeometry);
+        } catch (e) {
+          sequentialError = (e as Error).message;
+        }
+      }
+
+      // Everything the reported numbers are computed from, under ONE provenance
+      // recording: the demand curves, the chain, and the sequential curve when
+      // scope asks for it.
+      //
+      // The demand used to be built before this block, so the 35 hand-set
+      // weights that turn page metrics into per-trait demand were read and not
+      // reported: the block listed 22 hypotheses for an answer that read 57.
+      // Synchronous on purpose: the recording is module state, and an await in
+      // here would let another request's reads land in this answer's block. The
+      // persona profile stays outside: its distance.* reads shape the distance
+      // model's distribution, not the traits the chain reads. (2026-10-22)
+      const { result: scored, provenance: ctcProvenance } = withProvenance(() => {
+        let seq: ReturnType<typeof computeSequentialScrollCTC> | undefined;
+        let seqError = sequentialError;
+        if (perScreen) {
+          try {
+            seq = computeSequentialScrollCTC(otProfile, perScreen.map((m) => computeDemandDistribution(m)), chainOptions);
+          } catch (e) {
+            seqError = (e as Error).message;
+          }
+        }
+        const demand = computeDemandDistribution(pageMetrics);
+        const pValues = personaValues;
         if (pValues && demand.demands) {
           // Conservation (security+conformity+tradition)/3 amplifies decision layer
           const conservation = (pValues.security + pValues.conformity + pValues.tradition) / 3;
@@ -1085,13 +1076,50 @@ Begin with the first persona: ${personas[0]}
             }
           }
         }
-      } catch { /* values not available — proceed without */ }
+        return { aggregate: computeSequentialCTC(otProfile, demand, chainOptions), seq, seqError };
+      });
+      const result = scored.aggregate;
 
-      // Run under provenance recording so the response can say which hand-set
-      // constants the headline numbers rest on (every one in this chain is a
-      // hypothesis today; see src/visual/provenance/chain.ts).
-      const { result, provenance: ctcProvenance } = withProvenance(() =>
-        computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true }));
+      let sequentialResult: Record<string, unknown> | undefined;
+      if (scored.seq) {
+        const seq = scored.seq;
+        sequentialResult = {
+          screensMeasured: seq.screens.length,
+          // The INPUTS the screen count came from, published so a differing curve is
+          // diagnosable instead of guessable. An external client measured 5.8 screens
+          // on a session's first navigation and 6.7 on every later one; with only
+          // `screensMeasured: 7` in the payload a 6-screen curve is internally
+          // consistent and unmarked, which is the shape of every defect this tool has
+          // had. An invisible variance is indistinguishable from no variance.
+          geometry: {
+            documentHeight: sharedGeometry.documentHeight,
+            viewportHeight: sharedGeometry.viewportHeight,
+            pageScreens: sharedGeometry.pageScreens,
+            screenCount: sharedGeometry.screenCount,
+            note: "One measurement, shared by the curve length and by the pageScreens caption, so the two cannot disagree. Page height can change between navigations; if two runs of the same URL differ, compare documentHeight before anything else.",
+          },
+          totalAbandonment: `${Math.round(seq.totalAbandonment * 100)}%`,
+          expectedDepthScreens: seq.expectedDepthScreens,
+          dropOff: seq.dropOff
+            ? { screen: seq.dropOff.screen, layer: seq.dropOff.layer, shareOfSessions: `${Math.round(seq.dropOff.share * 100)}%` }
+            : null,
+          reachWeightedCTC: seq.reachWeightedCTC,
+          curve: seq.screens.map((x) => ({
+            screen: x.screen,
+            reach: `${Math.round(x.reachProbability * 100)}%`,
+            stopHere: `${Math.round(x.stopHazard * 100)}%`,
+            cumulativeAbandonment: `${Math.round(x.cumulativeAbandonment * 100)}%`,
+            screenCTC: x.screenCTC,
+            bottleneck: x.bottleneckLayer,
+          })),
+          note: "Each screen is measured on ITS OWN content, and capacity carries forward -- screen 7 is scored against what screens 1-6 left, not against a fresh persona. Count-based demands (interactive elements, choices) charge only elements not seen on an earlier screen, so a sticky nav is one decision rather than one per screen; text and visual density are NOT deduplicated, because re-encountering text is re-reading it.",
+          differsFrom: "The aggregate `abandonmentRisk` above asks what the whole document would cost if it were all processed. This asks how far they get. They are different questions and will not agree.",
+          uncalibrated: "The per-screen hazard uses the same ABANDONMENT_HILL_EXPONENT as the aggregate, which nothing empirical set. At 2 the curve is superlinear, so this model inherits a thumb on the scale.",
+          readThisFirst: "TRUST THE SHAPE, NOT THE TOTAL. `totalAbandonment` compounds a per-screen hazard across every screen, so on a long page it saturates toward 100% almost regardless of the page -- measured, elderly-user reached 100% on a 7-screen university homepage. That is the uncalibrated exponent compounding, not a finding about that page. `expectedDepthScreens` and `dropOff` are the numbers to act on: they say how far people get and what stops them, and both depend on the RANKING of per-screen hazards rather than their absolute level, which is the part the exponent least disturbs. `dropOff` is persona-dependent by design and that is not noise: an impatient reader drops on screen one, a patient one survives to whichever screen is genuinely hardest, and the two answers are both correct for their reader.",
+        };
+      } else if (scored.seqError !== undefined) {
+        sequentialResult = { error: `sequential pass failed: ${scored.seqError}`, note: "The aggregate figures below are unaffected." };
+      }
 
       // Also compute motor and readability from formal models
       let motorResult = null;
@@ -1251,9 +1279,9 @@ Begin with the first persona: ${personas[0]}
           redirectNote: `Requested ${hostOf(url)} and landed on ${hostOf(landedUrl)}. Every number below describes ${hostOf(landedUrl)}.`,
         } : { resolvedUrl: landedUrl }),
         persona: personaName,
-        // Status counts of every registry constant the aggregate chain read for
-        // this answer, and the ids of the hand-set ones. The sequential curve
-        // below reads the same registry.
+        // Status counts of every registry constant this answer read -- demand
+        // curves, chain, sequential curve if scored -- and the ids of the
+        // hand-set ones.
         modelProvenance: ctcProvenance,
         cognitiveTransportCost: {
           total: Math.round(result.totalCTC * 1000) / 1000,
