@@ -439,10 +439,9 @@ export interface PreconditionCase {
 /**
  * One input per precondition that breaks it and nothing else, each built from
  * the live layout (read, never hard-coded) so the cases stay valid whatever
- * layer membership the chain has.
+ * layer membership the chain has. `live` is replaceable to check that claim.
  */
-export function preconditionCases(base: DemandDistribution): PreconditionCase[] {
-  const live = liveLayout();
+export function preconditionCases(base: DemandDistribution, live: ChainLayout = liveLayout()): PreconditionCase[] {
   const L = live.layers;
   const withLayers = (layers: ChainLayout["layers"]): ChainLayout => ({ layers, pairs: live.pairs });
   const plain = L.map((l, i) => i).filter((i) => !L[i].traits.includes(SA) && L[i].traits.length > 0);
@@ -450,9 +449,16 @@ export function preconditionCases(base: DemandDistribution): PreconditionCase[] 
   const [iA, iB] = plain;
   const tA = L[iA].traits[0];
   const withoutSA = L.map((l) => ({ name: l.name, traits: l.traits.filter((t) => t !== SA) })).filter((l) => l.traits.length > 0);
+  // A trait to share sustainedAttention's layer with: one in no layer, or, if every dimension is in one, a trait taken out of a layer that keeps another.
   const inLayers = new Set(L.flatMap((l) => l.traits));
-  const spare = DIMS.find((d) => d !== SA && !inLayers.has(d));
-  if (!spare) throw new Error("preconditionCases: every dimension is in a layer, so there is no spare trait to share sustainedAttention's layer");
+  let spare = DIMS.find((d) => d !== SA && !inLayers.has(d));
+  let rest = withoutSA;
+  if (!spare) {
+    const donor = withoutSA.findIndex((l) => l.traits.length > 1);
+    if (donor < 0) throw new Error("preconditionCases: no trait can share sustainedAttention's layer without emptying another layer");
+    spare = withoutSA[donor].traits[0];
+    rest = withoutSA.map((l, i) => (i === donor ? { ...l, traits: l.traits.slice(1) } : l));
+  }
   const pairs = live.pairs.length ? live.pairs : [{ a: L[iA].name, b: L[iB].name, weight: 0.15 }];
   const demandWith = (v: number): DemandDistribution => ({ demands: { ...base.demands, [tA]: v } });
   const cases: PreconditionCase[] = [
@@ -483,7 +489,7 @@ export function preconditionCases(base: DemandDistribution): PreconditionCase[] 
     },
     {
       name: "sustainedAttention's layer shared", demand: base, says: new RegExp(`lists traits besides ${SA}`), public: false,
-      chain: { layout: withLayers([...withoutSA, { name: "attention-shared", traits: [SA, spare] }]) },
+      chain: { layout: withLayers([...rest, { name: "attention-shared", traits: [SA, spare] }]) },
     },
     {
       name: "negative interaction weight", demand: base, says: /interaction weight .* = -0\.15 is not finite and >= 0/, public: false,
