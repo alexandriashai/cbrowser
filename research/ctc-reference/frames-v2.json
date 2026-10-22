@@ -1,0 +1,4003 @@
+{
+ "builtOn": "2026-10-22",
+ "seed": 20261022,
+ "note": "Built by research/ctc-reference/crawl-v2.ts --build-frames. Each frame's sites are in crawl order; the crawl takes them in that order until the frame's quota is met.",
+ "frames": {
+  "brand": {
+   "description": "The v1 brand list, research/benchmark/sites.json (199 sites with an industry label), in a seeded random order.",
+   "source": "research/benchmark/sites.json",
+   "sites": [
+    {
+     "site": "Netlify",
+     "landing": "https://netlify.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Google",
+     "landing": "https://google.com",
+     "sector": "Tech Giant"
+    },
+    {
+     "site": "Disneyplus",
+     "landing": "https://disneyplus.com",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Opensea",
+     "landing": "https://opensea.io",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Servicenow",
+     "landing": "https://servicenow.com",
+     "sector": "Enterprise"
+    },
+    {
+     "site": "Booking",
+     "landing": "https://booking.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Priceline",
+     "landing": "https://priceline.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Stripe",
+     "landing": "https://stripe.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Verizon",
+     "landing": "https://verizon.com",
+     "sector": "Telecom"
+    },
+    {
+     "site": "Chipotle",
+     "landing": "https://chipotle.com",
+     "sector": "Restaurant"
+    },
+    {
+     "site": "Ubereats",
+     "landing": "https://ubereats.com",
+     "sector": "Food"
+    },
+    {
+     "site": "Redbull",
+     "landing": "https://redbull.com",
+     "sector": "Beverages"
+    },
+    {
+     "site": "Usps",
+     "landing": "https://usps.com",
+     "sector": "Logistics"
+    },
+    {
+     "site": "Walgreens",
+     "landing": "https://walgreens.com",
+     "sector": "Healthcare"
+    },
+    {
+     "site": "1Password",
+     "landing": "https://1password.com",
+     "sector": "Security"
+    },
+    {
+     "site": "Nike",
+     "landing": "https://nike.com",
+     "sector": "Fitness"
+    },
+    {
+     "site": "Wikipedia",
+     "landing": "https://wikipedia.org",
+     "sector": "Non-profit"
+    },
+    {
+     "site": "Linkedin",
+     "landing": "https://linkedin.com",
+     "sector": "Social"
+    },
+    {
+     "site": "Perplexity",
+     "landing": "https://perplexity.ai",
+     "sector": "AI"
+    },
+    {
+     "site": "Khanacademy",
+     "landing": "https://khanacademy.org",
+     "sector": "Education"
+    },
+    {
+     "site": "Fedex",
+     "landing": "https://fedex.com",
+     "sector": "Logistics"
+    },
+    {
+     "site": "Capitalone",
+     "landing": "https://capitalone.com",
+     "sector": "Finance"
+    },
+    {
+     "site": "Hm",
+     "landing": "https://hm.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Wayfair",
+     "landing": "https://wayfair.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Paypal",
+     "landing": "https://paypal.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Zillow",
+     "landing": "https://zillow.com",
+     "sector": "Real Estate"
+    },
+    {
+     "site": "rei.com",
+     "landing": "https://rei.com",
+     "sector": "?"
+    },
+    {
+     "site": "Starbucks",
+     "landing": "https://starbucks.com",
+     "sector": "Restaurant"
+    },
+    {
+     "site": "Att",
+     "landing": "https://att.com",
+     "sector": "Telecom"
+    },
+    {
+     "site": "Homedepot",
+     "landing": "https://homedepot.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Ziprecruiter",
+     "landing": "https://ziprecruiter.com",
+     "sector": "Jobs"
+    },
+    {
+     "site": "progressive.com",
+     "landing": "https://progressive.com",
+     "sector": "?"
+    },
+    {
+     "site": "Aliexpress",
+     "landing": "https://aliexpress.com",
+     "sector": "Marketplace"
+    },
+    {
+     "site": "Anthropic",
+     "landing": "https://anthropic.com",
+     "sector": "AI"
+    },
+    {
+     "site": "Netflix",
+     "landing": "https://netflix.com",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Cloud",
+     "landing": "https://cloud.google.com",
+     "sector": "Cloud"
+    },
+    {
+     "site": "Meta",
+     "landing": "https://meta.com",
+     "sector": "Social"
+    },
+    {
+     "site": "delta.com",
+     "landing": "https://delta.com",
+     "sector": "?"
+    },
+    {
+     "site": "Wix",
+     "landing": "https://wix.com",
+     "sector": "Web Builder"
+    },
+    {
+     "site": "Epicgames",
+     "landing": "https://epicgames.com",
+     "sector": "Gaming"
+    },
+    {
+     "site": "Xbox",
+     "landing": "https://xbox.com",
+     "sector": "Gaming"
+    },
+    {
+     "site": "Hyatt",
+     "landing": "https://hyatt.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Canva",
+     "landing": "https://canva.com",
+     "sector": "AI"
+    },
+    {
+     "site": "Sonos",
+     "landing": "https://sonos.com",
+     "sector": "Electronics"
+    },
+    {
+     "site": "Max",
+     "landing": "https://max.com",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Chatgpt",
+     "landing": "https://chatgpt.com",
+     "sector": "AI"
+    },
+    {
+     "site": "X",
+     "landing": "https://x.com",
+     "sector": "Social"
+    },
+    {
+     "site": "Coinbase",
+     "landing": "https://coinbase.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Ticketmaster",
+     "landing": "https://ticketmaster.com",
+     "sector": "Sports"
+    },
+    {
+     "site": "Eventbrite",
+     "landing": "https://eventbrite.com",
+     "sector": "Events"
+    },
+    {
+     "site": "Venmo",
+     "landing": "https://venmo.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Lastpass",
+     "landing": "https://lastpass.com",
+     "sector": "Security"
+    },
+    {
+     "site": "Etsy",
+     "landing": "https://etsy.com",
+     "sector": "E-commerce"
+    },
+    {
+     "site": "Monsterenergy",
+     "landing": "https://monsterenergy.com",
+     "sector": "Beverages"
+    },
+    {
+     "site": "Expedia",
+     "landing": "https://expedia.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Webmd",
+     "landing": "https://webmd.com",
+     "sector": "Healthcare"
+    },
+    {
+     "site": "Xfinity",
+     "landing": "https://xfinity.com",
+     "sector": "Telecom"
+    },
+    {
+     "site": "Discord",
+     "landing": "https://discord.com",
+     "sector": "Social"
+    },
+    {
+     "site": "Geico",
+     "landing": "https://geico.com",
+     "sector": "Finance"
+    },
+    {
+     "site": "Trulia",
+     "landing": "https://trulia.com",
+     "sector": "Real Estate"
+    },
+    {
+     "site": "Bumble",
+     "landing": "https://bumble.com",
+     "sector": "Dating"
+    },
+    {
+     "site": "Samsung",
+     "landing": "https://samsung.com",
+     "sector": "Tech Giant"
+    },
+    {
+     "site": "Aws",
+     "landing": "https://aws.amazon.com",
+     "sector": "Cloud"
+    },
+    {
+     "site": "Notion",
+     "landing": "https://notion.so",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Redcross",
+     "landing": "https://redcross.org",
+     "sector": "Non-profit"
+    },
+    {
+     "site": "Bankofamerica",
+     "landing": "https://bankofamerica.com",
+     "sector": "Finance"
+    },
+    {
+     "site": "Walmart",
+     "landing": "https://walmart.com",
+     "sector": "E-commerce"
+    },
+    {
+     "site": "Bhphotovideo",
+     "landing": "https://bhphotovideo.com",
+     "sector": "Electronics"
+    },
+    {
+     "site": "Asos",
+     "landing": "https://asos.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Coursera",
+     "landing": "https://coursera.org",
+     "sector": "Education"
+    },
+    {
+     "site": "Binance",
+     "landing": "https://binance.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Theguardian",
+     "landing": "https://theguardian.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Twitch",
+     "landing": "https://twitch.tv",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Signal",
+     "landing": "https://signal.org",
+     "sector": "Messaging"
+    },
+    {
+     "site": "Ulta",
+     "landing": "https://ulta.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Cvs",
+     "landing": "https://cvs.com",
+     "sector": "Healthcare"
+    },
+    {
+     "site": "Allrecipes",
+     "landing": "https://allrecipes.com",
+     "sector": "Non-profit"
+    },
+    {
+     "site": "Stackoverflow",
+     "landing": "https://stackoverflow.com",
+     "sector": "Non-profit"
+    },
+    {
+     "site": "Espn",
+     "landing": "https://espn.com",
+     "sector": "Sports"
+    },
+    {
+     "site": "Spotify",
+     "landing": "https://spotify.com",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Nordvpn",
+     "landing": "https://nordvpn.com",
+     "sector": "Security"
+    },
+    {
+     "site": "Patagonia",
+     "landing": "https://patagonia.com",
+     "sector": "Outdoor"
+    },
+    {
+     "site": "Myfitnesspal",
+     "landing": "https://myfitnesspal.com",
+     "sector": "Fitness"
+    },
+    {
+     "site": "Nordstrom",
+     "landing": "https://nordstrom.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Kraken",
+     "landing": "https://kraken.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Pinterest",
+     "landing": "https://pinterest.com",
+     "sector": "Social"
+    },
+    {
+     "site": "Bestbuy",
+     "landing": "https://bestbuy.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Hulu",
+     "landing": "https://hulu.com",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Chase",
+     "landing": "https://chase.com",
+     "sector": "Finance"
+    },
+    {
+     "site": "Vercel",
+     "landing": "https://vercel.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Webflow",
+     "landing": "https://webflow.com",
+     "sector": "Enterprise"
+    },
+    {
+     "site": "Medium",
+     "landing": "https://medium.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Wellsfargo",
+     "landing": "https://wellsfargo.com",
+     "sector": "Finance"
+    },
+    {
+     "site": "Cnn",
+     "landing": "https://cnn.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Bmw",
+     "landing": "https://bmw.com",
+     "sector": "Automotive"
+    },
+    {
+     "site": "Zara",
+     "landing": "https://zara.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Trello",
+     "landing": "https://trello.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Nytimes",
+     "landing": "https://nytimes.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Zendesk",
+     "landing": "https://zendesk.com",
+     "sector": "Enterprise"
+    },
+    {
+     "site": "Duolingo",
+     "landing": "https://duolingo.com",
+     "sector": "Education"
+    },
+    {
+     "site": "Render",
+     "landing": "https://render.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Newegg",
+     "landing": "https://newegg.com",
+     "sector": "Electronics"
+    },
+    {
+     "site": "Lowes",
+     "landing": "https://lowes.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Godaddy",
+     "landing": "https://godaddy.com",
+     "sector": "Web Builder"
+    },
+    {
+     "site": "Atlassian",
+     "landing": "https://atlassian.com",
+     "sector": "Cloud"
+    },
+    {
+     "site": "Usa",
+     "landing": "https://usa.gov",
+     "sector": "Government"
+    },
+    {
+     "site": "Squarespace",
+     "landing": "https://squarespace.com",
+     "sector": "Web Builder"
+    },
+    {
+     "site": "Coca-Cola",
+     "landing": "https://coca-cola.com",
+     "sector": "Beverages"
+    },
+    {
+     "site": "Mercari",
+     "landing": "https://mercari.com",
+     "sector": "Marketplace"
+    },
+    {
+     "site": "nba.com",
+     "landing": "https://nba.com",
+     "sector": "?"
+    },
+    {
+     "site": "Macys",
+     "landing": "https://macys.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Replit",
+     "landing": "https://replit.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Southwest",
+     "landing": "https://southwest.com",
+     "sector": "Airlines"
+    },
+    {
+     "site": "Peloton",
+     "landing": "https://peloton.com",
+     "sector": "Fitness"
+    },
+    {
+     "site": "Headspace",
+     "landing": "https://headspace.com",
+     "sector": "Fitness"
+    },
+    {
+     "site": "Indeed",
+     "landing": "https://indeed.com",
+     "sector": "Jobs"
+    },
+    {
+     "site": "Zoom",
+     "landing": "https://zoom.us",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Reuters",
+     "landing": "https://reuters.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Amazon",
+     "landing": "https://amazon.com",
+     "sector": "E-commerce"
+    },
+    {
+     "site": "Gap",
+     "landing": "https://gap.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Monday",
+     "landing": "https://monday.com",
+     "sector": "Enterprise"
+    },
+    {
+     "site": "Claude",
+     "landing": "https://claude.ai",
+     "sector": "AI"
+    },
+    {
+     "site": "Target",
+     "landing": "https://target.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Doordash",
+     "landing": "https://doordash.com",
+     "sector": "Food"
+    },
+    {
+     "site": "Cloudflare",
+     "landing": "https://cloudflare.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Meetup",
+     "landing": "https://meetup.com",
+     "sector": "Events"
+    },
+    {
+     "site": "Docusign",
+     "landing": "https://docusign.com",
+     "sector": "Messaging"
+    },
+    {
+     "site": "Uniswap",
+     "landing": "https://uniswap.org",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Okta",
+     "landing": "https://okta.com",
+     "sector": "Security"
+    },
+    {
+     "site": "Pepsi",
+     "landing": "https://pepsi.com",
+     "sector": "Beverages"
+    },
+    {
+     "site": "Microsoft",
+     "landing": "https://microsoft.com",
+     "sector": "Tech Giant"
+    },
+    {
+     "site": "Zapier",
+     "landing": "https://zapier.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Rover",
+     "landing": "https://rover.com",
+     "sector": "Services"
+    },
+    {
+     "site": "T-Mobile",
+     "landing": "https://t-mobile.com",
+     "sector": "Telecom"
+    },
+    {
+     "site": "Instacart",
+     "landing": "https://instacart.com",
+     "sector": "Grocery"
+    },
+    {
+     "site": "Grammarly",
+     "landing": "https://grammarly.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Youtube",
+     "landing": "https://youtube.com",
+     "sector": "Streaming"
+    },
+    {
+     "site": "Chewy",
+     "landing": "https://chewy.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Figma",
+     "landing": "https://figma.com",
+     "sector": "AI"
+    },
+    {
+     "site": "costco.com",
+     "landing": "https://costco.com",
+     "sector": "?"
+    },
+    {
+     "site": "Threads",
+     "landing": "https://threads.net",
+     "sector": "Social"
+    },
+    {
+     "site": "bloomberg.com",
+     "landing": "https://bloomberg.com",
+     "sector": "?"
+    },
+    {
+     "site": "Masterclass",
+     "landing": "https://masterclass.com",
+     "sector": "Education"
+    },
+    {
+     "site": "Udemy",
+     "landing": "https://udemy.com",
+     "sector": "Education"
+    },
+    {
+     "site": "Yelp",
+     "landing": "https://yelp.com",
+     "sector": "Services"
+    },
+    {
+     "site": "Github",
+     "landing": "https://github.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Reddit",
+     "landing": "https://reddit.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Salesforce",
+     "landing": "https://salesforce.com",
+     "sector": "Cloud"
+    },
+    {
+     "site": "Tiktok",
+     "landing": "https://tiktok.com",
+     "sector": "Social"
+    },
+    {
+     "site": "Adidas",
+     "landing": "https://adidas.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Workday",
+     "landing": "https://workday.com",
+     "sector": "Jobs"
+    },
+    {
+     "site": "Ikea",
+     "landing": "https://ikea.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Care",
+     "landing": "https://care.com",
+     "sector": "Services"
+    },
+    {
+     "site": "Asana",
+     "landing": "https://asana.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Dropbox",
+     "landing": "https://dropbox.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Realtor",
+     "landing": "https://realtor.com",
+     "sector": "Real Estate"
+    },
+    {
+     "site": "Sephora",
+     "landing": "https://sephora.com",
+     "sector": "Fashion"
+    },
+    {
+     "site": "Supabase",
+     "landing": "https://supabase.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Cbrowser",
+     "landing": "https://cbrowser.ai",
+     "sector": "AI"
+    },
+    {
+     "site": "Petco",
+     "landing": "https://petco.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Airbnb",
+     "landing": "https://airbnb.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Hilton",
+     "landing": "https://hilton.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Hinge",
+     "landing": "https://hinge.co",
+     "sector": "Dating"
+    },
+    {
+     "site": "Cigna",
+     "landing": "https://cigna.com",
+     "sector": "Healthcare"
+    },
+    {
+     "site": "Glassdoor",
+     "landing": "https://glassdoor.com",
+     "sector": "Jobs"
+    },
+    {
+     "site": "unitedhealth.com",
+     "landing": "https://unitedhealth.com",
+     "sector": "?"
+    },
+    {
+     "site": "Ebay",
+     "landing": "https://ebay.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Wish",
+     "landing": "https://wish.com",
+     "sector": "Marketplace"
+    },
+    {
+     "site": "Hubspot",
+     "landing": "https://hubspot.com",
+     "sector": "Enterprise"
+    },
+    {
+     "site": "Kohls",
+     "landing": "https://kohls.com",
+     "sector": "Retail"
+    },
+    {
+     "site": "Tripadvisor",
+     "landing": "https://tripadvisor.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Mayoclinic",
+     "landing": "https://mayoclinic.org",
+     "sector": "Healthcare"
+    },
+    {
+     "site": "Playstation",
+     "landing": "https://playstation.com",
+     "sector": "Gaming"
+    },
+    {
+     "site": "Store",
+     "landing": "https://store.steampowered.com",
+     "sector": "Gaming"
+    },
+    {
+     "site": "Apple",
+     "landing": "https://apple.com",
+     "sector": "Tech Giant"
+    },
+    {
+     "site": "Wholefoodsmarket",
+     "landing": "https://wholefoodsmarket.com",
+     "sector": "Grocery"
+    },
+    {
+     "site": "Marriott",
+     "landing": "https://marriott.com",
+     "sector": "Travel"
+    },
+    {
+     "site": "Mcdonalds",
+     "landing": "https://mcdonalds.com",
+     "sector": "Restaurant"
+    },
+    {
+     "site": "Match",
+     "landing": "https://match.com",
+     "sector": "Dating"
+    },
+    {
+     "site": "Livenation",
+     "landing": "https://livenation.com",
+     "sector": "Events"
+    },
+    {
+     "site": "Etrade",
+     "landing": "https://etrade.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Slack",
+     "landing": "https://slack.com",
+     "sector": "SaaS"
+    },
+    {
+     "site": "Redfin",
+     "landing": "https://redfin.com",
+     "sector": "Real Estate"
+    },
+    {
+     "site": "Imdb",
+     "landing": "https://imdb.com",
+     "sector": "Media"
+    },
+    {
+     "site": "shopify.com",
+     "landing": "https://shopify.com",
+     "sector": "?"
+    },
+    {
+     "site": "Grubhub",
+     "landing": "https://grubhub.com",
+     "sector": "Food"
+    },
+    {
+     "site": "Tesla",
+     "landing": "https://tesla.com",
+     "sector": "Automotive"
+    },
+    {
+     "site": "Gitlab",
+     "landing": "https://gitlab.com",
+     "sector": "DevTools"
+    },
+    {
+     "site": "Stubhub",
+     "landing": "https://stubhub.com",
+     "sector": "Sports"
+    },
+    {
+     "site": "goodreads.com",
+     "landing": "https://goodreads.com",
+     "sector": "?"
+    },
+    {
+     "site": "Whatsapp",
+     "landing": "https://whatsapp.com",
+     "sector": "Social"
+    },
+    {
+     "site": "Tinder",
+     "landing": "https://tinder.com",
+     "sector": "Dating"
+    },
+    {
+     "site": "Gov",
+     "landing": "https://gov.uk",
+     "sector": "Government"
+    },
+    {
+     "site": "chick-fil-a.com",
+     "landing": "https://chick-fil-a.com",
+     "sector": "?"
+    },
+    {
+     "site": "Foxnews",
+     "landing": "https://foxnews.com",
+     "sector": "Media"
+    },
+    {
+     "site": "Dominos",
+     "landing": "https://dominos.com",
+     "sector": "Food"
+    },
+    {
+     "site": "Toyota",
+     "landing": "https://toyota.com",
+     "sector": "Automotive"
+    },
+    {
+     "site": "Robinhood",
+     "landing": "https://robinhood.com",
+     "sector": "Fintech"
+    },
+    {
+     "site": "Apartments",
+     "landing": "https://apartments.com",
+     "sector": "Real Estate"
+    }
+   ]
+  },
+  "tranco": {
+   "description": "A seeded random draw of 60 domains per rank band from the Tranco list 746PX, adult and gambling domains (by name) and brand-frame domains excluded and redrawn. Landing pages are further filtered after loading: not HTML, redirected off-site, parked, adult or gambling by content, below the web-page minimums.",
+   "listId": "746PX",
+   "listCreated": "2026-10-21T22:00:02.953159",
+   "listUrl": "https://tranco-list.eu/download/746PX/1000000",
+   "listConfiguration": {
+    "providers": [
+     "crux",
+     "farsight",
+     "majestic",
+     "radar",
+     "umbrella"
+    ],
+    "listPrefix": "1000000",
+    "filterTLD": "false",
+    "startDate": "2026-09-22",
+    "isDailyList": true,
+    "combinationMethod": "dowdall",
+    "filterPLD": "on",
+    "endDate": "2026-10-21"
+   },
+   "retrieved": "2026-10-22T16:56:40.531Z",
+   "bands": [
+    "1-1000",
+    "1001-10000",
+    "10001-100000",
+    "100001-1000000"
+   ],
+   "perBand": 60,
+   "landingMinimums": {
+    "textChars": 500,
+    "interactiveElements": 5
+   },
+   "domainTerms": "research/ctc-reference/discover.ts DOMAIN_ADULT and DOMAIN_GAMBLING (substring of the domain); page terms PAGE_ADULT, PAGE_GAMBLING (two distinct terms of one kind) and PAGE_PARKED (one) in the title, meta description and first 2,000 characters of text",
+   "exclusions": [
+    {
+     "rank": 515,
+     "domain": "eventbrite.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 326,
+     "domain": "etsy.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 694,
+     "domain": "binance.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 482,
+     "domain": "goodreads.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 972,
+     "domain": "hm.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 197,
+     "domain": "medium.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 530,
+     "domain": "stackoverflow.com",
+     "reason": "in the brand frame"
+    },
+    {
+     "rank": 9514,
+     "domain": "mcwcasino.fun",
+     "reason": "gambling: domain contains \"casino\""
+    },
+    {
+     "rank": 8516,
+     "domain": "myhentaicomics.com",
+     "reason": "adult: domain contains \"hentai\""
+    },
+    {
+     "rank": 6672,
+     "domain": "gambleaware.org",
+     "reason": "gambling: domain contains \"gambl\""
+    },
+    {
+     "rank": 87935,
+     "domain": "vi-hentai.moe",
+     "reason": "adult: domain contains \"hentai\""
+    },
+    {
+     "rank": 66432,
+     "domain": "palacecasino.org",
+     "reason": "gambling: domain contains \"casino\""
+    },
+    {
+     "rank": 911497,
+     "domain": "slotsobserverreviewdaily.co.uk",
+     "reason": "gambling: domain contains \"slots\""
+    }
+   ],
+   "sites": [
+    {
+     "site": "ipify.org",
+     "landing": "https://ipify.org/",
+     "sector": "organisation (.org)",
+     "rank": 120,
+     "band": "1-1000"
+    },
+    {
+     "site": "poynter.org",
+     "landing": "https://poynter.org/",
+     "sector": "organisation (.org)",
+     "rank": 7307,
+     "band": "1001-10000"
+    },
+    {
+     "site": "kodomo.ne.jp",
+     "landing": "https://kodomo.ne.jp/",
+     "sector": "commercial or other",
+     "rank": 88812,
+     "band": "10001-100000"
+    },
+    {
+     "site": "farmedvisie.nl",
+     "landing": "https://farmedvisie.nl/",
+     "sector": "commercial or other",
+     "rank": 785223,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "wp.pl",
+     "landing": "https://wp.pl/",
+     "sector": "commercial or other",
+     "rank": 812,
+     "band": "1-1000"
+    },
+    {
+     "site": "becdn.net",
+     "landing": "https://becdn.net/",
+     "sector": "commercial or other",
+     "rank": 9686,
+     "band": "1001-10000"
+    },
+    {
+     "site": "oymas.edu.do",
+     "landing": "https://oymas.edu.do/",
+     "sector": "commercial or other",
+     "rank": 87803,
+     "band": "10001-100000"
+    },
+    {
+     "site": "couponami.com",
+     "landing": "https://couponami.com/",
+     "sector": "commercial or other",
+     "rank": 742915,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "volcgslb.com",
+     "landing": "https://volcgslb.com/",
+     "sector": "commercial or other",
+     "rank": 948,
+     "band": "1-1000"
+    },
+    {
+     "site": "afilias-nst.info",
+     "landing": "https://afilias-nst.info/",
+     "sector": "commercial or other",
+     "rank": 2665,
+     "band": "1001-10000"
+    },
+    {
+     "site": "tvazteca.com",
+     "landing": "https://tvazteca.com/",
+     "sector": "commercial or other",
+     "rank": 13768,
+     "band": "10001-100000"
+    },
+    {
+     "site": "porterlamarque.fr",
+     "landing": "https://porterlamarque.fr/",
+     "sector": "commercial or other",
+     "rank": 339813,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "whatsapp.net",
+     "landing": "https://whatsapp.net/",
+     "sector": "commercial or other",
+     "rank": 39,
+     "band": "1-1000"
+    },
+    {
+     "site": "slate.com",
+     "landing": "https://slate.com/",
+     "sector": "commercial or other",
+     "rank": 2519,
+     "band": "1001-10000"
+    },
+    {
+     "site": "peachjar.com",
+     "landing": "https://peachjar.com/",
+     "sector": "commercial or other",
+     "rank": 78669,
+     "band": "10001-100000"
+    },
+    {
+     "site": "rossiya-airlines.ru",
+     "landing": "https://rossiya-airlines.ru/",
+     "sector": "commercial or other",
+     "rank": 241948,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "hotjar.com",
+     "landing": "https://hotjar.com/",
+     "sector": "commercial or other",
+     "rank": 622,
+     "band": "1-1000"
+    },
+    {
+     "site": "medallia.eu",
+     "landing": "https://medallia.eu/",
+     "sector": "commercial or other",
+     "rank": 4087,
+     "band": "1001-10000"
+    },
+    {
+     "site": "wirevpn.io",
+     "landing": "https://wirevpn.io/",
+     "sector": "commercial or other",
+     "rank": 61267,
+     "band": "10001-100000"
+    },
+    {
+     "site": "3334455.ru",
+     "landing": "https://3334455.ru/",
+     "sector": "commercial or other",
+     "rank": 908345,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "msedge.net",
+     "landing": "https://msedge.net/",
+     "sector": "commercial or other",
+     "rank": 225,
+     "band": "1-1000"
+    },
+    {
+     "site": "ktrmr.com",
+     "landing": "https://ktrmr.com/",
+     "sector": "commercial or other",
+     "rank": 9483,
+     "band": "1001-10000"
+    },
+    {
+     "site": "managingmadrid.com",
+     "landing": "https://managingmadrid.com/",
+     "sector": "commercial or other",
+     "rank": 82900,
+     "band": "10001-100000"
+    },
+    {
+     "site": "tasty-web.com",
+     "landing": "https://tasty-web.com/",
+     "sector": "commercial or other",
+     "rank": 837846,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "globo.com",
+     "landing": "https://globo.com/",
+     "sector": "commercial or other",
+     "rank": 387,
+     "band": "1-1000"
+    },
+    {
+     "site": "superproxy.io",
+     "landing": "https://superproxy.io/",
+     "sector": "commercial or other",
+     "rank": 6561,
+     "band": "1001-10000"
+    },
+    {
+     "site": "happycampus.co.jp",
+     "landing": "https://happycampus.co.jp/",
+     "sector": "commercial or other",
+     "rank": 77015,
+     "band": "10001-100000"
+    },
+    {
+     "site": "minigamesville.com",
+     "landing": "https://minigamesville.com/",
+     "sector": "commercial or other",
+     "rank": 664193,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "tiktokpangle.us",
+     "landing": "https://tiktokpangle.us/",
+     "sector": "commercial or other",
+     "rank": 504,
+     "band": "1-1000"
+    },
+    {
+     "site": "cloudappsecurity.com",
+     "landing": "https://cloudappsecurity.com/",
+     "sector": "commercial or other",
+     "rank": 3858,
+     "band": "1001-10000"
+    },
+    {
+     "site": "dlapiper.com",
+     "landing": "https://dlapiper.com/",
+     "sector": "commercial or other",
+     "rank": 24776,
+     "band": "10001-100000"
+    },
+    {
+     "site": "emofid.net",
+     "landing": "https://emofid.net/",
+     "sector": "commercial or other",
+     "rank": 297320,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "discordapp.com",
+     "landing": "https://discordapp.com/",
+     "sector": "commercial or other",
+     "rank": 822,
+     "band": "1-1000"
+    },
+    {
+     "site": "amemv.com",
+     "landing": "https://amemv.com/",
+     "sector": "commercial or other",
+     "rank": 1023,
+     "band": "1001-10000"
+    },
+    {
+     "site": "blackgoatwetsuits.com",
+     "landing": "https://blackgoatwetsuits.com/",
+     "sector": "commercial or other",
+     "rank": 81440,
+     "band": "10001-100000"
+    },
+    {
+     "site": "betfury.ai",
+     "landing": "https://betfury.ai/",
+     "sector": "commercial or other",
+     "rank": 601925,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "alidns.com",
+     "landing": "https://alidns.com/",
+     "sector": "commercial or other",
+     "rank": 257,
+     "band": "1-1000"
+    },
+    {
+     "site": "ipsosinteractive.com",
+     "landing": "https://ipsosinteractive.com/",
+     "sector": "commercial or other",
+     "rank": 7874,
+     "band": "1001-10000"
+    },
+    {
+     "site": "oberhost.com",
+     "landing": "https://oberhost.com/",
+     "sector": "commercial or other",
+     "rank": 80240,
+     "band": "10001-100000"
+    },
+    {
+     "site": "tnp.legal",
+     "landing": "https://tnp.legal/",
+     "sector": "commercial or other",
+     "rank": 987546,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "sina.com.cn",
+     "landing": "https://sina.com.cn/",
+     "sector": "commercial or other",
+     "rank": 506,
+     "band": "1-1000"
+    },
+    {
+     "site": "taxssp.com",
+     "landing": "https://taxssp.com/",
+     "sector": "commercial or other",
+     "rank": 4078,
+     "band": "1001-10000"
+    },
+    {
+     "site": "sporting.pt",
+     "landing": "https://sporting.pt/",
+     "sector": "commercial or other",
+     "rank": 97364,
+     "band": "10001-100000"
+    },
+    {
+     "site": "metamob.fr",
+     "landing": "https://metamob.fr/",
+     "sector": "commercial or other",
+     "rank": 107989,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "adobe.io",
+     "landing": "https://adobe.io/",
+     "sector": "commercial or other",
+     "rank": 136,
+     "band": "1-1000"
+    },
+    {
+     "site": "desibf.com",
+     "landing": "https://desibf.com/",
+     "sector": "commercial or other",
+     "rank": 9965,
+     "band": "1001-10000"
+    },
+    {
+     "site": "ogmorj.com.br",
+     "landing": "https://ogmorj.com.br/",
+     "sector": "commercial or other",
+     "rank": 93295,
+     "band": "10001-100000"
+    },
+    {
+     "site": "im-storm.nl",
+     "landing": "https://im-storm.nl/",
+     "sector": "commercial or other",
+     "rank": 337689,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "kwai.net",
+     "landing": "https://kwai.net/",
+     "sector": "commercial or other",
+     "rank": 480,
+     "band": "1-1000"
+    },
+    {
+     "site": "lyft.com",
+     "landing": "https://lyft.com/",
+     "sector": "commercial or other",
+     "rank": 5278,
+     "band": "1001-10000"
+    },
+    {
+     "site": "minagricultura.gov.co",
+     "landing": "https://minagricultura.gov.co/",
+     "sector": "commercial or other",
+     "rank": 43071,
+     "band": "10001-100000"
+    },
+    {
+     "site": "telcom.network",
+     "landing": "https://telcom.network/",
+     "sector": "commercial or other",
+     "rank": 231383,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "arxiv.org",
+     "landing": "https://arxiv.org/",
+     "sector": "organisation (.org)",
+     "rank": 454,
+     "band": "1-1000"
+    },
+    {
+     "site": "beget.com",
+     "landing": "https://beget.com/",
+     "sector": "commercial or other",
+     "rank": 2020,
+     "band": "1001-10000"
+    },
+    {
+     "site": "sci.gov.in",
+     "landing": "https://sci.gov.in/",
+     "sector": "commercial or other",
+     "rank": 17944,
+     "band": "10001-100000"
+    },
+    {
+     "site": "hemc.net",
+     "landing": "https://hemc.net/",
+     "sector": "commercial or other",
+     "rank": 650631,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "daum.net",
+     "landing": "https://daum.net/",
+     "sector": "commercial or other",
+     "rank": 900,
+     "band": "1-1000"
+    },
+    {
+     "site": "onclouddns.com",
+     "landing": "https://onclouddns.com/",
+     "sector": "commercial or other",
+     "rank": 4166,
+     "band": "1001-10000"
+    },
+    {
+     "site": "gassaferegister.co.uk",
+     "landing": "https://gassaferegister.co.uk/",
+     "sector": "commercial or other",
+     "rank": 79283,
+     "band": "10001-100000"
+    },
+    {
+     "site": "lanline.com",
+     "landing": "https://lanline.com/",
+     "sector": "commercial or other",
+     "rank": 241902,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "imrworldwide.com",
+     "landing": "https://imrworldwide.com/",
+     "sector": "commercial or other",
+     "rank": 736,
+     "band": "1-1000"
+    },
+    {
+     "site": "cloud.sap",
+     "landing": "https://cloud.sap/",
+     "sector": "commercial or other",
+     "rank": 4657,
+     "band": "1001-10000"
+    },
+    {
+     "site": "yaklass.ru",
+     "landing": "https://yaklass.ru/",
+     "sector": "commercial or other",
+     "rank": 18970,
+     "band": "10001-100000"
+    },
+    {
+     "site": "chillyhilversum.nl",
+     "landing": "https://chillyhilversum.nl/",
+     "sector": "commercial or other",
+     "rank": 583389,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "cdn20.com",
+     "landing": "https://cdn20.com/",
+     "sector": "commercial or other",
+     "rank": 684,
+     "band": "1-1000"
+    },
+    {
+     "site": "safety.google",
+     "landing": "https://safety.google/",
+     "sector": "commercial or other",
+     "rank": 1097,
+     "band": "1001-10000"
+    },
+    {
+     "site": "acdn.no",
+     "landing": "https://acdn.no/",
+     "sector": "commercial or other",
+     "rank": 70989,
+     "band": "10001-100000"
+    },
+    {
+     "site": "smartbetfocus.uk",
+     "landing": "https://smartbetfocus.uk/",
+     "sector": "commercial or other",
+     "rank": 564120,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "yandexcloud.net",
+     "landing": "https://yandexcloud.net/",
+     "sector": "commercial or other",
+     "rank": 201,
+     "band": "1-1000"
+    },
+    {
+     "site": "videoamp.com",
+     "landing": "https://videoamp.com/",
+     "sector": "commercial or other",
+     "rank": 6446,
+     "band": "1001-10000"
+    },
+    {
+     "site": "axvdata.com",
+     "landing": "https://axvdata.com/",
+     "sector": "commercial or other",
+     "rank": 88538,
+     "band": "10001-100000"
+    },
+    {
+     "site": "krason.ru",
+     "landing": "https://krason.ru/",
+     "sector": "commercial or other",
+     "rank": 352107,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "imgsmail.ru",
+     "landing": "https://imgsmail.ru/",
+     "sector": "commercial or other",
+     "rank": 674,
+     "band": "1-1000"
+    },
+    {
+     "site": "dlink.com",
+     "landing": "https://dlink.com/",
+     "sector": "commercial or other",
+     "rank": 6857,
+     "band": "1001-10000"
+    },
+    {
+     "site": "dremel.com",
+     "landing": "https://dremel.com/",
+     "sector": "commercial or other",
+     "rank": 67553,
+     "band": "10001-100000"
+    },
+    {
+     "site": "xahauwin.com",
+     "landing": "https://xahauwin.com/",
+     "sector": "commercial or other",
+     "rank": 456485,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "adobedtm.com",
+     "landing": "https://adobedtm.com/",
+     "sector": "commercial or other",
+     "rank": 543,
+     "band": "1-1000"
+    },
+    {
+     "site": "progorod43.ru",
+     "landing": "https://progorod43.ru/",
+     "sector": "commercial or other",
+     "rank": 8890,
+     "band": "1001-10000"
+    },
+    {
+     "site": "test-press.ru",
+     "landing": "https://test-press.ru/",
+     "sector": "commercial or other",
+     "rank": 33302,
+     "band": "10001-100000"
+    },
+    {
+     "site": "juliettdate.com",
+     "landing": "https://juliettdate.com/",
+     "sector": "commercial or other",
+     "rank": 371542,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "avcdn.net",
+     "landing": "https://avcdn.net/",
+     "sector": "commercial or other",
+     "rank": 296,
+     "band": "1-1000"
+    },
+    {
+     "site": "qh-lb.com",
+     "landing": "https://qh-lb.com/",
+     "sector": "commercial or other",
+     "rank": 7012,
+     "band": "1001-10000"
+    },
+    {
+     "site": "funandnews.de",
+     "landing": "https://funandnews.de/",
+     "sector": "commercial or other",
+     "rank": 62336,
+     "band": "10001-100000"
+    },
+    {
+     "site": "mastodonrocks.com",
+     "landing": "https://mastodonrocks.com/",
+     "sector": "commercial or other",
+     "rank": 286611,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "mercadolibre.com.ar",
+     "landing": "https://mercadolibre.com.ar/",
+     "sector": "commercial or other",
+     "rank": 951,
+     "band": "1-1000"
+    },
+    {
+     "site": "dcloudlive.com",
+     "landing": "https://dcloudlive.com/",
+     "sector": "commercial or other",
+     "rank": 6192,
+     "band": "1001-10000"
+    },
+    {
+     "site": "wwf.org.au",
+     "landing": "https://wwf.org.au/",
+     "sector": "commercial or other",
+     "rank": 94961,
+     "band": "10001-100000"
+    },
+    {
+     "site": "hookupguide.org",
+     "landing": "https://hookupguide.org/",
+     "sector": "organisation (.org)",
+     "rank": 320811,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "princeton.edu",
+     "landing": "https://princeton.edu/",
+     "sector": "education",
+     "rank": 906,
+     "band": "1-1000"
+    },
+    {
+     "site": "yg5sjx5kzy.com",
+     "landing": "https://yg5sjx5kzy.com/",
+     "sector": "commercial or other",
+     "rank": 2512,
+     "band": "1001-10000"
+    },
+    {
+     "site": "eltex-co.ru",
+     "landing": "https://eltex-co.ru/",
+     "sector": "commercial or other",
+     "rank": 48412,
+     "band": "10001-100000"
+    },
+    {
+     "site": "shoga-shibari.com",
+     "landing": "https://shoga-shibari.com/",
+     "sector": "commercial or other",
+     "rank": 396146,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "googledomains.com",
+     "landing": "https://googledomains.com/",
+     "sector": "commercial or other",
+     "rank": 61,
+     "band": "1-1000"
+    },
+    {
+     "site": "softonic.com",
+     "landing": "https://softonic.com/",
+     "sector": "commercial or other",
+     "rank": 3037,
+     "band": "1001-10000"
+    },
+    {
+     "site": "unimedcuiaba.coop.br",
+     "landing": "https://unimedcuiaba.coop.br/",
+     "sector": "commercial or other",
+     "rank": 94082,
+     "band": "10001-100000"
+    },
+    {
+     "site": "kultloesungen.de",
+     "landing": "https://kultloesungen.de/",
+     "sector": "commercial or other",
+     "rank": 420783,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "nbcnews.com",
+     "landing": "https://nbcnews.com/",
+     "sector": "commercial or other",
+     "rank": 896,
+     "band": "1-1000"
+    },
+    {
+     "site": "auth0app.com",
+     "landing": "https://auth0app.com/",
+     "sector": "commercial or other",
+     "rank": 3039,
+     "band": "1001-10000"
+    },
+    {
+     "site": "gtja.com",
+     "landing": "https://gtja.com/",
+     "sector": "commercial or other",
+     "rank": 79954,
+     "band": "10001-100000"
+    },
+    {
+     "site": "urbanluckyview.uk",
+     "landing": "https://urbanluckyview.uk/",
+     "sector": "commercial or other",
+     "rank": 556425,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "no-ip.com",
+     "landing": "https://no-ip.com/",
+     "sector": "commercial or other",
+     "rank": 860,
+     "band": "1-1000"
+    },
+    {
+     "site": "bybit.com",
+     "landing": "https://bybit.com/",
+     "sector": "commercial or other",
+     "rank": 3262,
+     "band": "1001-10000"
+    },
+    {
+     "site": "smar.cloud",
+     "landing": "https://smar.cloud/",
+     "sector": "commercial or other",
+     "rank": 25338,
+     "band": "10001-100000"
+    },
+    {
+     "site": "sba.com.ar",
+     "landing": "https://sba.com.ar/",
+     "sector": "commercial or other",
+     "rank": 854247,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "rlcdn.com",
+     "landing": "https://rlcdn.com/",
+     "sector": "commercial or other",
+     "rank": 613,
+     "band": "1-1000"
+    },
+    {
+     "site": "nova.cz",
+     "landing": "https://nova.cz/",
+     "sector": "commercial or other",
+     "rank": 6835,
+     "band": "1001-10000"
+    },
+    {
+     "site": "iinet.com",
+     "landing": "https://iinet.com/",
+     "sector": "commercial or other",
+     "rank": 38342,
+     "band": "10001-100000"
+    },
+    {
+     "site": "keyapsolutions.com",
+     "landing": "https://keyapsolutions.com/",
+     "sector": "commercial or other",
+     "rank": 564678,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "vercel-dns-3.com",
+     "landing": "https://vercel-dns-3.com/",
+     "sector": "commercial or other",
+     "rank": 599,
+     "band": "1-1000"
+    },
+    {
+     "site": "impactradius-event.com",
+     "landing": "https://impactradius-event.com/",
+     "sector": "commercial or other",
+     "rank": 8280,
+     "band": "1001-10000"
+    },
+    {
+     "site": "kdtaib.xyz",
+     "landing": "https://kdtaib.xyz/",
+     "sector": "commercial or other",
+     "rank": 69527,
+     "band": "10001-100000"
+    },
+    {
+     "site": "rnpp.ci",
+     "landing": "https://rnpp.ci/",
+     "sector": "commercial or other",
+     "rank": 827417,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "paloaltonetworks.com",
+     "landing": "https://paloaltonetworks.com/",
+     "sector": "commercial or other",
+     "rank": 408,
+     "band": "1-1000"
+    },
+    {
+     "site": "bidtheatre.com",
+     "landing": "https://bidtheatre.com/",
+     "sector": "commercial or other",
+     "rank": 6471,
+     "band": "1001-10000"
+    },
+    {
+     "site": "bachpan.com",
+     "landing": "https://bachpan.com/",
+     "sector": "commercial or other",
+     "rank": 88108,
+     "band": "10001-100000"
+    },
+    {
+     "site": "randl.com",
+     "landing": "https://randl.com/",
+     "sector": "commercial or other",
+     "rank": 878087,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "namecheap.com",
+     "landing": "https://namecheap.com/",
+     "sector": "commercial or other",
+     "rank": 241,
+     "band": "1-1000"
+    },
+    {
+     "site": "5movierulz.pictures",
+     "landing": "https://5movierulz.pictures/",
+     "sector": "commercial or other",
+     "rank": 2382,
+     "band": "1001-10000"
+    },
+    {
+     "site": "news18marathi.com",
+     "landing": "https://news18marathi.com/",
+     "sector": "commercial or other",
+     "rank": 22574,
+     "band": "10001-100000"
+    },
+    {
+     "site": "ximgs.net",
+     "landing": "https://ximgs.net/",
+     "sector": "commercial or other",
+     "rank": 590583,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "mikrotik.com",
+     "landing": "https://mikrotik.com/",
+     "sector": "commercial or other",
+     "rank": 657,
+     "band": "1-1000"
+    },
+    {
+     "site": "reclameaqui.com.br",
+     "landing": "https://reclameaqui.com.br/",
+     "sector": "commercial or other",
+     "rank": 4545,
+     "band": "1001-10000"
+    },
+    {
+     "site": "superjob.ru",
+     "landing": "https://superjob.ru/",
+     "sector": "commercial or other",
+     "rank": 16625,
+     "band": "10001-100000"
+    },
+    {
+     "site": "eitacasaperfeita.com.br",
+     "landing": "https://eitacasaperfeita.com.br/",
+     "sector": "commercial or other",
+     "rank": 782421,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "e2ro.com",
+     "landing": "https://e2ro.com/",
+     "sector": "commercial or other",
+     "rank": 575,
+     "band": "1-1000"
+    },
+    {
+     "site": "p-msedge.net",
+     "landing": "https://p-msedge.net/",
+     "sector": "commercial or other",
+     "rank": 2947,
+     "band": "1001-10000"
+    },
+    {
+     "site": "edeka.de",
+     "landing": "https://edeka.de/",
+     "sector": "commercial or other",
+     "rank": 21442,
+     "band": "10001-100000"
+    },
+    {
+     "site": "hejabbanifatemi.com",
+     "landing": "https://hejabbanifatemi.com/",
+     "sector": "commercial or other",
+     "rank": 417206,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "weibo.com",
+     "landing": "https://weibo.com/",
+     "sector": "commercial or other",
+     "rank": 317,
+     "band": "1-1000"
+    },
+    {
+     "site": "cfe.mx",
+     "landing": "https://cfe.mx/",
+     "sector": "commercial or other",
+     "rank": 8635,
+     "band": "1001-10000"
+    },
+    {
+     "site": "snappages.site",
+     "landing": "https://snappages.site/",
+     "sector": "commercial or other",
+     "rank": 83117,
+     "band": "10001-100000"
+    },
+    {
+     "site": "services-unlimited.co.uk",
+     "landing": "https://services-unlimited.co.uk/",
+     "sector": "commercial or other",
+     "rank": 441287,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "amazonvideo.com",
+     "landing": "https://amazonvideo.com/",
+     "sector": "commercial or other",
+     "rank": 91,
+     "band": "1-1000"
+    },
+    {
+     "site": "hs-scripts.com",
+     "landing": "https://hs-scripts.com/",
+     "sector": "commercial or other",
+     "rank": 3543,
+     "band": "1001-10000"
+    },
+    {
+     "site": "sovcloud-dns.fr",
+     "landing": "https://sovcloud-dns.fr/",
+     "sector": "commercial or other",
+     "rank": 44241,
+     "band": "10001-100000"
+    },
+    {
+     "site": "lca-one.fr",
+     "landing": "https://lca-one.fr/",
+     "sector": "commercial or other",
+     "rank": 804047,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "branch.io",
+     "landing": "https://branch.io/",
+     "sector": "commercial or other",
+     "rank": 393,
+     "band": "1-1000"
+    },
+    {
+     "site": "dnsv2.com",
+     "landing": "https://dnsv2.com/",
+     "sector": "commercial or other",
+     "rank": 3589,
+     "band": "1001-10000"
+    },
+    {
+     "site": "psychologies.ru",
+     "landing": "https://psychologies.ru/",
+     "sector": "commercial or other",
+     "rank": 51893,
+     "band": "10001-100000"
+    },
+    {
+     "site": "centminmod.com",
+     "landing": "https://centminmod.com/",
+     "sector": "commercial or other",
+     "rank": 224475,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "zpath.net",
+     "landing": "https://zpath.net/",
+     "sector": "commercial or other",
+     "rank": 872,
+     "band": "1-1000"
+    },
+    {
+     "site": "awsdns-57.net",
+     "landing": "https://awsdns-57.net/",
+     "sector": "commercial or other",
+     "rank": 7154,
+     "band": "1001-10000"
+    },
+    {
+     "site": "rvohealth.io",
+     "landing": "https://rvohealth.io/",
+     "sector": "commercial or other",
+     "rank": 86398,
+     "band": "10001-100000"
+    },
+    {
+     "site": "spartherm.com",
+     "landing": "https://spartherm.com/",
+     "sector": "commercial or other",
+     "rank": 530158,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "usatoday.com",
+     "landing": "https://usatoday.com/",
+     "sector": "commercial or other",
+     "rank": 608,
+     "band": "1-1000"
+    },
+    {
+     "site": "tokyodisneyresort.jp",
+     "landing": "https://tokyodisneyresort.jp/",
+     "sector": "commercial or other",
+     "rank": 6965,
+     "band": "1001-10000"
+    },
+    {
+     "site": "t83d.com",
+     "landing": "https://t83d.com/",
+     "sector": "commercial or other",
+     "rank": 93912,
+     "band": "10001-100000"
+    },
+    {
+     "site": "web3gate.cc",
+     "landing": "https://web3gate.cc/",
+     "sector": "commercial or other",
+     "rank": 882321,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "google.de",
+     "landing": "https://google.de/",
+     "sector": "commercial or other",
+     "rank": 521,
+     "band": "1-1000"
+    },
+    {
+     "site": "espacioapk.com",
+     "landing": "https://espacioapk.com/",
+     "sector": "commercial or other",
+     "rank": 9804,
+     "band": "1001-10000"
+    },
+    {
+     "site": "pin-up.world",
+     "landing": "https://pin-up.world/",
+     "sector": "commercial or other",
+     "rank": 61889,
+     "band": "10001-100000"
+    },
+    {
+     "site": "matsumoto-inc.co.jp",
+     "landing": "https://matsumoto-inc.co.jp/",
+     "sector": "commercial or other",
+     "rank": 687216,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "kunluncan.com",
+     "landing": "https://kunluncan.com/",
+     "sector": "commercial or other",
+     "rank": 844,
+     "band": "1-1000"
+    },
+    {
+     "site": "apple-mapkit.com",
+     "landing": "https://apple-mapkit.com/",
+     "sector": "commercial or other",
+     "rank": 6642,
+     "band": "1001-10000"
+    },
+    {
+     "site": "openu.ac.il",
+     "landing": "https://openu.ac.il/",
+     "sector": "commercial or other",
+     "rank": 42738,
+     "band": "10001-100000"
+    },
+    {
+     "site": "bwfund.org",
+     "landing": "https://bwfund.org/",
+     "sector": "organisation (.org)",
+     "rank": 708944,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "nginx.org",
+     "landing": "https://nginx.org/",
+     "sector": "organisation (.org)",
+     "rank": 83,
+     "band": "1-1000"
+    },
+    {
+     "site": "reklama5.mk",
+     "landing": "https://reklama5.mk/",
+     "sector": "commercial or other",
+     "rank": 9209,
+     "band": "1001-10000"
+    },
+    {
+     "site": "sellonolon.com",
+     "landing": "https://sellonolon.com/",
+     "sector": "commercial or other",
+     "rank": 84323,
+     "band": "10001-100000"
+    },
+    {
+     "site": "fishingtackle24.de",
+     "landing": "https://fishingtackle24.de/",
+     "sector": "commercial or other",
+     "rank": 221982,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "twitter.com",
+     "landing": "https://twitter.com/",
+     "sector": "commercial or other",
+     "rank": 16,
+     "band": "1-1000"
+    },
+    {
+     "site": "nssvc.net",
+     "landing": "https://nssvc.net/",
+     "sector": "commercial or other",
+     "rank": 3178,
+     "band": "1001-10000"
+    },
+    {
+     "site": "oxforddictionaries.com",
+     "landing": "https://oxforddictionaries.com/",
+     "sector": "commercial or other",
+     "rank": 15803,
+     "band": "10001-100000"
+    },
+    {
+     "site": "navigatormsl.com",
+     "landing": "https://navigatormsl.com/",
+     "sector": "commercial or other",
+     "rank": 656570,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "jd.com",
+     "landing": "https://jd.com/",
+     "sector": "commercial or other",
+     "rank": 979,
+     "band": "1-1000"
+    },
+    {
+     "site": "appmedia.jp",
+     "landing": "https://appmedia.jp/",
+     "sector": "commercial or other",
+     "rank": 9052,
+     "band": "1001-10000"
+    },
+    {
+     "site": "thscprts.com",
+     "landing": "https://thscprts.com/",
+     "sector": "commercial or other",
+     "rank": 18733,
+     "band": "10001-100000"
+    },
+    {
+     "site": "vadavatzx4d.com",
+     "landing": "https://vadavatzx4d.com/",
+     "sector": "commercial or other",
+     "rank": 887931,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "sc-gw.com",
+     "landing": "https://sc-gw.com/",
+     "sector": "commercial or other",
+     "rank": 518,
+     "band": "1-1000"
+    },
+    {
+     "site": "vigo.tech",
+     "landing": "https://vigo.tech/",
+     "sector": "commercial or other",
+     "rank": 3208,
+     "band": "1001-10000"
+    },
+    {
+     "site": "deventit.net",
+     "landing": "https://deventit.net/",
+     "sector": "commercial or other",
+     "rank": 63529,
+     "band": "10001-100000"
+    },
+    {
+     "site": "blagodariu-shop.ru",
+     "landing": "https://blagodariu-shop.ru/",
+     "sector": "commercial or other",
+     "rank": 745153,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "office.com",
+     "landing": "https://office.com/",
+     "sector": "commercial or other",
+     "rank": 26,
+     "band": "1-1000"
+    },
+    {
+     "site": "mosspf.net",
+     "landing": "https://mosspf.net/",
+     "sector": "commercial or other",
+     "rank": 2662,
+     "band": "1001-10000"
+    },
+    {
+     "site": "xgm.guru",
+     "landing": "https://xgm.guru/",
+     "sector": "commercial or other",
+     "rank": 72490,
+     "band": "10001-100000"
+    },
+    {
+     "site": "fastfetch.live",
+     "landing": "https://fastfetch.live/",
+     "sector": "commercial or other",
+     "rank": 150079,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "gtm-a2b2.com",
+     "landing": "https://gtm-a2b2.com/",
+     "sector": "commercial or other",
+     "rank": 909,
+     "band": "1-1000"
+    },
+    {
+     "site": "wswebpic.com",
+     "landing": "https://wswebpic.com/",
+     "sector": "commercial or other",
+     "rank": 1765,
+     "band": "1001-10000"
+    },
+    {
+     "site": "crest-wave.com",
+     "landing": "https://crest-wave.com/",
+     "sector": "commercial or other",
+     "rank": 98809,
+     "band": "10001-100000"
+    },
+    {
+     "site": "hqrate.com",
+     "landing": "https://hqrate.com/",
+     "sector": "commercial or other",
+     "rank": 631762,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "skype.com",
+     "landing": "https://skype.com/",
+     "sector": "commercial or other",
+     "rank": 56,
+     "band": "1-1000"
+    },
+    {
+     "site": "brill.com",
+     "landing": "https://brill.com/",
+     "sector": "commercial or other",
+     "rank": 8930,
+     "band": "1001-10000"
+    },
+    {
+     "site": "khanoumi.com",
+     "landing": "https://khanoumi.com/",
+     "sector": "commercial or other",
+     "rank": 21082,
+     "band": "10001-100000"
+    },
+    {
+     "site": "villaggiosanfrancesco.com",
+     "landing": "https://villaggiosanfrancesco.com/",
+     "sector": "commercial or other",
+     "rank": 483911,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "gamepass.com",
+     "landing": "https://gamepass.com/",
+     "sector": "commercial or other",
+     "rank": 308,
+     "band": "1-1000"
+    },
+    {
+     "site": "strpst.com",
+     "landing": "https://strpst.com/",
+     "sector": "commercial or other",
+     "rank": 2677,
+     "band": "1001-10000"
+    },
+    {
+     "site": "regirk.click",
+     "landing": "https://regirk.click/",
+     "sector": "commercial or other",
+     "rank": 76794,
+     "band": "10001-100000"
+    },
+    {
+     "site": "narkolog-na-dom-voronezh15.ru",
+     "landing": "https://narkolog-na-dom-voronezh15.ru/",
+     "sector": "commercial or other",
+     "rank": 887891,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "hicloud.com",
+     "landing": "https://hicloud.com/",
+     "sector": "commercial or other",
+     "rank": 612,
+     "band": "1-1000"
+    },
+    {
+     "site": "buddy4study.com",
+     "landing": "https://buddy4study.com/",
+     "sector": "commercial or other",
+     "rank": 9413,
+     "band": "1001-10000"
+    },
+    {
+     "site": "lilithraws.org",
+     "landing": "https://lilithraws.org/",
+     "sector": "organisation (.org)",
+     "rank": 52554,
+     "band": "10001-100000"
+    },
+    {
+     "site": "bits-hyderabad.ac.in",
+     "landing": "https://bits-hyderabad.ac.in/",
+     "sector": "commercial or other",
+     "rank": 383960,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "live-video.net",
+     "landing": "https://live-video.net/",
+     "sector": "commercial or other",
+     "rank": 386,
+     "band": "1-1000"
+    },
+    {
+     "site": "wizards.com",
+     "landing": "https://wizards.com/",
+     "sector": "commercial or other",
+     "rank": 9737,
+     "band": "1001-10000"
+    },
+    {
+     "site": "kinochilar.com",
+     "landing": "https://kinochilar.com/",
+     "sector": "commercial or other",
+     "rank": 75319,
+     "band": "10001-100000"
+    },
+    {
+     "site": "authenticbabyphotography.com",
+     "landing": "https://authenticbabyphotography.com/",
+     "sector": "commercial or other",
+     "rank": 873864,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "bunnyinfra.net",
+     "landing": "https://bunnyinfra.net/",
+     "sector": "commercial or other",
+     "rank": 626,
+     "band": "1-1000"
+    },
+    {
+     "site": "shopee.io",
+     "landing": "https://shopee.io/",
+     "sector": "commercial or other",
+     "rank": 4783,
+     "band": "1001-10000"
+    },
+    {
+     "site": "socialsolutions.com",
+     "landing": "https://socialsolutions.com/",
+     "sector": "commercial or other",
+     "rank": 70062,
+     "band": "10001-100000"
+    },
+    {
+     "site": "agriholland.nl",
+     "landing": "https://agriholland.nl/",
+     "sector": "commercial or other",
+     "rank": 551408,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "calendly.com",
+     "landing": "https://calendly.com/",
+     "sector": "commercial or other",
+     "rank": 405,
+     "band": "1-1000"
+    },
+    {
+     "site": "hybrid.ai",
+     "landing": "https://hybrid.ai/",
+     "sector": "commercial or other",
+     "rank": 2889,
+     "band": "1001-10000"
+    },
+    {
+     "site": "ua-hosting.company",
+     "landing": "https://ua-hosting.company/",
+     "sector": "commercial or other",
+     "rank": 78488,
+     "band": "10001-100000"
+    },
+    {
+     "site": "cyber.go.jp",
+     "landing": "https://cyber.go.jp/",
+     "sector": "commercial or other",
+     "rank": 731870,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "ddnss.de",
+     "landing": "https://ddnss.de/",
+     "sector": "commercial or other",
+     "rank": 692,
+     "band": "1-1000"
+    },
+    {
+     "site": "anysex.com",
+     "landing": "https://anysex.com/",
+     "sector": "commercial or other",
+     "rank": 6918,
+     "band": "1001-10000"
+    },
+    {
+     "site": "cognition.com",
+     "landing": "https://cognition.com/",
+     "sector": "commercial or other",
+     "rank": 68825,
+     "band": "10001-100000"
+    },
+    {
+     "site": "vanitypet.com",
+     "landing": "https://vanitypet.com/",
+     "sector": "commercial or other",
+     "rank": 381331,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "yahoo.com",
+     "landing": "https://yahoo.com/",
+     "sector": "commercial or other",
+     "rank": 69,
+     "band": "1-1000"
+    },
+    {
+     "site": "piwik.pro",
+     "landing": "https://piwik.pro/",
+     "sector": "commercial or other",
+     "rank": 6633,
+     "band": "1001-10000"
+    },
+    {
+     "site": "exteriores.gob.es",
+     "landing": "https://exteriores.gob.es/",
+     "sector": "commercial or other",
+     "rank": 67582,
+     "band": "10001-100000"
+    },
+    {
+     "site": "3gugus789.sbs",
+     "landing": "https://3gugus789.sbs/",
+     "sector": "commercial or other",
+     "rank": 213525,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "abovedomains.com",
+     "landing": "https://abovedomains.com/",
+     "sector": "commercial or other",
+     "rank": 999,
+     "band": "1-1000"
+    },
+    {
+     "site": "makeuseof.com",
+     "landing": "https://makeuseof.com/",
+     "sector": "commercial or other",
+     "rank": 5492,
+     "band": "1001-10000"
+    },
+    {
+     "site": "aso1.net",
+     "landing": "https://aso1.net/",
+     "sector": "commercial or other",
+     "rank": 25994,
+     "band": "10001-100000"
+    },
+    {
+     "site": "bookmarkuse.com",
+     "landing": "https://bookmarkuse.com/",
+     "sector": "commercial or other",
+     "rank": 184833,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "miit.gov.cn",
+     "landing": "https://miit.gov.cn/",
+     "sector": "commercial or other",
+     "rank": 466,
+     "band": "1-1000"
+    },
+    {
+     "site": "awsdns-37.net",
+     "landing": "https://awsdns-37.net/",
+     "sector": "commercial or other",
+     "rank": 9345,
+     "band": "1001-10000"
+    },
+    {
+     "site": "sc888.net",
+     "landing": "https://sc888.net/",
+     "sector": "commercial or other",
+     "rank": 93676,
+     "band": "10001-100000"
+    },
+    {
+     "site": "the-west.hu",
+     "landing": "https://the-west.hu/",
+     "sector": "commercial or other",
+     "rank": 502055,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "repubblica.it",
+     "landing": "https://repubblica.it/",
+     "sector": "commercial or other",
+     "rank": 960,
+     "band": "1-1000"
+    },
+    {
+     "site": "cribl.cloud",
+     "landing": "https://cribl.cloud/",
+     "sector": "commercial or other",
+     "rank": 3896,
+     "band": "1001-10000"
+    },
+    {
+     "site": "mopub.com",
+     "landing": "https://mopub.com/",
+     "sector": "commercial or other",
+     "rank": 21111,
+     "band": "10001-100000"
+    },
+    {
+     "site": "enlightent.cn",
+     "landing": "https://enlightent.cn/",
+     "sector": "commercial or other",
+     "rank": 661857,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "rfc-editor.org",
+     "landing": "https://rfc-editor.org/",
+     "sector": "organisation (.org)",
+     "rank": 797,
+     "band": "1-1000"
+    },
+    {
+     "site": "testbook.com",
+     "landing": "https://testbook.com/",
+     "sector": "commercial or other",
+     "rank": 1506,
+     "band": "1001-10000"
+    },
+    {
+     "site": "rcsobjects.it",
+     "landing": "https://rcsobjects.it/",
+     "sector": "commercial or other",
+     "rank": 75188,
+     "band": "10001-100000"
+    },
+    {
+     "site": "knittinghelp.com",
+     "landing": "https://knittinghelp.com/",
+     "sector": "commercial or other",
+     "rank": 148243,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "samsungcloud.com",
+     "landing": "https://samsungcloud.com/",
+     "sector": "commercial or other",
+     "rank": 186,
+     "band": "1-1000"
+    },
+    {
+     "site": "bfmtv.com",
+     "landing": "https://bfmtv.com/",
+     "sector": "commercial or other",
+     "rank": 1091,
+     "band": "1001-10000"
+    },
+    {
+     "site": "icook.tw",
+     "landing": "https://icook.tw/",
+     "sector": "commercial or other",
+     "rank": 44745,
+     "band": "10001-100000"
+    },
+    {
+     "site": "21-candles.com",
+     "landing": "https://21-candles.com/",
+     "sector": "commercial or other",
+     "rank": 857420,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "adobe.net",
+     "landing": "https://adobe.net/",
+     "sector": "commercial or other",
+     "rank": 446,
+     "band": "1-1000"
+    },
+    {
+     "site": "ajio.com",
+     "landing": "https://ajio.com/",
+     "sector": "commercial or other",
+     "rank": 6408,
+     "band": "1001-10000"
+    },
+    {
+     "site": "webonline.biz",
+     "landing": "https://webonline.biz/",
+     "sector": "commercial or other",
+     "rank": 99518,
+     "band": "10001-100000"
+    },
+    {
+     "site": "azosensors.com",
+     "landing": "https://azosensors.com/",
+     "sector": "commercial or other",
+     "rank": 577903,
+     "band": "100001-1000000"
+    },
+    {
+     "site": "aliyuncs.com",
+     "landing": "https://aliyuncs.com/",
+     "sector": "commercial or other",
+     "rank": 123,
+     "band": "1-1000"
+    },
+    {
+     "site": "pyrus.com",
+     "landing": "https://pyrus.com/",
+     "sector": "commercial or other",
+     "rank": 7671,
+     "band": "1001-10000"
+    },
+    {
+     "site": "signonsandiego.com",
+     "landing": "https://signonsandiego.com/",
+     "sector": "commercial or other",
+     "rank": 37209,
+     "band": "10001-100000"
+    },
+    {
+     "site": "consulo.io",
+     "landing": "https://consulo.io/",
+     "sector": "commercial or other",
+     "rank": 597235,
+     "band": "100001-1000000"
+    }
+   ]
+  },
+  "public": {
+   "description": "Government and nonprofit sites from public directories, interleaved by source.",
+   "sources": [
+    {
+     "id": "cisa-federal",
+     "url": "https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-federal.csv",
+     "what": "CISA's .gov registry, federal domains (1321); seeded sample of 45",
+     "retrieved": "2026-10-22T16:56:40.531Z"
+    },
+    {
+     "id": "usagov-states",
+     "url": "https://www.usa.gov/states/<state>",
+     "what": "the \"State government website\" USAGov lists on each of the 50 state pages, fetched at usa.gov's crawl-delay",
+     "retrieved": "2026-10-22T16:56:40.531Z"
+    },
+    {
+     "id": "wikidata-cities",
+     "url": "https://query.wikidata.org/sparql",
+     "query": "SELECT ?city (SAMPLE(?cityLabel) AS ?name) (MAX(?pop) AS ?population) (SAMPLE(?w) AS ?website) WHERE { ?city wdt:P17 wd:Q30; wdt:P1082 ?pop; wdt:P856 ?w; wdt:P31/wdt:P279* wd:Q515. ?city rdfs:label ?cityLabel. FILTER(LANG(?cityLabel) = \"en\") FILTER(?pop >= 400000) } GROUP BY ?city ORDER BY DESC(?population)",
+     "what": "US cities (subclasses of Q515) of 400,000 or more with an official website; tourism-board sites excluded",
+     "retrieved": "2026-10-22T16:56:40.531Z"
+    },
+    {
+     "id": "wikidata-nonprofits",
+     "url": "https://query.wikidata.org/sparql",
+     "query": "SELECT ?o (SAMPLE(?label) AS ?name) (SAMPLE(?w) AS ?website) (MAX(?links) AS ?sitelinks) WHERE { VALUES ?type { wd:Q163740 wd:Q708676 wd:Q18325436 wd:Q7210356 } ?o wdt:P31 ?type; wdt:P17 wd:Q30; wdt:P856 ?w; wikibase:sitelinks ?links. ?o rdfs:label ?label. FILTER(LANG(?label) = \"en\") FILTER(?links >= 15) } GROUP BY ?o ORDER BY DESC(?sitelinks) LIMIT 400",
+     "what": "notable US nonprofits (15+ Wikipedia sitelinks) with an official website; government hosts and brand-frame domains excluded; seeded sample of 60",
+     "retrieved": "2026-10-22T16:56:40.531Z"
+    }
+   ],
+   "exclusions": [
+    {
+     "site": "Atlanta",
+     "url": "https://discoveratlanta.com/",
+     "reason": "tourism-board site, not the city's"
+    },
+    {
+     "site": "Bakersfield",
+     "url": "https://www.visitbakersfield.com/",
+     "reason": "tourism-board site, not the city's"
+    },
+    {
+     "site": "Khan Academy",
+     "url": "https://khanacademy.org",
+     "reason": "in the brand frame"
+    },
+    {
+     "site": "National Park Service",
+     "url": "http://nps.gov",
+     "reason": "government host"
+    },
+    {
+     "site": "Mayo Clinic",
+     "url": "https://mayoclinic.org",
+     "reason": "in the brand frame"
+    },
+    {
+     "site": "National Museum of the United States Air Force",
+     "url": "https://www.nationalmuseum.af.mil",
+     "reason": "government host"
+    }
+   ],
+   "sites": [
+    {
+     "site": "empowhr.gov",
+     "landing": "https://empowhr.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Agriculture"
+    },
+    {
+     "site": "Montana",
+     "landing": "https://mt.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/montana"
+    },
+    {
+     "site": "New York City",
+     "landing": "https://www.nyc.gov/main",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 8804190"
+    },
+    {
+     "site": "Farm Aid",
+     "landing": "http://www.farmaid.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "imls.gov",
+     "landing": "https://imls.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Institute of Museum and Library Services"
+    },
+    {
+     "site": "Vermont",
+     "landing": "https://www.vermont.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/vermont"
+    },
+    {
+     "site": "Houston",
+     "landing": "https://www.houstontx.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 2304580"
+    },
+    {
+     "site": "Society of the Cincinnati",
+     "landing": "http://www.societyofthecincinnati.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 16 sitelinks"
+    },
+    {
+     "site": "dol.gov",
+     "landing": "https://dol.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Labor"
+    },
+    {
+     "site": "Michigan",
+     "landing": "https://www.michigan.gov/som",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/michigan"
+    },
+    {
+     "site": "Phoenix",
+     "landing": "https://www.phoenix.gov",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 1608139"
+    },
+    {
+     "site": "Democratic Socialists of America",
+     "landing": "https://dsausa.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 32 sitelinks"
+    },
+    {
+     "site": "neup.gov",
+     "landing": "https://neup.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Energy"
+    },
+    {
+     "site": "Tennessee",
+     "landing": "https://www.tn.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/tennessee"
+    },
+    {
+     "site": "San Antonio",
+     "landing": "https://www.sa.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 1434625"
+    },
+    {
+     "site": "It Gets Better Project",
+     "landing": "http://www.itgetsbetter.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 21 sitelinks"
+    },
+    {
+     "site": "fcic.gov",
+     "landing": "https://fcic.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: National Archives and Records Administration"
+    },
+    {
+     "site": "Pennsylvania",
+     "landing": "https://www.pa.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/pennsylvania"
+    },
+    {
+     "site": "San Diego",
+     "landing": "https://www.sandiego.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 1386932"
+    },
+    {
+     "site": "Committee to Protect Journalists",
+     "landing": "https://cpj.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 35 sitelinks"
+    },
+    {
+     "site": "whitehousefellows.gov",
+     "landing": "https://whitehousefellows.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Office of Personnel Management"
+    },
+    {
+     "site": "Alabama",
+     "landing": "https://www.alabama.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/alabama"
+    },
+    {
+     "site": "Dallas",
+     "landing": "https://dallascityhall.com",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 1304379"
+    },
+    {
+     "site": "Center for Inquiry",
+     "landing": "https://centerforinquiry.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "bls.gov",
+     "landing": "https://bls.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Labor"
+    },
+    {
+     "site": "Georgia",
+     "landing": "https://georgia.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/georgia"
+    },
+    {
+     "site": "Austin",
+     "landing": "https://austintexas.gov",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 961855"
+    },
+    {
+     "site": "Planned Parenthood",
+     "landing": "https://www.plannedparenthood.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 26 sitelinks"
+    },
+    {
+     "site": "salmonrecovery.gov",
+     "landing": "https://salmonrecovery.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of the Interior"
+    },
+    {
+     "site": "Florida",
+     "landing": "https://www.myflorida.com/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/florida"
+    },
+    {
+     "site": "Fort Worth",
+     "landing": "https://www.fortworthtexas.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 918915"
+    },
+    {
+     "site": "Amateur Athletic Union",
+     "landing": "http://aausports.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 17 sitelinks"
+    },
+    {
+     "site": "eop.gov",
+     "landing": "https://eop.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Executive Office of the President"
+    },
+    {
+     "site": "Louisiana",
+     "landing": "https://www.louisiana.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/louisiana"
+    },
+    {
+     "site": "Columbus",
+     "landing": "https://www.columbus.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 905748"
+    },
+    {
+     "site": "Recording Industry Association of America",
+     "landing": "https://www.riaa.com/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 51 sitelinks"
+    },
+    {
+     "site": "vaoig.gov",
+     "landing": "https://vaoig.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Veterans Affairs"
+    },
+    {
+     "site": "New Mexico",
+     "landing": "https://www.nm.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/new-mexico"
+    },
+    {
+     "site": "Indianapolis",
+     "landing": "https://www.indy.gov",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 887642"
+    },
+    {
+     "site": "National Geographic Society",
+     "landing": "https://www.nationalgeographic.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 67 sitelinks"
+    },
+    {
+     "site": "cbca.gov",
+     "landing": "https://cbca.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: General Services Administration"
+    },
+    {
+     "site": "Arizona",
+     "landing": "https://az.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/arizona"
+    },
+    {
+     "site": "Charlotte",
+     "landing": "https://www.charlottenc.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 874579"
+    },
+    {
+     "site": "Dallas Museum of Art",
+     "landing": "https://dma.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 21 sitelinks"
+    },
+    {
+     "site": "ncpc.gov",
+     "landing": "https://ncpc.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: National Capital Planning Commission"
+    },
+    {
+     "site": "New Jersey",
+     "landing": "https://www.nj.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/new-jersey"
+    },
+    {
+     "site": "San Francisco",
+     "landing": "https://www.sf.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 873965"
+    },
+    {
+     "site": "RAND Corporation",
+     "landing": "https://www.rand.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 38 sitelinks"
+    },
+    {
+     "site": "code.gov",
+     "landing": "https://code.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: General Services Administration"
+    },
+    {
+     "site": "Wyoming",
+     "landing": "https://www.wyo.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/wyoming"
+    },
+    {
+     "site": "Seattle",
+     "landing": "https://seattle.gov",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 737015"
+    },
+    {
+     "site": "National Museum of Women in the Arts",
+     "landing": "https://nmwa.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 35 sitelinks"
+    },
+    {
+     "site": "usps.gov",
+     "landing": "https://usps.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: United States Postal Service"
+    },
+    {
+     "site": "Maine",
+     "landing": "https://www.maine.gov/portal/index.html",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/maine"
+    },
+    {
+     "site": "Denver",
+     "landing": "https://www.denvergov.org",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 715522"
+    },
+    {
+     "site": "Los Angeles Philharmonic",
+     "landing": "http://www.laphil.com",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 21 sitelinks"
+    },
+    {
+     "site": "nwirp.gov",
+     "landing": "https://nwirp.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Commerce"
+    },
+    {
+     "site": "South Dakota",
+     "landing": "https://www.sd.gov",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/south-dakota"
+    },
+    {
+     "site": "Washington, D.C.",
+     "landing": "https://dc.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 689545"
+    },
+    {
+     "site": "American Library Association",
+     "landing": "https://www.ala.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 33 sitelinks"
+    },
+    {
+     "site": "sen.gov",
+     "landing": "https://sen.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: United States Senate"
+    },
+    {
+     "site": "Minnesota",
+     "landing": "https://mn.gov/portal/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/minnesota"
+    },
+    {
+     "site": "Oklahoma City",
+     "landing": "https://www.okc.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 681054"
+    },
+    {
+     "site": "Cincinnati Art Museum",
+     "landing": "https://cincinnatiartmuseum.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 19 sitelinks"
+    },
+    {
+     "site": "eftps.gov",
+     "landing": "https://eftps.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of the Treasury"
+    },
+    {
+     "site": "Colorado",
+     "landing": "https://www.colorado.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/colorado"
+    },
+    {
+     "site": "El Paso",
+     "landing": "https://www.elpasotexas.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 678815"
+    },
+    {
+     "site": "Institute of the Brothers of the Christian Schools",
+     "landing": "https://www.lasalle.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 27 sitelinks"
+    },
+    {
+     "site": "helpwithmycreditcardbank.gov",
+     "landing": "https://helpwithmycreditcardbank.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of the Treasury"
+    },
+    {
+     "site": "Kansas",
+     "landing": "https://portal.kansas.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/kansas"
+    },
+    {
+     "site": "Boston",
+     "landing": "https://www.boston.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 675647"
+    },
+    {
+     "site": "Woodrow Wilson International Center for Scholars",
+     "landing": "https://www.wilsoncenter.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 17 sitelinks"
+    },
+    {
+     "site": "state.gov",
+     "landing": "https://state.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of State"
+    },
+    {
+     "site": "Alaska",
+     "landing": "https://alaska.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/alaska"
+    },
+    {
+     "site": "Portland",
+     "landing": "https://www.portland.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 652503"
+    },
+    {
+     "site": "Ashoka",
+     "landing": "https://www.ashoka.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 16 sitelinks"
+    },
+    {
+     "site": "fai.gov",
+     "landing": "https://fai.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: General Services Administration"
+    },
+    {
+     "site": "Oregon",
+     "landing": "https://www.oregon.gov/pages/index.aspx",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/oregon"
+    },
+    {
+     "site": "Las Vegas",
+     "landing": "https://www.lasvegasnevada.gov",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 641903"
+    },
+    {
+     "site": "San Diego Comic-Con International",
+     "landing": "https://comic-con.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 51 sitelinks"
+    },
+    {
+     "site": "drugabuse.gov",
+     "landing": "https://drugabuse.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Health and Human Services"
+    },
+    {
+     "site": "Wisconsin",
+     "landing": "https://www.wisconsin.gov/Pages/Home.aspx",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/wisconsin"
+    },
+    {
+     "site": "Detroit",
+     "landing": "https://detroitmi.gov",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 639111"
+    },
+    {
+     "site": "Seattle Art Museum",
+     "landing": "http://www.seattleartmuseum.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "tsc.gov",
+     "landing": "https://tsc.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Justice"
+    },
+    {
+     "site": "Oklahoma",
+     "landing": "https://oklahoma.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/oklahoma"
+    },
+    {
+     "site": "Memphis",
+     "landing": "https://www.memphistn.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 633104"
+    },
+    {
+     "site": "Massanetta Springs",
+     "landing": "http://www.massanettasprings.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 19 sitelinks"
+    },
+    {
+     "site": "usbg.gov",
+     "landing": "https://usbg.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Architect of the Capitol"
+    },
+    {
+     "site": "Rhode Island",
+     "landing": "https://www.ri.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/rhode-island"
+    },
+    {
+     "site": "Baltimore",
+     "landing": "https://www.baltimorecity.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 585708"
+    },
+    {
+     "site": "American Geophysical Union",
+     "landing": "http://www.agu.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 18 sitelinks"
+    },
+    {
+     "site": "comptrollerofthecurrency.gov",
+     "landing": "https://comptrollerofthecurrency.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of the Treasury"
+    },
+    {
+     "site": "North Dakota",
+     "landing": "https://www.nd.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/north-dakota"
+    },
+    {
+     "site": "Milwaukee",
+     "landing": "https://city.milwaukee.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 577222"
+    },
+    {
+     "site": "Knights of Columbus",
+     "landing": "http://www.kofc.org/en/index.html",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 23 sitelinks"
+    },
+    {
+     "site": "bia.gov",
+     "landing": "https://bia.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of the Interior"
+    },
+    {
+     "site": "Mississippi",
+     "landing": "https://www.ms.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/mississippi"
+    },
+    {
+     "site": "Albuquerque",
+     "landing": "https://www.cabq.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 564559"
+    },
+    {
+     "site": "B612 Foundation",
+     "landing": "https://b612foundation.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "federalprobation.gov",
+     "landing": "https://federalprobation.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Administrative Office of the United States Courts"
+    },
+    {
+     "site": "New Hampshire",
+     "landing": "https://www.nh.gov/index.htm",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/new-hampshire"
+    },
+    {
+     "site": "Tucson",
+     "landing": "http://www.tucsonaz.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 542629"
+    },
+    {
+     "site": "Open Geospatial Consortium",
+     "landing": "http://www.opengeospatial.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 23 sitelinks"
+    },
+    {
+     "site": "healthcare.gov",
+     "landing": "https://healthcare.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Health and Human Services"
+    },
+    {
+     "site": "New York",
+     "landing": "https://www.ny.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/new-york"
+    },
+    {
+     "site": "Sacramento",
+     "landing": "https://www.cityofsacramento.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 524943"
+    },
+    {
+     "site": "American Medical Association",
+     "landing": "https://www.ama-assn.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 27 sitelinks"
+    },
+    {
+     "site": "fpdf.gov",
+     "landing": "https://fpdf.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: General Services Administration"
+    },
+    {
+     "site": "Nevada",
+     "landing": "https://nv.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/nevada"
+    },
+    {
+     "site": "Kansas City",
+     "landing": "https://www.kcmo.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 508090"
+    },
+    {
+     "site": "Art Institute of Chicago",
+     "landing": "https://www.artic.edu",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 41 sitelinks"
+    },
+    {
+     "site": "ncirc.gov",
+     "landing": "https://ncirc.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Justice"
+    },
+    {
+     "site": "Idaho",
+     "landing": "https://www.idaho.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/idaho"
+    },
+    {
+     "site": "Mesa",
+     "landing": "https://www.mesaaz.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 504258"
+    },
+    {
+     "site": "Let's Encrypt",
+     "landing": "https://letsencrypt.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 24 sitelinks"
+    },
+    {
+     "site": "arts.gov",
+     "landing": "https://arts.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: National Endowment for the Arts"
+    },
+    {
+     "site": "Connecticut",
+     "landing": "https://portal.ct.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/connecticut"
+    },
+    {
+     "site": "Omaha",
+     "landing": "https://www.cityofomaha.org/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 486051"
+    },
+    {
+     "site": "Freedom from Religion Foundation",
+     "landing": "https://ffrf.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 16 sitelinks"
+    },
+    {
+     "site": "data.gov",
+     "landing": "https://data.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: General Services Administration"
+    },
+    {
+     "site": "Missouri",
+     "landing": "https://www.mo.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/missouri"
+    },
+    {
+     "site": "Colorado Springs",
+     "landing": "https://coloradosprings.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 478961"
+    },
+    {
+     "site": "XPRIZE Foundation",
+     "landing": "https://www.xprize.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 16 sitelinks"
+    },
+    {
+     "site": "usccr.gov",
+     "landing": "https://usccr.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: U.S. Commission on Civil Rights"
+    },
+    {
+     "site": "South Carolina",
+     "landing": "https://sc.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/south-carolina"
+    },
+    {
+     "site": "Raleigh",
+     "landing": "https://raleighnc.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 467665"
+    },
+    {
+     "site": "LPGA",
+     "landing": "http://www.lpga.com",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 20 sitelinks"
+    },
+    {
+     "site": "ussemiquincentennial.gov",
+     "landing": "https://ussemiquincentennial.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: U.S. Semiquincentennial Commission"
+    },
+    {
+     "site": "Massachusetts",
+     "landing": "https://www.mass.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/massachusetts"
+    },
+    {
+     "site": "Long Beach",
+     "landing": "https://www.longbeach.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 466742"
+    },
+    {
+     "site": "Kiva",
+     "landing": "https://www.kiva.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 24 sitelinks"
+    },
+    {
+     "site": "nitrd.gov",
+     "landing": "https://nitrd.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Executive Office of the President"
+    },
+    {
+     "site": "Utah",
+     "landing": "https://www.utah.gov/index.html",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/utah"
+    },
+    {
+     "site": "Virginia Beach",
+     "landing": "https://virginiabeach.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 459470"
+    },
+    {
+     "site": "National Inventors Hall of Fame, Inc.",
+     "landing": "https://www.invent.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "facadatabase.gov",
+     "landing": "https://facadatabase.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: General Services Administration"
+    },
+    {
+     "site": "Indiana",
+     "landing": "https://www.in.gov/core/index.html",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/indiana"
+    },
+    {
+     "site": "Oakland",
+     "landing": "https://www.oaklandca.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 440646"
+    },
+    {
+     "site": "Petersen Automotive Museum",
+     "landing": "https://www.petersen.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 19 sitelinks"
+    },
+    {
+     "site": "consumerbureau.gov",
+     "landing": "https://consumerbureau.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Consumer Financial Protection Bureau"
+    },
+    {
+     "site": "Hawaii",
+     "landing": "https://portal.ehawaii.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/hawaii"
+    },
+    {
+     "site": "Minneapolis",
+     "landing": "https://www.minneapolismn.gov/",
+     "sector": "government (city)",
+     "source": "wikidata-cities: population 429954"
+    },
+    {
+     "site": "PFLAG",
+     "landing": "http://www.PFLAG.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 19 sitelinks"
+    },
+    {
+     "site": "nara.gov",
+     "landing": "https://nara.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: National Archives and Records Administration"
+    },
+    {
+     "site": "Texas",
+     "landing": "https://www.texas.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/texas"
+    },
+    {
+     "site": "Axis of Justice",
+     "landing": "https://axisofjustice.net/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "cbo.gov",
+     "landing": "https://cbo.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Congressional Budget Office"
+    },
+    {
+     "site": "Arkansas",
+     "landing": "https://portal.arkansas.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/arkansas"
+    },
+    {
+     "site": "Carter Center",
+     "landing": "https://www.cartercenter.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 23 sitelinks"
+    },
+    {
+     "site": "cbonews.gov",
+     "landing": "https://cbonews.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Congressional Budget Office"
+    },
+    {
+     "site": "Maryland",
+     "landing": "https://www.maryland.gov/Pages/default.aspx",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/maryland"
+    },
+    {
+     "site": "Shriners",
+     "landing": "https://www.shrinersinternational.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 17 sitelinks"
+    },
+    {
+     "site": "leo.gov",
+     "landing": "https://leo.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Justice"
+    },
+    {
+     "site": "Illinois",
+     "landing": "https://www.illinois.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/illinois"
+    },
+    {
+     "site": "American Psychological Association",
+     "landing": "https://www.apa.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 40 sitelinks"
+    },
+    {
+     "site": "econsumer.gov",
+     "landing": "https://econsumer.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Federal Trade Commission"
+    },
+    {
+     "site": "Virginia",
+     "landing": "https://www.virginia.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/virginia"
+    },
+    {
+     "site": "Al-Anon/Alateen",
+     "landing": "https://al-anon.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 18 sitelinks"
+    },
+    {
+     "site": "jct.gov",
+     "landing": "https://jct.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: United States House of Representatives"
+    },
+    {
+     "site": "Nebraska",
+     "landing": "https://www.nebraska.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/nebraska"
+    },
+    {
+     "site": "Council on American–Islamic Relations",
+     "landing": "http://www.cair.com/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 18 sitelinks"
+    },
+    {
+     "site": "csosa.gov",
+     "landing": "https://csosa.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Court Services and Offender Supervision Agency for the District of Columbia"
+    },
+    {
+     "site": "Iowa",
+     "landing": "https://www.iowa.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/iowa"
+    },
+    {
+     "site": "American Ballet Theatre",
+     "landing": "http://www.abt.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 22 sitelinks"
+    },
+    {
+     "site": "adams.gov",
+     "landing": "https://adams.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Adams Memorial Commission"
+    },
+    {
+     "site": "Ohio",
+     "landing": "https://ohio.gov/home",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/ohio"
+    },
+    {
+     "site": "Association of American Universities",
+     "landing": "http://aau.edu",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 33 sitelinks"
+    },
+    {
+     "site": "healthycompetition.gov",
+     "landing": "https://healthycompetition.gov/",
+     "sector": "government (federal)",
+     "source": "cisa-federal: Department of Justice"
+    },
+    {
+     "site": "California",
+     "landing": "https://www.ca.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/california"
+    },
+    {
+     "site": "United States Holocaust Memorial Museum",
+     "landing": "https://www.ushmm.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 38 sitelinks"
+    },
+    {
+     "site": "West Virginia",
+     "landing": "https://www.wv.gov/Pages/default.aspx",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/west-virginia"
+    },
+    {
+     "site": "Internet Assigned Numbers Authority",
+     "landing": "https://www.iana.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 41 sitelinks"
+    },
+    {
+     "site": "Washington",
+     "landing": "https://wa.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/washington"
+    },
+    {
+     "site": "John F. Kennedy Center for the Performing Arts",
+     "landing": "https://www.kennedy-center.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 30 sitelinks"
+    },
+    {
+     "site": "North Carolina",
+     "landing": "https://www.nc.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/north-carolina"
+    },
+    {
+     "site": "Contemporary Arts Center",
+     "landing": "http://www.contemporaryartscenter.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 17 sitelinks"
+    },
+    {
+     "site": "Kentucky",
+     "landing": "https://www.kentucky.gov/Pages/home.aspx",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/kentucky"
+    },
+    {
+     "site": "Detroit Institute of Arts",
+     "landing": "http://www.dia.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 29 sitelinks"
+    },
+    {
+     "site": "Delaware",
+     "landing": "https://delaware.gov/",
+     "sector": "government (state)",
+     "source": "usagov-states: https://www.usa.gov/states/delaware"
+    },
+    {
+     "site": "Isabella Stewart Gardner Museum",
+     "landing": "https://www.gardnermuseum.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 29 sitelinks"
+    },
+    {
+     "site": "Girl Scouts of the USA",
+     "landing": "https://www.girlscouts.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "American Cancer Society",
+     "landing": "https://www.cancer.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 17 sitelinks"
+    },
+    {
+     "site": "University of Pennsylvania Press",
+     "landing": "http://www.upenn.edu/pennpress",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 15 sitelinks"
+    },
+    {
+     "site": "Pew Research Center",
+     "landing": "https://www.pewresearch.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 42 sitelinks"
+    },
+    {
+     "site": "Freedom House",
+     "landing": "https://freedomhouse.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 50 sitelinks"
+    },
+    {
+     "site": "Science Fiction and Fantasy Writers Association",
+     "landing": "https://www.sfwa.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 24 sitelinks"
+    },
+    {
+     "site": "Southern Poverty Law Center",
+     "landing": "https://www.splcenter.org/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 28 sitelinks"
+    },
+    {
+     "site": "Plan International",
+     "landing": "https://plan-international.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 24 sitelinks"
+    },
+    {
+     "site": "Intertel",
+     "landing": "https://www.intertel-iq.org",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 18 sitelinks"
+    },
+    {
+     "site": "Cold Spring Harbor Laboratory",
+     "landing": "https://www.cshl.edu/",
+     "sector": "nonprofit",
+     "source": "wikidata-nonprofits: 20 sitelinks"
+    }
+   ]
+  }
+ }
+}
