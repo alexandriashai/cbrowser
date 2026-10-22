@@ -1,5 +1,9 @@
 /**
- * Write tests/fixtures/ctc-golden-20.0.1.json from the CURRENT chain code.
+ * Write tests/fixtures/ctc-golden-21.0.0.json from the CURRENT chain code.
+ *
+ * 21.0.0 replaced the 20.0.1 pin, which stays in the repo as history and is no
+ * longer asserted: 21.0 changed the chain's numbers on purpose (see
+ * research/ctc-21-deltas.md).
  *
  * Run once on the code whose behaviour is to be pinned; never re-run to make
  * a red ctc-golden.test.ts green without a deliberate decision that the
@@ -27,6 +31,6 @@ let numbers = 0;
   else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) check(x, `${path}.${k}`);
 })(matrix, "matrix");
 
-const out = join(import.meta.dir, "ctc-golden-20.0.1.json");
-writeFileSync(out, JSON.stringify({ pinnedOn: "20.0.1", ...matrix }));
+const out = join(import.meta.dir, "ctc-golden-21.0.0.json");
+writeFileSync(out, JSON.stringify({ pinnedOn: "21.0.0", ...matrix }));
 console.log(`wrote ${out}: ${matrix.personas.length} personas x ${matrix.demands.length} demands x ${matrix.optionSets.length} option sets + ${Object.keys(matrix.scroll[matrix.personas[0]]).length} scroll inputs, ${numbers} numbers`);

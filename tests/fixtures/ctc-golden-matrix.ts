@@ -5,7 +5,7 @@
  * tools use.
  *
  * Shared by three callers so they cannot drift from each other:
- *   generate-ctc-golden.ts   writes tests/fixtures/ctc-golden-20.0.1.json
+ *   generate-ctc-golden.ts   writes tests/fixtures/ctc-golden-21.0.0.json
  *   ctc-golden.test.ts       recomputes it and asserts Object.is on every number
  *   ctc-provenance.test.ts   runs it under provenance recording
  *
