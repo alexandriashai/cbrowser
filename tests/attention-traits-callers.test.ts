@@ -8,8 +8,8 @@
  * name-inferred built-in) here:
  *
  *   - empathy_audit's own attention pass, whose entropy, concentration and
- *     transport cost feed the perceptual score blended into empathyScore
- *   - journey_heatmap_gif, every frame
+ *     transport cost feed the perceptual score blended into empathyScore (here)
+ *   - journey_heatmap_gif, every frame (tests/journey-gif-traits.test.ts)
  *   - the capture overlay (tests/saliency-overlay-traits.test.ts, no browser)
  *
  * And runEmpathyAudit replaced a custom persona's STORED accessibilityTraits
@@ -34,7 +34,6 @@ process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-attn-callers-data
 delete process.env.ANTHROPIC_API_KEY;
 
 const { CBrowser } = await import("../src/browser.js");
-const { registerGifTools } = await import("../src/mcp-tools/base/gif-tools.js");
 const { createCognitivePersona, saveCustomPersona } = await import("../src/personas.js");
 const { runEmpathyAudit } = await import("../src/analysis/accessibility-empathy.js");
 
@@ -52,20 +51,20 @@ main{padding:24px} .cta{display:inline-block;padding:12px 24px;background:#06c;c
 <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect width='200' height='120' fill='%23c63'/%3E%3C/svg%3E" width="200" height="120" alt="Plan chart">
 </main></body></html>`;
 
-type Block = { type: string; text?: string };
-type Handler = (a: Record<string, unknown>) => Promise<{ isError?: boolean; content: Block[] }>;
 let server: ReturnType<typeof Bun.serve>;
-let gif: Handler;
 let browser: InstanceType<typeof CBrowser>;
-const body = (r: { content: Block[] }) => JSON.parse(r.content.find((c) => c.type === "text")!.text!);
 const url = () => `http://localhost:${server.port}/`;
 
 type EmpathyRow = {
   attentionAnalysis?: { perceptualProfile?: { resolution: string; name: string } };
   perceptualTransport?: { informationLoss: number };
 };
-// One shared page: runEmpathyAudit launching its own browser hangs on its third
-// call in a process (reported 2026-10-22, unrelated to traits).
+// One shared page, because under Bun a runEmpathyAudit that launches its own
+// browser hangs on its third call in one process (inside the first barrier
+// detector's page.$$eval). It does not reproduce under Node, which the hosted
+// servers run (four sequential own-browser audits on the 20.0.1 dist all return
+// in about 2 s), so it is treated as a Bun or test-environment hang rather than
+// a product bug and is not fixed. Unrelated to traits. (2026-10-22)
 async function empathy(persona: string): Promise<EmpathyRow> {
   const audit = await runEmpathyAudit(url(), {
     disabilities: [persona], wcagLevel: "AA", maxSteps: 1, maxTime: 10, headless: true, scope: "viewport",
@@ -83,10 +82,6 @@ beforeAll(async () => {
   server = Bun.serve({ port: 0, fetch: () => new Response(PAGE, { headers: { "content-type": "text/html" } }) });
   browser = new CBrowser({ headless: true, persistent: false, viewportWidth: 1280, viewportHeight: 800 });
   await browser.launch();
-  registerGifTools({
-    registerTool: (name: string, _c: unknown, h: Handler) => { if (name === "journey_heatmap_gif") gif = h; },
-    tool: () => {}, registerResource: () => {}, resource: () => {},
-  } as never, { getBrowser: async () => { throw new Error("unused"); } } as never);
 }, 60_000);
 
 afterAll(async () => {
@@ -130,18 +125,4 @@ describe("empathy_audit scores a custom persona with the traits it stores", () =
     const lossWithout = without.perceptualTransport!.informationLoss;
     expect(lossWith - lossWithout).toBeGreaterThan(0.01);
   }, 240_000);
-});
-
-describe("journey_heatmap_gif draws its frames with the persona's stored traits", () => {
-  test("a custom persona with accessibility traits on record resolves 'synthesized'", async () => {
-    const r = await gif({ url: url(), persona: WITH_TRAITS, goal: "start a free trial", maxSteps: 2, frameDelay: 200 });
-    expect(r.isError).toBeFalsy();
-    expect(body(r).perceptualProfile).toEqual({ resolution: "synthesized", name: WITH_TRAITS });
-  }, 120_000);
-
-  test("one without them falls back as before ('default')", async () => {
-    const r = await gif({ url: url(), persona: WITHOUT_TRAITS, goal: "start a free trial", maxSteps: 2, frameDelay: 200 });
-    expect(r.isError).toBeFalsy();
-    expect(body(r).perceptualProfile).toEqual({ resolution: "default", name: "default" });
-  }, 120_000);
 });
