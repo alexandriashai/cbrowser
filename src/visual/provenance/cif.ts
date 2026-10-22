@@ -93,7 +93,8 @@ export const CIF_PROVENANCE: ProvenanceEntry[] = [
   h("motor.interactive.slopeBelowKnee", 2.5, "Hand-set points lost per interactive element between the free count and the knee; the same task-time data would fit it."),
   h("motor.interactive.kneeScore", 50, "Hand-set interactionCount at the knee, continuous with the slope below it; the same task-time data would fit it."),
   h("motor.interactive.slopeAboveKnee", 1, "Hand-set points lost per interactive element above the knee; the same task-time data would fit it."),
-  h("motor.spacing.barrierPenalty", 15, PER_BARRIER("touch_target (read here as a spacing barrier; these are the same barriers the touchTargetCompliance fallback counts, so a page with them and no size data is penalised twice)", "users with motor impairments")),
+  h("motor.spacing.barrierPenalty", 15, PER_BARRIER("close-spacing (empathy_audit's motor_precision barrier weighted target_spacing; until 21.0 this read touch_target barriers, the same ones the touchTargetCompliance fallback counts, so a page with them and no size data was penalised twice)", "users with motor impairments")),
+  h("motor.spacing.minGapPx", 8, "Gap (px) below which empathy_audit's close-spacing detector reports two interactive elements; quoted in spacingAdequacy's details and fix text so they name the threshold the counted barrier used. The detector's own literal lives in analysis/accessibility-empathy.ts and is not read from here, so the two can drift; it is not WCAG's (2.5.8's spacing exception is a 24 px circle). Mis-tap rates of users with tremor against the gap between adjacent targets would set it."),
   h("motor.drag.barrierPenalty", 25, PER_BARRIER("drag-dependent", "users with motor impairments and keyboard-only users")),
 
   // ── Visual ──
@@ -138,7 +139,7 @@ export const CIF_PROVENANCE: ProvenanceEntry[] = [
   h("sensory.animation.controlledFloor", 90, "Hand-set lowest animationControl when prefers-reduced-motion is supported, however many animations there are; distraction ratings by users with vestibular or attention disorders on pages that honour reduced motion would set it."),
   h("sensory.animation.controlledPenalty", 1, "Hand-set points lost per animation when prefers-reduced-motion is supported, down to the floor; the same distraction ratings would fit it."),
   h("sensory.animation.uncontrolledPenalty", 20, "Hand-set points lost per animation without prefers-reduced-motion support, quoted in the details text; task success or symptom reports of users with vestibular or attention disorders against uncontrolled animation count would fit it."),
-  h("sensory.audio.barrierPenalty", 15, PER_BARRIER("caption or audio (quoted in the details text)", "deaf and hard-of-hearing users")),
+  h("sensory.audio.barrierPenalty", 15, PER_BARRIER("caption or audio (each barrier once, even when it mentions both; quoted in the details text)", "deaf and hard-of-hearing users")),
   h("sensory.calm.densityWeight", 50, "Hand-set visualCalm points lost across the full range of information density; calm ratings by users with sensory sensitivities against measured density would fit it."),
   h("sensory.calm.animationPenalty", 15, "Hand-set visualCalm points lost per uncontrolled animation; the same calm ratings would fit it."),
   h("sensory.overload.easyCTC", 0.3, "Hand-set total CTC up to which overloadThreshold scores full marks ('easy' on cbrowser's own CTC scale, whose constants are hypotheses too); abandonment or overload reports against total CTC would place it."),
@@ -153,7 +154,7 @@ export const CIF_PROVENANCE: ProvenanceEntry[] = [
   h("navigation.weight.skipMechanisms", 0.15, COMPONENT_WEIGHT("navigation", "skipMechanisms")),
   h("navigation.weight.linkButtonClarity", 0.15, COMPONENT_WEIGHT("navigation", "linkButtonClarity")),
   h("navigation.weight.formAccessibility", 0.2, COMPONENT_WEIGHT("navigation", "formAccessibility")),
-  h("navigation.keyboard.barrierPenalty", 15, PER_BARRIER("keyboard or motor_precision", "keyboard-only and switch users")),
+  h("navigation.keyboard.barrierPenalty", 15, PER_BARRIER("keyboard or motor_precision (each barrier once, and not the close-spacing barrier, which spacingAdequacy counts)", "keyboard-only and switch users")),
   h("navigation.skip.barrierPenalty", 25, PER_BARRIER("skip-mechanism", "keyboard and screen-reader users")),
   h("navigation.form.barrierPenalty", 10, PER_BARRIER("form", "screen-reader users")),
 

@@ -417,7 +417,7 @@
         },
         "spacingAdequacy": {
           "score": 100,
-          "details": "No spacing barriers detected",
+          "details": "No close-spacing barriers detected",
           "measured": true
         },
         "dragFreeAlternatives": {
@@ -611,7 +611,7 @@
         },
         "spacingAdequacy": {
           "score": 100,
-          "details": "No spacing barriers detected",
+          "details": "No close-spacing barriers detected",
           "measured": true
         },
         "dragFreeAlternatives": {
@@ -989,7 +989,7 @@
         },
         "spacingAdequacy": {
           "score": 100,
-          "details": "No spacing barriers detected",
+          "details": "No close-spacing barriers detected",
           "measured": true
         },
         "dragFreeAlternatives": {
@@ -1356,11 +1356,11 @@
     "url": "https://example.com/perfect"
   },
   "tiny-touch-targets": {
-    "composite": 68,
+    "composite": 69,
     "grade": "C",
     "certification": "bronze",
     "motor": {
-      "score": 50,
+      "score": 54,
       "components": {
         "touchTargetCompliance": {
           "score": 20,
@@ -1378,8 +1378,8 @@
           "measured": true
         },
         "spacingAdequacy": {
-          "score": 70,
-          "details": "2 touch target/spacing barriers detected",
+          "score": 100,
+          "details": "No close-spacing barriers detected",
           "measured": true
         },
         "dragFreeAlternatives": {

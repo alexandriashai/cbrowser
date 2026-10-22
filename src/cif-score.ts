@@ -127,6 +127,13 @@ export interface CIFInput {
     element?: string;
     description?: string;
     wcagCriteria?: string[];
+    /**
+     * The persona-weight key empathy_audit's detector set, if any. Its
+     * close-spacing barrier (type motor_precision) carries "target_spacing";
+     * spacingAdequacy counts those and keyboardOperability skips them, so the
+     * barrier is counted once.
+     */
+    weightKey?: string;
   }>;
   touchTargets?: Array<{
     width: number;
@@ -234,18 +241,30 @@ function countBarriersByType(
   return barriers.filter((b) => b.type === type).length;
 }
 
+type Barrier = NonNullable<CIFInput["barriers"]>[number];
+
+/** Does a barrier's type or description contain `pattern`? */
+function matchesBarrier(b: Barrier, pattern: string): boolean {
+  const p = pattern.toLowerCase();
+  return b.type.toLowerCase().includes(p) || (b.description || "").toLowerCase().includes(p);
+}
+
 /** Count barriers matching a substring in type or description */
 function countBarriersMatching(
   barriers: CIFInput["barriers"],
   pattern: string,
 ): number {
   if (!barriers) return 0;
-  const p = pattern.toLowerCase();
-  return barriers.filter(
-    (b) =>
-      b.type.toLowerCase().includes(p) ||
-      (b.description || "").toLowerCase().includes(p),
-  ).length;
+  return barriers.filter((b) => matchesBarrier(b, pattern)).length;
+}
+
+/** empathy_audit's close-spacing barrier, which it weights as target_spacing. */
+function isCloseSpacing(b: Barrier): boolean {
+  return b.weightKey === "target_spacing";
+}
+
+function countCloseSpacingBarriers(barriers: CIFInput["barriers"]): number {
+  return barriers ? barriers.filter(isCloseSpacing).length : 0;
 }
 
 // ============================================================================
@@ -265,6 +284,7 @@ const MOTOR_IDS = {
   interactiveKneeScore: "cif.motor.interactive.kneeScore",
   interactiveSlopeAbove: "cif.motor.interactive.slopeAboveKnee",
   spacingBarrierPenalty: "cif.motor.spacing.barrierPenalty",
+  spacingGapPx: "cif.motor.spacing.minGapPx",
   dragBarrierPenalty: "cif.motor.drag.barrierPenalty",
   wTouchTarget: "cif.motor.weight.touchTargetCompliance",
   wHit: "cif.motor.weight.hitProbability",
@@ -345,14 +365,17 @@ function computeMotorFitness(data: CIFInput): CIFScore["motor"] {
   }
 
   // --- spacingAdequacy (15%) ---
+  // Reads only the audit's close-spacing barrier. touch_target barriers are SIZE
+  // findings and belong to touchTargetCompliance; counting them here too
+  // penalised a page twice for the same barrier.
   let spacingAdequacy: CIFComponentScore;
   if (data.barriers) {
-    const touchTargetBarriers = countBarriersByType(data.barriers, "touch_target");
+    const closeSpacing = countCloseSpacingBarriers(data.barriers);
     spacingAdequacy = measured(
-      clamp(Math.round(P.scale - touchTargetBarriers * P.spacingBarrierPenalty)),
-      touchTargetBarriers > 0
-        ? `${touchTargetBarriers} touch target/spacing barriers detected`
-        : "No spacing barriers detected",
+      clamp(Math.round(P.scale - closeSpacing * P.spacingBarrierPenalty)),
+      closeSpacing > 0
+        ? `${closeSpacing} close-spacing barriers detected (interactive elements under ${P.spacingGapPx}px apart)`
+        : "No close-spacing barriers detected",
     );
   } else {
     spacingAdequacy = notMeasured("audit barriers");
@@ -701,13 +724,12 @@ function computeSensoryFitness(data: CIFInput): CIFScore["sensory"] {
   // --- sensoryIndependence (25%) ---
   let sensoryIndependence: CIFComponentScore;
   if (data.barriers) {
-    const captionBarriers = countBarriersMatching(data.barriers, "caption");
-    const audioBarriers = countBarriersMatching(data.barriers, "audio");
-    const sensoryDeductions = (captionBarriers + audioBarriers) * P.audioBarrierPenalty;
+    // Each barrier once, even when it mentions both captions and audio
+    const sensoryBarriers = data.barriers.filter((b) => matchesBarrier(b, "caption") || matchesBarrier(b, "audio")).length;
     sensoryIndependence = measured(
-      clamp(P.scale - sensoryDeductions),
-      sensoryDeductions > 0
-        ? `${captionBarriers + audioBarriers} audio/caption barriers (each deducts ${P.audioBarrierPenalty})`
+      clamp(P.scale - sensoryBarriers * P.audioBarrierPenalty),
+      sensoryBarriers > 0
+        ? `${sensoryBarriers} audio/caption barriers (each deducts ${P.audioBarrierPenalty})`
         : "No audio/caption accessibility barriers detected",
     );
   } else {
@@ -828,13 +850,15 @@ function computeNavigationFitness(data: CIFInput): CIFScore["navigation"] {
   // --- keyboardOperability (25%) ---
   let keyboardOperability: CIFComponentScore;
   if (data.barriers) {
-    const keyboardBarriers = countBarriersMatching(data.barriers, "keyboard");
-    const motorPrecision = countBarriersByType(data.barriers, "motor_precision");
-    const kbDeductions = (keyboardBarriers + motorPrecision) * P.keyboardBarrierPenalty;
+    // Each barrier once: a keyboard finding, or a motor_precision one other than
+    // the close-spacing barrier (spacingAdequacy counts that)
+    const kbBarriers = data.barriers.filter(
+      (b) => matchesBarrier(b, "keyboard") || (b.type === "motor_precision" && !isCloseSpacing(b)),
+    ).length;
     keyboardOperability = measured(
-      clamp(P.scale - kbDeductions),
-      kbDeductions > 0
-        ? `${keyboardBarriers + motorPrecision} keyboard/motor barriers detected`
+      clamp(P.scale - kbBarriers * P.keyboardBarrierPenalty),
+      kbBarriers > 0
+        ? `${kbBarriers} keyboard/motor barriers detected`
         : "No keyboard accessibility barriers detected",
     );
   } else {
