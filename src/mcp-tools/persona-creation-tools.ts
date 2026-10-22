@@ -304,7 +304,7 @@ export function registerPersonaCreationTools(server: McpServer): void {
     description: "Start creating a custom persona. Best practice: present the choice to the user via AskUserQuestion (questionnaire vs description mode) rather than showing raw JSON.",
     inputSchema: {
       persona_name: z.string().describe("Name for the new persona (e.g., 'tech-savvy-millennial')"),
-      comprehensive: z.boolean().optional().describe("Include all 26 traits (true) or just core 8 traits (false, default)"),
+      comprehensive: z.boolean().optional().describe("Include all 25 persona traits (true) or just core 8 traits (false, default)"),
     },
     annotations: {
       title: "Start Persona Creation",
@@ -367,7 +367,7 @@ IMPORTANT: Do NOT show this text to the user. USE AskUserQuestion to present the
     description: "Start the questionnaire mode for persona creation. Each question is best presented via AskUserQuestion for interactive selection.",
     inputSchema: {
       persona_name: z.string().describe("Name for the new persona"),
-      comprehensive: z.boolean().optional().describe("Include all 26 traits (default: false, core 8 traits only)"),
+      comprehensive: z.boolean().optional().describe("Include all 25 persona traits (default: false, core 8 traits only)"),
     },
     annotations: {
       title: "Start Persona Questionnaire",

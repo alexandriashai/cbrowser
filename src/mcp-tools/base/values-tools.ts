@@ -1148,9 +1148,9 @@ export function registerValuesTools(server: McpServer): void {
 
   server.registerTool("persona_questionnaire_get", {
     title: "Get Persona Questionnaire",
-    description: "Get the persona questionnaire for building a custom persona. Returns research-backed questions that map to cognitive traits. Use comprehensive=true for all 26 traits, or leave false for the 8 core ones. v16.12.0: Now includes optional category question for disability-specific value safeguards.",
+    description: "Get the persona questionnaire for building a custom persona. Returns research-backed questions that map to cognitive traits. Use comprehensive=true for all 25 persona traits, or leave false for the 8 core ones. v16.12.0: Now includes optional category question for disability-specific value safeguards.",
     inputSchema: {
-      comprehensive: z.boolean().optional().default(false).describe("Include all 26 traits (true) or just the 8 core ones (false)"),
+      comprehensive: z.boolean().optional().default(false).describe("Include all 25 persona traits (true) or just the 8 core ones (false)"),
       traits: z.array(z.string()).optional().describe("Specific trait names to include (overrides comprehensive)"),
       includeCategory: z.boolean().optional().default(true).describe("Include category question for disability-aware values (v16.12.0)"),
     },

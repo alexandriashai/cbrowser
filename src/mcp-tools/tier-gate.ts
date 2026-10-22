@@ -151,7 +151,7 @@ export function upgradePrompt(toolName: string): {
             "Attention heatmaps and visual cognitive stories",
             "11 disability persona empathy audits",
             "AI Friendliness Suite (agent-ready, benchmark, remediation)",
-            "Custom persona creation (26 traits)",
+            "Custom persona creation (25 traits)",
             "Visual regression and cross-browser testing",
             "Site knowledge and persistent models",
             "Competitive UX benchmarking",

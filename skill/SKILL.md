@@ -1,6 +1,6 @@
 ---
 name: CBrowser
-description: Cognitive Browser — AI browser automation that simulates real user cognition. 122 MCP tools, 21 personas, 25 cognitive traits, constitutional safety, cognitive journeys with LLM-free trace replay, screen capture to GIF/WebP/WebM with an AI-readable frame manifest (v18.69.3). USE WHEN browser automation OR cognitive journey OR persona testing OR empathy audit OR agent-ready audit OR visual regression OR cross-browser test OR responsive test OR natural language tests OR flaky test detection OR performance regression OR user abandonment OR friction detection OR record a video OR record a gif OR screen capture OR capture animation OR capture motion OR screencast OR record the page OR capture an element as it moves.
+description: Cognitive Browser — AI browser automation that simulates real user cognition. 131 MCP tools, 29 personas (25 human, 4 agent), 25 cognitive traits, constitutional safety, cognitive journeys with LLM-free trace replay, screen capture to GIF/WebP/WebM with an AI-readable frame manifest (v18.69.3). USE WHEN browser automation OR cognitive journey OR persona testing OR empathy audit OR agent-ready audit OR visual regression OR cross-browser test OR responsive test OR natural language tests OR flaky test detection OR performance regression OR user abandonment OR friction detection OR record a video OR record a gif OR screen capture OR capture animation OR capture motion OR screencast OR record the page OR capture an element as it moves.
 ---
 
 # CBrowser (Cognitive Browser)

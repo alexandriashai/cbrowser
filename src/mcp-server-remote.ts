@@ -1402,7 +1402,7 @@ export function buildPersonasOverviewText(): string {
   ];
   const total = groups.reduce((n, [, names]) => n + names.length, 0);
   const body = groups.map(([label, names]) => `${label} (${names.length}): ${names.join(", ")}`).join(". ");
-  return `CBrowser includes ${total} built-in personas: ${body}. Each human persona has 26 cognitive traits; agent personas describe AI agents with agent traits instead. Visit https://cbrowser.ai/docs/Persona-Index for details.`;
+  return `CBrowser includes ${total} built-in personas: ${body}. Each human persona has 25 cognitive traits; agent personas describe AI agents with agent traits instead. Visit https://cbrowser.ai/docs/Persona-Index for details.`;
 }
 
 /** Number of built-in personas across every map docs://personas lists. */
