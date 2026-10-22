@@ -103,7 +103,13 @@ describe("cognitive_distance scale comparability", () => {
   });
 
   test("the old absolute thresholds would have collapsed — the reason this exists", () => {
-    const substantialUnderOldBands = pairs.filter(p => p.w1 >= 0.06).length;
-    expect(substantialUnderOldBands).toBeGreaterThan(pairs.length * 0.9);
+    // Until 2026-10-21 this asserted >90% of pairs at w1 >= 0.06, which pinned
+    // the SCALE of the old weighted-L1 heuristic (0.055-0.684). w1 is now the
+    // exact W1 (0.03-0.21 across the roster), so the pin moved to the property
+    // that matters: the old absolute bands still put most pairs in one bucket.
+    const oldBand = (w1: number) => (w1 < 0.01 ? 0 : w1 < 0.03 ? 1 : w1 < 0.06 ? 2 : 3);
+    const buckets = [0, 0, 0, 0];
+    for (const p of pairs) buckets[oldBand(p.w1)]++;
+    expect(Math.max(...buckets)).toBeGreaterThan(pairs.length * 0.5);
   });
 });

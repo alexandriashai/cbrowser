@@ -18,7 +18,8 @@ describe("cognitive_distance scaleNote names the real trait count (v10 B42)", ()
   test("the note's count equals COGNITIVE_TRAITS.length", async () => {
     const r = await handlers.get("cognitive_distance")!({ personaA: "first-timer", personaB: "power-user" });
     const body = JSON.parse(r.content.find((c) => c.type === "text")!.text!);
-    expect(body.scaleNote).toContain(`L1 sum over ${COGNITIVE_TRAITS.length} traits`);
+    // "L1 sum" became "exact Wasserstein-1" on 2026-10-21; the count is what this pins.
+    expect(body.scaleNote).toContain(`over ${COGNITIVE_TRAITS.length} traits`);
     expect(COGNITIVE_TRAITS.length).toBe(new Set(COGNITIVE_TRAITS).size);
   });
 });

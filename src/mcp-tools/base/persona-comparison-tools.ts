@@ -53,15 +53,21 @@ const MOTOR_PREVIEW_MAX_CHARS = 40_000;
  * Reference distribution of cognitive distances across the built-in persona set.
  *
  * cognitive_distance returns three numbers — w1, w2 and sliced — that look like
- * peers but are not on one scale: w1 is an L1 sum over every COGNITIVE_TRAITS entry, w2 is an L2
- * norm, and sliced is a mean random projection. Measured across all 210 built-in
- * persona pairs, their means are 0.296 / 0.128 / 0.016 — roughly 20x apart end to
- * end. A reader comparing them directly draws a false conclusion.
+ * peers but are not on one scale: w1 is the exact Wasserstein-1 (earth mover's)
+ * distance over every COGNITIVE_TRAITS entry under the trait ground metric, w2
+ * is an L2 norm, and sliced is a mean random projection. The roster is 25 human
+ * personas (BUILTIN + ACCESSIBILITY + EMOTIONAL), i.e. 300 pairs; the "210
+ * pairs" this comment used to cite was the 21-persona roster before the
+ * emotional personas joined. Means measured 2026-07-29 on the old weighted-L1
+ * w1 were 0.296 / 0.128 / 0.016; the exact W1 shipped 2026-10-21 is smaller
+ * (bounded by 0.8 x total variation), so compare the percentiles, never the raw
+ * numbers across metrics. A reader comparing them directly draws a false
+ * conclusion.
  *
  * The verdict was worse. Its bands (0.01 / 0.03 / 0.06) were calibrated for a
- * scale w1 does not occupy: w1 actually spans 0.055 to 0.684, so 209 of those 210
- * pairs returned "Substantially different cognitive profiles" — the same sentence
- * for nearly every possible question, which is no answer at all.
+ * scale w1 does not occupy: the old w1 spanned 0.055 to 0.684, so 209 of the
+ * then 210 pairs returned "Substantially different cognitive profiles" — the
+ * same sentence for nearly every possible question, which is no answer at all.
  *
  * The fix for both is one idea: express each metric as its percentile within this
  * population. Percentiles ARE comparable across metrics, and they are grounded in
@@ -540,12 +546,14 @@ Begin with the first persona: ${personas[0]}
             scaleNote:
               // The count is read from the list: "26" went stale when the three bridge
               // traits arrived (v10 B42).
-              `w1 (L1 sum over ${COGNITIVE_TRAITS.length} traits), w2 (L2 norm) and sliced (mean random projection) ` +
-              "are different quantities on different scales — w1 typically runs ~20x larger " +
-              "than sliced. Compare the percentiles, not the raw values.",
+              `w1 (exact Wasserstein-1 / earth mover's distance over ${COGNITIVE_TRAITS.length} traits), ` +
+              "w2 (L2 norm) and sliced (mean random projection) are different quantities on different " +
+              "scales. Compare the percentiles, not the raw values. w1 is computed on profiles normalised " +
+              "to the simplex, so it measures the shape of a profile, not its level: proportional trait " +
+              "vectors are at distance 0.",
 
             // Verdict is a percentile band, not an absolute threshold. The former
-            // absolute bands put 209 of 210 built-in pairs in one bucket.
+            // absolute bands put 209 of the then 210 built-in pairs in one bucket.
             interpretation: w1Pct < 10 ? "Nearly identical cognitive profiles (closer than 90% of persona pairs)"
               : w1Pct < 30 ? "Similar cognitive profiles with minor differences"
               : w1Pct < 70 ? "Moderately different cognitive profiles"
