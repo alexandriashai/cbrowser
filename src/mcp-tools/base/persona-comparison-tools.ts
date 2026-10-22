@@ -38,7 +38,7 @@ import {
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
-import { activeProvenance } from "../../visual/model-provenance.js";
+import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
 import { ctcBandsDescription, ctcRank } from "../../visual/ctc-bands.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
@@ -1246,11 +1246,12 @@ Begin with the first persona: ${personas[0]}
           redirectNote: `Requested ${hostOf(url)} and landed on ${hostOf(landedUrl)}. Every number below describes ${hostOf(landedUrl)}.`,
         } : { resolvedUrl: landedUrl }),
         persona: personaName,
-        // Status counts of every registry constant this answer read, and the ids
+        // Status counts of every registry constant the score read, and the ids
         // of the hand-set ones. A placeholder here so the field keeps its place
         // in the JSON; filled as the last step before serialising, so the block
-        // covers the whole answer: page measurement, demand, chain, values,
-        // sequential curve, verdict and overlays.
+        // covers the whole score: page measurement, demand, chain, values,
+        // sequential curve and verdict. The saliency overlay, drawn as context,
+        // carries its own block on its layerOverlays entry.
         modelProvenance: undefined,
         // Only when useValues asked for it, so a persona with no values is
         // visibly scored without them rather than silently.
@@ -1576,7 +1577,7 @@ Begin with the first persona: ${personas[0]}
       // and two silently are not reads as a broken widget, while "no overlay for
       // this layer, and here is why" is information. Nothing is fabricated to
       // fill the gap. (2026-08-02)
-      const layerOverlays: Array<{ layer: string; file?: string; legend?: string; available: boolean; reason?: string }> = [];
+      const layerOverlays: Array<{ layer: string; file?: string; legend?: string; available: boolean; reason?: string; provenance?: ProvenanceSummary }> = [];
       try {
         const { join: joinPath } = await import("path");
         const { tmpdir: getTmpDir } = await import("os");
@@ -1593,11 +1594,19 @@ Begin with the first persona: ${personas[0]}
         try {
           const { computeLabSaliency } = await import("../../visual/attention-transport.js");
           const { generateHeatmapOverlay } = await import("../../visual/heatmap-overlay.js");
-          const sal = await computeLabSaliency(ssPath);
-          const b64 = await generateHeatmapOverlay(ssPath, sal.cells, sal.rows, sal.cols, `${personaName} — saliency`);
+          // Recorded apart from the score. The map reads the attention model's
+          // constants (published colour science, fitted gaze calibration), and
+          // counted in modelProvenance they made the score look partly fitted
+          // while the map is context, not an input. Its own block rides on
+          // this overlay entry.
+          const { result: b64, provenance: mapProvenance } = await isolatedProvenanceAsync(async () => {
+            const sal = await computeLabSaliency(ssPath);
+            return generateHeatmapOverlay(ssPath, sal.cells, sal.rows, sal.cols, `${personaName} — saliency`);
+          }, ATTENTION_PROVENANCE_TEXT);
           const w = writeArtifact(Buffer.from(b64, "base64"), `saliency-${personaName}-${Date.now()}.png`);
           if (w) layerOverlays.push({ layer: "visualComplexity", file: w.url.split("/").pop(), available: true,
-            legend: "Lab-space saliency of the screenshot, shown as context. Hotter = more visually salient. The layer's cost is not computed from this map: it comes from the page's visual-complexity count and animation level." });
+            legend: "Lab-space saliency of the screenshot, shown as context. Hotter = more visually salient. The layer's cost is not computed from this map: it comes from the page's visual-complexity count and animation level.",
+            provenance: mapProvenance });
         } catch (e) {
           layerOverlays.push({ layer: "visualComplexity", available: false, reason: `saliency map failed: ${(e as Error).message}` });
         }

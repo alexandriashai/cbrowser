@@ -47,7 +47,7 @@ delete process.env.ANTHROPIC_API_KEY;
 const { CBrowser } = await import("../src/browser.js");
 const { registerPersonaComparisonTools } = await import("../src/mcp-tools/base/persona-comparison-tools.js");
 const { registerAuditTools } = await import("../src/mcp-tools/base/audit-tools.js");
-const { withProvenance, withProvenanceAsync, readsOf } = await import("../src/visual/model-provenance.js");
+const { withProvenance, withProvenanceAsync, readsOf, ATTENTION_PROVENANCE_TEXT } = await import("../src/visual/model-provenance.js");
 const { ctcRank, ctcBandsDescription } = await import("../src/visual/ctc-bands.js");
 const { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } = await import("../src/visual/cognitive-transport-chain.js");
 const { extractPageMetrics, extractPerScreenMetrics, measurePageGeometry } = await import("../src/visual/cognitive-transport.js");
@@ -73,16 +73,34 @@ function expectHonestSummary(p: Summary) {
   // The output logistic's constants are gone (totalCTC is a percentile since
   // 21.x); the percentile's reference is a definition, so it is counted there.
   expect(p.hypotheses).not.toContain("chain.ctcSigmoidSlope");
-  // The chain's hypotheses, and the one the persona profile reads. Measured
-  // page metrics and the attention model register their own constants in
-  // another branch; when they merge, their prefixes belong here too.
-  expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && id !== "distance.missingTraitDefault")).toEqual([]);
+  // The score's hypotheses: the page-metric extraction, the chain, and the one
+  // the persona profile reads. No attention.* id: an attention map drawn as
+  // context carries its own block (expectAttentionBlock).
+  expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && !id.startsWith("pageMetrics.") && id !== "distance.missingTraitDefault")).toEqual([]);
   expect(p.note).toContain("hypothesis");
-  // The counts cover demand construction, the chain and the distance; say so,
-  // and point at the fitted layer that is not counted.
+  // The scope says what the score block covers, and where the attention
+  // model's constants (the fitted ones among them) are counted instead.
   expect(p.scope).toContain("demand");
-  expect(p.scope).toContain("Layer 1");
-  expect(p.scope).toContain("not counted here");
+  expect(p.scope).toContain("pageMetrics");
+  expect(p.scope).toContain("does not count the attention model");
+  expect(p.scope).toContain("carries its own block");
+  expect(p.scope).toContain("0.7367");
+}
+
+/**
+ * An attention map's own block: attention constants (published colour
+ * science in every map; the fitted gaze calibration where the map applies
+ * it), and none of its hypotheses in the score block beside it.
+ */
+function expectAttentionBlock(a: Summary | undefined, score: Summary, fitted: "some" | "none") {
+  expect(a).toBeDefined();
+  expect(a!.hypotheses.some((id) => id.startsWith("attention."))).toBe(true);
+  if (fitted === "some") expect(a!.counts.fitted).toBeGreaterThan(0);
+  else expect(a!.counts.fitted).toBe(0);
+  expect(a!.counts.published).toBeGreaterThan(0);
+  expect(a!.hypotheses.filter((id) => score.hypotheses.includes(id))).toEqual([]);
+  expect(a!.scope).toBe(ATTENTION_PROVENANCE_TEXT.scope);
+  expect(a!.note).toBe(ATTENTION_PROVENANCE_TEXT.note);
 }
 
 /** The demand curves are in the block: the part that was missing. */
@@ -167,6 +185,20 @@ describe("tool responses carry the provenance of the whole answer", () => {
     expect(block.counts.definition).toBe(withoutVerdict.provenance.counts.definition + BAND_IDS.length);
     const verdictReads = readsOf(() => ctcRank(direct.result)).ids;
     for (const id of BAND_IDS) expect(verdictReads.has(id)).toBe(true);
+  }, 180_000);
+
+  test("cognitive_effort: the saliency overlay carries its own attention block, apart from the score's", async () => {
+    const data = await effort({ url: `${fixtures.base}noisy-page.html`, persona: "first-timer" });
+    const overlay = (data.layerOverlays as Array<{ layer: string; available: boolean; provenance?: Summary }>)
+      .find((o) => o.layer === "visualComplexity")!;
+    expect(overlay.available).toBe(true);
+    // The Lab-space overlay is bottom-up colour contrast only: it reads the
+    // published colour science and hand-set Lab weights, and no fitted gaze
+    // constant (those enter where analyzeAttention calibrates a map).
+    expectAttentionBlock(overlay.provenance, data.modelProvenance as Summary, "none");
+    // And the score block is exactly the score's: no attention count leaked in.
+    const direct = await directAnswer("first-timer", "viewport");
+    expect((data.modelProvenance as Summary).counts).toEqual(direct.provenance.counts);
   }, 180_000);
 
   test("cognitive_effort states the rank: interpretation, band, rank and bands come from ctcRank", async () => {
@@ -321,13 +353,18 @@ describe("visual_cognitive_story: the effort summary's block, rank and values", 
     expectDemandCounted(block);
     expectHonestSummary(block);
     const direct = await directAnswer(persona, "viewport");
-    // On this branch the attention steps read no registered constant, so the
-    // story's block is exactly the effort summary's; once the attention
-    // registry merges, its ids join the block and this becomes a superset check.
+    // The attention steps record into attentionProvenance, so the story's
+    // score block is exactly the effort summary's.
     expect(block.hypotheses).toEqual(direct.provenance.hypotheses);
     expect(block.counts).toEqual(direct.provenance.counts);
     expect(data.effort.totalCTC).toBe(r3(direct.result.totalCTC));
     expect(data.valueModulation).toBeUndefined();
+  }, 240_000);
+
+  test("its attention analysis carries its own block, attentionProvenance, apart from the score's", async () => {
+    const data = await story(false);
+    // analyzeAttention applies the fitted gaze calibration.
+    expectAttentionBlock(data.attentionProvenance, data.modelProvenance as Summary, "some");
   }, 240_000);
 
   test("its effort section and verdict state the rank and claim nothing about feelings", async () => {

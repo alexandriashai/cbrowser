@@ -213,16 +213,47 @@ the profile's traits. They are counted rather than hidden: the block's contract
 is "every registered constant this answer read", and an exclusion mechanism
 could later hide a read that does matter.
 
-Once the attention, perceptual-profile and page-metric registries merge
-(`feat/b-attn`), their ids join these blocks. That includes `attention.*`
-constants with status `fitted` and `published`, from the saliency overlay and
-the story's attention analysis. So these tests will need a decision at
-integration:
+### Attention maps carry their own block (on `feat/int-fix`)
 
-- `expectHonestSummary` in `tests/ctc-tool-provenance.test.ts` asserts zero
-  fitted and zero published;
-- its block-equality checks compare against a direct run of page measurement,
-  profile, chain and verdict.
+Once the attention and page-metric registries merged (`feat/b-attn`), a block
+that records the whole answer also counted the attention model's constants: the
+Lab-saliency overlay `cognitive_effort` draws as context, and the story's
+attention analysis. Counting them was accurate, but `modelProvenance` is
+presented as the score's provenance, and a reader would conclude the CTC has
+fitted parts. The map does not feed the score.
+
+- **`isolatedProvenanceAsync`** (`model-provenance.ts`) is a recording whose
+  reads do not land in the enclosing one. A process-wide test session still sees
+  them.
+- **`cognitive_effort`** records the saliency overlay in it. The overlay's block
+  is on its entry: `layerOverlays[visualComplexity].provenance`.
+- **`visual_cognitive_story`** records its attention analysis in it and reports
+  the block as **`attentionProvenance`**.
+- **`modelProvenance` scope text** now says what the score block counts:
+  - page-metric extraction (`pageMetrics.*`);
+  - demand, chain and values;
+  - the reference and the bands;
+  - the two distance constants.
+
+  It also says that attention maps carry their own block. The old text said
+  "The attention model (Layer 1) ... is not counted here", which was false in
+  both directions after the merge.
+- **The attention blocks** carry their own scope and note
+  (`ATTENTION_PROVENANCE_TEXT`).
+
+Block counts on the test fixtures (fitted / published / definition / hypothesis):
+
+| block | counts |
+|---|---|
+| `cognitive_effort` `modelProvenance` (noisy fixture) | 0 / 0 / 8 / 90 |
+| its saliency overlay | 0 / 23 / 8 / 5 |
+| `visual_cognitive_story` `modelProvenance` (prose fixture) | 0 / 0 / 8 / 90 |
+| its `attentionProvenance` | 4 / 23 / 22 / 75 |
+| `site_cognitive_assessment` `modelProvenance` (prose fixture) | 0 / 0 / 8 / 90 |
+
+- **The overlay** reads no fitted constant. It is bottom-up Lab contrast; the
+  fitted gaze calibration enters where `analyzeAttention` calibrates a map.
+- **The 90 hypotheses** include the `pageMetrics.*` constants, now registered.
 
 ## Examples, before and after
 
