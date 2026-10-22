@@ -1113,6 +1113,7 @@ export async function extractPerScreenMetrics(
   // The caller's geometry when it has one, so the curve length and the caption come
   // from the SAME measurement rather than two reads of a page that can move between
   // them. Measuring here is the fallback for direct callers, not the normal path.
+  const choiceCap = param("pageMetrics.choiceCap");
   const geo = geometry ?? (await measurePageGeometry(page, maxScreens));
   const vh = geo.viewportHeight;
   const docHeight = geo.documentHeight;
@@ -1158,14 +1159,53 @@ export async function extractPerScreenMetrics(
     out.push({
       ...metrics,
       interactiveElementCount: fresh.newInteractive,
-      choiceCount: Math.min(fresh.newChoices, 100),
+      choiceCount: Math.min(fresh.newChoices, choiceCap),
       choiceCountRaw: fresh.newChoices,
-      choiceCountCapped: fresh.newChoices > 100,
+      choiceCountCapped: fresh.newChoices > choiceCap,
     });
   }
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(200);
   return out;
+}
+
+/** The registered constants extractPageMetrics hands to the page (provenance/page-metrics.ts). */
+interface PageMetricParams {
+  walkMaxSteps: number; walkSettleMs: number;
+  textNestedShare: number; colourSample: number; informationMidpoint: number;
+  colourWeight: number; imageWeight: number; elementWeight: number; visualMidpoint: number;
+  areaUnit: number; textDensityMidpoint: number; carouselCount: number; animationSaturation: number;
+  choiceCap: number; proseLengthAbove: number;
+  scriptMinChars: number; scriptTextShare: number; scriptKeyShare: number;
+  abjadLengthScale: number; abjadLongWordMin: number; abjadTechWordMin: number; abjadSentenceLengthAbove: number;
+  latinLongWordMin: number; latinTechWordMin: number; alphabeticSentenceLengthAbove: number;
+  cjkCharsPerWord: number; cjkLatinEquivalentLength: number; cjkLongRunMin: number; cjkTechRunMin: number;
+  cjkLatinTechWordMin: number; cjkSentenceLengthAbove: number;
+  wordLengthOffset: number; wordLengthSpan: number; sentenceSaturation: number; lexicalWindow: number;
+}
+
+function readPageMetricParams(): PageMetricParams {
+  const P = (id: string) => param(`pageMetrics.${id}`);
+  return {
+    walkMaxSteps: P("walk.maxSteps"), walkSettleMs: P("walk.settleMs"),
+    textNestedShare: P("text.nestedShare"), colourSample: P("visual.colourSample"),
+    informationMidpoint: P("informationDensity.midpoint"),
+    colourWeight: P("visual.colourWeight"), imageWeight: P("visual.imageWeight"),
+    elementWeight: P("visual.elementWeight"), visualMidpoint: P("visual.midpoint"),
+    areaUnit: P("textDensity.areaUnit"), textDensityMidpoint: P("textDensity.midpoint"),
+    carouselCount: P("animation.carouselCount"), animationSaturation: P("animation.saturation"),
+    choiceCap: P("choiceCap"), proseLengthAbove: P("prose.lengthAbove"),
+    scriptMinChars: P("script.minChars"), scriptTextShare: P("script.textShare"), scriptKeyShare: P("script.keyShare"),
+    abjadLengthScale: P("abjad.lengthScale"), abjadLongWordMin: P("abjad.longWordMin"),
+    abjadTechWordMin: P("abjad.techWordMin"), abjadSentenceLengthAbove: P("abjad.sentenceLengthAbove"),
+    latinLongWordMin: P("latin.longWordMin"), latinTechWordMin: P("latin.techWordMin"),
+    alphabeticSentenceLengthAbove: P("alphabetic.sentenceLengthAbove"),
+    cjkCharsPerWord: P("cjk.charsPerWord"), cjkLatinEquivalentLength: P("cjk.latinEquivalentLength"),
+    cjkLongRunMin: P("cjk.longRunMin"), cjkTechRunMin: P("cjk.techRunMin"),
+    cjkLatinTechWordMin: P("cjk.latinTechWordMin"), cjkSentenceLengthAbove: P("cjk.sentenceLengthAbove"),
+    wordLengthOffset: P("wordLength.offset"), wordLengthSpan: P("wordLength.span"),
+    sentenceSaturation: P("sentenceLength.saturation"), lexicalWindow: P("lexicalDiversity.window"),
+  };
 }
 
 export async function extractPageMetrics(
@@ -1195,6 +1235,9 @@ export async function extractPageMetrics(
   choiceCountRaw: number;
   choiceCountCapped: boolean;
 }> {
+  // Every constant the measurement uses, read here in Node (the page cannot call
+  // param()) and handed to the browser side with the scope and geometry.
+  const P = readPageMetricParams();
   // Lazy content does not exist until it has been scrolled past, so a full-page
   // measurement that never scrolls measures a page the user would never see.
   // Same five-step walk empathy_audit does for scope:"full_page", including the
@@ -1208,20 +1251,20 @@ export async function extractPageMetrics(
       // lazy content) and it is exactly the kind that survives a fix aimed at the two
       // obvious ones.
       const walkGeo = geometry ?? (await measurePageGeometry(page));
-      const steps = Math.min(5, walkGeo.screenCount);
+      const steps = Math.min(P.walkMaxSteps, walkGeo.screenCount);
       for (let i = 1; i <= steps; i++) {
         await page.evaluate((y: number) => window.scrollTo(0, y), i * walkGeo.viewportHeight);
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(P.walkSettleMs);
       }
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(P.walkSettleMs);
     } catch { /* a page that will not scroll is still measurable */ }
   }
   // The caller's geometry when it has one. `pageScreens` here and `screenCount` in
   // the sequential path were two derivations of one quantity from two separate reads;
   // passing it in makes them one measurement rather than two that agree by luck.
   const geo = geometry ?? (await measurePageGeometry(page));
-  return page.evaluate(([measureScope, geoIn]: [MetricScope, PageGeometry]) => {
+  return page.evaluate(([measureScope, geoIn, P]: [MetricScope, PageGeometry, PageMetricParams]) => {
     const vw = window.innerWidth;
     const vh = geoIn.viewportHeight;
     const fullPage = measureScope === "full_page";
@@ -1248,7 +1291,7 @@ export async function extractPageMetrics(
       }
     });
     // Deduplicate: rough estimate — child text counted in parent. Use 40% factor.
-    const textLength = Math.round(viewportTextLength * 0.4);
+    const textLength = Math.round(viewportTextLength * P.textNestedShare);
     // Area to normalise density against. Counting whole-page text and dividing
     // by one screen would report a density the page does not have.
     const viewportArea = vw * (fullPage ? docHeight : vh);
@@ -1299,7 +1342,7 @@ export async function extractPageMetrics(
     for (let i = 0; i < all.length; i++) {
       if (!inViewport(all[i])) continue;
       visibleCount++;
-      if (visibleCount <= 50) {
+      if (visibleCount <= P.colourSample) {
         const cs = getComputedStyle(all[i]);
         uniqueColors.add(cs.backgroundColor);
         uniqueColors.add(cs.color);
@@ -1314,13 +1357,13 @@ export async function extractPageMetrics(
       return value / (value + midpoint);
     };
 
-    const informationDensity = logScale(textLength, 5000); // Viewport text: 0.5 at 5K chars
+    const informationDensity = logScale(textLength, P.informationMidpoint); // Viewport text: 0.5 at 5K chars
     const visualComplexity = logScale(
-      uniqueColors.size * 3 + imageCount * 2 + visibleCount * 0.5,
-      200
+      uniqueColors.size * P.colourWeight + imageCount * P.imageWeight + visibleCount * P.elementWeight,
+      P.visualMidpoint
     );
-    const textDensity = logScale(textLength / Math.max(1, viewportArea * 0.001), 3);
-    const animationLevel = Math.min(1, (animCount + (hasCarousel ? 3 : 0)) / 10);
+    const textDensity = logScale(textLength / Math.max(1, viewportArea * P.areaUnit), P.textDensityMidpoint);
+    const animationLevel = Math.min(1, (animCount + (hasCarousel ? P.carouselCount : 0)) / P.animationSaturation);
 
     // ── Text Readability Analysis (v18.56) ──
     // Extract actual visible text for linguistic analysis
@@ -1329,7 +1372,7 @@ export async function extractPageMetrics(
     document.querySelectorAll(proseSelectors).forEach(el => {
       if (inViewport(el)) {
         const t = (el as HTMLElement).innerText?.trim();
-        if (t && t.length > 5) visibleTextParts.push(t);
+        if (t && t.length > P.proseLengthAbove) visibleTextParts.push(t);
       }
     });
     const visibleText = visibleTextParts.join(' ');
@@ -1363,18 +1406,18 @@ export async function extractPageMetrics(
     // - >30% of visible text is CJK, OR
     // - >20% of key elements (h1 + nav) are CJK (catches partial translation)
     // - AND at least 5 CJK characters present (avoid false positives on single emoji)
-    const isCJKDominant = cjkCharCount >= 5 && (
-      (totalCharCount > 0 && cjkCharCount / totalCharCount > 0.3) ||
-      (keyElementsTotal > 0 && keyElementsCJK / keyElementsTotal > 0.2)
+    const isCJKDominant = cjkCharCount >= P.scriptMinChars && (
+      (totalCharCount > 0 && cjkCharCount / totalCharCount > P.scriptTextShare) ||
+      (keyElementsTotal > 0 && keyElementsCJK / keyElementsTotal > P.scriptKeyShare)
     );
 
     // Consider Abjad if:
     // - >30% of visible text is abjad, OR
     // - >20% of key elements are abjad
     // - AND at least 5 abjad characters present
-    const isAbjadDominant = !isCJKDominant && abjadCharCount >= 5 && (
-      (totalCharCount > 0 && abjadCharCount / totalCharCount > 0.3) ||
-      (keyElementsTotal > 0 && keyElementsAbjad / keyElementsTotal > 0.2)
+    const isAbjadDominant = !isCJKDominant && abjadCharCount >= P.scriptMinChars && (
+      (totalCharCount > 0 && abjadCharCount / totalCharCount > P.scriptTextShare) ||
+      (keyElementsTotal > 0 && keyElementsAbjad / keyElementsTotal > P.scriptKeyShare)
     );
 
     let wordCount: number;
@@ -1406,19 +1449,19 @@ export async function extractPageMetrics(
         // Arabic stems are 3-4 chars. Normalize: Arabic 3-char word → equivalent
         // of 5 Latin chars for readability (higher information per character than Latin)
         const isAbjadWord = abjadRegex.test(clean);
-        const normalizedLen = isAbjadWord ? Math.round(len * 1.6) : len;
+        const normalizedLen = isAbjadWord ? Math.round(len * P.abjadLengthScale) : len;
         totalWordLength += normalizedLen;
         // "Long" in abjad: 5+ characters (stems with prefixes/suffixes)
         // Equivalent to 8+ Latin chars
-        if (isAbjadWord ? len >= 5 : len >= 7) longWords++;
+        if (isAbjadWord ? len >= P.abjadLongWordMin : len >= P.latinLongWordMin) longWords++;
         // "Technical" in abjad: 6+ character words or Latin technical terms
         // Arabic technical vocab like المعرفية (7 chars) or الشخصيات (8 chars)
-        if (isAbjadWord ? len >= 6 : len >= 10) techWords++;
+        if (isAbjadWord ? len >= P.abjadTechWordMin : len >= P.latinTechWordMin) techWords++;
         uniqueWords.add(clean);
       }
 
       // Sentence analysis: Arabic uses ، (comma) and . (period) and ؟ and ؛
-      const abjadSentences = visibleText.split(/[.。؟！!?؛]+|\n{2,}/).filter(s => s.trim().length > 5);
+      const abjadSentences = visibleText.split(/[.。؟！!?؛]+|\n{2,}/).filter(s => s.trim().length > P.abjadSentenceLengthAbove);
       sentenceCount = Math.max(1, abjadSentences.length);
       avgWordsPerSentence = wordCount / sentenceCount;
 
@@ -1429,7 +1472,7 @@ export async function extractPageMetrics(
 
       // Estimate word count: CJK averages ~1.5-2 characters per "word"
       // (Chinese ~1.5, Japanese ~2 with particles, Korean ~2 with jamo)
-      const cjkWordEstimate = Math.round(cjkCharCount / 1.8);
+      const cjkWordEstimate = Math.round(cjkCharCount / P.cjkCharsPerWord);
       // Latin words in CJK text (English loanwords, technical terms)
       const latinWords = visibleText.split(/\s+/).filter(w => /^[a-zA-Z]/.test(w));
       wordCount = cjkWordEstimate + latinWords.length;
@@ -1438,16 +1481,16 @@ export async function extractPageMetrics(
       // CJK characters carry more meaning per character than Latin.
       // A 2-character CJK word ≈ 5-7 character English word in information density.
       // Normalize: CJK 2-char word → equivalent of ~6 Latin chars for readability
-      totalWordLength = cjkWordEstimate * 6 + latinWords.reduce((sum, w) => sum + w.length, 0);
+      totalWordLength = cjkWordEstimate * P.cjkLatinEquivalentLength + latinWords.reduce((sum, w) => sum + w.length, 0);
 
       // "Long words" in CJK: compound terms are 3-4+ characters (equivalent to 7+ Latin)
       // Extract runs of CJK characters and count those ≥ 3 characters
-      const cjkRuns = visibleText.match(/[\u3000-\u9fff\uac00-\ud7af]{3,}/g) || [];
-      longWords = cjkRuns.filter(r => r.length >= 3).length;
+      const cjkRuns = visibleText.match(new RegExp(`[\\u3000-\\u9fff\\uac00-\\ud7af]{${P.cjkLongRunMin},}`, 'g')) || [];
+      longWords = cjkRuns.filter(r => r.length >= P.cjkLongRunMin).length;
 
       // "Technical terms" in CJK: 4+ character compounds or Latin technical terms
-      const cjkTechRuns = cjkRuns.filter(r => r.length >= 4);
-      const latinTechWords = latinWords.filter(w => w.length >= 8);
+      const cjkTechRuns = cjkRuns.filter(r => r.length >= P.cjkTechRunMin);
+      const latinTechWords = latinWords.filter(w => w.length >= P.cjkLatinTechWordMin);
       techWords = cjkTechRuns.length + latinTechWords.length;
 
       // Lexical diversity: use unique CJK bigrams as proxy for vocabulary
@@ -1459,7 +1502,7 @@ export async function extractPageMetrics(
       for (const w of latinWords) uniqueWords.add(w.toLowerCase());
 
       // Sentence analysis: CJK uses 。！？ as sentence enders
-      const cjkSentences = visibleText.split(/[。！？.!?]+|\n{2,}/).filter(s => s.trim().length > 3);
+      const cjkSentences = visibleText.split(/[。！？.!?]+|\n{2,}/).filter(s => s.trim().length > P.cjkSentenceLengthAbove);
       sentenceCount = Math.max(1, cjkSentences.length);
       // CJK sentences tend to be shorter in word count but longer in information density
       avgWordsPerSentence = wordCount / sentenceCount;
@@ -1475,28 +1518,30 @@ export async function extractPageMetrics(
       for (const word of words_arr) {
         const clean = word.replace(/[^a-zA-ZÀ-ÿ\u00C0-\u024F\u1E00-\u1EFF]/g, '');
         totalWordLength += clean.length;
-        if (clean.length >= 7) longWords++;
-        if (clean.length >= 10) techWords++;
+        if (clean.length >= P.latinLongWordMin) longWords++;
+        if (clean.length >= P.latinTechWordMin) techWords++;
         uniqueWords.add(clean.toLowerCase());
       }
 
-      const sentences_arr = visibleText.split(/[.!?]+|\n{2,}/).filter(s => s.trim().length > 10);
+      const sentences_arr = visibleText.split(/[.!?]+|\n{2,}/).filter(s => s.trim().length > P.alphabeticSentenceLengthAbove);
       sentenceCount = Math.max(1, sentences_arr.length);
       avgWordsPerSentence = wordCount / sentenceCount;
     }
 
     // ── Normalize to 0-1 (script-aware) ──
 
-    // Average word length: Latin 4→0.2, 6→0.5, 9→0.8
+    // Average word length: (length - 3) / 7.5, so Latin 4→0.13, 6→0.4, 10.5+→1.
+    // (This comment read 4→0.2, 6→0.5, 9→0.8, which the formula never produced.)
     // CJK equivalent: normalized through the 6-char equivalence above
     const rawAvgWordLen = wordCount > 0 ? totalWordLength / wordCount : 0;
-    const avgWordLength = Math.min(1, Math.max(0, (rawAvgWordLen - 3) / 7.5));
+    const avgWordLength = Math.min(1, Math.max(0, (rawAvgWordLen - P.wordLengthOffset) / P.wordLengthSpan));
 
-    // Average sentence length: 10 words → 0.3, 20 → 0.6, 35+ → 0.9
-    const avgSentenceLength = Math.min(1, avgWordsPerSentence / 40);
+    // Average sentence length: words / 40, so 10 words → 0.25, 20 → 0.5, 40+ → 1
+    // (it read 10 → 0.3, 20 → 0.6, 35+ → 0.9).
+    const avgSentenceLength = Math.min(1, avgWordsPerSentence / P.sentenceSaturation);
 
     // Lexical diversity: unique items / total (capped at 100)
-    const lexicalDiversity = wordCount > 0 ? Math.min(1, uniqueWords.size / Math.min(wordCount, 100)) : 0;
+    const lexicalDiversity = wordCount > 0 ? Math.min(1, uniqueWords.size / Math.min(wordCount, P.lexicalWindow)) : 0;
 
     // Long word ratio
     const longWordRatio = wordCount > 0 ? longWords / wordCount : 0;
@@ -1515,9 +1560,9 @@ export async function extractPageMetrics(
       // emitted beside it because a silently truncated number is
       // indistinguishable from a real one -- at viewport scope the cap was
       // unreachable, and at full_page the CU Denver homepage hits it.
-      choiceCount: Math.min(choiceCount, 100),
+      choiceCount: Math.min(choiceCount, P.choiceCap),
       choiceCountRaw: choiceCount,
-      choiceCountCapped: choiceCount > 100,
+      choiceCountCapped: choiceCount > P.choiceCap,
       navigationDepth: navDepth,
       avgWordLength,
       avgSentenceLength,
@@ -1532,7 +1577,7 @@ export async function extractPageMetrics(
       // the sequential curve was scored over.
       pageScreens: geoIn.pageScreens,
     };
-  }, [scope, geo]);
+  }, [scope, geo, P]);
 }
 
 /**

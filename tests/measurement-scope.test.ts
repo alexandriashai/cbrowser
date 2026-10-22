@@ -16,6 +16,7 @@
  */
 import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
+import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
 import { join } from "node:path";
 
 const SRC = join(import.meta.dir, "..", "src");
@@ -78,17 +79,30 @@ describe("full_page actually measures the full page", () => {
   });
 
   test("it scrolls first, so lazy content exists to be counted", () => {
-    const head = transport.slice(transport.indexOf("export async function extractPageMetrics"));
-    expect(head.slice(0, 2600)).toContain('if (scope === "full_page")');
-    expect(head.slice(0, 2600)).toContain("window.scrollTo(0, 0)");
+    // Everything before the measurement callback: the walk must be in it. (This
+    // read the first 2,600 characters, which the registry reads pushed past.)
+    const fn = transport.slice(transport.indexOf("export async function extractPageMetrics"));
+    const head = fn.slice(0, fn.indexOf("return page.evaluate(([measureScope"));
+    expect(head.length).toBeGreaterThan(0);
+    expect(head).toContain('if (scope === "full_page")');
+    expect(head).toContain("window.scrollTo(0, 0)");
   });
 
   test("no midpoint was recalibrated while fixing an undeclared assumption", () => {
     // The formulas are unchanged; only what feeds them moved. Inventing new
     // constants here would replace one undeclared assumption with another.
-    expect(transport).toContain("logScale(textLength, 5000)");
-    expect(transport).toContain("uniqueColors.size * 3 + imageCount * 2 + visibleCount * 0.5,\n      200");
-    expect(transport).toContain("logScale(textLength / Math.max(1, viewportArea * 0.001), 3)");
+    //
+    // The midpoints are registered now (provenance/page-metrics.ts) and read
+    // through param(), so the pin is on the registered values and on the
+    // formulas reading them. tests/page-metrics-golden.test.ts proves the
+    // outputs did not move when the literals became entries.
+    expect(transport).toContain("logScale(textLength, P.informationMidpoint)");
+    expect(transport).toContain("uniqueColors.size * P.colourWeight + imageCount * P.imageWeight + visibleCount * P.elementWeight,\n      P.visualMidpoint");
+    expect(transport).toContain("logScale(textLength / Math.max(1, viewportArea * P.areaUnit), P.textDensityMidpoint)");
+    const v = (id: string) => MODEL_PROVENANCE[`pageMetrics.${id}`].value;
+    expect([v("informationDensity.midpoint"), v("visual.colourWeight"), v("visual.imageWeight"), v("visual.elementWeight"), v("visual.midpoint")])
+      .toEqual([5000, 3, 2, 0.5, 200]);
+    expect([v("textDensity.areaUnit"), v("textDensity.midpoint")]).toEqual([0.001, 3]);
   });
 });
 
@@ -144,6 +158,7 @@ describe("silent truncation is reported", () => {
     // homepage. A truncated value that looks like a measurement is the same
     // defect as analyze_page's undocumented 20-link cap.
     expect(transport).toContain("choiceCountRaw: choiceCount,");
-    expect(transport).toContain("choiceCountCapped: choiceCount > 100,");
+    expect(transport).toContain("choiceCountCapped: choiceCount > P.choiceCap,");
+    expect(MODEL_PROVENANCE["pageMetrics.choiceCap"].value).toBe(100);
   });
 });

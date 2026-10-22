@@ -89,3 +89,5 @@ tests/benchmark-device-wiring.test.ts
 tests/ctc-tool-provenance.test.ts
 # Runs visual_cognitive_story end to end and checks the persona registry is untouched.
 tests/visual-story-registry.test.ts
+# Measures extractPageMetrics on the page-metrics fixtures in a real browser against its golden.
+tests/page-metrics-golden.test.ts

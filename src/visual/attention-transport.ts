@@ -21,6 +21,14 @@
  */
 
 import { resolvePerceptualProfile, type PerceptualFilter, type PerceptualResolution } from './perceptual-transport.js';
+import { param } from './model-provenance.js';
+import { tableChecksum, ATTENTION_STATIC_MODIFIER_TYPES, ATTENTION_VALUE_PATTERN_VALUES } from './provenance/attention.js';
+
+// Every number this model computes with is registered in provenance/attention.ts
+// and read through param() at function entry, the way the transport chain reads
+// its own (tests/attention-no-literals.test.ts fails on any other literal than
+// 0, 1 or 2). The one exception is WEB_SPATIAL_PRIOR, a fitted table kept here
+// and registered by checksum; see spatialPrior().
 
 // ── Types ──
 
@@ -175,6 +183,8 @@ export function rankDivergentRegions(
   cols: number,
   cellSize: number,
 ): { divergence: number; regions: DivergentRegion[] } {
+  const R2 = param("attention.rounding.hundredths");
+  const R3 = param("attention.rounding.thousandths");
   const n = Math.min(salA.length, salB.length, rows * cols);
   let totalA = 0;
   let totalB = 0;
@@ -246,11 +256,11 @@ export function rankDivergentRegions(
       },
       cellCount: count,
       direction: positive ? "personaA" : "personaB",
-      attentionA: Math.round(shareA * 1000) / 1000,
-      attentionB: Math.round(shareB * 1000) / 1000,
-      saliencyA: Math.round((sumA / count) * 100) / 100,
-      saliencyB: Math.round((sumB / count) * 100) / 100,
-      divergence: Math.round((sum / divergence) * 1000) / 1000,
+      attentionA: Math.round(shareA * R3) / R3,
+      attentionB: Math.round(shareB * R3) / R3,
+      saliencyA: Math.round((sumA / count) * R2) / R2,
+      saliencyB: Math.round((sumB / count) * R2) / R2,
+      divergence: Math.round((sum / divergence) * R3) / R3,
       _sum: sum,
       _peak: peak,
       _peakIdx: peakIdx,
@@ -268,27 +278,49 @@ export function rankDivergentRegions(
 
 // ── CIE-Lab Color Space Conversion ──
 
-function srgbToLab(r: number, g: number, b: number): [number, number, number] {
+/** The published sRGB and CIE-Lab constants, read once per image rather than once per pixel. */
+interface LabConstants {
+  channelMax: number; linearKnee: number; linearSlope: number;
+  gammaOffset: number; gammaScale: number; gamma: number;
+  rX: number; gX: number; bX: number; rY: number; gY: number; bY: number; rZ: number; gZ: number; bZ: number;
+  xn: number; yn: number; zn: number;
+  epsilon: number; kappaSlope: number; lScale: number; lOffset: number; aScale: number; bScale: number;
+}
+
+function labConstants(): LabConstants {
+  const P = (id: string) => param(`attention.${id}`);
+  return {
+    channelMax: P("srgb.channelMax"), linearKnee: P("srgb.linearKnee"), linearSlope: P("srgb.linearSlope"),
+    gammaOffset: P("srgb.gammaOffset"), gammaScale: P("srgb.gammaScale"), gamma: P("srgb.gamma"),
+    rX: P("xyz.rX"), gX: P("xyz.gX"), bX: P("xyz.bX"),
+    rY: P("xyz.rY"), gY: P("xyz.gY"), bY: P("xyz.bY"),
+    rZ: P("xyz.rZ"), gZ: P("xyz.gZ"), bZ: P("xyz.bZ"),
+    xn: P("white.x"), yn: P("white.y"), zn: P("white.z"),
+    epsilon: P("lab.epsilon"), kappaSlope: P("lab.kappaSlope"),
+    lScale: P("lab.lScale"), lOffset: P("lab.lOffset"), aScale: P("lab.aScale"), bScale: P("lab.bScale"),
+  };
+}
+
+function srgbToLab(r: number, g: number, b: number, K: LabConstants): [number, number, number] {
   // sRGB to linear
   const toLinear = (c: number) => {
-    c /= 255;
-    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    c /= K.channelMax;
+    return c <= K.linearKnee ? c / K.linearSlope : Math.pow((c + K.gammaOffset) / K.gammaScale, K.gamma);
   };
   const rl = toLinear(r), gl = toLinear(g), bl = toLinear(b);
 
   // Linear RGB to XYZ (D65)
-  const x = 0.4124564 * rl + 0.3575761 * gl + 0.1804375 * bl;
-  const y = 0.2126729 * rl + 0.7151522 * gl + 0.0721750 * bl;
-  const z = 0.0193339 * rl + 0.1191920 * gl + 0.9503041 * bl;
+  const x = K.rX * rl + K.gX * gl + K.bX * bl;
+  const y = K.rY * rl + K.gY * gl + K.bY * bl;
+  const z = K.rZ * rl + K.gZ * gl + K.bZ * bl;
 
   // XYZ to Lab (D65 reference)
-  const xn = 0.95047, yn = 1.0, zn = 1.08883;
-  const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
-  const fx = f(x / xn), fy = f(y / yn), fz = f(z / zn);
+  const f = (t: number) => t > K.epsilon ? Math.cbrt(t) : K.kappaSlope * t + K.lOffset / K.lScale;
+  const fx = f(x / K.xn), fy = f(y / K.yn), fz = f(z / K.zn);
 
-  const L = 116 * fy - 16;
-  const a = 500 * (fx - fy);
-  const bLab = 200 * (fy - fz);
+  const L = K.lScale * fy - K.lOffset;
+  const a = K.aScale * (fx - fy);
+  const bLab = K.bScale * (fy - fz);
 
   return [L, a, bLab];
 }
@@ -314,18 +346,31 @@ function srgbToLab(r: number, g: number, b: number): [number, number, number] {
  */
 export async function computeLabSaliency(
   imagePath: string,
-  cellSize: number = 16,
-  surroundRadius: number = 3,
+  cellSize: number = param("attention.gaze.cellSize"),
+  surroundRadius: number = param("attention.lab.surroundRadius"),
 ): Promise<{ cells: Float64Array; rows: number; cols: number; width: number; height: number }> {
+  const K = labConstants();
+  const channels = param("attention.lab.channels");
+  const alpha = channels - 1; // RGBA: alpha is the last byte
+  const alphaCutoff = param("attention.lab.alphaCutoff");
+  const varFloor = param("attention.lab.varianceFloor");
+  // Chrominance boost: a/b channels weighted 3x relative to L (see the loop below).
+  const wL = param("attention.lab.weightL");
+  const wA = param("attention.lab.weightA");
+  const wB = param("attention.lab.weightB");
+  const normFloor = param("attention.normFloor");
+  const scale = param("attention.lab.downscale");
+  const fallbackWidth = param("attention.lab.fallbackWidth");
+  const fallbackHeight = param("attention.lab.fallbackHeight");
+
   const sharpModule: any = await import('sharp');
   const sharp = sharpModule.default ?? sharpModule;
 
   // Load and downscale
-  const scale = 0.5;
   const img = sharp(imagePath);
   const metadata = await img.metadata();
-  const width = Math.round((metadata.width || 800) * scale);
-  const height = Math.round((metadata.height || 600) * scale);
+  const width = Math.round((metadata.width || fallbackWidth) * scale);
+  const height = Math.round((metadata.height || fallbackHeight) * scale);
 
   const { data } = await img
     .resize(width, height)
@@ -355,10 +400,10 @@ export async function computeLabSaliency(
 
       for (let y = yStart; y < yEnd; y++) {
         for (let x = xStart; x < xEnd; x++) {
-          const idx = (y * width + x) * 4;
-          if (pixels[idx + 3] < 25) continue; // Skip transparent
+          const idx = (y * width + x) * channels;
+          if (pixels[idx + alpha] < alphaCutoff) continue; // Skip transparent
 
-          const [L, a, b] = srgbToLab(pixels[idx], pixels[idx + 1], pixels[idx + 2]);
+          const [L, a, b] = srgbToLab(pixels[idx], pixels[idx + 1], pixels[idx + 2], K);
           sumL += L; sumA += a; sumB += b;
           sumL2 += L * L; sumA2 += a * a; sumB2 += b * b;
           count++;
@@ -369,13 +414,13 @@ export async function computeLabSaliency(
         const mL = sumL / count, mA = sumA / count, mB = sumB / count;
         cellStats.push({
           meanL: mL, meanA: mA, meanB: mB,
-          varL: Math.max(0.01, sumL2 / count - mL * mL),
-          varA: Math.max(0.01, sumA2 / count - mA * mA),
-          varB: Math.max(0.01, sumB2 / count - mB * mB),
+          varL: Math.max(varFloor, sumL2 / count - mL * mL),
+          varA: Math.max(varFloor, sumA2 / count - mA * mA),
+          varB: Math.max(varFloor, sumB2 / count - mB * mB),
           count,
         });
       } else {
-        cellStats.push({ meanL: 0, meanA: 0, meanB: 0, varL: 0.01, varA: 0.01, varB: 0.01, count: 0 });
+        cellStats.push({ meanL: 0, meanA: 0, meanB: 0, varL: varFloor, varA: varFloor, varB: varFloor, count: 0 });
       }
     }
   }
@@ -416,14 +461,12 @@ export async function computeLabSaliency(
       // Bures-Wasserstein distance for 3D Gaussians (diagonal covariance)
       // BW² = w_L||ΔL||² + w_a||Δa||² + w_b||Δb||² + variance terms
       //
-      // Chrominance boost: a/b channels weighted 3x relative to L.
+      // Chrominance boost: a/b channels weighted 3x relative to L (wL, wA,
+      // wB, read at entry; hand-set, see attention.lab.weightA).
       // This captures the preattentive "pop-out effect" where a uniquely-colored
       // item captures attention even when its luminance is similar to surroundings.
       // Without this, teal text on white scores LOWER than black text on white
       // because teal has less luminance contrast — the opposite of perceptual reality.
-      const wL = 1.0;  // luminance weight
-      const wA = 3.0;  // chrominance a* weight (red-green axis)
-      const wB = 3.0;  // chrominance b* weight (blue-yellow axis)
 
       const meanDist = wL * (center.meanL - sMeanL) ** 2 +
                        wA * (center.meanA - sMeanA) ** 2 +
@@ -437,7 +480,7 @@ export async function computeLabSaliency(
   }
 
   // Normalize to 0-1
-  const maxSal = Math.max(...Array.from(saliency), 0.001);
+  const maxSal = Math.max(...Array.from(saliency), normFloor);
   for (let i = 0; i < numCells; i++) saliency[i] /= maxSal;
 
   return { cells: saliency, rows, cols, width: width / scale, height: height / scale };
@@ -477,6 +520,32 @@ function computeValueAttentionParams(
   filter: PerceptualFilter,
   schwartzValues?: Record<string, number>,
 ): ValueAttentionParams {
+  const P = (id: string) => param(`attention.${id}`);
+  const mode = {
+    centerHeavyCenterBias: P("mode.centerHeavy.centerBias"),
+    motionAttractedExponent: P("mode.motionAttracted.exponent"),
+    textFocusedThreshold: P("mode.textFocused.threshold"),
+    textFocusedBias: P("mode.textFocused.bias"),
+    largeElementsThreshold: P("mode.largeElements.threshold"),
+  };
+  const neutral = P("value.neutral");
+  // Signed coefficients on (value - neutral): positive raises the parameter.
+  const mod = {
+    stimulationExponent: P("valueMod.stimulation.exponent"),
+    securityBias: P("valueMod.security.bias"),
+    securityThreshold: P("valueMod.security.threshold"),
+    achievementExponent: P("valueMod.achievement.exponent"),
+    conformityCenterBias: P("valueMod.conformity.centerBias"),
+    selfDirectionCenterBias: P("valueMod.selfDirection.centerBias"),
+    traditionThreshold: P("valueMod.tradition.threshold"),
+  };
+  const clamp = {
+    exponentMin: P("filter.exponentMin"),
+    exponentMax: P("filter.exponentMax"),
+    biasLimit: P("filter.biasLimit"),
+    thresholdMax: P("filter.thresholdMax"),
+  };
+
   // Start with the base attention mode
   let exponent = 1.0;
   let bias = 0.0;
@@ -486,53 +555,53 @@ function computeValueAttentionParams(
   // Apply categorical attention mode (legacy — still used for accessibility personas)
   switch (filter.attentionMode) {
     case 'center-heavy':
-      centerBias = 0.7;
+      centerBias = mode.centerHeavyCenterBias;
       break;
     case 'motion-attracted':
-      exponent = 0.5; // square root = more things register
+      exponent = mode.motionAttractedExponent; // square root = more things register
       break;
     case 'text-focused':
-      threshold = 0.2; // suppress low-saliency distractors
-      bias = -0.1;     // slightly suppress overall
+      threshold = mode.textFocusedThreshold; // suppress low-saliency distractors
+      bias = mode.textFocusedBias;           // slightly suppress overall
       break;
     case 'large-elements':
-      threshold = 0.3;
+      threshold = mode.largeElementsThreshold;
       break;
   }
 
   // Apply value-driven modulation (v18.54.0)
   if (schwartzValues) {
-    const v = (key: string) => schwartzValues[key] ?? 0.5;
+    const v = (key: string) => schwartzValues[key] ?? neutral;
 
     // Stimulation: high → dispersed attention (notices novelty everywhere)
     // Anderson (2013): reward-seeking broadens attentional spotlight
-    exponent -= (v('stimulation') - 0.5) * 0.4; // 0.9 stim → exponent -0.16
+    exponent += (v('stimulation') - neutral) * mod.stimulationExponent; // 0.9 stim → exponent -0.16
 
     // Security: high → vigilant scanning (boost everything slightly, lower threshold)
     // Pessoa (2009): threat-sensitive individuals show broadened attention
-    bias += (v('security') - 0.5) * 0.15;
-    threshold -= (v('security') - 0.5) * 0.1;
+    bias += (v('security') - neutral) * mod.securityBias;
+    threshold += (v('security') - neutral) * mod.securityThreshold;
 
     // Achievement: high → focused on high-value targets (increase exponent)
     // Concentrate attention on the most salient elements, ignore distractors
-    exponent += (v('achievement') - 0.5) * 0.3;
+    exponent += (v('achievement') - neutral) * mod.achievementExponent;
 
     // Conformity: high → center-biased (follows expected layout patterns)
     // F-pattern and Z-pattern readers look where convention says to look
-    centerBias += (v('conformity') - 0.5) * 0.3;
+    centerBias += (v('conformity') - neutral) * mod.conformityCenterBias;
 
     // Self-direction: high → less center-biased (explores periphery)
-    centerBias -= (v('selfDirection') - 0.5) * 0.2;
+    centerBias += (v('selfDirection') - neutral) * mod.selfDirectionCenterBias;
 
     // Tradition: high → suppresses novel elements (sticks to familiar patterns)
-    threshold += (v('tradition') - 0.5) * 0.1;
+    threshold += (v('tradition') - neutral) * mod.traditionThreshold;
   }
 
   // Clamp values to sane ranges
-  exponent = Math.max(0.3, Math.min(2.0, exponent));
-  bias = Math.max(-0.3, Math.min(0.3, bias));
+  exponent = Math.max(clamp.exponentMin, Math.min(clamp.exponentMax, exponent));
+  bias = Math.max(-clamp.biasLimit, Math.min(clamp.biasLimit, bias));
   centerBias = Math.max(0, Math.min(1.0, centerBias));
-  threshold = Math.max(0, Math.min(0.5, threshold));
+  threshold = Math.max(0, Math.min(clamp.thresholdMax, threshold));
 
   return { exponent, bias, centerBias, threshold };
 }
@@ -552,6 +621,11 @@ export function applyPersonaFilter(
   schwartzValues?: Record<string, number>,
 ): Float64Array {
   const params = computeValueAttentionParams(filter, schwartzValues);
+  const belowThresholdGain = param("attention.filter.belowThresholdGain");
+  const slowProcessingBelow = param("attention.filter.slowProcessingBelow");
+  const speedThresholdBase = param("attention.filter.speedThresholdBase");
+  const speedThresholdSlope = param("attention.filter.speedThresholdSlope");
+  const normFloor = param("attention.normFloor");
   const filtered = new Float64Array(saliency.length);
 
   const centerRow = rows / 2;
@@ -565,7 +639,7 @@ export function applyPersonaFilter(
 
       // Apply threshold floor
       if (s < params.threshold) {
-        s *= 0.2;
+        s *= belowThresholdGain;
       }
 
       // Apply power curve (exponent controls attention concentration)
@@ -585,15 +659,15 @@ export function applyPersonaFilter(
   }
 
   // Apply processing speed
-  if (filter.processingSpeed < 0.8) {
-    const speedThreshold = 0.3 + (1 - filter.processingSpeed) * 0.3;
+  if (filter.processingSpeed < slowProcessingBelow) {
+    const speedThreshold = speedThresholdBase + (1 - filter.processingSpeed) * speedThresholdSlope;
     for (let i = 0; i < filtered.length; i++) {
       if (filtered[i] < speedThreshold) filtered[i] *= filter.processingSpeed;
     }
   }
 
   // Renormalize
-  const max = Math.max(...Array.from(filtered), 0.001);
+  const max = Math.max(...Array.from(filtered), normFloor);
   for (let i = 0; i < filtered.length; i++) filtered[i] /= max;
 
   return filtered;
@@ -606,61 +680,32 @@ export function applyPersonaFilter(
  * These represent how inherently attention-grabbing each element type is,
  * independent of visual appearance. A search bar is visually subtle but
  * a power user looks there first.
+ *
+ * The weights (cta 1.0 down to decorative 0.1, price and error 0.9) are
+ * registered as attention.type.*; with the spatial prior in place their
+ * spread contributes nothing measurable on UEyes (see that entry).
  */
-const ELEMENT_TYPE_WEIGHTS: Record<string, number> = {
-  cta: 1.0,           // Calls to action — highest inherent draw
-  heading: 0.8,       // Headings — structural anchors
-  form: 0.7,          // Form fields — interactive, task-relevant
-  search: 0.7,        // Search bars — navigation entry point
-  image: 0.5,         // Images — visual anchors
-  navigation: 0.4,    // Nav elements — wayfinding
-  link: 0.3,          // Regular links
-  content: 0.2,       // Body text
-  decorative: 0.1,    // Decorative images, spacers
-  price: 0.9,         // Prices — high commercial relevance
-  error: 0.9,         // Error messages — demand immediate attention
-};
+const ELEMENT_TYPES = [
+  "cta", "heading", "form", "search", "image", "navigation", "link", "content", "decorative", "price", "error",
+] as const;
+
+function elementTypeWeights(): Record<string, number> {
+  const w: Record<string, number> = {};
+  for (const t of ELEMENT_TYPES) w[t] = param(`attention.type.${t}`);
+  return w;
+}
 
 /**
- * Persona trait → element type weight modifiers.
- * Each persona amplifies or suppresses attention to certain element types
- * based on their cognitive traits and goals.
+ * Persona name → element type weight modifiers, the fallback when no cognitive
+ * traits resolve for the persona (computeTraitModifiers is the normal path).
+ * The table lives in the registry as attention.personaMod.<persona>.<type>.
  */
-const PERSONA_ELEMENT_MODIFIERS: Record<string, Record<string, number>> = {
-  "first-timer": {
-    cta: 1.2, heading: 1.3, navigation: 1.2, search: 1.0, content: 0.6, decorative: 0.4,
-  },
-  "power-user": {
-    cta: 0.6, heading: 0.5, navigation: 1.4, search: 1.5, content: 0.3, form: 1.2, decorative: 0.1,
-  },
-  "impatient-user": {
-    cta: 1.5, heading: 1.0, navigation: 0.8, search: 1.3, content: 0.2, decorative: 0.1, price: 1.3,
-  },
-  "elderly-user": {
-    cta: 1.0, heading: 1.4, navigation: 1.3, search: 0.8, content: 0.8, form: 0.9, decorative: 0.3,
-  },
-  "cognitive-adhd": {
-    cta: 0.8, heading: 0.7, navigation: 0.5, image: 1.5, decorative: 1.2, content: 0.3, search: 0.6,
-  },
-  "anxious-user": {
-    cta: 0.7, heading: 1.0, price: 1.5, error: 1.5, form: 0.8, decorative: 0.3,
-  },
-  "motor-impairment-tremor": {
-    cta: 1.0, heading: 0.8, navigation: 0.6, form: 0.7, search: 0.9, content: 0.5,
-  },
-  "dyslexic-user": {
-    cta: 1.1, heading: 1.3, image: 1.3, content: 0.4, navigation: 0.9, decorative: 0.5,
-  },
-  "low-vision-magnified": {
-    cta: 1.2, heading: 1.5, navigation: 1.0, content: 0.5, image: 0.8, decorative: 0.2,
-  },
-  "mobile-user": {
-    cta: 1.3, heading: 1.0, search: 1.2, navigation: 0.7, content: 0.4, decorative: 0.2,
-  },
-  "confident-user": {
-    cta: 0.7, heading: 0.5, navigation: 1.3, search: 1.4, form: 1.2, content: 0.3, decorative: 0.1,
-  },
-};
+function staticPersonaModifiers(personaName: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!Object.hasOwn(ATTENTION_STATIC_MODIFIER_TYPES, personaName)) return out;
+  for (const t of ATTENTION_STATIC_MODIFIER_TYPES[personaName]) out[t] = param(`attention.personaMod.${personaName}.${t}`);
+  return out;
+}
 
 /** DOM element with bounding rect for semantic attention mapping */
 export interface DOMAttentionElement {
@@ -707,7 +752,10 @@ export interface DOMAttentionElement {
  * `attentionCompetitors`, a different field, so response size is unchanged.
  */
 function hotspotPoolSize(totalCells: number): number {
-  return Math.min(4000, Math.max(200, Math.round(totalCells * 0.05)));
+  return Math.min(
+    param("attention.hotspotPool.max"),
+    Math.max(param("attention.hotspotPool.min"), Math.round(totalCells * param("attention.hotspotPool.share"))),
+  );
 }
 
 /**
@@ -716,15 +764,18 @@ function hotspotPoolSize(totalCells: number): number {
  * ANY persona's trait values, not just the 11 hardcoded ones.
  */
 function computeTraitModifiers(traits: Record<string, number>): Record<string, number> {
-  const t = (key: string) => traits[key] ?? 0.5;
+  const P = (id: string) => param(`attention.traitMod.${id}`);
+  const missing = P("missingTrait");
+  const reading = { threshold: P("reading.threshold"), base: P("reading.base"), slope: P("reading.slope") };
+  const t = (key: string) => traits[key] ?? missing;
   return {
     // Low patience → fixate on CTAs and search, skip content
-    cta: 1.0 + (1.0 - t("patience")) * 0.5,
-    search: 0.7 + (1.0 - t("patience")) * 0.6,
-    content: 0.2 + t("patience") * 0.4,
+    cta: P("cta.base") + (1.0 - t("patience")) * P("cta.slope"),
+    search: P("search.base") + (1.0 - t("patience")) * P("search.slope"),
+    content: P("content.base") + t("patience") * P("content.slope"),
     // High curiosity → explore headings, images, more elements
-    heading: 0.8 + t("curiosity") * 0.4,
-    image: 0.5 + t("curiosity") * 0.5,
+    heading: P("heading.base") + t("curiosity") * P("heading.slope"),
+    image: P("image.base") + t("curiosity") * P("image.slope"),
     // Navigation weight is deliberately FAMILIARITY-INDEPENDENT.
     //
     // This read `0.4 + (1.0 - t("siteFamiliarity")) * 0.6`, which made the
@@ -744,17 +795,17 @@ function computeTraitModifiers(traits: Record<string, number>): Record<string, n
     //
     // 0.7 is the previous formula evaluated at familiarity 0.5, so a persona
     // with a neutral (or absent) value sees no change at all.
-    navigation: 0.7,
+    navigation: P("navigation"),
     // High readingTendency → content draws attention
     // (overrides patience for reading-heavy personas)
-    ...(t("readingTendency") > 0.6 ? { content: 0.4 + t("readingTendency") * 0.4 } : {}),
+    ...(t("readingTendency") > reading.threshold ? { content: reading.base + t("readingTendency") * reading.slope } : {}),
     // Low selfEfficacy → error messages, help text draw attention
-    error: 0.5 + (1.0 - t("selfEfficacy")) * 0.5,
+    error: P("error.base") + (1.0 - t("selfEfficacy")) * P("error.slope"),
     // High riskTolerance → prices don't scare, CTAs are natural
-    price: 0.5 + (1.0 - t("riskTolerance")) * 0.5,
+    price: P("price.base") + (1.0 - t("riskTolerance")) * P("price.slope"),
     // Decorative: ADHD-like attention (low metacognitivePlanning = distracted by visuals)
-    decorative: 0.1 + (1.0 - t("metacognitivePlanning")) * 0.4,
-    form: 0.5 + t("proceduralFluency") * 0.3,
+    decorative: P("decorative.base") + (1.0 - t("metacognitivePlanning")) * P("decorative.slope"),
+    form: P("form.base") + t("proceduralFluency") * P("form.slope"),
   };
 }
 
@@ -763,14 +814,14 @@ function computeTraitModifiers(traits: Record<string, number>): Record<string, n
  * If the element's text matches the user's goal, massively boost its weight.
  * This is the "task-driven attention" component (Yarbus 1967).
  */
-function computeGoalRelevance(elementText: string, goal: string): number {
+function computeGoalRelevance(elementText: string, goal: string, minKeywordLength: number, gain: number): number {
   if (!goal || !elementText) return 0;
   const goalLower = goal.toLowerCase();
   const textLower = elementText.toLowerCase();
 
   // Extract goal keywords (remove stop words)
   const stopWords = new Set(["the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "it", "my", "i", "me", "and", "or", "how", "do", "can"]);
-  const goalWords = goalLower.split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+  const goalWords = goalLower.split(/\s+/).filter(w => w.length >= minKeywordLength && !stopWords.has(w));
 
   if (goalWords.length === 0) return 0;
 
@@ -783,9 +834,19 @@ function computeGoalRelevance(elementText: string, goal: string): number {
   if (matches === 0) return 0;
   // Partial match: some keywords found
   const matchRatio = matches / goalWords.length;
-  // 2.0x boost for full match, proportional for partial
-  return matchRatio * 2.0;
+  // 2.0x boost for full match (attention.relevance.gain), proportional for partial
+  return matchRatio * gain;
 }
+
+/** Text cues for Schwartz-value relevance, in the order their boosts apply. */
+const VALUE_PATTERN_REGEX: Record<string, RegExp> = {
+  trust: /secur|trust|verif|guarant|privacy|encrypt|safe|protect/i,
+  social: /review|rating|star|trusted.?by|\d+[kK]?\+?\s*users|testimonial/i,
+  novelty: /\bnew\b|beta|launch|updat|just.?added|latest|early.?access/i,
+  metrics: /\d+%|\d+x\s|roi|faster|improv|performance|\$\d/i,
+  urgency: /limited|only\s*\d|hurry|expire|last.?chance|act.?now/i,
+  community: /community|join|forum|together|open.?source|contrib/i,
+};
 
 /**
  * Build a semantic attention map from DOM elements.
@@ -831,22 +892,26 @@ export function buildSemanticMap(
   typeWeights?: Record<string, number>,
 ): Float64Array {
   const map = new Float64Array(rows * cols);
-  const TYPE_W = typeWeights ?? ELEMENT_TYPE_WEIGHTS;
+  const TYPE_W = typeWeights ?? elementTypeWeights();
+  const typeFallback = param("attention.type.fallback");
+  const relevanceGain = param("attention.relevance.gain");
+  const minKeywordLength = param("attention.goal.minKeywordLength");
+  const neutral = param("attention.value.neutral");
+  const edgeEpsilon = param("attention.grid.edgeEpsilon");
+  const normPercentile = param("attention.normPercentile");
+  const normFloor = param("attention.normFloor");
 
   // Use trait-driven modifiers if traits available, else fall back to static table
   const modifiers = cognitiveTraits
     ? computeTraitModifiers(cognitiveTraits)
-    : (PERSONA_ELEMENT_MODIFIERS[personaName] || {});
+    : staticPersonaModifiers(personaName);
 
-  // Value-driven semantic patterns (imported from attention-quality)
-  const VALUE_PATTERNS: Record<string, { pattern: RegExp; values: Record<string, number> }> = {
-    trust: { pattern: /secur|trust|verif|guarant|privacy|encrypt|safe|protect/i, values: { security: 1.0, conformity: 0.5 } },
-    social: { pattern: /review|rating|star|trusted.?by|\d+[kK]?\+?\s*users|testimonial/i, values: { conformity: 1.0, security: 0.6 } },
-    novelty: { pattern: /\bnew\b|beta|launch|updat|just.?added|latest|early.?access/i, values: { stimulation: 1.0, selfDirection: 0.5 } },
-    metrics: { pattern: /\d+%|\d+x\s|roi|faster|improv|performance|\$\d/i, values: { achievement: 1.0, power: 0.4 } },
-    urgency: { pattern: /limited|only\s*\d|hurry|expire|last.?chance|act.?now/i, values: { stimulation: 0.5, achievement: 0.4 } },
-    community: { pattern: /community|join|forum|together|open.?source|contrib/i, values: { benevolence: 0.8, universalism: 0.6 } },
-  };
+  // Value-driven semantic patterns (imported from attention-quality). The
+  // weights are attention.valuePattern.<pattern>.<value>, summed in this order.
+  const VALUE_PATTERNS = Object.entries(VALUE_PATTERN_REGEX).map(([name, pattern]) => ({
+    pattern,
+    values: ATTENTION_VALUE_PATTERN_VALUES[name].map((v) => [v, param(`attention.valuePattern.${name}.${v}`)] as const),
+  }));
 
   for (const [elementIndex, el] of elements.entries()) {
     // Determine element type
@@ -857,7 +922,7 @@ export function buildSemanticMap(
     else if (el.isDecorative) elType = "decorative";
 
     // Layer 1: Base weight by element type
-    let weight = TYPE_W[elType] ?? 0.2;
+    let weight = TYPE_W[elType] ?? typeFallback;
 
     // Layer 2: Persona modifier (trait-driven or static lookup)
     const modifier = modifiers[elType] ?? 1.0;
@@ -872,9 +937,9 @@ export function buildSemanticMap(
     // is a floor to degrade to, never the intended path.
     const judged = relevanceScores?.[elementIndex];
     if (judged !== undefined && judged > 0) {
-      weight *= (1.0 + judged * 2.0); // same 3x ceiling as the keyword path
+      weight *= (1.0 + judged * relevanceGain); // same 3x ceiling as the keyword path
     } else if (goal && el.text) {
-      const goalBoost = computeGoalRelevance(el.text, goal);
+      const goalBoost = computeGoalRelevance(el.text, goal, minKeywordLength, relevanceGain);
       if (goalBoost > 0) {
         weight *= (1.0 + goalBoost);
       }
@@ -882,12 +947,12 @@ export function buildSemanticMap(
 
     // Layer 4: Schwartz value relevance — elements matching persona values get boost
     if (schwartzValues && el.text) {
-      for (const [, pattern] of Object.entries(VALUE_PATTERNS)) {
+      for (const pattern of VALUE_PATTERNS) {
         if (pattern.pattern.test(el.text)) {
           let valueBoost = 0;
-          for (const [valueName, valueWeight] of Object.entries(pattern.values)) {
-            const personaValue = schwartzValues[valueName] ?? 0.5;
-            valueBoost += (personaValue - 0.5) * valueWeight;
+          for (const [valueName, valueWeight] of pattern.values) {
+            const personaValue = schwartzValues[valueName] ?? neutral;
+            valueBoost += (personaValue - neutral) * valueWeight;
           }
           weight *= (1.0 + Math.max(0, valueBoost));
         }
@@ -920,9 +985,9 @@ export function buildSemanticMap(
     const x0 = box.x, x1 = box.x + box.width;
     const y0 = box.y, y1 = box.y + box.height;
     const startCol = Math.max(0, Math.floor(x0 / pxPerCol));
-    const endCol = Math.min(cols - 1, Math.floor((x1 - 1e-6) / pxPerCol));
+    const endCol = Math.min(cols - 1, Math.floor((x1 - edgeEpsilon) / pxPerCol));
     const startRow = Math.max(0, Math.floor(y0 / pxPerRow));
-    const endRow = Math.min(rows - 1, Math.floor((y1 - 1e-6) / pxPerRow));
+    const endRow = Math.min(rows - 1, Math.floor((y1 - edgeEpsilon) / pxPerRow));
 
     for (let r = startRow; r <= endRow; r++) {
       const cellTop = r * pxPerRow;
@@ -955,9 +1020,9 @@ export function buildSemanticMap(
   // exceptional cells clip, which is standard practice for rendering saliency.
   const sorted = Array.from(map).filter((v) => v > 0).sort((a, b) => a - b);
   const p95 = sorted.length > 0
-    ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]
-    : 0.001;
-  const denom = Math.max(p95, 0.001);
+    ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * normPercentile))]
+    : normFloor;
+  const denom = Math.max(p95, normFloor);
   for (let i = 0; i < map.length; i++) map[i] = Math.min(1, map[i] / denom);
 
   return map;
@@ -1002,15 +1067,16 @@ export function buildSemanticMap(
 export function blendSaliencyMaps(
   visual: Float64Array,
   semantic: Float64Array,
-  visualWeight: number = 0.05,
-  semanticWeight: number = 0.95,
+  visualWeight: number = param("attention.blend.legacyVisualWeight"),
+  semanticWeight: number = param("attention.blend.legacySemanticWeight"),
 ): Float64Array {
+  const normFloor = param("attention.normFloor");
   const blended = new Float64Array(visual.length);
   for (let i = 0; i < visual.length; i++) {
     blended[i] = visual[i] * visualWeight + semantic[i] * semanticWeight;
   }
   // Renormalize
-  const max = Math.max(...Array.from(blended), 0.001);
+  const max = Math.max(...Array.from(blended), normFloor);
   for (let i = 0; i < blended.length; i++) blended[i] /= max;
   return blended;
 }
@@ -1046,9 +1112,7 @@ export function blendSaliencyMaps(
  *
  * Pass `spatialPrior: 0` to disable it for any of those cases.
  */
-const WEB_SPATIAL_PRIOR_ROWS = 12;
-const WEB_SPATIAL_PRIOR_COLS = 16;
-const WEB_SPATIAL_PRIOR = [
+const WEB_SPATIAL_PRIOR: readonly number[] = [
   0.3438, 0.4761, 0.6428, 0.8103, 0.9375, 1.0000, 0.9920, 0.9220, 0.8109, 0.6831, 0.5571, 0.4409, 0.3344, 0.2406, 0.1686, 0.1216,
   0.3225, 0.4491, 0.6086, 0.7704, 0.8973, 0.9657, 0.9669, 0.9055, 0.8004, 0.6767, 0.5533, 0.4380, 0.3308, 0.2359, 0.1636, 0.1172,
   0.3024, 0.4229, 0.5746, 0.7294, 0.8538, 0.9255, 0.9340, 0.8806, 0.7825, 0.6646, 0.5460, 0.4335, 0.3264, 0.2307, 0.1584, 0.1127,
@@ -1063,16 +1127,51 @@ const WEB_SPATIAL_PRIOR = [
   0.1150, 0.1385, 0.1658, 0.1908, 0.2086, 0.2173, 0.2160, 0.2056, 0.1899, 0.1736, 0.1587, 0.1442, 0.1278, 0.1094, 0.0923, 0.0795,
 ];
 
-/** Fitted operating point, all five CV folds unanimous. See `applyGazeCalibration`. */
-export const GAZE_CALIBRATION = { visualWeight: 0.2, sigmaCells: 2.5, spatialPrior: 1.0 } as const;
+/**
+ * The fitted table, checked against its registered checksum on every use.
+ *
+ * The 192 cells are registered as ONE fitted entry (attention.spatialPrior.checksum,
+ * with its shape as .rows and .cols) rather than one per cell; provenance/attention.ts
+ * says why. Reading the checksum through param() and refusing a table that no
+ * longer hashes to it is what ties this literal to the registry: a cell edited
+ * here without re-registering stops the model instead of shipping unrecorded.
+ */
+function spatialPrior(): { table: readonly number[]; rows: number; cols: number } {
+  const rows = param("attention.spatialPrior.rows");
+  const cols = param("attention.spatialPrior.cols");
+  const checksum = param("attention.spatialPrior.checksum");
+  if (WEB_SPATIAL_PRIOR.length !== rows * cols || WEB_SPATIAL_PRIOR_CHECKSUM !== checksum) {
+    throw new Error(
+      `WEB_SPATIAL_PRIOR does not match its registration (${WEB_SPATIAL_PRIOR.length} cells, checksum ${WEB_SPATIAL_PRIOR_CHECKSUM}; ` +
+      `registered ${rows}x${cols}, checksum ${checksum}). Re-fit or re-register it in provenance/attention.ts.`,
+    );
+  }
+  return { table: WEB_SPATIAL_PRIOR, rows, cols };
+}
+
+const WEB_SPATIAL_PRIOR_CHECKSUM = tableChecksum(WEB_SPATIAL_PRIOR);
+
+/**
+ * Fitted operating point, all five CV folds unanimous. See `applyGazeCalibration`.
+ *
+ * A live view of the registry (attention.gaze.*): each field reads its entry
+ * through param() when read, so this object cannot disagree with the values the
+ * model runs on.
+ */
+export const GAZE_CALIBRATION: { readonly visualWeight: number; readonly sigmaCells: number; readonly spatialPrior: number } = Object.freeze({
+  get visualWeight() { return param("attention.gaze.visualWeight"); },
+  get sigmaCells() { return param("attention.gaze.sigmaCells"); },
+  get spatialPrior() { return param("attention.gaze.spatialPrior"); },
+});
 
 /**
  * The cell size the calibration was fitted at: research/study1 runs every
  * stimulus at CELL = 16 (run-optimize.ts, run-semantic.ts). computeLabSaliency
  * halves the image before celling, so one fitted cell spans 32 capture px and
- * `sigmaCells` 2.5 is 80 capture px.
+ * `sigmaCells` 2.5 is 80 capture px. Registered as attention.gaze.cellSize; this
+ * export is that entry's value, read once at load.
  */
-export const GAZE_CALIBRATION_CELL_SIZE = 16;
+export const GAZE_CALIBRATION_CELL_SIZE: number = param("attention.gaze.cellSize");
 
 /**
  * `GAZE_CALIBRATION.sigmaCells` rescaled to a grid of `cellSize`, so the
@@ -1084,13 +1183,13 @@ export const GAZE_CALIBRATION_CELL_SIZE = 16;
  * Study 1 numbers do not move.
  */
 export function gazeSigmaCells(cellSize: number): number {
-  return GAZE_CALIBRATION.sigmaCells * (GAZE_CALIBRATION_CELL_SIZE / cellSize);
+  return param("attention.gaze.sigmaCells") * (param("attention.gaze.cellSize") / cellSize);
 }
 
 /** Separable Gaussian blur over the cell grid. */
 export function smoothSaliency(map: Float64Array, rows: number, cols: number, sigma: number): Float64Array {
   if (sigma <= 0) return map;
-  const rad = Math.ceil(sigma * 3), inv = 1 / (2 * sigma * sigma), k: number[] = [];
+  const rad = Math.ceil(sigma * param("attention.smooth.radiusSigmas")), inv = 1 / (2 * sigma * sigma), k: number[] = [];
   for (let d = -rad; d <= rad; d++) k.push(Math.exp(-d * d * inv));
   const tmp = new Float64Array(map.length), out = new Float64Array(map.length);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
@@ -1128,17 +1227,18 @@ export function smoothSaliency(map: Float64Array, rows: number, cols: number, si
  */
 export function applyGazeCalibration(
   map: Float64Array, rows: number, cols: number,
-  sigma: number = GAZE_CALIBRATION.sigmaCells,
-  priorStrength: number = GAZE_CALIBRATION.spatialPrior,
+  sigma: number = param("attention.gaze.sigmaCells"),
+  priorStrength: number = param("attention.gaze.spatialPrior"),
 ): Float64Array {
   let m = smoothSaliency(map, rows, cols, sigma);
   if (priorStrength > 0) {
+    const prior = spatialPrior();
     const out = new Float64Array(m.length);
     for (let r = 0; r < rows; r++) {
-      const pr = Math.min(WEB_SPATIAL_PRIOR_ROWS - 1, Math.floor((r / rows) * WEB_SPATIAL_PRIOR_ROWS));
+      const pr = Math.min(prior.rows - 1, Math.floor((r / rows) * prior.rows));
       for (let c = 0; c < cols; c++) {
-        const pc = Math.min(WEB_SPATIAL_PRIOR_COLS - 1, Math.floor((c / cols) * WEB_SPATIAL_PRIOR_COLS));
-        const p = WEB_SPATIAL_PRIOR[pr * WEB_SPATIAL_PRIOR_COLS + pc];
+        const pc = Math.min(prior.cols - 1, Math.floor((c / cols) * prior.cols));
+        const p = prior.table[pr * prior.cols + pc];
         out[r * cols + c] = m[r * cols + c] * (1 - priorStrength + priorStrength * p);
       }
     }
@@ -1148,6 +1248,18 @@ export function applyGazeCalibration(
 }
 
 // ── Public API ──
+
+/** Metric definitions and display rounding shared by both analysis paths. */
+function readMetricParams() {
+  return {
+    entropyEpsilon: param("attention.metric.entropyEpsilon"),
+    concentrationShare: param("attention.metric.concentrationShare"),
+    competitors: param("attention.report.competitors"),
+    r2: param("attention.rounding.hundredths"),
+    r3: param("attention.rounding.thousandths"),
+    r4: param("attention.rounding.tenThousandths"),
+  };
+}
 
 /**
  * Compute persona-specific attention analysis for a screenshot.
@@ -1181,7 +1293,7 @@ export async function analyzeAttentionFromDOM(
   viewportHeight: number,
   domElements: DOMAttentionElement[],
   personaName: string,
-  cellSize: number = 16,
+  cellSize: number = param("attention.gaze.cellSize"),
   schwartzValues?: Record<string, number>,
   goal?: string,
   cognitiveTraits?: Record<string, number>,
@@ -1189,6 +1301,7 @@ export async function analyzeAttentionFromDOM(
   accessibilityTraits?: Parameters<typeof resolvePerceptualProfile>[1],
 ): Promise<AttentionAnalysis> {
   const startTime = performance.now();
+  const M = readMetricParams();
   const resolvedProfile = resolvePerceptualProfile(personaName, accessibilityTraits);
   const profile = resolvedProfile.profile;
 
@@ -1268,12 +1381,12 @@ export async function analyzeAttentionFromDOM(
   let entropy = 0;
   for (let i = 0; i < filtered.length; i++) {
     const p = filtered[i] / totalSaliency;
-    if (p > 0) entropy -= p * Math.log2(p + 1e-10);
+    if (p > 0) entropy -= p * Math.log2(p + M.entropyEpsilon);
   }
   entropy = entropy / Math.log2(filtered.length || 1);
 
   const sorted = Array.from(filtered).sort((a, b) => b - a);
-  const top20Count = Math.ceil(filtered.length * 0.2);
+  const top20Count = Math.ceil(filtered.length * M.concentrationShare);
   const top20Sum = sorted.slice(0, top20Count).reduce((a, b) => a + b, 0);
   const concentration = top20Sum / totalSaliency;
 
@@ -1288,11 +1401,11 @@ export async function analyzeAttentionFromDOM(
       hotspots,
     },
     alignmentScore: 1, // No base to compare against
-    entropy: Math.round(entropy * 1000) / 1000,
-    concentration: Math.round(concentration * 1000) / 1000,
-    attentionCompetitors: hotspots.slice(0, 5).map((h) => ({
+    entropy: Math.round(entropy * M.r3) / M.r3,
+    concentration: Math.round(concentration * M.r3) / M.r3,
+    attentionCompetitors: hotspots.slice(0, M.competitors).map((h) => ({
       region: `(${h.x}, ${h.y})`,
-      saliency: Math.round(h.saliency * 100) / 100,
+      saliency: Math.round(h.saliency * M.r2) / M.r2,
     })),
     transportCost: 0,
     computeTimeMs: Math.round(performance.now() - startTime),
@@ -1302,7 +1415,7 @@ export async function analyzeAttentionFromDOM(
 export async function analyzeAttention(
   screenshotPath: string,
   personaName: string,
-  cellSize: number = 16,
+  cellSize: number = param("attention.gaze.cellSize"),
   schwartzValues?: Record<string, number>,
   domElements?: DOMAttentionElement[],
   goal?: string,
@@ -1311,6 +1424,9 @@ export async function analyzeAttention(
   accessibilityTraits?: Parameters<typeof resolvePerceptualProfile>[1],
 ): Promise<AttentionAnalysis> {
   const startTime = performance.now();
+  const M = readMetricParams();
+  const downscale = param("attention.lab.downscale");
+  const visualWeight = param("attention.gaze.visualWeight");
   const resolvedProfile = resolvePerceptualProfile(personaName, accessibilityTraits);
   const profile = resolvedProfile.profile;
 
@@ -1368,7 +1484,7 @@ export async function analyzeAttention(
     // would have been importing half of an optimum.
     combinedSaliency = blendSaliencyMaps(
       baseSaliency.cells, semanticMap,
-      GAZE_CALIBRATION.visualWeight, 1 - GAZE_CALIBRATION.visualWeight,
+      visualWeight, 1 - visualWeight,
     );
   } else {
     // No DOM data — fall back to visual-only.
@@ -1409,8 +1525,8 @@ export async function analyzeAttention(
   const hotspots = indexed.slice(0, hotspotPoolSize(indexed.length)).map(({ s, i }) => ({
     row: Math.floor(i / baseSaliency.cols),
     col: i % baseSaliency.cols,
-    x: (i % baseSaliency.cols) * cellSize * 2, // Scale back to original
-    y: Math.floor(i / baseSaliency.cols) * cellSize * 2,
+    x: (i % baseSaliency.cols) * cellSize / downscale, // Scale back to original
+    y: Math.floor(i / baseSaliency.cols) * cellSize / downscale,
     saliency: s,
   }));
 
@@ -1429,7 +1545,7 @@ export async function analyzeAttention(
     cols: baseSaliency.cols,
     width: baseSaliency.width,
     height: baseSaliency.height,
-    cellSize: cellSize * 2, // Scaled
+    cellSize: cellSize / downscale, // Scaled
     hotspots,
   };
 
@@ -1440,14 +1556,14 @@ export async function analyzeAttention(
   let entropy = 0;
   for (let i = 0; i < filtered.length; i++) {
     const p = filtered[i] / totalSaliency;
-    if (p > 0) entropy -= p * Math.log2(p + 1e-10);
+    if (p > 0) entropy -= p * Math.log2(p + M.entropyEpsilon);
   }
   const maxEntropy = Math.log2(filtered.length);
   entropy = entropy / maxEntropy; // Normalize to 0-1
 
   // Concentration: fraction of total saliency in top 20% of cells
   const sorted = Array.from(filtered).sort((a, b) => b - a);
-  const top20Count = Math.ceil(filtered.length * 0.2);
+  const top20Count = Math.ceil(filtered.length * M.concentrationShare);
   const top20Sum = sorted.slice(0, top20Count).reduce((a, b) => a + b, 0);
   const concentration = top20Sum / totalSaliency;
 
@@ -1472,20 +1588,20 @@ export async function analyzeAttention(
   }
 
   // Attention competitors: group hotspots into regions
-  const attentionCompetitors = hotspots.slice(0, 5).map((h, i) => ({
+  const attentionCompetitors = hotspots.slice(0, M.competitors).map((h, i) => ({
     region: `(${h.x}, ${h.y})`,
-    saliency: Math.round(h.saliency * 100) / 100,
+    saliency: Math.round(h.saliency * M.r2) / M.r2,
   }));
 
   return {
     persona: personaName,
     perceptualProfile: { resolution: resolvedProfile.resolution, name: resolvedProfile.resolvedProfile },
     saliencyMap,
-    alignmentScore: Math.round(alignmentScore * 1000) / 1000,
-    entropy: Math.round(entropy * 1000) / 1000,
-    concentration: Math.round(concentration * 1000) / 1000,
+    alignmentScore: Math.round(alignmentScore * M.r3) / M.r3,
+    entropy: Math.round(entropy * M.r3) / M.r3,
+    concentration: Math.round(concentration * M.r3) / M.r3,
     attentionCompetitors,
-    transportCost: Math.round(transportCost * 10000) / 10000,
+    transportCost: Math.round(transportCost * M.r4) / M.r4,
     computeTimeMs: Math.round(performance.now() - startTime),
   };
 }
@@ -1500,10 +1616,12 @@ export async function compareAttention(
   screenshotPath: string,
   personaA: string,
   personaB: string,
-  cellSize: number = 16,
+  cellSize: number = param("attention.gaze.cellSize"),
   domElements?: DOMAttentionElement[],
   goal?: string,
 ): Promise<AttentionComparisonResult> {
+  const r4 = param("attention.rounding.tenThousandths");
+  const regionCount = param("attention.report.divergentRegions");
   const [analysisA, analysisB] = await Promise.all([
     analyzeAttention(screenshotPath, personaA, cellSize, undefined, domElements, goal),
     analyzeAttention(screenshotPath, personaB, cellSize, undefined, domElements, goal),
@@ -1527,7 +1645,7 @@ export async function compareAttention(
   return {
     personaA: analysisA,
     personaB: analysisB,
-    attentionDivergence: Math.round(divergence * 10000) / 10000,
-    divergentRegions: regions.slice(0, 10),
+    attentionDivergence: Math.round(divergence * r4) / r4,
+    divergentRegions: regions.slice(0, regionCount),
   };
 }
