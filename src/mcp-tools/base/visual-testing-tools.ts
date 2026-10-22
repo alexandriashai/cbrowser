@@ -590,7 +590,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
 
   server.registerTool("attention_analysis", {
     title: "Attention Saliency Analysis",
-    description: "Analyze where a persona's attention goes on a page. Two-layer model: (1) visual saliency via W₂ on CIE-Lab (what POPS), (2) DOM semantic analysis (what MATTERS — CTAs, headings, forms, nav). Blended 35/65 so a gray search bar a power-user prioritizes outweighs a flashy banner they ignore. Returns attention metrics, a quality score, and the heatmap overlay: inline as a JPEG preview sized to fit the result (described in heatmapPreview), with the full-resolution PNG at heatmapUrl / artifact_fetch({ file: heatmapFile }).",
+    description: "Analyze where a persona's attention goes on a page. Two-layer model: (1) visual saliency via W₂ on CIE-Lab (what POPS), (2) DOM semantic analysis (what MATTERS — CTAs, headings, forms, nav). Blended 20/80 (fitted to UEyes eye-tracking) so a gray search bar a power-user prioritizes outweighs a flashy banner they ignore. Returns attention metrics, a quality score, and the heatmap overlay: inline as a JPEG preview sized to fit the result (described in heatmapPreview), with the full-resolution PNG at heatmapUrl / artifact_fetch({ file: heatmapFile }).",
     inputSchema: {
       url: z.string().optional().describe("URL to analyze. Optional with _browserToken: omit it to analyze the session's current page as it stands (logged in, mid-flow); pass it to navigate that session first. Required without a token."),
       _browserToken: z.string().optional().describe("Browser session token from a previous tool call (navigate, click, fill...). Analyzes that live session instead of a fresh browser, so authenticated and mid-flow states can be measured. The session keeps its viewport (device is ignored), and its scroll position and animation state are restored afterwards."),
@@ -600,7 +600,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       cellSize: z.number().optional().default(4).describe("Saliency grid cell size in pixels (smaller = finer heatmap, default: 4)"),
       heatmap: z.boolean().optional().default(true).describe("Generate the heatmap overlay (default: true). The heatmap is the main finding. false returns the metrics only: no inline preview, and the attention view shows no picture."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device name"),
-      useValues: z.boolean().optional().default(false).describe("Enable motivational value influence on saliency map generation and attention scoring. Default: false."),
+      useValues: z.boolean().optional().default(false).describe("Include the persona's motivational values in the attention-quality score. The saliency map always reflects the persona's Schwartz values when the persona has them, whatever this flag says. Default: false."),
       freezeAnimations: z.boolean().optional().default(false).describe("Pause CSS and Web-Animations before the screenshot, so two runs of an animated page are comparable. An infinite animation has no canonical frame, so sampling one at random reports where attention goes during a fraction of a loop as where attention goes. Default false: every published attention number was measured with animation live. Check `animationState` in the response for what actually ran."),
     },
     annotations: {

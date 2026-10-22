@@ -1142,7 +1142,7 @@ export const captureStartSchema = {
   maxFrames: z.number().optional().describe("Hard cap on retained frames (default: 3000)"),
   name: z.string().optional().describe("Capture name / slug"),
   outDir: z.string().optional().describe("Output directory (default: a slug directory under the recordings dir). Not available on the hosted server."),
-  attentionOverlay: z.boolean().optional().describe("Paint the predicted-attention heatmap over every frame before encoding. Uses the live DOM, so this is the full attention model (5% visual contrast + 95% DOM semantics), not contrast alone. Costs roughly 0.5-1s per frame. Default false."),
+  attentionOverlay: z.boolean().optional().describe("Paint the predicted-attention heatmap over every frame before encoding. Uses the live DOM, so this is the full attention model (20% visual contrast + 80% DOM semantics), not contrast alone. Costs roughly 0.5-1s per frame. Default false."),
   overlayPersona: z.string().optional().describe("Persona whose priorities weight the attention overlay (default: first-timer). Only used with attentionOverlay."),
   overlayGoal: z.string().optional().describe("Goal string that weights goal-relevance in the attention overlay. Only used with attentionOverlay."),
   // Triggers: the CLI's --after, --after-element, --after-delay, --until-element,

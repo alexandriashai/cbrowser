@@ -28,7 +28,7 @@ export interface SaliencyMap {
   /**
    * Which model produced `cells`.
    *
-   * "visual+semantic" — 35% centre-surround CIE-Lab saliency blended with 65%
+   * "visual+semantic" — 20% centre-surround CIE-Lab saliency blended with 80%
    * DOM-semantic attention (element type x persona priority).
    * "visual-only" — the bottom-up layer alone: local colour-contrast pop-out.
    * Useful, but NOT a model of where a person looks. The fallback was silent
@@ -1124,7 +1124,8 @@ export function applyGazeCalibration(
  * 1. Visual saliency — W₂ on CIE-Lab distributions (what POPS visually)
  * 2. Semantic attention — DOM element classification × persona priorities (what MATTERS)
  *
- * Blended at 5% visual / 95% semantic. The direction is the one the literature
+ * Blended at 20% visual / 80% semantic (GAZE_CALIBRATION, refitted with the spatial
+ * prior on 2026-08-04; 5% was the optimum before the prior existed). The direction is the one the literature
  * predicts — task-driven attention dominates bottom-up saliency for goal-oriented
  * users (Yarbus 1967, Henderson 2003, Tatler et al. 2011) — but the number is no
  * longer read off those papers. It was swept against 495 UEyes web stimuli and
@@ -1329,7 +1330,7 @@ export async function analyzeAttention(
     // No DOM data — fall back to visual-only.
     //
     // This fallback changes what the heatmap MEANS, and said so nowhere. With
-    // DOM elements the map is 35% bottom-up saliency + 65% semantic (element
+    // DOM elements the map is 20% bottom-up saliency + 80% semantic (element
     // type x persona priority) — a model of attention. Without them it is the
     // bottom-up layer alone: centre-surround colour contrast in CIE-Lab. Those
     // are different quantities under one name, and two of the three production
@@ -1372,7 +1373,7 @@ export async function analyzeAttention(
     /**
      * Which model produced `cells`.
      *
-     * "visual+semantic" — 35% centre-surround CIE-Lab saliency blended with 65%
+     * "visual+semantic" — 20% centre-surround CIE-Lab saliency blended with 80%
      * DOM-semantic attention (element type x persona priority).
      * "visual-only" — the bottom-up layer alone, i.e. local colour-contrast
      * pop-out. Useful, but NOT a model of where a person looks.
