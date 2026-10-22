@@ -87,3 +87,5 @@ tests/webhooks-export.test.ts
 tests/benchmark-device-wiring.test.ts
 # Runs cognitive_effort end to end against a fixture page in a real browser.
 tests/ctc-tool-provenance.test.ts
+# Runs visual_cognitive_story end to end and checks the persona registry is untouched.
+tests/visual-story-registry.test.ts
