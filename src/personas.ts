@@ -2094,7 +2094,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       selfEfficacy: 0.6,
       // Research: Limited information access increases satisficing (Pachur & Hertwig, 2006)
       // Seeing only 1/9th of screen at a time → accept accessible options
-      satisficing: 0.4,
+      // (21.0: restored to the 0.65 this citation was written beside. The doc
+      // reconciliation of 2026-08-02 had set 0.4, the maximiser side, which
+      // contradicts the direction cited here.)
+      satisficing: 0.65,
       // Research: Vision impairment increases caution (Brody 2002)
       trustCalibration: 0.4,
       // Research: Limited visible area makes context recovery harder (Mark)
@@ -2126,7 +2129,8 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
 
   "cognitive-adhd": {
     name: "cognitive-adhd",
-    // Research: 75-81% of ADHD cases show central executive WM impairment (PMC7483636)
+    // Research: 75-81% of ADHD cases show central executive WM impairment
+    // (Kofler et al. 2020, PMC7483636)
     // Impulsivity affects persistence and patience significantly
     description: "User with ADHD affecting focus and working memory",
     disabilityType: "Cognitive (ADHD/Attention)",
@@ -2210,7 +2214,12 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // and "may blame self" beside 0.3 on a scale whose 1.0 end is "Blames
     // self". The prose was right every time; the digit was inverted.
     cognitiveTraits: {
-      workingMemory: 0.3, // Research: large magnitude impairment (d=1.63-2.03)
+      // Very large central-executive working-memory impairment, d = 1.63-2.03,
+      // present in 75-81% of cases (Kofler et al. 2020, Neuropsychology
+      // 34(6):686-698, PMC7483636; 172 children aged 8-13, so an adult value
+      // extrapolates). The effect size gives the direction and size of the
+      // group difference, not this 0-1 value.
+      workingMemory: 0.3,
       patience: 0.2, // Impulsivity: low tolerance for waiting
       persistence: 0.3, // Low for unengaging tasks; can hyperfocus on interesting ones
       curiosity: 0.9, // High novelty-seeking
@@ -2337,7 +2346,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       // Pulled down from 0.6 for documented secondary anxiety (Kapur & Agrawal
       // 2026), but not lower: the compensation literature describes adults
       // achieving academic success, so learned helplessness would overstate it.
-      resilience: 0.6,
+      // (21.0: restored to the 0.5 this comment was written for. The doc
+      // reconciliation of 2026-08-02 had moved it back to 0.6 by treating 0.5
+      // as an unclaimed neutral, against this citation's direction.)
+      resilience: 0.5,
       // Dyslexia is a strong predictor of lower academic self-efficacy in higher
       // education (PMC11488781; Nigerian undergraduate cohort).
       selfEfficacy: 0.3,
@@ -2454,7 +2466,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       proceduralFluency: 0.7,   // Good with visual instructions
       transferLearning: 0.7,    // Recognizes visual patterns
       authoritySensitivity: 0.5,
-      emotionalContagion: 0.6,  // Less affected by audio tone
+      emotionalContagion: 0.6,  // Medium-high - reads visual emotional cues closely (facial expression)
       fearOfMissingOut: 0.4,
       socialProofSensitivity: 0.6, // Visual reviews/ratings
       mentalModelFlexibility: 0.65,  // Good visual adaptation
@@ -2542,7 +2554,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.3, // Low: prefers familiar patterns
       riskTolerance: 0.1, // Very cautious with unfamiliar interfaces
       comprehension: 0.3, // Unfamiliar with modern UI conventions
-      resilience: 0.6, // Low - frustration compounds with physical challenges (BRS)
+      resilience: 0.6, // Medium-high - adapted over time; repeated barriers still discourage (BRS)
       selfEfficacy: 0.3, // Very low - often blame selves for tech issues (Bandura)
       satisficing: 0.7, // High - avoids complex decision trees (Simon)
       trustCalibration: 0.4, // Very low - very skeptical of online requests (Fogg)
@@ -3176,10 +3188,10 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       },
     },
     cognitiveTraits: {
-      patience: 0.8,          // Low - anxiety makes waiting feel worse
+      patience: 0.8,          // High - spends time making sure it is safe; thoroughness over speed
       riskTolerance: 0.2,    // Very low - avoids uncertain outcomes
       comprehension: 0.6,     // Medium - understands but worries
-      persistence: 0.6,       // Low-medium - gives up when anxious
+      persistence: 0.6,       // Medium-high - persists while feeling safe; abandons when anxiety escalates
       curiosity: 0.3,         // Low - prefers safe known paths
       workingMemory: 0.5,     // Medium - anxiety can impair WM
       readingTendency: 0.9,   // High - reads everything for reassurance
@@ -3254,7 +3266,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       },
     },
     cognitiveTraits: {
-      patience: 0.3,          // Medium - not impatient but efficient
+      patience: 0.3,          // Low - expects quick outcomes; little tolerance for delays
       riskTolerance: 0.8,     // High - willing to try things
       comprehension: 0.7,     // High - understands quickly
       persistence: 0.7,       // High - doesn't give up easily
@@ -3268,11 +3280,11 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       interruptRecovery: 0.7, // High - resumes easily
       // New traits (v15.0.0)
       informationForaging: 0.8,   // High - efficient scent-following
-      changeBlindness: 0.6,       // Low - notices changes
+      changeBlindness: 0.6,       // Medium-high - may miss changes while moving quickly
       anchoringBias: 0.3,         // Low - evaluates options freely
       timeHorizon: 0.4,           // Medium-long - thinks ahead
       attributionStyle: 0.2,      // Low - blames system issues
-      metacognitivePlanning: 0.4, // High - plans efficiently
+      metacognitivePlanning: 0.4, // Low-medium - minimal planning; trusts ability to adapt
       proceduralFluency: 0.7,     // High - follows procedures well
       transferLearning: 0.8,     // High - applies knowledge
       authoritySensitivity: 0.3,  // Low-medium - independent judgment
@@ -3410,7 +3422,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       },
     },
     cognitiveTraits: {
-      patience: 0.7,          // Very high - doesn't rush
+      patience: 0.7,          // High - doesn't rush
       riskTolerance: 0.5,     // Medium - balanced judgment
       comprehension: 0.7,     // High - clear thinking
       persistence: 0.7,       // Very high - never gives up
