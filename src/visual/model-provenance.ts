@@ -36,6 +36,7 @@ import { DISTANCE_PROVENANCE } from "./provenance/distance.js";
 import { DRO_PROVENANCE } from "./provenance/dro.js";
 import { PERSONA_PROVENANCE } from "./provenance/personas.js";
 import { CIF_PROVENANCE } from "./provenance/cif.js";
+import { CTC_REFERENCE_PROVENANCE } from "./provenance/ctc-reference.js";
 
 function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> {
   const out: Record<string, ProvenanceEntry> = {};
@@ -48,7 +49,7 @@ function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> 
 }
 
 export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Object.freeze(
-  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE),
+  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE),
 );
 
 let recording: Set<string> | null = null;
@@ -81,6 +82,16 @@ export function withParamOverrides<T>(values: Record<string, number>, fn: () => 
   } finally {
     overrides = outer;
   }
+}
+
+/**
+ * The override set in force, or null outside withParamOverrides. A new object
+ * on every override call, so a cache of anything derived from registered
+ * constants (the CTC reference curve) can key on it by identity and is never
+ * served across a change of constants. Read-only: never mutate it.
+ */
+export function activeOverrides(): Readonly<Record<string, number>> | null {
+  return overrides;
 }
 
 /** Start recording which ids `param()` reads. Returns the live set. Test and reporting use only. */
@@ -118,9 +129,27 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
   return {
     counts,
     hypotheses,
-    scope: "Every registered constant this answer read, from: the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation when values were applied), and the persona distance. The page metrics themselves are measured from the page, not set. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
+    scope: "Every registered constant this answer read, from: the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation when values were applied), the reference set totalCTC is ranked against (a definition), and the persona distance. The page metrics themselves are measured from the page, not set. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
     note: "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; it is not a validation of the score. See MODEL_PROVENANCE for each source.",
   };
+}
+
+/**
+ * Run `fn` and return the ids it read. Nests like withProvenance: the reads
+ * also land in any enclosing recording. Used to remember what a cached value
+ * was derived from, so a cache hit can record the same dependencies a miss
+ * would have.
+ */
+export function readsOf<T>(fn: () => T): { result: T; ids: ReadonlySet<string> } {
+  const outer = recording;
+  const mine = new Set<string>();
+  recording = mine;
+  try {
+    return { result: fn(), ids: mine };
+  } finally {
+    if (outer) for (const id of mine) outer.add(id);
+    recording = outer;
+  }
 }
 
 /** Run `fn` and return its result with the provenance of every constant it read. */

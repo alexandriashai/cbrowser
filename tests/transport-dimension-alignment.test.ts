@@ -25,7 +25,8 @@ import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
-import { DEMAND_DIMENSIONS, computeDemandDistribution, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
+import { DEMAND_DIMENSIONS, computeDemandDistribution, computeSequentialCTC, ctcReferenceCurve } from "../src/visual/cognitive-transport-chain.js";
+import { percentileAt } from "../src/visual/ctc-reference.js";
 
 const CHAIN_SRC = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
 
@@ -297,14 +298,15 @@ describe("the chain coefficient compares matched units", () => {
       { asymmetric: true, interactions: true });
   };
 
-  test("totalCTC is a sigmoid of rawCTC, so they are not interchangeable", () => {
+  test("totalCTC is the percentile of rawCTC, so they are not interchangeable", () => {
     // The bug this whole block exists for: the published coefficient divided
     // totalCTC (squashed to 0-1) by additiveCTC (a raw unbounded sum) and
     // reported ~0.3-0.5, which read as the chain dampening cost by 60%. It was
-    // reporting the sigmoid, not the chain.
+    // reporting the output scale, not the chain. The scale was a logistic
+    // through 21.0 and is a percentile against real pages since; either way
+    // only rawCTC is in the additive sum's units.
     const r = at(0.9);
-    const expected = 1 / (1 + Math.exp(-2.5 * (r.rawCTC - 1.2)));
-    expect(r.totalCTC).toBeCloseTo(expected, 6);
+    expect(r.totalCTC).toBe(percentileAt(ctcReferenceCurve(r.referenceScope).curve, r.rawCTC));
     expect(r.totalCTC).not.toBeCloseTo(r.rawCTC, 2);
   });
 

@@ -2,8 +2,9 @@
  * No hand-set number may live inline in the chain's arithmetic.
  *
  * Parses cognitive-transport-chain.ts with the TypeScript compiler and walks
- * computeDemandDistribution, computeSequentialCTC and
- * computeSequentialScrollCTC (plus the helpers they call and any function
+ * computeDemandDistribution, computeSequentialCTC, transportChain (the chain
+ * body computeSequentialCTC wraps since the percentile scale), ctcReferenceCurve
+ * and computeSequentialScrollCTC (plus the helpers they call and any function
  * declared inside them), collecting every numeric literal. Only 0, 1 and 2
  * are allowed (with -1 arising as unary minus on 1): identity, clamp bounds
  * and the square in `gap * gap`'s cousin `Math.pow(x, 2)` need no provenance.
@@ -19,7 +20,7 @@ import { join } from "node:path";
 import ts from "typescript";
 
 const CHAIN_PATH = join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts");
-const WATCHED = ["computeDemandDistribution", "computeSequentialCTC", "computeSequentialScrollCTC", "sigmoid", "traitValue", "readParams"];
+const WATCHED = ["computeDemandDistribution", "computeSequentialCTC", "transportChain", "ctcReferenceCurve", "computeSequentialScrollCTC", "sigmoid", "traitValue", "readParams"];
 const ALLOWED = new Set([0, 1, 2]);
 
 export function inlineLiterals(source: string): Array<{ fn: string; value: number; line: number }> {
@@ -67,7 +68,7 @@ describe("the chain's arithmetic carries no inline constants", () => {
     const tampered = source.replace(marker, `${marker} const leak = 0.37;`);
     const offenders = inlineLiterals(tampered);
     expect(offenders.length).toBe(1);
-    expect(offenders[0].fn).toBe("computeSequentialCTC");
+    expect(offenders[0].fn).toBe("transportChain");
     expect(offenders[0].value).toBe(0.37);
   });
 });

@@ -12,6 +12,12 @@
  * as history and no longer asserted) because 21.0 changed the chain's numbers
  * on purpose; research/ctc-21-deltas.md measures what each change moved.
  *
+ * Re-pinned in place when totalCTC became a percentile against real pages and
+ * capacityConsumed became the capacity actually drawn. Only totalCTC,
+ * screenCTC, reachWeightedCTC and capacityConsumed moved (16,570 numbers);
+ * every other number in the matrix, rawCTC included, was bit-identical to the
+ * previous pin before it was regenerated.
+ *
  * If the chain's behaviour is meant to change, regenerate the fixture with
  * tests/fixtures/generate-ctc-golden.ts and say so in the commit.
  *

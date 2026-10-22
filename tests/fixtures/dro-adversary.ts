@@ -9,7 +9,8 @@
  *
  * So this searches. For each capacity coordinate it hill-climbs over the whole
  * capacity vector for the steepest finite-difference slope of the product's
- * CTC along that coordinate, from several starts, on pages the product's own
+ * rawCTC along that coordinate (the quantity the bound is on since totalCTC
+ * became a percentile of it), from several starts, on pages the product's own
  * demand generator makes (golden pages, each input alone at its maximum,
  * light pages where the interaction terms are tight, and random pages over
  * the whole input range), under every option set. A secant slope never
@@ -40,7 +41,7 @@ import {
   type DemandDistribution,
 } from "../../src/visual/cognitive-transport-chain.js";
 import {
-  ctcOfCapacity,
+  rawCTCOfCapacity,
   droPreconditionViolations,
   type ChainLayout,
   type DroChainParams,
@@ -303,7 +304,7 @@ export function adversarialSearch(seed: number): SearchResult {
   const t0 = performance.now();
   for (const page of pages)
     for (const { id: optsId, opts } of OPTION_SETS) {
-      const f = (x: Vec) => { evals++; return ctcOfCapacity(x, page.demand, opts); };
+      const f = (x: Vec) => { evals++; return rawCTCOfCapacity(x, page.demand, opts); };
       const climb = activeDims(f, u);
       for (const dim of DIMS) rows.push({ page: page.id, demand: page.demand, optsId, opts, dim, steepest: steepestAlong(f, dim, u, climb) });
     }
@@ -392,7 +393,7 @@ export function adversarialPopulations(seed: number): Population[] {
   const out: Population[] = [];
   for (const page of search.pages)
     for (const { id: optsId, opts } of OPTION_SETS) {
-      const f = (x: Vec) => ctcOfCapacity(x, page.demand, opts);
+      const f = (x: Vec) => rawCTCOfCapacity(x, page.demand, opts);
       const rows = search.rows.filter((r) => r.page === page.id && r.optsId === optsId).sort((a, b) => b.steepest.slope - a.steepest.slope);
       const moving = rows.slice(0, 3).map((r) => r.steepest.x);
       const still = [0, 1].map(() => Object.fromEntries(DIMS.map((d) => [d, u()])) as Vec);
@@ -431,7 +432,7 @@ export interface PopulationCheck {
   violations: Violation[];
   /** Largest (E_Q - E_P) / (epsilon * L) per page over the upward populations. */
   tightest: Record<string, number>;
-  /** Upward populations, and how many of them had upper < 1 (so the cap at 1 is not what made the check pass). */
+  /** Upward populations, and how many of them the bound's cap did not bind on (so the cap is not what made the check pass). */
   upward: number;
   uncapped: number;
 }
@@ -447,7 +448,10 @@ export function checkPopulations(pops: Population[], mod: BoundModule): Populati
     if (Math.abs(b.nominal - p.eP) > 1e-12) violations.push({ where: `${where}: nominal is not E_P`, observed: b.nominal, bound: p.eP });
     if (p.dir > 0) {
       upward++;
-      if (b.upper < 1) uncapped++;
+      // Counted as uncapped when the cap did not bind. On a page with no
+      // demand, rawCTC is 0 everywhere, so rawMax, L and upper are all 0:
+      // upper equals the ceiling there without the cap doing anything.
+      if (b.nominal + b.epsilon * b.lipschitz <= b.ceiling) uncapped++;
       if (!(p.eQ <= b.upper + 1e-12)) violations.push({ where, observed: p.eQ, bound: b.upper });
       if (p.epsilon * b.lipschitz > 0) tightest[p.page.id] = Math.max(tightest[p.page.id] ?? 0, (p.eQ - p.eP) / (p.epsilon * b.lipschitz));
     } else if (!(p.eQ >= b.lower - 1e-12)) violations.push({ where, observed: p.eQ, bound: b.lower });
@@ -540,9 +544,9 @@ export function preconditionCases(base: DemandDistribution, live: ChainLayout = 
       chain: { layout: { layers: L, pairs: pairs.map((p, i) => (i === 0 ? { ...p, weight: Number.NaN } : p)) } },
     },
   ];
-  for (const k of ["weightDeficit", "weightSurplus", "contentScaleGain", "depletionRate", "indirectShare", "maxDrawdown", "range", "slope"] as const)
+  for (const k of ["weightDeficit", "weightSurplus", "contentScaleGain", "depletionRate", "indirectShare", "maxDrawdown", "range"] as const)
     cases.push({ name: `negative ${k}`, demand: base, chain: { params: { [k]: -0.5 } as Partial<DroChainParams> }, says: new RegExp(`chain constant ${k} = -0\\.5 is not finite and >= 0`), public: false });
-  for (const k of ["depletionGate", "atSkim", "centre"] as const)
+  for (const k of ["depletionGate", "atSkim"] as const)
     cases.push({ name: `NaN ${k}`, demand: base, chain: { params: { [k]: Number.NaN } as Partial<DroChainParams> }, says: new RegExp(`chain constant ${k} = NaN is not finite`), public: false });
   for (const v of [-0.1, 1.5])
     cases.push({ name: `capacityEpsilon ${v}`, demand: base, chain: { params: { capacityEpsilon: v } }, says: new RegExp(`capacityEpsilon = ${String(v).replace(".", "\\.")} is not in \\[0, 1\\]`), public: false });

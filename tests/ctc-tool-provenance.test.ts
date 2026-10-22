@@ -58,7 +58,9 @@ function expectHonestSummary(p: Summary) {
   expect(p.counts.published).toBe(0);
   expect(p.hypotheses.length).toBe(p.counts.hypothesis);
   expect(p.hypotheses).toContain("chain.depletionRate");
-  expect(p.hypotheses).toContain("chain.ctcSigmoidSlope");
+  // The output logistic's constants are gone (totalCTC is a percentile since
+  // 21.x); the percentile's reference is a definition, so it is counted there.
+  expect(p.hypotheses).not.toContain("chain.ctcSigmoidSlope");
   expect(p.hypotheses.every((id) => id.startsWith("chain."))).toBe(true);
   expect(p.note).toContain("hypothesis");
   // The counts cover demand construction, the chain and the distance; say so,

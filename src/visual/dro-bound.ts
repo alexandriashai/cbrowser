@@ -7,11 +7,29 @@
  * known; assume only that it lies within Wasserstein-1 distance epsilon of P,
  * with the ground metric |x - y|_1. Then for every such population Q
  *
- *     E_Q[CTC] <= E_P[CTC] + epsilon * L
+ *     E_Q[rawCTC] <= E_P[rawCTC] + epsilon * L
  *
- * where L is a Lipschitz constant of CTC(x) in the L1 metric on x
+ * where L is a Lipschitz constant of rawCTC(x) in the L1 metric on x
  * (Kantorovich-Rubinstein duality: W1 is the supremum of E_Q f - E_P f over
- * 1-Lipschitz f). The bound is also capped at 1, since CTC lies in (0, 1).
+ * 1-Lipschitz f). The bound is also capped at rawMax, the largest raw cost the
+ * derivation allows on this page.
+ *
+ * Why rawCTC. totalCTC is a percentile of rawCTC against real pages
+ * (cognitive-transport-chain.ts, ctc-reference.ts), so the chain's own
+ * behaviour is in rawCTC and the percentile is a fixed monotone map on top.
+ * Through 21.0 totalCTC was a logistic of rawCTC and this bound carried the
+ * logistic's slope as a factor; that factor is gone with the logistic.
+ *
+ * The percentile, too. The interpolated percentile curve is piecewise linear,
+ * so it is Lipschitz with constant s = its largest slope over [0, rawMax] (the
+ * only raw costs this page can produce). totalCTC(x) = F(rawCTC(x)) is then
+ * Lipschitz with L * s, and the same duality gives
+ *
+ *     E_Q[totalCTC] <= E_P[totalCTC] + epsilon * L * s,  capped at 1.
+ *
+ * Sound, and loose: s is the steepest segment of a curve through thousands of
+ * samples, so two close samples make it large. percentileLipschitzBound reports
+ * s beside the product so the looseness is visible rather than inferred.
  *
  * What it does NOT answer. This is a property of the MODEL: how far the
  * model's own output can move when the population moves. It says nothing about
@@ -24,9 +42,8 @@
  * persona roster, so the radius is the caller's assumption and must be named
  * by the caller.
  *
- * How L is derived (sound, not sampled). CTC = sigma(raw) with
- * sigma(z) = 1 / (1 + exp(-k (z - z0))). For each input coordinate s the code
- * below bounds sup |d raw / d x_s| by walking the chain's own structure:
+ * How L is derived (sound, not sampled). For each input coordinate s the code
+ * below bounds sup |d rawCTC / d x_s| by walking the chain's own structure:
  *
  *  - layer k's cost is c_k * sum_t w_t (d_t - cap_t)^2, with c_k the content
  *    gate (a function of demand alone, except in readingAttention, see below);
@@ -42,8 +59,7 @@
  *    gate of readingAttention, the last layer (so its depletion gate cannot
  *    feed back into anything on the page);
  *  - interaction terms w_p * L_a * L_b are bounded by the product rule with
- *    each layer's maximum attainable cost;
- *  - sigma' is bounded by its value at the point of [0, rawMax] nearest z0.
+ *    each layer's maximum attainable cost.
  *
  * Every piece of the chain is continuous in x (the deficit/surplus switch
  * meets at gap 0, min/max clamps are continuous, and the only x-dependent gate
@@ -73,8 +89,8 @@
  *  - no option beyond asymmetric and interactions (Schwartz values and a
  *    carried capacity change the demand and the starting capacity);
  *  - the chain constants are finite, with deficit and surplus weights, the
- *    content-scale gain, depletion rate, indirect share, drawdown cap,
- *    engagement range and sigmoid slope >= 0, and the capacity floor in [0, 1].
+ *    content-scale gain, depletion rate, indirect share, drawdown cap and
+ *    engagement range >= 0, and the capacity floor in [0, 1].
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -82,6 +98,7 @@
 
 import {
   computeSequentialCTC,
+  ctcReferenceCurve,
   capacityVector,
   DEMAND_DIMENSIONS,
   LAYER_DEFINITIONS,
@@ -89,7 +106,8 @@ import {
   SURPLUS_FREE_DIMENSIONS,
   type DemandDistribution,
 } from "./cognitive-transport-chain.js";
-import { buildOTCognitiveProfile } from "./cognitive-transport.js";
+import { buildOTCognitiveProfile, type MetricScope } from "./cognitive-transport.js";
+import { curveSlope } from "./ctc-reference.js";
 import { param } from "./model-provenance.js";
 
 export interface DroOptions {
@@ -100,14 +118,25 @@ export interface DroOptions {
 }
 
 export interface LipschitzBound {
-  /** Lipschitz constant of CTC(x) in the L1 metric on capacity vectors. */
+  /** Lipschitz constant of rawCTC(x) in the L1 metric on capacity vectors. */
   lipschitz: number;
   /** The coordinate whose partial derivative bound attains it. */
   worstDimension: string;
-  /** Per-coordinate bounds on |d CTC / d x_s|. */
+  /** Per-coordinate bounds on |d rawCTC / d x_s|. */
   perDimension: Record<string, number>;
-  /** Upper bound on raw CTC before the sigmoid, used to bound sigma'. */
+  /** Upper bound on rawCTC over the whole capacity cube for this demand. */
   rawMax: number;
+}
+
+export interface PercentileLipschitzBound {
+  /** Lipschitz constant of totalCTC(x), the percentile, in the L1 metric: raw.lipschitz * curveSlope. */
+  lipschitz: number;
+  /** The bound on rawCTC it is built on. */
+  raw: LipschitzBound;
+  /** Largest slope of the percentile curve over [0, raw.rawMax]: the curve's Lipschitz constant on every raw cost this page can produce. */
+  curveSlope: number;
+  /** The reference the percentile is read against (the demand's scope, viewport when it has none). */
+  referenceScope: MetricScope;
 }
 
 export interface PopulationMember {
@@ -118,12 +147,16 @@ export interface PopulationMember {
 }
 
 export interface WorstCaseBound {
-  /** E_P[CTC] over the given population. */
+  /** Which output the bound is on. */
+  quantity: "rawCTC" | "totalCTC";
+  /** E_P of the quantity over the given population. */
   nominal: number;
   /** epsilon as passed. */
   epsilon: number;
   lipschitz: number;
-  /** min(1, nominal + epsilon * lipschitz): no population within W1 epsilon can have a higher mean CTC. */
+  /** The largest value the quantity can take here: rawMax for rawCTC, 1 for the percentile. `upper` is capped at it. */
+  ceiling: number;
+  /** min(ceiling, nominal + epsilon * lipschitz): no population within W1 epsilon can have a higher mean. */
   upper: number;
   /** max(0, nominal - epsilon * lipschitz). */
   lower: number;
@@ -143,8 +176,6 @@ function readChainParams() {
     capacityEpsilon: param("chain.capacityEpsilon"),
     atSkim: param("chain.engagement.atSkim"),
     range: param("chain.engagement.range"),
-    slope: param("chain.ctcSigmoidSlope"),
-    centre: param("chain.ctcSigmoidCentre"),
   };
 }
 
@@ -215,10 +246,10 @@ export function droPreconditionViolations(
       if (!(Number.isFinite(p.weight) && p.weight >= 0))
         broken.push(`interaction weight ${p.a}x${p.b} = ${p.weight} is not finite and >= 0: the product-rule bound adds each term with its sign`);
 
-  const nonNegative: Array<keyof DroChainParams> = ["weightDeficit", "weightSurplus", "contentScaleGain", "depletionRate", "indirectShare", "maxDrawdown", "range", "slope"];
+  const nonNegative: Array<keyof DroChainParams> = ["weightDeficit", "weightSurplus", "contentScaleGain", "depletionRate", "indirectShare", "maxDrawdown", "range"];
   for (const k of nonNegative)
     if (!(Number.isFinite(params[k]) && params[k] >= 0)) broken.push(`chain constant ${k} = ${params[k]} is not finite and >= 0`);
-  for (const k of ["depletionGate", "atSkim", "centre"] as const)
+  for (const k of ["depletionGate", "atSkim"] as const)
     if (!Number.isFinite(params[k])) broken.push(`chain constant ${k} = ${params[k]} is not finite`);
   if (!(params.capacityEpsilon >= 0 && params.capacityEpsilon <= 1))
     broken.push(`chain constant capacityEpsilon = ${params.capacityEpsilon} is not in [0, 1]: the depletion bound assumes capacities stay <= 1`);
@@ -229,7 +260,7 @@ export function droPreconditionViolations(
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /**
- * A sound Lipschitz constant of totalCTC in the capacity vector, for one demand
+ * A sound Lipschitz constant of rawCTC in the capacity vector, for one demand
  * distribution. See the module comment for the derivation. Throws when one of
  * its preconditions does not hold for the live chain or this input.
  */
@@ -281,11 +312,6 @@ export function ctcLipschitzBound(demand: DemandDistribution, options: DroOption
   let rawMax = layers.reduce((s, l) => s + l.maxCost, 0);
   for (const p of pairs) rawMax += p.w * maxCostOf(p.a) * maxCostOf(p.b);
 
-  // sigma'(z) = k * s(1-s) is largest at z0; on [0, rawMax] use the nearest point.
-  const zStar = Math.max(0, Math.min(rawMax, P.centre));
-  const sStar = 1 / (1 + Math.exp(-P.slope * (zStar - P.centre)));
-  const sigmaPrime = P.slope * sStar * (1 - sStar);
-
   const perDimension: Record<string, number> = {};
   let lipschitz = 0, worstDimension = DEMAND_DIMENSIONS[0] as string;
   for (const s of DEMAND_DIMENSIONS as readonly string[]) {
@@ -305,23 +331,78 @@ export function ctcLipschitzBound(demand: DemandDistribution, options: DroOption
       if (l.gated) earlier += dk;
     }
     for (const p of pairs) rawPartial += p.w * ((D[p.a] ?? 0) * maxCostOf(p.b) + maxCostOf(p.a) * (D[p.b] ?? 0));
-    const bound = sigmaPrime * rawPartial;
+    const bound = rawPartial;
     perDimension[s] = bound;
     if (bound > lipschitz) { lipschitz = bound; worstDimension = s; }
   }
   return { lipschitz, worstDimension, perDimension, rawMax };
 }
 
-/** totalCTC of one capacity vector (numbers over DEMAND_DIMENSIONS). */
+/**
+ * A sound Lipschitz constant of totalCTC, the percentile, in the capacity
+ * vector: the rawCTC constant times the largest slope of the percentile curve
+ * over [0, rawMax]. Sound because rawCTC never leaves [0, rawMax] on this page
+ * and the curve is piecewise linear with that slope as its constant there.
+ * Same preconditions as ctcLipschitzBound.
+ */
+export function percentileLipschitzBound(demand: DemandDistribution, options: DroOptions = {}): PercentileLipschitzBound {
+  const raw = ctcLipschitzBound(demand, options);
+  const referenceScope: MetricScope = demand.scope ?? "viewport";
+  const slope = curveSlope(ctcReferenceCurve(referenceScope, options).curve, 0, raw.rawMax);
+  return { lipschitz: raw.lipschitz * slope, raw, curveSlope: slope, referenceScope };
+}
+
+function chainOptions(options: DroOptions) {
+  return { asymmetric: options.asymmetric !== false, interactions: options.interactions !== false };
+}
+
+/** rawCTC of one capacity vector (numbers over DEMAND_DIMENSIONS): the quantity ctcLipschitzBound bounds. */
+export function rawCTCOfCapacity(x: Record<string, number>, demand: DemandDistribution, options: DroOptions = {}): number {
+  return computeSequentialCTC(buildOTCognitiveProfile("dro", x), demand, chainOptions(options)).rawCTC;
+}
+
+/** totalCTC (the percentile) of one capacity vector: the quantity percentileLipschitzBound bounds. */
 export function ctcOfCapacity(x: Record<string, number>, demand: DemandDistribution, options: DroOptions = {}): number {
-  return computeSequentialCTC(buildOTCognitiveProfile("dro", x), demand, {
-    asymmetric: options.asymmetric !== false,
-    interactions: options.interactions !== false,
-  }).totalCTC;
+  return computeSequentialCTC(buildOTCognitiveProfile("dro", x), demand, chainOptions(options)).totalCTC;
+}
+
+/** E_P[f] with the weights normalised, after checking epsilon and the weights. */
+function populationMean(
+  who: string,
+  population: PopulationMember[],
+  epsilon: number,
+  f: (x: Record<string, number>) => number,
+): number {
+  if (typeof epsilon !== "number" || !Number.isFinite(epsilon) || epsilon < 0)
+    throw new Error(`${who}: epsilon must be a finite number >= 0 (no default; it is the caller's assumption)`);
+  if (!population.length) throw new Error(`${who}: population is empty`);
+  let total = 0, mean = 0;
+  for (const m of population) {
+    const w = m.weight ?? 1;
+    if (!(w >= 0) || !Number.isFinite(w)) throw new Error(`${who}: weights must be finite and >= 0`);
+    total += w;
+  }
+  if (!(total > 0)) throw new Error(`${who}: weights sum to 0`);
+  for (const m of population) mean += ((m.weight ?? 1) / total) * f(capacityVector(m.traits));
+  return mean;
+}
+
+function worstCase(quantity: WorstCaseBound["quantity"], nominal: number, epsilon: number, lipschitz: number, ceiling: number): WorstCaseBound {
+  return {
+    quantity,
+    nominal,
+    epsilon,
+    lipschitz,
+    ceiling,
+    upper: Math.min(ceiling, nominal + epsilon * lipschitz),
+    lower: Math.max(0, nominal - epsilon * lipschitz),
+    metric: "W1 over capacity vectors in [0,1]^30 with ground metric |x - y|_1",
+    note: `A property of the model, not of people: how far the model's mean ${quantity} can move when the population moves by epsilon. The chain's constants are hand-set hypotheses.`,
+  };
 }
 
 /**
- * Worst-case mean CTC over every population within W1 distance `epsilon` of
+ * Worst-case mean rawCTC over every population within W1 distance `epsilon` of
  * the given one. `epsilon` is required: it is the caller's assumption about
  * how far real users can sit from the personas, in mean L1 change of the
  * capacity vector.
@@ -332,25 +413,23 @@ export function worstCaseCTCBound(
   epsilon: number,
   options: DroOptions = {},
 ): WorstCaseBound {
-  if (typeof epsilon !== "number" || !Number.isFinite(epsilon) || epsilon < 0)
-    throw new Error("worstCaseCTCBound: epsilon must be a finite number >= 0 (no default; it is the caller's assumption)");
-  if (!population.length) throw new Error("worstCaseCTCBound: population is empty");
-  let total = 0, mean = 0;
-  for (const m of population) {
-    const w = m.weight ?? 1;
-    if (!(w >= 0) || !Number.isFinite(w)) throw new Error("worstCaseCTCBound: weights must be finite and >= 0");
-    total += w;
-  }
-  if (!(total > 0)) throw new Error("worstCaseCTCBound: weights sum to 0");
-  for (const m of population) mean += ((m.weight ?? 1) / total) * ctcOfCapacity(capacityVector(m.traits), demand, options);
-  const { lipschitz } = ctcLipschitzBound(demand, options);
-  return {
-    nominal: mean,
-    epsilon,
-    lipschitz,
-    upper: Math.min(1, mean + epsilon * lipschitz),
-    lower: Math.max(0, mean - epsilon * lipschitz),
-    metric: "W1 over capacity vectors in [0,1]^30 with ground metric |x - y|_1",
-    note: "A property of the model, not of people: how far the model's mean CTC can move when the population moves by epsilon. The chain's constants are hand-set hypotheses.",
-  };
+  const mean = populationMean("worstCaseCTCBound", population, epsilon, (x) => rawCTCOfCapacity(x, demand, options));
+  const { lipschitz, rawMax } = ctcLipschitzBound(demand, options);
+  return worstCase("rawCTC", mean, epsilon, lipschitz, rawMax);
+}
+
+/**
+ * Worst-case mean totalCTC (the percentile) over every population within W1
+ * distance `epsilon` of the given one. Sound and loose: see
+ * percentileLipschitzBound and the module comment.
+ */
+export function worstCasePercentileBound(
+  population: PopulationMember[],
+  demand: DemandDistribution,
+  epsilon: number,
+  options: DroOptions = {},
+): WorstCaseBound {
+  const mean = populationMean("worstCasePercentileBound", population, epsilon, (x) => ctcOfCapacity(x, demand, options));
+  const { lipschitz } = percentileLipschitzBound(demand, options);
+  return worstCase("totalCTC", mean, epsilon, lipschitz, 1);
 }

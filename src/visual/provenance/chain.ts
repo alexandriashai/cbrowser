@@ -6,7 +6,8 @@
  * weight, rate, cap and modulation coefficient was set by hand, so it is a
  * `hypothesis` whose `source` names the data that would test or fit it. The
  * only `definition` entries are pure encoding choices with no empirical
- * claim: a numerical epsilon and output rounding.
+ * claim: a numerical epsilon and output rounding. The scale totalCTC is
+ * reported on is the reference set, registered in provenance/ctc-reference.ts.
  *
  * The chain reads these through `param()` at function entry, so a tool that
  * runs it under `withProvenance` reports exactly which hand-set numbers its
@@ -104,8 +105,10 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("interaction.frustrationXreadability", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.cognitiveLoadXmotor", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.frustrationXdecision", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
-  h("ctcSigmoidSlope", 2.5, "Hand-set slope of the raw-to-[0,1] CTC logistic; a fit of raw CTC against rated difficulty on real pages would set it."),
-  h("ctcSigmoidCentre", 1.2, "Hand-set raw CTC that maps to 0.5; the same difficulty-rating fit would set it."),
+  // chain.ctcSigmoidSlope (2.5) and chain.ctcSigmoidCentre (1.2) were the
+  // hand-set logistic that mapped rawCTC to totalCTC through 21.0. totalCTC is
+  // now a percentile against real pages (ctcReference.*, provenance/ctc-reference.ts),
+  // which has no free constant.
 
   // ── Abandonment ──
   h("abandonment.patienceShare", 0.7, "Hand-set weight of patience in the blended tolerance; observed abandonment against measured patience and resilience would fit the blend."),

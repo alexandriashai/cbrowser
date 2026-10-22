@@ -26,8 +26,18 @@ import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
-import { computeDemandDistribution, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
-import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
+import {
+  computeDemandDistribution,
+  computeDemandFromRawMetrics,
+  computeSequentialCTC,
+  capacityVector,
+  DEMAND_DIMENSIONS,
+  LAYER_DEFINITIONS,
+  type DemandDistribution,
+  type SequentialTransportResult,
+} from "../src/visual/cognitive-transport-chain.js";
+import { MODEL_PROVENANCE, param } from "../src/visual/model-provenance.js";
+import { ROSTER, toolProfile, allDemands } from "./fixtures/ctc-golden-matrix.js";
 
 const CHAIN = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
 const dense = (d: number) => computeDemandDistribution({
@@ -86,6 +96,103 @@ describe("the account never saturates", () => {
   });
 });
 
+/** Each layer's capacity on entry: `start` for the first, the previous layer's residual after. */
+function entering(start: Record<string, number>, r: SequentialTransportResult): Array<Record<string, number>> {
+  return r.layers.map((_, i) => (i === 0 ? start : r.layers[i - 1].residualCapacity));
+}
+
+/** The content gate of one layer on one demand, as the chain computes it. */
+function contentScale(layer: { traits: string[] }, demand: DemandDistribution): number {
+  const mean = layer.traits.reduce((s, t) => s + (demand.demands[t] ?? 0), 0) / layer.traits.length;
+  return Math.min(1, mean * param("chain.contentScaleGain"));
+}
+
+describe("capacityConsumed is what the layer actually drew (ISC-43)", () => {
+  // Through 21.0 it was depletionRate x layerCost whatever happened: reported
+  // when the content gate blocked depletion, above the drawdown cap on a heavy
+  // layer, and blind to the capacity floor. It now sums, over every dimension,
+  // the capacity the layer removed (LayerResult.capacityConsumed).
+
+  test("a light page whose layers are all gated off reports 0, while its layers still cost something", () => {
+    const light = computeDemandFromRawMetrics(0.02, 0.02, 0, 0.02, 0, 0, 0);
+    const gate = param("chain.depletionGate");
+    for (const name of ["first-timer", "elderly-user", "power-user"]) {
+      const prof = toolProfile(name, ROSTER[name]);
+      const r = computeSequentialCTC(prof, light, { asymmetric: true, interactions: true });
+      for (const [i, l] of r.layers.entries()) expect({ name, layer: l.name, gated: contentScale(LAYER_DEFINITIONS[i], light) <= gate }).toEqual({ name, layer: l.name, gated: true });
+      expect({ name, consumed: r.layers.map((l) => l.capacityConsumed) }).toEqual({ name, consumed: r.layers.map(() => 0) });
+      // Not vacuous: the old figure, depletionRate x cost, was positive here.
+      expect(r.layers.some((l) => l.transportCost > 0)).toBe(true);
+      // And nothing was drawn: the capacity leaving the page is the capacity it arrived with.
+      expect(r.remainingCapacity).toEqual(capacityVector(prof.traits));
+    }
+  });
+
+  test("a heavy layer reports the capped draw, not depletionRate x cost", () => {
+    // The golden matrix's boundary-floor persona on the second of two maximal
+    // screens: there cognitiveLoad costs 3.36, so depletionRate x cost is 0.504
+    // and the drawdown cap (0.5) binds. (On the first screen it costs 3.28 and
+    // does not.)
+    const floor = Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, d === "siteFamiliarity" ? 0 : 0.02]));
+    const wall = computeDemandFromRawMetrics(1, 1, 1000, 1, 1, 500, 30);
+    const prof = buildOTCognitiveProfile("boundary-floor", floor);
+    const first = computeSequentialCTC(prof, wall, { asymmetric: true, interactions: true });
+    const r = computeSequentialCTC(prof, wall, { asymmetric: true, interactions: true, carriedCapacity: first.remainingCapacity });
+    const rate = param("chain.depletionRate");
+    const cap = param("chain.maxDrawdownFraction");
+    const share = param("chain.indirectDepletionShare");
+    const eps = param("chain.capacityEpsilon");
+    const before = entering(first.remainingCapacity, r);
+    let capped = 0;
+    r.layers.forEach((l, i) => {
+      const own = LAYER_DEFINITIONS[i].traits;
+      const fOwn = Math.min(cap, rate * l.transportCost);
+      const fOther = Math.min(cap, rate * share * l.transportCost);
+      let expected = 0;
+      for (const t of own) expected += Math.max(0, before[i][t] - Math.max(eps, before[i][t] * (1 - fOwn)));
+      for (const d of DEMAND_DIMENSIONS) if (!own.includes(d)) expected += Math.max(0, before[i][d] - Math.max(eps, before[i][d] * (1 - fOther)));
+      expect({ layer: l.name, consumed: l.capacityConsumed }).toEqual({ layer: l.name, consumed: expected });
+      if (rate * l.transportCost > cap) {
+        capped++;
+        expect(l.capacityConsumed).not.toBe(rate * l.transportCost);
+      }
+    });
+    // The cap binds on at least one layer of this page, so the test reaches it.
+    expect(capped).toBeGreaterThan(0);
+  });
+
+  test("the capacity floor stops a draw and is never counted as one", () => {
+    // Every dimension at 0: the first gated layer lifts them to the floor
+    // (chain.capacityEpsilon) and nothing can be drawn below it, so every
+    // layer reports 0 while depletionRate x cost, the old figure, was ~0.5.
+    const zero = Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, 0]));
+    const wall = computeDemandFromRawMetrics(1, 1, 1000, 1, 1, 500, 30);
+    const r = computeSequentialCTC(buildOTCognitiveProfile("zero", zero), wall, { asymmetric: true, interactions: true });
+    expect(r.layers.map((l) => l.capacityConsumed)).toEqual(r.layers.map(() => 0));
+    expect(Math.max(...r.layers.map((l) => param("chain.depletionRate") * l.transportCost))).toBeGreaterThan(0.5);
+    for (const v of Object.values(r.remainingCapacity)) expect(v).toBe(param("chain.capacityEpsilon"));
+  });
+
+  test("on every roster persona and golden page it is the capacity removed, summed over dimensions", () => {
+    let layers = 0;
+    for (const [name, p] of Object.entries(ROSTER)) {
+      const prof = toolProfile(name, p);
+      for (const { id, demand } of allDemands()) {
+        const r = computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true });
+        const before = entering(capacityVector(prof.traits), r);
+        r.layers.forEach((l, i) => {
+          let removed = 0;
+          for (const d of DEMAND_DIMENSIONS) removed += Math.max(0, before[i][d] - l.residualCapacity[d]);
+          // Summation order differs from the chain's (own traits first), so equal to rounding.
+          expect({ name, id, layer: l.name, off: Math.abs(l.capacityConsumed - removed) <= 1e-12 }).toEqual({ name, id, layer: l.name, off: true });
+          layers++;
+        });
+      }
+    }
+    expect(layers).toBeGreaterThan(1000);
+  });
+});
+
 describe("cost still rises as capacity falls", () => {
   test("monotonic in the deficit regime, which is where the model makes its claim", () => {
     // Bounded to capacities BELOW the page's demand. Above it the model bills
@@ -96,7 +203,12 @@ describe("cost still rises as capacity falls", () => {
     // 0.146 > 0.412 after -- and resolving it globally is a calibration
     // decision about a research instrument, not a side effect of fixing
     // saturation.
-    const costs = [0.15, 0.3, 0.45, 0.6].map((v) => run(uniform(v)).totalCTC);
+    //
+    // rawCTC, not totalCTC: this is a claim about the chain. totalCTC is a
+    // percentile of rawCTC against real pages, monotone but flat at 1 beyond
+    // the costliest reference page, so two impaired personas on this dense
+    // page can both read 1 while their raw costs still differ.
+    const costs = [0.15, 0.3, 0.45, 0.6].map((v) => run(uniform(v)).rawCTC);
     for (let i = 1; i < costs.length; i++) expect(costs[i]).toBeLessThan(costs[i - 1]);
   });
 });

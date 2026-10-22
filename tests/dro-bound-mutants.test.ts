@@ -26,6 +26,14 @@
  * An unmutated copy goes through the same pipeline and must survive every
  * check on every seed; without it, a broken import path would "kill" every
  * mutant.
+ *
+ * M4 (sigma' taken at rawMax instead of the point nearest the logistic's
+ * centre) was retired in 21.x with the logistic: the bound is on rawCTC now
+ * and has no sigma' to mutate. The percentile bound built on it
+ * (percentileLipschitzBound) is tested in dro-bound.test.ts and has no row
+ * here: it is the raw constant times the curve's steepest slope, and the
+ * steepest totalCTC slope any search finds is a few ten-thousandths of it, so
+ * only a gross mutant could be refuted.
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -57,8 +65,6 @@ const MUTANTS: Mutant[] = [
     from: "for (const p of pairs) rawPartial += p.w * ((D[p.a] ?? 0) * maxCostOf(p.b) + maxCostOf(p.a) * (D[p.b] ?? 0));", to: "" },
   { id: "M3", what: "drop the surplus gap from the per-trait slope", mustKill: true,
     from: "g[t] = gate * 2 * Math.max(wDef * defGap, wSur(t) * surGap);", to: "g[t] = gate * 2 * wDef * defGap;" },
-  { id: "M4", what: "sigma' at rawMax instead of the point nearest the centre", mustKill: true,
-    from: "const zStar = Math.max(0, Math.min(rawMax, P.centre));", to: "const zStar = rawMax;" },
   { id: "M5", what: "drop the factor 2 of the squared-gap derivative", mustKill: true,
     from: "g[t] = gate * 2 * Math.max(", to: "g[t] = gate * Math.max(" },
   { id: "M6", what: "drop the content-gate derivative on the readingTendency path", mustKill: true,
@@ -68,16 +74,16 @@ const MUTANTS: Mutant[] = [
   { id: "M8", what: "drop the readingTendency demand path", mustKill: true,
     from: "if (s === RT && l.traits.includes(SA)) {", to: "if (false) {" },
   { id: "M9", what: "multiply the bound by 0.9", mustKill: true,
-    from: "const bound = sigmaPrime * rawPartial;", to: "const bound = 0.9 * sigmaPrime * rawPartial;" },
+    from: "const bound = rawPartial;", to: "const bound = 0.9 * rawPartial;" },
   { id: "M10", what: "halve the layer maxCost the interaction terms read", mustKill: true,
     from: "const maxCostOf = (name: string) => layers.find((l) => l.name === name)?.maxCost ?? 0;",
     to: "const maxCostOf = (name: string) => 0.5 * (layers.find((l) => l.name === name)?.maxCost ?? 0);" },
   { id: "M11", what: "halve the depletion coupling rate", mustKill: false,
     from: "const rhoSigma = P.depletionRate * P.indirectShare;", to: "const rhoSigma = P.depletionRate * P.indirectShare * P.indirectShare;" },
   { id: "M12", what: "halve epsilon * L in upper", mustKill: true,
-    from: "upper: Math.min(1, mean + epsilon * lipschitz),", to: "upper: Math.min(1, mean + 0.5 * epsilon * lipschitz)," },
+    from: "upper: Math.min(ceiling, nominal + epsilon * lipschitz),", to: "upper: Math.min(ceiling, nominal + 0.5 * epsilon * lipschitz)," },
   { id: "M13", what: "nominal ignores the weights", mustKill: true,
-    from: "mean += ((m.weight ?? 1) / total) * ctcOfCapacity", to: "mean += (1 / population.length) * ctcOfCapacity" },
+    from: "mean += ((m.weight ?? 1) / total) * f(", to: "mean += (1 / population.length) * f(" },
   { id: "M14", what: "first-order depletion coupling only", mustKill: false,
     from: "if (l.gated) earlier += dk;", to: "if (l.gated) earlier += l.g[s] ?? 0;" },
   { id: "P1", what: "ctcLipschitzBound ignores broken preconditions", mustKill: true,
