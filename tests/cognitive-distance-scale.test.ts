@@ -84,9 +84,20 @@ describe("cognitive_distance scale comparability", () => {
 
   test("the three metrics really are on different scales", () => {
     // Not a defect to fix — a fact the output must disclose rather than hide.
+    //
+    // This asserted mean(w1) > 5 * mean(sliced), which pinned the magnitude of
+    // the simplex W1 (roster means 2026-10-21: w1 0.0847, w2 0.1090, sliced
+    // 0.0132, ratio 6.4). The generalized W1 puts t/29 rather than t/sum(t) on
+    // each trait, about half the mass, so its mean is 0.0474 and the ratio 3.6.
+    // The property is that no two of the three share a scale, so that is what
+    // is asserted now: every pair of means differs by more than a factor of 2
+    // (measured: w2/w1 2.3, w1/sliced 3.6, w2/sliced 8.2).
     const mean = (k: "w1" | "w2" | "sliced") =>
       pairs.reduce((a, p) => a + p[k], 0) / pairs.length;
-    expect(mean("w1")).toBeGreaterThan(mean("sliced") * 5);
+    const ratio = (x: number, y: number) => Math.max(x, y) / Math.min(x, y);
+    expect(ratio(mean("w1"), mean("sliced"))).toBeGreaterThan(2);
+    expect(ratio(mean("w2"), mean("w1"))).toBeGreaterThan(2);
+    expect(ratio(mean("w2"), mean("sliced"))).toBeGreaterThan(2);
   });
 
   test("the verdict discriminates instead of returning one bucket", () => {
@@ -104,9 +115,11 @@ describe("cognitive_distance scale comparability", () => {
 
   test("the old absolute thresholds would have collapsed — the reason this exists", () => {
     // Until 2026-10-21 this asserted >90% of pairs at w1 >= 0.06, which pinned
-    // the SCALE of the old weighted-L1 heuristic (0.055-0.684). w1 is now the
-    // exact W1 (0.03-0.21 across the roster), so the pin moved to the property
-    // that matters: the old absolute bands still put most pairs in one bucket.
+    // the SCALE of the old weighted-L1 heuristic (0.055-0.684). w1 became the
+    // exact simplex W1 (0.029-0.206 across the roster) and is now the
+    // generalized W1 (0.017-0.118), so the pin moved to the property that
+    // matters: the old absolute bands still put most pairs in one bucket
+    // (178 of 300 in 0.03-0.06 today).
     const oldBand = (w1: number) => (w1 < 0.01 ? 0 : w1 < 0.03 ? 1 : w1 < 0.06 ? 2 : 3);
     const buckets = [0, 0, 0, 0];
     for (const p of pairs) buckets[oldBand(p.w1)]++;

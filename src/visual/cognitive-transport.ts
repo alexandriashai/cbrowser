@@ -4,7 +4,7 @@
  * Treats persona cognitive profiles as probability measures in Wasserstein space.
  * Provides mathematically grounded operations:
  *
- * - Cognitive distance: W₁(personaA, personaB) — true distance between minds
+ * - Cognitive distance: generalized W₁(personaA, personaB) — trait shape AND level
  * - Barycenter: consensus cognitive profile from multiple personas
  * - Geodesic interpolation: principled persona blending preserving trait coupling
  * - Adversarial generation: worst-case persona via distributionally robust optimization
@@ -47,13 +47,21 @@ export interface OTCognitiveProfile {
 }
 
 export interface CognitiveDistance {
-  /** Wasserstein-1 distance between trait distributions */
+  /**
+   * Generalized Wasserstein-1 distance between the two trait measures (shape
+   * AND level; see cognitiveDistance). In [0, distance.slackCost].
+   */
   w1: number;
-  /** Wasserstein-2 distance (Bures-Wasserstein for Gaussians) */
+  /** Wasserstein-2 distance (Bures-Wasserstein for Gaussians), on the simplex: shape only */
   w2: number;
-  /** Per-trait contribution to total distance */
+  /**
+   * Per-trait contribution to `w1`, plus one non-trait key, OVERALL_LEVEL_KEY
+   * ("overallLevel"): the slack bin's half of the cost of creating or destroying
+   * trait mass, exactly 0.5 * slackCost * |mean trait level A - mean trait
+   * level B|. The values sum to `w1`.
+   */
   traitContributions: Record<string, number>;
-  /** Sliced Wasserstein approximation */
+  /** Sliced Wasserstein approximation, on the simplex: shape only */
   sliced: number;
 }
 
@@ -231,9 +239,80 @@ function groundCostMatrix(): number[][] {
   return matrix;
 }
 
-/** The ground-cost matrix the distance uses, exposed for tests (a copy). */
+/** The 29 x 29 trait ground-cost matrix, exposed for tests (a copy). */
 export function traitGroundCostMatrix(): number[][] {
   return groundCostMatrix().map(row => row.slice());
+}
+
+/**
+ * Key of the slack bin's share in `CognitiveDistance.traitContributions`. Not a
+ * trait: it is the part of the distance spent creating or destroying trait mass,
+ * i.e. the difference in overall level between the two profiles.
+ */
+export const OVERALL_LEVEL_KEY = "overallLevel";
+
+/**
+ * The (d+1) x (d+1) cost matrix of the generalized distance: the trait ground
+ * costs, plus a slack bin (last index) at distance.slackCost from every trait
+ * and 0 from itself.
+ *
+ * Refuses to build if 2 * slackCost is below the largest ground cost. Below that
+ * the triangle inequality fails through the slack bin (trait -> slack -> trait
+ * would be cheaper than trait -> trait), the result is no longer a metric, and
+ * the slack-bin problem stops being equal to the Piccoli-Rossi distance (see
+ * cognitiveDistance). The registry values are frozen, so this can only fire on
+ * an edit to provenance/distance.ts, and that edit should fail loudly.
+ */
+let generalizedCostCache: { ground: number[][]; slack: number; matrix: number[][] } | null = null;
+function generalizedCostMatrix(): number[][] {
+  // groundCostMatrix returns the same array until a registry value changes, so
+  // its identity plus the slack cost is a complete cache key.
+  const ground = groundCostMatrix();
+  const slack = param("distance.slackCost");
+  if (generalizedCostCache && generalizedCostCache.ground === ground && generalizedCostCache.slack === slack) {
+    return generalizedCostCache.matrix;
+  }
+  let maxGround = 0;
+  for (const row of ground) for (const c of row) if (c > maxGround) maxGround = c;
+  if (2 * slack < maxGround) {
+    throw new Error(`distance.slackCost ${slack} is below half the largest ground cost ${maxGround}: the generalized distance would not be a metric`);
+  }
+  const d = ground.length;
+  const matrix: number[][] = ground.map(row => [...row, slack]);
+  matrix.push([...new Array<number>(d).fill(slack), 0]);
+  generalizedCostCache = { ground, slack, matrix };
+  return matrix;
+}
+
+/** The generalized (trait + slack bin) cost matrix, exposed for tests (a copy). */
+export function traitGeneralizedCostMatrix(): number[][] {
+  return generalizedCostMatrix().map(row => row.slice());
+}
+
+/**
+ * A profile's trait measure for the generalized distance: d + 1 masses that sum
+ * to 1. Trait i carries t_i / d (t_i clamped to the schema range [0, 1], missing
+ * traits at distance.missingTraitDefault); the last entry is the slack bin,
+ * 1 - sum_i t_i / d, which holds the mass the traits do not.
+ *
+ * Unlike traitsToDistribution nothing is renormalised, so the absolute level
+ * survives: all traits 0.2 puts 0.2 on the traits and 0.8 in the slack bin, all
+ * traits 0.8 puts 0.8 and 0.2. No floor is applied either, because the solver
+ * accepts zero atoms (distance.simplexFloor belongs to the simplex encoding).
+ */
+export function traitsToLevelMeasure(traits: Record<string, number>): Float64Array {
+  const d = COGNITIVE_TRAITS.length;
+  const missing = param("distance.missingTraitDefault");
+  const measure = new Float64Array(d + 1);
+  let traitMass = 0;
+  for (let i = 0; i < d; i++) {
+    const v = Math.min(1, Math.max(0, traits[COGNITIVE_TRAITS[i]] ?? missing));
+    measure[i] = v / d;
+    traitMass += measure[i];
+  }
+  // Max with 0: all traits at 1 can sum to 1 + 2e-16.
+  measure[d] = Math.max(0, 1 - traitMass);
+  return measure;
 }
 
 // ── Core: Trait Distribution Operations ──
@@ -344,73 +423,137 @@ function seededRandom(seed: number): () => number {
 /**
  * Distance between two cognitive profiles.
  *
- * `w1` is the EXACT Wasserstein-1 (earth mover's) distance between the two
- * trait distributions under the ground metric `traitGroundDistance`: the
- * minimum, over every transport plan P with row sums `a` and column sums `b`,
- * of sum_ij P[i][j] * d(trait_i, trait_j). It is solved as a min-cost flow
- * (successive shortest paths; see exact-w1.ts). Before 2026-10-21 this field
- * was a "simplified weighted L1" — sum_i |a_i - b_i| times the mean ground
- * distance of trait i — which is not optimal transport and ignores WHICH traits
- * the mass moved between. The old values ran roughly 0.05-0.7; the exact
- * distance is bounded by max ground cost (0.8) times total variation, so it is
- * smaller. The MCP tool reports percentiles within the built-in roster, which
- * absorbs the rescale.
+ * `w1` is the exact GENERALIZED Wasserstein-1 distance between the two trait
+ * vectors (Piccoli & Rossi 2014, "Generalized Wasserstein distance and its
+ * application to transport equations with source"; the unbalanced-OT form with
+ * a per-unit cost for creating or destroying mass). Each profile is the measure
+ * that puts t_i / 29 on trait i, so its total mass is its mean trait level and
+ * is NOT normalised away. The distance is the cheapest way to turn one measure
+ * into the other when moving a unit of mass from trait i to trait j costs
+ * d(trait_i, trait_j) (traitGroundDistance) and creating or destroying a unit
+ * costs c = distance.slackCost (0.4, a registered hypothesis).
  *
- * `traitContributions[t]` is the transport cost attributed to trait t under the
- * optimal plan: half the cost of mass shipped OUT of t plus half the cost of
- * mass shipped INTO t, i.e. 0.5 * (sum_j P[t][j] d(t,j) + sum_i P[i][t] d(i,t)).
- * Each unit of cost is split between the two endpoints it connects, so the
- * contributions sum to `w1` exactly and are symmetric in the two profiles
- * (swapping A and B transposes P and leaves every contribution unchanged).
- * Mass that stays put (P[t][t]) costs 0 and contributes nothing. The optimal
- * plan is often not unique (ties are common under a three-level cost); the
- * attribution is the plan the solver finds for the pair in a canonical order,
- * so it is deterministic and the same for (A, B) and (B, A). `w1` itself is
- * unique.
+ * It is computed by the standard slack-bin reduction (traitsToLevelMeasure):
+ * each measure gets one extra bin holding 1 - its trait mass, so both sum to 1,
+ * the slack bin is at cost c from every trait and 0 from itself, and the exact
+ * balanced W1 is solved on the 30 bins by min-cost flow (successive shortest
+ * paths; see exact-w1.ts). Mass sent from a trait to the other side's slack bin
+ * is destroyed, mass sent from the slack bin to a trait is created. The
+ * reduction equals the Piccoli-Rossi distance (with a = c, b = 1) whenever
+ * 2c >= the largest ground cost (0.8): a plan that both destroys at i and
+ * creates at j can then be replaced by transporting i -> j at no greater cost,
+ * so some optimum only destroys (or only creates) |mass_A - mass_B|, which the
+ * slack bins always have room for since both trait masses are at most 1. The
+ * same condition makes the 30-bin cost a metric, so `w1` is a metric on trait
+ * vectors: 0 exactly when the 29 values agree (after the [0, 1] clamp and the
+ * missing-trait default). tests/cognitive-distance-w1.test.ts checks the
+ * reduction against the Piccoli-Rossi LP solved by an independent simplex.
  *
- * MODELLING LIMIT (deliberate, unchanged): both profiles are normalised to the
- * simplex before transport, so the absolute scale of the trait vector is
- * discarded. Two personas whose trait vectors are proportional — all traits
- * 0.2 versus all traits 0.8 — have identical distributions and are at
- * distance 0 on `w1`, `w2` and `sliced` alike, although they are very
- * different people. The distance measures the SHAPE of a profile (how traits
- * are weighted against each other), not its level. `OTCognitiveProfile.traitScale`
- * keeps the discarded total so interpolation can restore it; the distance does
- * not use it.
+ * Bounds, with mean_i over the 29 traits:
+ *   c * |mean_i t_A,i - mean_i t_B,i|  <=  w1  <=  c * mean_i |t_A,i - t_B,i|  <=  c.
+ * The lower bound is the mass imbalance, which can only be created or
+ * destroyed; the upper bound routes every difference through the slack bin.
+ * Proportional profiles are no longer at distance 0: all traits 0.2 versus all
+ * traits 0.8 is exactly 0.6 * c = 0.24 (both bounds meet). History: until
+ * 2026-10-21 this field was a weighted L1 that was not optimal transport (see
+ * exact-w1.ts); its exact replacement, shipped the same day, normalised both
+ * profiles to the simplex, and that pair was at 0 on every metric.
+ *
+ * `w1` is also positively homogeneous in the trait difference: moving every
+ * trait of A toward B by the same fraction scales the distance by that
+ * fraction (Kantorovich-Rubinstein: W1 under a metric cost depends only on the
+ * signed difference of the measures). So pushing a persona's traits further
+ * from another's never brings it closer.
+ *
+ * `w2` and `sliced` are UNCHANGED and still computed on the simplex
+ * (traitsToDistribution), so they remain shape-only: proportional profiles are
+ * at 0 on both.
+ *
+ * `traitContributions[t]` is the cost attributed to trait t under the optimal
+ * plan: half the cost of mass shipped OUT of t plus half the cost of mass
+ * shipped INTO t, i.e. 0.5 * (sum_j P[t][j] C(t,j) + sum_i P[i][t] C(i,t)) over
+ * all 30 bins. The slack bin's share is reported under OVERALL_LEVEL_KEY: half
+ * of every creation or destruction is charged to the trait it happened at and
+ * half to the overall level. Each unit of cost is split between the two
+ * endpoints it connects, so the contributions sum to `w1` exactly and are
+ * symmetric in the two profiles (swapping A and B transposes P and leaves every
+ * contribution unchanged). Mass that stays put (P[t][t]) costs 0 and
+ * contributes nothing.
+ *
+ * The optimal plan is often not unique (ties are common under a three-level
+ * cost), and one tie matters for the attribution: destroying a unit at trait i
+ * and creating one at trait j costs 2c = 0.8, exactly what moving it i -> j
+ * costs between unrelated domains. Left to the solver, a pure shape difference
+ * can be booked as a level difference: with exactW1's earlier end-node rule
+ * (same optimal costs) 211 of the 300 roster pairs did, by up to 0.017. The
+ * current solver happens not to (0 of 300 roster pairs, 0 of 21,000 random
+ * pairs, 2026-10-21), but nothing guarantees which tied plan it returns, so
+ * the plan is UNCROSSED after solving: wherever it both destroys at i and
+ * creates at j, that mass is routed i -> j directly, which costs
+ * C(i, j) <= 2c, so the plan stays optimal. With the old end-node rule put
+ * back, uncrossing alone brings all 300 pairs back to the identity below.
+ * The uncrossed plan creates or destroys exactly |mass_A - mass_B|, which makes
+ * the attribution unique where it matters:
+ *   overallLevel = 0.5 * c * |mean_i t_A,i - mean_i t_B,i|,
+ * half of what the level difference forces (the other half is charged to the
+ * traits where the mass is created or destroyed). Remaining ties among trait
+ * pairs are settled by solving the pair in a canonical order, so the
+ * attribution is deterministic and the same for (A, B) and (B, A). `w1` itself
+ * is unique.
  */
 export function cognitiveDistance(profileA: OTCognitiveProfile, profileB: OTCognitiveProfile): CognitiveDistance {
   const d = COGNITIVE_TRAITS.length;
   const a = profileA.distribution;
   const b = profileB.distribution;
 
-  // W1 with ground metric: the exact discrete optimal transport problem.
+  // Generalized W1: exact balanced W1 on the 30-bin slack measures.
   //
   // The pair is solved in a canonical order (lexicographically smaller
-  // distribution as the source) and the plan transposed back when needed. The
-  // optimal COST is unique, but the optimal PLAN is not: with 29 traits and a
+  // measure as the source) and the plan transposed back when needed. The
+  // optimal COST is unique, but the optimal PLAN is not: with 30 bins and a
   // three-level cost many plans tie, and the solver run on (b, a) does not in
   // general find the transpose of its (a, b) plan. Fixing the order makes the
   // per-trait attribution below identical for (A, B) and (B, A).
-  const cost = groundCostMatrix();
+  const ma = traitsToLevelMeasure(profileA.traits);
+  const mb = traitsToLevelMeasure(profileB.traits);
+  const cost = generalizedCostMatrix();
+  const bins = d + 1;
   let swapped = false;
-  for (let i = 0; i < d; i++) {
-    if (a[i] === b[i]) continue;
-    swapped = a[i] > b[i];
+  for (let i = 0; i < bins; i++) {
+    if (ma[i] === mb[i]) continue;
+    swapped = ma[i] > mb[i];
     break;
   }
-  const solved = swapped ? exactW1(b, a, cost) : exactW1(a, b, cost);
-  const w1 = solved.cost;
-  const plan = swapped ? solved.plan.map((_, i) => solved.plan.map(row => row[i])) : solved.plan;
+  const solved = swapped ? exactW1(mb, ma, cost) : exactW1(ma, mb, cost);
+
+  // Uncross (see the docstring): mass destroyed at i (i -> slack) and mass
+  // created at j (slack -> j) become i -> j plus slack -> slack. Row and column
+  // sums are unchanged, and the cost changes by m * (C(i, j) - 2c) <= 0, which is
+  // 0 at an optimum. Done on the canonical-order plan, before any transpose, so
+  // (A, B) and (B, A) still get the same plan.
+  const sp = solved.plan;
+  for (let i = 0; i < d; i++) {
+    for (let j = 0; j < d && sp[i][d] > 0; j++) {
+      const m = Math.min(sp[i][d], sp[d][j]);
+      if (m <= 0) continue;
+      sp[i][d] -= m; sp[d][j] -= m;
+      sp[i][j] += m; sp[d][d] += m;
+    }
+  }
+
+  const plan = swapped ? sp.map((_, i) => sp.map(row => row[i])) : sp;
+  let w1 = 0;
   const traitContributions: Record<string, number> = {};
-  for (let t = 0; t < d; t++) {
+  for (let t = 0; t < bins; t++) {
     let out = 0, into = 0;
     const row = plan[t];
     const costRow = cost[t];
-    for (let j = 0; j < d; j++) {
+    for (let j = 0; j < bins; j++) {
       if (row[j] > 0) out += row[j] * costRow[j];
       if (plan[j][t] > 0) into += plan[j][t] * cost[j][t];
     }
-    traitContributions[COGNITIVE_TRAITS[t]] = 0.5 * (out + into);
+    w1 += out;
+    traitContributions[t < d ? COGNITIVE_TRAITS[t] : OVERALL_LEVEL_KEY] = 0.5 * (out + into);
   }
 
   // W2: Bures-Wasserstein for Gaussians
@@ -807,8 +950,9 @@ export function estimateCognitiveLoad(
 
 /**
  * Given a set of personas, find the N most different ones for maximum
- * test coverage. Uses greedy farthest-point sampling in Wasserstein space,
- * seeded with the two farthest-apart profiles.
+ * test coverage. Uses greedy farthest-point sampling under the generalized W1
+ * of cognitiveDistance (so a difference in overall level counts as well as one
+ * in profile shape), seeded with the two farthest-apart profiles.
  *
  * The seed used to be `profiles[0]` — whichever persona happened to be first in
  * the caller's array. Farthest-point traversal is seed-sensitive, so the same
@@ -1393,7 +1537,8 @@ export async function extractPageMetrics(
 
 /**
  * Compute the full pairwise distance matrix between personas.
- * Returns a symmetric matrix where entry [i][j] = W₁(persona_i, persona_j).
+ * Returns a symmetric matrix where entry [i][j] = cognitiveDistance(persona_i,
+ * persona_j).w1, the generalized W₁ (shape and level; see cognitiveDistance).
  */
 export function cognitiveDistanceMatrix(
   profiles: OTCognitiveProfile[],
