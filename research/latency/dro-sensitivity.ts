@@ -1,12 +1,13 @@
 /**
- * How sensitive is CTC to the capacity vector, page by page, and how tight is
- * the derived Lipschitz constant? A soundness test over a function that never
- * moves passes vacuously, so this measures where it moves.
+ * How sensitive is rawCTC to the capacity vector, page by page, and how tight
+ * is the derived Lipschitz constant? A soundness test over a function that
+ * never moves passes vacuously, so this measures where it moves. (rawCTC since
+ * 21.x: the bound is on it, and totalCTC is its percentile against real pages.)
  *
  * Usage: bun research/latency/dro-sensitivity.ts
  */
 import { computeDemandFromRawMetrics, DEMAND_DIMENSIONS } from "../../src/visual/cognitive-transport-chain.js";
-import { ctcLipschitzBound, ctcOfCapacity } from "../../src/visual/dro-bound.js";
+import { ctcLipschitzBound, rawCTCOfCapacity as ctcOfCapacity } from "../../src/visual/dro-bound.js";
 
 const DIMS = DEMAND_DIMENSIONS as readonly string[];
 let seed = 42;
@@ -24,7 +25,7 @@ const pages: Array<[string, Parameters<typeof computeDemandFromRawMetrics>]> = [
 for (const [name, args] of pages) {
   const demand = computeDemandFromRawMetrics(...args);
   const { lipschitz, worstDimension } = ctcLipschitzBound(demand);
-  let lo = 1, hi = 0, maxSlope = 0, slopeDim = "";
+  let lo = Infinity, hi = 0, maxSlope = 0, slopeDim = "";
   for (let k = 0; k < 2000; k++) {
     const x = vec();
     const c = ctcOfCapacity(x, demand);

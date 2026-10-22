@@ -37,8 +37,11 @@ describe("chain provenance registry", () => {
     // so moved no number, were removed (21.0); 72 after the logistic's overflow
     // clamp, which no sanitised input can reach, was removed (21.0, found by
     // ctc-no-dead-constants.test.ts); 71 after abandonment stopped subtracting
-    // surplus from deficit (chain.abandonment.surplusRelief, 21.0).
-    expect(CHAIN_PROVENANCE.length).toBe(71);
+    // surplus from deficit (chain.abandonment.surplusRelief, 21.0); 69 after
+    // the hand-set output logistic (chain.ctcSigmoidSlope, chain.ctcSigmoidCentre)
+    // gave way to a percentile against real pages (21.x), whose reference is
+    // registered as data in provenance/ctc-reference.ts, not as a chain constant.
+    expect(CHAIN_PROVENANCE.length).toBe(69);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });

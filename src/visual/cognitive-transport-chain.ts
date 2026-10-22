@@ -17,9 +17,17 @@
 
 import {
   type OTCognitiveProfile,
+  type MetricScope,
   extractPageMetrics,
 } from './cognitive-transport.js';
-import { param } from './model-provenance.js';
+import { activeOverrides, param, readsOf } from './model-provenance.js';
+import {
+  type PercentileCurve,
+  percentileAt,
+  percentileCurve,
+  referencePages,
+  referencePopulation,
+} from './ctc-reference.js';
 
 // ── Types ──
 
@@ -39,16 +47,46 @@ export interface PageMetrics {
   longWordRatio?: number;           // 0-1: fraction of 7+ character words
   technicalDensity?: number;        // 0-1: fraction of 10+ character words
   scriptFamily?: 'alphabetic' | 'cjk' | 'abjad';  // Detected script family
+  /** What the metrics were measured over; extractPageMetrics always sets it. */
+  scope?: MetricScope;
 }
 
 export interface DemandDistribution {
   /** 30-dimensional demand vector (0-1 per trait), one slot per DEMAND_DIMENSIONS entry */
   demands: Record<string, number>;
+  /**
+   * The scope the page metrics were measured at, carried from PageMetrics so
+   * that totalCTC is ranked against reference pages measured the same way. A
+   * full-page measurement of a long page asks far more than its first screen,
+   * and ranking it among first screens would call every long page hard.
+   * Absent on a demand built from raw numbers; such a demand is ranked against
+   * the viewport reference, extractPageMetrics' default scope.
+   */
+  scope?: MetricScope;
 }
 
 export interface LayerResult {
   name: string;
   transportCost: number;
+  /**
+   * Capacity this layer actually removed from the account, summed over all
+   * DEMAND_DIMENSIONS: its own dimensions (direct drawdown) and every other one
+   * (indirect, cross-layer fatigue). Measured from the balances before and
+   * after the layer, so everything that limits the draw is inside it: 0 when
+   * the content gate kept the layer from depleting, the drawdown cap
+   * (chain.maxDrawdownFraction) on a heavy layer, and the capacity floor
+   * (chain.capacityEpsilon), which can stop a draw but is never counted as one.
+   * Units are capacity summed over dimensions, so the most one layer can
+   * remove is the number of dimensions.
+   *
+   * Why this definition. The name promises what the layer took out of the
+   * budget. The indirect share is the part every LATER layer on the page
+   * feels (a layer's own dimensions are not read again on the same page), so
+   * a figure without it would report only the part that matters least.
+   * Through 21.0 this was depletionRate x cost: the draw the layer would have
+   * made with no gate, no cap and no floor, reported even when nothing was
+   * drawn.
+   */
   capacityConsumed: number;
   residualCapacity: Record<string, number>;
   /**
@@ -60,15 +98,30 @@ export interface LayerResult {
 }
 
 export interface SequentialTransportResult {
-  /** Total Cognitive Transport Cost */
+  /**
+   * Total Cognitive Transport Cost as a PERCENTILE in [0, 1]: where `rawCTC`
+   * falls among the raw costs of the reference pages (src/data/ctc-reference-*.ts,
+   * measured at this demand's scope) for every built-in persona, pooled, under
+   * the same asymmetric and interactions options. Linear between the order
+   * statistics (ctc-reference.ts). 0.5 is the pooled median; 1 means at least
+   * as costly as the costliest (page, persona) pair in the reference, and 0 no
+   * costlier than the cheapest. Relative to real pages, not a probability and
+   * not a validated difficulty: no human data has tested it.
+   */
   totalCTC: number;
+  /** Which reference totalCTC was ranked against: the demand's scope, or viewport when it has none. */
+  referenceScope: MetricScope;
   /** Per-layer results in sequential order */
   layers: LayerResult[];
   /** Pairwise interaction terms */
   interactions: Record<string, number>;
   /** Additive-only CTC for comparison */
   additiveCTC: number;
-  /** Un-normalized total. `totalCTC` is a sigmoid of this. */
+  /**
+   * The un-normalised total, in layer-cost units: the sum of layer costs and
+   * interaction terms. `totalCTC` is its percentile, so any ratio against
+   * additiveCTC, and any bound on the chain itself (dro-bound.ts), uses this.
+   */
   rawCTC: number;
   /** Asymmetric deficit-surplus breakdown */
   deficitCost: number;
@@ -524,8 +577,6 @@ const CHAIN_IDS = {
   maxDrawdownFraction: 'chain.maxDrawdownFraction',
   capacityEpsilon: 'chain.capacityEpsilon',
   roundingScale: 'chain.roundingScale',
-  ctcSigmoidSlope: 'chain.ctcSigmoidSlope',
-  ctcSigmoidCentre: 'chain.ctcSigmoidCentre',
   patienceShare: 'chain.abandonment.patienceShare',
   resilienceShare: 'chain.abandonment.resilienceShare',
   toleranceGain: 'chain.abandonment.toleranceGain',
@@ -765,7 +816,11 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // coefficients and returned, but nothing in the chain or any tool read it, so
   // it changed no score. Removed in 21.0 rather than registered as 41 more
   // hypotheses that do nothing. (2026-10-21)
-  return { demands };
+  //
+  // The scope travels with the demand so totalCTC can be ranked against
+  // reference pages measured the same way, without every caller having to
+  // repeat a scope it already gave extractPageMetrics.
+  return pageMetrics.scope ? { demands, scope: pageMetrics.scope } : { demands };
 }
 
 // ── 2. Sequential Transport Chain ──
@@ -885,19 +940,56 @@ const VALUE_DEMAND_MODULATION: Array<{
 export function computeSequentialCTC(
   persona: OTCognitiveProfile,
   demand: DemandDistribution,
-  options?: {
-    asymmetric?: boolean; interactions?: boolean; schwartzValues?: Record<string, number>;
-    /**
-     * Capacity carried in from a previous screen. Omit to start from the
-     * persona's full trait vector, which is what a single-page run does.
-     *
-     * This is the whole mechanism behind sequential scoring: a screen is not a
-     * fresh persona, it is the same account after everything above it has been
-     * spent. (2026-08-03)
-     */
-    carriedCapacity?: Record<string, number>;
-  },
+  options?: ChainOptions,
 ): SequentialTransportResult {
+  const cost = transportChain(persona, demand, options);
+  const referenceScope: MetricScope = demand.scope ?? 'viewport';
+  const reference = ctcReferenceCurve(referenceScope, options);
+  // totalCTC depends on every constant the curve was built from, the demand
+  // curves included. Re-read them here so a run under withProvenance records
+  // the same dependencies whether the curve was built in this call or cached.
+  for (const id of reference.reads) param(id);
+  // Read on every call for the same reason, and checked: the registered page
+  // count must be the count the curve was built from, so a reference file
+  // swapped without its registry entry is refused rather than ranked against.
+  const registeredPages = param(`ctcReference.${referenceScope}`);
+  if (registeredPages !== reference.pages) {
+    throw new Error(`ctcReference.${referenceScope} registers ${registeredPages} pages; the shipped reference has ${reference.pages}`);
+  }
+  return { ...cost, totalCTC: percentileAt(reference.curve, cost.rawCTC), referenceScope };
+}
+
+/** Options every chain entry point takes. */
+export interface ChainOptions {
+  asymmetric?: boolean;
+  interactions?: boolean;
+  schwartzValues?: Record<string, number>;
+  /**
+   * Capacity carried in from a previous screen. Omit to start from the
+   * persona's full trait vector, which is what a single-page run does.
+   *
+   * This is the whole mechanism behind sequential scoring: a screen is not a
+   * fresh persona, it is the same account after everything above it has been
+   * spent. (2026-08-03)
+   */
+  carriedCapacity?: Record<string, number>;
+}
+
+/** The chain without its output scale: every result field except totalCTC and referenceScope. */
+type ChainCost = Omit<SequentialTransportResult, 'totalCTC' | 'referenceScope'>;
+
+/**
+ * The transport chain itself: demand against capacity, layer by layer, ending
+ * at rawCTC. computeSequentialCTC adds the percentile; the reference curve is
+ * built from this function directly, since ranking the reference against
+ * itself would need the curve it is building. Only `traits` is read from the
+ * persona.
+ */
+function transportChain(
+  persona: Pick<OTCognitiveProfile, 'traits'>,
+  demand: DemandDistribution,
+  options?: ChainOptions,
+): ChainCost {
   const P = readParams(CHAIN_IDS);
   const useAsymmetric = options?.asymmetric !== false; // default true
   const useInteractions = options?.interactions !== false; // default true
@@ -1042,7 +1134,10 @@ export function computeSequentialCTC(
     const MAX_DRAWDOWN_FRACTION = P.maxDrawdownFraction;
     const INDIRECT_DEPLETION_SHARE = P.indirectDepletionShare;
     const CAPACITY_EPSILON = P.capacityEpsilon;
-    const capacityConsumed = DEPLETION_RATE * layerCost;
+    // What this layer actually removed, summed over every dimension from the
+    // balances themselves (LayerResult.capacityConsumed). It stays 0 when the
+    // gate below keeps the layer from depleting.
+    let capacityConsumed = 0;
     if (contentScale > P.depletionGate) {
       // PROPORTIONAL DRAWDOWN, not subtraction against a clamp.
       //
@@ -1067,8 +1162,11 @@ export function computeSequentialCTC(
       // three and no `k` anywhere in the arithmetic. (2026-08-03)
       const drawFraction = Math.min(MAX_DRAWDOWN_FRACTION, DEPLETION_RATE * layerCost);
       for (const trait of layerDef.traits) {
+        const before = residualCapacity[trait];
         residualCapacity[trait] *= (1 - drawFraction);
         residualCapacity[trait] = Math.max(CAPACITY_EPSILON, residualCapacity[trait]);
+        // A floor lift (a dimension below CAPACITY_EPSILON raised to it) is not a draw.
+        capacityConsumed += Math.max(0, before - residualCapacity[trait]);
       }
 
       // Also deplete shared traits that appear in later layers
@@ -1077,8 +1175,10 @@ export function computeSequentialCTC(
       for (const dim of DEMAND_DIMENSIONS) {
         if (!layerDef.traits.includes(dim)) {
           // Indirect depletion at half rate
+          const before = residualCapacity[dim];
           residualCapacity[dim] *= (1 - indirectFraction);
           residualCapacity[dim] = Math.max(CAPACITY_EPSILON, residualCapacity[dim]);
+          capacityConsumed += Math.max(0, before - residualCapacity[dim]);
         }
       }
     }
@@ -1120,13 +1220,11 @@ export function computeSequentialCTC(
   // The sequential effect is already embedded in layer costs via capacity depletion
   const rawCTC = layers.reduce((sum, l) => sum + l.transportCost, 0) + interactionTotal;
 
-  // Normalize CTC to a 0-1 scale with a logistic, slope 2.5 and centre 1.2
-  // (chain.ctcSigmoidSlope / chain.ctcSigmoidCentre, both hand-set). What
-  // that mapping actually gives: raw 0 -> 0.047, 0.5 -> 0.148, 1.0 -> 0.378,
-  // 1.2 -> 0.5, 2.0 -> 0.881, 3.0 -> 0.989. An earlier comment here claimed
-  // 0.5 -> 0.2, 1.0 -> 0.4, 2.0 -> 0.7, 3.0 -> 0.9, which this formula has
-  // never produced.
-  const totalCTC = 1 / (1 + Math.exp(-P.ctcSigmoidSlope * (rawCTC - P.ctcSigmoidCentre)));
+  // No normalisation here. Through 21.0 totalCTC was a logistic of rawCTC,
+  // slope 2.5 and centre 1.2 (chain.ctcSigmoidSlope / chain.ctcSigmoidCentre,
+  // both hand-set), which nothing tied to where real pages fall: at viewport
+  // scope it put half of them between 0.055 and 0.133. computeSequentialCTC
+  // now ranks rawCTC against real pages instead.
 
   // Find bottleneck layer
   let maxLayerCost = 0;
@@ -1193,10 +1291,9 @@ export function computeSequentialCTC(
   ));
 
   return {
-    totalCTC,
-    // The un-normalized cost, exposed because totalCTC is a SIGMOID of it and
-    // the two are not interchangeable. Every ratio against additiveCTC has to
-    // use this one: additiveCTC is a raw sum, totalCTC is squashed to 0-1, and
+    // The un-normalized cost, exposed because totalCTC is a PERCENTILE of it
+    // and the two are not interchangeable. Every ratio against additiveCTC has
+    // to use this one: additiveCTC is a raw sum, totalCTC is a rank in 0-1, and
     // dividing one by the other compares different units. (2026-08-02)
     rawCTC,
     layers,
@@ -1209,6 +1306,83 @@ export function computeSequentialCTC(
     abandonmentRisk,
     remainingCapacity: { ...residualCapacity },
   };
+}
+
+// ── Output scale: the reference curve ──
+
+/** The curve totalCTC is read from, for one scope and option set, and what it was built from. */
+export interface ReferenceCurve {
+  scope: MetricScope;
+  asymmetric: boolean;
+  interactions: boolean;
+  /** Graded reference pages at this scope. */
+  pages: number;
+  /** Built-in personas pooled on every page. */
+  personas: number;
+  /** Every registry id the build read (the chain's constants, demand curves included). */
+  reads: readonly string[];
+  curve: PercentileCurve;
+}
+
+const referenceCurves = new Map<string, ReferenceCurve>();
+const overriddenReferenceCurves = new WeakMap<object, Map<string, ReferenceCurve>>();
+
+/**
+ * The percentile curve for one scope and option set: rawCTC of every graded
+ * reference page (ctc-reference.ts) for every built-in persona, through this
+ * chain, pooled.
+ *
+ * WHICH OPTIONS SELECT A CURVE. `asymmetric` and `interactions` change the
+ * cost function, so each pair has its own curve: a symmetric raw cost ranked
+ * among asymmetric ones would compare two different quantities.
+ * `schwartzValues` and `carriedCapacity` do not. Both describe the person
+ * being scored (what they value, what earlier screens left them), not the
+ * yardstick, and a curve that moved with them would cancel part of the effect
+ * it is there to show. So a values-modulated score, and every screen after the
+ * first in a scroll, are ranked against the reference population as it
+ * arrives at a page. cognitive_effort's useValues edits demand before the chain
+ * runs, which lands in the same place.
+ *
+ * COST AND CACHE. One build is one chain run per page per persona; cached per
+ * scope and option set for the life of the process, so every later score
+ * pays a binary search. While a test overrides registered constants
+ * (activeOverrides() is non-null) a curve is cached against that override
+ * object instead: a change to any chain constant re-derives the curve rather
+ * than reusing one built under other constants.
+ */
+export function ctcReferenceCurve(
+  scope: MetricScope,
+  options?: { asymmetric?: boolean; interactions?: boolean },
+): ReferenceCurve {
+  const asymmetric = options?.asymmetric !== false;
+  const interactions = options?.interactions !== false;
+  const overrides = activeOverrides();
+  let cache = referenceCurves;
+  if (overrides) {
+    cache = overriddenReferenceCurves.get(overrides) ?? new Map<string, ReferenceCurve>();
+    overriddenReferenceCurves.set(overrides, cache);
+  }
+  const key = `${scope}|${asymmetric}|${interactions}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const pages = referencePages(scope);
+  const population = referencePopulation();
+  const { result: costs, ids } = readsOf(() => {
+    const out: number[] = [];
+    for (const metrics of pages) {
+      const demand = computeDemandDistribution(metrics);
+      for (const persona of population) out.push(transportChain(persona, demand, { asymmetric, interactions }).rawCTC);
+    }
+    return out;
+  });
+  const built: ReferenceCurve = {
+    scope, asymmetric, interactions,
+    pages: pages.length, personas: population.length,
+    reads: [...ids].sort(),
+    curve: percentileCurve(costs),
+  };
+  cache.set(key, built);
+  return built;
 }
 
 // ── 3. Convenience: Full COT Pipeline ──
@@ -1342,7 +1516,11 @@ export interface ScreenResult {
   screen: number;
   /** Layer costs for this screen alone. */
   layers: LayerResult[];
-  /** This screen's own transport cost. */
+  /**
+   * This screen's totalCTC, rounded: its own raw cost (against the capacity
+   * earlier screens left) as a percentile of the reference, ranked against the
+   * reference matching its demand's scope (viewport for per-screen metrics).
+   */
   screenCTC: number;
   /** P(this persona stops HERE, given they reached this screen). */
   stopHazard: number;
@@ -1364,7 +1542,11 @@ export interface SequentialScrollResult {
   expectedDepthScreens: number;
   /** The screen where the most sessions end, and the layer that ends them. */
   dropOff: { screen: number; layer: string; share: number } | null;
-  /** Demand each screen contributed, weighted by the chance of reaching it. */
+  /**
+   * Sum over screens of reachProbability x screenCTC: each screen's percentile,
+   * weighted by the chance of reaching it. A sum of percentiles, so it grows
+   * with the number of screens reached and is not itself a percentile.
+   */
   reachWeightedCTC: number;
 }
 

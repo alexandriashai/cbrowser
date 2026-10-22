@@ -1,9 +1,14 @@
 /**
  * The Wasserstein-DRO bound on CTC (src/visual/dro-bound.ts).
  *
+ * The bound is on rawCTC: totalCTC is a percentile of it against real pages,
+ * and the percentile bound (claim 6) is the raw constant times the curve's
+ * steepest slope.
+ *
  * Claims, each tested against the real chain, never a copy of it:
- *   1. ctcOfCapacity reproduces computeSequentialCTC for every roster persona,
- *      so the bound is about the function the product computes.
+ *   1. rawCTCOfCapacity and ctcOfCapacity reproduce computeSequentialCTC's
+ *      rawCTC and totalCTC for every roster persona, so the bounds are about
+ *      the functions the product computes.
  *   2. The Lipschitz constant is sound where it is tight. An adversary
  *      (tests/fixtures/dro-adversary.ts) hill-climbs, per coordinate, for the
  *      steepest finite-difference slope on product pages under every option
@@ -18,6 +23,11 @@
  *      the bound somewhere, so a bound loosened twofold fails too.
  *   5. The derivation's preconditions are checked on every call and each one
  *      fires on an input that breaks it; the live chain satisfies all of them.
+ *   6. The percentile bound is raw L times the curve's largest slope over
+ *      [0, rawMax], and is sound against the same adversary, a climb on the
+ *      percentile itself, and populations moved along the percentile's
+ *      steepest coordinate. It is loose by construction; the test prints how
+ *      loose.
  * Plus: epsilon has no default. tests/dro-bound-mutants.test.ts shows the
  * checks in 2-5 kill unsound variants of the derivation.
  */
@@ -29,7 +39,16 @@ import {
   type DemandDistribution,
 } from "../src/visual/cognitive-transport-chain.js";
 import * as dro from "../src/visual/dro-bound.js";
-import { ctcOfCapacity, droPreconditionViolations, worstCaseCTCBound } from "../src/visual/dro-bound.js";
+import {
+  ctcOfCapacity,
+  rawCTCOfCapacity,
+  droPreconditionViolations,
+  percentileLipschitzBound,
+  worstCaseCTCBound,
+  worstCasePercentileBound,
+} from "../src/visual/dro-bound.js";
+import { ctcReferenceCurve } from "../src/visual/cognitive-transport-chain.js";
+import { curveSlope } from "../src/visual/ctc-reference.js";
 import { ROSTER, toolProfile, allDemands } from "./fixtures/ctc-golden-matrix.js";
 import {
   DIMS,
@@ -41,20 +60,23 @@ import {
   checkPreconditions,
   liveLayout,
   preconditionCases,
+  steepestAlong,
+  uniformStream,
+  type Vec,
 } from "./fixtures/dro-adversary.js";
 
 const SEED = 1;
 const MID = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
 
-describe("ctcOfCapacity is the product's CTC", () => {
-  test("equals computeSequentialCTC on every roster persona and reference page, bit for bit", () => {
+describe("rawCTCOfCapacity and ctcOfCapacity are the product's CTC", () => {
+  test("equal computeSequentialCTC's rawCTC and totalCTC on every roster persona and golden page, bit for bit", () => {
     let n = 0;
     for (const [name, p] of Object.entries(ROSTER)) {
       const prof = toolProfile(name, p);
       for (const { demand } of allDemands()) {
-        const want = computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true }).totalCTC;
-        const got = ctcOfCapacity(capacityVector(prof.traits), demand);
-        expect(Object.is(got, want)).toBe(true);
+        const want = computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true });
+        expect(Object.is(rawCTCOfCapacity(capacityVector(prof.traits), demand), want.rawCTC)).toBe(true);
+        expect(Object.is(ctcOfCapacity(capacityVector(prof.traits), demand), want.totalCTC)).toBe(true);
         n++;
       }
     }
@@ -83,7 +105,7 @@ describe("worst-case bound, against populations built to reach it", () => {
   test("E_Q <= upper and E_Q >= lower for every constructed population, nominal = E_P", () => {
     const { violations, tightest, upward, uncapped } = checkPopulations(adversarialPopulations(SEED), dro);
     expect(violations).toEqual([]);
-    // The cap at 1 must not be what makes the check pass.
+    // The cap at rawMax must not be what makes the check pass.
     expect(uncapped).toBe(upward);
     // Non-vacuous: some population moves E_Q by more than half of epsilon * L.
     expect(Math.max(...Object.values(tightest))).toBeGreaterThanOrEqual(0.5);
@@ -103,9 +125,113 @@ describe("worst-case bound, against populations built to reach it", () => {
     const b = worstCaseCTCBound(pop, MID, 0);
     expect(b.upper).toBe(b.nominal);
     expect(b.lower).toBe(b.nominal);
+    expect(b.quantity).toBe("rawCTC");
+    expect(b.ceiling).toBe(dro.ctcLipschitzBound(MID).rawMax);
     expect(b.note).toMatch(/not of people/);
   });
 });
+
+describe("the percentile bound: raw L times the curve's steepest slope", () => {
+  test("is exactly raw.lipschitz x the largest curve slope over [0, rawMax], under every option set", () => {
+    for (const { opts } of OPTION_SETS) {
+      const b = percentileLipschitzBound(MID, opts);
+      const raw = dro.ctcLipschitzBound(MID, opts);
+      const slope = curveSlope(ctcReferenceCurve("viewport", opts).curve, 0, raw.rawMax);
+      expect(b.raw).toEqual(raw);
+      expect(b.curveSlope).toBe(slope);
+      expect(b.lipschitz).toBe(raw.lipschitz * slope);
+      expect(b.referenceScope).toBe("viewport");
+      expect(slope).toBeGreaterThan(0);
+    }
+    const fp = percentileLipschitzBound({ ...MID, scope: "full_page" });
+    expect(fp.referenceScope).toBe("full_page");
+    expect(fp.curveSlope).toBe(curveSlope(ctcReferenceCurve("full_page").curve, 0, fp.raw.rawMax));
+  });
+
+  test("no slope of totalCTC exceeds it: at the raw adversary's steepest points, and in a climb on the percentile itself", () => {
+    const search = adversarialSearch(SEED);
+    const bounds = new Map<string, number>();
+    const boundOf = (page: string, optsId: string, demand: DemandDistribution, opts: dro.DroOptions) => {
+      const key = `${page}/${optsId}`;
+      if (!bounds.has(key)) bounds.set(key, percentileLipschitzBound(demand, opts).lipschitz);
+      return bounds.get(key)!;
+    };
+    const violations: string[] = [];
+    let steepest = 0, ratio = 0;
+    const slopeAt = (f: (x: Vec) => number, x: Vec, d: string, h: number) => {
+      const xs = Math.min(x[d], 1 - h);
+      return Math.abs(f({ ...x, [d]: xs + h }) - f({ ...x, [d]: xs })) / h;
+    };
+    for (const r of search.rows) {
+      const L = boundOf(r.page, r.optsId, r.demand, r.opts);
+      const f = (x: Vec) => ctcOfCapacity(x, r.demand, r.opts);
+      for (const h of [1e-2, 1e-3, 1e-4]) {
+        const sl = slopeAt(f, r.steepest.x, r.dim, h);
+        if (!(sl <= L + 1e-9)) violations.push(`${r.page}/${r.optsId}/${r.dim} h=${h}: ${sl} > ${L}`);
+        if (sl > steepest) { steepest = sl; ratio = sl / L; }
+      }
+    }
+    // A climb that maximises the percentile's own slope, on pages whose raw
+    // costs land inside the reference range.
+    const u = uniformStream(SEED + 7);
+    for (const page of search.pages.filter((p) => ["light", "mid", "sparse", "random-0"].includes(p.id)))
+      for (const { id: optsId, opts } of OPTION_SETS) {
+        const L = boundOf(page.id, optsId, page.demand, opts);
+        const f = (x: Vec) => ctcOfCapacity(x, page.demand, opts);
+        for (const dim of ["comprehension", "workingMemory", "patience", "readingCapacity", "readingTendency", "satisficing"]) {
+          const st = steepestAlong(f, dim, u, DIMS, { starts: 2, sweeps: 3, kicks: 1 });
+          if (!(st.slope <= L + 1e-9)) violations.push(`climb ${page.id}/${optsId}/${dim}: ${st.slope} > ${L}`);
+          if (st.slope > steepest) { steepest = st.slope; ratio = st.slope / L; }
+        }
+      }
+    expect(violations).toEqual([]);
+    expect(steepest).toBeGreaterThan(0);
+    console.log(`[dro percentile] steepest totalCTC slope found ${steepest.toFixed(4)}, ${ratio.toExponential(2)} of its bound (loose by construction)`);
+  }, 120_000);
+
+  test("worst-case mean percentile holds for populations moved along the percentile's steepest coordinate", () => {
+    const search = adversarialSearch(SEED);
+    const violations: string[] = [];
+    let checked = 0;
+    for (const page of search.pages)
+      for (const { id: optsId, opts } of OPTION_SETS) {
+        const f = (x: Vec) => ctcOfCapacity(x, page.demand, opts);
+        const atoms = search.rows.filter((r) => r.page === page.id && r.optsId === optsId)
+          .sort((a, b) => b.steepest.slope - a.steepest.slope).slice(0, 3).map((r) => r.steepest.x);
+        let eP = 0, eQ = 0, epsilon = 0;
+        for (const x of atoms) {
+          const fx = f(x);
+          let best = { gain: 0, fy: fx, move: 0 };
+          for (const d of DIMS)
+            for (const step of [1e-3, -1e-3]) {
+              if (x[d] + step < 0 || x[d] + step > 1) continue;
+              const fy = f({ ...x, [d]: x[d] + step });
+              if (fy - fx > best.gain) best = { gain: fy - fx, fy, move: 1e-3 };
+            }
+          eP += fx / atoms.length; eQ += best.fy / atoms.length; epsilon += best.move / atoms.length;
+        }
+        const b = worstCasePercentileBound(atoms.map((x) => ({ traits: x })), page.demand, epsilon, opts);
+        if (Math.abs(b.nominal - eP) > 1e-12) violations.push(`${page.id}/${optsId}: nominal ${b.nominal} != E_P ${eP}`);
+        if (!(eQ <= b.upper + 1e-12)) violations.push(`${page.id}/${optsId}: E_Q ${eQ} > upper ${b.upper}`);
+        expect(b.quantity).toBe("totalCTC");
+        expect(b.ceiling).toBe(1);
+        checked++;
+      }
+    expect(violations).toEqual([]);
+    expect(checked).toBe(search.pages.length * OPTION_SETS.length);
+  }, 120_000);
+
+  test("epsilon 0 returns the nominal mean percentile exactly, and epsilon has no default", () => {
+    const pop = Object.entries(ROSTER).map(([n, p]) => ({ traits: toolProfile(n, p).traits }));
+    const b = worstCasePercentileBound(pop, MID, 0);
+    expect(b.upper).toBe(b.nominal);
+    expect(b.lower).toBe(b.nominal);
+    expect(b.nominal).toBeGreaterThan(0);
+    expect(b.nominal).toBeLessThan(1);
+    expect(() => worstCasePercentileBound(pop, MID, undefined as unknown as number)).toThrow(/epsilon/);
+  });
+});
+
 
 describe("the derivation's preconditions", () => {
   test("the live chain satisfies every one, on every adversary page and option set", () => {
