@@ -86,6 +86,14 @@ const KNOWN_UNLAYERED = [
 /** Traits with no demand term today. Same status: recorded, not blessed. */
 const KNOWN_UNDEMANDED = ["attributionStyle", "authoritySensitivity", "timeHorizon"].sort();
 
+/**
+ * The reverse gap: demand dimensions that are not persona traits. No persona in
+ * the tool path carries them, so each reads chain.missingTraitCapacity, and none
+ * is in a layer. Pinned so DEMAND_DIMENSIONS cannot grow a dimension no persona
+ * can fill without someone deciding it should. (21.0)
+ */
+const KNOWN_DEMAND_ONLY = ["attentionPattern", "motorPrecision", "processingSpeed", "textProcessing"].sort();
+
 describe("siteFamiliarity actually reaches the chain", () => {
   const baseTraits: Record<string, number> = Object.fromEntries(
     (COGNITIVE_TRAITS as readonly string[]).map((t) => [t, 0.5]),
@@ -182,6 +190,12 @@ describe("no dimension goes silently inert", () => {
     const dem = new Set(DEMAND_DIMENSIONS as readonly string[]);
     const undemanded = (COGNITIVE_TRAITS as readonly string[]).filter((t) => !dem.has(t)).sort();
     expect(undemanded).toEqual(KNOWN_UNDEMANDED);
+  });
+
+  test("every demand dimension is a persona trait or on the known demand-only list", () => {
+    const traits = new Set(COGNITIVE_TRAITS as readonly string[]);
+    const demandOnly = (DEMAND_DIMENSIONS as readonly string[]).filter((d) => !traits.has(d)).sort();
+    expect(demandOnly).toEqual(KNOWN_DEMAND_ONLY);
   });
 
   test("the orphan lists are shrinking-only", () => {

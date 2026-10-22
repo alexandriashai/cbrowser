@@ -91,10 +91,17 @@ export interface SequentialTransportResult {
 // ── Constants ──
 
 /**
- * The 30 demand dimensions used by the sequential transport chain: the same
- * space as COGNITIVE_TRAITS (a test asserts the two do not diverge), covering
+ * The 30 demand dimensions used by the sequential transport chain, covering
  * the core capacities plus decision biases, learning transfer, emotional
  * regulation and the bridged reading/motor/attention capacities.
+ *
+ * NOT the same space as COGNITIVE_TRAITS (29). Four dimensions exist only here
+ * (attentionPattern, motorPrecision, processingSpeed, textProcessing: no persona
+ * in the tool path carries them, so they read the missing-trait fallback, and
+ * none is in a layer). Three traits exist only there (attributionStyle,
+ * timeHorizon, authoritySensitivity: no demand term). Both differences are
+ * pinned in tests/transport-dimension-alignment.test.ts, so a new one fails a
+ * test; nothing asserts the two sets are equal.
  */
 export const DEMAND_DIMENSIONS = [
   // Core capacity traits
@@ -127,9 +134,9 @@ export const DEMAND_DIMENSIONS = [
   // contributed nothing. Runs at familiarity 0 and 1 came back byte-identical
   // while the tool attested the parameter had been applied.
   //
-  // The two vectors are supposed to be the same space. A dimension present in
-  // one and missing from the other is silently dropped, and there is now a test
-  // asserting COGNITIVE_TRAITS and DEMAND_DIMENSIONS do not diverge.
+  // A dimension present in one vector and missing from the other is silently
+  // dropped. The two still differ (see the note above DEMAND_DIMENSIONS), but
+  // where they differ is pinned by a test, so a new gap fails it.
   'siteFamiliarity',
   // Capacity, bridged from the formal reading and pointing models.
   //
@@ -453,8 +460,9 @@ export const MOTOR_LAYER_WEIGHTS = {
 //
 // Depletion (chain.depletionRate 0.15, chain.maxDrawdownFraction 0.5,
 // chain.indirectDepletionShare 0.5) and the numerical floor
-// (chain.capacityEpsilon 1e-4, NOT a behavioural limit) are registered there
-// with their status and what would settle them. The old CAPACITY_FLOOR (0.05)
+// (chain.capacityEpsilon 1e-4) are registered there with their status and what
+// would settle them. The floor is not out of reach: siteFamiliarity is 0 in the
+// tool path unless supplied, and the first gated layer lifts it to 1e-4. The old CAPACITY_FLOOR (0.05)
 // was removed 2026-10-21: nothing read it since proportional drawdown replaced
 // the clamp on 2026-08-03.
 
