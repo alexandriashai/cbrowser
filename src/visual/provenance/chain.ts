@@ -2,9 +2,188 @@
  * Provenance entries for the cognitive transport chain's constants
  * (cognitive-transport-chain.ts). See ../model-provenance.ts for the statuses.
  *
+ * Nothing in this chain is fitted or published today. Every curve constant,
+ * weight, rate, cap and modulation coefficient was set by hand, so it is a
+ * `hypothesis` whose `source` names the data that would test or fit it. The
+ * only `definition` entries are pure encoding choices with no empirical
+ * claim: a numerical epsilon, an overflow clamp, output rounding.
+ *
+ * The chain reads these through `param()` at function entry, so a tool that
+ * runs it under `withProvenance` reports exactly which hand-set numbers its
+ * answer rests on, and tests/ctc-provenance.test.ts fails on an id that is
+ * registered but never read, or read but never registered.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 import type { ProvenanceEntry } from "../model-provenance.js";
 
-export const CHAIN_PROVENANCE: ProvenanceEntry[] = [];
+const h = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `chain.${id}`, value, status: "hypothesis", source });
+const d = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `chain.${id}`, value, status: "definition", source });
+
+// What would fit a demand weight: per-trait effort or error rates measured on
+// pages that vary the named page feature alone, regressed on the feature.
+const DEMAND = (feature: string, trait: string) =>
+  `Hand-set share of ${feature} that lands on ${trait}; a regression of measured ${trait}-driven effort on pages varying ${feature} alone would fit it.`;
+// What would fit a variance coefficient: the spread of the same demand across
+// regions of one page, measured rather than scaled from the page-level value.
+const VARIANCE = (feature: string, trait: string) =>
+  `Hand-set spread of ${trait} demand attributed to ${feature}; region-by-region demand measurement on one page would fit it (nothing in the chain reads variance today).`;
+
+export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
+  // ── Demand curves: page feature -> trait demand ──
+  h("demand.info.workingMemory", 0.9, DEMAND("informationDensity", "workingMemory")),
+  h("demand.info.readingTendency", 0.85, DEMAND("informationDensity", "readingTendency")),
+  h("demand.info.informationForaging", 0.8, DEMAND("informationDensity", "informationForaging")),
+  h("variance.info.comprehension", 0.1, VARIANCE("informationDensity", "comprehension")),
+  h("variance.info.workingMemory", 0.08, VARIANCE("informationDensity", "workingMemory")),
+  h("variance.info.readingTendency", 0.07, VARIANCE("informationDensity", "readingTendency")),
+  h("variance.info.informationForaging", 0.06, VARIANCE("informationDensity", "informationForaging")),
+
+  h("demand.visual.mentalModelFlexibility", 0.7, DEMAND("visualComplexity", "mentalModelFlexibility")),
+  h("demand.visual.attentionPattern", 0.85, DEMAND("visualComplexity", "attentionPattern")),
+  h("variance.visual.changeBlindness", 0.12, VARIANCE("visualComplexity", "changeBlindness")),
+  h("variance.visual.mentalModelFlexibility", 0.08, VARIANCE("visualComplexity", "mentalModelFlexibility")),
+  h("variance.visual.attentionPattern", 0.1, VARIANCE("visualComplexity", "attentionPattern")),
+
+  h("demand.interactive.halfSaturation", 20, "Hand-set element count at which interactive demand reaches 0.5 (n/(n+20)); task-time or error rate against interactive element count across pages would fit the half-saturation point."),
+  h("demand.interactive.riskTolerance", 0.75, DEMAND("interactiveElementCount", "riskTolerance")),
+  h("demand.interactive.satisficing", 0.8, DEMAND("interactiveElementCount", "satisficing")),
+  h("demand.interactive.proceduralFluency", 0.9, DEMAND("interactiveElementCount", "proceduralFluency")),
+  h("demand.interactive.motorCapacity", 0.9, DEMAND("interactiveElementCount", "motorCapacity")),
+  h("variance.interactive.riskTolerance", 0.06, VARIANCE("interactiveElementCount", "riskTolerance")),
+  h("variance.interactive.satisficing", 0.07, VARIANCE("interactiveElementCount", "satisficing")),
+  h("variance.interactive.proceduralFluency", 0.08, VARIANCE("interactiveElementCount", "proceduralFluency")),
+  h("variance.interactive.motorPrecision", 0.1, VARIANCE("interactiveElementCount", "motorPrecision")),
+  h("variance.interactive.motorCapacity", 0.08, VARIANCE("interactiveElementCount", "motorCapacity")),
+
+  h("demand.text.patience", 0.7, DEMAND("textDensity", "patience")),
+  h("demand.text.comprehension", 0.85, DEMAND("textDensity", "comprehension")),
+  h("demand.text.readingCapacity", 0.9, DEMAND("max(textDensity, informationDensity)", "readingCapacity")),
+  h("variance.text.readingTendency", 0.09, VARIANCE("textDensity", "readingTendency")),
+  h("variance.text.patience", 0.06, VARIANCE("textDensity", "patience")),
+  h("variance.text.comprehension", 0.08, VARIANCE("textDensity", "comprehension")),
+  h("variance.text.readingCapacity", 0.08, VARIANCE("textDensity", "readingCapacity")),
+
+  h("demand.wordLength.comprehension", 0.9, DEMAND("avgWordLength", "comprehension")),
+  h("demand.wordLength.readingTendency", 0.85, DEMAND("avgWordLength", "readingTendency")),
+  h("variance.wordLength.comprehension", 0.12, VARIANCE("avgWordLength", "comprehension")),
+  h("variance.wordLength.readingTendency", 0.1, VARIANCE("avgWordLength", "readingTendency")),
+  h("demand.sentenceLength.workingMemory", 0.85, DEMAND("avgSentenceLength", "workingMemory")),
+  h("demand.sentenceLength.patience", 0.7, DEMAND("avgSentenceLength", "patience")),
+  h("demand.sentenceLength.comprehension", 0.8, DEMAND("avgSentenceLength", "comprehension")),
+  h("variance.sentenceLength.workingMemory", 0.1, VARIANCE("avgSentenceLength", "workingMemory")),
+  h("variance.sentenceLength.patience", 0.07, VARIANCE("avgSentenceLength", "patience")),
+  h("demand.lexicalDiversity.comprehension", 0.75, DEMAND("lexicalDiversity", "comprehension")),
+  h("demand.lexicalDiversity.transferLearning", 0.65, DEMAND("lexicalDiversity", "transferLearning")),
+  h("variance.lexicalDiversity.comprehension", 0.08, VARIANCE("lexicalDiversity", "comprehension")),
+  h("demand.longWords.readingTendency", 0.9, DEMAND("longWordRatio", "readingTendency")),
+  h("demand.longWords.comprehension", 0.8, DEMAND("longWordRatio", "comprehension")),
+  h("variance.longWords.readingTendency", 0.11, VARIANCE("longWordRatio", "readingTendency")),
+  h("demand.technical.comprehension", 0.95, DEMAND("technicalDensity", "comprehension")),
+  h("demand.technical.transferLearning", 0.8, DEMAND("technicalDensity", "transferLearning")),
+  h("demand.technical.mentalModelFlexibility", 0.7, DEMAND("technicalDensity", "mentalModelFlexibility")),
+  h("variance.technical.comprehension", 0.13, VARIANCE("technicalDensity", "comprehension")),
+  h("variance.technical.transferLearning", 0.09, VARIANCE("technicalDensity", "transferLearning")),
+  h("variance.technical.mentalModelFlexibility", 0.07, VARIANCE("technicalDensity", "mentalModelFlexibility")),
+
+  h("demand.animation.sigmoidThreshold", 0.3, "Hand-set animation level at which motion demand reaches 0.5; a fit of measured distraction cost against animation level would place the threshold."),
+  h("demand.animation.sigmoidScale", 0.15, "Hand-set width of the motion-demand sigmoid; the same distraction-cost fit would set its slope."),
+  h("demand.animation.changeBlindness", 0.9, DEMAND("animationLevel", "changeBlindness")),
+  h("demand.animation.interruptRecovery", 0.85, DEMAND("animationLevel", "interruptRecovery")),
+  h("demand.animation.emotionalContagion", 0.7, DEMAND("animationLevel", "emotionalContagion")),
+  h("variance.animation.changeBlindness", 0.1, VARIANCE("animationLevel", "changeBlindness")),
+  h("variance.animation.interruptRecovery", 0.09, VARIANCE("animationLevel", "interruptRecovery")),
+  h("variance.animation.emotionalContagion", 0.07, VARIANCE("animationLevel", "emotionalContagion")),
+
+  h("demand.distractor.animationShare", 0.7, "Hand-set share of distractor pressure from motion (vs static clutter); re-reading rates on text beside animated vs cluttered-static panels would fit it."),
+  h("demand.distractor.visualShare", 0.3, "Hand-set share of distractor pressure from static visual complexity; the same re-reading measurement would fit it."),
+  h("demand.sustained.base", 0.7, "Hand-set attentional demand per unit of text, kept below readingCapacity's 0.9 so decoding dominates on a still page; measured line-loss or re-reading rates on still prose would fit it."),
+  h("demand.sustained.distractorGain", 0.7, "Hand-set gain by which distractor pressure raises attentional demand; re-reading rates on the same prose with and without peripheral motion would fit it."),
+  h("variance.sustained.text", 0.1, VARIANCE("textDensity", "sustainedAttention")),
+  h("variance.sustained.animation", 0.08, VARIANCE("animationLevel", "sustainedAttention")),
+
+  h("demand.choice.halfSaturation", 10, "Hand-set choice count at which decision demand reaches 0.5 (c/(c+10)); decision time against option count (Hick-Hyman style data on real pages) would fit it."),
+  h("demand.choice.anchoringBias", 0.85, DEMAND("choiceCount", "anchoringBias")),
+  h("demand.choice.fearOfMissingOut", 0.75, DEMAND("choiceCount", "fearOfMissingOut")),
+  h("demand.choice.socialProofSensitivity", 0.7, DEMAND("choiceCount", "socialProofSensitivity")),
+  h("variance.choice.scale", 20, "Hand-set choice count at which decision variance saturates (min(1, c/20)); region-level choice counts across pages would fit it."),
+  h("variance.choice.satisficing", 0.1, VARIANCE("choiceCount", "satisficing")),
+  h("variance.choice.anchoringBias", 0.08, VARIANCE("choiceCount", "anchoringBias")),
+  h("variance.choice.fearOfMissingOut", 0.07, VARIANCE("choiceCount", "fearOfMissingOut")),
+  h("variance.choice.socialProofSensitivity", 0.06, VARIANCE("choiceCount", "socialProofSensitivity")),
+
+  h("demand.nav.halfSaturation", 3, "Hand-set navigation depth at which wayfinding demand reaches 0.5 (d/(d+3)); task completion against click depth would fit it."),
+  h("demand.nav.workingMemory", 0.95, DEMAND("navigationDepth", "workingMemory")),
+  h("demand.nav.metacognitivePlanning", 0.8, DEMAND("navigationDepth", "metacognitivePlanning")),
+  h("demand.nav.persistence", 0.7, DEMAND("navigationDepth", "persistence")),
+  h("demand.nav.transferLearning", 0.65, DEMAND("navigationDepth", "transferLearning")),
+  h("demand.nav.siteFamiliarity", 0.85, DEMAND("navigationDepth", "siteFamiliarity")),
+  h("variance.nav.scale", 5, "Hand-set depth at which navigation variance saturates (min(1, d/5)); per-region depth measurement would fit it."),
+  h("variance.nav.siteFamiliarity", 0.08, VARIANCE("navigationDepth", "siteFamiliarity")),
+  h("variance.nav.workingMemory", 0.09, VARIANCE("navigationDepth", "workingMemory")),
+  h("variance.nav.metacognitivePlanning", 0.07, VARIANCE("navigationDepth", "metacognitivePlanning")),
+  h("variance.nav.persistence", 0.06, VARIANCE("navigationDepth", "persistence")),
+  h("variance.nav.transferLearning", 0.05, VARIANCE("navigationDepth", "transferLearning")),
+
+  d("sigmoidExponentClamp", 500, "Overflow guard on the logistic's exponent; exp(+-500) is already 0 or 1 to double precision, so the clamp changes no reachable value."),
+
+  // ── Trait resolution ──
+  h("missingTraitCapacity", 0.5, "Capacity assumed for a trait the persona does not carry; measured trait distributions across the roster (or refusing to score an absent trait) would replace it."),
+  h("attentionString.targeted", 0.9, "Hand-set capacity for a persona whose attentionPattern is the string 'targeted'; eye-tracking scan efficiency per declared pattern would fit the five string levels."),
+  h("attentionString.sequential", 0.8, "Hand-set capacity for attentionPattern 'sequential'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
+  h("attentionString.fPattern", 0.7, "Hand-set capacity for attentionPattern 'f-pattern'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
+  h("attentionString.zPattern", 0.6, "Hand-set capacity for attentionPattern 'z-pattern'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
+  h("attentionString.exploratory", 0.3, "Hand-set capacity for attentionPattern 'exploratory'; eye-tracking scan efficiency per declared pattern would fit it with the other four levels."),
+
+  // ── Demand modulation by the persona ──
+  h("engagement.atSkim", 0.75, "Hand-set share of attentional demand a pure skimmer (readingTendency 0) engages; reading time or fixation coverage against readingTendency would fit the bound."),
+  h("engagement.range", 0.5, "Hand-set span from pure skim to careful reading (0.75 to 1.25 of attentional demand); the same fixation-coverage data would fit it."),
+  h("valueModulation.demandFloor", 0.1, "Hand-set floor on the demand a Schwartz value can modulate, so zero-demand traits still move a little; value-driven effort differences on zero-demand pages would test whether the floor should be zero."),
+  h("valueModulation.stimulation.changeBlindness", -0.2, "Hand-set Schwartz coefficient (Schwartz 1992 names the value, not this number); effort on changing displays across measured stimulation scores would fit it."),
+  h("valueModulation.stimulation.attentionPattern", 0.2, "Hand-set Schwartz coefficient; scan-pattern cost across measured stimulation scores would fit it."),
+  h("valueModulation.security.changeBlindness", -0.15, "Hand-set Schwartz coefficient; change-detection effort across measured security scores would fit it."),
+  h("valueModulation.conformity.attentionPattern", -0.15, "Hand-set Schwartz coefficient; scan-pattern cost across measured conformity scores would fit it."),
+  h("valueModulation.security.trustCalibration", 0.25, "Hand-set Schwartz coefficient (Fogg 2003 motivates the direction only); trust-signal demand across measured security scores would fit it."),
+  h("valueModulation.achievement.satisficing", -0.2, "Hand-set Schwartz coefficient (Simon 1956 motivates the direction only); deliberation time across measured achievement scores would fit it."),
+  h("valueModulation.achievement.riskTolerance", -0.15, "Hand-set Schwartz coefficient; risky-click rates across measured achievement scores would fit it."),
+  h("valueModulation.conformity.socialProofSensitivity", 0.3, "Hand-set Schwartz coefficient (Cialdini 2001 motivates the direction only); social-proof response across measured conformity scores would fit it."),
+  h("valueModulation.conformity.anchoringBias", 0.2, "Hand-set Schwartz coefficient; default-option take-up across measured conformity scores would fit it."),
+  h("valueModulation.stimulation.curiosity", 0.25, "Hand-set Schwartz coefficient; exploration rates across measured stimulation scores would fit it."),
+  h("valueModulation.stimulation.patience", 0.2, "Hand-set Schwartz coefficient; abandonment on monotonous pages across measured stimulation scores would fit it."),
+  h("valueModulation.selfDirection.socialProofSensitivity", -0.2, "Hand-set Schwartz coefficient; social-proof response across measured self-direction scores would fit it."),
+  h("valueModulation.selfDirection.metacognitivePlanning", -0.15, "Hand-set Schwartz coefficient; planning effort across measured self-direction scores would fit it."),
+  h("valueModulation.tradition.mentalModelFlexibility", 0.25, "Hand-set Schwartz coefficient; adaptation cost on novel UI patterns across measured tradition scores would fit it."),
+  h("valueModulation.benevolence.emotionalContagion", -0.15, "Hand-set Schwartz coefficient; affect response to interface tone across measured benevolence scores would fit it."),
+  h("valueModulation.power.fearOfMissingOut", -0.2, "Hand-set Schwartz coefficient; urgency-cue response across measured power scores would fit it."),
+  h("valueModulation.universalism.readingTendency", 0.15, "Hand-set Schwartz coefficient; reading coverage across measured universalism scores would fit it."),
+
+  // ── Transport cost ──
+  h("weightDeficit", 1, "Hand-set cost per squared unit of demand above capacity (the unit weightSurplus is relative to); effort measured on pages where demand exceeds capacity would fit the pair jointly."),
+  h("weightSurplus", 0.3, "Hand-set cost per squared unit of capacity above demand on billed dimensions; effort measured on pages far below a persona's capacity would fit it against weightDeficit."),
+  h("contentScaleGain", 3, "Hand-set slope of the content gate (layer cost saturates at mean demand 1/3); effort on near-empty pages would test whether layer cost should scale with demand presence at this rate."),
+  h("depletionGate", 0.1, "Hand-set content scale below which a layer depletes no capacity; the same near-empty-page effort data would test the threshold."),
+  h("depletionRate", 0.15, "Hand-set fraction of remaining capacity drawn per unit of layer cost; within-session effort or performance decline across a task sequence would fit it."),
+  h("indirectDepletionShare", 0.5, "Hand-set share of the depletion rate applied to dimensions outside the current layer; cross-task fatigue transfer measurements would fit it."),
+  h("maxDrawdownFraction", 0.5, "Hand-set cap on the fraction of remaining capacity one layer may draw; within-session effort measurements across a task sequence would fit it (same status as the Hill exponent)."),
+  d("capacityEpsilon", 1e-4, "Numerical floor on residual capacity, NOT a behavioural limit: keeps the proportional drawdown away from denormals and the demand gap finite, three orders of magnitude below anything a persona reaches."),
+  h("interaction.cognitiveLoadXdecision", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
+  h("interaction.saliencyXcognitiveLoad", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
+  h("interaction.frustrationXreadability", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
+  h("interaction.cognitiveLoadXmotor", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
+  h("interaction.frustrationXdecision", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
+  h("ctcSigmoidSlope", 2.5, "Hand-set slope of the raw-to-[0,1] CTC logistic; a fit of raw CTC against rated difficulty on real pages would set it."),
+  h("ctcSigmoidCentre", 1.2, "Hand-set raw CTC that maps to 0.5; the same difficulty-rating fit would set it."),
+
+  // ── Abandonment ──
+  h("abandonment.patienceShare", 0.7, "Hand-set weight of patience in the blended tolerance; observed abandonment against measured patience and resilience would fit the blend."),
+  h("abandonment.resilienceShare", 0.3, "Hand-set weight of resilience in the blended tolerance; the same abandonment data would fit it."),
+  h("abandonment.surplusRelief", 0.3, "Hand-set share of surplus cost that offsets deficit before the hazard; abandonment on pages mixing over- and under-demand would fit it."),
+  h("abandonment.toleranceGain", 1.5, "Hand-set multiple of blended patience at which abandonment reaches 50%; observed abandonment against measured task difficulty would fit it."),
+  h("abandonment.toleranceFloor", 0.05, "Hand-set floor on tolerance so a zero-patience persona does not read as certain abandonment on a blank page; abandonment data from very low-patience users would test it."),
+  h("abandonmentHillExponent", 2, "Hand-set Hill exponent on the abandonment curve, UNCALIBRATED and load-bearing (a fixed deficit split over 14 screens falls from 22% to 2%); a dose-response fit of observed abandonment against task difficulty would set it."),
+
+  // ── Output encoding ──
+  d("roundingScale", 1000, "Output rounding to three decimals on headroom and the per-screen figures; a display choice, not a model claim."),
+  d("depthRoundingScale", 100, "Output rounding to two decimals on expectedDepthScreens; a display choice, not a model claim."),
+];

@@ -499,7 +499,8 @@ describe("readingTendency modulates demand, not capacity", () => {
     // find the content, so demand can never fall toward zero.
     const src = CHAIN_SRC.slice(CHAIN_SRC.indexOf("const readingTendency ="),
       CHAIN_SRC.indexOf("const readingTendency =") + 500);
-    expect(src).toContain("0.75 + readingTendency * 0.5");
+    // 0.75 and 0.5 are registered hypotheses (chain.engagement.atSkim / .range), read through param().
+    expect(src).toContain("P.engagementAtSkim + readingTendency * P.engagementRange");
     // And the two ends stay within a factor the decoding gap can overcome.
     expect(cost(0.0)).toBeGreaterThan(0);
     expect(cost(1.0)).toBeGreaterThan(cost(0.0));

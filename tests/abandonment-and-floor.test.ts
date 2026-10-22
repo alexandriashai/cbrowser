@@ -161,6 +161,8 @@ describe("the uncalibrated constants are named and flagged", () => {
 
   test("the cost function reads the constant rather than a literal", () => {
     const src = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
-    expect(src).toContain("ABANDONMENT_STEEPNESS = ABANDONMENT_HILL_EXPONENT");
+    // Read from the registry per run (chain.abandonmentHillExponent), the same
+    // value ABANDONMENT_HILL_EXPONENT exports, so the dependency is recorded.
+    expect(src).toContain("ABANDONMENT_STEEPNESS = P.abandonmentHillExponent");
   });
 });

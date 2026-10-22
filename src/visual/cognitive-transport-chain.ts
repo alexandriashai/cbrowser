@@ -2,7 +2,7 @@
  * Cognitive Optimal Transport — Sequential Transport Chain
  *
  * Implements the CHI 2027 paper's core contribution:
- * - 26-dimensional demand distribution computed from page features
+ * - 30-dimensional demand distribution computed from page features
  * - Sequential transport chain where each layer depletes capacity
  * - Asymmetric deficit-surplus cost
  * - Layer interaction terms
@@ -19,6 +19,7 @@ import {
   type OTCognitiveProfile,
   extractPageMetrics,
 } from './cognitive-transport.js';
+import { param } from './model-provenance.js';
 
 // ── Types ──
 
@@ -41,7 +42,7 @@ export interface PageMetrics {
 }
 
 export interface DemandDistribution {
-  /** 26-dimensional demand vector (0-1 per trait) */
+  /** 30-dimensional demand vector (0-1 per trait), one slot per DEMAND_DIMENSIONS entry */
   demands: Record<string, number>;
   /** Per-dimension demand variance (from spatial variability across page) */
   variance: Record<string, number>;
@@ -92,10 +93,10 @@ export interface SequentialTransportResult {
 // ── Constants ──
 
 /**
- * The 26 demand dimensions used by the sequential transport chain.
- * Superset of the base 25 OT cognitive traits — includes extended traits
- * from CognitiveTraits that capture decision biases, learning transfer,
- * and emotional regulation.
+ * The 30 demand dimensions used by the sequential transport chain: the same
+ * space as COGNITIVE_TRAITS (a test asserts the two do not diverge), covering
+ * the core capacities plus decision biases, learning transfer, emotional
+ * regulation and the bridged reading/motor/attention capacities.
  */
 export const DEMAND_DIMENSIONS = [
   // Core capacity traits
@@ -285,20 +286,22 @@ export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
 ];
 
 /**
- * Pairwise interaction definitions — the top 5 cross-layer effects
- * identified in the CHI 2027 paper's empirical calibration (Table 3).
+ * Pairwise interaction definitions: five cross-layer couplings, each a
+ * hand-set hypothesis registered in provenance/chain.ts (no empirical
+ * calibration exists for them; an earlier comment claimed one). The weight
+ * is read through param() so a run records that it depended on it.
  */
-const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: number }> = [
-  { a: 'cognitiveLoad', b: 'decision', weight: 0.15 },
-  { a: 'saliency', b: 'cognitiveLoad', weight: 0.15 },
-  { a: 'frustration', b: 'readability', weight: 0.15 },
-  { a: 'cognitiveLoad', b: 'motor', weight: 0.15 },
-  { a: 'frustration', b: 'decision', weight: 0.15 },
+const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> = [
+  { a: 'cognitiveLoad', b: 'decision', weight: 'chain.interaction.cognitiveLoadXdecision' },
+  { a: 'saliency', b: 'cognitiveLoad', weight: 'chain.interaction.saliencyXcognitiveLoad' },
+  { a: 'frustration', b: 'readability', weight: 'chain.interaction.frustrationXreadability' },
+  { a: 'cognitiveLoad', b: 'motor', weight: 'chain.interaction.cognitiveLoadXmotor' },
+  { a: 'frustration', b: 'decision', weight: 'chain.interaction.frustrationXdecision' },
 ];
 
-/** Asymmetric cost weights (Theorem 2 in paper) */
-const WEIGHT_DEFICIT = 1.0;   // demand > capacity: high cost
-const WEIGHT_SURPLUS = 0.3;   // capacity > demand: low cost (surplus is cheap)
+// Asymmetric cost weights (chain.weightDeficit 1, chain.weightSurplus 0.3):
+// hand-set hypotheses registered in provenance/chain.ts, not a theorem. Read
+// into CHAIN_PARAMS at function entry.
 
 /**
  * Dimensions where having MORE than the page asks for costs nothing at all.
@@ -402,7 +405,7 @@ const SURPLUS_BILLED_DIMENSIONS = new Set([
  * or a dose-response fit on real session data. Until then it is a shape someone
  * chose, not a shape anyone measured. (2026-08-03)
  */
-export const ABANDONMENT_HILL_EXPONENT = 2;
+export const ABANDONMENT_HILL_EXPONENT = param('chain.abandonmentHillExponent');
 
 /**
  * Relative weighting between the two motor layers. BOTH DEFAULT TO 1.0 AND ARE
@@ -425,57 +428,169 @@ export const MOTOR_LAYER_WEIGHTS = {
   motorProcedure: 1.0,
 } as const;
 
-/** Capacity depletion rate per layer (alpha_i, Section 3.4) */
-const DEPLETION_RATE = 0.15;
+// ── Registry reads ──
+//
+// Every hand-set number the chain uses lives in provenance/chain.ts and is
+// read through param() once per call, at function entry. The code cannot
+// drift from the registry (an unregistered id throws), and a run under
+// withProvenance records exactly which constants its answer rested on.
+//
+// Depletion (chain.depletionRate 0.15, chain.maxDrawdownFraction 0.5,
+// chain.indirectDepletionShare 0.5) and the numerical floor
+// (chain.capacityEpsilon 1e-4, NOT a behavioural limit) are registered there
+// with their status and what would settle them. The old CAPACITY_FLOOR (0.05)
+// was removed 2026-10-21: nothing read it since proportional drawdown replaced
+// the clamp on 2026-08-03.
 
-/** Minimum residual capacity floor (prevents total exhaustion) */
-const CAPACITY_FLOOR = 0.05;
+/** Read every id in `ids` through param(); one object per call so the reads are recorded. */
+function readParams<K extends string>(ids: Record<K, string>): Record<K, number> {
+  const out = {} as Record<K, number>;
+  for (const k in ids) out[k] = param(ids[k]);
+  return out;
+}
 
-/**
- * Numerical floor on residual capacity. NOT a behavioural limit.
- *
- * CAPACITY_FLOOR above was doing behavioural work it should not have: at 0.05
- * it was reachable inside a single page, and once reached the account stopped
- * responding to cost at all. Proportional drawdown asymptotes toward zero
- * instead, so this exists only to keep the value away from denormals and to
- * keep `gap = demand - capacity` finite. It is three orders of magnitude below
- * anything a persona reaches in practice. (2026-08-03)
- */
-const CAPACITY_EPSILON = 1e-4;
+const DEMAND_IDS = {
+  infoWorkingMemory: 'chain.demand.info.workingMemory',
+  infoReadingTendency: 'chain.demand.info.readingTendency',
+  infoInformationForaging: 'chain.demand.info.informationForaging',
+  vInfoComprehension: 'chain.variance.info.comprehension',
+  vInfoWorkingMemory: 'chain.variance.info.workingMemory',
+  vInfoReadingTendency: 'chain.variance.info.readingTendency',
+  vInfoInformationForaging: 'chain.variance.info.informationForaging',
+  visualMentalModelFlexibility: 'chain.demand.visual.mentalModelFlexibility',
+  visualAttentionPattern: 'chain.demand.visual.attentionPattern',
+  vVisualChangeBlindness: 'chain.variance.visual.changeBlindness',
+  vVisualMentalModelFlexibility: 'chain.variance.visual.mentalModelFlexibility',
+  vVisualAttentionPattern: 'chain.variance.visual.attentionPattern',
+  interactiveHalfSaturation: 'chain.demand.interactive.halfSaturation',
+  interactiveRiskTolerance: 'chain.demand.interactive.riskTolerance',
+  interactiveSatisficing: 'chain.demand.interactive.satisficing',
+  interactiveProceduralFluency: 'chain.demand.interactive.proceduralFluency',
+  interactiveMotorCapacity: 'chain.demand.interactive.motorCapacity',
+  vInteractiveRiskTolerance: 'chain.variance.interactive.riskTolerance',
+  vInteractiveSatisficing: 'chain.variance.interactive.satisficing',
+  vInteractiveProceduralFluency: 'chain.variance.interactive.proceduralFluency',
+  vInteractiveMotorPrecision: 'chain.variance.interactive.motorPrecision',
+  vInteractiveMotorCapacity: 'chain.variance.interactive.motorCapacity',
+  textPatience: 'chain.demand.text.patience',
+  textComprehension: 'chain.demand.text.comprehension',
+  textReadingCapacity: 'chain.demand.text.readingCapacity',
+  vTextReadingTendency: 'chain.variance.text.readingTendency',
+  vTextPatience: 'chain.variance.text.patience',
+  vTextComprehension: 'chain.variance.text.comprehension',
+  vTextReadingCapacity: 'chain.variance.text.readingCapacity',
+  wordLengthComprehension: 'chain.demand.wordLength.comprehension',
+  wordLengthReadingTendency: 'chain.demand.wordLength.readingTendency',
+  vWordLengthComprehension: 'chain.variance.wordLength.comprehension',
+  vWordLengthReadingTendency: 'chain.variance.wordLength.readingTendency',
+  sentenceLengthWorkingMemory: 'chain.demand.sentenceLength.workingMemory',
+  sentenceLengthPatience: 'chain.demand.sentenceLength.patience',
+  sentenceLengthComprehension: 'chain.demand.sentenceLength.comprehension',
+  vSentenceLengthWorkingMemory: 'chain.variance.sentenceLength.workingMemory',
+  vSentenceLengthPatience: 'chain.variance.sentenceLength.patience',
+  lexicalDiversityComprehension: 'chain.demand.lexicalDiversity.comprehension',
+  lexicalDiversityTransferLearning: 'chain.demand.lexicalDiversity.transferLearning',
+  vLexicalDiversityComprehension: 'chain.variance.lexicalDiversity.comprehension',
+  longWordsReadingTendency: 'chain.demand.longWords.readingTendency',
+  longWordsComprehension: 'chain.demand.longWords.comprehension',
+  vLongWordsReadingTendency: 'chain.variance.longWords.readingTendency',
+  technicalComprehension: 'chain.demand.technical.comprehension',
+  technicalTransferLearning: 'chain.demand.technical.transferLearning',
+  technicalMentalModelFlexibility: 'chain.demand.technical.mentalModelFlexibility',
+  vTechnicalComprehension: 'chain.variance.technical.comprehension',
+  vTechnicalTransferLearning: 'chain.variance.technical.transferLearning',
+  vTechnicalMentalModelFlexibility: 'chain.variance.technical.mentalModelFlexibility',
+  animationSigmoidThreshold: 'chain.demand.animation.sigmoidThreshold',
+  animationSigmoidScale: 'chain.demand.animation.sigmoidScale',
+  animationChangeBlindness: 'chain.demand.animation.changeBlindness',
+  animationInterruptRecovery: 'chain.demand.animation.interruptRecovery',
+  animationEmotionalContagion: 'chain.demand.animation.emotionalContagion',
+  vAnimationChangeBlindness: 'chain.variance.animation.changeBlindness',
+  vAnimationInterruptRecovery: 'chain.variance.animation.interruptRecovery',
+  vAnimationEmotionalContagion: 'chain.variance.animation.emotionalContagion',
+  distractorAnimationShare: 'chain.demand.distractor.animationShare',
+  distractorVisualShare: 'chain.demand.distractor.visualShare',
+  sustainedBase: 'chain.demand.sustained.base',
+  sustainedDistractorGain: 'chain.demand.sustained.distractorGain',
+  vSustainedText: 'chain.variance.sustained.text',
+  vSustainedAnimation: 'chain.variance.sustained.animation',
+  choiceHalfSaturation: 'chain.demand.choice.halfSaturation',
+  choiceAnchoringBias: 'chain.demand.choice.anchoringBias',
+  choiceFearOfMissingOut: 'chain.demand.choice.fearOfMissingOut',
+  choiceSocialProofSensitivity: 'chain.demand.choice.socialProofSensitivity',
+  vChoiceScale: 'chain.variance.choice.scale',
+  vChoiceSatisficing: 'chain.variance.choice.satisficing',
+  vChoiceAnchoringBias: 'chain.variance.choice.anchoringBias',
+  vChoiceFearOfMissingOut: 'chain.variance.choice.fearOfMissingOut',
+  vChoiceSocialProofSensitivity: 'chain.variance.choice.socialProofSensitivity',
+  navHalfSaturation: 'chain.demand.nav.halfSaturation',
+  navWorkingMemory: 'chain.demand.nav.workingMemory',
+  navMetacognitivePlanning: 'chain.demand.nav.metacognitivePlanning',
+  navPersistence: 'chain.demand.nav.persistence',
+  navTransferLearning: 'chain.demand.nav.transferLearning',
+  navSiteFamiliarity: 'chain.demand.nav.siteFamiliarity',
+  vNavScale: 'chain.variance.nav.scale',
+  vNavSiteFamiliarity: 'chain.variance.nav.siteFamiliarity',
+  vNavWorkingMemory: 'chain.variance.nav.workingMemory',
+  vNavMetacognitivePlanning: 'chain.variance.nav.metacognitivePlanning',
+  vNavPersistence: 'chain.variance.nav.persistence',
+  vNavTransferLearning: 'chain.variance.nav.transferLearning',
+} as const;
 
-/**
- * Largest fraction of remaining capacity one layer may draw. UNCALIBRATED.
- *
- * Prevents a single very expensive layer from emptying the account outright,
- * which would reintroduce the saturation this replaced. 0.5 means no layer can
- * take more than half of what is left, whatever its cost.
- *
- * What would settle it: within-session effort measurements across a task
- * sequence. Same status as ABANDONMENT_HILL_EXPONENT and MOTOR_LAYER_WEIGHTS.
- */
-const MAX_DRAWDOWN_FRACTION = 0.5;
+const CHAIN_IDS = {
+  missingTraitCapacity: 'chain.missingTraitCapacity',
+  attentionTargeted: 'chain.attentionString.targeted',
+  attentionSequential: 'chain.attentionString.sequential',
+  attentionFPattern: 'chain.attentionString.fPattern',
+  attentionZPattern: 'chain.attentionString.zPattern',
+  attentionExploratory: 'chain.attentionString.exploratory',
+  engagementAtSkim: 'chain.engagement.atSkim',
+  engagementRange: 'chain.engagement.range',
+  weightDeficit: 'chain.weightDeficit',
+  weightSurplus: 'chain.weightSurplus',
+  contentScaleGain: 'chain.contentScaleGain',
+  depletionGate: 'chain.depletionGate',
+  depletionRate: 'chain.depletionRate',
+  indirectDepletionShare: 'chain.indirectDepletionShare',
+  maxDrawdownFraction: 'chain.maxDrawdownFraction',
+  capacityEpsilon: 'chain.capacityEpsilon',
+  roundingScale: 'chain.roundingScale',
+  ctcSigmoidSlope: 'chain.ctcSigmoidSlope',
+  ctcSigmoidCentre: 'chain.ctcSigmoidCentre',
+  patienceShare: 'chain.abandonment.patienceShare',
+  resilienceShare: 'chain.abandonment.resilienceShare',
+  surplusRelief: 'chain.abandonment.surplusRelief',
+  toleranceGain: 'chain.abandonment.toleranceGain',
+  toleranceFloor: 'chain.abandonment.toleranceFloor',
+  abandonmentHillExponent: 'chain.abandonmentHillExponent',
+} as const;
+
+type ChainParams = Record<keyof typeof CHAIN_IDS, number>;
 
 // ── Sigmoid Helper ──
 
 /**
  * Standard logistic sigmoid for mapping raw page metrics to demand values.
- * Calibrated thresholds ensure typical web pages produce demands in [0.1, 0.9].
+ * The threshold and scale are hand-set hypotheses (see provenance/chain.ts),
+ * chosen so typical web pages produce demands in [0.1, 0.9]; not calibrated.
  */
 function sigmoid(raw: number, threshold: number, scale: number): number {
   const x = -(raw - threshold) / scale;
   // Clamp exponent to prevent overflow
-  if (x > 500) return 0;
-  if (x < -500) return 1;
+  const clamp = param('chain.sigmoidExponentClamp');
+  if (x > clamp) return 0;
+  if (x < -clamp) return 1;
   return 1 / (1 + Math.exp(x));
 }
 
 // ── 1. Demand Distribution Computation ──
 
 /**
- * Compute the 26-dimensional demand distribution from page metrics.
+ * Compute the 30-dimensional demand distribution from page metrics.
  *
- * Each page feature maps to specific trait dimensions via calibrated
- * sigmoid functions. The mapping encodes HOW each page characteristic
+ * Each page feature maps to specific trait dimensions through hand-set
+ * curves and weights (every one registered as a hypothesis in
+ * provenance/chain.ts). The mapping encodes HOW each page characteristic
  * creates cognitive demand on specific user capacities.
  *
  * Traits not affected by any page feature receive demand = 0.0 (no demand).
@@ -484,10 +599,11 @@ function sigmoid(raw: number, threshold: number, scale: number): number {
  * @returns DemandDistribution with per-trait demand and variance
  */
 export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistribution {
+  const D = readParams(DEMAND_IDS);
   const demands: Record<string, number> = {};
   const variance: Record<string, number> = {};
 
-  // Initialize all 26 dimensions to zero demand
+  // Initialize all 30 dimensions to zero demand
   for (const dim of DEMAND_DIMENSIONS) {
     demands[dim] = 0;
     variance[dim] = 0;
@@ -511,43 +627,43 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // Page metrics already use logScale (0-1) — pass through directly for differentiation
   const infoDemand = infoDensity;
   demands.comprehension = Math.max(demands.comprehension, infoDemand);
-  demands.workingMemory = Math.max(demands.workingMemory, infoDemand * 0.9);
-  demands.readingTendency = Math.max(demands.readingTendency, infoDemand * 0.85);
-  demands.informationForaging = Math.max(demands.informationForaging, infoDemand * 0.8);
-  variance.comprehension += infoDensity * 0.1;
-  variance.workingMemory += infoDensity * 0.08;
-  variance.readingTendency += infoDensity * 0.07;
-  variance.informationForaging += infoDensity * 0.06;
+  demands.workingMemory = Math.max(demands.workingMemory, infoDemand * D.infoWorkingMemory);
+  demands.readingTendency = Math.max(demands.readingTendency, infoDemand * D.infoReadingTendency);
+  demands.informationForaging = Math.max(demands.informationForaging, infoDemand * D.infoInformationForaging);
+  variance.comprehension += infoDensity * D.vInfoComprehension;
+  variance.workingMemory += infoDensity * D.vInfoWorkingMemory;
+  variance.readingTendency += infoDensity * D.vInfoReadingTendency;
+  variance.informationForaging += infoDensity * D.vInfoInformationForaging;
 
   // ── visualComplexity → changeBlindness, mentalModelFlexibility, attentionPattern (inferred)
   const visDemand = visCplx; // already 0-1 from logScale
   demands.changeBlindness = Math.max(demands.changeBlindness, visDemand);
-  demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, visDemand * 0.7);
-  demands.attentionPattern = Math.max(demands.attentionPattern, visDemand * 0.85);
-  variance.changeBlindness += visCplx * 0.12;
-  variance.mentalModelFlexibility += visCplx * 0.08;
-  variance.attentionPattern += visCplx * 0.1;
+  demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, visDemand * D.visualMentalModelFlexibility);
+  demands.attentionPattern = Math.max(demands.attentionPattern, visDemand * D.visualAttentionPattern);
+  variance.changeBlindness += visCplx * D.vVisualChangeBlindness;
+  variance.mentalModelFlexibility += visCplx * D.vVisualMentalModelFlexibility;
+  variance.attentionPattern += visCplx * D.vVisualAttentionPattern;
 
   // ── interactiveElementCount → riskTolerance, satisficing, proceduralFluency, motorPrecision (inferred)
   // Use logScale for element count — 20 elements = 0.5, 100 = 0.83, 500 = 0.96
-  const interDemand = interactiveCount / (interactiveCount + 20);
-  demands.riskTolerance = Math.max(demands.riskTolerance, interDemand * 0.75);
-  demands.satisficing = Math.max(demands.satisficing, interDemand * 0.8);
-  demands.proceduralFluency = Math.max(demands.proceduralFluency, interDemand * 0.9);
+  const interDemand = interactiveCount / (interactiveCount + D.interactiveHalfSaturation);
+  demands.riskTolerance = Math.max(demands.riskTolerance, interDemand * D.interactiveRiskTolerance);
+  demands.satisficing = Math.max(demands.satisficing, interDemand * D.interactiveSatisficing);
+  demands.proceduralFluency = Math.max(demands.proceduralFluency, interDemand * D.interactiveProceduralFluency);
   demands.motorPrecision = Math.max(demands.motorPrecision, interDemand);
-  variance.riskTolerance += interDemand * 0.06;
-  variance.satisficing += interDemand * 0.07;
-  variance.proceduralFluency += interDemand * 0.08;
-  variance.motorPrecision += interDemand * 0.1;
+  variance.riskTolerance += interDemand * D.vInteractiveRiskTolerance;
+  variance.satisficing += interDemand * D.vInteractiveSatisficing;
+  variance.proceduralFluency += interDemand * D.vInteractiveProceduralFluency;
+  variance.motorPrecision += interDemand * D.vInteractiveMotorPrecision;
 
   // ── textDensity → readingTendency, patience, comprehension
   const textDemand = textDens; // already 0-1 from logScale
   demands.readingTendency = Math.max(demands.readingTendency, textDemand);
-  demands.patience = Math.max(demands.patience, textDemand * 0.7);
-  demands.comprehension = Math.max(demands.comprehension, textDemand * 0.85);
-  variance.readingTendency += textDens * 0.09;
-  variance.patience += textDens * 0.06;
-  variance.comprehension += textDens * 0.08;
+  demands.patience = Math.max(demands.patience, textDemand * D.textPatience);
+  demands.comprehension = Math.max(demands.comprehension, textDemand * D.textComprehension);
+  variance.readingTendency += textDens * D.vTextReadingTendency;
+  variance.patience += textDens * D.vTextPatience;
+  variance.comprehension += textDens * D.vTextComprehension;
 
   // ── Text Readability Metrics (v18.56) ──
   // These measure HOW HARD the text is to read, not just how much there is.
@@ -561,49 +677,49 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   if (avgWordLen > 0 || avgSentLen > 0) {
     // avgWordLength → comprehension, readingTendency
     // Longer words = harder to parse (especially for dyslexic, ADHD, non-native speakers)
-    demands.comprehension = Math.max(demands.comprehension, avgWordLen * 0.9);
-    demands.readingTendency = Math.max(demands.readingTendency, avgWordLen * 0.85);
-    variance.comprehension += avgWordLen * 0.12;
-    variance.readingTendency += avgWordLen * 0.1;
+    demands.comprehension = Math.max(demands.comprehension, avgWordLen * D.wordLengthComprehension);
+    demands.readingTendency = Math.max(demands.readingTendency, avgWordLen * D.wordLengthReadingTendency);
+    variance.comprehension += avgWordLen * D.vWordLengthComprehension;
+    variance.readingTendency += avgWordLen * D.vWordLengthReadingTendency;
 
     // avgSentenceLength → workingMemory, patience, comprehension
     // Longer sentences demand more working memory to hold clause structure
-    demands.workingMemory = Math.max(demands.workingMemory, avgSentLen * 0.85);
-    demands.patience = Math.max(demands.patience, avgSentLen * 0.7);
-    demands.comprehension = Math.max(demands.comprehension, avgSentLen * 0.8);
-    variance.workingMemory += avgSentLen * 0.1;
-    variance.patience += avgSentLen * 0.07;
+    demands.workingMemory = Math.max(demands.workingMemory, avgSentLen * D.sentenceLengthWorkingMemory);
+    demands.patience = Math.max(demands.patience, avgSentLen * D.sentenceLengthPatience);
+    demands.comprehension = Math.max(demands.comprehension, avgSentLen * D.sentenceLengthComprehension);
+    variance.workingMemory += avgSentLen * D.vSentenceLengthWorkingMemory;
+    variance.patience += avgSentLen * D.vSentenceLengthPatience;
 
     // lexicalDiversity → comprehension, transferLearning
     // High vocabulary diversity = more cognitive effort to track meaning
-    demands.comprehension = Math.max(demands.comprehension, lexDiv * 0.75);
-    demands.transferLearning = Math.max(demands.transferLearning, lexDiv * 0.65);
-    variance.comprehension += lexDiv * 0.08;
+    demands.comprehension = Math.max(demands.comprehension, lexDiv * D.lexicalDiversityComprehension);
+    demands.transferLearning = Math.max(demands.transferLearning, lexDiv * D.lexicalDiversityTransferLearning);
+    variance.comprehension += lexDiv * D.vLexicalDiversityComprehension;
 
     // longWordRatio → readingTendency, comprehension
     // Pages with many 7+ character words are harder to skim
-    demands.readingTendency = Math.max(demands.readingTendency, longWordR * 0.9);
-    demands.comprehension = Math.max(demands.comprehension, longWordR * 0.8);
-    variance.readingTendency += longWordR * 0.11;
+    demands.readingTendency = Math.max(demands.readingTendency, longWordR * D.longWordsReadingTendency);
+    demands.comprehension = Math.max(demands.comprehension, longWordR * D.longWordsComprehension);
+    variance.readingTendency += longWordR * D.vLongWordsReadingTendency;
 
     // technicalDensity → comprehension, transferLearning, mentalModelFlexibility
     // 10+ character words signal compound terms, jargon, domain-specific vocabulary
-    demands.comprehension = Math.max(demands.comprehension, techDens * 0.95);
-    demands.transferLearning = Math.max(demands.transferLearning, techDens * 0.8);
-    demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, techDens * 0.7);
-    variance.comprehension += techDens * 0.13;
-    variance.transferLearning += techDens * 0.09;
-    variance.mentalModelFlexibility += techDens * 0.07;
+    demands.comprehension = Math.max(demands.comprehension, techDens * D.technicalComprehension);
+    demands.transferLearning = Math.max(demands.transferLearning, techDens * D.technicalTransferLearning);
+    demands.mentalModelFlexibility = Math.max(demands.mentalModelFlexibility, techDens * D.technicalMentalModelFlexibility);
+    variance.comprehension += techDens * D.vTechnicalComprehension;
+    variance.transferLearning += techDens * D.vTechnicalTransferLearning;
+    variance.mentalModelFlexibility += techDens * D.vTechnicalMentalModelFlexibility;
   }
 
   // ── animationLevel → changeBlindness, interruptRecovery, emotionalContagion
-  const animDemand = sigmoid(animLevel, 0.3, 0.15);
-  demands.changeBlindness = Math.max(demands.changeBlindness, animDemand * 0.9);
-  demands.interruptRecovery = Math.max(demands.interruptRecovery, animDemand * 0.85);
-  demands.emotionalContagion = Math.max(demands.emotionalContagion, animDemand * 0.7);
-  variance.changeBlindness += animLevel * 0.1;
-  variance.interruptRecovery += animLevel * 0.09;
-  variance.emotionalContagion += animLevel * 0.07;
+  const animDemand = sigmoid(animLevel, D.animationSigmoidThreshold, D.animationSigmoidScale);
+  demands.changeBlindness = Math.max(demands.changeBlindness, animDemand * D.animationChangeBlindness);
+  demands.interruptRecovery = Math.max(demands.interruptRecovery, animDemand * D.animationInterruptRecovery);
+  demands.emotionalContagion = Math.max(demands.emotionalContagion, animDemand * D.animationEmotionalContagion);
+  variance.changeBlindness += animLevel * D.vAnimationChangeBlindness;
+  variance.interruptRecovery += animLevel * D.vAnimationInterruptRecovery;
+  variance.emotionalContagion += animLevel * D.vAnimationEmotionalContagion;
 
   // ── textDensity × distractor pressure → sustainedAttention
   //
@@ -629,7 +745,7 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // re-creates the exact inversion that removing readingTendency fixed --
   // measured: at a flat 1.0 base, ADHD outscored dyslexic on readability on a
   // page with animationLevel 0, which is the wrong answer.
-  const distractorPressure = Math.min(1, animDemand * 0.7 + visDemand * 0.3);
+  const distractorPressure = Math.min(1, animDemand * D.distractorAnimationShare + visDemand * D.distractorVisualShare);
   // `max(textDens, infoDensity)`, not `textDens` alone -- the same base
   // readingCapacity uses below, and for the same reason.
   //
@@ -653,29 +769,29 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // and the 0.3-weighted cost with it. Same symptom, unrelated mechanism, and it
   // needs its own decision rather than this one applied twice.
   const sustainBase = Math.max(textDemand, infoDensity);
-  const sustainDemand = Math.min(1, sustainBase * 0.7 * (1 + distractorPressure * 0.7));
+  const sustainDemand = Math.min(1, sustainBase * D.sustainedBase * (1 + distractorPressure * D.sustainedDistractorGain));
   demands.sustainedAttention = Math.max(demands.sustainedAttention, sustainDemand);
-  variance.sustainedAttention += textDens * 0.1 + animLevel * 0.08;
+  variance.sustainedAttention += textDens * D.vSustainedText + animLevel * D.vSustainedAnimation;
 
   // ── choiceCount → satisficing, anchoringBias, fearOfMissingOut, socialProofSensitivity
   // LogScale: 10 choices = 0.5, 30 = 0.75, 100 = 0.91
-  const choiceDemand = choices / (choices + 10);
+  const choiceDemand = choices / (choices + D.choiceHalfSaturation);
   demands.satisficing = Math.max(demands.satisficing, choiceDemand);
-  demands.anchoringBias = Math.max(demands.anchoringBias, choiceDemand * 0.85);
-  demands.fearOfMissingOut = Math.max(demands.fearOfMissingOut, choiceDemand * 0.75);
-  demands.socialProofSensitivity = Math.max(demands.socialProofSensitivity, choiceDemand * 0.7);
-  variance.satisficing += Math.min(1, choices / 20) * 0.1;
-  variance.anchoringBias += Math.min(1, choices / 20) * 0.08;
-  variance.fearOfMissingOut += Math.min(1, choices / 20) * 0.07;
-  variance.socialProofSensitivity += Math.min(1, choices / 20) * 0.06;
+  demands.anchoringBias = Math.max(demands.anchoringBias, choiceDemand * D.choiceAnchoringBias);
+  demands.fearOfMissingOut = Math.max(demands.fearOfMissingOut, choiceDemand * D.choiceFearOfMissingOut);
+  demands.socialProofSensitivity = Math.max(demands.socialProofSensitivity, choiceDemand * D.choiceSocialProofSensitivity);
+  variance.satisficing += Math.min(1, choices / D.vChoiceScale) * D.vChoiceSatisficing;
+  variance.anchoringBias += Math.min(1, choices / D.vChoiceScale) * D.vChoiceAnchoringBias;
+  variance.fearOfMissingOut += Math.min(1, choices / D.vChoiceScale) * D.vChoiceFearOfMissingOut;
+  variance.socialProofSensitivity += Math.min(1, choices / D.vChoiceScale) * D.vChoiceSocialProofSensitivity;
 
   // ── navigationDepth → workingMemory, metacognitivePlanning, persistence, transferLearning
   // LogScale: depth 2 = 0.4, depth 5 = 0.63, depth 10 = 0.77
-  const navDemand = navDepth / (navDepth + 3);
-  demands.workingMemory = Math.max(demands.workingMemory, navDemand * 0.95);
-  demands.metacognitivePlanning = Math.max(demands.metacognitivePlanning, navDemand * 0.8);
-  demands.persistence = Math.max(demands.persistence, navDemand * 0.7);
-  demands.transferLearning = Math.max(demands.transferLearning, navDemand * 0.65);
+  const navDemand = navDepth / (navDepth + D.navHalfSaturation);
+  demands.workingMemory = Math.max(demands.workingMemory, navDemand * D.navWorkingMemory);
+  demands.metacognitivePlanning = Math.max(demands.metacognitivePlanning, navDemand * D.navMetacognitivePlanning);
+  demands.persistence = Math.max(demands.persistence, navDemand * D.navPersistence);
+  demands.transferLearning = Math.max(demands.transferLearning, navDemand * D.navTransferLearning);
   // ── navigationDepth → siteFamiliarity
   //
   // This dimension had NO demand term at all. It was initialised to 0 and never
@@ -691,20 +807,20 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // why this is proportional to navDemand rather than a constant. Weighted just
   // under workingMemory (0.95), since knowing the layout substitutes for
   // holding it in mind. (2026-08-02)
-  demands.siteFamiliarity = Math.max(demands.siteFamiliarity, navDemand * 0.85);
+  demands.siteFamiliarity = Math.max(demands.siteFamiliarity, navDemand * D.navSiteFamiliarity);
   // Reading capacity is demanded by how much text there is to decode, and motor
   // capacity by how many things there are to hit. Both proportional, so a page
   // with no text asks nothing of decoding and a page with no controls asks
   // nothing of pointing.
-  demands.readingCapacity = Math.max(demands.readingCapacity, Math.max(textDens, infoDensity) * 0.9);
-  demands.motorCapacity = Math.max(demands.motorCapacity, interDemand * 0.9);
-  variance.readingCapacity += textDens * 0.08;
-  variance.motorCapacity += interDemand * 0.08;
-  variance.siteFamiliarity += Math.min(1, navDepth / 5) * 0.08;
-  variance.workingMemory += Math.min(1, navDepth / 5) * 0.09;
-  variance.metacognitivePlanning += Math.min(1, navDepth / 5) * 0.07;
-  variance.persistence += Math.min(1, navDepth / 5) * 0.06;
-  variance.transferLearning += Math.min(1, navDepth / 5) * 0.05;
+  demands.readingCapacity = Math.max(demands.readingCapacity, Math.max(textDens, infoDensity) * D.textReadingCapacity);
+  demands.motorCapacity = Math.max(demands.motorCapacity, interDemand * D.interactiveMotorCapacity);
+  variance.readingCapacity += textDens * D.vTextReadingCapacity;
+  variance.motorCapacity += interDemand * D.vInteractiveMotorCapacity;
+  variance.siteFamiliarity += Math.min(1, navDepth / D.vNavScale) * D.vNavSiteFamiliarity;
+  variance.workingMemory += Math.min(1, navDepth / D.vNavScale) * D.vNavWorkingMemory;
+  variance.metacognitivePlanning += Math.min(1, navDepth / D.vNavScale) * D.vNavMetacognitivePlanning;
+  variance.persistence += Math.min(1, navDepth / D.vNavScale) * D.vNavPersistence;
+  variance.transferLearning += Math.min(1, navDepth / D.vNavScale) * D.vNavTransferLearning;
 
   // Clamp all demands and variances to [0, 1]
   for (const dim of DEMAND_DIMENSIONS) {
@@ -719,23 +835,23 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
 
 /**
  * Resolve a trait value from the persona's trait record.
- * Falls back to 0.5 (neutral midpoint) for missing traits.
+ * Falls back to chain.missingTraitCapacity (0.5, a hypothesis) for missing traits.
  */
-function traitValue(traits: Record<string, number | string>, trait: string): number {
+function traitValue(traits: Record<string, number | string>, trait: string, P: ChainParams): number {
   const v = traits?.[trait];
   // Handle string enum traits (e.g. attentionPattern: "targeted" | "f-pattern" | ...)
   if (typeof v === 'string') {
     const STRING_TRAIT_MAP: Record<string, number> = {
-      'targeted': 0.9,
-      'sequential': 0.8,
-      'f-pattern': 0.7,
-      'z-pattern': 0.6,
-      'exploratory': 0.3,
+      'targeted': P.attentionTargeted,
+      'sequential': P.attentionSequential,
+      'f-pattern': P.attentionFPattern,
+      'z-pattern': P.attentionZPattern,
+      'exploratory': P.attentionExploratory,
     };
-    return STRING_TRAIT_MAP[v] ?? 0.5;
+    return STRING_TRAIT_MAP[v] ?? P.missingTraitCapacity;
   }
   if (typeof v === 'number' && !isNaN(v)) return Math.max(0, Math.min(1, v));
-  return 0.5;
+  return P.missingTraitCapacity;
 }
 
 /**
@@ -744,6 +860,9 @@ function traitValue(traits: Record<string, number | string>, trait: string): num
  * Each entry maps a Schwartz value to the cognitive traits it amplifies or
  * dampens in the demand distribution. The coefficient represents how much
  * a high value score (1.0) amplifies (+) or dampens (-) the demand on that trait.
+ * Every coefficient is a hand-set hypothesis registered in provenance/chain.ts
+ * (the citations below motivate a direction, not a number) and is read
+ * through param() by id.
  *
  * Theoretical basis:
  * - Security-driven personas demand MORE trustCalibration (Fogg 2003)
@@ -758,54 +877,54 @@ function traitValue(traits: Record<string, number | string>, trait: string): num
 const VALUE_DEMAND_MODULATION: Array<{
   value: string;
   trait: string;
-  coefficient: number; // positive = amplifies demand, negative = dampens
+  coefficient: string; // provenance id; positive = amplifies demand, negative = dampens
   layer: string;       // which layer this modulation applies to
 }> = [
   // ── Saliency Layer Modulations ──
   // Stimulation → reduces changeBlindness threshold (novelty-seekers notice changes more)
-  { value: 'stimulation', trait: 'changeBlindness', coefficient: -0.20, layer: 'saliency' },
+  { value: 'stimulation', trait: 'changeBlindness', coefficient: 'chain.valueModulation.stimulation.changeBlindness', layer: 'saliency' },
   // Stimulation → amplifies attentionPattern demand (drawn to novel visual elements)
-  { value: 'stimulation', trait: 'attentionPattern', coefficient: 0.20, layer: 'saliency' },
+  { value: 'stimulation', trait: 'attentionPattern', coefficient: 'chain.valueModulation.stimulation.attentionPattern', layer: 'saliency' },
   // Security → amplifies changeBlindness demand (vigilant scanners notice more changes)
-  { value: 'security', trait: 'changeBlindness', coefficient: -0.15, layer: 'saliency' },
+  { value: 'security', trait: 'changeBlindness', coefficient: 'chain.valueModulation.security.changeBlindness', layer: 'saliency' },
   // Conformity → dampens attentionPattern (follows expected scan patterns, less exploratory)
-  { value: 'conformity', trait: 'attentionPattern', coefficient: -0.15, layer: 'saliency' },
+  { value: 'conformity', trait: 'attentionPattern', coefficient: 'chain.valueModulation.conformity.attentionPattern', layer: 'saliency' },
 
   // ── Frustration Layer ──
   // Security → amplifies trust demand (Fogg 2003: high-security users need more trust signals)
-  { value: 'security', trait: 'trustCalibration', coefficient: 0.25, layer: 'frustration' },
+  { value: 'security', trait: 'trustCalibration', coefficient: 'chain.valueModulation.security.trustCalibration', layer: 'frustration' },
 
   // Achievement → reduces satisficing demand (optimizers don't settle for "good enough")
-  { value: 'achievement', trait: 'satisficing', coefficient: -0.20, layer: 'decision' },
+  { value: 'achievement', trait: 'satisficing', coefficient: 'chain.valueModulation.achievement.satisficing', layer: 'decision' },
   // Achievement → increases riskTolerance capacity (confident decision-makers)
-  { value: 'achievement', trait: 'riskTolerance', coefficient: -0.15, layer: 'decision' },
+  { value: 'achievement', trait: 'riskTolerance', coefficient: 'chain.valueModulation.achievement.riskTolerance', layer: 'decision' },
 
   // Conformity → amplifies social proof demand (Cialdini 2001: need validation from others)
-  { value: 'conformity', trait: 'socialProofSensitivity', coefficient: 0.30, layer: 'decision' },
+  { value: 'conformity', trait: 'socialProofSensitivity', coefficient: 'chain.valueModulation.conformity.socialProofSensitivity', layer: 'decision' },
   // Conformity → amplifies anchoring (defer to first/default option)
-  { value: 'conformity', trait: 'anchoringBias', coefficient: 0.20, layer: 'decision' },
+  { value: 'conformity', trait: 'anchoringBias', coefficient: 'chain.valueModulation.conformity.anchoringBias', layer: 'decision' },
 
   // Stimulation → amplifies curiosity demand (explore more, bored faster)
-  { value: 'stimulation', trait: 'curiosity', coefficient: 0.25, layer: 'cognitiveLoad' },
+  { value: 'stimulation', trait: 'curiosity', coefficient: 'chain.valueModulation.stimulation.curiosity', layer: 'cognitiveLoad' },
   // Stimulation → depletes patience (novelty-seekers abandon monotonous pages)
-  { value: 'stimulation', trait: 'patience', coefficient: 0.20, layer: 'motor' },
+  { value: 'stimulation', trait: 'patience', coefficient: 'chain.valueModulation.stimulation.patience', layer: 'motor' },
 
   // Self-Direction → reduces conformity-related demand (independent thinkers)
-  { value: 'selfDirection', trait: 'socialProofSensitivity', coefficient: -0.20, layer: 'decision' },
+  { value: 'selfDirection', trait: 'socialProofSensitivity', coefficient: 'chain.valueModulation.selfDirection.socialProofSensitivity', layer: 'decision' },
   // Self-Direction → amplifies metacognitive planning (plan their own path)
-  { value: 'selfDirection', trait: 'metacognitivePlanning', coefficient: -0.15, layer: 'cognitiveLoad' },
+  { value: 'selfDirection', trait: 'metacognitivePlanning', coefficient: 'chain.valueModulation.selfDirection.metacognitivePlanning', layer: 'cognitiveLoad' },
 
   // Tradition → amplifies mentalModelFlexibility (resist new UI patterns)
-  { value: 'tradition', trait: 'mentalModelFlexibility', coefficient: 0.25, layer: 'cognitiveLoad' },
+  { value: 'tradition', trait: 'mentalModelFlexibility', coefficient: 'chain.valueModulation.tradition.mentalModelFlexibility', layer: 'cognitiveLoad' },
 
   // Benevolence → reduces emotionalContagion cost (emotionally regulated)
-  { value: 'benevolence', trait: 'emotionalContagion', coefficient: -0.15, layer: 'frustration' },
+  { value: 'benevolence', trait: 'emotionalContagion', coefficient: 'chain.valueModulation.benevolence.emotionalContagion', layer: 'frustration' },
 
   // Power → reduces fear of missing out (confident, not swayed by urgency)
-  { value: 'power', trait: 'fearOfMissingOut', coefficient: -0.20, layer: 'decision' },
+  { value: 'power', trait: 'fearOfMissingOut', coefficient: 'chain.valueModulation.power.fearOfMissingOut', layer: 'decision' },
 
   // Universalism → amplifies readingTendency (reads everything, values completeness)
-  { value: 'universalism', trait: 'readingTendency', coefficient: 0.15, layer: 'readability' },
+  { value: 'universalism', trait: 'readingTendency', coefficient: 'chain.valueModulation.universalism.readingTendency', layer: 'readability' },
 ];
 
 /**
@@ -815,8 +934,9 @@ const VALUE_DEMAND_MODULATION: Array<{
  * capacity at each processing layer. A user who spends cognitive resources
  * on saliency detection has LESS available for subsequent decision-making.
  *
- * The algorithm processes layers in temporal order:
- *   Saliency -> Cognitive Load -> Decision -> Motor -> Frustration -> Readability
+ * The algorithm processes the eight layers of LAYER_DEFINITIONS in order:
+ *   saliency -> cognitiveLoad -> decision -> motor -> motorProcedure
+ *   -> frustration -> readability -> readingAttention
  *
  * Each layer:
  * 1. Applies Schwartz value modulation to demand (v18.54.0)
@@ -825,7 +945,7 @@ const VALUE_DEMAND_MODULATION: Array<{
  * 4. Records the remaining capacity for downstream layers
  *
  * @param persona - OTCognitiveProfile with trait values
- * @param demand - 26D demand distribution from page analysis
+ * @param demand - 30D demand distribution from page analysis
  * @param options - Enable/disable asymmetric costs, interaction terms, and value modulation
  * @returns Complete sequential transport result with per-layer breakdown
  */
@@ -845,6 +965,7 @@ export function computeSequentialCTC(
     carriedCapacity?: Record<string, number>;
   },
 ): SequentialTransportResult {
+  const P = readParams(CHAIN_IDS);
   const useAsymmetric = options?.asymmetric !== false; // default true
   const useInteractions = options?.interactions !== false; // default true
   const values = options?.schwartzValues;
@@ -876,7 +997,7 @@ export function computeSequentialCTC(
   // than ADHD on a text-dense page after this. (2026-08-02)
   const readingTendency = persona.traits?.readingTendency;
   if (typeof readingTendency === "number") {
-    const engagement = 0.75 + readingTendency * 0.5; // 0.75 at pure skim, 1.25 at careful
+    const engagement = P.engagementAtSkim + readingTendency * P.engagementRange; // 0.75 at pure skim, 1.25 at careful
     // ATTENTIONAL demand only. Applied to `readingCapacity` as well for one
     // commit, and that was wrong on the merits as well as breaking a contract.
     //
@@ -899,15 +1020,18 @@ export function computeSequentialCTC(
   }
 
   if (values && Object.keys(values).length > 0) {
+    const demandFloor = param('chain.valueModulation.demandFloor');
     for (const mod of VALUE_DEMAND_MODULATION) {
+      // Read before the skip so a run records every coefficient it could have used.
+      const coefficient = param(mod.coefficient);
       const valueScore = values[mod.value];
       if (valueScore === undefined || valueScore === null) continue;
 
       const currentDemand = modulatedDemand.demands[mod.trait] ?? 0;
       // Modulation: demand += coefficient * valueScore * currentDemand
       // High value score amplifies the modulation effect
-      // Multiplicative on current demand — no effect on zero-demand traits
-      const modulation = mod.coefficient * valueScore * Math.max(0.1, currentDemand);
+      // Multiplicative on current demand, floored so a zero-demand trait still moves a little
+      const modulation = coefficient * valueScore * Math.max(demandFloor, currentDemand);
       modulatedDemand.demands[mod.trait] = Math.max(0, Math.min(1, currentDemand + modulation));
     }
   }
@@ -915,7 +1039,7 @@ export function computeSequentialCTC(
   // Initialize residual capacity from persona traits
   const residualCapacity: Record<string, number> = {};
   for (const dim of DEMAND_DIMENSIONS) {
-    residualCapacity[dim] = options?.carriedCapacity?.[dim] ?? traitValue(persona.traits, dim);
+    residualCapacity[dim] = options?.carriedCapacity?.[dim] ?? traitValue(persona.traits, dim, P);
   }
 
   const layers: LayerResult[] = [];
@@ -946,17 +1070,17 @@ export function computeSequentialCTC(
     let layerHeadroom = 0;
     for (const trait of layerDef.traits) {
       const d = modulatedDemand.demands[trait] ?? 0;
-      const c = residualCapacity[trait] ?? 0.5;
+      const c = residualCapacity[trait] ?? P.missingTraitCapacity;
       const gap = d - c;
 
       let cost: number;
       if (gap > 0) {
         // Deficit: demand exceeds capacity — expensive
-        cost = (useAsymmetric ? WEIGHT_DEFICIT : 1.0) * gap * gap;
+        cost = (useAsymmetric ? P.weightDeficit : 1.0) * gap * gap;
         layerDeficit += cost;
       } else {
         // Surplus: capacity exceeds demand — cheap
-        const surplusWeight = SURPLUS_FREE_DIMENSIONS.has(trait) ? 0 : WEIGHT_SURPLUS;
+        const surplusWeight = SURPLUS_FREE_DIMENSIONS.has(trait) ? 0 : P.weightSurplus;
         cost = (useAsymmetric ? surplusWeight : 1.0) * gap * gap;
         layerSurplus += cost;
       }
@@ -971,7 +1095,7 @@ export function computeSequentialCTC(
     const layerDemandMagnitude = layerDef.traits.reduce(
       (sum, t) => sum + (modulatedDemand.demands[t] ?? 0), 0
     ) / layerDef.traits.length;
-    const contentScale = Math.min(1.0, layerDemandMagnitude * 3); // 0-1 scale, saturates at demand=0.33
+    const contentScale = Math.min(1.0, layerDemandMagnitude * P.contentScaleGain); // 0-1 scale, saturates at demand=0.33
     layerCost *= contentScale;
     layerDeficit *= contentScale;
     layerSurplus *= contentScale;
@@ -982,8 +1106,12 @@ export function computeSequentialCTC(
 
     // Deplete capacity for next layers (only when page has meaningful content)
     // Each trait in this layer loses capacity proportional to the layer's total cost
+    const DEPLETION_RATE = P.depletionRate;
+    const MAX_DRAWDOWN_FRACTION = P.maxDrawdownFraction;
+    const INDIRECT_DEPLETION_SHARE = P.indirectDepletionShare;
+    const CAPACITY_EPSILON = P.capacityEpsilon;
     const capacityConsumed = DEPLETION_RATE * layerCost;
-    if (contentScale > 0.1) {
+    if (contentScale > P.depletionGate) {
       // PROPORTIONAL DRAWDOWN, not subtraction against a clamp.
       //
       // Capacity used to be spent as a flat amount and clamped at
@@ -1013,7 +1141,7 @@ export function computeSequentialCTC(
 
       // Also deplete shared traits that appear in later layers
       // (cross-layer fatigue: cognitive exhaustion bleeds across boundaries)
-      const indirectFraction = Math.min(MAX_DRAWDOWN_FRACTION, (DEPLETION_RATE * 0.5) * layerCost);
+      const indirectFraction = Math.min(MAX_DRAWDOWN_FRACTION, (DEPLETION_RATE * INDIRECT_DEPLETION_SHARE) * layerCost);
       for (const dim of DEMAND_DIMENSIONS) {
         if (!layerDef.traits.includes(dim)) {
           // Indirect depletion at half rate
@@ -1031,7 +1159,7 @@ export function computeSequentialCTC(
       // Mean spare capacity across this layer's dimensions. Only meaningful
       // when the cost is at or near zero; above that the cost carries the
       // signal itself.
-      headroom: Math.round(layerHeadroom * 1000) / 1000,
+      headroom: Math.round(layerHeadroom * P.roundingScale) / P.roundingScale,
     });
   }
 
@@ -1048,7 +1176,7 @@ export function computeSequentialCTC(
     for (const pair of INTERACTION_PAIRS) {
       const costA = layerCostMap[pair.a] ?? 0;
       const costB = layerCostMap[pair.b] ?? 0;
-      const interaction = costA * costB * pair.weight;
+      const interaction = costA * costB * param(pair.weight);
       const key = `${pair.a}x${pair.b}`;
       interactions[key] = interaction;
       interactionTotal += interaction;
@@ -1060,11 +1188,13 @@ export function computeSequentialCTC(
   // The sequential effect is already embedded in layer costs via capacity depletion
   const rawCTC = layers.reduce((sum, l) => sum + l.transportCost, 0) + interactionTotal;
 
-  // Normalize CTC to a 0-1 scale that maps to human-interpretable difficulty
-  // Calibration: raw CTC from the W₂ formula tends to be 0.3-3.0 for real pages.
-  // We normalize using a sigmoid so: 0.5 raw → 0.2, 1.0 → 0.4, 2.0 → 0.7, 3.0 → 0.9
-  // This ensures "easy" pages (simple layout, clear content) land below 0.3
-  const totalCTC = 1 / (1 + Math.exp(-2.5 * (rawCTC - 1.2)));
+  // Normalize CTC to a 0-1 scale with a logistic, slope 2.5 and centre 1.2
+  // (chain.ctcSigmoidSlope / chain.ctcSigmoidCentre, both hand-set). What
+  // that mapping actually gives: raw 0 -> 0.047, 0.5 -> 0.148, 1.0 -> 0.378,
+  // 1.2 -> 0.5, 2.0 -> 0.881, 3.0 -> 0.989. An earlier comment here claimed
+  // 0.5 -> 0.2, 1.0 -> 0.4, 2.0 -> 0.7, 3.0 -> 0.9, which this formula has
+  // never produced.
+  const totalCTC = 1 / (1 + Math.exp(-P.ctcSigmoidSlope * (rawCTC - P.ctcSigmoidCentre)));
 
   // Find bottleneck layer
   let maxLayerCost = 0;
@@ -1100,14 +1230,16 @@ export function computeSequentialCTC(
   // equal to tolerance gives 50%, and it approaches 1 from below. The
   // "centre at 1.5x blended patience" intent is unchanged and so is the
   // persona ordering; what is gone is the offset. (2026-08-03, BUG-17)
-  const patienceCapacity = traitValue(persona.traits, 'patience');
-  const resilienceCapacity = traitValue(persona.traits, 'resilience');
-  const effectivePatience = patienceCapacity * 0.7 + resilienceCapacity * 0.3; // blended tolerance
-  const adjustedCost = Math.max(0, totalDeficit - totalSurplus * 0.3); // surplus comfort (30%)
+  const patienceCapacity = traitValue(persona.traits, 'patience', P);
+  const resilienceCapacity = traitValue(persona.traits, 'resilience', P);
+  const effectivePatience = patienceCapacity * P.patienceShare + resilienceCapacity * P.resilienceShare; // blended tolerance
+  const adjustedCost = Math.max(0, totalDeficit - totalSurplus * P.surplusRelief); // surplus comfort (30%)
   // Floored so a persona with no patience at all does not divide by zero and
   // read as certain abandonment on a blank page.
-  const tolerance = Math.max(0.05, effectivePatience * 1.5);
-  const ABANDONMENT_STEEPNESS = ABANDONMENT_HILL_EXPONENT;
+  const tolerance = Math.max(P.toleranceFloor, effectivePatience * P.toleranceGain);
+  // The same registry value ABANDONMENT_HILL_EXPONENT exports; read here so the
+  // dependency is recorded per run.
+  const ABANDONMENT_STEEPNESS = P.abandonmentHillExponent;
   const abandonmentRisk = adjustedCost <= 0 ? 0 : Math.max(0, Math.min(1,
     Math.pow(adjustedCost, ABANDONMENT_STEEPNESS) /
     (Math.pow(adjustedCost, ABANDONMENT_STEEPNESS) + Math.pow(tolerance, ABANDONMENT_STEEPNESS))
@@ -1138,7 +1270,7 @@ export function computeSequentialCTC(
  * End-to-end Cognitive Optimal Transport computation.
  *
  * Extracts page metrics from a live Playwright page, computes the
- * 26D demand distribution, and runs the full sequential transport chain.
+ * 30D demand distribution, and runs the full sequential transport chain.
  *
  * This is the primary entry point for MCP tools that need a single
  * CTC score with full breakdown.
@@ -1154,7 +1286,7 @@ export async function computeFullCOT(
   // Extract page metrics via Playwright's page.evaluate()
   const metrics = await extractPageMetrics(page);
 
-  // Compute 26D demand distribution
+  // Compute 30D demand distribution
   const demand = computeDemandDistribution(metrics);
 
   // Run sequential transport chain with full options
@@ -1323,13 +1455,16 @@ export function computeSequentialScrollCTC(
   screenDemands: DemandDistribution[],
   options?: { asymmetric?: boolean; interactions?: boolean; schwartzValues?: Record<string, number> },
 ): SequentialScrollResult {
+  const P = readParams(CHAIN_IDS);
+  const R = P.roundingScale;
+  const depthR = param('chain.depthRoundingScale');
   const screens: ScreenResult[] = [];
   let carried: Record<string, number> | undefined;
   let survive = 1;
 
-  const patience = traitValue(persona.traits, 'patience');
-  const resilience = traitValue(persona.traits, 'resilience');
-  const tolerance = Math.max(0.05, (patience * 0.7 + resilience * 0.3) * 1.5);
+  const patience = traitValue(persona.traits, 'patience', P);
+  const resilience = traitValue(persona.traits, 'resilience', P);
+  const tolerance = Math.max(P.toleranceFloor, (patience * P.patienceShare + resilience * P.resilienceShare) * P.toleranceGain);
 
   for (let i = 0; i < screenDemands.length; i++) {
     const r = computeSequentialCTC(persona, screenDemands[i], { ...options, carriedCapacity: carried });
@@ -1337,10 +1472,10 @@ export function computeSequentialScrollCTC(
 
     // Hazard for THIS screen, from this screen's own unmet demand. Surplus
     // relief applies as it does in the aggregate.
-    const screenCost = Math.max(0, r.deficitCost - r.surplusCost * 0.3);
+    const screenCost = Math.max(0, r.deficitCost - r.surplusCost * P.surplusRelief);
     const stopHazard = screenCost <= 0 ? 0 : Math.min(1,
-      Math.pow(screenCost, ABANDONMENT_HILL_EXPONENT) /
-      (Math.pow(screenCost, ABANDONMENT_HILL_EXPONENT) + Math.pow(tolerance, ABANDONMENT_HILL_EXPONENT)));
+      Math.pow(screenCost, P.abandonmentHillExponent) /
+      (Math.pow(screenCost, P.abandonmentHillExponent) + Math.pow(tolerance, P.abandonmentHillExponent)));
 
     const reachProbability = survive;
     survive = survive * (1 - stopHazard);
@@ -1348,10 +1483,10 @@ export function computeSequentialScrollCTC(
     screens.push({
       screen: i + 1,
       layers: r.layers,
-      screenCTC: Math.round(r.totalCTC * 1000) / 1000,
-      stopHazard: Math.round(stopHazard * 1000) / 1000,
-      cumulativeAbandonment: Math.round((1 - survive) * 1000) / 1000,
-      reachProbability: Math.round(reachProbability * 1000) / 1000,
+      screenCTC: Math.round(r.totalCTC * R) / R,
+      stopHazard: Math.round(stopHazard * R) / R,
+      cumulativeAbandonment: Math.round((1 - survive) * R) / R,
+      reachProbability: Math.round(reachProbability * R) / R,
       bottleneckLayer: r.bottleneckLayer,
       remainingCapacity: r.remainingCapacity,
     });
@@ -1363,17 +1498,17 @@ export function computeSequentialScrollCTC(
   for (const s of screens) {
     const lost = s.reachProbability * s.stopHazard;
     if (!dropOff || lost > dropOff.share) {
-      dropOff = { screen: s.screen, layer: s.bottleneckLayer, share: Math.round(lost * 1000) / 1000 };
+      dropOff = { screen: s.screen, layer: s.bottleneckLayer, share: Math.round(lost * R) / R };
     }
   }
   if (dropOff && dropOff.share <= 0) dropOff = null;
 
   return {
     screens,
-    totalAbandonment: Math.round((1 - survive) * 1000) / 1000,
+    totalAbandonment: Math.round((1 - survive) * R) / R,
     // Sum of reach probabilities: the expected count of screens actually seen.
-    expectedDepthScreens: Math.round(screens.reduce((a, s) => a + s.reachProbability, 0) * 100) / 100,
+    expectedDepthScreens: Math.round(screens.reduce((a, s) => a + s.reachProbability, 0) * depthR) / depthR,
     dropOff,
-    reachWeightedCTC: Math.round(screens.reduce((a, s) => a + s.reachProbability * s.screenCTC, 0) * 1000) / 1000,
+    reachWeightedCTC: Math.round(screens.reduce((a, s) => a + s.reachProbability * s.screenCTC, 0) * R) / R,
   };
 }

@@ -27,6 +27,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import { computeDemandDistribution, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
+import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
 
 const CHAIN = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
 const dense = (d: number) => computeDemandDistribution({
@@ -80,7 +81,8 @@ describe("the account never saturates", () => {
 
   test("no single layer can empty the account", () => {
     expect(CHAIN).toContain("Math.min(MAX_DRAWDOWN_FRACTION, DEPLETION_RATE * layerCost)");
-    expect(CHAIN).toContain("Math.min(MAX_DRAWDOWN_FRACTION, (DEPLETION_RATE * 0.5) * layerCost)");
+    // The half rate is a registered hypothesis (chain.indirectDepletionShare), not a literal.
+    expect(CHAIN).toContain("Math.min(MAX_DRAWDOWN_FRACTION, (DEPLETION_RATE * INDIRECT_DEPLETION_SHARE) * layerCost)");
   });
 });
 
@@ -100,15 +102,21 @@ describe("cost still rises as capacity falls", () => {
 });
 
 describe("the replacement constants are named and honest", () => {
-  test("the epsilon is documented as numerical, not behavioural", () => {
-    const block = CHAIN.slice(CHAIN.indexOf("Numerical floor on residual capacity"), CHAIN.indexOf("const CAPACITY_EPSILON"));
-    expect(block).toContain("NOT a behavioural limit");
-    expect(CHAIN).toContain("const CAPACITY_EPSILON = 1e-4;");
+  // Both constants moved into the provenance registry (2026-10-21), where the
+  // status and the settler live beside the value instead of in a comment.
+  test("the epsilon is registered as a definition: numerical, not behavioural", () => {
+    const e = MODEL_PROVENANCE["chain.capacityEpsilon"];
+    expect(e?.status).toBe("definition");
+    expect(e?.value).toBe(1e-4);
+    expect(e?.source).toContain("NOT a behavioural limit");
+    expect(CHAIN).toContain("const CAPACITY_EPSILON = P.capacityEpsilon;");
   });
 
-  test("the drawdown cap is flagged uncalibrated with its settler named", () => {
-    const block = CHAIN.slice(CHAIN.indexOf("Largest fraction of remaining capacity"), CHAIN.indexOf("const MAX_DRAWDOWN_FRACTION"));
-    expect(block).toContain("UNCALIBRATED");
-    expect(block).toContain("What would settle it");
+  test("the drawdown cap is registered as a hypothesis with its settler named", () => {
+    const e = MODEL_PROVENANCE["chain.maxDrawdownFraction"];
+    expect(e?.status).toBe("hypothesis");
+    expect(e?.value).toBe(0.5);
+    expect(e?.source).toMatch(/would fit/);
+    expect(CHAIN).toContain("const MAX_DRAWDOWN_FRACTION = P.maxDrawdownFraction;");
   });
 });
