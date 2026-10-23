@@ -16,10 +16,11 @@
  * no entry or two, if a value differs from the source text, or if a persona or
  * trait name appears that this file has no population or measure for.
  *
- * Every value is a `hypothesis`. Each was set by hand on a scale that no
- * instrument defines (0-1 for all but visualSpan and contrastSensitivity,
- * which have units). personas.ts cites research in three ways, and none of
- * them is a measurement of a value:
+ * Every value is a `hypothesis`. All but the norm-anchored ones (NORM_ANCHORS
+ * below) were set by hand on a scale that no instrument defines (0-1 for all
+ * but visualSpan and contrastSensitivity, which have units). For those,
+ * personas.ts cites research in three ways, and none of them is a
+ * measurement of a value:
  *   - construct references. trait-reference.ts names a source per trait
  *     (Bandura for selfEfficacy, the Brief Resilience Scale for resilience),
  *     and personas.ts tags values with the same names, e.g. "(Bandura)". These
@@ -31,6 +32,10 @@
  *   - a persona-level research note, e.g. the tremor prevalence on
  *     motor-impairment-tremor. It supports the persona's design, not any trait
  *     value, and is named in each of that persona's entries.
+ * A norm-anchored value is the percentile a published population mean
+ * implies on a normed instrument (paper section 3.1.1); its entry names that
+ * source and its interval, and it stays a hypothesis because mapping the
+ * instrument onto the trait is cbrowser's choice.
  *
  * What would test a value: the measure named per trait, given to a sample of
  * the persona's population, with a 0-1 value compared as that sample's mean
@@ -47,6 +52,7 @@
 import type { ProvenanceEntry } from "../model-provenance.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../../personas.js";
 import { TRAIT_DEFINITIONS } from "../../trait-reference.js";
+import { _normalCDF as Phi } from "../cognitive-models.js";
 
 /** The persona tables this catalogue covers, by the name personas.ts exports them under. */
 export const PERSONA_TABLES = { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS };
@@ -196,11 +202,6 @@ const VALUE_CITATIONS: Record<string, ValueCitation> = {
   "low-vision-magnified.trustCalibration": { cite: "Brody 2002", claim: "vision impairment increasing caution" },
   "low-vision-magnified.interruptRecovery": { cite: "Mark's interruption research", claim: "a limited visible area making context recovery harder" },
   ...readingProfile("cognitive-adhd", "Dhar et al. 2010", "intact decoding with reduced sustained attention"),
-  "cognitive-adhd.workingMemory": {
-    cite: "Kofler et al. 2020 (Neuropsychology 34(6):686-698, PMC7483636)",
-    claim: "a very large central-executive working-memory impairment (d = 1.63-2.03, 75-81% of cases impaired)",
-    note: "the sample is 172 children aged 8-13 and the persona is adults aged 18-45; and an effect size is a group difference in standard deviations, with no mapping from it to this value stated. Until 21.0 personas.ts gave the effect size with no source; it is not Martinussen et al. 2005 (largest effect 1.06) nor Kasper et al. 2012",
-  },
   ...readingProfile("dyslexic-user", "Perry, Zorzi & Ziegler 2019 (Psychological Science)", "the dyslexic reading profile"),
   "dyslexic-user.workingMemory": { cite: "de Jong 2006 and an n-back fNIRS study (PMC3496727)", claim: "a working-memory deficit that persists into adulthood" },
   "dyslexic-user.patience": { cite: "Annals of Dyslexia, 10.1007/s11881-020-00195-w", claim: "slower reading as a compensatory mechanism" },
@@ -219,8 +220,59 @@ const VALUE_CITATIONS: Record<string, ValueCitation> = {
   },
   "elderly-low-vision.workingMemory": { cite: "an unnamed PMC review (the persona note)", claim: "inhibitory-control decline limiting working memory" },
   "color-blind-deuteranopia.changeBlindness": { cite: "MDPI 13/2/53 (a simulated-interface study)", claim: "a state change signalled by colour alone being invisible without a second cue" },
-  "autism-spectrum.workingMemory": { cite: "Happé & Frith 2006", claim: "detail-oriented processing, working memory often good" },
   "dyscalculia.workingMemory": { cite: "PMC8946289 (numerical activities of daily living)", claim: "working memory underpinning number processing, with math anxiety reducing it further" },
+};
+
+/**
+ * A value set to its norm-implied value (paper section 3.1.1): the
+ * percentile, in the instrument's typical reference, of the persona
+ * population's mean, Phi(z) with z = (population mean - reference mean) /
+ * reference SD. A cell is here only if the source's 95% interval excluded the
+ * old value and all three of these held: the instrument measures the trait as
+ * trait-reference.ts defines it, the sample's age matches the persona's, and
+ * the 95% CI was read in the source. Every cell
+ * considered, and why each other one did not qualify, is listed in
+ * research/persona-norms/applied.md.
+ *
+ * The status stays `hypothesis`. The source measured the population on its
+ * instrument; that the instrument measures this trait is cbrowser's mapping.
+ * personas.ts holds Phi(z) to two decimals, and the test recomputes it from z.
+ */
+export interface NormAnchor {
+  /** The source, as retrieved. */
+  cite: string;
+  /** Where the number is printed in the source, and the number as printed. */
+  reported: string;
+  /** Population minus reference in reference SDs, with the source's 95% CI. */
+  z: number;
+  zLo: number;
+  zHi: number;
+  /** The value before 21.0 and what personas.ts cited it to. */
+  replaced: string;
+  /** What the value does not settle about the source. */
+  note?: string;
+}
+
+/** Norm-anchored values, keyed `<persona>.<trait>`. */
+export const NORM_ANCHORS: Record<string, NormAnchor> = {
+  "cognitive-adhd.workingMemory": {
+    cite: "Wilson AC 2024, Cognitive profile in autism and ADHD: a meta-analysis of performance on the WAIS-IV and WISC-V, Arch Clin Neuropsychol 39(4):498-515, doi 10.1093/arclin/acad073, PMC11110614",
+    reported: "Table 5, adults with ADHD on the WAIS-IV (scored to a norm of mean 100, SD 15): Working Memory Index mean 95.2, 95% CI 92.5-98.0; five samples, mean age 29",
+    z: (95.2 - 100) / 15,
+    zLo: (92.5 - 100) / 15,
+    zHi: (98.0 - 100) / 15,
+    replaced: "0.3, cited to Kofler et al. 2020 (Neuropsychology 34(6):686-698, PMC7483636; d = 1.63-2.03), whose 172 participants are children aged 8-13; that study now gives the direction only",
+    note: "two of the five adult rows in Wilson's Table 3 (Baggio et al. 2020, Shepler & Callan 2022, n = 66 each) are identical in every cell and may be one sample counted twice. The Working Memory Index is Digit Span plus Arithmetic, so it also loads on arithmetic",
+  },
+  "autism-spectrum.workingMemory": {
+    cite: "Habib A, Harris L, Pollick F, Melville C 2019, A meta-analysis of working memory in individuals with autism spectrum disorders, PLoS One 14(4):e0216198, doi 10.1371/journal.pone.0216198, PMC6490940",
+    reported: "Table 6, visuospatial working-memory accuracy, adult subgroup: k = 4, SMD -0.47, 95% CI -0.91 to -0.03, against typically developed controls matched on age and IQ, every participant at IQ 70 or above",
+    z: -0.47,
+    zLo: -0.91,
+    zHi: -0.03,
+    replaced: "0.6, cited to Happé & Frith 2006 for detail-oriented processing (\"working memory often good\"), which both of Habib's adult estimates exclude",
+    note: "the adult phonological estimate is lower (Table 3: d = -0.79, 95% CI -1.53 to -0.04, value 0.21), and the smaller deficit is used. Wilson 2024 (Table 5) puts autistic adults at a WAIS-IV Working Memory Index of 92.9 (95% CI 83.5-102.3), which is also 0.32, but its pool includes a sample with mean FSIQ 51.3, outside this persona's population",
+  },
 };
 
 /** A persona as the catalogue sees it: only the two trait groups matter. */
@@ -235,7 +287,16 @@ export interface PersonaCatalogue {
 function sourceFor(persona: string, trait: string, value: number): string {
   const parts: string[] = [];
   const unit = UNIT_TRAITS[trait];
-  parts.push(`${persona}.${trait} = ${value}, set by hand${unit ? ` in ${unit}` : " on a 0-1 scale no instrument defines"}.`);
+  const anchor = NORM_ANCHORS[`${persona}.${trait}`];
+  if (anchor) {
+    const f = (x: number) => x.toFixed(3);
+    parts.push(`${persona}.${trait} = ${value}, norm-anchored (paper section 3.1.1): the percentile, in the instrument's typical reference, of this persona population's mean.`);
+    parts.push(`Source: ${anchor.cite}. ${anchor.reported}. That is z = ${f(anchor.z)} (95% CI ${f(anchor.zLo)} to ${f(anchor.zHi)}), so Phi(z) = ${f(Phi(anchor.z))}, interval ${f(Phi(anchor.zLo))}-${f(Phi(anchor.zHi))}.`);
+    parts.push(`Still a hypothesis: the source measured this population on its instrument, and that the instrument measures ${trait} as trait-reference.ts defines it is cbrowser's mapping${anchor.note ? `; ${anchor.note}` : ""}.`);
+    parts.push(`Until 21.0 the value was ${anchor.replaced}.`);
+  } else {
+    parts.push(`${persona}.${trait} = ${value}, set by hand${unit ? ` in ${unit}` : " on a 0-1 scale no instrument defines"}.`);
+  }
 
   const construct = (TRAIT_DEFINITIONS as Record<string, { research?: string }>)[trait]?.research;
   if (construct) parts.push(`The scale's construct source in trait-reference.ts is ${construct}; it defines the scale, not this persona's place on it.`);
@@ -302,5 +363,6 @@ export const PERSONA_PROVENANCE_KEYS = {
   populations: Object.keys(POPULATIONS),
   notes: Object.keys(PERSONA_NOTES),
   valueCitations: Object.keys(VALUE_CITATIONS),
+  normAnchors: Object.keys(NORM_ANCHORS),
   measures: Object.keys(MEASURES),
 };

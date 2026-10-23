@@ -1,7 +1,11 @@
 # Persona trait norms: instruments, correlations, norm-implied values
 
-Research for the CHI paper, section 3.1.1. This work is research only and
-changes nothing under `src/`.
+Research for the CHI paper, section 3.1.1. This README is the research
+round, which changed nothing under `src/`. The second round applied the
+qualifying cells: two values changed (cognitive-adhd and autism-spectrum
+workingMemory), and the 51 other cells considered are listed with reasons in
+[applied.md](applied.md). The tables below still show the values from before
+that change.
 
 - **Tree:** `feat/persona-norms` at ce9f089.
 - **Retrieved:** 2026-10-22.
@@ -15,6 +19,8 @@ changes nothing under `src/`.
 | `norm-implied.ts` | deliverable 3: every effect size, the conversion to a value, its interval, the current value and the gap |
 | `sro-correlations.ts` | deliverable 2: trait-pair correlations computed from the Self-Regulation Ontology open data |
 | `coverage.ts` | the coverage counts of deliverable 2, with every trait name checked against `COGNITIVE_TRAITS` |
+| `applied.md` | round 2: the cells set to their norm-implied value, and why every other considered cell was not |
+| `ctc-deltas.ts`, `ctc-deltas.md` | round 2: what those two values moved in the CTC golden matrix |
 
 **How the sources were read.** Four research sub-agents read sources in
 parallel in the same session. I then reopened every number that drives a value

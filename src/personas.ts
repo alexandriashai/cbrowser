@@ -2214,12 +2214,17 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     // and "may blame self" beside 0.3 on a scale whose 1.0 end is "Blames
     // self". The prose was right every time; the digit was inverted.
     cognitiveTraits: {
-      // Very large central-executive working-memory impairment, d = 1.63-2.03,
-      // present in 75-81% of cases (Kofler et al. 2020, Neuropsychology
-      // 34(6):686-698, PMC7483636; 172 children aged 8-13, so an adult value
-      // extrapolates). The effect size gives the direction and size of the
-      // group difference, not this 0-1 value.
-      workingMemory: 0.3,
+      // Norm-anchored (paper section 3.1.1): the percentile of the adult
+      // population's mean on a normed instrument. Adults with ADHD average
+      // 95.2 on the WAIS-IV Working Memory Index, 95% CI 92.5-98.0, against
+      // the norm of 100 (SD 15) (Wilson 2024, Arch Clin Neuropsychol
+      // 39(4):498-515, Table 5). Phi((95.2 - 100) / 15) = 0.37, interval
+      // 0.31-0.45. Was 0.3, cited to Kofler et al. 2020 (Neuropsychology
+      // 34(6):686-698, PMC7483636; d = 1.63-2.03), whose sample is 172
+      // children aged 8-13; that study now gives the direction only.
+      // Still a hypothesis: that the WMI measures this trait is our mapping.
+      // research/persona-norms/applied.md.
+      workingMemory: 0.37,
       patience: 0.2, // Impulsivity: low tolerance for waiting
       persistence: 0.3, // Low for unengaging tasks; can hyperfocus on interesting ones
       curiosity: 0.9, // High novelty-seeking
@@ -2742,7 +2747,18 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       fatigueSusceptibility: 0.5, // Moderate - sensory overload increases fatigue
     },
     cognitiveTraits: {
-      workingMemory: 0.6,       // Often good - detail-oriented (Happé & Frith 2006)
+      // Norm-anchored (paper section 3.1.1): autistic adults without
+      // intellectual disability score below typical controls on working
+      // memory. Visuospatial WM accuracy, adult subgroup, d = -0.47, 95% CI
+      // -0.91 to -0.03, 4 studies, controls matched on age and IQ, every
+      // participant at IQ 70 or above (Habib et al. 2019, PLoS One
+      // 14(4):e0216198, Table 6). Phi(-0.47) = 0.32, interval
+      // 0.18-0.49. The adult phonological estimate is lower (d = -0.79,
+      // Phi = 0.21); the smaller deficit is used. Was 0.6, "often good -
+      // detail-oriented (Happe & Frith 2006)", which both adult estimates
+      // exclude. Still a hypothesis: that these tasks measure this trait is
+      // our mapping. research/persona-norms/applied.md.
+      workingMemory: 0.32,
       patience: 0.65,           // Moderate-high - persistent on structured tasks
       persistence: 0.7,         // High on predictable tasks, drops on chaotic ones
       curiosity: 0.4,           // Lower - prefers known patterns over exploration
