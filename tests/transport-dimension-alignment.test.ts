@@ -976,9 +976,9 @@ describe("the legibilityQuality contract, restored and pinned (BUG-01 / D-3)", (
     const p = getAnyPersona(name)!;
     const t = { ...(getCognitiveProfile(p as never).traits as Record<string, number>) };
     const acc = (p as never as { accessibilityTraits?: Record<string, number> }).accessibilityTraits;
-    t.readingCapacity = m.readingCapacityOf(m.getReadingProfile({ name, traits: t, accessibilityTraits: acc }));
-    t.motorCapacity = m.motorCapacityOf(m.getPointingProfile({ name, traits: t }));
-    t.sustainedAttention = m.sustainedAttentionOf({ traits: t, accessibilityTraits: acc });
+    // The tool's bridge, not a copy of it: a built-in persona's reading rate is
+    // registered with the persona and only the bridge reads it.
+    m.bridgeCapacityTraits(name, t, acc);
     return t;
   }
   const layer = (traits: Record<string, number>, name = "readability") => {

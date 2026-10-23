@@ -15,11 +15,13 @@
  * terms. Most are not supported by the sources the code cites;
  * research/stage-b-persona-rates.md compares them with the measured rates.
  *
- * Two throughputs are not here because they are measured: the neurotypical
- * profile points at law.rate.pointing.reference, and the tremor profile at the
+ * Three throughputs are not here. Two are measured: the neurotypical profile
+ * points at law.rate.pointing.reference, and the tremor profile at the
  * motion-impaired rate measured against its own controls
  * (law.rate.pointing.motionImpaired / motionImpairedControls), rescaled to that
- * reference.
+ * reference. The ADHD profile points at the reference too: no throughput for
+ * adults with ADHD was found, so no measured difference
+ * (personaRate.cognitive-adhd.pointing says why).
  *
  * READ THROUGH param() by cognitive-models.ts, at the point of use (the
  * profile tables are getters), so an override reaches every profile and
@@ -43,9 +45,8 @@ const LEGGE_2007 = "Legge, G. E., Cheung, S.-H., Yu, D., Chung, S. T. L., Lee, H
 const RAYNER_2009 = "Rayner, K. (2009). Eye movements and attention in reading, scene perception, and visual search. QJEP 62(8), 1457-1506, doi:10.1080/17470210902816461";
 
 export const PROFILE_PROVENANCE: ProvenanceEntry[] = [
-  // ── Pointing throughputs not taken from a measured rate (KNOWN_POINTING_PROFILES), bits/s ──
+  // ── The pointing throughput not taken from a measured rate (KNOWN_POINTING_PROFILES), bits/s ──
   h("pointing.elderly.throughput", 3.2, "Fitts throughput of the elderly profile, bits/s. No measured ISO mouse throughput for adults 65+ was found, so the value has no source. Cited to Chaparro et al. (1999) and Ketcham et al. (2002). Chaparro, Bohan, Fernandez, Kattel & Choi (1999), Is the trackball a better input device for the older computer user? J Occup Rehabil 9(1), 33-43, abstract: \"older adults took longer to complete movements than younger adults and did so to a greater extent for large amplitude movements, but that their movements were less variable\"; no throughput. Ketcham et al. (2002) used a tablet, per the source check. An ISO 9241-9 mouse study of adults 65+ would set it."),
-  h("pointing.adhd.throughput", 4.2, "Fitts throughput of the ADHD profile, bits/s. No measured throughput for adults with ADHD was found, so the value has no source. Cited to Flapper et al. (2006): Flapper, Houwen & Schoemaker, Fine motor skills and effects of methylphenidate in children with ADHD and DCD, Dev Med Child Neurol 48(3), 165-169, abstract: \"A group of 12 children with ADHD-DCD ... and 12 age- and sex-matched controls\", measured with manual dexterity subtests, handwriting and a graphomotor task. Children, with developmental coordination disorder as well as ADHD, and no throughput. An ISO 9241-9 mouse study of adults with ADHD and no coordination disorder would set it."),
 
   // ── Fixation model, text-independent terms (computeReadingDifficulty) ──
   h("fixation.baseMs", 250, `Base time per word, ms, before any deficit penalty. The code calls it a per-word time and cites Rayner (2009). ${RAYNER_2009}, Table 1 and text: "the average fixation duration in reading is on the order of 225–250 ms" (silent reading 225–250 ms). That is a duration per fixation, not per word: readers skip some words and refixate others. As a per-word time 250 ms is 240 wpm, close to Brysbaert's 238 wpm (252 ms per word), but the neurotypical profile's own phonological penalty adds 20 ms (222 wpm). A per-word silent reading time of fluent adults, or the fixation count per word times Rayner's duration, would set it.`),

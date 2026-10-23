@@ -316,9 +316,10 @@ describe("profile registry (provenance/profiles.ts)", () => {
 
   test("pinned, unique, profile-prefixed, all hypotheses saying what would set them", () => {
     // 18 at registration (2a); 16 once the neurotypical and tremor throughputs
-    // came from the measured rates in provenance/laws.ts.
-    expect(PROFILE_PROVENANCE.length).toBe(16);
-    expect(new Set(profileIds).size).toBe(16);
+    // came from the measured rates in provenance/laws.ts; 15 once the ADHD
+    // profile took the reference rate.
+    expect(PROFILE_PROVENANCE.length).toBe(15);
+    expect(new Set(profileIds).size).toBe(15);
     for (const e of PROFILE_PROVENANCE) {
       expect(e.id.startsWith("profile.")).toBe(true);
       expect(MODEL_PROVENANCE[e.id]).toBe(e);
@@ -328,14 +329,15 @@ describe("profile registry (provenance/profiles.ts)", () => {
   });
 
   test("the entries for populations with no measured rate say so", () => {
-    for (const id of ["pointing.elderly.throughput", "pointing.adhd.throughput", "reading.adhd.phonological", "reading.elderly.phonological"]) {
+    for (const id of ["pointing.elderly.throughput", "reading.adhd.phonological", "reading.elderly.phonological"]) {
       expect({ id, says: /No (measured|silent-reading)[^.]*(was found|norm)/.test(PROFILE_PROVENANCE.find((e) => e.id === `profile.${id}`)!.source) })
         .toEqual({ id, says: true });
     }
   });
 
-  test("the measured throughputs: neurotypical at the reference, tremor at the motion-impaired ratio rescaled to it", () => {
+  test("the throughputs: neurotypical and ADHD at the reference, tremor at the motion-impaired ratio rescaled to it", () => {
     expect(KNOWN_POINTING_PROFILES.neurotypical.throughput).toBe(param("law.rate.pointing.reference"));
+    expect(KNOWN_POINTING_PROFILES.adhd.throughput).toBe(param("law.rate.pointing.reference"));
     close(KNOWN_POINTING_PROFILES.tremor.throughput, 4.9 * 1.77 / 4.88);
     close(KNOWN_POINTING_PROFILES.tremor.throughput / KNOWN_POINTING_PROFILES.neurotypical.throughput, measuredRate("motionImpaired").ratio);
   });

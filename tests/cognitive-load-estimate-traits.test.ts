@@ -130,14 +130,21 @@ describe("the tool bridges before it estimates (live repro, red on base)", () =>
     return JSON.parse(r.content[0].text!);
   }
 
-  test("the four personas from the report no longer tie on attention, motor and text", async () => {
+  test("the four personas from the report no longer tie on attention and text, and the bridged motor rate reaches the estimator", async () => {
     const names = ["cognitive-adhd", "power-user", "dyslexic-user", "distracted-user"];
     const loads = await Promise.all(names.map(loadOf));
-    for (const dim of ["attention", "motor", "text"]) {
+    for (const dim of ["attention", "text"]) {
       const values = new Set(loads.map((l) => l.breakdown[dim]));
       expect(values.size, `${dim}: ${[...values].join(", ")}`).toBeGreaterThan(1);
     }
+    // Motor: since Stage B all four point at the reference rate ("no measured
+    // difference"), and the reference capacity is 0.5, the same number as the
+    // missing-trait fallback, so a tie among them proves nothing either way.
+    // The tremor persona's measured rate does: unbridged it would read 0.5 too.
     const [adhd, power, dyslexic, distracted] = loads;
+    const tremor = await loadOf("motor-impairment-tremor");
+    expect(new Set([...loads, tremor].map((l) => l.breakdown.motor)).size).toBeGreaterThan(1);
+    expect(tremor.breakdown.motor).toBeGreaterThan(power.breakdown.motor);
     // Directions the bridged models predict, not just "different".
     expect(distracted.breakdown.attention).toBeGreaterThan(power.breakdown.attention);
     expect(adhd.breakdown.attention).toBeGreaterThan(power.breakdown.attention);
