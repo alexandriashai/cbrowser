@@ -40,7 +40,24 @@ function emotionalStates(): EmotionalState[] {
     anxiety: a, frustration: f, boredom: b, confusion: c, satisfaction: sat, excitement: e, relief: r, dominant: "neutral", valence: 0, arousal: 0.3,
   });
   out.push(mk(0, 0, 0, 0, 0, 0, 0), mk(1, 1, 1, 1, 1, 1, 1), mk(0.9, 0.85, 0.65, 0.75, 0.1, 0.05, 0.1), mk(0.05, 0.62, 0.55, 0.72, 0.15, 0.3, 0.19));
+  // All positive, no negative: the abandonment modifier's lowest reach.
+  out.push(mk(0, 0, 0, 0, 1, 1, 1));
+  // A dominant emotion either side of the "somewhat" and "very" words.
+  out.push(mk(0.38, 0.1, 0, 0, 0, 0, 0), mk(0.42, 0.1, 0, 0, 0, 0, 0), mk(0.68, 0.1, 0, 0, 0, 0, 0), mk(0.72, 0.1, 0, 0, 0, 0, 0));
+  // Weak states, where whether any emotion is dominant after a decay turns on the floor.
+  for (const v of [0.08, 0.1, 0.105, 0.11, 0.12, 0.16]) out.push(mk(v, v / 2, 0, 0, 0, 0, 0));
   for (let i = 0; i < 160; i++) out.push(mk(next(), next(), next(), next(), next(), next(), next()));
+  return out;
+}
+
+/** States whose valence and arousal are set, either side of the rule that reads them. */
+function derivedStates(): EmotionalState[] {
+  const out: EmotionalState[] = [];
+  for (const valence of [-0.7, -0.62, -0.58, -0.5]) {
+    for (const arousal of [0.5, 0.58, 0.62, 0.7]) {
+      out.push({ anxiety: 0.2, frustration: 0.3, boredom: 0.1, confusion: 0.2, satisfaction: 0.3, excitement: 0.2, relief: 0.3, dominant: "frustration", valence, arousal });
+    }
+  }
   return out;
 }
 
@@ -90,11 +107,11 @@ async function emotionSweeps(): Promise<Record<string, unknown>> {
   out.triggerDefaultDescription = TRIGGERS.map((t) => E.applyEmotionalTrigger(mid, t, config, 1).event.description);
   const states = emotionalStates();
   out.decayLegacy = states.slice(0, 40).map((s) => E.decayEmotions(s, config));
-  out.decayTraits = states.slice(0, 40).flatMap((s) => [{}, { comprehension: 0, resilience: 1, curiosity: 0.3 }, { comprehension: 1, resilience: 0, curiosity: 1 }].map((tr) => E.decayEmotionsWithTraits(s, config, tr)));
+  out.decayTraits = states.slice(0, 50).flatMap((s) => [{}, { comprehension: 0, resilience: 1, curiosity: 0.3 }, { comprehension: 1, resilience: 0, curiosity: 1 }].map((tr) => E.decayEmotionsWithTraits(s, config, tr)));
   out.abandonmentModifier = states.map((s) => E.calculateAbandonmentModifier(s));
   out.exploration = states.map((s) => E.calculateExplorationTendency(s));
   out.decisionSpeed = states.map((s) => E.calculateDecisionSpeedModifier(s));
-  out.shouldConsider = states.map((s) => E.shouldConsiderAbandonment(s));
+  out.shouldConsider = [...states, ...derivedStates()].map((s) => E.shouldConsiderAbandonment(s));
   out.simplified = states.flatMap((s) => [0.05, 0.1, 0.2, 0.5, 1].map((p) => E.deriveSimplifiedState(s, { patience: p })));
   // Derived values (dominant, valence, arousal) go through a trigger; describe them too.
   out.described = states.map((s) => {
@@ -133,22 +150,49 @@ function inputPage(log: string[]) {
   };
 }
 
+/**
+ * Run `fn` with Math.random cycling through values that reach the tails:
+ * near 0 and near 1 (so a Box-Muller draw lands about 7 standard deviations
+ * out and every clamp binds), and values just either side of each rate the
+ * human-input timing rolls against (2%, 4%, 5%).
+ */
+async function withTailRandom<T>(fn: () => Promise<T>): Promise<T> {
+  const real = Math.random;
+  const cycle = [1e-12, 0.5, 1 - 1e-12, 0.25, 0.019, 0.039, 0.049, 0.75, 1e-4, 0.6, 0.021, 0.041, 0.051, 0.3, 0.999, 0.1];
+  let i = 0;
+  Math.random = () => cycle[i++ % cycle.length];
+  try {
+    return await fn();
+  } finally {
+    Math.random = real;
+  }
+}
+
 async function humanInputSweeps(): Promise<Record<string, unknown>> {
   const H = await import("../../src/visual/human-input.js");
   const out: Record<string, unknown> = {};
-  const traitSets = [undefined, { proceduralFluency: 1, motorPrecision: 1, patience: 0.2, readingTendency: 0 }, { proceduralFluency: 0, motorPrecision: 0, patience: 1, readingTendency: 1 }];
-  for (const [i, tr] of traitSets.entries()) {
-    out[`set${i}`] = await withSeededRandom(17 + i, async () => {
-      const log: string[] = [];
-      const page = inputPage(log) as never;
-      const { delays } = await withVirtualTime(async () => {
-        await H.humanType(page, "Quick brown fox jumps over 12 lazy dogs", tr);
-        for (let k = 0; k < 60; k++) await H.humanClick(page, 400, 300, tr, k % 3 ? { width: 120, height: 40 } : undefined);
-        for (let k = 0; k < 60; k++) await H.humanScroll(page, k % 2 ? 400 : -400, tr);
-        for (let k = 0; k < 20; k++) await H.humanSettle(tr);
-      });
-      return { log, delays };
+  const traitSets = [
+    undefined,
+    { proceduralFluency: 1, motorPrecision: 1, patience: 0.2, readingTendency: 0 },
+    { proceduralFluency: 0, motorPrecision: 0, patience: 1, readingTendency: 1 },
+    // Patience just above the glance-back cut, and a motor precision outside
+    // 0-1 (a direct caller may pass one) that widens the aim past the default target.
+    { proceduralFluency: 0.3, motorPrecision: -1, patience: 0.42, readingTendency: 0.5 },
+  ];
+  const drive = async (tr: (typeof traitSets)[number]) => {
+    const log: string[] = [];
+    const page = inputPage(log) as never;
+    const { delays } = await withVirtualTime(async () => {
+      await H.humanType(page, "Quick brown fox jumps over 12 lazy dogs", tr);
+      for (let k = 0; k < 60; k++) await H.humanClick(page, 400, 300, tr, k % 3 ? { width: 120, height: 40 } : undefined);
+      for (let k = 0; k < 60; k++) await H.humanScroll(page, k % 2 ? 400 : -400, tr);
+      for (let k = 0; k < 20; k++) await H.humanSettle(tr);
     });
+    return { log, delays };
+  };
+  for (const [i, tr] of traitSets.entries()) {
+    out[`set${i}`] = await withSeededRandom(17 + i, () => drive(tr));
+    out[`tails${i}`] = await withTailRandom(() => drive(tr));
   }
   return out;
 }
@@ -160,12 +204,15 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
   const { SiteModelManager } = await import("../../src/site-model/manager.js");
   const handlers: Record<string, Handler> = {};
   const server = { registerTool: (name: string, _def: unknown, h: Handler) => { handlers[name] = h; } };
+  // A page that renders; a blank one makes the init tool reload it.
+  let blank = false;
+  const browserCalls: string[] = [];
   const fakeBrowser = {
-    navigate: async () => ({}),
-    getPage: async () => ({ title: async () => "Fixture", evaluate: async () => 42 }),
+    navigate: async () => { browserCalls.push("navigate"); return {}; },
+    getPage: async () => ({ title: async () => (blank ? "" : "Fixture"), evaluate: async () => (blank ? 0 : 42) }),
     applyPersonaLocation: async () => ({ timezoneStored: true }),
-    close: async () => {},
-    launch: async () => {},
+    close: async () => { browserCalls.push("close"); },
+    launch: async () => { browserCalls.push("launch"); },
   };
   registerCognitiveTools(server as never, { getBrowser: async () => fakeBrowser as never });
 
@@ -181,16 +228,19 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
     for (let i = 0; i < goals; i++) (model.goalPaths as unknown[]).push({ lastUsed: 0 });
     for (let i = 0; i < failures; i++) (model.failures as unknown[]).push({ lastSeen: 0 });
   };
+  await seed("two.example", 2, 0, 0);
   await seed("five.example", 5, 0, 2);
+  await seed("ten.example", 10, 0, 0);
   await seed("twelve.example", 12, 0, 0);
+  await seed("sixteen.example", 16, 0, 0);
   await seed("full.example", 25, 3, 0);
   await seed("fullnogoal.example", 25, 0, 0);
 
   const out: Record<string, unknown> = {};
   const init: unknown[] = [];
   const traitGrid = [0.2, 0.28, 0.31, 0.37, 0.42, 0.65, 0.72, 0.8];
-  for (const domain of ["none.example", "five.example", "twelve.example", "full.example", "fullnogoal.example"]) {
-    for (const fam of [0, 0.04, 0.08, 0.3, 0.55, 0.9]) {
+  for (const domain of ["none.example", "two.example", "five.example", "ten.example", "twelve.example", "sixteen.example", "full.example", "fullnogoal.example"]) {
+    for (const fam of [0, 0.04, 0.05, 0.08, 0.1, 0.3, 0.55, 0.9]) {
       const r = await handlers.cognitive_journey_init({ persona: "first-timer", goal: "g", startUrl: `https://${domain}/`, customTraits: { siteFamiliarity: fam } });
       init.push(JSON.parse(r.content[0].text!));
     }
@@ -203,16 +253,23 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
     const r = await handlers.cognitive_journey_init({ persona, goal: "g", startUrl: "https://none.example/", location: { timezone: "Europe/London" } });
     init.push(JSON.parse(r.content[0].text!));
   }
+  blank = true;
+  const r = await handlers.cognitive_journey_init({ persona: "first-timer", goal: "g", startUrl: "https://none.example/" });
+  init.push(JSON.parse(r.content[0].text!));
+  blank = false;
+  out.initBrowserCalls = browserCalls;
   // _browserToken is null without a token-based browser, so the pin holds no session id.
   out.init = init;
 
   const update: unknown[] = [];
-  const valueSets = [undefined, { security: 0.9, conformity: 0.9, achievement: 0.9, stimulation: 0.9 }, { security: 0.1, conformity: 0.1, achievement: 0.1, stimulation: 0.1 }];
+  // The last set is outside 0-1, as the schema allows: a modulation at or
+  // below zero makes a threshold zero or negative.
+  const valueSets = [undefined, { security: 0.9, conformity: 0.9, achievement: 0.9, stimulation: 0.9 }, { security: 0.1, conformity: 0.1, achievement: 0.1, stimulation: 0.1 }, { security: -3, conformity: -3 }];
   const results = [{ success: true }, { success: true, progressMade: true }, { success: false }, { success: true, wasConfusing: true }, { success: false, wasConfusing: true, wentBack: true }];
   for (const values of valueSets) {
     for (const actionResult of results) {
       for (const [pat, conf, frus] of [[1, 0, 0], [0.5, 0.45, 0.6], [0.11, 0.85, 0.84], [0.3, 0.95, 0.9], [0.05, 0.7, 0.75]]) {
-        for (const persistence of [0.3, 0.7]) {
+        for (const persistence of [0.3, 0.5, 0.7]) {
           const r = await handlers.cognitive_journey_update_state({
             currentState: { patienceRemaining: pat, confusionLevel: conf, frustrationLevel: frus, goalProgress: 0.4, confidenceLevel: 0.5, currentMood: "neutral", stepCount: 3, timeElapsed: 10 },
             actionResult,

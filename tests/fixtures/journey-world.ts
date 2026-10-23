@@ -73,6 +73,8 @@ export interface WorldPage {
   modal?: boolean;
   formErrors?: string[];
   banner?: string;
+  /** Navigations to this page that fail with a transient network error before one succeeds. */
+  failFirst?: number;
 }
 
 export type World = Record<string, WorldPage>;
@@ -161,7 +163,7 @@ export async function withSeededRandom<T>(seed: number, fn: () => Promise<T>): P
 
 // ─── A fake DOM for the callbacks the journey runs in the page ──────────────
 
-function fakeGlobals(world: World, state: BrowserState) {
+function fakeGlobals(world: World, state: BrowserState, log: BrowserLog) {
   const page = world[state.url];
   const rectOf = (y: number, height: number, width: number, x = 0) => {
     const top = y - state.scrollY;
@@ -191,6 +193,8 @@ function fakeGlobals(world: World, state: BrowserState) {
     scrollTo: (o: { top: number }) => { state.scrollY = clampScroll(o.top); },
     scrollBy: (o: { top: number }) => { state.scrollY = clampScroll(state.scrollY + o.top); },
     getComputedStyle: (el: { hidden?: boolean }) => ({ display: el.hidden ? "none" : "block", visibility: "visible" }),
+    // The live viewer's action banner, as the mouse overlay installs it.
+    __cbShowAction: (label: string) => { log.calls.push(`banner ${label}`); },
   };
   const document = {
     body: { innerText: textNodes.map((t) => t.text).join("\n"), scrollHeight: page.height },
@@ -220,10 +224,10 @@ function fakeGlobals(world: World, state: BrowserState) {
   return { window, document, NodeFilter: { SHOW_TEXT: 4 } };
 }
 
-function runInPage<T>(world: World, state: BrowserState, fn: (arg?: unknown) => T, arg?: unknown): T {
+function runInPage<T>(world: World, state: BrowserState, log: BrowserLog, fn: (arg?: unknown) => T, arg?: unknown): T {
   const g = globalThis as Record<string, unknown>;
   const saved = { window: g.window, document: g.document, NodeFilter: g.NodeFilter };
-  Object.assign(g, fakeGlobals(world, state));
+  Object.assign(g, fakeGlobals(world, state, log));
   try {
     return fn(arg);
   } finally {
@@ -260,8 +264,10 @@ function hasText(e: WorldElement, wanted: string): boolean {
  */
 export function createWorldBrowser(world: World, log: BrowserLog) {
   const state: BrowserState = { url: "", scrollY: 0, history: [], shots: 0, modalDismissed: new Set(), filled: {} };
+  const failures: Record<string, number> = {};
   const go = (url: string) => {
     if (!world[url]) throw new Error(`net::ERR_NAME_NOT_RESOLVED at ${url}`);
+    if ((failures[url] = (failures[url] ?? 0) + 1) <= (world[url].failFirst ?? 0)) throw new Error(`net::ERR_NETWORK_CHANGED at ${url}`);
     if (state.url) state.history.push(state.url);
     state.url = url;
     state.scrollY = 0;
@@ -293,7 +299,7 @@ export function createWorldBrowser(world: World, log: BrowserLog) {
         if (fn === "1+1") return 2;
         return undefined;
       }
-      return runInPage(world, state, fn as (a?: unknown) => unknown, arg);
+      return runInPage(world, state, log, fn as (a?: unknown) => unknown, arg);
     },
     waitForTimeout: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
     mouse: {
@@ -310,21 +316,25 @@ export function createWorldBrowser(world: World, log: BrowserLog) {
       type: async (text: string) => { log.calls.push(`type ${text}`); },
     },
     locator: (sel: string) => {
+      // The timeouts the journey passes are logged: they are its choices, and
+      // the fake has no clock of its own to spend them on.
       const first = {
-        isVisible: async () => !!findByLocator(sel),
-        click: async () => {
+        isVisible: async (o?: { timeout?: number }) => { log.calls.push(`isVisible ${sel} timeout=${o?.timeout}`); return !!findByLocator(sel); },
+        click: async (o?: { timeout?: number }) => {
+          log.calls.push(`locator.click ${sel} timeout=${o?.timeout}`);
           const e = findByLocator(sel);
           if (!e) throw new Error(`locator ${sel} not found`);
           clickElement(e);
         },
         getAttribute: async (name: string) => (name === "href" ? findByLocator(sel)?.href ?? null : null),
         count: async () => (findByLocator(sel) ? 1 : 0),
-        scrollIntoViewIfNeeded: async () => {},
+        scrollIntoViewIfNeeded: async (o?: { timeout?: number }) => { log.calls.push(`scrollIntoView ${sel} timeout=${o?.timeout}`); },
       };
       return { first: () => first };
     },
-    goto: async (url: string) => { go(url); },
-    goBack: async () => {
+    goto: async (url: string, o?: { timeout?: number }) => { log.calls.push(`goto ${url} timeout=${o?.timeout}`); go(url); },
+    goBack: async (o?: { timeout?: number }) => {
+      log.calls.push(`goBack timeout=${o?.timeout}`);
       const prev = state.history.pop();
       if (!prev) throw new Error("no history");
       state.url = prev;
@@ -396,7 +406,8 @@ export function createWorldBrowser(world: World, log: BrowserLog) {
       if (input) state.filled[input.name] = value;
       return { success: !!input, element: selector, message: input ? "filled" : "not found" };
     },
-    dismissOverlay: async () => {
+    dismissOverlay: async (o?: { timeout?: number }) => {
+      log.calls.push(`dismissOverlay timeout=${o?.timeout}`);
       const p = current();
       if (!p.modal && !p.banner) throw new Error("no overlay");
       state.modalDismissed.add(state.url);
