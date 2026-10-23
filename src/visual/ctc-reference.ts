@@ -90,6 +90,8 @@ export interface ReferencePageRecord {
   detail?: string;
   /** The route of the final attempt: direct, or proxy after a blocked direct attempt. */
   route?: "direct" | "proxy";
+  /** route proxy only: what the direct attempt before it was classified as ("blocked: ..."). */
+  proxiedBecause?: string;
   /** The robots.txt decision for this URL. */
   robots: string;
   /** Bytes over the wire for all attempts, and for the proxy attempt alone. */

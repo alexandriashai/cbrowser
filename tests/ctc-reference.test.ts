@@ -194,9 +194,13 @@ describe("the crawl's rules, as the record shows them", () => {
     for (const r of rows) {
       if (r.route === "proxy") {
         expect(/\.(gov|mil)$/i.test(new URL(r.url).hostname)).toBe(false);
+        if (r.finalUrl) expect(/\.(gov|mil)$/i.test(new URL(r.finalUrl).hostname)).toBe(false);
         expect(r.proxyBytes).toBeGreaterThanOrEqual(0);
+        // The record says why: the direct attempt before it was classified blocked.
+        expect(r.proxiedBecause).toMatch(/^blocked: /);
       } else {
         expect(r.proxyBytes).toBe(0);
+        expect(r.proxiedBecause).toBeUndefined();
       }
     }
     const p = CTC_REFERENCE.proxy;
@@ -355,7 +359,13 @@ describe("totalCTC is the curve at rawCTC, and totalCTCInterval its interval the
   test("the option pairs are different yardsticks: a symmetric cost is ranked among symmetric costs", () => {
     const a = ctcReferenceCurve("viewport", { asymmetric: true, interactions: true }).curve;
     const s = ctcReferenceCurve("viewport", { asymmetric: false, interactions: true }).curve;
-    expect(s.xs[s.xs.length - 1]).toBeGreaterThan(a.xs[a.xs.length - 1]);
+    // Symmetric costs also bill surplus, so they sit higher: the asymmetric
+    // median raw cost ranks far lower among symmetric costs. (The top can be
+    // shared: on the v2 reference the costliest pair carries no surplus, so
+    // both curves end at the same raw cost.)
+    expect(s.xs[s.xs.length - 1]).toBeGreaterThanOrEqual(a.xs[a.xs.length - 1]);
+    const median = a.xs[Math.floor((a.xs.length - 1) / 2)];
+    expect(percentileAt(s, median)).toBeLessThan(percentileAt(a, median) - 0.1);
   });
 });
 

@@ -75,16 +75,42 @@ rows.sort((a, b) =>
   (siteIndex.get(`${a.frame}|${a.site}`) ?? 0) - (siteIndex.get(`${b.frame}|${b.site}`) ?? 0) ||
   typeOrder.indexOf(a.pageType) - typeOrder.indexOf(b.pageType));
 
-const pages = rows.map((r) => ({
-  frame: r.frame, site: r.site, sector: r.sector, pageType: r.pageType, url: r.url,
-  ...(r.how ? { how: r.how } : {}),
-  outcome: r.outcome,
-  ...(r.detail ? { detail: r.detail } : {}),
-  ...(r.route ? { route: r.route } : {}),
-  robots: r.robots, bytes: r.bytes, proxyBytes: r.proxyBytes,
-  ...(r.finalUrl ? { finalUrl: r.finalUrl } : {}),
-  ...(r.rank !== undefined ? { rank: r.rank } : {}), ...(r.band ? { band: r.band } : {}), ...(r.source ? { source: r.source } : {}),
-}));
+// The proxy rule (ISC-60), checked on every row before anything is written:
+// every proxy attempt comes right after a direct attempt classified blocked,
+// and never for a .gov or .mil host. A Tranco landing retried on www. after
+// its apex failed keeps the apex's attempts, so a direct row can carry an
+// earlier proxy attempt; a proxy row's final attempt is the proxy's.
+const isPublicHost = (u: string | undefined) => !!u && /\.(gov|mil)$/i.test(new URL(u).hostname);
+function proxiedBecause(r: PageRow): string | undefined {
+  r.attempts.forEach((a, i) => {
+    if (a.route !== "proxy") return;
+    const before = r.attempts[i - 1];
+    if (!before || before.route !== "direct" || before.outcome !== "blocked") throw new Error(`${r.url}: a proxy attempt not preceded by a blocked direct attempt`);
+    if (isPublicHost(r.url) || isPublicHost(r.finalUrl)) throw new Error(`${r.url}: a .gov or .mil page went through the proxy`);
+  });
+  const last = r.attempts[r.attempts.length - 1];
+  if ((r.route === "proxy") !== (last?.route === "proxy")) throw new Error(`${r.url}: route ${r.route} but the last attempt went ${last?.route}`);
+  if (r.route !== "proxy") {
+    if (r.proxyBytes !== 0) throw new Error(`${r.url}: route ${r.route} with ${r.proxyBytes} proxy bytes`);
+    return undefined;
+  }
+  return `blocked: ${r.attempts[r.attempts.length - 2].detail ?? "no detail"}`;
+}
+
+const pages = rows.map((r) => {
+  const why = proxiedBecause(r);
+  return {
+    frame: r.frame, site: r.site, sector: r.sector, pageType: r.pageType, url: r.url,
+    ...(r.how ? { how: r.how } : {}),
+    outcome: r.outcome,
+    ...(r.detail ? { detail: r.detail } : {}),
+    ...(r.route ? { route: r.route } : {}),
+    ...(why ? { proxiedBecause: why } : {}),
+    robots: r.robots, bytes: r.bytes, proxyBytes: r.proxyBytes,
+    ...(r.finalUrl ? { finalUrl: r.finalUrl } : {}),
+    ...(r.rank !== undefined ? { rank: r.rank } : {}), ...(r.band ? { band: r.band } : {}), ...(r.source ? { source: r.source } : {}),
+  };
+});
 const raw = rows.filter((r) => r.outcome === "graded").map((r) => {
   if (!r.raw) throw new Error(`graded row without a measurement: ${r.url}`);
   // The shipped tree loads one layout only (ctc-reference.ts, decodeReferenceRaw):
