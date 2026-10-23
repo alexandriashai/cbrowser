@@ -171,7 +171,7 @@ describe("every built-in persona carries its rate (provenance/persona-rates.ts)"
 
   test("published only where population and control were measured in the same study; hypotheses say what would set them", () => {
     expect(PERSONA_RATE_PROVENANCE.filter((e) => e.status !== "hypothesis").map((e) => `${e.id}:${e.status}`).sort())
-      .toEqual(["personaRate.dyslexic-user.reading:published", "personaRate.motor-impairment-tremor.pointing:published"]);
+      .toEqual(["personaRate.aphasia-receptive.reading:published", "personaRate.dyslexic-user.reading:published", "personaRate.motor-impairment-tremor.pointing:published"]);
     for (const e of PERSONA_RATE_PROVENANCE.filter((x) => x.status === "hypothesis")) expect(e.source).toMatch(/would (fit|set|test|place|replace)/);
   });
 
@@ -183,6 +183,9 @@ describe("every built-in persona carries its rate (provenance/persona-rates.ts)"
     expect(share("dyslexic-user", "reading")).toBe(184.63 / 243.64);
     expect(share("low-vision-magnified", "reading")).toBe(130 / 238);
     expect(share("elderly-low-vision", "reading")).toBe(130 / 238);
+    // Stage C: aphasia with impaired reading comprehension against age-matched
+    // controls, the same paragraph (Webster, Morris, Howard & Garraffa 2018).
+    expect(share("aphasia-receptive", "reading")).toBe(30 / 71);
   });
 
   test("mobile-user's pointing rate is what the interpolation gave it before the anchor moved", () => {
@@ -191,8 +194,9 @@ describe("every built-in persona carries its rate (provenance/persona-rates.ts)"
     expect(Math.abs(share("mobile-user", "pointing") * 4.9 - (4.9 + (2.1 - 4.9) * (1 - precision)))).toBeLessThan(1e-12);
   });
 
-  test("the four kept reading rates are the fixation model's slowdown for the persona today", () => {
-    for (const n of ["elderly-user", "cognitive-adhd", "intellectual-disability", "aphasia-receptive"]) {
+  test("the three kept reading rates are the fixation model's slowdown for the persona today", () => {
+    // aphasia-receptive left this list with Stage C: a measured rate replaced it.
+    for (const n of ["elderly-user", "cognitive-adhd", "intellectual-disability"]) {
       const p = getReadingProfile({ name: n, traits: ROSTER[n].cognitiveTraits, accessibilityTraits: ROSTER[n].accessibilityTraits });
       expect({ n, d: Math.abs(share(n, "reading") - readingRateRatioOf(p)) < 1e-12 }).toEqual({ n, d: true });
     }

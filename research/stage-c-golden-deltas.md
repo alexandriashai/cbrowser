@@ -149,3 +149,31 @@ Runs per persona: 76. "max abs change" is the largest absolute change over those
 | confident-user | 0.295 | 0.112 | 0.078 | 0.122 |
 | emotional-user | 0.288 | 0.138 | 0.168 | 0.230 |
 | stoic-user | 0.280 | 0.108 | 0.076 | 0.081 |
+
+## Second re-pin: aphasia-receptive reads at a measured rate
+
+Before is the first Stage C pin (59e31c0), after is the pin with
+personaRate.aphasia-receptive.reading = 30 / 71 (Webster, Morris, Howard &
+Garraffa 2018) in place of the fixation model's 0.804. Only aphasia-receptive's
+own numbers and, through the pooled reference curve, every persona's totalCTC
+move: every other persona's rawCTC mean change is 0.000, and its totalCTC moves
+by at most 0.007 on any run.
+
+8430 of 231418 pinned numbers (runs and scroll) change.
+
+### rawCTC
+| persona | mean before | mean after | mean change | max abs change |
+|---|---|---|---|---|
+| aphasia-receptive | 0.775 | 0.813 | +0.038 | 0.179 |
+### totalCTC
+| persona | mean before | mean after | mean change | max abs change |
+|---|---|---|---|---|
+| aphasia-receptive | 0.406 | 0.426 | +0.020 | 0.164 |
+### abandonmentRisk
+| persona | mean before | mean after | mean change | max abs change |
+|---|---|---|---|---|
+| aphasia-receptive | 0.239 | 0.258 | +0.018 | 0.131 |
+### cognitiveLoad and frustration layer cost, mean over the runs
+| persona | cognitiveLoad before | after | frustration before | after |
+|---|---|---|---|---|
+| aphasia-receptive | 0.310 | 0.310 | 0.076 | 0.076 |
