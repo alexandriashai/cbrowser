@@ -455,7 +455,11 @@ export const ATTENTION_COMPARE_SPEC: WidgetSpec = {
     { type: "note", title: "Persona A's perceptual filter", field: "personaA.perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
     { type: "kv", title: "Persona B", field: "personaB" },
     { type: "note", title: "Persona B's perceptual filter", field: "personaB.perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
-    { type: "table", title: "Regions that differ most", field: "divergentRegions" },
+    // Named columns: bbox is an object, and a cell can only say which fields
+    // it has. Five, so the table fits a 393px panel at its natural width;
+    // seven wrapped the coordinates digit by digit.
+    { type: "table", title: "Regions that differ most", field: "divergentRegions",
+      columns: ["direction", "x", "y", "cellCount", "divergence"] },
     { type: "drawer", title: "What these maps rest on", blocks: [
       { type: "provenance", title: "Where each number comes from", field: "attentionProvenance", variant: "full", subject: "comparison", open: true },
     ] },
