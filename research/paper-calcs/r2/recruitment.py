@@ -8,9 +8,15 @@ recruited for 80% power, and what the paper's planned recruitment (150) yields.
 LOSS-RATE ASSUMPTIONS (each is an assumption; neither is measured for this study)
   33%  the paper's own figure (Section 5.2.1: 150 recruited to yield ~100 usable,
        "webcam calibration failure (~33% expected)"); the paper cites no source.
-  61%  Yang & Krajbich 2021 (jsPsych + WebGazer on MTurk): 125 subjects started
-       and 49 "successfully passed the initial calibration + validation and
-       completed the study", a loss of 1 - 49/125 = 60.8%.
+  61%  Yang & Krajbich 2021 (Judgment and Decision Making 16(6):1485-1505;
+       jsPsych + WebGazer on MTurk): "125 subjects from Amazon MTurk
+       participated in this study. Of these, 49 successfully passed the initial
+       calibration + validation and completed the study", a loss of
+       1 - 49/125 = 60.8%.
+  70%  the same study's analysed count: "Thus, 38 subjects were included in
+       total", 1 - 38/125 = 69.6%. This is the like-for-like comparison with
+       the paper's 33%, which covers every exclusion (calibration, inattention,
+       incomplete sessions), not calibration alone.
 A recruit completes independently with probability 1 - loss, so the completed
 count is Binomial(recruits, 1 - loss). Losses are assumed unrelated to the
 outcome (missing completely at random).
@@ -56,7 +62,9 @@ from lmm import CrossedLMM  # noqa: E402
 
 LOSSES = {"0.33": {"loss": 0.33, "source": "the paper's own figure (Section 5.2.1), unsourced"},
           "0.61": {"loss": 1 - 49 / 125,
-                   "source": "Yang & Krajbich 2021, jsPsych + WebGazer on MTurk: 49 of 125 passed calibration + validation and completed"}}
+                   "source": "Yang & Krajbich 2021, jsPsych + WebGazer on MTurk: 49 of 125 passed calibration + validation and completed"},
+          "0.70": {"loss": 1 - 38 / 125,
+                   "source": "Yang & Krajbich 2021, same study: 38 of 125 included in the analysis (every exclusion)"}}
 PLANNED = 150
 SEED = 20261023
 
