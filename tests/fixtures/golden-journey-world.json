@@ -6,7 +6,7 @@
     "STEP 1\n\nCURRENT PAGE:\n- URL: https://acme.example/\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1800px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n- ⚠️ Banner blocking content: \"We use cookies to improve your experience\" — try dismiss\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Acme widgets are built for teams that need to move quickly without breaking things. Every plan includes unlimited projects, role-based access, audit logs and priority support from engineers who actually built the product…\n↓[H2] Features\n↓[li] Fast\n↓[li] Reliable\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,20))\n  [#1] 👁 \"Sign up\" (a @(700,20))\n  [#2] 👁 \"Docs\" (a @(800,20))\n  — MODAL —\n  [#3] 👁 \"Accept all cookies\" (button @(900,700))\n  — MAIN-VISIBLE —\n  [#4] 👁 \"Get started\" (button @(100,300))\n  — SIDEBAR —\n  [#5] 👁 \"Subscribe to newsletter\" (button @(1000,400))\n  [#6] 👁 \"Share on social\" (a @(1000,460))\n  — BELOW-FOLD —\n  [#7] ↓ \"Pricing details\" (a @(100,1600))\n  — FOOTER —\n  [#8] ↓ \"Contact\" (a @(100,2500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 0\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 2\n\nCURRENT PAGE:\n- URL: https://acme.example/\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1800px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nWHAT HAPPENED LAST STEP:\n- Last action: dismiss — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Acme widgets are built for teams that need to move quickly without breaking things. Every plan includes unlimited projects, role-based access, audit logs and priority support from engineers who actually built the product…\n↓[H2] Features\n↓[li] Fast\n↓[li] Reliable\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,20))\n  [#1] 👁 \"Sign up\" (a @(700,20))\n  [#2] 👁 \"Docs\" (a @(800,20))\n  — MODAL —\n  [#3] 👁 \"Accept all cookies\" (button @(900,700))\n  — MAIN-VISIBLE —\n  [#4] 👁 \"Get started\" (button @(100,300))\n  — SIDEBAR —\n  [#5] 👁 \"Subscribe to newsletter\" (button @(1000,400))\n  [#6] 👁 \"Share on social\" (a @(1000,460))\n  — BELOW-FOLD —\n  [#7] ↓ \"Pricing details\" (a @(100,1600))\n  — FOOTER —\n  [#8] ↓ \"Contact\" (a @(100,2500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 4%\n- Frustration: 0%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 1\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 3\n\nCURRENT PAGE:\n- URL: https://acme.example/\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 400/1800px (22%)\n- Currently visible headings: H2: Features\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✓ executed\n- Scrolled down 400px\n\nVISIBLE PAGE CONTENT:\n👁[H2] Features\n👁[li] Fast\n👁[li] Reliable\n↓[p] Starter plans begin at ten dollars.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] ↓ \"Pricing\" (a @(600,-380))\n  [#1] ↓ \"Sign up\" (a @(700,-380))\n  [#2] ↓ \"Docs\" (a @(800,-380))\n  — MODAL —\n  [#3] 👁 \"Accept all cookies\" (button @(900,300))\n  — MAIN-VISIBLE —\n  [#4] ↓ \"Get started\" (button @(100,-100))\n  — SIDEBAR —\n  [#5] 👁 \"Subscribe to newsletter\" (button @(1000,0))\n  [#6] 👁 \"Share on social\" (a @(1000,60))\n  — BELOW-FOLD —\n  [#7] ↓ \"Pricing details\" (a @(100,1200))\n  — FOOTER —\n  [#8] ↓ \"Contact\" (a @(100,2100))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 7%\n- Frustration: 0%\n- Goal Progress: 5%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 2\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
-    "STEP 4\n\nCURRENT PAGE:\n- URL: https://acme.example/pricing\n- Title: Pricing - Acme\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/600px (0%) [at top]\n- Currently visible headings: H1: Pricing\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:Pricing details — ✓ executed\n- Page navigated: https://acme.example/ → https://acme.example/pricing\n- Scrolled up 400px\n- New elements appeared: \"Home\", \"Compare plans\", \"Enterprise pricing\"\n- Elements no longer visible: \"Pricing\", \"Docs\", \"Accept all cookies\", \"Get started\", \"Subscribe to newsletter\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Pricing\n👁[td] Starter: $10/month\n👁[td] Team: $49/month\n👁[p] Annual billing saves 20 percent.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Home\" (a @(20,20))\n  — MAIN-VISIBLE —\n  [#1] 👁 \"Sign up\" (a @(100,500))\n  [#2] 👁 \"Compare plans\" (button @(300,500))\n  — BELOW-FOLD —\n  [#3] ↓ \"Enterprise pricing\" (a @(100,1200))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 30%\n- Mood: hopeful\n- Pages Visited: 2\n- Actions Attempted: 3\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 4\n\nCURRENT PAGE:\n- URL: https://acme.example/pricing\n- Title: Pricing - Acme\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/600px (0%) [at top]\n- Currently visible headings: H1: Pricing\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:Pricing details — ✓ executed\n- Page navigated: https://acme.example/ → https://acme.example/pricing\n- New elements appeared: \"Home\", \"Compare plans\", \"Enterprise pricing\"\n- Elements no longer visible: \"Pricing\", \"Docs\", \"Accept all cookies\", \"Get started\", \"Subscribe to newsletter\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Pricing\n👁[td] Starter: $10/month\n👁[td] Team: $49/month\n👁[p] Annual billing saves 20 percent.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Home\" (a @(20,20))\n  — MAIN-VISIBLE —\n  [#1] 👁 \"Sign up\" (a @(100,500))\n  [#2] 👁 \"Compare plans\" (button @(300,500))\n  — BELOW-FOLD —\n  [#3] ↓ \"Enterprise pricing\" (a @(100,1200))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 30%\n- Mood: hopeful\n- Pages Visited: 2\n- Actions Attempted: 3\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 5\n\nCURRENT PAGE:\n- URL: https://acme.example/signup\n- Title: Create account\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Create your account\n- ⚠️ Form errors visible: Email is required\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:#1 → the Sign up link — ✓ executed\n- Page navigated: https://acme.example/pricing → https://acme.example/signup\n- New elements appeared: \"Create account\"\n- Elements no longer visible: \"Sign up\", \"Compare plans\", \"Enterprise pricing\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Create your account\n👁[p] It takes less than a minute.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#1] 👁 \"Home\" (a @(20,20))\n  — FORM —\n  [#0] 👁 \"Create account\" (button @(100,500))\n\nFORM INPUTS (fillable):\n  - \"Email\" (email)\n  - \"Password\" (password)\n  - \"Plan\" (select dropdown) → use fill:Plan:OptionValue\n      Options: Starter, Team\n  - \"Country\" (select, custom dropdown - click \"Choose a country\" to open)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 50%\n- Mood: hopeful\n- Pages Visited: 3\n- Actions Attempted: 4\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 6\n\nCURRENT PAGE:\n- URL: https://acme.example/signup\n- Title: Create account\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Create your account\n- ⚠️ Form errors visible: Email is required\n\nWHAT HAPPENED LAST STEP:\n- Last action: fill:Email:ada@example.com — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Create your account\n👁[p] It takes less than a minute.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#1] 👁 \"Home\" (a @(20,20))\n  — FORM —\n  [#0] 👁 \"Create account\" (button @(100,500))\n\nFORM INPUTS (fillable):\n  - \"Email\" (email)\n  - \"Password\" (password)\n  - \"Plan\" (select dropdown) → use fill:Plan:OptionValue\n      Options: Starter, Team\n  - \"Country\" (select, custom dropdown - click \"Choose a country\" to open)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 55%\n- Mood: hopeful\n- Pages Visited: 3\n- Actions Attempted: 5\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 7\n\nCURRENT PAGE:\n- URL: https://acme.example/signup\n- Title: Create account\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Create your account\n- ⚠️ Form errors visible: Email is required\n\nWHAT HAPPENED LAST STEP:\n- Last action: fill:Password:correct horse — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Create your account\n👁[p] It takes less than a minute.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#1] 👁 \"Home\" (a @(20,20))\n  — FORM —\n  [#0] 👁 \"Create account\" (button @(100,500))\n\nFORM INPUTS (fillable):\n  - \"Email\" (email)\n  - \"Password\" (password)\n  - \"Plan\" (select dropdown) → use fill:Plan:OptionValue\n      Options: Starter, Team\n  - \"Country\" (select, custom dropdown - click \"Choose a country\" to open)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 60%\n- Mood: hopeful\n- Pages Visited: 3\n- Actions Attempted: 6\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
@@ -2336,8 +2336,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0,
-     "maxFrustrationLevel": 0,
+     "avgConfusionLevel": 0.03250011905381944,
+     "maxFrustrationLevel": 0.050858749999999994,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 8,
@@ -4700,7 +4700,7 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.7700278307291623,
+     "avgConfusionLevel": 0.4602859184792209,
      "maxFrustrationLevel": 0.5259535660514923,
      "backtrackCount": 0,
      "timeInConfusion": 6,
@@ -5270,7 +5270,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -5383,7 +5383,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -5523,9 +5523,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -5693,9 +5693,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -6352,7 +6352,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -6616,7 +6616,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -6894,9 +6894,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -7190,9 +7190,9 @@
        "choosingDefaults": true
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -7502,9 +7502,9 @@
        "choosingDefaults": true
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -7830,9 +7830,9 @@
        "choosingDefaults": true
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -8174,9 +8174,9 @@
        "choosingDefaults": true
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -8534,9 +8534,9 @@
        "choosingDefaults": true
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -9020,9 +9020,9 @@
       "choosingDefaults": true
      },
      "cognitiveMode": {
-      "system": 1,
+      "system": 2,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 3,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -9298,7 +9298,7 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0,
+     "avgConfusionLevel": 0.050464089031037544,
      "maxFrustrationLevel": 0.8023750000000001,
      "backtrackCount": 0,
      "timeInConfusion": 0,
@@ -10315,7 +10315,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -10485,7 +10485,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -10684,7 +10684,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -10912,7 +10912,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -11157,7 +11157,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -11431,7 +11431,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -11732,9 +11732,9 @@
        "choosingDefaults": true
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -12109,9 +12109,9 @@
       "choosingDefaults": true
      },
      "cognitiveMode": {
-      "system": 1,
+      "system": 2,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 3,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -13642,7 +13642,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -13870,7 +13870,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -14115,7 +14115,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -14386,7 +14386,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -14670,7 +14670,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -14967,7 +14967,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -15277,7 +15277,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -15600,7 +15600,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -15936,7 +15936,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -16285,7 +16285,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -16647,7 +16647,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -17022,7 +17022,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -17410,7 +17410,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -17811,7 +17811,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -18225,7 +18225,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -18652,7 +18652,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -19208,7 +19208,7 @@
      "cognitiveMode": {
       "system": 1,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 2,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -19582,7 +19582,7 @@
     },
     "summary": {
      "avgConfusionLevel": 0,
-     "maxFrustrationLevel": 0,
+     "maxFrustrationLevel": 0.3796224181640625,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 7,
@@ -24388,7 +24388,7 @@
      "cognitiveMode": {
       "system": 1,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 1,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -25906,7 +25906,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.4,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -26237,7 +26237,7 @@
      "cognitiveMode": {
       "system": 1,
       "switchThreshold": 0.4,
-      "system1Errors": 0,
+      "system1Errors": 2,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -26403,7 +26403,7 @@
     },
     "summary": {
      "avgConfusionLevel": 0,
-     "maxFrustrationLevel": 0,
+     "maxFrustrationLevel": 0.19962250000000004,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 6,
@@ -26853,7 +26853,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -26989,7 +26989,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -27167,7 +27167,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -27360,7 +27360,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -27588,7 +27588,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -27845,7 +27845,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -28240,7 +28240,7 @@
      "cognitiveMode": {
       "system": 1,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 2,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -28470,8 +28470,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0,
-     "maxFrustrationLevel": 0,
+     "avgConfusionLevel": 0.20966587577606863,
+     "maxFrustrationLevel": 0.6277870568580243,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 7,
@@ -31829,7 +31829,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -31966,7 +31966,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -32117,9 +32117,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -32329,9 +32329,9 @@
       "choosingDefaults": false
      },
      "cognitiveMode": {
-      "system": 1,
+      "system": 2,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 3,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -32804,7 +32804,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -32916,7 +32916,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -33042,9 +33042,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -33186,9 +33186,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -33350,9 +33350,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -33583,9 +33583,9 @@
       "choosingDefaults": false
      },
      "cognitiveMode": {
-      "system": 1,
+      "system": 2,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 3,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -33702,7 +33702,7 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.05969350024166376,
+     "avgConfusionLevel": 0.0860078361674101,
      "maxFrustrationLevel": 0.8023750000000001,
      "backtrackCount": 0,
      "timeInConfusion": 0,
@@ -34095,7 +34095,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -34231,7 +34231,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -34397,7 +34397,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -34625,7 +34625,7 @@
      "cognitiveMode": {
       "system": 1,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 1,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -34764,7 +34764,7 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.08169913905759375,
+     "avgConfusionLevel": 0.20546270092846092,
      "maxFrustrationLevel": 0.6327586975744,
      "backtrackCount": 0,
      "timeInConfusion": 0,
@@ -35140,7 +35140,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -35252,7 +35252,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -35378,9 +35378,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -35522,9 +35522,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -39428,7 +39428,7 @@
     },
     "summary": {
      "avgConfusionLevel": 0,
-     "maxFrustrationLevel": 0,
+     "maxFrustrationLevel": 0.6804849197783122,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 14,
@@ -40254,7 +40254,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -40366,7 +40366,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -40492,9 +40492,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -40636,9 +40636,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -40846,9 +40846,9 @@
       "choosingDefaults": false
      },
      "cognitiveMode": {
-      "system": 1,
+      "system": 2,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 3,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -40953,7 +40953,7 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.06601609613852458,
+     "avgConfusionLevel": 0.10553619058611056,
      "maxFrustrationLevel": 0.8554098496213556,
      "backtrackCount": 0,
      "timeInConfusion": 0,
@@ -41420,7 +41420,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -41557,7 +41557,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -41708,9 +41708,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -41877,9 +41877,9 @@
        "choosingDefaults": false
       },
       "cognitiveMode": {
-       "system": 1,
+       "system": 2,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 3,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -42087,6 +42087,7 @@
     "🧠 Decision Fatigue: 28% (4 decisions)",
     "💭 Feeling very frustrated with the experience, with some anxiety",
     "⚠️ Emotional abandonment signal: Extreme frustration",
+    "🧠 Switching to System 2 (deliberate thinking) - confusion: 0%",
     "\n━━━ Step 5 ━━━",
     "Mood: neutral",
     "Patience: 21% | Confusion: 0% | Frustration: 95%",
@@ -42170,9 +42171,9 @@
       "choosingDefaults": false
      },
      "cognitiveMode": {
-      "system": 1,
+      "system": 2,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 3,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -79907,7 +79908,7 @@
     "STEP 2\n\nCURRENT PAGE:\n- URL: https://acme.example/short-scroll\n- Title: Short scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 400/410px (98%) [at bottom]\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✓ executed\n- Scrolled down 400px\n\nVISIBLE PAGE CONTENT:\n👁[p] Just past the look-ahead strip\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — MAIN-VISIBLE —\n  [#0] ↓ \"Tiny scroll page\" (a @(20,-300))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 5%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 1\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 3\n\nCURRENT PAGE:\n- URL: https://acme.example/short-scroll\n- Title: Short scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 410/410px (100%) [at bottom]\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[p] Just past the look-ahead strip\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — MAIN-VISIBLE —\n  [#0] ↓ \"Tiny scroll page\" (a @(20,-310))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 10%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 2\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 4\n\nCURRENT PAGE:\n- URL: https://acme.example/short-scroll\n- Title: Short scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 410/410px (100%) [at bottom]\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✗ failed\n\nVISIBLE PAGE CONTENT:\n👁[p] Just past the look-ahead strip\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — MAIN-VISIBLE —\n  [#0] ↓ \"Tiny scroll page\" (a @(20,-310))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 15%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 3\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
-    "STEP 5\n\nCURRENT PAGE:\n- URL: https://acme.example/tiny-scroll\n- Title: Tiny scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/405px (0%) [at top]\n- Currently visible headings: H1: Tiny scroll\n\nWHAT HAPPENED LAST STEP:\n- Last action: navigate:https://acme.example/tiny-scroll — ✓ executed\n- Page navigated: https://acme.example/short-scroll → https://acme.example/tiny-scroll\n- Scrolled up 410px\n- Elements no longer visible: \"Tiny scroll page\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Tiny scroll\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  (no clickable elements detected)\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 20%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 4\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 5\n\nCURRENT PAGE:\n- URL: https://acme.example/tiny-scroll\n- Title: Tiny scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/405px (0%) [at top]\n- Currently visible headings: H1: Tiny scroll\n\nWHAT HAPPENED LAST STEP:\n- Last action: navigate:https://acme.example/tiny-scroll — ✓ executed\n- Page navigated: https://acme.example/short-scroll → https://acme.example/tiny-scroll\n- Elements no longer visible: \"Tiny scroll page\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Tiny scroll\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  (no clickable elements detected)\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 20%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 4\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 6\n\nCURRENT PAGE:\n- URL: https://acme.example/tiny-scroll\n- Title: Tiny scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 400/405px (99%) [at bottom]\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✓ executed\n- Scrolled down 400px\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  (no clickable elements detected)\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 20%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 5\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
     "STEP 7\n\nCURRENT PAGE:\n- URL: https://acme.example/tiny-scroll\n- Title: Tiny scroll\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 405/405px (100%) [at bottom]\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✗ failed\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  (no clickable elements detected)\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 20%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 6\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format."
    ],
@@ -80316,7 +80317,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -80487,7 +80488,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -80688,7 +80689,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 1,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -80918,7 +80919,7 @@
       "cognitiveMode": {
        "system": 1,
        "switchThreshold": 0.6,
-       "system1Errors": 0,
+       "system1Errors": 2,
        "timeInSystem1": 0,
        "timeInSystem2": 0
       },
@@ -81209,7 +81210,7 @@
      "cognitiveMode": {
       "system": 1,
       "switchThreshold": 0.6,
-      "system1Errors": 0,
+      "system1Errors": 2,
       "timeInSystem1": 0,
       "timeInSystem2": 0
      },
@@ -81987,8 +81988,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.0504,
-     "maxFrustrationLevel": 0.026879999999999987,
+     "avgConfusionLevel": 0.1624,
+     "maxFrustrationLevel": 0.19487999999999997,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 1,
@@ -82323,8 +82324,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.04618559999999998,
-     "maxFrustrationLevel": 0.02278271999999998,
+     "avgConfusionLevel": 0.15498559999999997,
+     "maxFrustrationLevel": 0.18598271999999996,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 1,
@@ -82846,8 +82847,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.08494257101315326,
-     "maxFrustrationLevel": 0.040431592365783975,
+     "avgConfusionLevel": 0.17236371480345164,
+     "maxFrustrationLevel": 0.201831592365784,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 2,
@@ -83428,8 +83429,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.07822998793963179,
-     "maxFrustrationLevel": 0.0341771289775582,
+     "avgConfusionLevel": 0.16499326623544092,
+     "maxFrustrationLevel": 0.1919771289775582,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 2,
@@ -84010,8 +84011,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.07762904527049252,
-     "maxFrustrationLevel": 0.030967964062422026,
+     "avgConfusionLevel": 0.16417359438524629,
+     "maxFrustrationLevel": 0.18576796406242202,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 2,
@@ -84592,8 +84593,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.11513153098779676,
-     "maxFrustrationLevel": 0.0635903228679105,
+     "avgConfusionLevel": 0.1946150574860859,
+     "maxFrustrationLevel": 0.2045903228679105,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 2,
@@ -85403,8 +85404,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.13846503495477386,
-     "maxFrustrationLevel": 0.0801641986460857,
+     "avgConfusionLevel": 0.21142602582921408,
+     "maxFrustrationLevel": 0.21750092598442458,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 3,
@@ -86273,8 +86274,8 @@
      ]
     },
     "summary": {
-     "avgConfusionLevel": 0.15065323559265542,
-     "maxFrustrationLevel": 0.09827459334020697,
+     "avgConfusionLevel": 0.21855298656213518,
+     "maxFrustrationLevel": 0.23027459334020697,
      "backtrackCount": 0,
      "timeInConfusion": 0,
      "decisionsMade": 3,
