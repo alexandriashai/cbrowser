@@ -45,7 +45,7 @@ export function deadConstants(ids: Array<{ id: string; value: number }>, build: 
 
 describe("no constant in the chain registry is dead", () => {
   // Each perturbed build re-derives the totalCTC reference curves (three
-  // option pairs x 111 pages x 25 personas) under the new constant, so this
+  // option pairs x every reference page x 25 personas) under the new constant, so this
   // is a few seconds of chain runs rather than under one; the bound is set
   // well above it.
   test("every CHAIN_PROVENANCE id, scaled by 1.1 or 0.9, moves a score in the golden matrix", () => {

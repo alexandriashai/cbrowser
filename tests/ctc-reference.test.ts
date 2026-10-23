@@ -123,6 +123,9 @@ describe("the reference set", () => {
     expect(() => decodeReferenceRaw(pack(old), 2, "t")).toThrow(/graded page 1 full_page is raw format 1; this build measures and ranks against format 2/);
     expect(() => decodeReferenceRaw(pack([{ viewport: vp[0] }, good[1]]), 2, "t")).toThrow(/graded page 0 full_page is raw format undefined/);
     expect(() => decodeReferenceRaw(pack(good), 3, "t")).toThrow(/2 raw measurements for 3 graded pages/);
+    // A format-2 record from before the nav totals (the fd28165 crawl) is refused by its fields.
+    const { navLinks: _n, groupedLinks: _g, ...early } = good[0].viewport;
+    expect(() => decodeReferenceRaw(pack([{ ...good[0], viewport: early }, good[1]]), 2, "t")).toThrow(/graded page 0 viewport is raw format 2 without navLinks, groupedLinks/);
   });
 
   test("blocked means did not load: no graded page has zero interactive elements on the whole document", () => {

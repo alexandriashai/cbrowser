@@ -27,7 +27,11 @@
  *     family, and, for scale, how much fields the fix did not touch (links,
  *     interactive elements, textChars) moved between the two crawls; and on
  *     every v2 page, format 1's per-element count (proseNested) against the
- *     outermost-only count, measured on the same DOM.
+ *     outermost-only count, measured on the same DOM;
+ *   - what counting each choice in one group did, on every v2 page, same
+ *     DOM: format 1's group totals (choiceNested) against the deduplicated
+ *     ones, how many pages have more groups than the stored list holds, and
+ *     how far the stored nav sizes undercount navLinks there.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -224,6 +228,23 @@ if (v1PinPath) {
 }
 
 // ── The prose fix ──
+console.log(`\n## choice groups: each choice in one group, and the uncapped nav totals (same DOM)`);
+for (const scope of SCOPES) {
+  const raws = referenceRaw(scope);
+  const items = (r: RawPageMeasurement) => { let n = 0; for (let i = 1; i < r.choiceGroups.length; i += 2) n += r.choiceGroups[i]; return n; };
+  const nested = raws.filter((r) => r.choiceNested.groups > r.choiceGroupCount);
+  const itemRatio = raws.filter((r) => r.choiceGroupCount > 0 && r.choiceGroupCount <= param("pageMetrics.raw.maxChoiceGroups") && items(r) > 0)
+    .map((r) => r.choiceNested.items / items(r));
+  const capped = raws.filter((r) => r.choiceGroupCount > param("pageMetrics.raw.maxChoiceGroups"));
+  const storedNav = (r: RawPageMeasurement) => {
+    let n = 0;
+    for (let i = 0; i < r.choiceGroups.length; i += 2) if (r.kinds[r.choiceGroups[i]] === "nav") n += r.choiceGroups[i + 1];
+    return n;
+  };
+  console.log(`  ${scope}: pages with a group inside another group ${nested.length} of ${raws.length}; choices counted per group / once (pages under the cap) median ${f3(median(itemRatio))}, mean ${f3(mean(itemRatio))}, max ${f3(Math.max(...itemRatio))}; groups per group / once, all pages: ${raws.reduce((n, r) => n + r.choiceNested.groups, 0)} / ${raws.reduce((n, r) => n + r.choiceGroupCount, 0)}`);
+  console.log(`    pages over the stored list's ${param("pageMetrics.raw.maxChoiceGroups")} groups: ${capped.length}; there, stored nav sizes / navLinks: ${capped.map((r) => `${storedNav(r)}/${r.navLinks}`).join(", ") || "-"}; ungrouped links (links - groupedLinks) median ${f3(median(raws.map((r) => r.links - r.groupedLinks)))}, share of links median ${f3(median(raws.filter((r) => r.links > 0).map((r) => (r.links - r.groupedLinks) / r.links)))}`);
+}
+
 console.log(`\n## raw format 2's prose fix`);
 {
   // Within each v2 page: format 1's per-element count against the outermost-only count, same DOM.

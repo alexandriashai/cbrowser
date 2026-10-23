@@ -303,10 +303,14 @@ the studies will find.
 
 **Model-side input** (`ctc-reference-scores.ts` -> `ctc-reference-scores.csv`):
 the shipped model's totalCTC (a percentile, 0-1) for every built-in human
-persona on every graded page of the shipped reference set (111 pages,
-`ctc-reference-2026-10-22`), personas built as `cognitive_effort` builds them
+persona on every graded page of the reference set shipped when round 1 ran
+(v1: 111 brand landing pages, `ctc-reference-2026-10-22`), personas built as
+`cognitive_effort` builds them
 by default (traits, siteFamiliarity 0, capacities bridged, values off).
-Viewport scope is primary (the tool's default); `power-*-full_page.*` repeats
+Every "111" in round 1 below is that v1 set. The shipped reference is now v2
+(`ctc-reference-v2-2026-10-23`: raw measurements, three sampling frames, six
+page types), which `ctc-reference-scores.ts` now reads; round 1's numbers stay
+v1's until it is re-run. Viewport scope is primary (the tool's default); `power-*-full_page.*` repeats
 everything at full_page scope. First-timer viewport CTC over the 111 pages:
 mean 0.709, SD 0.178, quartiles 0.567 / 0.724 / 0.857, range 0.143 to 0.989.
 
@@ -463,7 +467,7 @@ reps, MC SE 0.005).
 ## 5. Page measurement latency on real pages
 
 **Method** (`page-latency.ts`). 30 pages drawn (mulberry32, seed 0x1a7e) from
-the 111 graded pages of the shipped reference set, one page per site. cbrowser's
+the 111 graded pages of the v1 reference set (then shipped), one page per site. cbrowser's
 own `CBrowser`, headless, 1920x1080, direct route (proxy variables cleared),
 one browser for the whole run, warmed on a 31st reference page (hulu.com)
 that is not counted. Per page, as `cognitive_effort` and the reference crawl
