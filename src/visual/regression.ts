@@ -40,6 +40,7 @@ import {
   type TransportMapResult,
   type TransportMapConfig,
 } from "./distance-metrics.js";
+import { uniqueStamp } from "../temp-files.js";
 
 /**
  * Get the path to visual baselines storage
@@ -204,7 +205,9 @@ export async function captureVisualBaseline(
 
     // Take screenshot
     const screenshotsPath = getVisualScreenshotsPath();
-    const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+    // Time plus random bits (src/temp-files.ts): two captures of one name in
+    // the same millisecond shared an id and a file.
+    const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${uniqueStamp()}`;
     const screenshotPath = join(screenshotsPath, `${id}.png`);
 
     const page = await browser.getPage();
@@ -420,7 +423,7 @@ export async function captureSmartBaseline(
 
     // Capture N screenshots
     for (let i = 0; i < numCaptures; i++) {
-      const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}-${i}`;
+      const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${uniqueStamp()}-${i}`;
       const capturePath = join(screenshotsPath, `${id}.png`);
 
       if (options.selector) {
@@ -572,8 +575,9 @@ export async function runSmartRegression(
   const browser = browserForTarget({ device: baseline.device, viewport: baseline.viewport });
   const region = baseline.viewport ?? { width: 1920, height: 1080 };
 
-  // Session screenshots dir, where retention applies (v8 B36).
-  const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
+  // Session screenshots dir, where retention applies (v8 B36). Time plus
+  // random bits: two runs in the same millisecond compared each other's capture.
+  const currentPath = join(getCurrentCaptureDir(), `current-${uniqueStamp()}.png`);
 
   try {
     await browser.launch();
@@ -721,7 +725,7 @@ export async function runRegressionWithTransportMap(
     : { device: regularBaseline!.device, viewport: regularBaseline!.viewport };
   const browser = browserForTarget(captureTarget);
   // Session screenshots dir, where retention applies (v8 B36).
-  const currentPath = join(getCurrentCaptureDir(), `current-${Date.now()}.png`);
+  const currentPath = join(getCurrentCaptureDir(), `current-${uniqueStamp()}.png`);
 
   try {
     await browser.launch();
@@ -817,7 +821,7 @@ export async function runRegressionWithTransportMap(
   const baseDir = effectiveDataDir();
   const mapsDir = join(baseDir, "transport-maps");
   if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
-  transportMapSvgPath = join(mapsDir, `transport-map-${Date.now()}.svg`);
+  transportMapSvgPath = join(mapsDir, `transport-map-${uniqueStamp()}.svg`);
   writeFileSync(transportMapSvgPath, transportMap.svg);
 
   // Enhance analysis summary with transport map data
@@ -930,7 +934,7 @@ Respond ONLY with the JSON, no other text.`;
         mkdirSync(tempDir, { recursive: true });
       }
 
-      const requestPath = join(tempDir, `analysis-${Date.now()}.json`);
+      const requestPath = join(tempDir, `analysis-${uniqueStamp()}.json`);
       writeFileSync(requestPath, JSON.stringify({
         prompt,
         images: [
@@ -1257,7 +1261,7 @@ export async function runVisualRegression(
     // Take screenshot, into the session screenshots dir, where retention
     // applies (v8 B36).
     const screenshotsPath = getCurrentCaptureDir();
-    const currentScreenshotPath = join(screenshotsPath, `current-${baseline.id}-${Date.now()}.png`);
+    const currentScreenshotPath = join(screenshotsPath, `current-${baseline.id}-${uniqueStamp()}.png`);
 
     const page = await browser.getPage();
 

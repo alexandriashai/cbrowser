@@ -16,6 +16,7 @@ import { join } from "path";
 import { CBrowser } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
 import { getPaths, ensureDirectories } from "../config.js";
+import { uniqueStamp } from "../temp-files.js";
 import type {
   BrowserLaunchOptions,
   PerformanceBaseline,
@@ -274,7 +275,9 @@ export async function capturePerformanceBaseline(
   }
 
   const baseline: PerformanceBaseline = {
-    id: `baseline-${Date.now()}`,
+    // Time plus random bits (src/temp-files.ts): two baselines in the same
+    // millisecond shared an id, and the second file replaced the first.
+    id: `baseline-${uniqueStamp()}`,
     url,
     name: name || new URL(url).hostname,
     timestamp: new Date().toISOString(),

@@ -74,6 +74,7 @@ import {
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 import { writeSecretFile } from "../secure-file.js";
+import { uniqueStamp } from "../temp-files.js";
 import { semanticWeightTable } from "../visual/attention-transport.js";
 import type { DecisionProvider } from "./journey-trace.js";
 import {
@@ -1243,7 +1244,7 @@ export async function runCognitiveJourney(
   const captureSession = await startAutoCapture(
     await browser.getPage(),
     options.capture,
-    `journey-${options.persona.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`,
+    `journey-${options.persona.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`,
   );
 
   // Apply geolocation at runtime as well (ensures permission is granted after context exists)

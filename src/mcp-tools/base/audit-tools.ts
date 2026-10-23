@@ -32,6 +32,7 @@ import { getDefaultConfig, effectiveDataDir } from "../../config.js";
 import { describeRenderTarget } from "../../devices.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
+import { makeTempDir, uniqueStamp, type CallTempDir } from "../../temp-files.js";
 
 /**
  * Persist an audit screenshot and return its path.
@@ -56,7 +57,9 @@ export function writeAuditScreenshot(
   try {
     const dir = join(effectiveDataDir(), "audit-screenshots");
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    const path = join(dir, `empathy-${safe}-${Date.now()}.png`);
+    // Time plus random bits: two audits of one persona in the same
+    // millisecond wrote one file and both returned its path.
+    const path = join(dir, `empathy-${safe}-${uniqueStamp()}.png`);
     writeFileSync(path, Buffer.from(base64, "base64"));
     out.path = path;
   } catch { /* a screenshot is not worth failing an audit over */ }
@@ -754,10 +757,11 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     const hostedRefusal = refuseHostedUrl("visual_cognitive_story", { url });
     if (hostedRefusal) return hostedRefusal;
     const startTime = Date.now();
-    const { join } = await import("path");
-    const { tmpdir } = await import("os");
-    const { writeFileSync, mkdirSync, existsSync, unlinkSync } = await import("fs");
+    const { writeFileSync, mkdirSync, existsSync } = await import("fs");
     let ownsVcsBrowser = true;
+    // The screenshot's own temp dir, removed in the finally below: a
+    // clock-named file in the shared temp dir was read by concurrent calls.
+    let storyTemp: CallTempDir | undefined;
 
     try {
       const { CBrowser: BrowserClass } = await import("../../browser.js");
@@ -795,7 +799,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         await new Promise(r => setTimeout(r, 2000));
         const page = await browser.getPage();
 
-        const ssPath = join(tmpdir(), `story-${Date.now()}.png`);
+        storyTemp = await makeTempDir("story");
+        const ssPath = storyTemp.file("page.png");
         await page.screenshot({ path: ssPath, fullPage: false });
 
         // webDir removed: this pointed at /var/www/cbrowser-web/heatmaps, a
@@ -1213,9 +1218,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           (previews) => ({ imagePreviews: previews }),
         );
 
-        try { unlinkSync(ssPath); } catch {}
         return { content };
       } finally {
+        await storyTemp?.remove();
         if (ownsVcsBrowser) await browser.close();
       }
     } catch (err) {
