@@ -25,13 +25,18 @@ import { describe, test, expect } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { diffExact } from "./fixtures/ctc-golden-matrix.js";
 
+// Before any src module loads: personas.ts reads the data dir when it is
+// first imported, so a static import above this line would send the
+// scenarios' persona files to ~/.cbrowser/personas.
 process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-journey-golden-data-"));
 process.env.CBROWSER_ARTIFACT_DIR = mkdtempSync(join(tmpdir(), "cb-journey-golden-art-"));
 delete process.env.ANTHROPIC_API_KEY;
 
+const { diffExact } = await import("./fixtures/ctc-golden-matrix.js");
+
 const { SCENARIOS, runScenario } = await import("./fixtures/journey-scenarios.js");
+const { getPersonasDir } = await import("../src/personas.js");
 const { runHelperSweeps } = await import("./fixtures/journey-sweeps.js");
 const pinned = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "golden-journey-world.json"), "utf8")) as {
   runs: Record<string, unknown>;
@@ -39,6 +44,13 @@ const pinned = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "golden
 };
 
 describe("journey golden (scripted world, virtual clock)", () => {
+  test("persona files the scenarios write land in this run's temp data dir, not the user's", () => {
+    // Two units write a custom persona to disk. Until this test existed they
+    // wrote it to ~/.cbrowser/personas whenever a src module was imported
+    // before CBROWSER_DATA_DIR was set.
+    expect(getPersonasDir().startsWith(process.env.CBROWSER_DATA_DIR!)).toBe(true);
+  });
+
   test("the pin covers every scenario and sweep", () => {
     expect(Object.keys(pinned.runs)).toEqual(SCENARIOS.map((s) => s.name));
     expect(Object.keys(pinned.sweeps)).toEqual(["helpers", "emotions", "temporal", "humanInput", "mcp"]);

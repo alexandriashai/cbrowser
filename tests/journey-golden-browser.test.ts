@@ -24,11 +24,13 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { serveFixtures } from "./fixtures/serve-fixtures.js";
-import { diffExact } from "./fixtures/ctc-golden-matrix.js";
 
+// Before any src module loads, so nothing resolves the real ~/.cbrowser.
 process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-journey-golden-data-"));
 process.env.CBROWSER_ARTIFACT_DIR = mkdtempSync(join(tmpdir(), "cb-journey-golden-art-"));
 delete process.env.ANTHROPIC_API_KEY;
+
+const { diffExact } = await import("./fixtures/ctc-golden-matrix.js");
 
 const { BROWSER_SCENARIOS, runBrowserScenario } = await import("./fixtures/journey-browser-scenarios.js");
 const pinned = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "golden-journey-browser.json"), "utf8")) as { runs: Record<string, unknown> };
