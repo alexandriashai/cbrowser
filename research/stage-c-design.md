@@ -1064,3 +1064,65 @@ Customer-visible:
 | `stage-c-registry.ts` | registry counts by prefix and status for the tree `TREE` (10.3) |
 | `stage-c-golden-deltas.ts` | old and new golden means per persona (`stage-c-golden-deltas.md`) |
 | `stage-c-predict.ts` V5-V7 | the patience variants of 4.5 |
+
+### 10.11 The same comparison on the proseInNav re-crawl (512 pages)
+
+ref-v2 shipped a re-crawl while this was being built: 138c8d2 on
+`feat/ref-v2` replaces the data file under the same id string,
+`ctc-reference-v2-2026-10-23`, with 512 pages measured from 711f0b4 (the eaf3b36
+crawl above had 513). To tell them apart, numbers here say "512-page
+reference" and everything above is the 513-page one. This branch still ships
+the 513-page file; the comparison ran on scratch exports of 7ed78e5 and of this
+branch with ref-v2's data file, loader and page count laid over them, nothing
+else changed. Neither tree's deriveMetrics reads `proseInNav` yet, so the
+reading law still counts nav labels on both; only the page set differs.
+
+Face validity on the 512-page reference, before -> after:
+
+#### viewport
+
+first-timer minus X (mean totalCTC difference; share of pages where first-timer's rawCTC is the larger), and X minus the typical user:
+
+| X | first-timer minus X | first-timer costlier on | X minus typical-user |
+|---|---|---|---|
+| typical-user | +0.339 -> +0.144 | 100% -> 99% |  |
+| cognitive-adhd | +0.152 -> -0.154 | 95% -> 13% | +0.187 -> +0.297 |
+| dyslexic-user | +0.205 -> +0.094 | 100% -> 95% | +0.135 -> +0.049 |
+| low-vision-magnified | +0.265 -> +0.038 | 99% -> 72% | +0.074 -> +0.105 |
+| motor-impairment-tremor | +0.237 -> +0.017 | 97% -> 63% | +0.102 -> +0.126 |
+| elderly-user | -0.082 -> -0.064 | 0% -> 4% | +0.421 -> +0.207 |
+| elderly-low-vision | -0.038 -> -0.133 | 15% -> 0% | +0.378 -> +0.276 |
+| intellectual-disability | -0.129 -> -0.114 | 0% -> 5% | +0.469 -> +0.258 |
+| aphasia-receptive | +0.077 -> +0.013 | 93% -> 44% | +0.262 -> +0.130 |
+| power-user | +0.417 -> +0.048 | 99% -> 54% | -0.078 -> +0.095 |
+| first-timer | | | +0.339 -> +0.144 |
+
+#### full_page
+
+first-timer minus X (mean totalCTC difference; share of pages where first-timer's rawCTC is the larger), and X minus the typical user:
+
+| X | first-timer minus X | first-timer costlier on | X minus typical-user |
+|---|---|---|---|
+| typical-user | +0.342 -> +0.140 | 100% -> 100% |  |
+| cognitive-adhd | +0.159 -> -0.202 | 97% -> 11% | +0.183 -> +0.342 |
+| dyslexic-user | +0.187 -> +0.109 | 100% -> 98% | +0.155 -> +0.031 |
+| low-vision-magnified | +0.275 -> +0.085 | 99% -> 89% | +0.067 -> +0.055 |
+| motor-impairment-tremor | +0.218 -> +0.048 | 98% -> 82% | +0.124 -> +0.092 |
+| elderly-user | -0.100 -> -0.096 | 0% -> 2% | +0.442 -> +0.235 |
+| elderly-low-vision | -0.066 -> -0.120 | 4% -> 0% | +0.408 -> +0.260 |
+| intellectual-disability | -0.130 -> -0.156 | 0% -> 1% | +0.472 -> +0.296 |
+| aphasia-receptive | +0.079 -> -0.034 | 93% -> 22% | +0.263 -> +0.173 |
+| power-user | +0.374 -> -0.044 | 100% -> 24% | -0.032 -> +0.184 |
+| first-timer | | | +0.342 -> +0.140 |
+
+Every comparison above moves by at most 0.006 against the 513-page reference,
+and each conclusion of 10.4 and 10.5 holds: every impaired persona above the
+typical user at both scopes, cognitive-adhd costlier than first-timer on 87% of
+viewport pages, dyslexic-user still below first-timer (95%), power-user above
+the typical user (+0.095 viewport, +0.184 full_page). Mean viewport totalCTC
+on the 512-page reference, before -> after: first-timer 0.728 -> 0.530,
+cognitive-adhd 0.576 -> 0.683, dyslexic-user 0.524 -> 0.435, aphasia-receptive
+0.651 -> 0.516, intellectual-disability 0.858 -> 0.644, power-user 0.311 ->
+0.481, typical user 0.389 -> 0.386. When this branch is merged with the
+512-page reference, the golden matrix needs re-pinning on the merged tree
+(only reference-derived fields should move, as in ref-v2's 78057db).
