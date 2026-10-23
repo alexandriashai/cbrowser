@@ -39,7 +39,8 @@
  * 2026-10-23: the reference rate where nothing is measured ("no measured
  * difference"), a measured ratio where one is. The rule reads what a stored
  * custom persona carries: the tremor flag, and words in its name and
- * description (customPointingRule, customReadingRule). An author's stated
+ * description (customPointingRule, customReadingRule; an elderly cue reads the
+ * built-in elderly-user's reading entry). An author's stated
  * reading-profile values are honoured first, through the fixation-model
  * ratio (cognitive-models.ts, readingRateShare), labelled hypothesis.
  *
@@ -107,7 +108,7 @@ export const PERSONA_RATE_PROVENANCE: ProvenanceEntry[] = [
   ...["low-vision-magnified", "elderly-low-vision"].map((p) => entry(p, "reading", ratio("law.rate.reading.lowVisionIntactFields", "law.reading.wpm"), "hypothesis",
     "Low vision with intact central fields, 130 wpm median peak (law.rate.reading.lowVisionIntactFields; Legge, Rubin, Pelli & Schleske 1985, Vision Research 25(2): \"peak reading rates for observers with intact central fields were at least 90 words/minute (median 130 words/minute)\"), against the reference 238 wpm. Both numbers are published; the ratio is not, because it crosses methods (a peak rate at the best character size on drifting text against a silent reading rate) and the same-method normal-vision rate was not retrieved. Intact fields rather than central-field loss (25 wpm) was decided for both low-vision personas. Legge et al.'s normal-vision peak rate on the same apparatus would set it.")),
   entry("elderly-user", "reading", fixationRatio(0.65, 5), "hypothesis",
-    FIXATION_KEPT("elderly-user", "the elderly reading profile (phonological 0.65, visualSpan 5)", "317 ms", "No silent-reading norm for adults 65+ was found; Brysbaert (2019) reports that the drop \"is not expected to occur before the age of 60–65\", with no rate.")),
+    FIXATION_KEPT("elderly-user", "the elderly reading profile (phonological 0.65, visualSpan 5)", "317 ms", "No silent-reading norm for adults 65+ was found; Brysbaert (2019) reports that the drop \"is not expected to occur before the age of 60–65\", with no rate. Custom personas cued elderly or 65+ read at this same entry (decided 2026-10-23).")),
   entry("cognitive-adhd", "reading", fixationRatio(0.75, 6), "hypothesis",
     FIXATION_KEPT("cognitive-adhd", "its stated reading traits (phonologicalDecoding 0.75, visualSpan 6)", "288.3 ms", "No measured silent-reading rate for adults with ADHD was found.")),
   entry("intellectual-disability", "reading", fixationRatio(0.44, 5), "hypothesis",
@@ -138,20 +139,36 @@ export const CUSTOM_RATE_PROVENANCE: ProvenanceEntry[] = [
 const LOW_VISION_WORDS = /low.?vision|magnif|visual(ly)?.?impair|partial(ly)?.?sight|vision.?loss|macular|glaucoma/;
 const ELDERLY_WORDS = /elderly|senior|aging|older.?adult/;
 
+/** An elderly cue: the words in name or description, or an age range starting at 65 or above. */
+function isElderly(text: string, ageRange: string | undefined): boolean {
+  return ELDERLY_WORDS.test(text) || /^\s*(6[5-9]|[7-9]\d|1\d\d)/.test(ageRange ?? "");
+}
+
 /** Which customRate.* pointing rule a custom persona falls under. */
 export function customPointingRule(p: { name?: string; description?: string; tremor?: unknown; ageRange?: string }): "tremor" | "elderly" | "noMeasuredDifference" {
   const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (p.tremor === true || /tremor|parkinson/.test(text)) return "tremor";
-  if (ELDERLY_WORDS.test(text) || /^\s*(6[5-9]|[7-9]\d|1\d\d)/.test(p.ageRange ?? "")) return "elderly";
+  if (isElderly(text, p.ageRange)) return "elderly";
   return "noMeasuredDifference";
 }
 
-/** Which customRate.* reading rule a custom persona with no stated reading-profile values falls under. */
-export function customReadingRule(p: { name?: string; description?: string }): "dyslexia" | "lowVision" | "noMeasuredDifference" {
+/** Which reading rule a custom persona with no stated reading-profile values falls under. */
+export function customReadingRule(p: { name?: string; description?: string; ageRange?: string }): "dyslexia" | "lowVision" | "elderly" | "noMeasuredDifference" {
   const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (/dyslexi/.test(text)) return "dyslexia";
   if (LOW_VISION_WORDS.test(text)) return "lowVision";
+  if (isElderly(text, p.ageRange)) return "elderly";
   return "noMeasuredDifference";
+}
+
+/**
+ * The registry id a reading rule reads. An elderly cue reads the built-in
+ * elderly-user's own entry (personaRate.elderly-user.reading, the fixation-model
+ * hypothesis), decided 2026-10-23 so a custom elderly persona reads as the
+ * built-in one does; the others their customRate.* entry.
+ */
+export function customReadingRateId(rule: ReturnType<typeof customReadingRule>): string {
+  return rule === "elderly" ? "personaRate.elderly-user.reading" : `customRate.${rule}.reading`;
 }
 
 /**

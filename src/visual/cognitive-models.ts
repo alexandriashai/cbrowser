@@ -13,7 +13,7 @@
  */
 import { MODEL_PROVENANCE, param, personaScope } from "./model-provenance.js";
 import { measuredRate, pointingCapacity, readingCapacity } from "./demand-laws.js";
-import { customPointingRule, customReadingRule } from "./provenance/persona-rates.js";
+import { customPointingRule, customReadingRateId, customReadingRule } from "./provenance/persona-rates.js";
 
 /**
  * A registered constant, read as persona-model work (model-provenance.ts,
@@ -285,7 +285,8 @@ const STATED_READING = ["orthographicFluency", "phonologicalDecoding", "visualSp
  * profile (an author who wrote a profile down means it; a hypothesis). Any other
  * custom persona takes the same rule as the built-ins (customReadingRule): the
  * measured dyslexia ratio with a dyslexia cue, the low-vision ratio with a
- * low-vision cue, otherwise the reference ("no measured difference").
+ * low-vision cue, the built-in elderly-user's hypothesis with an elderly cue,
+ * otherwise the reference ("no measured difference").
  */
 export function readingRateShare(persona: PersonaRef): number {
   const registered = registeredPersonaRate(persona.name, "reading");
@@ -294,7 +295,7 @@ export function readingRateShare(persona: PersonaRef): number {
   if (STATED_READING.some((k) => typeof a11y[k] === "number")) {
     return readingRateRatioOf(getReadingProfile({ name: persona.name, traits: persona.traits, accessibilityTraits: a11y as Record<string, number> }));
   }
-  return pp(`customRate.${customReadingRule(persona)}.reading`);
+  return pp(customReadingRateId(customReadingRule(persona)));
 }
 
 /**

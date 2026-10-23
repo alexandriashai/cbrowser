@@ -74,16 +74,14 @@ Reports 11, 6449, medians 178.09 vs 248.18 wpm, 67 adults reading silently.
 | description | before | after |
 |---|---|---|
 | "an impatient expert in a rush" | 400 | 238 |
-| "an elderly retiree" | 100 | 238 |
+| "an elderly retiree" | 100 | 203 |
 | "an adult with dyslexia" | 250 | 180 |
 | "uses screen magnification" | 250 | 130 |
 | "a careful first-time shopper" | 150 | 238 |
 
-The elderly row follows the custom-persona reading rule as decided:
-dyslexia and low-vision cues have measured or stated ratios, and elderly has
-none (no silent-reading norm for 65+ was found). The built-in elderly-user
-keeps its fixation-model hypothesis (203 wpm). Say if custom elderly personas
-should take the same hypothesis instead of the reference.
+Old age reads at the built-in elderly-user's hypothesis, the same registry
+entry, as decided on 2026-10-23 (203 wpm). It applies to a description that
+says elderly, senior, aging or older adult, or to an age range from 65 up.
 
 ## 2. Custom personas' capacities (every CTC tool: cognitive_effort, site_cognitive_assessment, visual_cognitive_story, compare tools, cognitive_load_estimate, empathy_audit's load)
 
@@ -95,7 +93,7 @@ dispositions (customRate.*; `provenance/persona-rates.ts`).
 | my-shopper, "an online shopper" (no cue) | 0.518 -> 0.500 | 0.534 -> 0.500 |
 | steady-hands, tremor: true, "has arthritis" | 0.798 -> 0.266 | 0.823 -> 0.500 |
 | reader-x, "an adult with dyslexia" | 0.838 -> 0.500 | 0.569 -> 0.431 |
-| grandad, age range 65+ | 0.637 -> 0.395 | 0.823 -> 0.500 |
+| grandad, age range 65+ | 0.637 -> 0.395 | 0.823 -> 0.460 |
 | stated-reader, phonologicalDecoding 0.4, visualSpan 5 | 0.838 -> 0.500 | 0.559 -> 0.441 |
 
 "Before" includes integration's bridge, which ignored a stated tremor (fixed

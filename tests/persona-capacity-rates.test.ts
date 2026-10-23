@@ -284,6 +284,9 @@ describe("custom personas take the built-ins' rule (customRate.*)", () => {
     // A blind reader does not read print: no low-vision rate.
     expect(bridged("blind-reader", {}, { description: "blind, uses a screen reader" }).reading).toBe(0.5);
     expect(bridged("my-reader").reading).toBe(0.5);
+    // An elderly cue or a 65+ age range reads at the built-in elderly-user's own entry.
+    expect(bridged("grandad", {}, { ageRange: "65+" }).reading).toBeCloseTo(cOf(rate("personaRate.elderly-user.reading")), 12);
+    expect(bridged("my-reader", {}, { description: "a senior reader" }).reading).toBeCloseTo(cOf(rate("personaRate.elderly-user.reading")), 12);
   });
 
   test("dispositions no longer set a custom persona's rates", () => {
@@ -310,7 +313,8 @@ describe("every reading rate a customer sees is 238 wpm x the persona's share", 
   test("a persona generated from a description reads at 238 x the custom-persona rule's share", () => {
     const speed = (d: string) => generatePersonaFromDescription("my-persona", d).humanBehavior.timing.readingSpeed;
     expect(speed("an impatient expert in a rush")).toBe(238);
-    expect(speed("an elderly retiree")).toBe(238);
+    // Old age reads at the built-in elderly-user's hypothesis (decided 2026-10-23).
+    expect(speed("an elderly retiree")).toBe(wpm(share("elderly-user", "reading")));
     expect(speed("an adult with dyslexia")).toBe(wpm(184.63 / 243.64));
     expect(speed("uses screen magnification")).toBe(130);
   });

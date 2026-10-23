@@ -21,7 +21,7 @@ import { AGENT_PERSONAS, isAgentPersona, getAgentPersona, listAgentPersonas, isA
 import { scopedDataDir, scopedAccountId } from "./persona-scope.js";
 import { currentRequestIdentity } from "./request-context.js";
 import { TRAIT_DEFINITIONS, canonicalizeTraits } from "./trait-reference.js";
-import { customReadingRule, displayReadingWpm } from "./visual/provenance/persona-rates.js";
+import { customReadingRateId, customReadingRule, displayReadingWpm } from "./visual/provenance/persona-rates.js";
 
 // ============================================================================
 // Custom Personas Storage
@@ -415,10 +415,10 @@ export function generatePersonaFromDescription(
   let clickDelayMin = 100, clickDelayMax = 300;
   let typeSpeedMin = 50, typeSpeedMax = 120;
   // 238 wpm (Brysbaert 2019) x the custom-persona reading rule's share: the
-  // reference unless the description names dyslexia or low vision
+  // reference unless the description names dyslexia, low vision or old age
   // (provenance/persona-rates.ts). Replaced keyword guesses of 400 / 250 / 150 /
   // 100 wpm that no source gave.
-  const readingSpeed = displayReadingWpm(`customRate.${customReadingRule({ name, description })}.reading`);
+  const readingSpeed = displayReadingWpm(customReadingRateId(customReadingRule({ name, description, ageRange })));
   let scrollPauseMin = 200, scrollPauseMax = 500;
 
   if (techLevel === "expert" || isImpatient) {
