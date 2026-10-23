@@ -96,11 +96,11 @@ const golden = (id: string) => {
 };
 
 /** The generator's nine inputs, in computeDemandFromRawMetrics order (Stage B: the four law times replace the two counts). */
-type Args = Parameters<typeof computeDemandFromRawMetrics>;
+export type Args = Parameters<typeof computeDemandFromRawMetrics>;
 const page = (args: Args) => computeDemandFromRawMetrics(...args);
 
 /** A page described by its pre-Stage-B counts, as generator inputs that ask the same demand (tests/fixtures/law-seconds.ts). */
-function fromCounts(info: number, vis: number, interactive: number, text: number, anim: number, choices: number, nav: number): Args {
+export function fromCounts(info: number, vis: number, interactive: number, text: number, anim: number, choices: number, nav: number): Args {
   const s = legacySeconds({ interactiveElementCount: interactive, choiceCount: choices, textDensity: text, informationDensity: info });
   return [info, vis, text, anim, nav, s.pointingSeconds, s.choosingSeconds, s.readingSeconds, s.procedureSeconds];
 }
@@ -125,9 +125,9 @@ export interface Page { id: string; demand: DemandDistribution }
  * 7), above every page in the reference sample, so the search reaches the
  * near-saturated demands real full_page measurements sit in.
  */
-const INPUTS = ["informationDensity", "visualComplexity", "textDensity", "animationLevel", "navigationDepth",
+export const INPUTS = ["informationDensity", "visualComplexity", "textDensity", "animationLevel", "navigationDepth",
   "pointingSeconds", "choosingSeconds", "readingSeconds", "procedureSeconds"] as const;
-const INPUT_MAX = [1, 1, 1, 1, 30, 1500, 130, 1800, 15];
+export const INPUT_MAX = [1, 1, 1, 1, 30, 1500, 130, 1800, 15];
 const NAV = INPUTS.indexOf("navigationDepth");
 
 /**
@@ -147,15 +147,23 @@ const NAV = INPUTS.indexOf("navigationDepth");
  * both on 14 of 14 seeds at margins of at least 1.17x and 1.07x.
  *
  * Stage B: each page is still described by the counts the scan found it with,
- * turned into the law times that ask the same demand (fromCounts), so every
- * demand vector, and with it every kill margin, is what it was.
+ * turned into the law times that ask the same motor, decision, reading and
+ * procedure demand (fromCounts). That is not the same demand vector:
+ * satisficing and riskTolerance now come from choosing alone and
+ * sustainedAttention's base is the reading demand, so all four pages move
+ * (research/stage-b-dro-scan.ts --demands). Re-measured on the Stage B chain
+ * (--margins, seeds 1-14), each still kills M2 and M10 on 14 of 14 seeds, at
+ * least 1.23x and 1.10x; the two choice pages lost margin (M2 1.35x to 1.25x
+ * and 1.34x to 1.23x, M10 1.15x to 1.11x and 1.14x to 1.10x), the other two
+ * kept theirs. research/stage-b-deltas.md section 5 has the re-scan.
  */
-const INTERACTION_PAGES: Array<[string, Args]> = [
-  ["trace-text+choices", fromCounts(0, 0.009, 0, 0.038, 0, 13, 0)],
-  ["trace-text+depth", fromCounts(0.03, 0, 0, 0.075, 0.002, 0, 11)],
-  ["info+trace-visual+depth", fromCounts(0.243, 0.027, 0, 0, 0, 0, 7)],
-  ["light-text+choices", fromCounts(0, 0, 0, 0.16, 0, 15, 0)],
+export const INTERACTION_COUNTS: Array<[string, Parameters<typeof fromCounts>]> = [
+  ["trace-text+choices", [0, 0.009, 0, 0.038, 0, 13, 0]],
+  ["trace-text+depth", [0.03, 0, 0, 0.075, 0.002, 0, 11]],
+  ["info+trace-visual+depth", [0.243, 0.027, 0, 0, 0, 0, 7]],
+  ["light-text+choices", [0, 0, 0, 0.16, 0, 15, 0]],
 ];
+export const INTERACTION_PAGES: Array<[string, Args]> = INTERACTION_COUNTS.map(([id, c]) => [id, fromCounts(...c)]);
 
 /** A page with a random subset of the generator's inputs, each at a level skewed low: the family the interaction scan drew from. */
 export function sparsePage(u: () => number): DemandDistribution {
