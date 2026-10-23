@@ -2,7 +2,7 @@
  * Cognitive Optimal Transport — Sequential Transport Chain
  *
  * Implements the CHI 2027 paper's core contribution:
- * - 30-dimensional demand distribution computed from page features
+ * - 29-dimensional demand distribution computed from page features
  * - Sequential transport chain where each layer depletes capacity
  * - Asymmetric deficit-surplus cost
  * - Layer interaction terms
@@ -65,10 +65,33 @@ export interface PageMetrics {
   choosingSeconds: number;
   readingSeconds: number;
   procedureSeconds: number;
+  /**
+   * Stage C: the same choices by Hick-Hyman, the expert limit of the menu
+   * model whose novice limit is choosingSeconds (Cockburn, Gutwin & Greenberg
+   * 2007). cognitiveLoad's demand reads (1 - e) choosingSeconds +
+   * e choosingSecondsExpert, e the run's siteFamiliarity (DemandOptions).
+   * Required like the four above.
+   */
+  choosingSecondsExpert: number;
+}
+
+/** What a run supplies to the demand besides the page: the visit, the same for every persona scored in it. */
+export interface DemandOptions {
+  /**
+   * Cockburn et al.'s (2007) expertise e with the page's choices, from 0 (a
+   * first visit, the default and the reference curve's) to 1 (a daily user
+   * who knows where everything is): Eq. 4, T = (1 - e) T_novice + e T_expert,
+   * applied to the choosing time the cognitiveLoad abilities are asked (the
+   * decision dispositions keep the first-visit time; see
+   * computeDemandDistribution). A definition: the parameter IS their e, with
+   * the layout's learnability L folded in by whoever supplies it. Refused
+   * outside [0, 1], never clamped.
+   */
+  siteFamiliarity?: number;
 }
 
 export interface DemandDistribution {
-  /** 30-dimensional demand vector (0-1 per trait), one slot per DEMAND_DIMENSIONS entry */
+  /** 29-dimensional demand vector (0-1 per trait), one slot per DEMAND_DIMENSIONS entry */
   demands: Record<string, number>;
   /**
    * The scope the page metrics were measured at, carried from PageMetrics so
@@ -169,15 +192,16 @@ export interface SequentialTransportResult {
 // ── Constants ──
 
 /**
- * The 30 demand dimensions used by the sequential transport chain, covering
+ * The 29 demand dimensions used by the sequential transport chain, covering
  * the core capacities plus decision biases, learning transfer, emotional
  * regulation and the bridged reading/motor/attention capacities.
  *
  * NOT the same space as COGNITIVE_TRAITS (29). Four dimensions exist only here
  * (attentionPattern, motorPrecision, processingSpeed, textProcessing: no persona
  * in the tool path carries them, so they read the missing-trait fallback, and
- * none is in a layer). Three traits exist only there (attributionStyle,
- * timeHorizon, authoritySensitivity: no demand term). Both differences are
+ * none is in a layer). Four traits exist only there (attributionStyle,
+ * timeHorizon, authoritySensitivity: no demand term; siteFamiliarity: a visit
+ * state the demand reads, DemandOptions, since 21.0). Both differences are
  * pinned in tests/transport-dimension-alignment.test.ts, so a new one fails a
  * test; nothing asserts the two sets are equal.
  */
@@ -203,19 +227,11 @@ export const DEMAND_DIMENSIONS = [
   'mentalModelFlexibility', 'curiosity',
   // Processing
   'processingSpeed', 'textProcessing',
-  // Experience
-  //
-  // Absent until 2026-08-02, which is why the siteFamiliarity parameter was
-  // inert. It is a member of COGNITIVE_TRAITS, so a persona carried a capacity
-  // on this dimension, but the demand vector had no slot for it -- so the
-  // capacity was transported against a demand that did not exist and
-  // contributed nothing. Runs at familiarity 0 and 1 came back byte-identical
-  // while the tool attested the parameter had been applied.
-  //
-  // A dimension present in one vector and missing from the other is silently
-  // dropped. The two still differ (see the note above DEMAND_DIMENSIONS), but
-  // where they differ is pinned by a test, so a new gap fails it.
-  'siteFamiliarity',
+  // siteFamiliarity left the vector in 21.0 (Stage C). It is the visit's
+  // state, not the person's: Cockburn, Gutwin & Greenberg's (2007) expertise e
+  // on the choosing time, supplied per run (DemandOptions) and the same for
+  // every persona in it. As a capacity it read a navigation-depth demand that
+  // was a constant on 92% of real pages, so every persona paid the same 0.056.
   // Capacity, bridged from the formal reading and pointing models.
   //
   // These layers previously read DISPOSITION traits -- readingTendency for
@@ -261,16 +277,24 @@ export const LAYER_DEFINITIONS: Array<{ name: string; traits: string[] }> = [
   },
   {
     name: 'cognitiveLoad',
-    // siteFamiliarity added 2026-08-02. It was in COGNITIVE_TRAITS and in no
-    // layer, so it reached the profile, got a capacity, and then contributed to
-    // nothing -- the third and final reason the parameter was inert. Knowing a
-    // site is a substitute for holding its layout in working memory, which is
-    // exactly this layer, and the demand term for it comes from the same
-    // navigationDepth signal that already feeds workingMemory here.
-    // `transferLearning` moved here from readability 2026-08-02: applying a
-    // pattern learned on one interface to another is a load question, not a
-    // decoding one, and readability is now decoding-only.
-    traits: ['comprehension', 'workingMemory', 'informationForaging', 'siteFamiliarity', 'transferLearning'],
+    // STAGE C (21.0): four abilities asked the choosing time. Each takes the
+    // decision demand, d = T_choose / (T_choose + tau), with no share, so a
+    // value reads as tolerated reference choosing time tau c / (1 - c): the
+    // claim is the persona value (a hypothesis, provenance/personas.ts), not a
+    // coefficient. Through 20.x the layer read text features (word and
+    // sentence length, a lexical diversity that is 1 on any page with 100
+    // distinct words, a nested text count) that the reading law now prices,
+    // against `comprehension`, which is grasp of UI conventions, not reading.
+    // The channel is where the evidence points (convention knowledge and web
+    // experience act on finding things: research/stage-c-design.md, 3.5); the
+    // magnitude is the persona's value. Same seconds, second layer: decision
+    // prices dispositions against them, this layer abilities, as reading
+    // seconds feed both readability and readingAttention.
+    //
+    // siteFamiliarity left this layer: it is the visit's e on the choosing
+    // time (DemandOptions), not a capacity. `transferLearning` moved here from
+    // readability 2026-08-02.
+    traits: ['comprehension', 'workingMemory', 'informationForaging', 'transferLearning'],
   },
   {
     name: 'decision',
@@ -447,8 +471,6 @@ export const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> 
 export const SURPLUS_FREE_DIMENSIONS = new Set([
   // Derived capacity bridges -- pure abilities by construction.
   'readingCapacity', 'motorCapacity', 'sustainedAttention', 'processingSpeed', 'textProcessing', 'motorPrecision',
-  // Experience. Knowing a site better cannot make it harder to use.
-  'siteFamiliarity',
   // Abilities: every one of these has a highEnd naming something a person CAN
   // do, not something they TEND to do.
   'comprehension',           // "Instant recognition of all conventions"
@@ -539,8 +561,10 @@ export const MOTOR_LAYER_WEIGHTS = {
 // Depletion (chain.depletionRate 0.15, chain.maxDrawdownFraction 0.5,
 // chain.indirectDepletionShare 0.5) and the numerical floor
 // (chain.capacityEpsilon 1e-4) are registered there with their status and what
-// would settle them. The floor is not out of reach: siteFamiliarity is 0 in the
-// tool path unless supplied, and the first gated layer lifts it to 1e-4. The old CAPACITY_FLOOR (0.05)
+// would settle them. The floor binds only when a residual falls below it; through
+// 20.x siteFamiliarity sat at 0 in the tool path and was lifted to 1e-4 on every
+// run, and since it left the vector in 21.0 no built-in persona starts below 0.1.
+// The old CAPACITY_FLOOR (0.05)
 // was removed 2026-10-21: nothing read it since proportional drawdown replaced
 // the clamp on 2026-08-03.
 
@@ -552,19 +576,6 @@ function readParams<K extends string>(ids: Record<K, string>): Record<K, number>
 }
 
 const DEMAND_IDS = {
-  infoWorkingMemory: 'chain.demand.info.workingMemory',
-  infoInformationForaging: 'chain.demand.info.informationForaging',
-  textPatience: 'chain.demand.text.patience',
-  textComprehension: 'chain.demand.text.comprehension',
-  wordLengthComprehension: 'chain.demand.wordLength.comprehension',
-  sentenceLengthWorkingMemory: 'chain.demand.sentenceLength.workingMemory',
-  sentenceLengthPatience: 'chain.demand.sentenceLength.patience',
-  sentenceLengthComprehension: 'chain.demand.sentenceLength.comprehension',
-  lexicalDiversityComprehension: 'chain.demand.lexicalDiversity.comprehension',
-  lexicalDiversityTransferLearning: 'chain.demand.lexicalDiversity.transferLearning',
-  longWordsComprehension: 'chain.demand.longWords.comprehension',
-  technicalComprehension: 'chain.demand.technical.comprehension',
-  technicalTransferLearning: 'chain.demand.technical.transferLearning',
   animationSigmoidThreshold: 'chain.demand.animation.sigmoidThreshold',
   animationSigmoidScale: 'chain.demand.animation.sigmoidScale',
   animationChangeBlindness: 'chain.demand.animation.changeBlindness',
@@ -577,10 +588,6 @@ const DEMAND_IDS = {
   choiceFearOfMissingOut: 'chain.demand.choice.fearOfMissingOut',
   choiceSocialProofSensitivity: 'chain.demand.choice.socialProofSensitivity',
   decisionRiskTolerance: 'chain.demand.decision.riskTolerance',
-  navHalfSaturation: 'chain.demand.nav.halfSaturation',
-  navWorkingMemory: 'chain.demand.nav.workingMemory',
-  navTransferLearning: 'chain.demand.nav.transferLearning',
-  navSiteFamiliarity: 'chain.demand.nav.siteFamiliarity',
 } as const;
 
 const CHAIN_IDS = {
@@ -625,23 +632,30 @@ function sigmoid(raw: number, threshold: number, scale: number): number {
 // ── 1. Demand Distribution Computation ──
 
 /**
- * Compute the 30-dimensional demand distribution from page metrics.
+ * Compute the 29-dimensional demand distribution from page metrics.
  *
- * Each page feature maps to specific trait dimensions through hand-set
- * curves and weights (every one registered as a hypothesis in
- * provenance/chain.ts). The mapping encodes HOW each page characteristic
- * creates cognitive demand on specific user capacities.
+ * Since Stage B and C the demand is law times against one time budget, d =
+ * T / (T + tau) (demand-laws.ts, law.timeBudget): pointing (Fitts), choosing
+ * (Cockburn et al.'s menu model), reading (Brysbaert), procedure (KLM). What
+ * remains hand-set are the shares of those demands some traits take and the
+ * motion and clutter curves, every one a hypothesis in provenance/chain.ts.
+ * The text features (informationDensity, textDensity, word and sentence
+ * length, lexical diversity, long and technical words) and navigationDepth
+ * are reported on PageMetrics and drive no demand: reading time prices text,
+ * and depth is a property of the path, not the page (research/stage-c-design.md).
  *
  * Traits not affected by any page feature receive demand = 0.0 (no demand).
  *
  * @param pageMetrics - Extracted page analysis metrics
+ * @param options - The visit: siteFamiliarity, Cockburn et al.'s expertise e
+ *   on the choosing time, the same for every persona scored in a run
  * @returns DemandDistribution with per-trait demand
  */
-export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistribution {
+export function computeDemandDistribution(pageMetrics: PageMetrics, options?: DemandOptions): DemandDistribution {
   const D = readParams(DEMAND_IDS);
   const demands: Record<string, number> = {};
 
-  // Initialize all 30 dimensions to zero demand
+  // Initialize every dimension to zero demand
   for (const dim of DEMAND_DIMENSIONS) {
     demands[dim] = 0;
   }
@@ -652,42 +666,53 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
     return Math.max(0, v);
   };
 
-  const infoDensity = safe(pageMetrics.informationDensity);
   const visCplx = safe(pageMetrics.visualComplexity);
-  const textDens = safe(pageMetrics.textDensity);
   const animLevel = safe(pageMetrics.animationLevel);
-  const navDepth = safe(pageMetrics.navigationDepth);
 
-  // ── Stage B: the law times, each a demand against one budget ──
+  // ── The law times, each a demand against one budget ──
   // d = T / (T + tau), tau = law.timeBudget: 0 at no work, 0.5 at the budget.
   // No fallback: a PageMetrics without them was not derived from a measurement
   // (deriveMetrics) and has no motor, decision, procedure or reading demand to
   // give. interactiveElementCount and choiceCount stay on PageMetrics as
   // reported counts; no demand reads them now.
-  const lawTime = (k: 'pointingSeconds' | 'choosingSeconds' | 'readingSeconds' | 'procedureSeconds'): number => {
+  const seconds = (k: 'pointingSeconds' | 'choosingSeconds' | 'choosingSecondsExpert' | 'readingSeconds' | 'procedureSeconds'): number => {
     const v = (pageMetrics as Partial<PageMetrics>)[k];
     if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
-      throw new Error(`computeDemandDistribution: pageMetrics.${k} must be a finite number of seconds >= 0 (got ${String(v)}). Derive the metrics from a measurement (extractPageMetrics, deriveMetrics) or pass the four law times to computeDemandFromRawMetrics.`);
+      throw new Error(`computeDemandDistribution: pageMetrics.${k} must be a finite number of seconds >= 0 (got ${String(v)}). Derive the metrics from a measurement (extractPageMetrics, deriveMetrics) or pass the law times to computeDemandFromRawMetrics.`);
     }
-    return timeDemand(v);
+    return v;
   };
-  const pointingDemand = lawTime('pointingSeconds');
-  const decisionDemand = lawTime('choosingSeconds');
-  const readingDemand = lawTime('readingSeconds');
-  const procedureDemand = lawTime('procedureSeconds');
+  // The visit. Cockburn, Gutwin & Greenberg (2007), Eq. 4: decision/search time
+  // interpolates from novice linear search to the Hick-Hyman expert limit by
+  // expertise e, because the expert's "visual search time decreases towards
+  // zero". A first visit (e = 0) is the default and what the reference curve is
+  // built at, and it reads the novice time alone, exactly as before.
+  const e = options?.siteFamiliarity ?? 0;
+  if (typeof e !== 'number' || !Number.isFinite(e) || e < 0 || e > 1) {
+    throw new Error(`computeDemandDistribution: siteFamiliarity must be a number in [0, 1], Cockburn et al.'s expertise e (got ${String(e)})`);
+  }
+  const novice = seconds('choosingSeconds');
+  const expert = seconds('choosingSecondsExpert');
+  const pointingDemand = timeDemand(seconds('pointingSeconds'));
+  // The decision dispositions keep the first-visit choosing time on every run
+  // (Stage B). Familiarity acts on the finding abilities below instead: the
+  // dispositions bill surplus, so a shorter choosing time would turn a small
+  // deficit into billed surplus, and measured on the reference pages a familiar
+  // visit then cost MORE than a first one on 72 of 513 for the typical user.
+  // Knowing a site cannot make it harder.
+  const decisionDemand = timeDemand(novice);
+  // What familiarity shortens: the search for where things are, the work the
+  // cognitiveLoad abilities are asked. At e = 0 this is 1 x novice + 0, the
+  // novice time to the last bit, so a first visit is unchanged.
+  const findingDemand = timeDemand((1 - e) * novice + e * expert);
+  const readingDemand = timeDemand(seconds('readingSeconds'));
+  const procedureDemand = timeDemand(seconds('procedureSeconds'));
 
   // Demand is written only to dimensions some layer reads. Through 20.x these
   // curves also wrote readingTendency, mentalModelFlexibility,
   // interruptRecovery, metacognitivePlanning, persistence and motorPrecision,
   // none of which is in a layer, so those terms (and eight registered weights)
   // changed no number. Removed in 21.0; the dimensions themselves remain.
-
-  // ── informationDensity → comprehension, workingMemory, informationForaging
-  // Page metrics already use logScale (0-1) — pass through directly for differentiation
-  const infoDemand = infoDensity;
-  demands.comprehension = Math.max(demands.comprehension, infoDemand);
-  demands.workingMemory = Math.max(demands.workingMemory, infoDemand * D.infoWorkingMemory);
-  demands.informationForaging = Math.max(demands.informationForaging, infoDemand * D.infoInformationForaging);
 
   // ── visualComplexity → changeBlindness
   const visDemand = visCplx; // already 0-1 from logScale
@@ -696,45 +721,16 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // ── procedure (KLM M per entry step) → proceduralFluency
   demands.proceduralFluency = Math.max(demands.proceduralFluency, procedureDemand);
 
-  // ── textDensity → patience, comprehension
-  const textDemand = textDens; // already 0-1 from logScale
-  demands.patience = Math.max(demands.patience, textDemand * D.textPatience);
-  demands.comprehension = Math.max(demands.comprehension, textDemand * D.textComprehension);
-
-  // ── Text Readability Metrics (v18.56) ──
-  // These measure HOW HARD the text is to read, not just how much there is.
-  // Captures language effects (German compound words), technical jargon, prose complexity.
-  const avgWordLen = safe((pageMetrics as any).avgWordLength);
-  const avgSentLen = safe((pageMetrics as any).avgSentenceLength);
-  const lexDiv = safe((pageMetrics as any).lexicalDiversity);
-  const longWordR = safe((pageMetrics as any).longWordRatio);
-  const techDens = safe((pageMetrics as any).technicalDensity);
-
-  if (avgWordLen > 0 || avgSentLen > 0) {
-    // avgWordLength → comprehension
-    // Longer words = harder to parse (especially for dyslexic, ADHD, non-native speakers)
-    demands.comprehension = Math.max(demands.comprehension, avgWordLen * D.wordLengthComprehension);
-
-    // avgSentenceLength → workingMemory, patience, comprehension
-    // Longer sentences demand more working memory to hold clause structure
-    demands.workingMemory = Math.max(demands.workingMemory, avgSentLen * D.sentenceLengthWorkingMemory);
-    demands.patience = Math.max(demands.patience, avgSentLen * D.sentenceLengthPatience);
-    demands.comprehension = Math.max(demands.comprehension, avgSentLen * D.sentenceLengthComprehension);
-
-    // lexicalDiversity → comprehension, transferLearning
-    // High vocabulary diversity = more cognitive effort to track meaning
-    demands.comprehension = Math.max(demands.comprehension, lexDiv * D.lexicalDiversityComprehension);
-    demands.transferLearning = Math.max(demands.transferLearning, lexDiv * D.lexicalDiversityTransferLearning);
-
-    // longWordRatio → comprehension
-    // Pages with many 7+ character words are harder to skim
-    demands.comprehension = Math.max(demands.comprehension, longWordR * D.longWordsComprehension);
-
-    // technicalDensity → comprehension, transferLearning
-    // 10+ character words signal compound terms, jargon, domain-specific vocabulary
-    demands.comprehension = Math.max(demands.comprehension, techDens * D.technicalComprehension);
-    demands.transferLearning = Math.max(demands.transferLearning, techDens * D.technicalTransferLearning);
-  }
+  // ── reading → patience (Stage C)
+  //
+  // patience is "tolerance for delays, loading, friction before abandoning",
+  // and its registered measure is a time to abandonment. It takes the reading
+  // demand whole, so a value reads as tolerated reference reading time,
+  // tau c / (1 - c): 0.5 tolerates the budget itself, the median first-visit
+  // stay the budget is. Through 20.x it took 0.7 of textDensity (a nested text
+  // count per unit area) and 0.7 of sentence length, two hand-set shares of two
+  // text features the reading law now prices.
+  demands.patience = Math.max(demands.patience, readingDemand);
 
   // ── animationLevel → changeBlindness, emotionalContagion
   //
@@ -813,27 +809,18 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   demands.socialProofSensitivity = Math.max(demands.socialProofSensitivity, decisionDemand * D.choiceSocialProofSensitivity);
   demands.riskTolerance = Math.max(demands.riskTolerance, decisionDemand * D.decisionRiskTolerance);
 
-  // ── navigationDepth → workingMemory, transferLearning
-  // LogScale: depth 2 = 0.4, depth 5 = 0.63, depth 10 = 0.77
-  const navDemand = navDepth / (navDepth + D.navHalfSaturation);
-  demands.workingMemory = Math.max(demands.workingMemory, navDemand * D.navWorkingMemory);
-  demands.transferLearning = Math.max(demands.transferLearning, navDemand * D.navTransferLearning);
-  // ── navigationDepth → siteFamiliarity
+  // ── choosing → comprehension, workingMemory, informationForaging, transferLearning (Stage C)
   //
-  // This dimension had NO demand term at all. It was initialised to 0 and never
-  // raised, so the persona's familiarity was transported against zero demand and
-  // contributed exactly nothing to the chain — three runs at familiarity unset,
-  // 1 and 0 returned byte-identical results while the tool reported the
-  // parameter as applied. The value was never overridden; nothing ever asked
-  // for it.
-  //
-  // Navigation depth is the honest driver: the further content sits from the
-  // entry point, the more the page asks you to already know where things are.
-  // A one-click page demands no site knowledge no matter who you are, which is
-  // why this is proportional to navDemand rather than a constant. Weighted just
-  // under workingMemory (0.95), since knowing the layout substitutes for
-  // holding it in mind. (2026-08-02)
-  demands.siteFamiliarity = Math.max(demands.siteFamiliarity, navDemand * D.navSiteFamiliarity);
+  // The four abilities of cognitiveLoad take the choosing demand whole, as
+  // satisficing does on a first visit, so each value reads as tolerated
+  // reference choosing time. On a familiar run they take it at the run's e.
+  // Through 20.x they read text features (and siteFamiliarity a
+  // navigation-depth constant); see LAYER_DEFINITIONS.
+  demands.comprehension = Math.max(demands.comprehension, findingDemand);
+  demands.workingMemory = Math.max(demands.workingMemory, findingDemand);
+  demands.informationForaging = Math.max(demands.informationForaging, findingDemand);
+  demands.transferLearning = Math.max(demands.transferLearning, findingDemand);
+
   // Reading capacity is demanded by the time the prose takes to read, and motor
   // capacity by the time its targets take to acquire, each against the same
   // budget as the persona's rate-ratio capacity (cognitive-models.ts), so a
@@ -971,7 +958,7 @@ export const VALUE_DEMAND_MODULATION: Array<{
  * 4. Records the remaining capacity for downstream layers
  *
  * @param persona - OTCognitiveProfile with trait values
- * @param demand - 30D demand distribution from page analysis
+ * @param demand - 29D demand distribution from page analysis
  * @param options - Enable/disable asymmetric costs, interaction terms, and value modulation
  * @returns Complete sequential transport result with per-layer breakdown
  */
@@ -1450,7 +1437,7 @@ export function ctcReferenceCurve(
  * End-to-end Cognitive Optimal Transport computation.
  *
  * Extracts page metrics from a live Playwright page, computes the
- * 30D demand distribution, and runs the full sequential transport chain.
+ * 29D demand distribution, and runs the full sequential transport chain.
  *
  * This is the primary entry point for MCP tools that need a single
  * CTC score with full breakdown.
@@ -1466,7 +1453,7 @@ export async function computeFullCOT(
   // Extract page metrics via Playwright's page.evaluate()
   const metrics = await extractPageMetrics(page);
 
-  // Compute 30D demand distribution
+  // Compute 29D demand distribution
   const demand = computeDemandDistribution(metrics);
 
   // Run sequential transport chain with full options
@@ -1481,6 +1468,12 @@ export async function computeFullCOT(
 /**
  * Compute demand distribution from raw metric values (no page required).
  * Useful for testing, simulation, and sensitivity analysis.
+ *
+ * informationDensity, textDensity and navigationDepth are carried onto the
+ * PageMetrics as reported values; since Stage C no demand reads them.
+ * choosingSecondsExpert (Stage C) is the choosing time's Hick-Hyman expert
+ * limit. It is required like the other law times and moves a demand only when
+ * options.siteFamiliarity is above 0.
  */
 export function computeDemandFromRawMetrics(
   informationDensity: number,
@@ -1492,9 +1485,11 @@ export function computeDemandFromRawMetrics(
   choosingSeconds: number,
   readingSeconds: number,
   procedureSeconds: number,
+  choosingSecondsExpert: number,
+  options?: DemandOptions,
 ): DemandDistribution {
   // interactiveElementCount and choiceCount are reported counts that no demand
-  // reads since Stage B; the four law times replace them.
+  // reads since Stage B; the law times replace them.
   return computeDemandDistribution({
     informationDensity,
     visualComplexity,
@@ -1507,7 +1502,8 @@ export function computeDemandFromRawMetrics(
     choosingSeconds,
     readingSeconds,
     procedureSeconds,
-  });
+    choosingSecondsExpert,
+  }, options);
 }
 
 /**

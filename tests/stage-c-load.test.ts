@@ -8,9 +8,12 @@
  *   asked the decision demand (choosing seconds against the time budget), and
  *   patience the reading demand, with no share constant.
  * - siteFamiliarity is Cockburn, Gutwin & Greenberg's (2007) expertise e on the
- *   choosing time, a per-run visit state: T = (1 - e) T_novice + e T_expert. It
- *   is no longer a trait the chain reads, so a persona's own value changes
- *   nothing and every persona in a run is scored against the same demand.
+ *   choosing time the four abilities are asked, a per-run visit state:
+ *   T = (1 - e) T_novice + e T_expert. The decision dispositions keep the
+ *   first-visit time (they bill surplus, and a shorter time would make a
+ *   familiar visit costlier). It is no longer a trait the chain reads, so a
+ *   persona's own value changes nothing and every persona in a run is scored
+ *   against the same demand, and more familiarity never costs more.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -115,7 +118,7 @@ describe("site familiarity is Cockburn et al.'s expertise e on the choosing time
     }
   });
 
-  test("property: for any e in [0, 1] the decision demand is d((1 - e) T_novice + e T_expert), and e = 0 is the pre-change choosing time exactly", () => {
+  test("property: for any e in [0, 1] the abilities are asked d((1 - e) T_novice + e T_expert), the dispositions the first-visit time, and e = 0 is the pre-change choosing time exactly", () => {
     fc.assert(fc.property(
       fc.integer({ min: 0, max: PAGES.length - 1 }),
       fc.double({ min: 0, max: 1, noNaN: true }),
@@ -123,20 +126,21 @@ describe("site familiarity is Cockburn et al.'s expertise e on the choosing time
         const m = PAGES[i];
         const d = computeDemandDistribution(m, { siteFamiliarity: e }).demands;
         const expected = timeDemand((1 - e) * m.choosingSeconds + e * m.choosingSecondsExpert);
-        if (Math.abs(d.satisficing - expected) > 1e-12) return false;
-        for (const t of LOAD) if (d[t] !== d.satisficing) return false;
-        const at0 = computeDemandDistribution(m, { siteFamiliarity: 0 }).demands.satisficing;
-        return Object.is(at0, timeDemand(m.choosingSeconds)) && Object.is(computeDemandDistribution(m).demands.satisficing, at0);
+        for (const t of LOAD) if (Math.abs(d[t] - expected) > 1e-12) return false;
+        if (!Object.is(d.satisficing, timeDemand(m.choosingSeconds))) return false;
+        const at0 = computeDemandDistribution(m, { siteFamiliarity: 0 }).demands;
+        return LOAD.every((t) => Object.is(at0[t], timeDemand(m.choosingSeconds)))
+          && JSON.stringify(computeDemandDistribution(m).demands) === JSON.stringify(at0);
       },
     ), { numRuns: 500 });
   });
 
-  test("property: more familiarity never asks more of the choosing traits, and a daily user is asked less on a page with choices", () => {
+  test("property: more familiarity never asks more of the abilities, and a daily user is asked less on a page with choices", () => {
     const withChoices = PAGES.filter((m) => m.choosingSeconds > m.choosingSecondsExpert);
     expect(withChoices.length).toBeGreaterThan(PAGES.length / 2);
     for (const m of withChoices) {
-      expect(computeDemandDistribution(m, { siteFamiliarity: 1 }).demands.satisficing)
-        .toBeLessThan(computeDemandDistribution(m, { siteFamiliarity: 0 }).demands.satisficing);
+      expect(computeDemandDistribution(m, { siteFamiliarity: 1 }).demands.comprehension)
+        .toBeLessThan(computeDemandDistribution(m, { siteFamiliarity: 0 }).demands.comprehension);
     }
     fc.assert(fc.property(
       fc.integer({ min: 0, max: PAGES.length - 1 }),
@@ -146,9 +150,25 @@ describe("site familiarity is Cockburn et al.'s expertise e on the choosing time
         const [lo, hi] = a <= b ? [a, b] : [b, a];
         const dLo = computeDemandDistribution(PAGES[i], { siteFamiliarity: lo }).demands;
         const dHi = computeDemandDistribution(PAGES[i], { siteFamiliarity: hi }).demands;
-        return ["satisficing", ...LOAD].every((t) => dHi[t] <= dLo[t] + 1e-15);
+        return LOAD.every((t) => dHi[t] <= dLo[t] + 1e-15) && dHi.satisficing === dLo.satisficing;
       },
     ), { numRuns: 300 });
+  });
+
+  test("property: more familiarity never costs any persona more, on any reference page", () => {
+    const names = Object.keys(ROSTER);
+    const profiles = names.map((n) => toolProfile(n, ROSTER[n]));
+    fc.assert(fc.property(
+      fc.integer({ min: 0, max: PAGES.length - 1 }),
+      fc.integer({ min: 0, max: names.length - 1 }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      (i, k, a, b) => {
+        const [lo, hi] = a <= b ? [a, b] : [b, a];
+        const at = (e: number) => computeSequentialCTC(profiles[k], computeDemandDistribution(PAGES[i], { siteFamiliarity: e })).rawCTC;
+        return at(hi) <= at(lo) + 1e-12;
+      },
+    ), { numRuns: 400 });
   });
 
   test("property: within a run the demand is the run's, not the persona's: a persona's own siteFamiliarity changes nothing", () => {

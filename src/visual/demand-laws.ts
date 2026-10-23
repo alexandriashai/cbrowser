@@ -6,7 +6,8 @@
  *
  *   pointing   Fitts' law, Shannon form, SMALLER-OF width (MacKenzie & Buxton 1992)
  *   choosing   novice linear search, Cockburn, Gutwin & Greenberg (2007); their
- *              expert limit, Hick-Hyman, is kept as a diagnostic
+ *              expert limit, Hick-Hyman, weighted by the run's siteFamiliarity
+ *              in cognitiveLoad's demand (their Eq. 4, Stage C)
  *   reading    Brysbaert's (2019) silent reading rate, as a letter rate
  *   procedure  the keystroke-level model's mental preparation M per entry step
  *              (Card, Moran & Newell 1980)
@@ -146,7 +147,7 @@ export function noviceSearchSeconds(items: number): number {
   return param("law.search.intercept") + param("law.search.slope") * items;
 }
 
-/** The expert limit of the same model, Hick-Hyman: T = a + b log2 n. A diagnostic; the tools score first visits. */
+/** The expert limit of the same model, Hick-Hyman: T = a + b log2 n. cognitiveLoad's demand weights it by the run's siteFamiliarity e (Eq. 4); a first visit reads none of it. */
 export function hickHymanSeconds(items: number): number {
   if (itemCount("items", items) === 0) return 0;
   return param("law.hick.intercept") + param("law.hick.slope") * Math.log2(items);
@@ -166,7 +167,7 @@ export interface ChoiceGroup {
 
 /**
  * Seconds to make every choice the groups offer once: the sum over groups.
- * `law` picks novice search (the demand) or Hick-Hyman (the diagnostic).
+ * `law` picks novice search (the first-visit demand) or Hick-Hyman (the expert limit, weighted by siteFamiliarity).
  * `totalGroups` scales a capped list as in pointingSeconds.
  */
 export function choosingSeconds(groups: readonly ChoiceGroup[], law: "novice" | "expert" = "novice", totalGroups: number = groups.length): number {

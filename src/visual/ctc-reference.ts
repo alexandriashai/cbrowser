@@ -234,7 +234,10 @@ export function referenceGraded(): ReferencePageRecord[] {
  * The built-in human personas, each built the way cognitive_effort builds it
  * with no site model: its cognitive traits, siteFamiliarity 0 (first visit),
  * and the reading, pointing and attention capacities bridged from the formal
- * models. The same 25 the golden matrix pins (tests/fixtures/ctc-golden-matrix.ts,
+ * models. Since 21.0 the chain does not read the siteFamiliarity trait: a
+ * visit's familiarity is the demand's e (DemandOptions), and the curve is built
+ * at e = 0. The trait stays at 0 for what else reads a persona's 29 traits
+ * (the persona distance). The same 25 the golden matrix pins (tests/fixtures/ctc-golden-matrix.ts,
  * ROSTER and toolProfile); a test holds the two to each other.
  */
 export function referencePopulation(): Array<{ name: string; traits: Record<string, number> }> {

@@ -223,10 +223,13 @@ describe("the replacement constants are named and honest", () => {
     expect(e?.value).toBe(1e-4);
     expect(e?.source).toContain("NOT a behavioural limit");
     // Not out of reach either: until 21.0 the source said it sat "three orders
-    // of magnitude below anything a persona reaches", while siteFamiliarity is
-    // 0 in the tool path and the first gated layer lifts it to the floor.
+    // of magnitude below anything a persona reaches", while siteFamiliarity was
+    // 0 in the tool path and the first gated layer lifted it to the floor.
+    // Stage C took siteFamiliarity out of the vector, and the source says when
+    // the floor binds now rather than claiming it always does.
     expect(e?.source).not.toMatch(/orders of magnitude below/);
-    expect(e?.source).toMatch(/does bind/);
+    expect(e?.source).toMatch(/binds only when a residual falls below it/);
+    expect(e?.source).toMatch(/left the vector in 21\.0/);
     expect(CHAIN).toContain("const CAPACITY_EPSILON = P.capacityEpsilon;");
   });
 

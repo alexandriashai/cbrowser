@@ -52,7 +52,7 @@ import {
 } from "../../src/visual/dro-bound.js";
 import { param } from "../../src/visual/model-provenance.js";
 import { RAW_DEMANDS, rawDemand } from "./ctc-golden-matrix.js";
-import { legacySeconds } from "./law-seconds.js";
+import { expertFor, legacySeconds } from "./law-seconds.js";
 
 export const DIMS = DEMAND_DIMENSIONS as readonly string[];
 export type Vec = Record<string, number>;
@@ -95,9 +95,14 @@ const golden = (id: string) => {
   return rawDemand(p.args, p.seconds);
 };
 
-/** The generator's nine inputs, in computeDemandFromRawMetrics order (Stage B: the four law times replace the two counts). */
-type Args = Parameters<typeof computeDemandFromRawMetrics>;
-const page = (args: Args) => computeDemandFromRawMetrics(...args);
+/**
+ * The generator's nine inputs, in computeDemandFromRawMetrics order (Stage B:
+ * the four law times replace the two counts). The tenth argument, the expert
+ * choosing time, is derived from the choosing time (expertFor): it moves no
+ * demand at siteFamiliarity 0, which is where the bound is taken.
+ */
+type Args = [number, number, number, number, number, number, number, number, number];
+const page = (args: Args) => computeDemandFromRawMetrics(...args, expertFor(args[6]));
 
 /** A page described by its pre-Stage-B counts, as generator inputs that ask the same demand (tests/fixtures/law-seconds.ts). */
 function fromCounts(info: number, vis: number, interactive: number, text: number, anim: number, choices: number, nav: number): Args {
@@ -149,6 +154,13 @@ const NAV = INPUTS.indexOf("navigationDepth");
  * Stage B: each page is still described by the counts the scan found it with,
  * turned into the law times that ask the same demand (fromCounts), so every
  * demand vector, and with it every kill margin, is what it was.
+ *
+ * Stage C: informationDensity, textDensity and navigationDepth make no demand
+ * now (cognitiveLoad reads the choosing time, patience the reading time), so
+ * these vectors changed. Re-run on the Stage C chain, the four pages and the
+ * rest of the search still kill every must-kill mutant on every seed
+ * (dro-bound-mutants.test.ts, 58 of 58 with dro-bound.test.ts); the margins
+ * in the paragraph above are the 21.0 scan's, not re-measured.
  */
 const INTERACTION_PAGES: Array<[string, Args]> = [
   ["trace-text+choices", fromCounts(0, 0.009, 0, 0.038, 0, 13, 0)],

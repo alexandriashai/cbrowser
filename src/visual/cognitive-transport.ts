@@ -1163,8 +1163,8 @@ export async function extractPerScreenMetrics(
       choiceCountCapped: fresh.newChoices > choiceCap,
       pointingSeconds: metrics.pointingSeconds * pointShare,
       choosingSeconds: metrics.choosingSeconds * chooseShare,
+      choosingSecondsExpert: metrics.choosingSecondsExpert * chooseShare,
       procedureSeconds: metrics.procedureSeconds * pointShare,
-      lawDiagnostics: { ...metrics.lawDiagnostics, choosingSecondsExpert: metrics.lawDiagnostics.choosingSecondsExpert * chooseShare },
     });
   }
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -1206,14 +1206,19 @@ export interface ExtractedPageMetrics {
   choosingSeconds: number;
   readingSeconds: number;
   procedureSeconds: number;
-  /** Diagnostics beside the four law times; no demand reads them. */
+  /**
+   * Stage C: the same choices by Hick-Hyman, the expert limit of the menu
+   * model (Cockburn, Gutwin & Greenberg 2007) whose novice limit is
+   * choosingSeconds. cognitiveLoad's demand reads (1 - e) choosingSeconds +
+   * e choosingSecondsExpert, e the run's siteFamiliarity.
+   */
+  choosingSecondsExpert: number;
+  /** Diagnostics beside the law times; no demand reads them. */
   lawDiagnostics: LawDiagnostics;
 }
 
-/** What lawSecondsOf measured besides the four times. */
+/** What lawSecondsOf measured besides the law times. */
 export interface LawDiagnostics {
-  /** Choosing time by Hick-Hyman, the expert limit of the menu model the demand uses the novice limit of. */
-  choosingSecondsExpert: number;
   /** Mean Fitts index of difficulty over the stored targets, bits. */
   meanFittsID: number;
   /** Targets acquired (interactiveElements, uncapped). */
@@ -1969,14 +1974,17 @@ function isEntryKind(kind: string | undefined): boolean {
  *   choosing   every choice group resolved once by novice linear search
  *              (Cockburn et al. 2007); a checkbox group is one yes/no per box;
  *              links in no group form one more set. Groups beyond the stored
- *              ones are scaled to choiceGroupCount.
+ *              ones are scaled to choiceGroupCount. choosingSecondsExpert is
+ *              the same groups by Hick-Hyman, the menu model's expert limit
+ *              (Stage C: cognitiveLoad's demand interpolates the two by the
+ *              run's siteFamiliarity, Cockburn et al.'s Eq. 4).
  *   reading    the prose read once at Brysbaert's rate: letters of the
  *              alphabetic words, abjad words, CJK characters. Format 2 counts
  *              each character once.
  *   procedure  KLM's M per entry step: an entry field (ENTRY_INPUT_TYPES,
  *              textarea, select) or a radio or checkbox group.
  */
-export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pick<ExtractedPageMetrics, "pointingSeconds" | "choosingSeconds" | "readingSeconds" | "procedureSeconds" | "lawDiagnostics"> {
+export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pick<ExtractedPageMetrics, "pointingSeconds" | "choosingSeconds" | "choosingSecondsExpert" | "readingSeconds" | "procedureSeconds" | "lawDiagnostics"> {
   const view = { viewportWidth: raw.viewportWidth, viewportHeight: raw.viewportHeight, scrollY: raw.scrollY };
   const targets: PointingTarget[] = [];
   let idSum = 0;
@@ -2025,10 +2033,10 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   return {
     pointingSeconds: pointingSeconds(targets, totalTargets),
     choosingSeconds: choose("novice"),
+    choosingSecondsExpert: choose("expert"),
     readingSeconds: readingSeconds({ letters, abjadWords, cjkChars: raw.text.cjkChars }),
     procedureSeconds: klmSeconds(entrySteps),
     lawDiagnostics: {
-      choosingSecondsExpert: choose("expert"),
       meanFittsID: storedTargets > 0 ? idSum / storedTargets : 0,
       targets: totalTargets,
       entrySteps,
