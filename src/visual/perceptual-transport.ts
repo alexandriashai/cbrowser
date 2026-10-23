@@ -13,7 +13,7 @@
  * @see https://github.com/alexandriashai/cbrowser/issues/158
  */
 
-import { computeWassersteinDistance, type WassersteinConfig } from './distance-metrics.js';
+import { computeWassersteinDistance, type DistanceMetricResult, type WassersteinConfig } from './distance-metrics.js';
 
 // ── Types ──
 
@@ -887,30 +887,36 @@ export async function analyzePerceptualTransport(
     filtered = filtered.modulate({ brightness: factor });
   }
 
-  // Save filtered version to temp file
+  // The filtered and downscaled images go in a directory of this call's own,
+  // removed however the call ends. The files were named by Date.now() in the
+  // shared temp dir, so two calls in the same millisecond (the hosted servers
+  // run requests concurrently) wrote, read and deleted each other's images;
+  // the persona name went into the path too.
   const { join } = await import('path');
   const { tmpdir } = await import('os');
-  const filteredPath = join(tmpdir(), `perceptual-${personaName}-${Date.now()}.png`);
-  await filtered.png().toFile(filteredPath);
+  const { mkdtemp, rm } = await import('fs/promises');
+  const workDir = await mkdtemp(join(tmpdir(), 'cbrowser-perceptual-'));
+  let transportResult: DistanceMetricResult;
+  try {
+    const filteredPath = join(workDir, 'filtered.png');
+    await filtered.png().toFile(filteredPath);
 
-  // Also save downscaled original for comparison
-  const originalPath = join(tmpdir(), `perceptual-original-${Date.now()}.png`);
-  await sharp(screenshotPath).resize(width, height).png().toFile(originalPath);
+    // Also save downscaled original for comparison
+    const originalPath = join(workDir, 'original.png');
+    await sharp(screenshotPath).resize(width, height).png().toFile(originalPath);
 
-  // Compute Wasserstein distance between original and filtered. The registry
-  // is read here rather than imported: it imports this file
-  // (provenance/perceptual.ts).
-  const { param } = await import('./model-provenance.js');
-  const transportResult = await computeWassersteinDistance(originalPath, filteredPath, {
-    compareMode: 'combined',
-    numProjections: param('visualDistance.perceptualNumProjections'),
-    downscale: 1.0, // Already downscaled
-  });
-
-  // Clean up temp files
-  const { unlinkSync } = await import('fs');
-  try { unlinkSync(filteredPath); } catch {}
-  try { unlinkSync(originalPath); } catch {}
+    // Compute Wasserstein distance between original and filtered. The registry
+    // is read here rather than imported: it imports this file
+    // (provenance/perceptual.ts).
+    const { param } = await import('./model-provenance.js');
+    transportResult = await computeWassersteinDistance(originalPath, filteredPath, {
+      compareMode: 'combined',
+      numProjections: param('visualDistance.perceptualNumProjections'),
+      downscale: 1.0, // Already downscaled
+    });
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => { /* best effort, as before */ });
+  }
 
   // Derive metrics — all MUST incorporate page-specific transport distance
   const distance = transportResult.distance;
