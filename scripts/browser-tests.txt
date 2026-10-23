@@ -81,6 +81,7 @@ tests/mcp-tool-options-parity.test.ts
 tests/mcp-capture-start-options.test.ts
 tests/responsive-device-emulation.test.ts
 tests/cli-library-browser-flags.test.ts
+tests/effort-widget-layers-browser.test.ts
 tests/webhooks-export.test.ts
 # Not a browser test: replaces the journey and audit engines with mock.module, which
 # reaches every file in the same process, so it runs alone.
