@@ -76,6 +76,7 @@ import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.j
 import { assertHostedNavigable } from "./mcp-tools/hosted-inputs.js";
 import { clampRect } from "./recording/timing.js";
 import { navigationError } from "./navigation-errors.js";
+import { uniqueStamp } from "./temp-files.js";
 import type { Rect } from "./recording/types.js";
 
 // Browser-specific fast launch args for performance optimization
@@ -1688,7 +1689,7 @@ For more help: https://playwright.dev/docs/browsers
       mkdirSync(harDir, { recursive: true });
     }
 
-    const filename = outputPath || join(harDir, `har-${Date.now()}.har`);
+    const filename = outputPath || join(harDir, `har-${uniqueStamp()}.har`);
     writeFileSync(filename, JSON.stringify(har, null, 2));
 
     return filename;
@@ -5226,7 +5227,7 @@ For more help: https://playwright.dev/docs/browsers
 
       // Take screenshot
       const dir = options.debugDir || this.paths.screenshotsDir;
-      const filename = `debug-${Date.now()}.png`;
+      const filename = `debug-${uniqueStamp()}.png`;
       const filepath = join(dir, filename);
       await page.screenshot({ path: filepath, fullPage: false });
 
@@ -5976,7 +5977,10 @@ For more help: https://playwright.dev/docs/browsers
       return this.screenshotCompressed(path, compressionOpts);
     }
 
-    const filename = path || join(this.paths.screenshotsDir, `screenshot-${Date.now()}.png`);
+    // Time plus random bits (src/temp-files.ts): two screenshots of one account
+    // in the same millisecond, from two browsers, wrote one file and each
+    // returned it.
+    const filename = path || join(this.paths.screenshotsDir, `screenshot-${uniqueStamp()}.png`);
 
     const clip = opts.clip ? await this.resolveClip(opts) : undefined;
     await page.screenshot({ path: filename, fullPage: opts.fullPage || false, ...(clip ? { clip } : {}) });
@@ -6025,7 +6029,7 @@ For more help: https://playwright.dev/docs/browsers
     const startQuality = options?.quality || 85;
 
     // Generate filename with .jpg extension
-    const baseFilename = path || join(this.paths.screenshotsDir, `screenshot-${Date.now()}`);
+    const baseFilename = path || join(this.paths.screenshotsDir, `screenshot-${uniqueStamp()}`);
     const filename = baseFilename.endsWith('.jpg') || baseFilename.endsWith('.jpeg')
       ? baseFilename
       : baseFilename.replace(/\.png$/, '') + '.jpg';
@@ -7209,7 +7213,7 @@ For more help: https://playwright.dev/docs/browsers
     const baseline = JSON.parse(readFileSync(metaPath, "utf-8"));
     const page = await this.getPage();
 
-    const currentPath = join(baselinesDir, `${name}-current-${Date.now()}.png`);
+    const currentPath = join(baselinesDir, `${name}-current-${uniqueStamp()}.png`);
     await page.screenshot({ path: currentPath, fullPage: true });
 
     const baselineBuffer = readFileSync(baseline.screenshotPath);
@@ -7410,7 +7414,7 @@ For more help: https://playwright.dev/docs/browsers
    * Export test results as JUnit XML.
    */
   exportJUnit(suite: { name: string; tests: Array<{ name: string; status: string; duration: number; error?: string }> }, outputPath?: string): string {
-    const filename = outputPath || join(this.paths.dataDir, `junit-${Date.now()}.xml`);
+    const filename = outputPath || join(this.paths.dataDir, `junit-${uniqueStamp()}.xml`);
 
     // Names and errors are page and test-file text: escaped, or a test named
     // "Search & filter" wrote XML no CI parser accepts. A failed test is a
@@ -7441,7 +7445,7 @@ For more help: https://playwright.dev/docs/browsers
    * Export test results as TAP format.
    */
   exportTAP(suite: { name: string; tests: Array<{ name: string; status: string; error?: string }> }, outputPath?: string): string {
-    const filename = outputPath || join(this.paths.dataDir, `tap-${Date.now()}.tap`);
+    const filename = outputPath || join(this.paths.dataDir, `tap-${uniqueStamp()}.tap`);
 
     let tap = `TAP version 13\n`;
     tap += `1..${suite.tests.length}\n`;

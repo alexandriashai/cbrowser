@@ -48,6 +48,7 @@ import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
 import { getStatusInfo, formatStatus, getDataDir, getPaths } from "./config.js";
+import { uniqueStamp } from "./temp-files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
 import { dirname, join, resolve } from "node:path";
@@ -1616,7 +1617,7 @@ async function runCaptureStart(
 
 /** The capture name, defaulted to a timestamp slug. */
 function slugFor(options: Record<string, string | boolean>): string {
-  return typeof options.name === "string" ? options.name : `capture-${Date.now()}`;
+  return typeof options.name === "string" ? options.name : `capture-${uniqueStamp()}`;
 }
 
 /** Run exactly one capture to completion and report it. */
@@ -6996,7 +6997,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
           ...(typeof options.timezone === "string" ? { timezone: options.timezone } : {}),
           fuzzyMatch: options["fuzzy-match"] === true,
-          capture: buildAutoCaptureSetting(options, `test-suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
+          capture: buildAutoCaptureSetting(options, `test-suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`),
         };
 
         const result = await runNLTestSuite(suite, suiteOptions);
@@ -7739,7 +7740,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             vision,
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override
-            capture: buildAutoCaptureSetting(options, `journey-${personaName.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
+            capture: buildAutoCaptureSetting(options, `journey-${personaName.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`),
             onStep: verbose ? undefined : (step) => {
               process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
             },
