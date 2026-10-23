@@ -191,7 +191,8 @@ const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
  */
 export function getPointingProfile(persona: {
   traits?: Record<string, number>;
-  accessibilityTraits?: Record<string, boolean>;
+  /** The persona's stored accessibility traits; only `tremor` is read here. Numbers and booleans both occur. */
+  accessibilityTraits?: Record<string, number | boolean>;
   name?: string;
 }): PointingProfile {
   const traits = persona.traits ?? {};
@@ -886,15 +887,18 @@ export { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES };
 export function bridgeCapacityTraits(
   personaName: string,
   traits: Record<string, number>,
-  accessibilityTraits?: Record<string, number>,
+  accessibilityTraits?: Record<string, number | boolean>,
 ): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
   try {
     traits.readingCapacity = readingCapacityOf(
-      getReadingProfile({ name: personaName, traits, accessibilityTraits }),
+      getReadingProfile({ name: personaName, traits, accessibilityTraits: accessibilityTraits as Record<string, number> | undefined }),
     );
-    const pointing = getPointingProfile({ name: personaName, traits });
+    // The accessibility traits go to the pointing profile too: without them a
+    // stated tremor never reached the motor capacity, and a custom persona whose
+    // name does not say "tremor" was interpolated from its dispositions instead.
+    const pointing = getPointingProfile({ name: personaName, traits, accessibilityTraits });
     traits.motorCapacity = motorCapacityOf(pointing);
-    traits.sustainedAttention = sustainedAttentionOf({ traits, accessibilityTraits });
+    traits.sustainedAttention = sustainedAttentionOf({ traits, accessibilityTraits: accessibilityTraits as { attentionSpan?: number } | undefined });
     return pointing;
   } catch (e) {
     console.debug(`[capacity-bridge] unavailable: ${(e as Error).message}`);
