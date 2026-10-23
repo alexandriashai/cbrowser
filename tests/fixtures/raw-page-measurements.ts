@@ -37,6 +37,7 @@ function raw(text: RawText, scope: "viewport" | "full_page" = "full_page"): RawP
     images: 15,
     text,
     prose: { chars: 120, words: 20 },
+    proseInNav: { chars: 0, words: 0, letters: 0, abjadWords: 0, cjkChars: 0 },
     proseNested: { elements: 2, chars: 240, words: 40 },
     kinds: ["a", "button", "nav"],
     boxes: [0, 10, 20, 100, 24, 1, 200, 20, 80, 32],

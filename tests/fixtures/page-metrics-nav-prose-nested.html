@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page metrics fixture: group prose held by a block, and in a composite</title>
+<link rel="stylesheet" href="page-metrics-format2.css">
+</head>
+<body>
+<!-- A layout table cell holds 4 words of its own and a nav of three
+     two-word labels; a menubar outside any nav holds two two-word labels; a
+     paragraph of 7 words. Prose 21 words, 10 of them in groups. The labels
+     are spaced in the source: inline-block items written back to back have no
+     separator in the cell's innerText, and their words would run together. -->
+<table><tr><td>Table cell text before. <nav aria-label="Cell"><ul><li><a href="/x">Alpha label</a></li> <li><a href="/y">Bravo label</a></li> <li><a href="/z">Charlie label</a></li></ul></nav></td></tr></table>
+<div role="menubar" aria-label="Tools"><ul role="none"><li role="none"><a role="menuitem" href="/t1">First tool</a></li><li role="none"><a role="menuitem" href="/t2">Second tool</a></li></ul></div>
+<p>Closing paragraph with seven words in it.</p>
+</body>
+</html>

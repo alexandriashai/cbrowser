@@ -1255,7 +1255,7 @@ export interface LawDiagnostics {
  * sentence-length thresholds included: they read the length histograms below
  * rather than counts already cut at one threshold.
  *
- * FORMAT 2 (RAW_PAGE_FORMAT). Three things format 1 measured wrongly or not
+ * FORMAT 2 (RAW_PAGE_FORMAT). Four things format 1 measured wrongly or not
  * at all, fixed where they are measured because a stored record cannot be
  * corrected later:
  *   - Prose counted once. Format 1 took every element matching the prose
@@ -1270,6 +1270,8 @@ export interface LawDiagnostics {
  *     and Chinese editions, so the page read as CJK. Text declared to be in
  *     another language (lang, or a link's hreflang) is no longer key-element
  *     text, and a nav that is a language picker is not "the nav".
+ *   - Menu labels apart from the prose (proseInNav): the prose that sits in
+ *     a nav or composite group, which the choosing law already reads.
  *   - A choice in one group only, with whole nav totals. Format 1 counted a
  *     nav's links, then a menubar inside it, then its submenus, so one link
  *     sat in up to three groups, and its nav sizes stopped at the stored
@@ -1324,6 +1326,16 @@ export interface RawPageMeasurement {
    * textBlocks, all of them). `textBlockCount` is their number.
    */
   prose: { chars: number; words: number };
+  /**
+   * The part of `prose` inside a nav or ARIA composite group in scope (the
+   * groups choiceGroups counts, each choice once): menu labels, which the
+   * choosing law already reads as choices. A block a group holds counts
+   * whole; a block that holds groups (a layout td around a nav) counts their
+   * text. chars and words as `prose` counts them; letters, abjadWords and
+   * cjkChars in the reading law's units, tokenised as `text` is, so
+   * prose minus proseInNav is the prose outside every group.
+   */
+  proseInNav: { chars: number; words: number; letters: number; abjadWords: number; cjkChars: number };
   /**
    * The same totals as format 1 counted them: every element matching the
    * prose selector, nested ones again (elements, characters, words). For
@@ -1393,7 +1405,7 @@ export const RAW_PAGE_FORMAT = 2;
  * totals. deriveMetrics still derives it,
  * exactly as it did then, so format-1 data can be compared with format 2.
  */
-export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "navGroupCount" | "navLinks" | "groupedLinks" | "choiceNested"> & { format: 1 };
+export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "proseInNav" | "navGroupCount" | "navLinks" | "groupedLinks" | "choiceNested"> & { format: 1 };
 
 /** The visible prose of a RawPageMeasurement, as length histograms rather than threshold counts. */
 export interface RawText {
@@ -1598,10 +1610,14 @@ export async function measurePageRaw(
     const COMPOSITE = '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"]';
     const ITEM = '[role^="menuitem"], [role="option"], [role="tab"], [role="radio"]';
     const claimed = new Set<Element>();
+    // The groups in scope, kept for the prose pass: the prose inside them is
+    // menu labels, read as choices, and is reported apart (proseInNav).
+    const scopedGroups = new Set<Element>();
     const navGroups: Array<[number, number]> = [];
     const compositeGroups: Array<[string, number, number]> = [];
     document.querySelectorAll(`${NAV}, ${COMPOSITE}`).forEach(g => {
       if (!inViewport(g)) return;
+      scopedGroups.add(g);
       const nav = g.matches(NAV);
       const offered = nav
         ? Array.from(g.querySelectorAll('a[href]')).filter(inViewport)
@@ -1700,6 +1716,19 @@ export async function measurePageRaw(
       return false;
     };
     const wordsIn = (t: string) => t.split(/\s+/).filter(w => w.length > 0).length;
+    // The part of each counted block that sits in a nav or composite group in
+    // scope (the groups choiceGroups counts): the whole block when a group
+    // holds it (a menu's li), or the text of the outermost groups it holds (a
+    // layout td around a nav). Kept as text, so it is tokenised below as the
+    // prose is.
+    const GROUP = `${NAV}, ${COMPOSITE}`;
+    const inScopedGroup = (el: Element): boolean => {
+      for (let a: Element | null | undefined = el.closest(GROUP); a; a = a.parentElement?.closest(GROUP)) {
+        if (scopedGroups.has(a)) return true;
+      }
+      return false;
+    };
+    const navParts: string[] = [];
     let proseChars = 0, proseWords = 0;
     let nestedElements = 0, nestedChars = 0, nestedWords = 0;
     document.querySelectorAll(proseSelectors).forEach(el => {
@@ -1715,6 +1744,18 @@ export async function measurePageRaw(
       counted.add(el);
       proseChars += t.length;
       proseWords += words;
+      if (inScopedGroup(el)) {
+        navParts.push(t);
+      } else {
+        const held: Element[] = [];
+        el.querySelectorAll(GROUP).forEach(g => {
+          if (scopedGroups.has(g) && !held.some(o => o.contains(g))) held.push(g);
+        });
+        for (const g of held) {
+          const gt = (g as HTMLElement).innerText?.trim();
+          if (gt) navParts.push(gt);
+        }
+      }
       if (visibleTextParts.length < P.maxTextBlocks) {
         const cs = getComputedStyle(el);
         const r = el.getBoundingClientRect();
@@ -1742,6 +1783,10 @@ export async function measurePageRaw(
     // Arabic/Hebrew/Persian/Urdu characters
     const abjadRegex = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ff]/;
     const abjadCharRegex = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ff]/g;
+    // What a word keeps before its letters are counted, per script; shared by the
+    // prose and its in-group part (proseInNav) so both count letters alike.
+    const ABJAD_CLEAN = /[^\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ffa-zA-Z\u00c0-\u00ff]/g;
+    const LATIN_CLEAN = /[^a-zA-ZÀ-ÿÀ-ɏḀ-ỿ]/g;
     const cjkCharCount = (visibleText.match(cjkCharRegex) || []).length;
     const totalCharCount = visibleText.replace(/\s/g, '').length;
 
@@ -1838,7 +1883,7 @@ export async function measurePageRaw(
       // - Diacritics (tashkeel) and ligatures affect visual complexity
       for (const word of visibleText.split(/\s+/).filter(w => w.length > 0)) {
         // Count only abjad + Latin characters (strip punctuation, numbers)
-        const clean = word.replace(/[^\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ffa-zA-Z\u00c0-\u00ff]/g, '');
+        const clean = word.replace(ABJAD_CLEAN, '');
         // An abjad word's length is mapped to a Latin equivalent in deriveMetrics
         // (short root-based stems carry more per character); the rest count as Latin.
         tally(abjadRegex.test(clean) ? abjadWordLengths : wordLengths, clean.length);
@@ -1872,13 +1917,39 @@ export async function measurePageRaw(
     } else {
       // ── Alphabetic text analysis ──
       for (const word of visibleText.split(/\s+/).filter(w => w.length > 0)) {
-        const clean = word.replace(/[^a-zA-ZÀ-ÿÀ-ɏḀ-ỿ]/g, '');
+        const clean = word.replace(LATIN_CLEAN, '');
         tally(wordLengths, clean.length);
         uniqueWords.add(clean.toLowerCase());
       }
       sentenceSplit = /[.!?]+|\n{2,}/;
     }
     for (const s of visibleText.split(sentenceSplit)) tally(fragmentLengths, binned(s.trim().length));
+
+    // The in-group part in the reading law's units, as the branches above count
+    // the prose: letters of the words they keep as Latin, abjad words, CJK
+    // characters (CJK only when the page reads as CJK).
+    const inGroupText = navParts.join(' ');
+    let navLetters = 0, navAbjadWords = 0, navCjkChars = 0;
+    const navWordList = inGroupText.split(/\s+/).filter(w => w.length > 0);
+    if (isAbjadDominant) {
+      for (const word of navWordList) {
+        const clean = word.replace(ABJAD_CLEAN, '');
+        if (abjadRegex.test(clean)) navAbjadWords++;
+        else navLetters += clean.length;
+      }
+    } else if (isCJKDominant) {
+      for (const w of navWordList) if (/^[a-zA-Z]/.test(w)) navLetters += w.length;
+      navCjkChars = (inGroupText.match(cjkCharRegex) || []).length;
+    } else {
+      for (const word of navWordList) navLetters += word.replace(LATIN_CLEAN, '').length;
+    }
+    const proseInNav = {
+      chars: navParts.reduce((n, part) => n + part.length, 0),
+      words: navWordList.length,
+      letters: navLetters,
+      abjadWords: navAbjadWords,
+      cjkChars: navCjkChars,
+    };
 
     return {
       format: 2 as const,
@@ -1912,6 +1983,7 @@ export async function measurePageRaw(
         lengthBins: P.lengthBins,
       },
       prose: { chars: proseChars, words: proseWords },
+      proseInNav,
       proseNested: { elements: nestedElements, chars: nestedChars, words: nestedWords },
       kinds,
       boxes,

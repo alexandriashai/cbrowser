@@ -27,6 +27,11 @@
  *      raw.maxChoiceGroups (64) groups, so the nav sizes in it undercount on
  *      a page with more; navGroupCount, navLinks and groupedLinks are
  *      uncapped, so links minus groupedLinks is the ungrouped links.
+ *   5. Menu labels apart from the prose. The prose that sits in a nav or
+ *      composite group (the groups 3 counts) is reported as proseInNav, so a
+ *      reading law can leave out what the choosing law already reads: a nav
+ *      of 8 labels beside one paragraph gives the labels' 16 words, and prose
+ *      minus proseInNav is the paragraph, in words, characters and letters.
  *
  * All are browser measurements (measurePageRaw), at both scopes; the pages
  * fit the first screen, so both scopes count the same elements.
@@ -51,6 +56,9 @@ const PAGES = [
   "page-metrics-abjad.html",
   "page-metrics-nested-groups.html",
   "page-metrics-many-navs.html",
+  "page-metrics-nav-prose.html",
+  "page-metrics-nav-prose-nested.html",
+  "page-metrics-nav-prose-abjad.html",
 ];
 const SCOPES: MetricScope[] = ["viewport", "full_page"];
 
@@ -155,6 +163,50 @@ describe("a choice is counted in one group only: the outermost that offers it", 
       expect(t.groupedLinks).toBe(140);
       expect(r.links - t.groupedLinks).toBe(1);
       expect(t.choiceNested).toEqual({ groups: 70, items: 140 });
+    });
+  }
+});
+
+type InNav = { proseInNav: { chars: number; words: number; letters: number; abjadWords: number; cjkChars: number } };
+const letterCount = (r: Raw) => r.text.wordLengths.reduce((n, [len, c]) => n + len * c, 0);
+const PARAGRAPH = "One paragraph of ordinary reading text with exactly twelve words in it.";
+
+describe("menu labels apart from the prose: proseInNav", () => {
+  for (const scope of SCOPES) {
+    test(`${scope}: a nav of 8 labels beside one paragraph; prose minus proseInNav is the paragraph`, () => {
+      const r = measured["page-metrics-nav-prose.html"][scope] as Raw & InNav;
+      expect(r.proseInNav.words).toBe(16);
+      expect(r.prose.words).toBe(28);
+      expect(r.prose.words - r.proseInNav.words).toBe(12);
+      expect(r.prose.chars - r.proseInNav.chars).toBe(PARAGRAPH.length);
+      // In the reading law's units: the paragraph's letters are what is left.
+      const paragraphLetters = PARAGRAPH.split(/\s+/).reduce((n, w) => n + w.replace(/[^a-zA-Z]/g, "").length, 0);
+      expect(letterCount(r) - r.proseInNav.letters).toBe(paragraphLetters);
+      expect(r.proseInNav.abjadWords).toBe(0);
+      expect(r.proseInNav.cjkChars).toBe(0);
+    });
+
+    test(`${scope}: a block that holds a nav gives the nav's text; a composite outside any nav counts too`, () => {
+      const r = measured["page-metrics-nav-prose-nested.html"][scope] as Raw & InNav;
+      expect(r.prose.words).toBe(21);
+      // The cell's nav (6 words) and the menubar's labels (4 words).
+      expect(r.proseInNav.words).toBe(10);
+      expect(r.prose.words - r.proseInNav.words).toBe(11);
+    });
+
+    test(`${scope}: abjad and CJK pages count their in-group prose in their own units`, () => {
+      const a = measured["page-metrics-nav-prose-abjad.html"][scope] as Raw & InNav;
+      expect(a.text.script).toBe("abjad");
+      expect(a.proseInNav.abjadWords).toBe(8);
+      expect(a.text.abjadWordLengths.reduce((n, [, c]) => n + c, 0) - a.proseInNav.abjadWords).toBe(9);
+      const c = measured["page-metrics-partial-translation.html"][scope] as Raw & InNav;
+      expect(c.text.script).toBe("cjk");
+      // Four seven-character nav labels; the h1's nine characters are not in a group.
+      expect(c.proseInNav.cjkChars).toBe(28);
+      expect(c.text.cjkChars - c.proseInNav.cjkChars).toBe(9);
+      // A page with no prose in any group reports none.
+      const p = measured["page-metrics-nested-prose.html"][scope] as Raw & InNav;
+      expect(p.proseInNav).toEqual({ chars: 0, words: 0, letters: 0, abjadWords: 0, cjkChars: 0 });
     });
   }
 });
