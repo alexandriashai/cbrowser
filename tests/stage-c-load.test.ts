@@ -1,0 +1,170 @@
+/**
+ * Stage C: the cognitiveLoad layer and frustration's patience read law times,
+ * not text features (research/stage-c-design.md).
+ *
+ * - The 15 text and navigation demand terms of cognitiveLoad and the two
+ *   text-to-patience terms of frustration are retired from the registry.
+ * - comprehension, workingMemory, informationForaging and transferLearning are
+ *   asked the decision demand (choosing seconds against the time budget), and
+ *   patience the reading demand, with no share constant.
+ * - siteFamiliarity is Cockburn, Gutwin & Greenberg's (2007) expertise e on the
+ *   choosing time, a per-run visit state: T = (1 - e) T_novice + e T_expert. It
+ *   is no longer a trait the chain reads, so a persona's own value changes
+ *   nothing and every persona in a run is scored against the same demand.
+ *
+ * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
+ * @license MIT
+ */
+import { describe, test, expect } from "bun:test";
+import fc from "fast-check";
+import { deriveMetrics } from "../src/visual/cognitive-transport.js";
+import {
+  computeDemandDistribution,
+  computeSequentialCTC,
+  DEMAND_DIMENSIONS,
+  LAYER_DEFINITIONS,
+  SURPLUS_FREE_DIMENSIONS,
+} from "../src/visual/cognitive-transport-chain.js";
+import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
+import { referenceRaw } from "../src/visual/ctc-reference.js";
+import { timeDemand } from "../src/visual/demand-laws.js";
+import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
+
+const LOAD = ["comprehension", "workingMemory", "informationForaging", "transferLearning"];
+
+const RETIRED = [
+  "chain.demand.info.workingMemory",
+  "chain.demand.info.informationForaging",
+  "chain.demand.text.comprehension",
+  "chain.demand.wordLength.comprehension",
+  "chain.demand.sentenceLength.workingMemory",
+  "chain.demand.sentenceLength.comprehension",
+  "chain.demand.lexicalDiversity.comprehension",
+  "chain.demand.lexicalDiversity.transferLearning",
+  "chain.demand.longWords.comprehension",
+  "chain.demand.technical.comprehension",
+  "chain.demand.technical.transferLearning",
+  "chain.demand.nav.halfSaturation",
+  "chain.demand.nav.workingMemory",
+  "chain.demand.nav.transferLearning",
+  "chain.demand.nav.siteFamiliarity",
+  "chain.demand.text.patience",
+  "chain.demand.sentenceLength.patience",
+];
+
+const PAGES = (["viewport", "full_page"] as const).flatMap((scope) => referenceRaw(scope).map((r) => deriveMetrics(r)));
+
+describe("the retired demand terms", () => {
+  test("none of the 17 is registered", () => {
+    expect(RETIRED.filter((id) => id in MODEL_PROVENANCE)).toEqual([]);
+  });
+
+  test("text features and navigation depth move no demand", () => {
+    for (const m of PAGES.slice(0, 40)) {
+      const base = computeDemandDistribution(m).demands;
+      const moved = computeDemandDistribution({
+        ...m,
+        informationDensity: 1 - m.informationDensity,
+        textDensity: 1 - m.textDensity,
+        avgWordLength: 1,
+        avgSentenceLength: 1,
+        lexicalDiversity: 0,
+        longWordRatio: 1,
+        technicalDensity: 1,
+        navigationDepth: 40,
+      }).demands;
+      expect(moved).toEqual(base);
+    }
+  });
+});
+
+describe("what cognitiveLoad and patience are asked", () => {
+  test("cognitiveLoad reads the four abilities; siteFamiliarity is no dimension and in no layer", () => {
+    const layer = LAYER_DEFINITIONS.find((l) => l.name === "cognitiveLoad");
+    expect(layer?.traits).toEqual(LOAD);
+    expect((DEMAND_DIMENSIONS as readonly string[]).includes("siteFamiliarity")).toBe(false);
+    expect(SURPLUS_FREE_DIMENSIONS.has("siteFamiliarity")).toBe(false);
+    expect(LAYER_DEFINITIONS.some((l) => l.traits.includes("siteFamiliarity"))).toBe(false);
+  });
+
+  test("on every reference page, each load trait is asked the decision demand and patience the reading demand", () => {
+    for (const m of PAGES) {
+      const d = computeDemandDistribution(m).demands;
+      for (const t of LOAD) expect(d[t]).toBe(d.satisficing);
+      expect(d.patience).toBe(d.readingCapacity);
+      expect(d.satisficing).toBe(timeDemand(m.choosingSeconds));
+    }
+  });
+});
+
+describe("site familiarity is Cockburn et al.'s expertise e on the choosing time", () => {
+  test("PageMetrics carries the expert limit, never above the novice time", () => {
+    for (const m of PAGES) {
+      expect(typeof m.choosingSecondsExpert).toBe("number");
+      expect(m.choosingSecondsExpert).toBeGreaterThanOrEqual(0);
+      expect(m.choosingSecondsExpert).toBeLessThanOrEqual(m.choosingSeconds + 1e-12);
+    }
+  });
+
+  test("a PageMetrics without the expert time, or a familiarity outside [0, 1], is refused", () => {
+    const m = PAGES[0];
+    const { choosingSecondsExpert: _drop, ...without } = m;
+    expect(() => computeDemandDistribution(without as never)).toThrow(/choosingSecondsExpert/);
+    for (const bad of [-0.01, 1.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => computeDemandDistribution(m, { siteFamiliarity: bad })).toThrow(/siteFamiliarity/);
+    }
+  });
+
+  test("property: for any e in [0, 1] the decision demand is d((1 - e) T_novice + e T_expert), and e = 0 is the pre-change choosing time exactly", () => {
+    fc.assert(fc.property(
+      fc.integer({ min: 0, max: PAGES.length - 1 }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      (i, e) => {
+        const m = PAGES[i];
+        const d = computeDemandDistribution(m, { siteFamiliarity: e }).demands;
+        const expected = timeDemand((1 - e) * m.choosingSeconds + e * m.choosingSecondsExpert);
+        if (Math.abs(d.satisficing - expected) > 1e-12) return false;
+        for (const t of LOAD) if (d[t] !== d.satisficing) return false;
+        const at0 = computeDemandDistribution(m, { siteFamiliarity: 0 }).demands.satisficing;
+        return Object.is(at0, timeDemand(m.choosingSeconds)) && Object.is(computeDemandDistribution(m).demands.satisficing, at0);
+      },
+    ), { numRuns: 500 });
+  });
+
+  test("property: more familiarity never asks more of the choosing traits, and a daily user is asked less on a page with choices", () => {
+    const withChoices = PAGES.filter((m) => m.choosingSeconds > m.choosingSecondsExpert);
+    expect(withChoices.length).toBeGreaterThan(PAGES.length / 2);
+    for (const m of withChoices) {
+      expect(computeDemandDistribution(m, { siteFamiliarity: 1 }).demands.satisficing)
+        .toBeLessThan(computeDemandDistribution(m, { siteFamiliarity: 0 }).demands.satisficing);
+    }
+    fc.assert(fc.property(
+      fc.integer({ min: 0, max: PAGES.length - 1 }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      (i, a, b) => {
+        const [lo, hi] = a <= b ? [a, b] : [b, a];
+        const dLo = computeDemandDistribution(PAGES[i], { siteFamiliarity: lo }).demands;
+        const dHi = computeDemandDistribution(PAGES[i], { siteFamiliarity: hi }).demands;
+        return ["satisficing", ...LOAD].every((t) => dHi[t] <= dLo[t] + 1e-15);
+      },
+    ), { numRuns: 300 });
+  });
+
+  test("property: within a run the demand is the run's, not the persona's: a persona's own siteFamiliarity changes nothing", () => {
+    const names = Object.keys(ROSTER);
+    fc.assert(fc.property(
+      fc.integer({ min: 0, max: PAGES.length - 1 }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      fc.integer({ min: 0, max: names.length - 1 }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
+      (i, e, k, own) => {
+        const demand = computeDemandDistribution(PAGES[i], { siteFamiliarity: e });
+        const prof = toolProfile(names[k], ROSTER[names[k]]);
+        const a = computeSequentialCTC({ ...prof, traits: { ...prof.traits, siteFamiliarity: own } }, demand);
+        const b = computeSequentialCTC({ ...prof, traits: { ...prof.traits, siteFamiliarity: 1 - own } }, demand);
+        return Object.is(a.rawCTC, b.rawCTC);
+      },
+    ), { numRuns: 200 });
+  });
+});
