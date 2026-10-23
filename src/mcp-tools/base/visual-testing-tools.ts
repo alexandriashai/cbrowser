@@ -13,6 +13,9 @@ import { scopedDataDir } from "../../persona-scope.js";
 import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
+import { makeTempDir, uniqueStamp, type CallTempDir } from "../../temp-files.js";
+import { isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT } from "../../visual/model-provenance.js";
+import { widgetUri } from "../widget-kit.js";
 import type { ContentBlock } from "../screenshot-utils.js";
 
 /**
@@ -142,6 +145,17 @@ export function transportMapsDir(): string {
  */
 export function heatmapFallbackDir(): string {
   return join(scopedDataDir() ?? join(homedir(), ".cbrowser"), "heatmaps");
+}
+
+/**
+ * The file name that fallback writes. The persona name is the caller's (an
+ * account can name a persona anything, "/" included), so it gets the filter
+ * writeArtifact applies, which this path skipped: a name with "/" and ".."
+ * put the file outside heatmapFallbackDir. Random bits too, as writeArtifact
+ * adds, instead of the clock alone.
+ */
+export function heatmapFallbackFile(persona: string): string {
+  return `attn-${String(persona).replace(/[^a-zA-Z0-9._-]+/g, "-")}-${uniqueStamp()}.png`;
 }
 
 /**
@@ -570,7 +584,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       const { writeFileSync, mkdirSync, existsSync } = await import("fs");
       const mapsDir = transportMapsDir();
       if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
-      const svgPath = join(mapsDir, `transport-map-${Date.now()}.svg`);
+      const svgPath = join(mapsDir, `transport-map-${uniqueStamp()}.svg`);
       writeFileSync(svgPath, result.svg);
 
       return {
@@ -654,8 +668,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         }),
       });
       const { join } = await import("path");
-      const { tmpdir } = await import("os");
-      const { unlinkSync } = await import("fs");
+      // The screenshot's own temp dir, removed in the finally below: a
+      // clock-named file in the shared temp dir was read by concurrent calls.
+      let attnTemp: CallTempDir | undefined;
 
       const ownsBrowser = !_browserToken;
       let restoreSession: (() => Promise<void>) | undefined;
@@ -705,7 +720,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         // did not take, which must not be silent.
         animationsStillRunning = await countRunningAnimations(page as never);
 
-        const screenshotPath = join(tmpdir(), `attn-${Date.now()}.png`);
+        attnTemp = await makeTempDir("attn");
+        const screenshotPath = attnTemp.file("page.png");
         await page.screenshot({ path: screenshotPath, fullPage: false });
 
         // Extract DOM elements BEFORE saliency computation so they feed into the
@@ -771,10 +787,15 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           } catch { /* keyword path inside buildSemanticMap remains the floor */ }
         }
 
-        const result = await analyzeAttention(
+        // Every registered constant the map read (colour science, the fitted
+        // gaze calibration, the hand-set weights and persona filter), as the
+        // answer's own block. The answer reported these numbers with nothing
+        // saying which were fitted and which were set by hand.
+        const storedTraits = await personaAccessibilityTraits(persona);
+        const { result, provenance: attentionProvenance } = await isolatedProvenanceAsync(() => analyzeAttention(
           screenshotPath, persona, cellSize, undefined, domAttentionElements, goal,
-          undefined, relevanceScores, await personaAccessibilityTraits(persona),
-        );
+          undefined, relevanceScores, storedTraits,
+        ), ATTENTION_PROVENANCE_TEXT);
 
         // Compute attention quality — cross-reference hotspots with classified elements
         let attentionQuality: unknown = null;
@@ -853,6 +874,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // Which perceptual filter shaped the map: a built-in, one inferred
             // from the name, or the generic default for a name nothing matched.
             perceptualProfile: result.perceptualProfile,
+            attentionProvenance,
             // Stated, because two tools silently rendering at different sizes is
             // exactly what made these coordinates incomparable with a CTC run.
             // A reader can now check instead of assuming they match.
@@ -969,6 +991,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // cbrowser.ai URL for a file no one could fetch. One store now owns
             // the directory and the URL together. (2026-07-29)
             const cbrowserDir = heatmapFallbackDir();
+            let fallbackFile = "";
             let savedPath = "";
             let publicUrl = "";
 
@@ -982,7 +1005,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
               // Served store unavailable — keep the local copy, and return the
               // local path rather than a URL that would not resolve.
               if (!existsSync(cbrowserDir)) mkdirSync(cbrowserDir, { recursive: true });
-              savedPath = join(cbrowserDir, `${heatmapId}.png`);
+              fallbackFile = heatmapFallbackFile(persona);
+              savedPath = join(cbrowserDir, fallbackFile);
               writeFileSync(savedPath, png);
               publicUrl = savedPath;
               heatmapFullResolution = "the PNG at the local path in heatmapUrl (the artifact store was unavailable, so artifact_fetch cannot serve it)";
@@ -993,7 +1017,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // that URL, so the view asks artifact_fetch for these bytes over
             // the MCP connection instead. The name as written, which carries the
             // store's random part, not the name asked for. (r1010 artifact-nonce, 2026-10-10)
-            data.heatmapFile = written ? written.filename : `${heatmapId}.png`;
+            data.heatmapFile = written ? written.filename : fallbackFile;
             data.heatmapNote = "Show this heatmap image to the user. The red areas show where this persona's attention concentrates. Blue areas receive little attention.";
             heatmapPng = png;
 
@@ -1015,10 +1039,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           }
         }
 
-        try { unlinkSync(screenshotPath); } catch {}
-
         return { content: await assembleAttentionContent(data, heatmapPng, heatmapFullResolution) };
       } finally {
+        await attnTemp?.remove();
         if (ownsBrowser) await browser.close();
         else await restoreSession?.();
       }
@@ -1042,6 +1065,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       idempotentHint: true,
       openWorldHint: true,
     },
+    // The comparison map, both personas' perceptual filters and what the map
+    // rests on. It returned JSON only.
+    _meta: { ui: { resourceUri: widgetUri("attention-compare") } },
   }, async ({ url, personaA: requestedA, personaB: requestedB, _browserToken, scrollY }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("attention_compare", { url });
@@ -1074,9 +1100,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         });
       const ownsBrowser = !_browserToken;
       let restoreSession: (() => Promise<void>) | undefined;
-      const { join } = await import("path");
-      const { tmpdir } = await import("os");
-      const { unlinkSync } = await import("fs");
+      // The screenshot's own temp dir, removed in the finally below.
+      let cmpTemp: CallTempDir | undefined;
 
       try {
         if (ownsBrowser) await browser.launch();
@@ -1090,7 +1115,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         const viewport = page.viewportSize?.() ?? null;
         const { scroll, restore: restoreScroll } = await scrollForAnalysis(page as never, scrollY);
         if (!ownsBrowser) restoreSession = restoreScroll;
-        const screenshotPath = join(tmpdir(), `attn-cmp-${Date.now()}.png`);
+        cmpTemp = await makeTempDir("attn-cmp");
+        const screenshotPath = cmpTemp.file("page.png");
         await page.screenshot({ path: screenshotPath, fullPage: false });
 
         // Extract DOM elements for semantic attention layer
@@ -1105,10 +1131,12 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         }));
 
         const { compareAttention } = await import("../../visual/attention-transport.js");
-        const result = await compareAttention(
-          screenshotPath, personaA, personaB, 4, domEls, undefined,
-          await personaAccessibilityTraits(personaA), await personaAccessibilityTraits(personaB),
-        );
+        // One block for both maps: what the attention model read to draw them.
+        const traitsA = await personaAccessibilityTraits(personaA);
+        const traitsB = await personaAccessibilityTraits(personaB);
+        const { result, provenance: attentionProvenance } = await isolatedProvenanceAsync(() => compareAttention(
+          screenshotPath, personaA, personaB, 4, domEls, undefined, traitsA, traitsB,
+        ), ATTENTION_PROVENANCE_TEXT);
 
         const responseData: Record<string, unknown> = {
           url: pageUrl,
@@ -1120,6 +1148,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           personaA: {
             name: personaA,
             ...(resolvedA.resolvedFrom ? { resolvedFrom: resolvedA.resolvedFrom } : {}),
+            // Which filter shaped this persona's map, and how it was found.
+            perceptualProfile: result.personaA.perceptualProfile,
             alignment: result.personaA.alignmentScore,
             entropy: result.personaA.entropy,
             concentration: result.personaA.concentration,
@@ -1127,6 +1157,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           personaB: {
             name: personaB,
             ...(resolvedB.resolvedFrom ? { resolvedFrom: resolvedB.resolvedFrom } : {}),
+            perceptualProfile: result.personaB.perceptualProfile,
             alignment: result.personaB.alignmentScore,
             entropy: result.personaB.entropy,
             concentration: result.personaB.concentration,
@@ -1138,6 +1169,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             ? "Moderate attention differences"
             : "Substantially different attention patterns",
           divergentRegions: result.divergentRegions.slice(0, 5),
+          attentionProvenance,
         };
 
         // Generate comparison heatmap overlay
@@ -1177,8 +1209,6 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           }
         }
 
-        try { unlinkSync(screenshotPath); } catch {}
-
         // The comparison map was pushed inline at full PNG size, ~500 KB of
         // base64 against a ~150k result cap, so on a real page this tool
         // blew the cap that attention_analysis was fixed for. Same remedy:
@@ -1193,6 +1223,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
 
         return { content };
       } finally {
+        await cmpTemp?.remove();
         if (ownsBrowser) await browser.close();
         else await restoreSession?.();
       }

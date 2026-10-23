@@ -176,7 +176,8 @@ describe("cbrowser ask", () => {
   test("--json prints the answer as JSON", async () => {
     const r = await ask({ CBROWSER_HELP_URL: pub.url }, "iphone?", "--json");
     expect(r.code, r.stderr).toBe(0);
-    expect(JSON.parse(r.stdout)).toEqual({ question: "iphone?", answer: "Use --device iphone-16.", sources: ["Devices | docs\nmore"] });
+    // sourceUrls (2026-10-23): full links for the sources that name a page; this one names none.
+    expect(JSON.parse(r.stdout)).toEqual({ question: "iphone?", answer: "Use --device iphone-16.", sources: ["Devices | docs\nmore"], sourceUrls: [] });
   }, 30_000);
 
   test("a failure exits 1 with the reason", async () => {

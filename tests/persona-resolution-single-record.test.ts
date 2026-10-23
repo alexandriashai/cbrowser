@@ -18,12 +18,16 @@
  * @license MIT
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
 const mirrorRoot = mkdtempSync(join(tmpdir(), "cb-persona-mirror-"));
-process.env.CBROWSER_DATA_DIR ??= mkdtempSync(join(tmpdir(), "cb-persona-flat-"));
+const flatDir = mkdtempSync(join(tmpdir(), "cb-persona-flat-"));
+// Assigned, not ??=: an earlier file's value is that file's temp dir. All
+// three are restored, and both dirs removed, in afterAll.
+const prior = { CBROWSER_DATA_DIR: process.env.CBROWSER_DATA_DIR, CBROWSER_MIRROR_ROOT: process.env.CBROWSER_MIRROR_ROOT, CMS_URL: process.env.CMS_URL };
+process.env.CBROWSER_DATA_DIR = flatDir;
 process.env.CBROWSER_MIRROR_ROOT = mirrorRoot;
 process.env.CMS_URL = "http://cms.invalid";
 
@@ -35,9 +39,10 @@ const { setSessionApiKey } = await import("../src/mcp-tools/base/cognitive-tools
 const traits = (wm: number, fomo: number) => ({ workingMemory: wm, fearOfMissingOut: fomo, patience: 0.5 });
 
 // Account 7's on-disk mirror holds the revised record; the "CMS" holds a stale
-// one. The mirror dir is resolved per call (CBROWSER_MIRROR_ROOT), so this never
-// touches a real data dir -- unlike the unscoped store, which personas.ts fixes at
-// first import and which, in the full suite, is the runner's real ~/.cbrowser.
+// one. Both the mirror dir (CBROWSER_MIRROR_ROOT) and the unscoped store
+// (CBROWSER_DATA_DIR) are resolved per call, so this never touches a real data
+// dir. (The unscoped store was fixed at first import until 21.0, which in the
+// full suite was the runner's real ~/.cbrowser; tests/real-personas-dir.test.ts.)
 const mirrorDir = join(mirrorRoot, "accounts", "7", "personas");
 mkdirSync(mirrorDir, { recursive: true });
 writeFileSync(join(mirrorDir, "split-persona.json"), JSON.stringify({
@@ -57,7 +62,12 @@ beforeAll(() => {
   })) as unknown as typeof fetch;
   setSessionApiKey("cbk_test_key");
 });
-afterAll(() => { globalThis.fetch = realFetch; setSessionApiKey(undefined); });
+afterAll(() => {
+  globalThis.fetch = realFetch;
+  setSessionApiKey(undefined);
+  for (const [k, v] of Object.entries(prior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  for (const d of [mirrorRoot, flatDir]) rmSync(d, { recursive: true, force: true });
+});
 
 const wm = (p: unknown) => (p as { cognitiveTraits?: { workingMemory?: number } } | undefined)?.cognitiveTraits?.workingMemory;
 

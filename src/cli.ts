@@ -48,6 +48,7 @@ import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
 import { getStatusInfo, formatStatus, getDataDir, getPaths } from "./config.js";
+import { uniqueStamp } from "./temp-files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
 import { dirname, join, resolve } from "node:path";
@@ -1616,7 +1617,7 @@ async function runCaptureStart(
 
 /** The capture name, defaulted to a timestamp slug. */
 function slugFor(options: Record<string, string | boolean>): string {
-  return typeof options.name === "string" ? options.name : `capture-${Date.now()}`;
+  return typeof options.name === "string" ? options.name : `capture-${uniqueStamp()}`;
 }
 
 /** Run exactly one capture to completion and report it. */
@@ -3059,15 +3060,20 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     const { askCbrowser } = await import("./help-client.js");
+    const { formatAnswerForTerminal, sourceLines, sourcePath, sourceUrls } = await import("./help-format.js");
     try {
       const r = await askCbrowser(question, { context: typeof options.context === "string" ? options.context : undefined });
       if (options.json === true || getOutputOptions().json) {
-        printData("ask", { question: r.question, answer: r.answer, sources: r.sources });
+        // The answer stays as the service sent it (markdown); the links are added beside it.
+        printData("ask", { question: r.question, answer: r.answer, sources: r.sources, sourceUrls: sourceUrls(r.sources) });
       } else {
-        console.log(r.answer);
-        if (r.sources.length > 0) {
+        // A terminal gets plain text and full links (help-format.ts).
+        const known = r.sources.map(sourcePath).filter((p): p is string => p !== null);
+        console.log(formatAnswerForTerminal(r.answer, known));
+        const lines = sourceLines(r.sources);
+        if (lines.length > 0) {
           console.log("\nSources:");
-          for (const s of r.sources) console.log(`  - ${s.split("\n")[0].slice(0, 120)}`);
+          for (const line of lines) console.log(`  - ${line}`);
         }
       }
       process.exit(0);
@@ -6991,7 +6997,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
           ...(typeof options.timezone === "string" ? { timezone: options.timezone } : {}),
           fuzzyMatch: options["fuzzy-match"] === true,
-          capture: buildAutoCaptureSetting(options, `test-suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
+          capture: buildAutoCaptureSetting(options, `test-suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`),
         };
 
         const result = await runNLTestSuite(suite, suiteOptions);
@@ -7734,7 +7740,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             vision,
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override
-            capture: buildAutoCaptureSetting(options, `journey-${personaName.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
+            capture: buildAutoCaptureSetting(options, `journey-${personaName.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`),
             onStep: verbose ? undefined : (step) => {
               process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
             },
@@ -8304,8 +8310,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 CBrowser Persona Questionnaire (v16.5.0)
 ========================================
 
-Build custom personas using a research-based questionnaire that maps
-behavioral answers to cognitive traits.
+Build custom personas from a questionnaire that maps behavioral answers
+to cognitive trait values. The mapping and the level wording are written
+by hand; traits you skip take hand-set defaults.
 
 Commands:
   persona-questionnaire start        Start interactive questionnaire
@@ -8340,7 +8347,7 @@ Examples:
 
             console.log(`\n🧠 CBrowser Persona Questionnaire`);
             console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-            console.log(`This questionnaire will help you create a research-backed persona.`);
+            console.log(`This questionnaire sets a custom persona's traits from your answers (a hand-written mapping, not a measurement).`);
             console.log(`Answer each question to define cognitive traits.\n`);
 
             // Get persona name
@@ -8418,7 +8425,7 @@ Examples:
           case "list-traits": {
             console.log(`\n🧠 CBrowser Cognitive Traits Reference`);
             console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-            console.log(`${TRAIT_REFERENCE_MATRIX.length} research-backed traits available:\n`);
+            console.log(`${TRAIT_REFERENCE_MATRIX.length} traits available (scales named after the research each is drawn from; levels written by hand):\n`);
 
             for (const trait of TRAIT_REFERENCE_MATRIX) {
               console.log(`📍 ${trait.name}`);

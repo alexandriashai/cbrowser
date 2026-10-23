@@ -16,6 +16,7 @@
  */
 
 import { readFileSync } from 'fs';
+import { mulberry32 } from './seeded-random.js';
 
 // ── Types ──
 
@@ -33,8 +34,15 @@ export interface DistanceMetricResult {
 }
 
 export interface WassersteinConfig {
-  /** Number of random 1D projections for sliced approximation (default: 64) */
+  /** Number of 1D projections for sliced approximation (default: the registered visualDistance.numProjections, 64) */
   numProjections?: number;
+  /**
+   * Seed for the projection directions (default: the registered
+   * visualDistance.projectionSeed). The same seed gives the same distance for
+   * the same images; a different seed draws other directions from the same
+   * distribution.
+   */
+  projectionSeed?: number;
   /** Compare mode: 'color' for color histogram, 'spatial' for spatial distribution, 'combined' for both */
   compareMode?: 'color' | 'spatial' | 'combined';
   /** Downscale factor for performance (0.0-1.0, default: 0.5 for 2x downscale) */
@@ -114,18 +122,24 @@ function wasserstein1D(a: Float64Array, b: Float64Array): number {
  * Compute Sliced Wasserstein Distance between two point clouds.
  *
  * Algorithm:
- * 1. Generate K random unit vectors (projections)
+ * 1. Draw K unit vectors (projections), uniform on the sphere, from `seed`
  * 2. Project both point clouds onto each direction
  * 3. Compute 1D Wasserstein for each projection
  * 4. Average across all projections
+ *
+ * The directions came from unseeded Math.random() until 2026-10-22, so the
+ * same two images gave a different distance on every call (see
+ * provenance/visual-distance.ts). They are drawn from the same distribution,
+ * uniform on the sphere, by a seeded generator (projectionDirections).
  *
  * Complexity: O(K * N * log N) where K = projections, N = points
  */
 function slicedWassersteinDistance(
   pointsA: Float64Array[], // Array of d-dimensional points
   pointsB: Float64Array[], // Array of d-dimensional points
-  numProjections: number = 64,
-  dim: number = 3,
+  numProjections: number,
+  dim: number,
+  seed: number,
 ): number {
   if (pointsA.length === 0 || pointsB.length === 0) return 1;
 
@@ -136,9 +150,7 @@ function slicedWassersteinDistance(
 
   let totalDistance = 0;
 
-  for (let p = 0; p < numProjections; p++) {
-    // Generate random unit vector
-    const direction = randomUnitVector(dim);
+  for (const direction of projectionDirections(numProjections, dim, seed)) {
 
     // Project points onto direction
     const projA = new Float64Array(n);
@@ -158,17 +170,39 @@ function slicedWassersteinDistance(
 
 // ── Helper: Random projections ──
 
-function randomUnitVector(dim: number): Float64Array {
+/**
+ * `count` unit vectors in `dim` dimensions, uniform on the sphere, drawn from a
+ * generator seeded with `seed`: the same arguments always give the same
+ * directions. Exported for tests of the distribution.
+ *
+ * Rejection sampling, not Box-Muller: a point uniform in the cube [-1, 1]^dim,
+ * kept when it falls inside the unit ball, then normalized. That needs only
+ * arithmetic and Math.sqrt, which every engine rounds the same way, so Node
+ * (the servers) and Bun (the tests) get the same bits. Box-Muller goes through
+ * Math.log and Math.cos, whose last bits differ between the two (measured
+ * 2026-10-23: different directions from the same seed). The acceptance rate is
+ * the ball's share of the cube, 52% in 3 dimensions and 16% in 5, so dim is
+ * capped where it stays cheap.
+ */
+export function projectionDirections(count: number, dim: number, seed: number): Float64Array[] {
+  if (!Number.isInteger(dim) || dim < 1 || dim > 8) throw new RangeError(`projectionDirections: dim ${dim} outside 1-8`);
+  const rand = mulberry32(seed);
+  const out: Float64Array[] = [];
+  for (let p = 0; p < count; p++) out.push(randomUnitVector(dim, rand));
+  return out;
+}
+
+function randomUnitVector(dim: number, rand: () => number): Float64Array {
   const v = new Float64Array(dim);
-  let norm = 0;
-  for (let i = 0; i < dim; i++) {
-    // Box-Muller for normal distribution
-    const u1 = Math.random();
-    const u2 = Math.random();
-    v[i] = Math.sqrt(-2 * Math.log(u1 || 1e-10)) * Math.cos(2 * Math.PI * u2);
-    norm += v[i] * v[i];
-  }
-  norm = Math.sqrt(norm);
+  let norm2: number;
+  do {
+    norm2 = 0;
+    for (let i = 0; i < dim; i++) {
+      v[i] = 2 * rand() - 1;
+      norm2 += v[i] * v[i];
+    }
+  } while (norm2 > 1 || norm2 < 1e-12);
+  const norm = Math.sqrt(norm2);
   for (let i = 0; i < dim; i++) v[i] /= norm;
   return v;
 }
@@ -303,12 +337,16 @@ export async function computeWassersteinDistance(
   config: WassersteinConfig = {},
 ): Promise<DistanceMetricResult> {
   const startTime = performance.now();
+  // Read here, not imported at load: the registry imports perceptual-transport,
+  // which imports this file (provenance/visual-distance.ts).
+  const { param } = await import('./model-provenance.js');
   const {
-    numProjections = 64,
+    numProjections = param('visualDistance.numProjections'),
     compareMode = 'combined',
     downscale = 0.5,
     ignoreRegions,
   } = config;
+  const projectionSeed = () => config.projectionSeed ?? param('visualDistance.projectionSeed');
 
   // Load images
   const [imgA, imgB] = await Promise.all([
@@ -337,7 +375,7 @@ export async function computeWassersteinDistance(
     // Spatial-color point cloud (most comprehensive)
     const pointsA = imageToSpatialColorPoints(imgA, scaledRegions);
     const pointsB = imageToSpatialColorPoints(imgB, scaledRegions);
-    distance = slicedWassersteinDistance(pointsA, pointsB, numProjections, 5);
+    distance = slicedWassersteinDistance(pointsA, pointsB, numProjections, 5, projectionSeed());
 
   } else {
     // Combined: both color histogram AND spatial
@@ -345,7 +383,7 @@ export async function computeWassersteinDistance(
 
     const pointsA = imageToSpatialColorPoints(imgA, scaledRegions);
     const pointsB = imageToSpatialColorPoints(imgB, scaledRegions);
-    const spatialDist = slicedWassersteinDistance(pointsA, pointsB, numProjections, 5);
+    const spatialDist = slicedWassersteinDistance(pointsA, pointsB, numProjections, 5, projectionSeed());
 
     // Weighted combination: spatial is more informative but noisier
     distance = hist.combined * 0.3 + spatialDist * 0.7;

@@ -37,8 +37,9 @@ const SPARSE = {
 };
 
 beforeAll(() => {
-  // withPersonaScope, not CBROWSER_DATA_DIR: personas.ts freezes DATA_DIR at
-  // first import, so an env var set here is read too late in a shared process.
+  // withPersonaScope, not CBROWSER_DATA_DIR: until 21.0 personas.ts froze
+  // DATA_DIR at first import, so an env var set here was read too late in a
+  // shared process. It is read per call now; the scoped setup still holds.
   root = mkdtempSync(join(tmpdir(), "sparse-persona-"));
   process.env.CBROWSER_MIRROR_ROOT = root;
   const dir = join(root, "accounts", String(ACCOUNT), "personas");

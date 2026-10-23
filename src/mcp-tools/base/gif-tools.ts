@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { writeArtifact } from "../../artifact-store.js";
+import { makeTempDir, type CallTempDir } from "../../temp-files.js";
 import { MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import { PREVIEW_RESULT_MARGIN, contentSize } from "../inline-image.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
@@ -153,11 +154,13 @@ export function registerGifTools(
       }
     }
 
+    // The frames' own temp dir, removed in the finally below
+    // (src/temp-files.ts). It was named by the clock in the shared temp dir, so
+    // two journeys started in the same millisecond drew each other's frames,
+    // and an early return left it behind.
+    let framesTemp: CallTempDir | undefined;
     try {
       const { CBrowser: BrowserClass } = await import("../../browser.js");
-      const { join } = await import("path");
-      const { tmpdir } = await import("os");
-      const { writeFileSync, mkdirSync, existsSync, unlinkSync, readFileSync } = await import("fs");
       const sharp = (await import("sharp")).default;
 
       const browser = new BrowserClass({
@@ -173,8 +176,7 @@ export function registerGifTools(
       const frames: Buffer[] = [];
       const stepDescriptions: string[] = [];
       let perceptualProfile: { resolution: string; name: string } | undefined;
-      const tmpDir = join(tmpdir(), `journey-gif-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      framesTemp = await makeTempDir("journey-gif");
 
       // Import heatmap tools
       const { analyzeAttention } = await import("../../visual/attention-transport.js");
@@ -189,7 +191,7 @@ export function registerGifTools(
       for (let step = 0; step < maxSteps; step++) {
         try {
           // Screenshot current page
-          const ssPath = join(tmpDir, `step-${step}.png`);
+          const ssPath = framesTemp.file(`step-${step}.png`);
           await page.screenshot({ path: ssPath, fullPage: false });
 
           // Generate attention heatmap.
@@ -229,8 +231,6 @@ export function registerGifTools(
             frames.push(resized);
           }
 
-          // Clean up screenshot
-          try { unlinkSync(ssPath); } catch {}
 
           const currentUrl = await page.url();
           const title = await page.title();
@@ -290,11 +290,6 @@ export function registerGifTools(
       const gifUrl = written?.url ?? "";
       const elapsed = Date.now() - startTime;
 
-      // Clean up temp dir
-      try {
-        const { rmSync } = await import("fs");
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch {}
 
       const data: Record<string, unknown> = {
         url,
@@ -315,6 +310,8 @@ export function registerGifTools(
         isError: true,
         content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) }],
       };
+    } finally {
+      await framesTemp?.remove();
     }
   });
 }

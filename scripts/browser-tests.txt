@@ -105,3 +105,9 @@ tests/attention-traits-callers.test.ts
 tests/attention-overlay-config.test.ts
 # Runs journey_heatmap_gif (its own browser per call) with custom personas on disk.
 tests/journey-gif-traits.test.ts
+# Launches its own CBrowser and runs the effort widget against a real page.
+tests/effort-widget.test.ts
+# Runs attention_analysis and attention_compare in one launched CBrowser.
+tests/attention-answer-provenance.test.ts
+# Launches a CBrowser and reads what the MCP App views draw.
+tests/provenance-views.test.ts

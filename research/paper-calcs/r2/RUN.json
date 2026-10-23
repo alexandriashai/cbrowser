@@ -1,0 +1,8 @@
+{
+  "git_head": "9133826e814d9d2c1200ec9ab98e8529b3c9d9a3",
+  "src_tree": "48c830420a45b3642f780a1980be6796fa68f0d0",
+  "src_dirty": false,
+  "finished": "2026-10-23T19:52:36Z",
+  "quick": false,
+  "steps": [{"command": "bun research/paper-calcs/r2/typical-user.ts", "seconds": 0},{"command": "python3 -I research/paper-calcs/r2/face_validity.py", "seconds": 6},{"command": "python3 -I research/paper-calcs/r2/power.py --scope viewport", "seconds": 545},{"command": "python3 -I research/paper-calcs/r2/power.py --scope full_page", "seconds": 647},{"command": "bun research/study1/run-ceiling.ts --data $UEYES_DIR --out research/paper-calcs/r2/ceiling", "seconds": 1},{"command": "python3 -I research/paper-calcs/study1_intervals.py research/paper-calcs/r2/ceiling/per_image.csv research/paper-calcs/r2/ceiling-intervals", "seconds": 1}]
+}

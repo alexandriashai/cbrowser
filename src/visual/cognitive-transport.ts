@@ -61,7 +61,7 @@ export interface CognitiveDistance {
    * level B|. The values sum to `w1`.
    */
   traitContributions: Record<string, number>;
-  /** Sliced Wasserstein approximation, on the simplex: shape only */
+  /** Sliced Wasserstein-1 over uniform directions, exact (closed form), on the simplex: shape only */
   sliced: number;
 }
 
@@ -402,22 +402,18 @@ export function buildOTCognitiveProfile(name: string, traits: Record<string, num
 // ── Cognitive Distance ──
 
 /**
- * Fixed seed for the sliced-Wasserstein projection set. Any constant works; what
- * matters is that it never changes, so the same pair of profiles always yields
- * the same sliced distance across processes and releases.
+ * E|<x, theta>| / ||x|| for theta uniform on the unit sphere in `d`
+ * dimensions: Gamma(d/2) / (sqrt(pi) * Gamma((d + 1)/2)). The sliced
+ * Wasserstein-1 distance between two points is this times their Euclidean
+ * distance. Built from c_1 = 1, c_2 = 2/pi and c_(d+2) = c_d * d/(d + 1), so
+ * no gamma function is needed; for odd d it is a product of rationals.
+ * Exported for tests of the formula.
  */
-const SLICED_PROJECTION_SEED = 0x5f3759df;
-
-/** mulberry32 — small, fast, well-distributed 32-bit PRNG. */
-function seededRandom(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+export function sphereMeanAbsProjection(d: number): number {
+  if (!Number.isInteger(d) || d < 1) throw new RangeError(`sphereMeanAbsProjection: d must be a positive integer, not ${d}`);
+  let c = d % 2 === 1 ? 1 : 2 / Math.PI;
+  for (let k = d % 2 === 1 ? 1 : 2; k < d; k += 2) c *= k / (k + 1);
+  return c;
 }
 
 /**
@@ -568,37 +564,24 @@ export function cognitiveDistance(profileA: OTCognitiveProfile, profileB: OTCogn
   }
   const w2 = Math.sqrt(Math.max(0, w2sq));
 
-  // Sliced Wasserstein (fast approximation for validation).
+  // Sliced Wasserstein-1 between the two profiles, as points on the simplex:
+  // the mean over directions theta, uniform on the unit sphere, of
+  // |<a - b, theta>|. For two points that mean has a closed form,
+  // sphereMeanAbsProjection(d) * ||a - b||_2, so it is computed exactly rather
+  // than estimated.
   //
-  // The projections are drawn from a SEEDED generator, not Math.random(). Two
-  // identical calls used to return different sliced values (measured: 0.031568
-  // vs 0.029943 for the same persona pair, a ~5% swing) while the MCP tool that
-  // exposes this declares idempotentHint: true. A metric a caller cannot
-  // reproduce is not a metric they can act on or diff against a baseline, so the
-  // projection set is now fixed. (2026-07-29)
-  const numProjections = 100;
-  let slicedSum = 0;
-  const rand = seededRandom(SLICED_PROJECTION_SEED);
-  for (let p = 0; p < numProjections; p++) {
-    // Deterministic pseudo-random projection
-    const dir = new Float64Array(d);
-    let norm = 0;
-    for (let i = 0; i < d; i++) {
-      dir[i] = rand() * 2 - 1;
-      norm += dir[i] * dir[i];
-    }
-    norm = Math.sqrt(norm);
-    for (let i = 0; i < d; i++) dir[i] /= norm;
-
-    // Project and compute 1D W1
-    let projA = 0, projB = 0;
-    for (let i = 0; i < d; i++) {
-      projA += a[i] * dir[i];
-      projB += b[i] * dir[i];
-    }
-    slicedSum += Math.abs(projA - projB);
-  }
-  const sliced = slicedSum / numProjections;
+  // It was estimated from 100 directions: unseeded Math.random() until
+  // 2026-07-29 (the same pair gave 0.031568 and 0.029943), then seeded, but
+  // drawn uniform in the cube [-1, 1]^d and normalized, which is not uniform
+  // on the sphere. Against the exact value the roster's 300 pairs were off by
+  // -20% to +19% (measured 2026-10-23). Uniform directions would not have
+  // fixed that: 100 of them were off by -24% to +26%, the sampling error of
+  // the estimate, and drawing them in 29 dimensions needs Gaussian components
+  // whose Math.log and Math.cos differ in the last bits between Node and Bun.
+  // The closed form takes only arithmetic and Math.sqrt.
+  let diffSq = 0;
+  for (let i = 0; i < d; i++) diffSq += (a[i] - b[i]) * (a[i] - b[i]);
+  const sliced = sphereMeanAbsProjection(d) * Math.sqrt(diffSq);
 
   return { w1, w2, traitContributions, sliced };
 }

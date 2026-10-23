@@ -66,12 +66,13 @@ const FIXTURE = {
 };
 
 beforeAll(() => {
-  // CBROWSER_DATA_DIR does NOT work here, and that is the whole point of this
-  // setup. `personas.ts` captures DATA_DIR in a module-level const at first
+  // CBROWSER_DATA_DIR did NOT work here until 21.0, which is why this setup
+  // exists. `personas.ts` captured DATA_DIR in a module-level const at first
   // import, so in a single-process run — which is exactly how CI invokes
-  // `bun test --coverage` — another file imports it before this beforeAll runs
-  // and the env var is read too late. The test then passes alone and fails in
-  // CI, which is what it did.
+  // `bun test --coverage` — another file imported it before this beforeAll ran
+  // and the env var was read too late. The test then passed alone and failed in
+  // CI, which is what it did. personas.ts now reads it per call
+  // (tests/real-personas-dir.test.ts); the scoped setup below still holds.
   //
   // `withPersonaScope` is the affordance built for this: AsyncLocalStorage, so
   // the data dir is bound to the async context rather than to the process, and
