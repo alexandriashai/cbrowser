@@ -8,9 +8,6 @@
  * generator looks equivalent and is not: its products lose low bits past 2^53
  * and the sequence degenerates.
  *
- * cognitive-transport.ts keeps its own private copy of the same function for
- * the persona-distance projections.
- *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */

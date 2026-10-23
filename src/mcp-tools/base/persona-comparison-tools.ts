@@ -561,7 +561,7 @@ Begin with the first persona: ${personas[0]}
               // The count is read from the list: "26" went stale when the three bridge
               // traits arrived (v10 B42).
               `w1 (exact generalized Wasserstein-1 distance over ${COGNITIVE_TRAITS.length} traits), ` +
-              "w2 (L2 norm) and sliced (mean random projection) are different quantities on different " +
+              "w2 (L2 norm) and sliced (mean absolute projection over uniform directions, computed exactly) are different quantities on different " +
               "scales. Compare the percentiles, not the raw values. w1 sees both the shape of a profile " +
               "and its overall level: each trait t carries mass t/" + COGNITIVE_TRAITS.length + ", moving mass " +
               "between traits costs the trait ground metric (0.2 / 0.5 / 0.8) and creating or destroying it " +
