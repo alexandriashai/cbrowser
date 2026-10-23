@@ -126,3 +126,39 @@ temp data dir.
 - cognitive_effort `motorDecomposition.pointingInputs.note`: no longer says
   "motorCapacity weights throughput at 0.75". It now gives
   throughput / (throughput + 4.9 bits/s).
+
+## 4. Phase 2b wiring: the law-based demand (commits 7bc9d5e, 5db0797, 69d8f28)
+
+Before is 4aa544e (part 1 plus the v2 reference set, on the old demand curves).
+After is this branch. Both are measured on the 513 real reference pages of the
+97c4888 data (research/stage-b-deltas.md has the full tables).
+
+| tool | field | before -> after (mean over the 513 viewport pages) |
+|---|---|---|
+| cognitive_effort, site_cognitive_assessment, visual_cognitive_story | totalCTC: first-timer | 0.694 -> 0.723 |
+| same | totalCTC: power-user | 0.498 -> 0.316 |
+| same | totalCTC: careful-reader | 0.689 -> 0.357 |
+| same | totalCTC: impatient-user | 0.424 -> 0.581 |
+| same | totalCTC: motor-impairment-tremor | 0.388 -> 0.491 |
+| same | totalCTC: dyslexic-user | 0.426 -> 0.522 |
+| same | totalCTC: low-vision-magnified | 0.352 -> 0.461 |
+| same | rawCTC, abandonmentRisk, layer costs, bottleneck | all move; decision cost falls (power-user 0.375 -> 0.082), motor and readability rise (tremor motor 0.095 -> 0.182) |
+| cognitive_effort | lawTimes (new) | the four law times, each beside its demand, and the 12.4 s budget |
+| site_cognitive_assessment | pageMetrics.lawTimes (new) | the same |
+| cognitive_effort, site_cognitive_assessment, visual_cognitive_story | modelProvenance | published 0 -> 12 (the laws); law.timeBudget among the hypotheses; scope names the laws |
+| cognitive_effort scope sequential | per-screen curve | each screen's pointing, choosing and procedure charged by the share of newly seen elements |
+| CMS audit worker -> CIF | CIF's CTC components | inherit the totalCTC changes above (ISC-56/57) |
+
+npm API (the package root and ./visual re-export the chain):
+- PageMetrics gains four required fields (pointingSeconds, choosingSeconds,
+  readingSeconds, procedureSeconds).
+- computeDemandDistribution throws without them, naming the field.
+- computeDemandFromRawMetrics takes the four law times in place of
+  interactiveElementCount and choiceCount, and an old 7-argument call throws
+  rather than misreading its arguments.
+- extractPageMetrics and deriveMetrics return the four times and
+  lawDiagnostics.
+
+The design note called computeDemandFromRawMetrics a test helper "not
+exported from src/index.ts". It is exported through src/visual/index.ts, so
+this is a breaking change for 21.0's release notes.
