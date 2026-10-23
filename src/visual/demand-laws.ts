@@ -254,26 +254,35 @@ export function readingCapacity(wpm: number): number {
   return rateCapacity(wpm, param("law.reading.wpm"));
 }
 
-/** The populations with a measured rate in provenance/laws.ts. Adults 65+ and adults with ADHD have none. */
-export type MeasuredPopulation = "motionImpaired" | "dyslexiaAdults" | "lowVisionCentralLoss" | "lowVisionIntactFields";
+/**
+ * The populations with a measured rate in provenance/laws.ts. Adults 65+, adults
+ * with ADHD and adults with intellectual disability have none.
+ */
+export type MeasuredPopulation = "motionImpaired" | "dyslexiaAdults" | "lowVisionCentralLoss" | "lowVisionIntactFields" | "aphasiaReadingImpaired";
 
 export interface MeasuredRate {
   channel: "pointing" | "reading";
-  /** The population's measured rate: bits/s for pointing, wpm for reading. */
+  /**
+   * The population's measurement: bits/s for pointing, wpm for reading, or
+   * seconds for one text when `timed` (Stage C: aphasia, Webster et al. 2018).
+   */
   rate: number;
-  /** The rate it is compared with. */
+  /** What it is compared with, in the same unit. */
   control: number;
   /** True when the control group was measured in the same study and method; false when it is the reference law rate. */
   sameStudyControl: boolean;
-  /** rate / control: the population's rate as a share of typical, the r_p / r_ref a capacity is built from. */
+  /** True when rate and control are times on the same text, so the faster group has the smaller number. */
+  timed: boolean;
+  /** The population's rate as a share of typical, the r_p / r_ref a capacity is built from: rate / control, or control / rate when timed. */
   ratio: number;
 }
 
-const MEASURED: Record<MeasuredPopulation, { channel: MeasuredRate["channel"]; rate: string; control: string; sameStudy: boolean }> = {
+const MEASURED: Record<MeasuredPopulation, { channel: MeasuredRate["channel"]; rate: string; control: string; sameStudy: boolean; timed?: boolean }> = {
   motionImpaired: { channel: "pointing", rate: "law.rate.pointing.motionImpaired", control: "law.rate.pointing.motionImpairedControls", sameStudy: true },
   dyslexiaAdults: { channel: "reading", rate: "law.rate.reading.dyslexiaAdults", control: "law.rate.reading.dyslexiaControls", sameStudy: true },
   lowVisionCentralLoss: { channel: "reading", rate: "law.rate.reading.lowVisionCentralLoss", control: "law.reading.wpm", sameStudy: false },
   lowVisionIntactFields: { channel: "reading", rate: "law.rate.reading.lowVisionIntactFields", control: "law.reading.wpm", sameStudy: false },
+  aphasiaReadingImpaired: { channel: "reading", rate: "law.rate.reading.aphasiaReadingImpairedSeconds", control: "law.rate.reading.aphasiaControlsSeconds", sameStudy: true, timed: true },
 };
 
 /** A population's measured rate and its ratio to a control, from the registered sources. */
@@ -282,5 +291,6 @@ export function measuredRate(population: MeasuredPopulation): MeasuredRate {
   if (!m) throw new RangeError(`no measured rate for "${population}"`);
   const rate = param(m.rate);
   const control = param(m.control);
-  return { channel: m.channel, rate, control, sameStudyControl: m.sameStudy, ratio: rate / control };
+  const timed = m.timed === true;
+  return { channel: m.channel, rate, control, sameStudyControl: m.sameStudy, timed, ratio: timed ? control / rate : rate / control };
 }
