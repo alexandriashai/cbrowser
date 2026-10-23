@@ -32,6 +32,14 @@ import type { ProvenanceEntry } from "../model-provenance.js";
 
 const h = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `journey.${id}`, value, status: "hypothesis", source });
 const d = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `journey.${id}`, value, status: "definition", source });
+const p = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `journey.${id}`, value, status: "published", source });
+
+// Read for this registry: the paper, pages 398-399, Figure 1 ("The Operators of
+// the Keystroke Model"). Every K value in it is a time per keystroke "as
+// determined by standard one-minute typing tests" (section 3.1), measured on
+// 1980 keyboards; the journey's use of them is its own claim.
+const KLM_1980 =
+  "Card, S. K., Moran, T. P. & Newell, A. (1980). The keystroke-level model for user performance time with interactive systems. Communications of the ACM 23(7), 396-410, Figure 1";
 
 // What would set an abandonment limit: time-to-abandon and the state reported
 // in the step before abandoning, for people of measured trait level working
@@ -156,7 +164,7 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("gazeLag.perYear", 5, "Hand-set increase in the lag, ms per year of age. The same measurement, by age, would set it."),
 
   // ── Motor timing (Fitts) ──
-  h("fitts.intercept", 50, "The journey's Fitts' law intercept a, ms. Its comment attributes 50 ms and 150 ms/bit to Card, Moran & Newell (1983); that attribution is not verified here. Stage B registers a published Fitts' law for the same quantity (law.fitts.intercept, MacKenzie & Buxton 1992: 230 ms); the journey should read that id, which would replace this value."),
+  h("fitts.intercept", 50, `The journey's Fitts' law intercept a, ms. Its comment attributes 50 ms and 150 ms/bit to Card, Moran & Newell (1983); ${KLM_1980.replace(", Figure 1", "")} gives the mouse's law as "tP = .8 + .1 log2 (d/s + .5) sec" (section 3.1), a different form and different values, so the attribution does not hold for the 1980 paper. Stage B registers a published Fitts' law for the same quantity (law.fitts.intercept, MacKenzie & Buxton 1992: 230 ms); the journey should read that id, which would replace this value.`),
   h("fitts.slope", 150, "The journey's Fitts' law slope b, ms per bit. Stage B registers the published slope for the same quantity (law.fitts.slope, MacKenzie & Buxton 1992: 166 ms/bit); the journey should read that id, which would replace this value."),
   h("fitts.tremorGain", 0.1, "Hand-set rise in movement time per unit of the tremor modifier. Movement times of users with tremor against their measured jitter would set it."),
   h("fitts.ageOnset", 40, "Hand-set age, in years, after which movement slows. Fitts-task movement times by age would set it, with the slope."),
@@ -166,14 +174,14 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("fitts.targetWidthPx", 80, "Hand-set target width, px, assumed for every click. The distribution of clicked-target widths on real pages would set it; the clicked element's measured width would replace it."),
 
   // ── Typing (keystroke-level model) ──
-  h("klm.keystrokeExpert", 120, "The journey's keystroke time, ms, for an expert typist. The keystroke-level model (Card, Moran & Newell 1980, Figure 1) tabulates keystroke times by typing skill; checking this value against that table would set its status."),
-  h("klm.keystrokeNovice", 500, "The journey's keystroke time, ms, for a hunt-and-peck typist. The keystroke-level model's table of keystroke times by skill would set its status."),
-  h("klm.keystrokeAverage", 280, "Keystroke time, ms, for an average typist, carried on KLM_OPERATORS. Nothing in cbrowser reads it. The keystroke-level model's table would set its status."),
-  h("klm.pointing", 1100, "Pointing time, ms, carried on KLM_OPERATORS (the journey times pointing with Fitts' law instead). Nothing in cbrowser reads it. The keystroke-level model's P operator would set its status."),
-  h("klm.homing", 400, "Hand homing time, ms, carried on KLM_OPERATORS. Nothing in cbrowser reads it. The keystroke-level model's H operator would set its status."),
-  h("klm.mentalPreparation", 1350, "The journey's mental-preparation time, ms, charged once before typing by a novice. Stage B registers the published keystroke-level model operator for the same quantity (law.klm.mentalPreparation, Card, Moran & Newell 1980: 1.35 s); the journey should read that id."),
+  p("klm.keystrokeExpert", 120, `Keystroke time, ms, at the journey's expert end of typing skill (expertise 1). ${KLM_1980}, row K: "Good typist (90 wpm) .12" sec. The same figure's fastest row is "Best typist (135 wpm) .08"; taking the good typist as the expert end is the journey's choice.`),
+  p("klm.keystrokeNovice", 500, `Keystroke time, ms, at the journey's slow end of typing skill (expertise 0, the oldest personas). ${KLM_1980}, row K: "Typing random letters .50" sec. The code comment calls this end a hunt-and-peck typist; the figure's row for that is "Worst typist (unfamiliar with keyboard) 1.20" sec, and the journey uses the random-letters time instead. Which row the slow end stands for is the journey's choice; replacing it with 1.20 would slow every typed field of a persona with low typing expertise.`),
+  p("klm.keystrokeAverage", 280, `Keystroke time, ms, of an average typist, carried on KLM_OPERATORS; nothing in cbrowser reads it. ${KLM_1980}, row K: "Average non-secretary typist (40 wpm) .28" sec (footnote b: "the average typing rate of the nonsecretary subjects in the experiment described in Section 4.1").`),
+  p("klm.pointing", 1100, `Pointing time, ms, carried on KLM_OPERATORS; nothing in cbrowser reads it (the journey times pointing with Fitts' law). ${KLM_1980}, row P: "Pointing to a target on a display with a mouse ... The time ranges from .8 to 1.5 sec, with 1.1 being an average time. This operator does not include the button press that often follows (.2 sec)." 1.10 sec.`),
+  p("klm.homing", 400, `Homing time, ms, carried on KLM_OPERATORS; nothing in cbrowser reads it. ${KLM_1980}, row H: "Homing the hand(s) on the keyboard or other device. .40" sec.`),
+  h("klm.mentalPreparation", 1350, `The journey's mental-preparation time, ms, charged once before typing by a novice. The value is the keystroke-level model's M operator (${KLM_1980}, row M: "Mentally preparing for executing physical actions. 1.35" sec). Stage B registers that operator as published for the same quantity (law.klm.mentalPreparation); the journey should read that id, which would replace this entry, so it is held as a hypothesis here rather than registered twice as published.`),
   h("klm.mentalFamiliar", 600, "Hand-set mental-preparation time, ms, for an expert on a familiar task. The keystroke-level model gives one M operator; this lower value has no source. Pre-typing pauses of experts on a routine form would set it."),
-  h("klm.button", 100, "Mouse-button time, ms, carried on KLM_OPERATORS. Nothing in cbrowser reads it. The keystroke-level model's button operator would set its status."),
+  h("klm.button", 100, `Mouse-button time, ms, carried on KLM_OPERATORS; nothing in cbrowser reads it. No source read for this registry states 0.1 s: ${KLM_1980} gives the button press that follows pointing as ".2 sec" (row P). The 1983 book's button operator would set its status.`),
   h("typing.defaultExpertise", 0.5, "Hand-set typing expertise (0 hunt-and-peck, 1 expert) when no age is known, and calculateTypingTime's default. Measured typing speed of the general population, mapped onto the keystroke range, would set it."),
 
   // ── Returning visits ──
