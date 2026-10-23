@@ -51,7 +51,7 @@ import { getStatusInfo, formatStatus, getDataDir, getPaths } from "./config.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
 import { dirname, join, resolve } from "node:path";
-import { guardConsole, guardTerminalOutput } from "./terminal-safe.js";
+import { guardConsole, guardTerminalOutput, setTerminalHyperlinks } from "./terminal-safe.js";
 import { evaluateScript } from "./eval-script.js";
 import { VideoCaptureSession, type CaptureFormat } from "./recording/engine.js";
 import { changeSignal, parseManifest, type RecordingTarget } from "./recording/types.js";
@@ -3005,7 +3005,6 @@ function rewriteScroll(parsed: ReturnType<typeof parseArgs>): ReturnType<typeof 
 
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
-  for (const note of parsed.notes ?? []) console.error(`Note: ${note}`);
   const { command, args, options } = rewriteScroll(parsed);
 
   // Initialize accessible output system (v18.54.0)
@@ -3018,6 +3017,15 @@ async function main(): Promise<void> {
   guardTerminalOutput(process.stdout);
   guardTerminalOutput(process.stderr);
   guardConsole();
+  // Every URL printed is a hyperlink to itself on a terminal (src/terminal-safe.ts):
+  // never with --json, --json-output, --plain or TERM=dumb, and not when piped
+  // unless CBROWSER_HYPERLINKS=1. CBROWSER_HYPERLINKS=0 turns them off. (2026-10-23)
+  const linksEnv = process.env.CBROWSER_HYPERLINKS;
+  const linksFor = (s: NodeJS.WriteStream) => linksEnv !== "0" && !outputOpts.plain && options.json !== true
+    && process.env.TERM !== "dumb" && (linksEnv === "1" || s.isTTY === true);
+  setTerminalHyperlinks({ stdout: linksFor(process.stdout), stderr: linksFor(process.stderr) });
+  // After the guards, so a note quoting the user's own words is escaped too.
+  for (const note of parsed.notes ?? []) console.error(`Note: ${note}`);
 
   // --json-output must never leave stdout empty. Only two commands in this file
   // call emitJson, so without this every other command printed nothing at all and

@@ -4,6 +4,7 @@
  * tests/cli-journey-dialog-browser.test.ts runs the command end to end.
  */
 import { describe, expect, test } from "bun:test";
+import fc from "fast-check";
 import { formatJourneyStep, journeyEndLine } from "../src/cognitive/journey-dialog.js";
 import type { CognitiveStep } from "../src/cognitive/index.js";
 
@@ -64,5 +65,35 @@ describe("journeyEndLine", () => {
     const line = journeyEndLine({ ...end, goalAchieved: false });
     expect(line).toBe("❌ GOAL NOT REACHED: stopped at the step limit after 4 steps (raise it with --max-steps)");
     expect(line).not.toContain("undefined");
+  });
+});
+
+describe("each step names the page it is on, as a URL a terminal can open", () => {
+  test("the full URL sits alone at the end of its own line, after the header", () => {
+    const lines = formatJourneyStep(step({ url: "https://www.ucdenver.edu/tuition/undergraduate?term=fall#rates", monologue: "Tuition is here." }));
+    expect(lines[0]).toBe("   Step 2 · decide · hopeful");
+    expect(lines[1]).toBe("   🔗 https://www.ucdenver.edu/tuition/undergraduate?term=fall#rates");
+    expect(lines[2]).toBe('   💭 "Tuition is here."');
+  });
+
+  test("an unreadable step still says where it was", () => {
+    expect(formatJourneyStep(step({ replyReadable: false, url: "https://example.com/a" }))).toEqual([
+      "   Step 2: the model's reply could not be read, so this step took no action",
+      "   🔗 https://example.com/a",
+    ]);
+  });
+
+  test("whitespace in a URL is encoded so the link is not cut", () => {
+    expect(formatJourneyStep(step({ url: "https://example.com/a b" }))[1]).toBe("   🔗 https://example.com/a%20b");
+  });
+
+  test("no URL, no line", () => {
+    expect(formatJourneyStep(step({ url: undefined }))).toEqual(["   Step 2 · decide · hopeful", "   → no action"]);
+  });
+
+  test("for any web URL, its line is the marker, one space, and exactly that URL", () => {
+    fc.assert(fc.property(fc.webUrl({ withQueryParameters: true, withFragments: true }), (url) => {
+      expect(formatJourneyStep(step({ url }))[1]).toBe(`   🔗 ${url}`);
+    }), { numRuns: 300 });
   });
 });
