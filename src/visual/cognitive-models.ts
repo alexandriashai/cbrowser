@@ -208,14 +208,26 @@ export interface MotorAccessibilityResult {
  * - adhd: the reference. No throughput for adults with ADHD was found, and the
  *   4.2 bits/s it carried had no source.
  *
- * The endpoint dispersions (sigma, rho) feed the hit-probability audit only and
- * are not registered.
+ * The endpoint dispersions (sigma, rho) feed the hit-probability audit only;
+ * they are registered hypotheses too (provenance/profiles.ts).
  */
+/**
+ * A pointing profile whose every value is read at use (getters), so an override
+ * reaches it: its endpoint dispersion, the same SD on both axes
+ * (profile.pointing.<kind>.sigma) and their correlation (.rho), both
+ * hypotheses, and its throughput.
+ */
+const pointingProfile = (kind: string, throughput: () => number): PointingProfile => ({
+  get sigmaX() { return pp(`profile.pointing.${kind}.sigma`); },
+  get sigmaY() { return pp(`profile.pointing.${kind}.sigma`); },
+  get rho() { return pp(`profile.pointing.${kind}.rho`); },
+  get throughput() { return throughput(); },
+});
 const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
-  neurotypical: { sigmaX: 4, sigmaY: 4, rho: 0.0, get throughput() { return pp("law.rate.pointing.reference"); } },
-  tremor: { sigmaX: 12, sigmaY: 12, rho: 0.3, get throughput() { return pp("law.rate.pointing.reference") * personaScope(() => measuredRate("motionImpaired").ratio); } },
-  elderly: { sigmaX: 7.2, sigmaY: 7.2, rho: 0.1, get throughput() { return pp("profile.pointing.elderly.throughput"); } },
-  adhd: { sigmaX: 5.5, sigmaY: 5.5, rho: 0.0, get throughput() { return pp("law.rate.pointing.reference"); } },
+  neurotypical: pointingProfile("neurotypical", () => pp("law.rate.pointing.reference")),
+  tremor: pointingProfile("tremor", () => pp("law.rate.pointing.reference") * personaScope(() => measuredRate("motionImpaired").ratio)),
+  elderly: pointingProfile("elderly", () => pp("profile.pointing.elderly.throughput")),
+  adhd: pointingProfile("adhd", () => pp("law.rate.pointing.reference")),
 };
 
 /**
@@ -325,7 +337,7 @@ function pointingDispersion(persona: PersonaRef): Omit<PointingProfile, "through
 
   const motorPrecision = traits.motorPrecision
     ?? (traits.proceduralFluency !== undefined && traits.patience !== undefined
-      ? (traits.proceduralFluency * 0.6 + traits.patience * 0.4)
+      ? (traits.proceduralFluency * pp("profile.pointing.precision.proceduralFluencyWeight") + traits.patience * pp("profile.pointing.precision.patienceWeight"))
       : undefined);
   if (motorPrecision === undefined) return of(KNOWN_POINTING_PROFILES.neurotypical);
 

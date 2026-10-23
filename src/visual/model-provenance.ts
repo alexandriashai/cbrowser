@@ -192,7 +192,7 @@ export const PERSONA_RATE_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = 
     "they describe the persona, not the score's constants. A built-in persona's are registered with it (personaRate.*); a custom " +
     "persona's are the rule it fell under (customRate.*), or, where it stated a reading profile, the fixation-model constants that " +
     "turn that profile into a rate (profile.*). Each capacity is c = r_p / (r_p + r_ref) against the reference rates " +
-    "law.rate.pointing.reference and law.reading.wpm (published), which cancel in the ratio and are not counted here. The other " +
+    "law.rate.pointing.reference and law.reading.wpm (published), which cancel in the ratio and are not counted here, nor is the pointing profile's endpoint dispersion (the hit-probability audit's, not a rate). The other " +
     "personas' rates are part of the reference population totalCTC is ranked against (a definition) and are not listed.",
   note:
     "A rate labelled published was measured on the persona's population against same-study controls; hypothesis rates include " +
@@ -204,9 +204,12 @@ export interface PersonaRateProvenance extends ProvenanceSummary {
   rates: string[];
 }
 
+/** The endpoint dispersion the bridge reads for the pointing profile it returns: the hit-probability audit's, not a rate. */
+const DISPERSION_ID = /^profile\.pointing\.(?:[^.]+\.(?:sigma|rho)|precision\..+)$/;
+
 /** The persona-rate section of an answer, from the ids collectPersonaReads returned for the scored persona's bridge. */
 export function personaRateProvenance(ids: Iterable<string>): PersonaRateProvenance {
-  const rates = [...new Set(ids)].filter((id) => MODEL_PROVENANCE[id] && !REFERENCE_RATE_IDS.has(id)).sort();
+  const rates = [...new Set(ids)].filter((id) => MODEL_PROVENANCE[id] && !REFERENCE_RATE_IDS.has(id) && !DISPERSION_ID.test(id)).sort();
   return { ...provenanceSummary(rates, PERSONA_RATE_PROVENANCE_TEXT), rates };
 }
 

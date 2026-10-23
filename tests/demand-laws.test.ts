@@ -30,7 +30,7 @@ import {
   noviceSearchSeconds, hickHymanSeconds, choosingSeconds, wordsReadingSeconds, lettersReadingSeconds, readingSeconds,
   klmSeconds, timeDemand, rateCapacity, pointingCapacity, readingCapacity, measuredRate, type MeasuredPopulation,
 } from "../src/visual/demand-laws.js";
-import { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES, computeReadingDifficulty, type ReadingProfile } from "../src/visual/cognitive-models.js";
+import { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES, computeReadingDifficulty, getPointingProfile, type ReadingProfile } from "../src/visual/cognitive-models.js";
 
 const SRC = join(import.meta.dir, "..", "src", "visual", "demand-laws.ts");
 const close = (a: number, b: number, eps = 1e-9) => expect(Math.abs(a - b)).toBeLessThan(eps);
@@ -317,9 +317,11 @@ describe("profile registry (provenance/profiles.ts)", () => {
   test("pinned, unique, profile-prefixed, all hypotheses saying what would set them", () => {
     // 18 at registration (2a); 16 once the neurotypical and tremor throughputs
     // came from the measured rates in provenance/laws.ts; 15 once the ADHD
-    // profile took the reference rate.
-    expect(PROFILE_PROVENANCE.length).toBe(15);
-    expect(new Set(profileIds).size).toBe(15);
+    // profile took the reference rate; 25 with the endpoint dispersion (four
+    // sigmas, four rhos, the two motorPrecision weights) the hit-probability
+    // audit reads.
+    expect(PROFILE_PROVENANCE.length).toBe(25);
+    expect(new Set(profileIds).size).toBe(25);
     for (const e of PROFILE_PROVENANCE) {
       expect(e.id.startsWith("profile.")).toBe(true);
       expect(MODEL_PROVENANCE[e.id]).toBe(e);
@@ -346,7 +348,9 @@ describe("profile registry (provenance/profiles.ts)", () => {
   const NEUTRAL = { text: "a cat sat on the mat", fontSize: 16, lineHeight: 1.5, fontFamily: "sans-serif", isSerif: false, contrastRatio: 21 };
   const PROBE: ReadingProfile = { orthographic: 1, phonological: 0, visualSpan: 1, vocabulary: 1, crowding: 0 };
   const profileOutputs = () => [
-    ...Object.values(KNOWN_POINTING_PROFILES).map((p) => p.throughput),
+    ...Object.values(KNOWN_POINTING_PROFILES).flatMap((p) => [p.throughput, p.sigmaX, p.sigmaY, p.rho]),
+    // A persona with no named profile: its dispersion interpolates on the motorPrecision weights.
+    ...Object.values(getPointingProfile({ name: "custom-anyone", traits: { proceduralFluency: 0.3, patience: 0.7 } })),
     ...Object.values(KNOWN_READING_PROFILES).flatMap((p) => [p.phonological, p.visualSpan]),
     computeReadingDifficulty(NEUTRAL.text, PROBE, NEUTRAL).difficulty,
     computeReadingDifficulty(NEUTRAL.text, PROBE, NEUTRAL).fixationDuration,
@@ -358,7 +362,8 @@ describe("profile registry (provenance/profiles.ts)", () => {
     const read = stopProvenanceRecording();
     expect(profileIds.filter((id) => !read.has(id))).toEqual([]);
     const base = JSON.stringify(profileOutputs());
-    const dead = PROFILE_PROVENANCE.filter((e) => JSON.stringify(withParamOverrides({ [e.id]: e.value * 1.1 }, profileOutputs)) === base);
+    // A zero (rho 0) is nudged, not scaled.
+    const dead = PROFILE_PROVENANCE.filter((e) => JSON.stringify(withParamOverrides({ [e.id]: e.value === 0 ? 0.1 : e.value * 1.1 }, profileOutputs)) === base);
     expect(dead.map((e) => e.id)).toEqual([]);
   });
 
