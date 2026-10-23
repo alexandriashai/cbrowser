@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.1.1](https://github.com/alexandriashai/cbrowser/compare/v20.1.0...v20.1.1) (2026-10-23)
+
+### Fixed
+
+* **journey:** refuse evaluate_script on a session running a cognitive journey ([7d3becd](https://github.com/alexandriashai/cbrowser/commit/7d3becd5f9403e2bd9701cd43b38851ceb673b46))
+
 ## [20.1.0](https://github.com/alexandriashai/cbrowser/compare/v20.0.3...v20.1.0) (2026-10-23)
 
 ### Added
