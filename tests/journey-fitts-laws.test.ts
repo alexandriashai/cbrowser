@@ -11,7 +11,10 @@
  *   - the move is from the screen's centre (Stage B's pointer start) to the
  *     centre of the element the action names, found in the journey's own list
  *     of clickables, and the width is the smaller of its width and height
- *     (SMALLER-OF), as Stage B measures pointing;
+ *     (SMALLER-OF), as Stage B measures pointing. An element below or above
+ *     the current screen is measured from the centre of the screen it is
+ *     seen on once scrolled to, the screen-sized band of the page that holds
+ *     its centre (Stage B's full-page tiling);
  *   - an action whose element is not in that list falls back to
  *     journey.fitts.unlocatedDistancePx and .unlocatedTargetWidthPx, both
  *     hypotheses; scrolls, typed URLs and the other actions move no pointer
@@ -34,6 +37,7 @@ const { MODEL_PROVENANCE, startProvenanceRecording, stopProvenanceRecording } = 
 const T = await import("../src/types.js");
 const { runScenario, WORLD } = await import("./fixtures/journey-scenarios.js");
 const { VIEWPORT } = await import("./fixtures/journey-world.js");
+const { distanceToScreenCentre } = await import("../src/visual/demand-laws.js");
 
 const v = (id: string) => MODEL_PROVENANCE[id]?.value;
 const MS = 1000;
@@ -45,12 +49,12 @@ const TREMOR = 2 / v("journey.fitts.jitterScale");
 const motor = (distance: number, width: number) =>
   (v("law.fitts.intercept") * MS + v("law.fitts.slope") * MS * Math.log2(distance / Math.max(width, v("law.fitts.minWidth")) + 1)) * AGE * (1 + TREMOR * v("journey.fitts.tremorGain"));
 
-async function hoverDelays(action: string) {
+async function hoverDelays(action: string, startUrl = U("/")) {
   startProvenanceRecording();
   try {
     const r = await runScenario({
       name: "fitts-probe",
-      options: { persona: "power-user", goal: "Look at the menu", startUrl: U("/"), temporalContext: { now: "2026-10-21T10:00:00Z", timezone: "UTC" }, maxSteps: 1 },
+      options: { persona: "power-user", goal: "Look at the menu", startUrl, temporalContext: { now: "2026-10-21T10:00:00Z", timezone: "UTC" }, maxSteps: 1 },
       steps: [{ phase: "decide", monologue: "hover", action }],
     });
     return { delays: r.delays, gaze: (r.result as { finalState: { gazeMouseLag: number } }).finalState.gazeMouseLag };
@@ -88,6 +92,20 @@ describe("journey pointing time", () => {
     const distance = Math.hypot(box.x + box.width / 2 - VIEWPORT.width / 2, box.y + box.height / 2 - VIEWPORT.height / 2);
     expect(distance).toBe(365);
     const { delays, gaze } = await hoverDelays("hover:Pricing");
+    expect(delays).toContain(motor(distance, Math.min(box.width, box.height)) + gaze);
+  });
+
+  test("a hover on a listed element below the fold is measured from the centre of the screen it is seen on, as Stage B tiles a full page", async () => {
+    // Enterprise pricing: 160 x 30 at (100, 1200) on the pricing page, so its
+    // centre (180, 1215) is below the 800 px screen. On the second screen
+    // (800 to 1600, centre 1200) it is 460 px across and 15 px down; from the
+    // centre of the first screen it would be 936 px, most of it the scroll.
+    const box = WORLD[U("/pricing")].elements.find((e: { selector: string }) => e.selector === "#enterprise")!;
+    const view = { viewportWidth: VIEWPORT.width, viewportHeight: VIEWPORT.height, scrollY: 0 };
+    const distance = distanceToScreenCentre(box, view, "full_page");
+    expect(distance).toBe(Math.hypot(180 - 640, 1215 - 1200));
+    expect(distance).toBeLessThan(distanceToScreenCentre(box, view, "viewport"));
+    const { delays, gaze } = await hoverDelays("hover:Enterprise pricing", U("/pricing"));
     expect(delays).toContain(motor(distance, Math.min(box.width, box.height)) + gaze);
   });
 
