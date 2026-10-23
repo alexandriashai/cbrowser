@@ -820,8 +820,13 @@ export function computeReadingDifficulty(
   // Total fixation duration per word
   const totalFixation = baseFixation + orthoPenalty + phonoPenalty + spanPenalty + vocabPenalty + crowdingPenalty + fontPenalty + contrastPenalty;
 
-  // Words per minute
-  const wpm = Math.round(60000 / totalFixation);
+  // Words per minute, against the one reference reader: 238 wpm
+  // (law.reading.wpm) x the neurotypical profile's neutral per-word time over
+  // this block's, so a neurotypical reader on neutral text shows 238 and every
+  // penalty slows it from there. 60000 / totalFixation put that reader at 222
+  // wpm, because the fixation model's base is a fixation duration (250 ms), not
+  // a measured time per word.
+  const wpm = Math.round(pp("law.reading.wpm") * perWordMs(KNOWN_READING_PROFILES.neurotypical) / totalFixation);
 
   // Normalize difficulty: the base time = 0.0 (fluent), base + 500ms+ = 1.0 (severe)
   const difficulty = Math.max(0, Math.min(1, (totalFixation - baseFixation) / 500));
@@ -838,7 +843,7 @@ export function computeReadingDifficulty(
      * threshold, so a component that evaluated to 0 is simply absent from it --
      * and absent is indistinguishable from not modelled at all. That is exactly
      * how `crowdingSensitivity` came to be reported as a trait that does
-     * nothing: it is weighted at 0.15 in readingCapacityOf AND priced here, but
+     * nothing: it was weighted at 0.15 in readingCapacityOf (not since Stage B) AND priced here, but
      * Pelli's critical-spacing effect only begins below 16px, and every page
      * tested set its body text at 16px or larger. Measured on 13px text it
      * discriminates cleanly -- adhd +6ms, dyslexic +17ms, low-vision +21ms,

@@ -35,6 +35,7 @@ async function readFor(name: string, fontSize: number) {
   const r = readability(block(fontSize), { name, accessibilityTraits: acc } as never);
   return r.blocks[0] as unknown as {
     penalties: string[];
+    fixationDuration: number;
     penaltyBreakdown: Record<string, number>;
     wordsPerMinute: number;
   };
@@ -86,16 +87,21 @@ describe("crowdingSensitivity is modelled, and now visibly so (BUG-12)", () => {
   test("the components sum to the fixation duration they explain", async () => {
     const b = await readFor("dyslexic-user", 13);
     const sum = Object.values(b.penaltyBreakdown).reduce((a, v) => a + v, 0);
-    // Within rounding of the reported WPM's implied duration.
-    expect(Math.abs(sum - 60000 / b.wordsPerMinute)).toBeLessThan(4);
+    // Within rounding of the duration the components explain. The reported wpm
+    // is 238 (the reference reader) x the neurotypical neutral time over it, not
+    // 60000 / duration, since Stage B.
+    expect(Math.abs(sum - b.fixationDuration)).toBeLessThan(4);
+    expect(Math.abs(b.wordsPerMinute - 238 * 270 / b.fixationDuration)).toBeLessThan(1);
   });
 
   test("the tool emits it with a note saying what a zero means", () => {
     const tool = readFileSync(join(SRC, "mcp-tools", "base", "persona-comparison-tools.ts"), "utf8");
     expect(tool).toContain("hardestBlockPenaltyMs");
     expect(tool).toContain("evaluated and does not apply");
-    // And states the second consumer, so "does it do anything" has a full answer.
-    expect(tool).toContain("0.15 weight into readingCapacity");
+    // And says where crowding does and does not reach, so "does it do anything"
+    // has a full answer: not readingCapacity since Stage B, only this audit.
+    expect(tool).not.toContain("0.15 weight into readingCapacity");
+    expect(tool).toContain("crowdingSensitivity does not enter readingCapacity");
   });
 });
 

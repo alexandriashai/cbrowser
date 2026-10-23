@@ -1377,7 +1377,7 @@ Begin with the first persona: ${personas[0]}
               pointingInputs: {
                 fittsThroughput: Math.round(pp.throughput * 100) / 100,
                 endpointDispersionPx: Math.round(((pp.sigmaX + pp.sigmaY) / 2) * 10) / 10,
-                note: "throughput drives movementTimeMs; dispersion drives hitProbability. motorCapacity weights throughput at 0.75, so the `motor` layer and `hitProbability` legitimately rank personas differently.",
+                note: "throughput drives movementTimeMs; dispersion drives hitProbability. motorCapacity is throughput / (throughput + 4.9 bits/s, the reference mouse throughput) and does not read dispersion, so the `motor` layer and `hitProbability` legitimately rank personas differently.",
               },
               note: "These two are additive and unweighted against each other. There is no empirical basis for a relative weighting between acquiring a target and executing a sequence, so none is applied - see MOTOR_LAYER_WEIGHTS, both 1.0 and marked uncalibrated.",
             };
@@ -1434,7 +1434,7 @@ Begin with the first persona: ${personas[0]}
             ...(readabilityResult.blocks.length > 0 ? {
               hardestBlockPenaltyMs: (readabilityResult.blocks as Array<{ difficulty: number; penaltyBreakdown: Record<string, number> }>)
                 .reduce((worst, b) => b.difficulty > worst.difficulty ? b : worst).penaltyBreakdown,
-              penaltyNote: "hardestBlockPenaltyMs carries every component, including those that came to 0. A 0 means the component was evaluated and does not apply to this text -- crowding, for one, only begins below 16px (Pelli et al. 2004) -- not that it is unmodelled. crowdingSensitivity additionally carries a 0.15 weight into readingCapacity, which reaches the readability layer at every font size.",
+              penaltyNote: "hardestBlockPenaltyMs carries every component, including those that came to 0. A 0 means the component was evaluated and does not apply to this text -- crowding, for one, only begins below 16px (Pelli et al. 2004) -- not that it is unmodelled. Since Stage B crowdingSensitivity does not enter readingCapacity: that is a rate ratio, from the persona's registered reading rate or, for a custom persona that states a reading profile, the fixation model's text-independent terms (base, phonological, visual span). Crowding is priced only here, in this audit's per-block time below 16px.",
             } : {}),
           },
         } : {}),

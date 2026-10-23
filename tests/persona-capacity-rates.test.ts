@@ -20,11 +20,11 @@
 import { describe, test, expect } from "bun:test";
 import {
   bridgeCapacityTraits, getPointingProfile, getReadingProfile, motorCapacityOf, readingCapacityOf, readingRateRatioOf,
-  registeredPersonaRate, motorAccessibility, readability, personaRateContext, KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES,
+  registeredPersonaRate, motorAccessibility, readability, personaRateContext, computeReadingDifficulty, KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES,
 } from "../src/visual/cognitive-models.js";
 import { MODEL_PROVENANCE, param } from "../src/visual/model-provenance.js";
 import { PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE } from "../src/visual/provenance/persona-rates.js";
-import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../src/personas.js";
+import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS, generatePersonaFromDescription } from "../src/personas.js";
 import { collectPersonaReads, personaRateProvenance, startProvenanceRecording, stopProvenanceRecording, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import fc from "fast-check";
@@ -139,12 +139,13 @@ describe("capacities are rate ratios against one reference per channel", () => {
     fc.assert(fc.property(fc.double({ min: 0.01, max: 20, noNaN: true }), fc.double({ min: 0.01, max: 20, noNaN: true }), (a, b) => {
       const [lo, hi] = a <= b ? [a, b] : [b, a];
       const p = (throughput: number) => ({ sigmaX: 4, sigmaY: 4, rho: 0, throughput });
-      return motorCapacityOf(p(lo)) <= motorCapacityOf(p(hi));
+      // 1e-12: adjacent doubles can invert by an ulp (found: 19.99999999999995 vs ...954).
+      return motorCapacityOf(p(lo)) <= motorCapacityOf(p(hi)) + 1e-12;
     }));
     fc.assert(fc.property(fc.double({ min: 0, max: 1, noNaN: true }), fc.double({ min: 0, max: 1, noNaN: true }), fc.integer({ min: 1, max: 12 }), (a, b, span) => {
       const [lo, hi] = a <= b ? [a, b] : [b, a];
       const p = (phonological: number) => ({ orthographic: 0.8, phonological, visualSpan: span, vocabulary: 0.8, crowding: 0.2 });
-      return readingCapacityOf(p(lo)) <= readingCapacityOf(p(hi));
+      return readingCapacityOf(p(lo)) <= readingCapacityOf(p(hi)) + 1e-12;
     }));
   });
 });
@@ -292,5 +293,33 @@ describe("custom personas take the built-ins' rule (customRate.*)", () => {
   test("personaRateContext reads a stored persona's description and age range", () => {
     expect(personaRateContext({ description: "x", demographics: { age_range: "65+" } })).toEqual({ description: "x", ageRange: "65+" });
     expect(personaRateContext({ description: 3 })).toEqual({ description: undefined, ageRange: undefined });
+  });
+});
+
+describe("every reading rate a customer sees is 238 wpm x the persona's share", () => {
+  const wpm = (share: number) => Math.round(param("law.reading.wpm") * share);
+  type Timed = { humanBehavior?: { timing?: { readingSpeed?: number } } };
+
+  test("each built-in persona's humanBehavior.timing.readingSpeed is 238 x its registered reading share", () => {
+    const shown = Object.fromEntries(NAMES.map((n) => [n, (ROSTER[n] as unknown as Timed).humanBehavior?.timing?.readingSpeed]));
+    for (const n of NAMES) expect({ n, wpm: shown[n] }).toEqual({ n, wpm: wpm(share(n, "reading")) });
+    // The unsourced 400 (power-user) is now the reference, no measured difference; dyslexic-user is Callens' ratio.
+    expect([shown["power-user"], shown["dyslexic-user"], shown["low-vision-magnified"], shown["elderly-user"]]).toEqual([238, 180, 130, 203]);
+  });
+
+  test("a persona generated from a description reads at 238 x the custom-persona rule's share", () => {
+    const speed = (d: string) => generatePersonaFromDescription("my-persona", d).humanBehavior.timing.readingSpeed;
+    expect(speed("an impatient expert in a rush")).toBe(238);
+    expect(speed("an elderly retiree")).toBe(238);
+    expect(speed("an adult with dyslexia")).toBe(wpm(184.63 / 243.64));
+    expect(speed("uses screen magnification")).toBe(130);
+  });
+
+  test("the readability audit's words per minute: 238 for a neurotypical reader on neutral text, slower with every penalty", () => {
+    const NEUTRAL = { text: "a cat sat on the mat", fontSize: 16, lineHeight: 1.5, fontFamily: "sans-serif", isSerif: false, contrastRatio: 21 };
+    expect(computeReadingDifficulty(NEUTRAL.text, { ...KNOWN_READING_PROFILES.neurotypical }, NEUTRAL).wordsPerMinute).toBe(238);
+    expect(computeReadingDifficulty(NEUTRAL.text, { ...KNOWN_READING_PROFILES.dyslexic }, NEUTRAL).wordsPerMinute).toBe(Math.round(238 * 270 / 375));
+    const small = computeReadingDifficulty(NEUTRAL.text, { ...KNOWN_READING_PROFILES.dyslexic }, { ...NEUTRAL, fontSize: 12, isSerif: true, contrastRatio: 3 });
+    expect(small.wordsPerMinute).toBeLessThan(Math.round(238 * 270 / 375));
   });
 });
