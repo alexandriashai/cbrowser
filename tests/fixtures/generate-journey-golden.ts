@@ -1,6 +1,7 @@
 /**
  * Write the journey goldens from the CURRENT journey code.
  *
+ *   bun tests/fixtures/generate-journey-golden.ts            scripted world -> golden-journey-world.json
  *   bun tests/fixtures/generate-journey-golden.ts --browser  real browser   -> golden-journey-browser.json
  *
  * Run once on the code whose behaviour is to be pinned; never re-run to make
@@ -44,6 +45,14 @@ if (import.meta.main) {
     } finally {
       await server.close();
     }
+  } else {
+    const { runAllScenarios, SCENARIOS } = await import("./journey-scenarios.js");
+    const { runHelperSweeps } = await import("./journey-sweeps.js");
+    const runs = await runAllScenarios();
+    const sweeps = await runHelperSweeps();
+    const out = join(import.meta.dir, "golden-journey-world.json");
+    writeFileSync(out, JSON.stringify({ runs, sweeps }, null, 1));
+    console.log(`wrote ${out}: ${SCENARIOS.length} journeys + ${Object.keys(sweeps).length} helper sweeps, ${countPinnable({ runs, sweeps })} numbers`);
   }
   process.exit(0);
 }

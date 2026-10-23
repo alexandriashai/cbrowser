@@ -73,6 +73,7 @@ import {
   classifyUIPattern,
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
+import type { CBrowserConfig } from "../config.js";
 import { writeSecretFile } from "../secure-file.js";
 import { uniqueStamp } from "../temp-files.js";
 import { semanticWeightTable } from "../visual/attention-transport.js";
@@ -852,6 +853,12 @@ export interface CognitiveJourneyOptions {
    * `replayTrace`. Mainly for tests (deterministic fakes, no network).
    */
   decisionProvider?: DecisionProvider;
+  /**
+   * Build the browser the journey drives, in place of `new CBrowser(config)`.
+   * For tests: with a scripted page world and a decisionProvider, the whole
+   * loop runs without Chromium or a model (tests/fixtures/journey-world.ts).
+   */
+  createBrowser?: (config: Partial<CBrowserConfig>) => CBrowser;
 }
 
 export interface CognitiveStep {
@@ -1176,7 +1183,7 @@ export async function runCognitiveJourney(
     browserConfig.viewportOverride = options.viewport;
   }
 
-  const browser = new CBrowser(browserConfig);
+  const browser = options.createBrowser ? options.createBrowser(browserConfig) : new CBrowser(browserConfig);
 
   // Helper that re-injects the mouse overlay. The overlay script is idempotent
   // (gates on window.__cbHelperInstalled), so calling this after every navigation
