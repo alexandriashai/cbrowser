@@ -17,13 +17,18 @@
  *
  * The status is read from the registry per value, not assumed: a value the
  * registry records as something other than a hypothesis is named in
- * `statuses`, and the block's own status is then that status or "mixed".
+ * `statuses`, and the block's own status is then that status or "mixed". A
+ * norm-anchored value (NORM_ANCHORS: the percentile a published population
+ * mean implies on a normed instrument) stays a hypothesis but is not set by
+ * hand, so it is named in `anchored` with its source and interval, and the
+ * note does not call it hand-set.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 import { MODEL_PROVENANCE, type ProvenanceEntry, type ProvenanceStatus } from "../visual/model-provenance.js";
-import { PERSONA_TABLES } from "../visual/provenance/personas.js";
+import { PERSONA_TABLES, NORM_ANCHORS } from "../visual/provenance/personas.js";
+import { _normalCDF as Phi } from "../visual/cognitive-models.js";
 
 export const CUSTOM_LABEL = "custom (user-set)";
 
@@ -32,6 +37,24 @@ export interface TraitCitation {
   cite: string;
   /** What it is cited for, in personas.ts's own terms. */
   for: string;
+}
+
+/** A norm-anchored value: where the number comes from, compactly. */
+export interface TraitAnchor {
+  /** The source, as provenance/personas.ts names it. */
+  cite: string;
+  /** Where the number is printed in the source, and the number as printed. */
+  reported: string;
+  /** The value's interval from the source's 95% CI, Phi(zLo) to Phi(zHi), three decimals. */
+  interval: [number, number];
+}
+
+/** The anchor behind `<persona>.<trait>`, or undefined for a value set by hand. */
+export function anchorOf(persona: string, trait: string): TraitAnchor | undefined {
+  const a = NORM_ANCHORS[`${persona}.${trait}`];
+  if (!a) return undefined;
+  const r3 = (x: number) => Math.round(x * 1000) / 1000;
+  return { cite: a.cite, reported: a.reported, interval: [r3(Phi(a.zLo)), r3(Phi(a.zHi))] };
 }
 
 export interface TraitProvenance {
@@ -48,6 +71,8 @@ export interface TraitProvenance {
   unset?: string[];
   /** Per trait, a registry status other than hypothesis. Absent while every value is a hypothesis. */
   statuses?: Record<string, ProvenanceStatus>;
+  /** Per trait, a value norm-anchored to a published population mean rather than set by hand. Built-in personas only. */
+  anchored?: Record<string, TraitAnchor>;
 }
 
 /**
@@ -123,6 +148,7 @@ export function traitProvenance(
 
   const cited: Record<string, TraitCitation> = {};
   const statuses: Record<string, ProvenanceStatus> = {};
+  const anchored: Record<string, TraitAnchor> = {};
   const seen = new Set<ProvenanceStatus>();
   for (const t of set) {
     const e = registry[`persona.${name}.${t}`];
@@ -131,12 +157,22 @@ export function traitProvenance(
     if (e.status !== "hypothesis") statuses[t] = e.status;
     const c = citationOf(e.source);
     if (c) cited[t] = c;
+    const a = anchorOf(name, t);
+    if (a) anchored[t] = a;
   }
   const status: TraitProvenance["status"] = seen.size === 1 ? [...seen][0] : seen.size === 0 ? "hypothesis" : "mixed";
   const others = Object.keys(statuses).length;
+  const anchors = Object.keys(anchored).length;
+  // "Set by hand" is the hypothesis gloss; a norm-anchored value is a
+  // hypothesis that was not set by hand, so the sentence names the exception.
+  const hypothesisGloss = anchors
+    ? `registered as a hypothesis: set by hand, except ${anchors} norm-anchored to a published population mean on a normed instrument (marked anchored), which stay${anchors === 1 ? "s a hypothesis" : " hypotheses"} because mapping the instrument onto the trait is cbrowser's choice`
+    : STATUS_GLOSS.hypothesis;
   const body = status === "mixed"
-    ? `Built into the package. ${set.size - others} of ${set.size} values are ${STATUS_GLOSS.hypothesis}; the rest are named in statuses, each with its registry status.`
-    : `Built into the package. Each value is ${STATUS_GLOSS[status as ProvenanceStatus]} (persona.${name}.<trait> in MODEL_PROVENANCE)${status === "hypothesis" ? ", with the measure that would test it" : ""}.`;
+    ? `Built into the package. ${set.size - others} of ${set.size} values are ${hypothesisGloss}; the rest are named in statuses, each with its registry status.`
+    : status === "hypothesis"
+      ? `Built into the package. Each value is ${hypothesisGloss} (persona.${name}.<trait> in MODEL_PROVENANCE), with the measure that would test it.`
+      : `Built into the package. Each value is ${STATUS_GLOSS[status as ProvenanceStatus]} (persona.${name}.<trait> in MODEL_PROVENANCE).`;
   return {
     status,
     label: status,
@@ -144,6 +180,7 @@ export function traitProvenance(
     ...(Object.keys(cited).length ? { cited } : {}),
     ...(unset.length ? { unset } : {}),
     ...(others ? { statuses } : {}),
+    ...(anchors ? { anchored } : {}),
   };
 }
 
@@ -151,7 +188,12 @@ export interface BuiltinTraitValue {
   persona: string;
   value: number;
   status: ProvenanceStatus;
-  /** The citation beside the value and what it is cited for, as one line a table cell can hold. */
+  /** How the number was chosen. A norm-anchored value is still a hypothesis. */
+  basis: "set by hand" | "norm-anchored";
+  /**
+   * As one line a table cell can hold: the anchor's source and the value's
+   * interval, or the citation beside a hand-set value and what it is cited for.
+   */
   citation?: string;
 }
 
@@ -172,8 +214,10 @@ export function builtinTraitValues(
       if (typeof v !== "number") continue;
       const e = registry[`persona.${persona}.${trait}`];
       if (!e) continue;
+      const a = anchorOf(persona, trait);
       const c = citationOf(e.source);
-      out.push({ persona, value: v, status: e.status, ...(c ? { citation: `${c.cite}, cited for ${c.for}` } : {}) });
+      const citation = a ? `${a.cite}; value interval ${a.interval[0]}-${a.interval[1]}` : c ? `${c.cite}, cited for ${c.for}` : undefined;
+      out.push({ persona, value: v, status: e.status, basis: a ? "norm-anchored" : "set by hand", ...(citation ? { citation } : {}) });
     }
   }
   return out.sort((a, b) => a.value - b.value || a.persona.localeCompare(b.persona));
@@ -186,11 +230,17 @@ export function builtinTraitValues(
  */
 export function traitScaleNote(values: BuiltinTraitValue[]): string {
   const hyp = values.filter((v) => v.status === "hypothesis").length;
-  const cited = values.filter((v) => v.citation).length;
+  const anchored = values.filter((v) => v.basis === "norm-anchored").length;
+  const cited = values.filter((v) => v.basis === "set by hand" && v.citation).length;
+  const hand = values.length - anchored;
   const where = values.length === 0
     ? "No built-in persona sets this trait."
     : hyp === values.length
-      ? `All ${values.length} built-in personas' values on it are set by hand and registered as hypotheses${cited ? `; ${cited} cite a finding for the direction of the persona's difference, not for the number` : ""}.`
-      : `${hyp} of the ${values.length} built-in personas' values on it are set by hand and registered as hypotheses; builtinValues gives each one's status.`;
-  return "The scale source (researchBasis) names the work this trait's scale is drawn from: it says what the scale means. The level labels and behaviours were written by hand for cbrowser, and no instrument places a person on this 0-1 scale. " + where;
+      ? `All ${values.length} built-in personas' values on it are registered as hypotheses. `
+        + (anchored
+          ? `${hand} are set by hand and ${anchored} norm-anchored: the percentile a published population mean implies on a normed instrument, mapped onto this scale by cbrowser`
+          : "Each is set by hand")
+        + `${cited ? `; ${cited} of the hand-set values cite a finding for the direction of the persona's difference, not for the number` : ""}.`
+      : `${hyp} of the ${values.length} built-in personas' values on it are registered as hypotheses; builtinValues gives each one's status and basis.`;
+  return "The scale source (researchBasis) names the work this trait's scale is drawn from: it says what the scale means. The level labels and behaviours were written by hand for cbrowser, and the 0-1 scale is cbrowser's own: no instrument reports on it. " + where;
 }

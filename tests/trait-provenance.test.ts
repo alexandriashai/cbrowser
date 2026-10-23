@@ -69,26 +69,46 @@ describe("citationOf reads the citation personas.ts places beside a value", () =
     expect(wrong).toEqual([]);
   });
 
-  test("the Kofler citation on cognitive-adhd.workingMemory comes out whole", () => {
-    const c = citationOf(MODEL_PROVENANCE["persona.cognitive-adhd.workingMemory"].source);
-    expect(c?.cite).toContain("Kofler et al. 2020");
-    expect(c?.for).toContain("central-executive working-memory impairment");
+  test("a citation with a note after it comes out whole: Pachur & Hertwig on low-vision-magnified.satisficing", () => {
+    const c = citationOf(MODEL_PROVENANCE["persona.low-vision-magnified.satisficing"].source);
+    expect(c?.cite).toBe("Pachur & Hertwig 2006 (J Exp Psychol Learn Mem Cogn 32(5):983-1002)");
+    expect(c?.for).toBe("limited information access increasing satisficing");
   });
 });
 
 describe("traitProvenance", () => {
   test("a built-in persona's values are hypotheses, with their citations and its unset traits", () => {
+    const rec = getAnyPersona("dyslexic-user")!;
+    const shown = getCognitiveProfile(rec as never).traits as unknown as Record<string, number>;
+    const p = traitProvenance("dyslexic-user", rec, shown, "cognitiveTraits");
+    expect(p.status).toBe("hypothesis");
+    expect(p.label).toBe("hypothesis");
+    expect(p.cited?.workingMemory?.cite).toContain("de Jong 2006");
+    // Every cited trait is a registered hypothesis for this persona.
+    for (const t of Object.keys(p.cited ?? {})) expect(MODEL_PROVENANCE[`persona.dyslexic-user.${t}`]?.status).toBe("hypothesis");
+    // A shown value the persona does not set is the model default, not a registered value.
+    for (const t of p.unset ?? []) expect(MODEL_PROVENANCE[`persona.dyslexic-user.${t}`]).toBeUndefined();
+    expect(p.note).toMatch(/Each value is set by hand and registered as a hypothesis/);
+    expect(p.anchored).toBeUndefined();
+  });
+
+  test("a norm-anchored value is named with its source and interval, and the note stops calling it hand-set", () => {
     const rec = getAnyPersona("cognitive-adhd")!;
     const shown = getCognitiveProfile(rec as never).traits as unknown as Record<string, number>;
     const p = traitProvenance("cognitive-adhd", rec, shown, "cognitiveTraits");
+    // Still a hypothesis in the registry: the instrument-to-trait mapping is cbrowser's.
     expect(p.status).toBe("hypothesis");
-    expect(p.label).toBe("hypothesis");
-    expect(p.cited?.workingMemory?.cite).toContain("Kofler");
-    // Every cited trait is a registered hypothesis for this persona.
-    for (const t of Object.keys(p.cited ?? {})) expect(MODEL_PROVENANCE[`persona.cognitive-adhd.${t}`]?.status).toBe("hypothesis");
-    // A shown value the persona does not set is the model default, not a registered value.
-    for (const t of p.unset ?? []) expect(MODEL_PROVENANCE[`persona.cognitive-adhd.${t}`]).toBeUndefined();
-    expect(p.note).toMatch(/set by hand/);
+    const anchored = PERSONA_PROVENANCE_KEYS.normAnchors.filter((k) => k.startsWith("cognitive-adhd.")).map((k) => k.split(".")[1]);
+    expect(Object.keys(p.anchored ?? {}).sort()).toEqual(anchored.sort());
+    const wm = p.anchored!.workingMemory;
+    expect(wm.cite).toContain("Wilson AC 2024");
+    const v = (rec as { cognitiveTraits: Record<string, number> }).cognitiveTraits.workingMemory;
+    expect(wm.interval[0]).toBeLessThanOrEqual(v);
+    expect(wm.interval[1]).toBeGreaterThanOrEqual(v);
+    // An anchored value is not also shown as a hand-set value with a citation.
+    expect(p.cited?.workingMemory).toBeUndefined();
+    expect(p.note).not.toMatch(/Each value is set by hand and registered/);
+    expect(p.note).toMatch(/set by hand, except 1 norm-anchored to a published population mean/);
   });
 
   test("a custom persona's values are custom (user-set), never hypotheses", () => {
@@ -119,7 +139,7 @@ describe("the persona tools carry the block", () => {
   test("persona_lookup: built-in traits and accessibility traits say hypothesis; a custom persona says custom", async () => {
     const adhd = await call("persona_lookup", { persona: "cognitive-adhd" });
     expect(adhd.traitProvenance.status).toBe("hypothesis");
-    expect(adhd.traitProvenance.cited.workingMemory.cite).toContain("Kofler");
+    expect(adhd.traitProvenance.anchored.workingMemory.cite).toContain("Wilson AC 2024");
     expect(adhd.accessibilityProvenance.status).toBe("hypothesis");
     const custom = await call("persona_lookup", { persona: CUSTOM });
     expect(custom.traitProvenance.status).toBe("custom");
@@ -167,10 +187,14 @@ describe("each value's status is read from the registry, not assumed", () => {
   });
 
   test("the trait view's sentence stops saying 'all hypotheses' once one is not", () => {
-    expect(traitScaleNote(builtinTraitValues("patience"))).toMatch(/^The scale source \(researchBasis\) names .* All \d+ built-in personas' values on it are set by hand and registered as hypotheses/);
+    expect(traitScaleNote(builtinTraitValues("patience"))).toMatch(/^The scale source \(researchBasis\) names .* All \d+ built-in personas' values on it are registered as hypotheses\. Each is set by hand/);
+    // workingMemory carries norm-anchored values: the sentence names them, never "each is set by hand".
+    const wm = traitScaleNote(builtinTraitValues("workingMemory"));
+    expect(wm).toMatch(/\d+ are set by hand and \d+ norm-anchored/);
+    expect(wm).not.toMatch(/Each is set by hand/);
     const mixed = traitScaleNote(builtinTraitValues("patience", withFitted));
     expect(mixed).not.toMatch(/All \d+ built-in/);
-    expect(mixed).toMatch(/of the \d+ built-in personas' values on it are set by hand/);
+    expect(mixed).toMatch(/of the \d+ built-in personas' values on it are registered as hypotheses; builtinValues gives each one's status and basis/);
   });
 });
 
@@ -182,9 +206,13 @@ describe("builtinTraitValues: where the shipped personas sit on one trait's scal
     expect(rows.map((r) => r.persona).sort()).toEqual(expected);
     for (let i = 1; i < rows.length; i++) expect(rows[i].value).toBeGreaterThanOrEqual(rows[i - 1].value);
     for (const r of rows) expect(r.status).toBe(MODEL_PROVENANCE[`persona.${r.persona}.workingMemory`].status);
-    const cited = new Set(PERSONA_PROVENANCE_KEYS.valueCitations.filter((k) => k.endsWith(".workingMemory")).map((k) => k.split(".")[0]));
-    expect(new Set(rows.filter((r) => r.citation).map((r) => r.persona))).toEqual(cited);
-    expect(rows.find((r) => r.persona === "cognitive-adhd")?.citation).toMatch(/^Kofler et al\. 2020 .*, cited for .*working-memory impairment/);
+    const of = (keys: string[]) => new Set(keys.filter((k) => k.endsWith(".workingMemory")).map((k) => k.split(".")[0]));
+    const anchored = of(PERSONA_PROVENANCE_KEYS.normAnchors);
+    expect(anchored.size).toBeGreaterThan(0);
+    expect(new Set(rows.filter((r) => r.basis === "norm-anchored").map((r) => r.persona))).toEqual(anchored);
+    expect(new Set(rows.filter((r) => r.citation).map((r) => r.persona))).toEqual(new Set([...anchored, ...of(PERSONA_PROVENANCE_KEYS.valueCitations)]));
+    expect(rows.find((r) => r.persona === "cognitive-adhd")?.citation).toMatch(/^Wilson AC 2024, .*; value interval 0\.\d+-0\.\d+$/);
+    expect(rows.find((r) => r.persona === "dyslexic-user")?.citation).toMatch(/^de Jong 2006 .*, cited for /);
   });
 
   test("persona_trait_lookup carries them, and says what researchBasis does and does not cover", async () => {

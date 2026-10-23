@@ -268,6 +268,17 @@ describe("persona and trait views: each built-in value's status", () => {
       expect(v.text).toContain("registered as a hypothesis");
     }, 60000);
 
+  for (const { theme, width } of COMBOS)
+    test(`a norm-anchored value carries its own tag, ${theme} at ${width}px`, async () => {
+      const payload = await call("persona_lookup", { persona: "cognitive-adhd" });
+      const v = await render(ui.buildPersonaTemplate(), payload, theme, width,
+        { ready: ".pstatus", query: ["button.ptag"] });
+      expectSound(v, theme);
+      expect(Object.keys(payload.traitProvenance.anchored)).toContain("workingMemory");
+      expect(v.q["button.ptag"]).toContain("anchored");
+      expect(v.text).toContain("anchored: the value is the percentile a published population mean implies");
+    }, 60000);
+
   test("a custom persona reads custom (user-set), and its unset traits are marked default", async () => {
     const payload = await call("persona_lookup", { persona: "zz-prov-view-custom" });
     const v = await render(ui.buildPersonaTemplate(), payload, "dark", 393,
@@ -301,5 +312,9 @@ describe("persona and trait views: each built-in value's status", () => {
       // One row per built-in persona that sets the trait, each with its status.
       expect(v.q["details.drawer[open] .grid tbody tr"].length).toBe(payload.builtinValues.length);
       expect(v.q["details.drawer[open] .grid tbody tr"].every((r) => r.includes("hypothesis"))).toBe(true);
+      // Each row names how its number was chosen; the anchored ones say so.
+      const anchored = payload.builtinValues.filter((r: { basis: string }) => r.basis === "norm-anchored").length;
+      expect(anchored).toBeGreaterThan(0);
+      expect(v.q["details.drawer[open] .grid tbody tr"].filter((r) => r.includes("norm-anchored")).length).toBe(anchored);
     }, 60000);
 });

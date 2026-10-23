@@ -790,12 +790,12 @@ const CSS = `
   .pstatus{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .5rem;margin:0 0 .55rem;font-size:.79rem;color:var(--sub)}
   .pstatus .pchip{flex:0 0 auto}
   .pstatus span.ptext{flex:1 1 14rem;min-width:0}
-  .pslot{flex:0 0 3.6rem;display:flex;justify-content:flex-start}
+  .pslot{flex:0 0 4.4rem;display:flex;justify-content:flex-start}
   .ptag{font:650 .6rem/1.2 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:.14rem .3rem;
     border-radius:3px;border:1px solid var(--line);background:none;color:var(--ink);white-space:nowrap}
   button.ptag{cursor:help;text-decoration:underline dotted currentColor;text-underline-offset:2px}
   button.ptag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  @media (max-width:30rem){ .pslot{flex-basis:3.2rem} }
+  @media (max-width:30rem){ .pslot{flex-basis:4.1rem} }
   .foot{padding:0 18px 14px;font-size:.77rem;color:var(--sub)}
   .msg{padding:16px 18px;font-size:.85rem;color:var(--sub)}
   @media (max-width:420px){
@@ -1631,6 +1631,7 @@ const RUNTIME = String.raw`
     box.appendChild(el("span", "pchip " + String(p.status), String(p.label || p.status)));
     box.appendChild(el("span", "ptext", String(p.note || "")));
     var marks = [];
+    if (p.anchored && Object.keys(p.anchored).length) marks.push("anchored: the value is the percentile a published population mean implies on a normed instrument, still a hypothesis (select the tag for the source)");
     if (p.cited && Object.keys(p.cited).length) marks.push("cited: a finding is cited for the direction of this value, not for its number (select the tag for the source)");
     if (Array.isArray(p.unset) && p.unset.length) marks.push("default: the persona does not set this trait, so the model's default is shown");
     if (p.statuses && Object.keys(p.statuses).length) marks.push("a status name: that value's registry status differs from the line above");
@@ -1641,16 +1642,24 @@ const RUNTIME = String.raw`
     var slot = el("span", "pslot");
     if (!p) return slot;
     var cited = p.cited && p.cited[name];
+    var anch = p.anchored && p.anchored[name];
     var st = p.statuses && p.statuses[name];
     if (Array.isArray(p.unset) && p.unset.indexOf(name) >= 0) {
       slot.appendChild(el("span", "ptag", "default"));
-    } else if (cited) {
-      var btn = el("button", "ptag", "cited");
+    } else if (anch || cited) {
+      var word = anch ? "anchored" : "cited";
+      var btn = el("button", "ptag", word);
       btn.type = "button";
       btn.setAttribute("aria-describedby", "kit-tip");
-      btn.setAttribute("aria-label", "cited: source for " + titleize(name));
-      var info = { label: "Cited for direction" + (st ? " (" + st + ")" : ""),
-        description: String(cited.cite) + ", for " + String(cited["for"]) + ". That supports the direction of this persona's difference from typical users, not the number." };
+      btn.setAttribute("aria-label", word + ": source for " + titleize(name));
+      var iv = anch && Array.isArray(anch.interval) ? anch.interval : null;
+      var info = anch
+        ? { label: "Norm-anchored" + (st ? " (" + st + ")" : " (hypothesis)"),
+            description: String(anch.cite) + ". " + String(anch.reported) + "."
+              + (iv ? " Value interval " + iv[0] + " to " + iv[1] + "." : "")
+              + " Mapping the instrument onto this trait is cbrowser's choice, so the value stays a hypothesis." }
+        : { label: "Cited for direction" + (st ? " (" + st + ")" : ""),
+            description: String(cited.cite) + ", for " + String(cited["for"]) + ". That supports the direction of this persona's difference from typical users, not the number." };
       btn.addEventListener("mouseenter", function () { showTip(btn, info); });
       btn.addEventListener("focus", function () { showTip(btn, info); });
       btn.addEventListener("mouseleave", hideTip);

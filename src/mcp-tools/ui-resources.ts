@@ -554,7 +554,7 @@ export const TRAIT_SPEC: WidgetSpec = {
       type: "drawer",
       title: "Built-in personas on this scale",
       blocks: [{ type: "table", title: "Each built-in value and its status", field: "builtinValues",
-        columns: ["persona", "value", "status", "citation"] }],
+        columns: ["persona", "value", "status", "basis", "citation"] }],
     },
     {
       type: "drawer",
