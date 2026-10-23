@@ -151,23 +151,25 @@ function inputPage(log: string[]) {
 }
 
 /**
- * Run `fn` with Math.random cycling through values that reach the tails:
- * near 0 and near 1 (so a Box-Muller draw lands about 7 standard deviations
- * out and every clamp binds), and values just either side of each rate the
- * human-input timing rolls against (2%, 4%, 5%).
+ * Run `fn` with a seeded Math.random that half the time returns a value from
+ * the tails instead: near 0 and near 1 (a Box-Muller draw with u near 0 lands
+ * about 7 standard deviations out, so every clamp binds, on either side), and
+ * values just either side of each rate the human-input timing rolls against
+ * (2%, 4%, 5%). Mixed with a generator rather than cycled: a fixed cycle
+ * locks onto a loop that consumes a multiple of its length and then only
+ * ever shows each draw the same few values.
  */
-async function withTailRandom<T>(fn: () => Promise<T>): Promise<T> {
-  const real = Math.random;
-  // Odd length, so a pair (u, v) drawn by gauss starts on either parity; the
-  // tiny-tiny pair gives z of about +7.4 and tiny-then-half about -7.4.
-  const cycle = [1e-12, 1e-12, 0.5, 1e-12, 0.5, 1 - 1e-12, 0.25, 0.019, 0.039, 0.049, 0.75, 1e-4, 0.6, 0.021, 0.041, 0.051, 0.3, 0.999, 0.1];
-  let i = 0;
-  Math.random = () => cycle[i++ % cycle.length];
-  try {
-    return await fn();
-  } finally {
-    Math.random = real;
-  }
+async function withTailRandom<T>(seed: number, fn: () => Promise<T>): Promise<T> {
+  const tails = [1e-12, 1e-12, 1e-12, 1 - 1e-12, 0.019, 0.021, 0.039, 0.041, 0.049, 0.051];
+  return withSeededRandom(seed, async () => {
+    const prng = Math.random;
+    Math.random = () => (prng() < 0.5 ? tails[Math.floor(prng() * tails.length)] : prng());
+    try {
+      return await fn();
+    } finally {
+      Math.random = prng;
+    }
+  });
 }
 
 async function humanInputSweeps(): Promise<Record<string, unknown>> {
@@ -181,20 +183,22 @@ async function humanInputSweeps(): Promise<Record<string, unknown>> {
     // 0-1 (a direct caller may pass one) that widens the aim past the default target.
     { proceduralFluency: 0.3, motorPrecision: -1, patience: 0.42, readingTendency: 0.5 },
   ];
-  const drive = async (tr: (typeof traitSets)[number]) => {
+  // `reps` scales the run: the tail draws need enough calls that every
+  // alignment of the cycle with every Gaussian draw comes round.
+  const drive = async (tr: (typeof traitSets)[number], reps: number) => {
     const log: string[] = [];
     const page = inputPage(log) as never;
     const { delays } = await withVirtualTime(async () => {
-      await H.humanType(page, "Quick brown fox jumps over 12 lazy dogs", tr);
-      for (let k = 0; k < 60; k++) await H.humanClick(page, 400, 300, tr, k % 3 ? { width: 120, height: 40 } : undefined);
-      for (let k = 0; k < 60; k++) await H.humanScroll(page, k % 2 ? 400 : -400, tr);
-      for (let k = 0; k < 20; k++) await H.humanSettle(tr);
+      for (let k = 0; k < reps; k++) await H.humanType(page, "Quick brown fox jumps over 12 lazy dogs", tr);
+      for (let k = 0; k < 60 * reps; k++) await H.humanClick(page, 400, 300, tr, k % 3 ? { width: 120, height: 40 } : undefined);
+      for (let k = 0; k < 60 * reps; k++) await H.humanScroll(page, k % 2 ? 400 : -400, tr);
+      for (let k = 0; k < 20 * reps; k++) await H.humanSettle(tr);
     });
     return { log, delays };
   };
   for (const [i, tr] of traitSets.entries()) {
-    out[`set${i}`] = await withSeededRandom(17 + i, () => drive(tr));
-    out[`tails${i}`] = await withTailRandom(() => drive(tr));
+    out[`set${i}`] = await withSeededRandom(17 + i, () => drive(tr, 1));
+    out[`tails${i}`] = await withTailRandom(31 + i, () => drive(tr, 4));
   }
   return out;
 }
