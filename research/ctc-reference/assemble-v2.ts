@@ -3,7 +3,10 @@
  * from a crawl-v2 run.
  *
  *   bun research/ctc-reference/assemble-v2.ts --rows <crawl-v2-*.jsonl> --summary <crawl-v2-*.summary.json> \
- *     --crawl-tree <the frozen tree the crawl ran from> [--out src/data/ctc-reference-v2-<date>.ts]
+ *     --crawl-tree <the frozen tree the crawl ran from> [--out src/data/ctc-reference-v2-<date>.ts] [--trial]
+ *
+ * --trial marks a small scheduler run made from a working tree rather than a
+ * frozen export, so the module does not claim an export it did not come from.
  *
  * The module carries three exports, read through src/visual/ctc-reference.ts:
  *
@@ -29,6 +32,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { brotliCompressSync, constants as zc } from "node:zlib";
 import type { PageRow } from "./crawl-v2.js";
+import { RAW_PAGE_FORMAT } from "../../src/visual/cognitive-transport.js";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const args = process.argv.slice(2);
@@ -83,6 +87,12 @@ const pages = rows.map((r) => ({
 }));
 const raw = rows.filter((r) => r.outcome === "graded").map((r) => {
   if (!r.raw) throw new Error(`graded row without a measurement: ${r.url}`);
+  // The shipped tree loads one layout only (ctc-reference.ts, decodeReferenceRaw):
+  // refuse here rather than ship a module that will not load.
+  for (const scope of ["viewport", "full_page"] as const) {
+    const format = (r.raw[scope] as { format?: unknown } | undefined)?.format;
+    if (format !== RAW_PAGE_FORMAT) throw new Error(`${r.url} ${scope}: raw format ${String(format)}, this tree reads ${RAW_PAGE_FORMAT}; re-crawl from a tree that measures it`);
+  }
   return r.raw;
 });
 const count = (o: string) => rows.filter((r) => r.outcome === o).length;
@@ -106,7 +116,7 @@ const meta = {
   scopes: ["viewport", "full_page"],
   cbrowserVersion: summary.cbrowserVersion,
   gitHead: summary.gitHead,
-  measurementCode: `src/browser.ts, src/config.ts and src/visual/cognitive-transport.ts as of ${summary.gitHead} (the crawl ran from a frozen export of that commit)`,
+  measurementCode: `src/browser.ts, src/config.ts and src/visual/cognitive-transport.ts as of ${summary.gitHead} (${args.includes("--trial") ? "a trial run from a working tree, not a frozen export" : "the crawl ran from a frozen export of that commit"})`,
   source: `research/ctc-reference/frames-v2.json (built ${frames.builtOn}, seed ${frames.seed}), crawled by research/ctc-reference/crawl-v2.ts and assembled by assemble-v2.ts`,
   crawlNote: `Quotas ${summary.quotas.frame} graded pages per frame and ${summary.quotas.type} per (frame, inner type); sites taken in frame order until a frame's quota was met${summary.deadlineReached ? "; the crawl's deadline was reached" : ""}. Direct first; a blocked page retried once through the residential proxy (${summary.proxy.region}), never for .gov or .mil.`,
   note: "Raw page measurements (measurePageRaw), not metrics or scores; metrics are derived from them under the live constants. Pages that were blocked, failed, excluded by a frame filter or disallowed by robots.txt carry no measurement and are not part of the reference: a page that did not load is an absent measurement, not an easy page.",

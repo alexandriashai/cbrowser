@@ -34,11 +34,13 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { brotliCompressSync } from "node:zlib";
 import fc from "fast-check";
 import {
   CTC_REFERENCE,
   bootstrapPercentileInterval,
   curveSlope,
+  decodeReferenceRaw,
   intervalAt,
   percentileAt,
   percentileCurve,
@@ -55,6 +57,7 @@ import {
   computeSequentialScrollCTC,
   ctcReferenceCurve,
 } from "../src/visual/cognitive-transport-chain.js";
+import { RAW_PAGE_FORMAT } from "../src/visual/cognitive-transport.js";
 import { MODEL_PROVENANCE, param, readsOf, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { CTC_REFERENCE_PROVENANCE } from "../src/visual/provenance/ctc-reference.js";
 import { PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
@@ -107,6 +110,19 @@ describe("the reference set", () => {
     }
     expect(CTC_REFERENCE.frames.map((f) => f.id)).toEqual(FRAMES);
     for (const f of CTC_REFERENCE.frames) expect(f.sitesTaken).toBeLessThanOrEqual(f.sitesListed);
+  });
+
+  test("the shipped measurements are raw format 2, and a record of another format is refused, not derived", () => {
+    for (const scope of ["viewport", "full_page"] as const) for (const r of referenceRaw(scope)) expect(r.format).toBe(RAW_PAGE_FORMAT);
+    const pack = (records: unknown[]) => brotliCompressSync(Buffer.from(JSON.stringify(records), "utf8")).toString("base64");
+    const vp = referenceRaw("viewport"), fp = referenceRaw("full_page");
+    const good = [0, 1].map((i) => ({ viewport: vp[i], full_page: fp[i] }));
+    expect(decodeReferenceRaw(pack(good), 2, "t")).toEqual(good);
+    // A format-1 record (nested prose counted again) is not ranked against.
+    const old = good.map((p, i) => (i === 1 ? { ...p, full_page: { ...p.full_page, format: 1 } } : p));
+    expect(() => decodeReferenceRaw(pack(old), 2, "t")).toThrow(/graded page 1 full_page is raw format 1; this build measures and ranks against format 2/);
+    expect(() => decodeReferenceRaw(pack([{ viewport: vp[0] }, good[1]]), 2, "t")).toThrow(/graded page 0 full_page is raw format undefined/);
+    expect(() => decodeReferenceRaw(pack(good), 3, "t")).toThrow(/2 raw measurements for 3 graded pages/);
   });
 
   test("blocked means did not load: no graded page has zero interactive elements on the whole document", () => {

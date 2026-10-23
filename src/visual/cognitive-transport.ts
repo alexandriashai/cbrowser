@@ -1218,10 +1218,27 @@ export interface ExtractedPageMetrics {
  * pageMetrics constant is applied by deriveMetrics, the word, run and
  * sentence-length thresholds included: they read the length histograms below
  * rather than counts already cut at one threshold.
+ *
+ * FORMAT 2 (RAW_PAGE_FORMAT). Two things format 1 measured wrongly, fixed
+ * where they are measured because a stored record cannot be corrected later:
+ *   - Prose counted once. Format 1 took every element matching the prose
+ *     selector, so a p inside an li, an li inside a td or a p inside a
+ *     blockquote was counted once per matching ancestor (a nested menu many
+ *     times over). Format 2 counts the outermost matching element only, so
+ *     `text`, `textBlocks` and `prose` hold each visible character once.
+ *     Format 1's count survives as `proseNested`, three totals measured on
+ *     the same DOM, for comparison; nothing derives from it.
+ *   - A language picker is not the page's language. The key-element script
+ *     rule read the first nav, and www.w3.org's first nav lists its Japanese
+ *     and Chinese editions, so the page read as CJK. Text declared to be in
+ *     another language (lang, or a link's hreflang) is no longer key-element
+ *     text, and a nav that is a language picker is not "the nav".
+ * deriveMetrics still accepts a format-1 record (RawPageMeasurementV1),
+ * which derives exactly as it did, so the two can be compared.
  */
 export interface RawPageMeasurement {
-  /** Version of this record's layout. */
-  format: 1;
+  /** Version of this record's layout: RAW_PAGE_FORMAT. */
+  format: 2;
   scope: MetricScope;
   /** window.innerWidth, CSS px. */
   viewportWidth: number;
@@ -1253,8 +1270,20 @@ export interface RawPageMeasurement {
   visibleElements: number;
   /** img, svg and role=img elements in scope. */
   images: number;
-  /** The visible prose, tokenised for its script. */
+  /** The visible prose, each character once, tokenised for its script. */
   text: RawText;
+  /**
+   * The visible prose's totals, uncapped: trimmed characters and
+   * whitespace-separated words over the outermost prose elements (the
+   * textBlocks, all of them). `textBlockCount` is their number.
+   */
+  prose: { chars: number; words: number };
+  /**
+   * The same totals as format 1 counted them: every element matching the
+   * prose selector, nested ones again (elements, characters, words). For
+   * comparison only; nothing derives from it.
+   */
+  proseNested: { elements: number; chars: number; words: number };
   /** Element kinds, indexed by `boxes` and `choiceGroups`: tag, `:type` for inputs, `[role]` when set. */
   kinds: string[];
   /**
@@ -1278,10 +1307,27 @@ export interface RawPageMeasurement {
    * (non-empty fragments between . ! ? and their CJK and Arabic forms), font
    * size px, line height px (0 when `normal`), width and height px. Sizes to
    * half a pixel, boxes rounded. The first pageMetrics.raw.maxTextBlocks.
+   *
+   * A block is an OUTERMOST prose element: one that matches the prose
+   * selector, is laid out in scope and longer than prose.lengthAbove, and has
+   * no such element above it. Its text includes everything nested inside it,
+   * so its font size and box are the outer element's. At viewport scope an
+   * outer element that is partly on screen brings all of its text, as every
+   * element-level count here does.
    */
   textBlocks: number[];
   textBlockCount: number;
 }
+
+/** The layout measurePageRaw writes, and the only one the CTC reference loads. */
+export const RAW_PAGE_FORMAT = 2;
+
+/**
+ * A format-1 record (2026-10-22): nested prose counted per element and the
+ * first-nav script rule, no prose totals. deriveMetrics still derives it,
+ * exactly as it did then, so format-1 data can be compared with format 2.
+ */
+export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested"> & { format: 1 };
 
 /** The visible prose of a RawPageMeasurement, as length histograms rather than threshold counts. */
 export interface RawText {
@@ -1547,27 +1593,50 @@ export async function measurePageRaw(
     const visibleTextParts: string[] = [];
     const textBlocks: number[] = [];
     const proseSelectors = 'p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, figcaption';
-    document.querySelectorAll(proseSelectors).forEach(el => {
-      if (inViewport(el)) {
-        const t = (el as HTMLElement).innerText?.trim();
-        if (t && t.length > P.proseLengthAbove) {
-          if (visibleTextParts.length < P.maxTextBlocks) {
-            const cs = getComputedStyle(el);
-            const r = el.getBoundingClientRect();
-            textBlocks.push(
-              t.length,
-              t.split(/\s+/).filter(w => w.length > 0).length,
-              (t.match(cjkCharRegex) || []).length,
-              t.split(/[.。؟！!?؛]+|\n{2,}/).filter(s => s.trim().length > 0).length,
-              half(parseFloat(cs.fontSize)),
-              half(parseFloat(cs.lineHeight)),
-              Math.round(r.width),
-              Math.round(r.height),
-            );
-          }
-          visibleTextParts.push(t);
-        }
+    // Each visible character once: an element counts only when no element
+    // above it already counted, so a p inside an li (or an li inside a td) is
+    // read as part of its outermost container, never again on its own.
+    // querySelectorAll is in document order, so every ancestor is decided
+    // before its descendants. An ancestor that did not count (not laid out, or
+    // too short) leaves its descendants free to.
+    const counted = new Set<Element>();
+    const insideCounted = (el: Element): boolean => {
+      for (let a = el.parentElement?.closest(proseSelectors); a; a = a.parentElement?.closest(proseSelectors)) {
+        if (counted.has(a)) return true;
       }
+      return false;
+    };
+    const wordsIn = (t: string) => t.split(/\s+/).filter(w => w.length > 0).length;
+    let proseChars = 0, proseWords = 0;
+    let nestedElements = 0, nestedChars = 0, nestedWords = 0;
+    document.querySelectorAll(proseSelectors).forEach(el => {
+      if (!inViewport(el)) return;
+      const t = (el as HTMLElement).innerText?.trim();
+      if (!t || t.length <= P.proseLengthAbove) return;
+      const words = wordsIn(t);
+      // Format 1's count, for comparison: every matching element.
+      nestedElements++;
+      nestedChars += t.length;
+      nestedWords += words;
+      if (insideCounted(el)) return;
+      counted.add(el);
+      proseChars += t.length;
+      proseWords += words;
+      if (visibleTextParts.length < P.maxTextBlocks) {
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        textBlocks.push(
+          t.length,
+          words,
+          (t.match(cjkCharRegex) || []).length,
+          t.split(/[.。؟！!?؛]+|\n{2,}/).filter(s => s.trim().length > 0).length,
+          half(parseFloat(cs.fontSize)),
+          half(parseFloat(cs.lineHeight)),
+          Math.round(r.width),
+          Math.round(r.height),
+        );
+      }
+      visibleTextParts.push(t);
     });
     const visibleText = visibleTextParts.join(' ');
 
@@ -1583,9 +1652,51 @@ export async function measurePageRaw(
     const cjkCharCount = (visibleText.match(cjkCharRegex) || []).length;
     const totalCharCount = visibleText.replace(/\s/g, '').length;
 
-    // Also check key page elements independently (Tolgee translations fire faster than GT)
-    const h1Text = document.querySelector('h1')?.textContent || '';
-    const navText = document.querySelector('nav')?.textContent || '';
+    // Also check key page elements independently (Tolgee translations fire
+    // faster than GT): the first h1 and the first nav. Neither may count text
+    // the page declares to be in ANOTHER language, and a language picker is
+    // not the nav: www.w3.org's first nav lists 日本語 and 简体中文 editions,
+    // and the rule read the whole page as CJK.
+    //
+    // A text's language is the nearest lang attribute above it, or, failing
+    // that, the hreflang of a link it sits in, or the page's own (html, then
+    // body). It is another language when its primary subtag differs.
+    const primary = (tag: string | null) => (tag || '').trim().toLowerCase().split(/[-_]/)[0];
+    const pageLang = primary(document.documentElement.getAttribute('lang') || document.body?.getAttribute('lang'));
+    const otherLanguage = (el: Element | null): boolean => {
+      for (let a = el; a; a = a.parentElement) {
+        if (a.hasAttribute('lang')) return primary(a.getAttribute('lang')) !== pageLang;
+        if (a.tagName === 'A' && a.hasAttribute('hreflang')) return primary(a.getAttribute('hreflang')) !== pageLang;
+      }
+      return false;
+    };
+    // The text of an element as textContent reads it (hidden text included,
+    // as before), less scripts, styles and other-language text.
+    const keyText = (root: Element | null | undefined): string => {
+      if (!root) return '';
+      let out = '';
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const parent = n.parentElement;
+        if (!parent || parent.closest('script, style, noscript, template') || otherLanguage(parent)) continue;
+        out += n.nodeValue || '';
+      }
+      return out;
+    };
+    // A language picker: named so (aria-label, its labelling element, id,
+    // class, title), or most of its links lead to another-language edition.
+    const PICKER_NAME = /(^|[^a-z])(lang|langs|language|languages|locale|locales|i18n)([^a-z]|$)/i;
+    const isLanguagePicker = (nav: Element): boolean => {
+      const labelledBy = (nav.getAttribute('aria-labelledby') || '').split(/\s+/)
+        .map(id => (id ? document.getElementById(id)?.textContent || '' : '')).join(' ');
+      const name = [nav.getAttribute('aria-label'), labelledBy, nav.id, nav.getAttribute('class'), nav.getAttribute('title')].join(' ');
+      if (PICKER_NAME.test(name)) return true;
+      const links = Array.from(nav.querySelectorAll('a[href]'));
+      const elsewhere = links.filter(a => otherLanguage(a) || (a.hasAttribute('hreflang') && primary(a.getAttribute('hreflang')) !== pageLang));
+      return links.length > 0 && elsewhere.length * 2 >= links.length;
+    };
+    const h1Text = keyText(document.querySelector('h1'));
+    const navText = keyText(Array.from(document.querySelectorAll('nav')).find(nav => !isLanguagePicker(nav)));
     const keyElementsCJK = (h1Text.match(cjkCharRegex) || []).length + (navText.match(cjkCharRegex) || []).length;
     const keyElementsTotal = (h1Text + navText).replace(/\s/g, '').length;
 
@@ -1677,7 +1788,7 @@ export async function measurePageRaw(
     for (const s of visibleText.split(sentenceSplit)) tally(fragmentLengths, binned(s.trim().length));
 
     return {
-      format: 1 as const,
+      format: 2 as const,
       scope: measureScope,
       viewportWidth: vw,
       viewportHeight: vh,
@@ -1707,6 +1818,8 @@ export async function measurePageRaw(
         fragmentLengths: pairs(fragmentLengths),
         lengthBins: P.lengthBins,
       },
+      prose: { chars: proseChars, words: proseWords },
+      proseNested: { elements: nestedElements, chars: nestedChars, words: nestedWords },
       kinds,
       boxes,
       choiceGroups,
@@ -1723,8 +1836,16 @@ export async function measurePageRaw(
  * and synchronous, so a stored measurement can be re-derived under other
  * constants (the CTC reference set is). A length threshold at or above the
  * record's lengthBins cannot be re-derived from it and throws.
+ *
+ * Both layouts derive: format 2, and format 1 (RawPageMeasurementV1), whose
+ * fields this reads are the same and which derives exactly as it did, its
+ * nested-prose counts included. Any other format is refused rather than
+ * guessed at.
  */
-export function deriveMetrics(raw: RawPageMeasurement): ExtractedPageMetrics {
+export function deriveMetrics(raw: RawPageMeasurement | RawPageMeasurementV1): ExtractedPageMetrics {
+  if (raw.format !== RAW_PAGE_FORMAT && raw.format !== 1) {
+    throw new Error(`deriveMetrics: raw page format ${String((raw as { format?: unknown }).format)} is not one this build reads (1 or ${RAW_PAGE_FORMAT})`);
+  }
   const P = readDeriveParams();
   const fullPage = raw.scope === "full_page";
   const vw = raw.viewportWidth;

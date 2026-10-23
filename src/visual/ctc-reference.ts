@@ -25,6 +25,9 @@
  * changed normaliser could not reach it. The constants that decide what is
  * counted at all (PAGE_METRICS_MEASURE_IDS) are recorded with the data, and a
  * live value that differs is refused: a stored measurement cannot follow them.
+ * For the same reason every record must be the raw layout this build measures
+ * (RAW_PAGE_FORMAT, 2: prose counted once, language pickers not read as the
+ * page's script); decodeReferenceRaw refuses any other.
  *
  * WHAT IS IN IT. About 500 graded pages from three sampling frames (the v1
  * brand list, a random draw from a dated Tranco top-sites list, government and
@@ -61,10 +64,10 @@
  */
 
 import { brotliDecompressSync } from "node:zlib";
-import { CTC_REFERENCE_META, CTC_REFERENCE_PAGES, CTC_REFERENCE_RAW } from "../data/ctc-reference-v2-2026-10-22.js";
+import { CTC_REFERENCE_META, CTC_REFERENCE_PAGES, CTC_REFERENCE_RAW } from "../data/ctc-reference-v2-2026-10-23.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../personas.js";
 import { bridgeCapacityTraits } from "./cognitive-models.js";
-import { deriveMetrics, type ExtractedPageMetrics, type MetricScope, type RawPageMeasurement } from "./cognitive-transport.js";
+import { RAW_PAGE_FORMAT, deriveMetrics, type ExtractedPageMetrics, type MetricScope, type RawPageMeasurement } from "./cognitive-transport.js";
 import { param } from "./model-provenance.js";
 import { PAGE_METRICS_MEASURE_IDS } from "./provenance/page-metrics.js";
 
@@ -134,18 +137,41 @@ export function referenceOutcomes(): ReferencePageRecord[] {
 let rawCache: Array<Record<MetricScope, RawPageMeasurement>> | null = null;
 
 /**
+ * Decode a reference's packed raw measurements (brotli JSON, base64) and
+ * check them: one record per graded page, each scope a record of the layout
+ * this build measures (RAW_PAGE_FORMAT). A record of another layout is
+ * refused, not derived: a format-1 record counts nested prose again and reads
+ * some language pickers as CJK, so ranking a live page against it would rank
+ * one measurement against another.
+ */
+export function decodeReferenceRaw(packed: string, graded: number, id: string): Array<Record<MetricScope, RawPageMeasurement>> {
+  const decoded = JSON.parse(brotliDecompressSync(Buffer.from(packed, "base64")).toString("utf8")) as Array<Record<string, { format?: unknown }>>;
+  if (decoded.length !== graded) {
+    throw new Error(`ctc reference ${id}: ${decoded.length} raw measurements for ${graded} graded pages`);
+  }
+  decoded.forEach((page, i) => {
+    for (const scope of META.scopes) {
+      const format = page[scope]?.format;
+      if (format !== RAW_PAGE_FORMAT) {
+        throw new Error(`ctc reference ${id}: graded page ${i} ${scope} is raw format ${String(format)}; this build measures and ranks against format ${RAW_PAGE_FORMAT}. Re-crawl the reference (research/ctc-reference/crawl-v2.ts) rather than mixing layouts.`);
+      }
+    }
+  });
+  return decoded as unknown as Array<Record<MetricScope, RawPageMeasurement>>;
+}
+
+/**
  * The graded pages' raw measurements, in outcome-list order, decoded once.
  * Shipped brotli-compressed (base64 in a TS module, so it loads on every Node
  * the package supports); the decoded count must equal the graded count.
  */
 function rawPages(): Array<Record<MetricScope, RawPageMeasurement>> {
   if (!rawCache) {
-    const decoded = JSON.parse(brotliDecompressSync(Buffer.from(CTC_REFERENCE_RAW, "base64")).toString("utf8")) as Array<Record<MetricScope, RawPageMeasurement>>;
     const graded = PAGES.filter((p) => p.outcome === "graded").length;
-    if (decoded.length !== graded || graded !== META.outcomes.graded) {
-      throw new Error(`ctc reference ${META.id}: ${decoded.length} raw measurements for ${graded} graded pages (meta says ${META.outcomes.graded})`);
+    if (graded !== META.outcomes.graded) {
+      throw new Error(`ctc reference ${META.id}: ${graded} graded pages listed, meta says ${META.outcomes.graded}`);
     }
-    rawCache = decoded;
+    rawCache = decodeReferenceRaw(CTC_REFERENCE_RAW, graded, META.id);
   }
   return rawCache;
 }

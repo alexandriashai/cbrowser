@@ -15,6 +15,9 @@
  *      derives to the same numbers.
  *   4. A length threshold the record's histograms cannot resolve is refused,
  *      not approximated.
+ *   5. Both raw layouts derive, and nothing else: a format-1 record derives
+ *      exactly as the format-2 record with the same counts (its prose totals
+ *      are new fields deriveMetrics does not read); any other format throws.
  *
  * tests/page-metrics-golden.test.ts proves derive(measure()) is still exactly
  * what extractPageMetrics returned before the split; tests/page-metrics-raw.test.ts
@@ -24,7 +27,7 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
-import { deriveMetrics, measurePageRaw, extractPageMetrics, type RawPageMeasurement } from "../src/visual/cognitive-transport.js";
+import { deriveMetrics, measurePageRaw, extractPageMetrics, RAW_PAGE_FORMAT, type RawPageMeasurement, type RawPageMeasurementV1 } from "../src/visual/cognitive-transport.js";
 import { readsOf, withParamOverrides } from "../src/visual/model-provenance.js";
 import { PAGE_METRICS_PROVENANCE, PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
 import { RAW_FIXTURES, RAW_LATIN } from "./fixtures/raw-page-measurements.js";
@@ -120,5 +123,20 @@ describe("a raw measurement is data", () => {
     const at = (v: number) => withParamOverrides({ "pageMetrics.cjk.sentenceLengthAbove": v }, () => deriveMetrics(RAW_FIXTURES.cjk)).avgSentenceLength;
     expect(at(3.3)).toBe(at(3));
     expect(at(2.7)).toBeLessThan(at(3));
+  });
+});
+
+describe("raw formats", () => {
+  test("format 1 derives exactly as format 2 with the same counts; any other format is refused", () => {
+    expect(RAW_PAGE_FORMAT).toBe(2);
+    for (const r of Object.values(RAW_FIXTURES)) {
+      expect(r.format).toBe(2);
+      const { prose: _prose, proseNested: _nested, ...rest } = r;
+      const v1: RawPageMeasurementV1 = { ...rest, format: 1 };
+      expect(deriveMetrics(v1)).toEqual(deriveMetrics(r));
+      for (const format of [0, 3, undefined, "2"]) {
+        expect(() => deriveMetrics({ ...r, format } as never)).toThrow(/raw page format .* is not one this build reads \(1 or 2\)/);
+      }
+    }
   });
 });

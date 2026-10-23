@@ -70,9 +70,9 @@ describe("extractPageMetrics carries no inline constants", () => {
     expect(source).toContain(marker);
     const found = pageMetricLiterals(source.replace(marker, "const informationDensity = logScale(textLength, 5000);"));
     expect(found.map((o) => `${o.fn} = ${o.value}`)).toEqual(["deriveMetrics = 5000"]);
-    const inPage = "if (t && t.length > P.proseLengthAbove) {";
+    const inPage = "if (!t || t.length <= P.proseLengthAbove) return;";
     expect(source).toContain(inPage);
-    const foundInPage = pageMetricLiterals(source.replace(inPage, "if (t && t.length > 5) {"));
+    const foundInPage = pageMetricLiterals(source.replace(inPage, "if (!t || t.length <= 5) return;"));
     expect(foundInPage.map((o) => `${o.fn} = ${o.value}`)).toEqual(["measurePageRaw = 5"]);
   });
 });
