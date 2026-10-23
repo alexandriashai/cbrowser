@@ -11,6 +11,8 @@
  * @see Perry, Zorzi & Ziegler (2019) Psychological Science — personalized dyslexia models
  * @since v18.39.0
  */
+import { param, unrecorded } from "./model-provenance.js";
+import { measuredRate } from "./demand-laws.js";
 
 // ── Mathematical Primitives ──
 
@@ -165,18 +167,26 @@ export interface MotorAccessibilityResult {
 }
 
 /**
- * Known pointing profiles from the empirical literature.
+ * Pointing profiles. Each throughput is a registered constant, read when the
+ * profile is used (a getter), so an override reaches every profile:
  *
- * - Neurotypical baseline: MacKenzie (1992), Soukoreff & MacKenzie (2004)
- * - Motor tremor: Hwang et al. (2004) ACM ASSETS
- * - Elderly 65+: Chaparro et al. (1999), Ketcham et al. (2002)
- * - ADHD: Flapper et al. (2006) — impulsive timing, near-normal precision
+ * - neurotypical: law.rate.pointing.reference, 4.9 bits/s for regular mouse
+ *   users (MacKenzie, Kauppinen & Silfverberg 2001).
+ * - tremor: the motion-impaired rate measured against its own able-bodied
+ *   controls, 1.77 / 4.88 (Keates et al. 2002, in Soukoreff & MacKenzie 2004,
+ *   Table 4), rescaled to the reference: 4.9 x 1.77 / 4.88 = 1.777 bits/s. It is
+ *   also the low anchor getPointingProfile interpolates toward.
+ * - elderly, adhd: hypotheses with no measured throughput
+ *   (provenance/profiles.ts).
+ *
+ * The endpoint dispersions (sigma, rho) feed the hit-probability audit only and
+ * are not registered.
  */
 const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
-  neurotypical: { sigmaX: 4, sigmaY: 4, rho: 0.0, throughput: 4.9 },
-  tremor: { sigmaX: 12, sigmaY: 12, rho: 0.3, throughput: 2.1 },
-  elderly: { sigmaX: 7.2, sigmaY: 7.2, rho: 0.1, throughput: 3.2 },
-  adhd: { sigmaX: 5.5, sigmaY: 5.5, rho: 0.0, throughput: 4.2 },
+  neurotypical: { sigmaX: 4, sigmaY: 4, rho: 0.0, get throughput() { return param("law.rate.pointing.reference"); } },
+  tremor: { sigmaX: 12, sigmaY: 12, rho: 0.3, get throughput() { return param("law.rate.pointing.reference") * measuredRate("motionImpaired").ratio; } },
+  elderly: { sigmaX: 7.2, sigmaY: 7.2, rho: 0.1, get throughput() { return param("profile.pointing.elderly.throughput"); } },
+  adhd: { sigmaX: 5.5, sigmaY: 5.5, rho: 0.0, get throughput() { return param("profile.pointing.adhd.throughput"); } },
 };
 
 /**
@@ -465,13 +475,24 @@ export interface ReadabilityResult {
  * - Low vision: Legge et al. (2007) — central scotoma and crowding
  * - ADHD: Dhar et al. (2010) — intact decoding, reduced sustained attention
  * - Elderly: Rayner et al. (2006) — aging effects on eye movements
+ *
+ * The citations motivate a direction, not the numbers (provenance/profiles.ts
+ * records what a source check found). phonological and visualSpan, the two
+ * values the per-word rate reads, are registered; the other three are not.
  */
+const readingProfile = (kind: string, rest: Pick<ReadingProfile, "orthographic" | "vocabulary" | "crowding">): ReadingProfile => ({
+  ...rest,
+  // The two values the per-word rate reads are registered (provenance/profiles.ts)
+  // and read at use, so an override reaches the profile.
+  get phonological() { return param(`profile.reading.${kind}.phonological`); },
+  get visualSpan() { return param(`profile.reading.${kind}.visualSpan`); },
+});
 const KNOWN_READING_PROFILES: Record<string, ReadingProfile> = {
-  neurotypical: { orthographic: 0.85, phonological: 0.80, visualSpan: 7, vocabulary: 0.75, crowding: 0.15 },
-  dyslexic: { orthographic: 0.40, phonological: 0.35, visualSpan: 4, vocabulary: 0.65, crowding: 0.55 },
-  lowVision: { orthographic: 0.60, phonological: 0.75, visualSpan: 3, vocabulary: 0.75, crowding: 0.70 },
-  adhd: { orthographic: 0.80, phonological: 0.75, visualSpan: 6, vocabulary: 0.70, crowding: 0.20 },
-  elderly: { orthographic: 0.70, phonological: 0.65, visualSpan: 5, vocabulary: 0.85, crowding: 0.30 },
+  neurotypical: readingProfile("neurotypical", { orthographic: 0.85, vocabulary: 0.75, crowding: 0.15 }),
+  dyslexic: readingProfile("dyslexic", { orthographic: 0.40, vocabulary: 0.65, crowding: 0.55 }),
+  lowVision: readingProfile("lowVision", { orthographic: 0.60, vocabulary: 0.75, crowding: 0.70 }),
+  adhd: readingProfile("adhd", { orthographic: 0.80, vocabulary: 0.70, crowding: 0.20 }),
+  elderly: readingProfile("elderly", { orthographic: 0.70, vocabulary: 0.85, crowding: 0.30 }),
 };
 
 /**
@@ -638,8 +659,9 @@ export function computeReadingDifficulty(
   const wordCount = Math.max(1, words.length);
   const penalties: string[] = [];
 
-  // Base fixation duration: fluent adult reader (Rayner 2009)
-  const baseFixation = 250; // ms per word
+  // Base time per word. Registered as a hypothesis: the 250 ms it holds is
+  // Rayner's (2009) fixation duration, not a per-word time.
+  const baseFixation = param("profile.fixation.baseMs");
 
   // 1. Orthographic deficit: irregular words take longer to process
   // When orthographic route is impaired, the reader must fall back to
@@ -653,16 +675,17 @@ export function computeReadingDifficulty(
   // 2. Phonological deficit: all words require phonological activation
   // Even for skilled readers, phonological codes are activated automatically.
   // Impaired phonological processing slows all word recognition.
-  const phonoPenalty = (1 - profile.phonological) * 100;
+  const phonoPenalty = (1 - profile.phonological) * param("profile.fixation.phonologicalMs");
   if (phonoPenalty > 10) {
     penalties.push(`phonological: +${Math.round(phonoPenalty)}ms`);
   }
 
-  // 3. Visual span: fewer characters per fixation = more fixations per word
-  // Normal visual span ~7 characters (Legge et al. 2007).
-  // Reduced span means more saccades to read the same word.
-  const spanRatio = 7 / profile.visualSpan;
-  const spanPenalty = (spanRatio - 1) * 80;
+  // 3. Visual span: fewer characters per fixation = more fixations per word.
+  // The normal span (7) is registered; Legge et al. (2007) estimate about 9.
+  // Reduced span means more saccades to read the same word. Not clamped: a
+  // span above normal subtracts time.
+  const spanRatio = param("profile.fixation.normalSpan") / profile.visualSpan;
+  const spanPenalty = (spanRatio - 1) * param("profile.fixation.spanMs");
   if (spanPenalty > 5) {
     penalties.push(`visual span: +${Math.round(spanPenalty)}ms (${profile.visualSpan} chars/fixation)`);
   }
@@ -712,8 +735,8 @@ export function computeReadingDifficulty(
   // Words per minute
   const wpm = Math.round(60000 / totalFixation);
 
-  // Normalize difficulty: 250ms = 0.0 (fluent), 750ms+ = 1.0 (severe)
-  const difficulty = Math.max(0, Math.min(1, (totalFixation - 250) / 500));
+  // Normalize difficulty: the base time = 0.0 (fluent), base + 500ms+ = 1.0 (severe)
+  const difficulty = Math.max(0, Math.min(1, (totalFixation - baseFixation) / 500));
 
   return {
     difficulty: Math.round(difficulty * 10000) / 10000,
@@ -883,8 +906,19 @@ export { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES };
  * dimensions ABSENT rather than defaulted, because a missing capacity is visible as a
  * gap while a defaulted one silently reads as average -- which is the exact failure
  * this function exists to end.
+ *
+ * Runs unrecorded (model-provenance.ts): the registered rates it reads describe the
+ * persona, and are not counted in the block of whatever score is being computed.
  */
 export function bridgeCapacityTraits(
+  personaName: string,
+  traits: Record<string, number>,
+  accessibilityTraits?: Record<string, number | boolean>,
+): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
+  return unrecorded(() => bridge(personaName, traits, accessibilityTraits));
+}
+
+function bridge(
   personaName: string,
   traits: Record<string, number>,
   accessibilityTraits?: Record<string, number | boolean>,

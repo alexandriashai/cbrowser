@@ -157,6 +157,24 @@ export function readsOf<T>(fn: () => T): { result: T; ids: ReadonlySet<string> }
   }
 }
 
+/**
+ * Run `fn` with recording suspended: what it reads is counted in no enclosing
+ * recording. Overrides still apply. For persona properties: a persona's
+ * capacity rates (provenance/persona-rates.ts, provenance/profiles.ts) describe
+ * the persona, as its catalogued traits do, not the score. A score's block
+ * counts demand, chain, reference and distance, and would otherwise also count
+ * whichever personas the reference curve happened to bridge on a cache miss.
+ */
+export function unrecorded<T>(fn: () => T): T {
+  const outer = recording;
+  recording = null;
+  try {
+    return fn();
+  } finally {
+    recording = outer;
+  }
+}
+
 /** Run `fn` and return its result with the provenance of every constant it read. */
 export function withProvenance<T>(fn: () => T): { result: T; provenance: ProvenanceSummary } {
   const outer = recording;

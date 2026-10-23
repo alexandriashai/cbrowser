@@ -1,6 +1,6 @@
 /**
  * The published laws Stage B grounds demand in (src/visual/demand-laws.ts),
- * their registry (provenance/laws.ts) and the profile catalogue beside it
+ * their registry (provenance/laws.ts) and the profile registry beside it
  * (provenance/profiles.ts).
  *
  * Registry: every law id is read by the law functions and every one moves an
@@ -10,15 +10,15 @@
  * seconds-per-minute unit. Laws: worked values from the papers' own numbers,
  * then properties (fast-check): monotone in distance and inverse width, zero
  * work gives zero time, d in [0, 1) for T >= 0, c in (0, 1), and d > c exactly
- * when the persona's own time exceeds the budget. Profiles: each catalogued
- * value equals what cognitive-models.ts runs on, the fixation terms checked by
- * running computeReadingDifficulty itself.
+ * when the persona's own time exceeds the budget. Profiles: every profile id is
+ * read by cognitive-models.ts at use and moves its output, and the fixation
+ * terms reproduce computeReadingDifficulty.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import fc from "fast-check";
@@ -310,19 +310,21 @@ describe("the laws, as properties", () => {
   });
 });
 
-describe("profile catalogue (provenance/profiles.ts)", () => {
+describe("profile registry (provenance/profiles.ts)", () => {
   const v = (id: string) => PROFILE_PROVENANCE.find((e) => e.id === `profile.${id}`)!.value;
+  const profileIds = PROFILE_PROVENANCE.map((e) => e.id);
 
-  test("pinned, unique, profile-prefixed; only the neurotypical throughput is published; hypotheses say what would set them", () => {
-    expect(PROFILE_PROVENANCE.length).toBe(18);
-    expect(new Set(PROFILE_PROVENANCE.map((e) => e.id)).size).toBe(18);
+  test("pinned, unique, profile-prefixed, all hypotheses saying what would set them", () => {
+    // 18 at registration (2a); 16 once the neurotypical and tremor throughputs
+    // came from the measured rates in provenance/laws.ts.
+    expect(PROFILE_PROVENANCE.length).toBe(16);
+    expect(new Set(profileIds).size).toBe(16);
     for (const e of PROFILE_PROVENANCE) {
       expect(e.id.startsWith("profile.")).toBe(true);
       expect(MODEL_PROVENANCE[e.id]).toBe(e);
-      if (e.status === "hypothesis") expect(e.source).toMatch(/would (fit|set|test|place|replace)/);
+      expect(e.status).toBe("hypothesis");
+      expect(e.source).toMatch(/would (fit|set|test|place|replace)/);
     }
-    expect(PROFILE_PROVENANCE.filter((e) => e.status !== "hypothesis").map((e) => `${e.id}:${e.status}`))
-      .toEqual(["profile.pointing.neurotypical.throughput:published"]);
   });
 
   test("the entries for populations with no measured rate say so", () => {
@@ -332,26 +334,38 @@ describe("profile catalogue (provenance/profiles.ts)", () => {
     }
   });
 
-  test("each throughput and reading-profile value is the one cognitive-models.ts runs on", () => {
-    for (const k of ["neurotypical", "tremor", "elderly", "adhd"] as const) {
-      expect({ k, tp: v(`pointing.${k}.throughput`) }).toEqual({ k, tp: KNOWN_POINTING_PROFILES[k].throughput });
-    }
-    for (const k of ["neurotypical", "dyslexic", "lowVision", "adhd", "elderly"] as const) {
-      expect({ k, phon: v(`reading.${k}.phonological`), span: v(`reading.${k}.visualSpan`) })
-        .toEqual({ k, phon: KNOWN_READING_PROFILES[k].phonological, span: KNOWN_READING_PROFILES[k].visualSpan });
-    }
-    expect(v("pointing.neurotypical.throughput")).toBe(param("law.rate.pointing.reference"));
+  test("the measured throughputs: neurotypical at the reference, tremor at the motion-impaired ratio rescaled to it", () => {
+    expect(KNOWN_POINTING_PROFILES.neurotypical.throughput).toBe(param("law.rate.pointing.reference"));
+    close(KNOWN_POINTING_PROFILES.tremor.throughput, 4.9 * 1.77 / 4.88);
+    close(KNOWN_POINTING_PROFILES.tremor.throughput / KNOWN_POINTING_PROFILES.neurotypical.throughput, measuredRate("motionImpaired").ratio);
   });
 
-  // Text and type on which every text-dependent penalty is 0: no irregular
-  // spellings, words under 5 letters, 16 px, sans, full contrast.
+  // What reads each profile id: a profile value, or a fixation time.
   const NEUTRAL = { text: "a cat sat on the mat", fontSize: 16, lineHeight: 1.5, fontFamily: "sans-serif", isSerif: false, contrastRatio: 21 };
+  const PROBE: ReadingProfile = { orthographic: 1, phonological: 0, visualSpan: 1, vocabulary: 1, crowding: 0 };
+  const profileOutputs = () => [
+    ...Object.values(KNOWN_POINTING_PROFILES).map((p) => p.throughput),
+    ...Object.values(KNOWN_READING_PROFILES).flatMap((p) => [p.phonological, p.visualSpan]),
+    computeReadingDifficulty(NEUTRAL.text, PROBE, NEUTRAL).difficulty,
+    computeReadingDifficulty(NEUTRAL.text, PROBE, NEUTRAL).fixationDuration,
+  ];
+
+  test("every profile id is read by cognitive-models.ts at use, and moves its output", () => {
+    startProvenanceRecording();
+    profileOutputs();
+    const read = stopProvenanceRecording();
+    expect(profileIds.filter((id) => !read.has(id))).toEqual([]);
+    const base = JSON.stringify(profileOutputs());
+    const dead = PROFILE_PROVENANCE.filter((e) => JSON.stringify(withParamOverrides({ [e.id]: e.value * 1.1 }, profileOutputs)) === base);
+    expect(dead.map((e) => e.id)).toEqual([]);
+  });
+
   const fixation = (c: { base: number; phon: number; span: number; normal: number }, p: ReadingProfile) =>
     Math.round(c.base + (1 - p.phonological) * c.phon + (c.normal / p.visualSpan - 1) * c.span);
   const registered = () => ({ base: v("fixation.baseMs"), phon: v("fixation.phonologicalMs"), span: v("fixation.spanMs"), normal: v("fixation.normalSpan") });
   const probes: ReadingProfile[] = [
-    ...Object.values(KNOWN_READING_PROFILES),
-    { orthographic: 1, phonological: 0, visualSpan: 1, vocabulary: 1, crowding: 0 },
+    ...Object.values(KNOWN_READING_PROFILES).map((p) => ({ ...p })),
+    PROBE,
     { orthographic: 1, phonological: 1, visualSpan: 14, vocabulary: 1, crowding: 0 },
   ];
 
@@ -359,28 +373,14 @@ describe("profile catalogue (provenance/profiles.ts)", () => {
     for (const p of probes) {
       expect({ p, ms: computeReadingDifficulty(NEUTRAL.text, p, NEUTRAL).fixationDuration }).toEqual({ p, ms: fixation(registered(), p) });
     }
-    // The span term is not clamped: a 14-letter span reads faster than base.
     expect(computeReadingDifficulty(NEUTRAL.text, probes[probes.length - 1], NEUTRAL).fixationDuration).toBeLessThan(v("fixation.baseMs"));
   });
 
-  test("the reproduction goes red on a catalogue value one unit off (absence test)", () => {
+  test("the reproduction goes red on a value one unit off (absence test)", () => {
     for (const key of ["base", "phon", "span", "normal"] as const) {
       const off = { ...registered(), [key]: registered()[key] + 1 };
       const agree = probes.every((p) => computeReadingDifficulty(NEUTRAL.text, p, NEUTRAL).fixationDuration === fixation(off, p));
       expect({ key, agree }).toEqual({ key, agree: false });
     }
-  });
-
-  test("catalogued, not read: nothing under src reads a profile. id through param()", () => {
-    const readers: string[] = [];
-    const walk = (dir: string) => {
-      for (const name of readdirSync(dir)) {
-        const p = join(dir, name);
-        if (statSync(p).isDirectory()) walk(p);
-        else if (/\.ts$/.test(name) && /param\(\s*[`"']profile\./.test(readFileSync(p, "utf8"))) readers.push(p);
-      }
-    };
-    walk(join(import.meta.dir, "..", "src"));
-    expect(readers).toEqual([]);
   });
 });

@@ -1,31 +1,29 @@
 /**
- * Provenance catalogue for the pointing and reading profiles in
- * src/visual/cognitive-models.ts: the four pointing throughputs, and the
- * fixation model's text-independent per-word terms with the two reading-profile
- * values they read. See ../model-provenance.ts for the statuses.
+ * Provenance for the pointing and reading profiles in
+ * src/visual/cognitive-models.ts: the throughputs the profiles do not take
+ * from a measured rate, and the fixation model's text-independent per-word
+ * terms with the two reading-profile values they read. See
+ * ../model-provenance.ts for the statuses.
  *
- * WHY THESE. Stage B states motor and reading capacity as rate ratios,
- * c = r_p / (r_p + r_ref) (demand-laws.ts, rateCapacity). The rates would come
- * from these numbers: a pointing profile's throughput, and a reading profile's
- * per-word time base + (1 - phonological) x phonologicalMs +
- * (normalSpan / visualSpan - 1) x spanMs. They are load-bearing the moment the
- * capacity bridges change, so they are registered, with what a source check
- * found about each, before that happens. Most of them are not supported by the
- * sources the code cites; research/stage-b-persona-rates.md compares them
- * with the measured rates in provenance/laws.ts (law.rate.*) and recommends
- * values. This file changes none of them.
+ * WHY THESE. Motor and reading capacity are rate ratios,
+ * c = r_p / (r_p + r_ref) (demand-laws.ts, rateCapacity). A built-in persona's
+ * rate is registered with the persona (provenance/persona-rates.ts); a custom
+ * persona's comes from these profiles: a pointing profile's throughput, and a
+ * reading profile's per-word time base + (1 - phonological) x phonologicalMs +
+ * (normalSpan / visualSpan - 1) x spanMs, taken as a ratio to the neurotypical
+ * profile's. The readability audit (computeReadingDifficulty) reads the same
+ * terms. Most are not supported by the sources the code cites;
+ * research/stage-b-persona-rates.md compares them with the measured rates.
  *
- * CATALOGUED, NOT READ THROUGH param(), like provenance/personas.ts. The code
- * holds the values (KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES and the
- * literals in computeReadingDifficulty); the entries copy them, and
- * tests/demand-laws.test.ts fails if a copy and the code disagree, checking
- * the fixation terms by running computeReadingDifficulty itself. They are not
- * built from the profile objects at load because this file must not import
- * cognitive-models.ts: once the bridges read demand-laws.ts, that import
- * would close a cycle through model-provenance.ts. When the bridges change,
- * the code should read these ids through param() and the copies go away. No
- * code reads a `profile.` id through param() today, so a recording will not
- * contain one.
+ * Two throughputs are not here because they are measured: the neurotypical
+ * profile points at law.rate.pointing.reference, and the tremor profile at the
+ * motion-impaired rate measured against its own controls
+ * (law.rate.pointing.motionImpaired / motionImpairedControls), rescaled to that
+ * reference.
+ *
+ * READ THROUGH param() by cognitive-models.ts, at the point of use (the
+ * profile tables are getters), so an override reaches every profile and
+ * tests/demand-laws.test.ts can perturb each id and see its output move.
  *
  * Citations named "per the source check" were not retrieved for this registry
  * (the publisher pages were behind a bot wall); what is said about them is the
@@ -36,7 +34,6 @@
  */
 import type { ProvenanceEntry } from "../model-provenance.js";
 
-const p = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `profile.${id}`, value, status: "published", source });
 const h = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `profile.${id}`, value, status: "hypothesis", source });
 
 const SCALE = "a hand-set value on a 0-1 scale that no instrument defines";
@@ -46,9 +43,7 @@ const LEGGE_2007 = "Legge, G. E., Cheung, S.-H., Yu, D., Chung, S. T. L., Lee, H
 const RAYNER_2009 = "Rayner, K. (2009). Eye movements and attention in reading, scene perception, and visual search. QJEP 62(8), 1457-1506, doi:10.1080/17470210902816461";
 
 export const PROFILE_PROVENANCE: ProvenanceEntry[] = [
-  // ── Pointing throughputs (KNOWN_POINTING_PROFILES), bits/s ──
-  p("pointing.neurotypical.throughput", 4.9, "Fitts throughput of the neurotypical pointing profile, bits/s. The number is published, under a different citation than the code gives: MacKenzie, Kauppinen & Silfverberg (2001), CHI 2001, 9-16: \"The throughput was 4.9 bps for the mouse\". The code cites MacKenzie (1992), which does not report it. Same value and source as law.rate.pointing.reference, the reference rate a capacity is a ratio against; one of the two should read the other."),
-  h("pointing.tremor.throughput", 2.1, "Fitts throughput of the tremor profile, bits/s. Cited to Hwang et al. (2004); the paper retrieved under that name (Hwang, Keates, Langdon & Clarkson, Mouse movements of motion-impaired users: a submovement analysis, ASSETS 2004) studies \"six motion-impaired users and three able-bodied users ... according to their submovement structure\" and its abstract reports no throughput. The nearest measured value is 1.77 bits/s for motion-impaired mouse users (law.rate.pointing.motionImpaired). It is also the low anchor that getPointingProfile interpolates every persona without a named profile toward, so changing it moves those personas too. An ISO 9241-9 mouse throughput measured on users with essential tremor would set it."),
+  // ── Pointing throughputs not taken from a measured rate (KNOWN_POINTING_PROFILES), bits/s ──
   h("pointing.elderly.throughput", 3.2, "Fitts throughput of the elderly profile, bits/s. No measured ISO mouse throughput for adults 65+ was found, so the value has no source. Cited to Chaparro et al. (1999) and Ketcham et al. (2002). Chaparro, Bohan, Fernandez, Kattel & Choi (1999), Is the trackball a better input device for the older computer user? J Occup Rehabil 9(1), 33-43, abstract: \"older adults took longer to complete movements than younger adults and did so to a greater extent for large amplitude movements, but that their movements were less variable\"; no throughput. Ketcham et al. (2002) used a tablet, per the source check. An ISO 9241-9 mouse study of adults 65+ would set it."),
   h("pointing.adhd.throughput", 4.2, "Fitts throughput of the ADHD profile, bits/s. No measured throughput for adults with ADHD was found, so the value has no source. Cited to Flapper et al. (2006): Flapper, Houwen & Schoemaker, Fine motor skills and effects of methylphenidate in children with ADHD and DCD, Dev Med Child Neurol 48(3), 165-169, abstract: \"A group of 12 children with ADHD-DCD ... and 12 age- and sex-matched controls\", measured with manual dexterity subtests, handwriting and a graphomotor task. Children, with developmental coordination disorder as well as ADHD, and no throughput. An ISO 9241-9 mouse study of adults with ADHD and no coordination disorder would set it."),
 
