@@ -1121,7 +1121,8 @@ async function performWassersteinAnalysis(
     baselinePath,
     currentPath,
     {
-      numProjections: 64,
+      // numProjections and the projection seed: the registered defaults
+      // (provenance/visual-distance.ts).
       compareMode: 'combined',
       downscale: 0.5,
       ignoreRegions: options.ignoreRegions,
