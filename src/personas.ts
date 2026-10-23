@@ -21,6 +21,7 @@ import { AGENT_PERSONAS, isAgentPersona, getAgentPersona, listAgentPersonas, isA
 import { scopedDataDir, scopedAccountId } from "./persona-scope.js";
 import { currentRequestIdentity } from "./request-context.js";
 import { TRAIT_DEFINITIONS, canonicalizeTraits } from "./trait-reference.js";
+import { customReadingRateId, customReadingRule, displayReadingWpm } from "./visual/provenance/persona-rates.js";
 
 // ============================================================================
 // Custom Personas Storage
@@ -426,20 +427,22 @@ export function generatePersonaFromDescription(
   let reactionMin = 200, reactionMax = 500;
   let clickDelayMin = 100, clickDelayMax = 300;
   let typeSpeedMin = 50, typeSpeedMax = 120;
-  let readingSpeed = 250;
+  // 238 wpm (Brysbaert 2019) x the custom-persona reading rule's share: the
+  // reference unless the description names dyslexia, low vision or old age
+  // (provenance/persona-rates.ts). Replaced keyword guesses of 400 / 250 / 150 /
+  // 100 wpm that no source gave.
+  const readingSpeed = displayReadingWpm(customReadingRateId(customReadingRule({ name, description, ageRange })));
   let scrollPauseMin = 200, scrollPauseMax = 500;
 
   if (techLevel === "expert" || isImpatient) {
     reactionMin = 100; reactionMax = 300;
     clickDelayMin = 50; clickDelayMax = 150;
     typeSpeedMin = 30; typeSpeedMax = 80;
-    readingSpeed = 400;
     scrollPauseMin = 100; scrollPauseMax = 300;
   } else if (techLevel === "beginner" || isSlow) {
     reactionMin = 500; reactionMax = 1500;
     clickDelayMin = 300; clickDelayMax = 800;
     typeSpeedMin = 100; typeSpeedMax = 200;
-    readingSpeed = 150;
     scrollPauseMin = 500; scrollPauseMax = 1500;
   }
 
@@ -450,7 +453,6 @@ export function generatePersonaFromDescription(
     clickDelayMax = Math.max(clickDelayMax, 1200);
     typeSpeedMin = Math.max(typeSpeedMin, 150);
     typeSpeedMax = Math.max(typeSpeedMax, 300);
-    readingSpeed = Math.min(readingSpeed, 100);
   }
 
   // Calculate error parameters
@@ -1267,7 +1269,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 100, max: 300 },
         clickDelay: { min: 50, max: 150 },
         typeSpeed: { min: 30, max: 80 },
-        readingSpeed: 400,
+        readingSpeed: displayReadingWpm("personaRate.power-user.reading"),
         scrollPauseTime: { min: 100, max: 300 },
       },
       errors: {
@@ -1347,7 +1349,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 500, max: 1500 },
         clickDelay: { min: 300, max: 800 },
         typeSpeed: { min: 100, max: 200 },
-        readingSpeed: 150,
+        readingSpeed: displayReadingWpm("personaRate.first-timer.reading"),
         scrollPauseTime: { min: 500, max: 1500 },
       },
       errors: {
@@ -1421,7 +1423,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 200, max: 600 },
         clickDelay: { min: 150, max: 400 },
         typeSpeed: { min: 80, max: 150 },
-        readingSpeed: 200,
+        readingSpeed: displayReadingWpm("personaRate.mobile-user.reading"),
         scrollPauseTime: { min: 200, max: 500 },
       },
       errors: {
@@ -1495,7 +1497,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 300, max: 800 },
         clickDelay: { min: 200, max: 500 },
         typeSpeed: { min: 50, max: 120 },
-        readingSpeed: 250,
+        readingSpeed: displayReadingWpm("personaRate.screen-reader-user.reading"),
         scrollPauseTime: { min: 300, max: 700 },
       },
       errors: {
@@ -1578,7 +1580,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 800, max: 2000 },
         clickDelay: { min: 500, max: 1200 },
         typeSpeed: { min: 150, max: 300 },
-        readingSpeed: 100,
+        readingSpeed: displayReadingWpm("personaRate.elderly-user.reading"),
         scrollPauseTime: { min: 800, max: 2000 },
       },
       errors: {
@@ -1685,7 +1687,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 100, max: 400 },
         clickDelay: { min: 80, max: 200 },
         typeSpeed: { min: 40, max: 100 },
-        readingSpeed: 350,
+        readingSpeed: displayReadingWpm("personaRate.impatient-user.reading"),
         scrollPauseTime: { min: 100, max: 300 },
       },
       errors: {
@@ -1758,7 +1760,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
     humanBehavior: {
       timing: {
         reactionTime: { min: 250, max: 1400 }, clickDelay: { min: 120, max: 500 },
-        typeSpeed: { min: 25, max: 70 }, readingSpeed: 200,
+        typeSpeed: { min: 25, max: 70 }, readingSpeed: displayReadingWpm("personaRate.distracted-user.reading"),
         scrollPauseTime: { min: 200, max: 1500 },
       },
       errors: { misClickRate: 0.09, doubleClickAccidental: 0.04, typoRate: 0.08, backtrackRate: 0.35 },
@@ -1787,7 +1789,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
     humanBehavior: {
       timing: {
         reactionTime: { min: 600, max: 2500 }, clickDelay: { min: 300, max: 900 },
-        typeSpeed: { min: 30, max: 80 }, readingSpeed: 130,
+        typeSpeed: { min: 30, max: 80 }, readingSpeed: displayReadingWpm("personaRate.careful-reader.reading"),
         scrollPauseTime: { min: 800, max: 3000 },
       },
       errors: { misClickRate: 0.02, doubleClickAccidental: 0.01, typoRate: 0.02, backtrackRate: 0.08 },
@@ -1815,7 +1817,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
     humanBehavior: {
       timing: {
         reactionTime: { min: 200, max: 900 }, clickDelay: { min: 100, max: 350 },
-        typeSpeed: { min: 45, max: 110 }, readingSpeed: 250,
+        typeSpeed: { min: 45, max: 110 }, readingSpeed: displayReadingWpm("personaRate.explorer.reading"),
         scrollPauseTime: { min: 200, max: 1200 },
       },
       errors: { misClickRate: 0.05, doubleClickAccidental: 0.02, typoRate: 0.04, backtrackRate: 0.25 },
@@ -1843,7 +1845,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
     humanBehavior: {
       timing: {
         reactionTime: { min: 200, max: 800 }, clickDelay: { min: 100, max: 300 },
-        typeSpeed: { min: 40, max: 100 }, readingSpeed: 260,
+        typeSpeed: { min: 40, max: 100 }, readingSpeed: displayReadingWpm("personaRate.task-focused.reading"),
         scrollPauseTime: { min: 150, max: 600 },
       },
       errors: { misClickRate: 0.04, doubleClickAccidental: 0.02, typoRate: 0.04, backtrackRate: 0.12 },
@@ -1952,7 +1954,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 600, max: 1500 },
         clickDelay: { min: 400, max: 1000 },
         typeSpeed: { min: 150, max: 300 },
-        readingSpeed: 200,
+        readingSpeed: displayReadingWpm("personaRate.motor-impairment-tremor.reading"),
         scrollPauseTime: { min: 500, max: 1200 },
       },
       errors: {
@@ -2058,7 +2060,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 400, max: 1000 },
         clickDelay: { min: 300, max: 700 },
         typeSpeed: { min: 100, max: 180 },
-        readingSpeed: 100, // Slower due to magnification
+        readingSpeed: displayReadingWpm("personaRate.low-vision-magnified.reading"),
         scrollPauseTime: { min: 600, max: 1500 },
       },
       errors: {
@@ -2164,7 +2166,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 150, max: 600 }, // Can be fast when hyperfocused
         clickDelay: { min: 100, max: 400 },
         typeSpeed: { min: 50, max: 120 },
-        readingSpeed: 250,
+        readingSpeed: displayReadingWpm("personaRate.cognitive-adhd.reading"),
         scrollPauseTime: { min: 100, max: 400 },
       },
       errors: {
@@ -2282,7 +2284,9 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
 
   "dyslexic-user": {
     name: "dyslexic-user",
-    // Research: Dyslexic adults read ~178 WPM vs 248 WPM controls (Scientific Reports 2021)
+    // Research: students with dyslexia read 184.63 vs 243.64 wpm silently (Callens, Tops & Brysbaert 2012,
+    // the registered rate); adults with dyslexia 178.09 vs 248.18 wpm, medians (Franzen, Stark & Johnson 2021,
+    // Scientific Reports 11:6449).
     // About 72% of typical speed, with more fixations and regressions
     description: "User with dyslexia affecting reading and text processing",
     disabilityType: "Cognitive (Dyslexia/Reading)",
@@ -2303,7 +2307,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 400, max: 1000 },
         clickDelay: { min: 200, max: 500 },
         typeSpeed: { min: 80, max: 160 },
-        readingSpeed: 120, // Research: ~70% of normal (178/248 WPM)
+        readingSpeed: displayReadingWpm("personaRate.dyslexic-user.reading"),
         scrollPauseTime: { min: 800, max: 2000 },
       },
       errors: {
@@ -2431,7 +2435,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 200, max: 500 },
         clickDelay: { min: 100, max: 300 },
         typeSpeed: { min: 50, max: 100 },
-        readingSpeed: 250,
+        readingSpeed: displayReadingWpm("personaRate.deaf-user.reading"),
         scrollPauseTime: { min: 300, max: 800 },
       },
       errors: {
@@ -2515,7 +2519,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 1000, max: 2500 },
         clickDelay: { min: 600, max: 1500 },
         typeSpeed: { min: 200, max: 400 },
-        readingSpeed: 80,
+        readingSpeed: displayReadingWpm("personaRate.elderly-low-vision.reading"),
         scrollPauseTime: { min: 1000, max: 2500 },
       },
       errors: {
@@ -2618,7 +2622,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 200, max: 600 }, // Slight delay on color-coded UI
         clickDelay: { min: 100, max: 400 },
         typeSpeed: { min: 50, max: 100 },
-        readingSpeed: 250,
+        readingSpeed: displayReadingWpm("personaRate.color-blind-deuteranopia.reading"),
         scrollPauseTime: { min: 200, max: 500 },
       },
       errors: {
@@ -2729,7 +2733,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 400, max: 1200 },
         clickDelay: { min: 300, max: 900 },
         typeSpeed: { min: 80, max: 180 },
-        readingSpeed: 180,
+        readingSpeed: displayReadingWpm("personaRate.autism-spectrum.reading"),
         scrollPauseTime: { min: 400, max: 1200 },
       },
       errors: {
@@ -2829,7 +2833,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 800, max: 2500 },
         clickDelay: { min: 500, max: 1500 },
         typeSpeed: { min: 200, max: 500 },
-        readingSpeed: 80,   // Significantly slower
+        readingSpeed: displayReadingWpm("personaRate.intellectual-disability.reading"),
         scrollPauseTime: { min: 800, max: 2000 },
       },
       errors: {
@@ -2917,7 +2921,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 600, max: 2000 },
         clickDelay: { min: 400, max: 1200 },
         typeSpeed: { min: 300, max: 800 },  // Text input very difficult
-        readingSpeed: 60,  // Severely impaired language processing
+        readingSpeed: displayReadingWpm("personaRate.aphasia-receptive.reading"),
         scrollPauseTime: { min: 600, max: 1500 },
       },
       errors: {
@@ -3006,7 +3010,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
         reactionTime: { min: 350, max: 900 },
         clickDelay: { min: 200, max: 500 },
         typeSpeed: { min: 80, max: 160 },
-        readingSpeed: 220,  // Normal text reading speed
+        readingSpeed: displayReadingWpm("personaRate.dyscalculia.reading"),
         scrollPauseTime: { min: 300, max: 800 },
       },
       errors: {
@@ -3194,7 +3198,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 400, max: 1200 }, // Slower due to deliberation
         clickDelay: { min: 300, max: 800 }, // Hesitates before clicking
         typeSpeed: { min: 80, max: 150 },
-        readingSpeed: 150, // Reads carefully
+        readingSpeed: displayReadingWpm("personaRate.anxious-user.reading"),
         scrollPauseTime: { min: 400, max: 1000 },
       },
       errors: {
@@ -3272,7 +3276,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 150, max: 400 },
         clickDelay: { min: 80, max: 200 },
         typeSpeed: { min: 40, max: 100 },
-        readingSpeed: 300,
+        readingSpeed: displayReadingWpm("personaRate.confident-user.reading"),
         scrollPauseTime: { min: 150, max: 400 },
       },
       errors: {
@@ -3350,7 +3354,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 150, max: 600 }, // Variable based on mood
         clickDelay: { min: 100, max: 400 },
         typeSpeed: { min: 50, max: 130 },
-        readingSpeed: 220,
+        readingSpeed: displayReadingWpm("personaRate.emotional-user.reading"),
         scrollPauseTime: { min: 200, max: 600 },
       },
       errors: {
@@ -3428,7 +3432,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
         reactionTime: { min: 250, max: 600 },
         clickDelay: { min: 150, max: 350 },
         typeSpeed: { min: 60, max: 120 },
-        readingSpeed: 220,
+        readingSpeed: displayReadingWpm("personaRate.stoic-user.reading"),
         scrollPauseTime: { min: 250, max: 600 },
       },
       errors: {

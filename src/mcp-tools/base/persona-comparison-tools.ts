@@ -38,8 +38,9 @@ import {
   OVERALL_LEVEL_KEY,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
-import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
-import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
+import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
+import { lawTimesReport } from "../../visual/law-times-report.js";
+import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
 import { ctcBandsDescription, ctcRank } from "../../visual/ctc-bands.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
@@ -729,7 +730,7 @@ Begin with the first persona: ${personas[0]}
       // persona scored identically on all three (B29, 2026-10-10). Same helper
       // as cognitive_effort, site_cognitive_assessment and the story tool.
       bridgeCapacityTraits(persona, traits,
-        (p as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+        (p as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(p));
       const otProfile = buildOTProfile(persona, traits);
 
       const load = estimateCognitiveLoad(otProfile, {
@@ -920,6 +921,9 @@ Begin with the first persona: ${personas[0]}
       // the persona's profile, so storing them would create a second copy that
       // can drift from the model that produces it. (2026-08-02)
       let pointingProfileForResponse: { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined;
+      // The ids the bridge read for THIS persona, reported as personaRateProvenance:
+      // collected from the call, so no cache state can change them.
+      let personaRateIds: ReadonlySet<string> = new Set<string>();
       try {
         const { bridgeCapacityTraits } = await import("../../visual/cognitive-models.js");
         // accessibilityTraits passed so an author's STATED reading capacity is
@@ -929,7 +933,8 @@ Begin with the first persona: ${personas[0]}
         // inline here and NOWHERE ELSE, which is why the two tools disagreed by
         // 2.6x on the motor layer: the other path scored against the missing-trait
         // fallback of 0.5 and called it a pointing ability.
-        pointingProfileForResponse = bridgeCapacityTraits(personaName, traits, accTraits);
+        ({ result: pointingProfileForResponse, ids: personaRateIds } = collectPersonaReads(() =>
+          bridgeCapacityTraits(personaName, traits, accTraits, personaRateContext(personaObj))));
       } catch (e) {
         // Left absent rather than defaulted: a missing capacity is visible as a
         // gap, a defaulted one silently reads as average.
@@ -1254,6 +1259,12 @@ Begin with the first persona: ${personas[0]}
         // sequential curve and verdict. The saliency overlay, drawn as context,
         // carries its own block on its layerOverlays entry.
         modelProvenance: undefined,
+        // The scored persona's motor and reading rates, counted apart from the
+        // score's constants (they describe the persona).
+        personaRateProvenance: personaRateProvenance(personaRateIds),
+        // Stage B: the four law times the motor, decision, procedure and reading
+        // demands come from, beside the demand each makes against the budget.
+        lawTimes: lawTimesReport(pageMetrics),
         // Only when useValues asked for it, so a persona with no values is
         // visibly scored without them rather than silently.
         ...(useValues ? { valueModulation: valueModulationReport(schwartzValues) } : {}),
@@ -1373,7 +1384,7 @@ Begin with the first persona: ${personas[0]}
               pointingInputs: {
                 fittsThroughput: Math.round(pp.throughput * 100) / 100,
                 endpointDispersionPx: Math.round(((pp.sigmaX + pp.sigmaY) / 2) * 10) / 10,
-                note: "throughput drives movementTimeMs; dispersion drives hitProbability. motorCapacity weights throughput at 0.75, so the `motor` layer and `hitProbability` legitimately rank personas differently.",
+                note: "throughput drives movementTimeMs; dispersion drives hitProbability. motorCapacity is throughput / (throughput + 4.9 bits/s, the reference mouse throughput) and does not read dispersion, so the `motor` layer and `hitProbability` legitimately rank personas differently.",
               },
               note: "These two are additive and unweighted against each other. There is no empirical basis for a relative weighting between acquiring a target and executing a sequence, so none is applied - see MOTOR_LAYER_WEIGHTS, both 1.0 and marked uncalibrated.",
             };
@@ -1430,7 +1441,7 @@ Begin with the first persona: ${personas[0]}
             ...(readabilityResult.blocks.length > 0 ? {
               hardestBlockPenaltyMs: (readabilityResult.blocks as Array<{ difficulty: number; penaltyBreakdown: Record<string, number> }>)
                 .reduce((worst, b) => b.difficulty > worst.difficulty ? b : worst).penaltyBreakdown,
-              penaltyNote: "hardestBlockPenaltyMs carries every component, including those that came to 0. A 0 means the component was evaluated and does not apply to this text -- crowding, for one, only begins below 16px (Pelli et al. 2004) -- not that it is unmodelled. crowdingSensitivity additionally carries a 0.15 weight into readingCapacity, which reaches the readability layer at every font size.",
+              penaltyNote: "hardestBlockPenaltyMs carries every component, including those that came to 0. A 0 means the component was evaluated and does not apply to this text -- crowding, for one, only begins below 16px (Pelli et al. 2004) -- not that it is unmodelled. Since Stage B crowdingSensitivity does not enter readingCapacity: that is a rate ratio, from the persona's registered reading rate or, for a custom persona that states a reading profile, the fixation model's text-independent terms (base, phonological, visual span). Crowding is priced only here, in this audit's per-block time below 16px.",
             } : {}),
           },
         } : {}),

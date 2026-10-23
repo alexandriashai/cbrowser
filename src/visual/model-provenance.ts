@@ -43,6 +43,10 @@ import { ATTENTION_PROVENANCE } from "./provenance/attention.js";
 import { PERCEPTUAL_PROVENANCE } from "./provenance/perceptual.js";
 import { PAGE_METRICS_PROVENANCE } from "./provenance/page-metrics.js";
 import { VISUAL_DISTANCE_PROVENANCE } from "./provenance/visual-distance.js";
+import { LAW_PROVENANCE } from "./provenance/laws.js";
+import { PROFILE_PROVENANCE } from "./provenance/profiles.js";
+import { PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE } from "./provenance/persona-rates.js";
+import { JOURNEY_GROUP_PROVENANCE } from "./provenance/journey-group.js";
 
 function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> {
   const out: Record<string, ProvenanceEntry> = {};
@@ -55,7 +59,7 @@ function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> 
 }
 
 export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Object.freeze(
-  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE),
+  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE, JOURNEY_GROUP_PROVENANCE),
 );
 
 /**
@@ -108,6 +112,26 @@ export function withParamOverrides<T>(values: Record<string, number>, fn: () => 
 }
 
 /**
+ * TEST ONLY: withParamOverrides for an async `fn`, the overrides holding
+ * until it settles. The override set is process-wide, not scoped to the async
+ * context, so anything else running meanwhile sees it too: a test awaits one
+ * override at a time (tests/journey-no-dead-constants.test.ts, which perturbs
+ * the constants a journey reads across its awaits).
+ */
+export async function withParamOverridesAsync<T>(values: Record<string, number>, fn: () => Promise<T>): Promise<T> {
+  for (const id of Object.keys(values)) {
+    if (!MODEL_PROVENANCE[id]) throw new Error(`unregistered model constant "${id}"`);
+  }
+  const outer = overrides;
+  overrides = { ...(outer ?? {}), ...values };
+  try {
+    return await fn();
+  } finally {
+    overrides = outer;
+  }
+}
+
+/**
  * The override set in force, or null outside withParamOverrides. A new object
  * on every override call, so a cache of anything derived from registered
  * constants (the CTC reference curve) can key on it by identity and is never
@@ -151,7 +175,10 @@ export interface ProvenanceText {
  */
 const SCORE_SCOPE =
   "Every registered constant the score in this answer read: the page-metric extraction that measured the page (pageMetrics.*), " +
-  "the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation " +
+  "the published laws that turn the page into seconds of pointing, choosing, reading and procedure for the reference user " +
+  "(law.*: Fitts, novice visual search, Brysbaert's reading rate, the keystroke-level model) and the one time budget each is a " +
+  "demand against (law.timeBudget, a hypothesis), the demand curves that turn the other page metrics into per-trait demand, " +
+  "the cognitive transport chain (with its Schwartz value modulation " +
   "when values were applied), the reference set totalCTC is ranked against and the verdict bands cut on it (definitions), and the two " +
   "persona-distance constants the persona profile reads. It does not count the attention model: an attention map in this answer " +
   "(cognitive_effort's saliency overlay, visual_cognitive_story's attention analysis) is context for the page, not an input to the " +
@@ -177,6 +204,36 @@ export const ATTENTION_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Obj
 });
 
 /** Summarise a set of ids (what one computation read) for a tool response. */
+/** The two reference rates a capacity is a ratio against; they cancel in c = r_p / (r_p + r_ref). */
+const REFERENCE_RATE_IDS = new Set(["law.rate.pointing.reference", "law.reading.wpm"]);
+
+export const PERSONA_RATE_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Object.freeze({
+  scope:
+    "The rates the scored persona's motor and reading capacities were computed from, counted apart from modelProvenance because " +
+    "they describe the persona, not the score's constants. A built-in persona's are registered with it (personaRate.*); a custom " +
+    "persona's are the rule it fell under (customRate.*), or, where it stated a reading profile, the fixation-model constants that " +
+    "turn that profile into a rate (profile.*). Each capacity is c = r_p / (r_p + r_ref) against the reference rates " +
+    "law.rate.pointing.reference and law.reading.wpm (published), which cancel in the ratio and are not counted here, nor is the pointing profile's endpoint dispersion (the hit-probability audit's, not a rate). The other " +
+    "personas' rates are part of the reference population totalCTC is ranked against (a definition) and are not listed.",
+  note:
+    "A rate labelled published was measured on the persona's population against same-study controls; hypothesis rates include " +
+    "\"no measured difference\", the reference rate given where no source measures one. See MODEL_PROVENANCE for each source.",
+});
+
+export interface PersonaRateProvenance extends ProvenanceSummary {
+  /** Every rate id counted, sorted, so the published ones can be named as well as counted. */
+  rates: string[];
+}
+
+/** The endpoint dispersion the bridge reads for the pointing profile it returns: the hit-probability audit's, not a rate. */
+const DISPERSION_ID = /^profile\.pointing\.(?:[^.]+\.(?:sigma|rho)|precision\..+)$/;
+
+/** The persona-rate section of an answer, from the ids collectPersonaReads returned for the scored persona's bridge. */
+export function personaRateProvenance(ids: Iterable<string>): PersonaRateProvenance {
+  const rates = [...new Set(ids)].filter((id) => MODEL_PROVENANCE[id] && !REFERENCE_RATE_IDS.has(id) && !DISPERSION_ID.test(id)).sort();
+  return { ...provenanceSummary(rates, PERSONA_RATE_PROVENANCE_TEXT), rates };
+}
+
 export function provenanceSummary(ids: Iterable<string>, text: ProvenanceText = {}): ProvenanceSummary {
   const counts: Record<ProvenanceStatus, number> = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
   const hypotheses: string[] = [];
@@ -209,6 +266,42 @@ export function readsOf<T>(fn: () => T): { result: T; ids: ReadonlySet<string> }
   } finally {
     if (outer) for (const id of mine) outer.add(id);
   }
+}
+
+/**
+ * The persona models' own recording channel. Reads made by the persona models
+ * in cognitive-models.ts (capacity rates, pointing and reading profiles, the
+ * fixation model the readability audit shares) describe the persona or an
+ * audit, not the score, so they never land in a score's recording: a score
+ * block counts demand, chain, reference and distance. Without this, a block
+ * would also count whichever personas the CTC reference curve happened to bridge
+ * on a cache miss, and the motor and readability audits a tool runs beside its
+ * score. A process-wide session (startProvenanceRecording) still sees them, as
+ * with isolatedProvenanceAsync, since coverage tests count every read the
+ * process makes. Overrides apply as usual.
+ */
+const personaCollector = new AsyncLocalStorage<Set<string>>();
+
+/** Run `fn` as persona-model work: its reads go to the active collectPersonaReads set (if any) and the session, never to a score recording. */
+export function personaScope<T>(fn: () => T): T {
+  const mine = personaCollector.getStore() ?? new Set<string>();
+  try {
+    return scoped.run(mine, fn);
+  } finally {
+    if (session) for (const id of mine) session.add(id);
+  }
+}
+
+/**
+ * Run `fn` as persona-model work and return the ids it read. A tool wraps the
+ * scored persona's bridge in this to report the rates that persona was scored
+ * with in a section of their own: computed from the persona, so no cache state
+ * can change it.
+ */
+export function collectPersonaReads<T>(fn: () => T): { result: T; ids: ReadonlySet<string> } {
+  const mine = new Set<string>();
+  const result = personaCollector.run(mine, () => personaScope(fn));
+  return { result, ids: mine };
 }
 
 /**

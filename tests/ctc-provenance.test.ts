@@ -15,7 +15,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import { CHAIN_PROVENANCE } from "../src/visual/provenance/chain.js";
-import { MODEL_PROVENANCE, param, startProvenanceRecording, stopProvenanceRecording, withProvenance } from "../src/visual/model-provenance.js";
+import { MODEL_PROVENANCE, param, readsOf, startProvenanceRecording, stopProvenanceRecording, withProvenance } from "../src/visual/model-provenance.js";
 import { buildGoldenMatrix } from "./fixtures/ctc-golden-matrix.js";
 
 const STATUSES = ["fitted", "published", "definition", "hypothesis"];
@@ -41,7 +41,12 @@ describe("chain provenance registry", () => {
     // the hand-set output logistic (chain.ctcSigmoidSlope, chain.ctcSigmoidCentre)
     // gave way to a percentile against real pages (21.x), whose reference is
     // registered as data in provenance/ctc-reference.ts, not as a chain constant.
-    expect(CHAIN_PROVENANCE.length).toBe(69);
+    // 63 after Stage B (21.0): the seven hand-set curve constants behind the
+    // motor, decision, procedure and reading demands (demand.interactive.*,
+    // demand.choice.halfSaturation, demand.text.readingCapacity) gave way to law
+    // times against law.timeBudget, and riskTolerance's share moved to
+    // demand.decision.riskTolerance.
+    expect(CHAIN_PROVENANCE.length).toBe(63);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });
@@ -91,7 +96,15 @@ describe("chain provenance registry", () => {
     expect(provenance.counts.hypothesis).toBeGreaterThanOrEqual(CHAIN_PROVENANCE.filter((e) => e.status === "hypothesis").length);
     expect(provenance.counts.definition).toBeGreaterThan(0);
     expect(provenance.counts.fitted).toBe(0);
-    expect(provenance.counts.published).toBe(0);
+    // Since Stage B the reference curve derives its pages through the published
+    // laws (law.*), so a chain run's block counts them; the chain's own entries
+    // are still none of them (the test above).
+    // A scoped recording, as the block is: the process session also sees the
+    // persona-model reads (personaScope), which no score block counts.
+    const publishedRead = [...readsOf(() => buildGoldenMatrix()).ids].filter((id) => MODEL_PROVENANCE[id]?.status === "published");
+    expect(publishedRead.length).toBeGreaterThan(0);
+    expect(publishedRead.every((id) => id.startsWith("law."))).toBe(true);
+    expect(provenance.counts.published).toBe(publishedRead.length);
     expect(provenance.hypotheses).toContain("chain.depletionRate");
   });
 });

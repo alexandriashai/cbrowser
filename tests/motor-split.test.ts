@@ -22,6 +22,7 @@ import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 import { computeDemandDistribution, computeSequentialCTC, MOTOR_LAYER_WEIGHTS } from "../src/visual/cognitive-transport-chain.js";
 
 const SRC = join(import.meta.dir, "..", "src");
@@ -47,7 +48,7 @@ async function bridged(name: string): Promise<Record<string, number>> {
   return t;
 }
 const layer = (traits: Record<string, number>, name: string, page = PAGE) => {
-  const r = computeSequentialCTC(buildOTCognitiveProfile("p", traits), computeDemandDistribution(page),
+  const r = computeSequentialCTC(buildOTCognitiveProfile("p", traits), computeDemandDistribution(withLawSeconds(page)),
     { asymmetric: true, interactions: true });
   return (r.layers as Array<{ name: string; transportCost: number; headroom: number }>).find((l) => l.name === name)!;
 };
@@ -73,7 +74,7 @@ describe("the chain is eight layers, in order", () => {
     // BUG-21 asked for this on both new layers and on saliency. It is computed
     // generically for all eight, and has been since the readability split.
     const r = computeSequentialCTC(buildOTCognitiveProfile("p", { ...base, motorCapacity: 0.95, proceduralFluency: 0.95 }),
-      computeDemandDistribution({ ...(PAGE as object), interactiveElementCount: 3 } as never),
+      computeDemandDistribution(withLawSeconds({ ...(PAGE as object), interactiveElementCount: 3 } as never)),
       { asymmetric: true, interactions: true });
     for (const l of r.layers as Array<{ name: string; headroom: number }>) {
       expect({ layer: l.name, hasHeadroom: typeof l.headroom === "number" })

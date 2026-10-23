@@ -26,6 +26,7 @@ import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import { DEMAND_DIMENSIONS, computeDemandDistribution, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
 import { TRAIT_DEFINITIONS } from "../src/trait-reference.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 
 const CHAIN = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
 const setNamed = (name: string): string[] => {
@@ -36,10 +37,10 @@ const setNamed = (name: string): string[] => {
 const FREE = setNamed("SURPLUS_FREE_DIMENSIONS");
 const BILLED = setNamed("SURPLUS_BILLED_DIMENSIONS");
 
-const page = computeDemandDistribution({
+const page = computeDemandDistribution(withLawSeconds({
   informationDensity: 0.5, visualComplexity: 0.5, interactiveElementCount: 40,
   textDensity: 0.5, animationLevel: 0.2, choiceCount: 15, navigationDepth: 2,
-} as never);
+} as never));
 const cost = (t: Record<string, number>) =>
   computeSequentialCTC(buildOTCognitiveProfile("p", t), page, { asymmetric: true, interactions: true }).totalCTC;
 const uniform = (v: number) => Object.fromEntries((COGNITIVE_TRAITS as readonly string[]).map((t) => [t, v]));

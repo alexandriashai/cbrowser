@@ -30,14 +30,16 @@
 import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
+import { COGNITIVE_TRAITS, buildOTCognitiveProfile, deriveMetrics } from "../src/visual/cognitive-transport.js";
+import { RAW_LATIN } from "./fixtures/raw-page-measurements.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 import { computeDemandDistribution, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
 
 const CHAIN = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
-const page = (interactiveElementCount: number) => computeDemandDistribution({
+const page = (interactiveElementCount: number) => computeDemandDistribution(withLawSeconds({
   informationDensity: 0.4, visualComplexity: 0.3, interactiveElementCount,
   textDensity: 0.4, animationLevel: 0, choiceCount: 5, navigationDepth: 1,
-} as never);
+} as never));
 const base: Record<string, number> = Object.fromEntries(
   (COGNITIVE_TRAITS as readonly string[]).map((t) => [t, 0.5]));
 const motorCost = (traits: Record<string, number>, controls = 10) => {
@@ -70,15 +72,28 @@ describe("a better pointer never costs more", () => {
 });
 
 describe("the layer and the audit are different instruments (D-9)", () => {
-  test("the layer reads a COUNT, not elements", () => {
-    // BUG-11's observation, as a property. One element in or out barely moves
-    // the layer, because the layer never saw the element.
-    const t = { ...base, motorCapacity: 0.4, proceduralFluency: 0.4 };
-    const delta = Math.abs(motorCost(t, 60) - motorCost(t, 59));
-    expect(delta).toBeLessThan(0.01);
-    // But a large change in element count DOES move it, or the layer would be
-    // inert rather than coarse.
-    expect(Math.abs(motorCost(t, 100) - motorCost(t, 5))).toBeGreaterThan(0.01);
+  test("Stage B: the layer reads the elements, through Fitts' law, not their count", () => {
+    // Was "the layer reads a COUNT, not elements" (BUG-11's observation). Since
+    // Stage B the motor demand is the time to acquire every target in scope
+    // (lawSecondsOf), so the layer sees each element's size and distance. The
+    // two instruments still answer different questions: the layer sums one
+    // time over the page; motorAccessibility reports hit probability per element.
+    const t = { ...base, motorCapacity: 0.4 };
+    const withBoxes = (w: number, h: number, far: boolean) => {
+      const raw = structuredClone(RAW_LATIN);
+      const n = raw.boxes.length / 5;
+      raw.boxes = Array.from({ length: n }, (_, i) => [raw.boxes[i * 5], far ? 0 : raw.viewportWidth / 2 - w / 2, far ? raw.scrollY : raw.scrollY + raw.viewportHeight / 2 - h / 2, w, h]).flat();
+      return deriveMetrics(raw);
+    };
+    const near = withBoxes(200, 60, false);
+    const far = withBoxes(8, 8, true);
+    expect(near.interactiveElementCount).toBe(far.interactiveElementCount);
+    expect(far.pointingSeconds).toBeGreaterThan(near.pointingSeconds);
+    const cost = (m: ReturnType<typeof deriveMetrics>) => {
+      const r = computeSequentialCTC(buildOTCognitiveProfile("p", t), computeDemandDistribution(m), { asymmetric: true, interactions: true });
+      return (r.layers as Array<{ name: string; transportCost: number }>).find((l) => l.name === "motor")!.transportCost;
+    };
+    expect(cost(far)).toBeGreaterThan(cost(near));
   });
 
   test("the layer is pointing only, and the audit relationship is still stated", () => {

@@ -23,6 +23,7 @@ import { ctcBand, ctcBands, ctcBandsDescription, ctcRank } from "../src/visual/c
 import { MODEL_PROVENANCE, readsOf, withParamOverrides } from "../src/visual/model-provenance.js";
 import { CTC_REFERENCE, referencePopulation } from "../src/visual/ctc-reference.js";
 import { computeDemandFromRawMetrics, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
+import { demandFromLegacy } from "./fixtures/law-seconds.js";
 import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
 
 const PAGES = CTC_REFERENCE.outcomes.graded;
@@ -157,7 +158,7 @@ describe("ctcRank states the rank in the required form", () => {
 
   test("on a real chain result the sentence carries the result's own rank and scope", () => {
     const prof = toolProfile("elderly-user", ROSTER["elderly-user"]);
-    const r = computeSequentialCTC(prof, computeDemandFromRawMetrics(0.6, 0.5, 30, 0.6, 0.2, 10, 3), { asymmetric: true, interactions: true });
+    const r = computeSequentialCTC(prof, demandFromLegacy(0.6, 0.5, 30, 0.6, 0.2, 10, 3), { asymmetric: true, interactions: true });
     const rank = ctcRank(r);
     expect(rank.band).toBe(ctcBand(r.totalCTC)!.name);
     if (r.totalCTC > 0 && r.totalCTC < 1) expect(rank.percent).toBe(Math.floor(r.totalCTC * 100));

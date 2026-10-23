@@ -61,6 +61,7 @@ import { RAW_PAGE_FORMAT } from "../src/visual/cognitive-transport.js";
 import { MODEL_PROVENANCE, param, readsOf, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { CTC_REFERENCE_PROVENANCE } from "../src/visual/provenance/ctc-reference.js";
 import { PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
+import { withLawSeconds, demandFromLegacy } from "./fixtures/law-seconds.js";
 import { ROSTER, toolProfile, allDemands, schwartzFor } from "./fixtures/ctc-golden-matrix.js";
 
 const ROOT = join(import.meta.dir, "..");
@@ -148,7 +149,7 @@ describe("the reference set", () => {
       "ctcReference.interval.replicates", "ctcReference.interval.seed", "ctcReference.viewport",
     ]);
     for (const e of own) expect(e.status).toBe("definition");
-    const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
+    const demand = demandFromLegacy(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
     const prof = toolProfile("first-timer", ROSTER["first-timer"]);
     // A registry that disagrees with the shipped data is refused, not ranked against.
     expect(() => withParamOverrides({ "ctcReference.viewport": CTC_REFERENCE.outcomes.graded + 1 }, () => computeSequentialCTC(prof, demand)))
@@ -157,7 +158,7 @@ describe("the reference set", () => {
 
   test("a score records the reference it was ranked against, and the same dependencies cached or not", () => {
     const prof = toolProfile("elderly-user", ROSTER["elderly-user"]);
-    const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
+    const demand = demandFromLegacy(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
     const summary = () => withProvenance(() => computeSequentialCTC(prof, demand)).provenance;
     const first = summary();
     expect(summary()).toEqual(first);
@@ -331,7 +332,7 @@ describe("totalCTC is the curve at rawCTC, and totalCTCInterval its interval the
 
   test("the scope travels from the page metrics, and full_page is ranked against full_page pages", () => {
     const metrics = referencePages("full_page")[0];
-    const demand = computeDemandDistribution(metrics);
+    const demand = computeDemandDistribution(withLawSeconds(metrics));
     expect(demand.scope).toBe("full_page");
     const prof = toolProfile("power-user", ROSTER["power-user"]);
     const r = computeSequentialCTC(prof, demand);
@@ -342,7 +343,7 @@ describe("totalCTC is the curve at rawCTC, and totalCTCInterval its interval the
   });
 
   test("Schwartz values and carried capacity do not select a curve: they describe the person, not the yardstick", () => {
-    const demand = computeDemandFromRawMetrics(0.6, 0.5, 30, 0.6, 0.2, 10, 3);
+    const demand = demandFromLegacy(0.6, 0.5, 30, 0.6, 0.2, 10, 3);
     const curve = ctcReferenceCurve("viewport").curve;
     for (const name of ["elderly-user", "power-user", "cognitive-adhd"]) {
       const prof = toolProfile(name, ROSTER[name]);
@@ -353,7 +354,7 @@ describe("totalCTC is the curve at rawCTC, and totalCTCInterval its interval the
     }
     // And each screen of a scroll is ranked against the viewport reference.
     const prof = toolProfile("first-timer", ROSTER["first-timer"]);
-    const screens = [computeDemandFromRawMetrics(0.4, 0.5, 20, 0.4, 0.2, 8, 1), computeDemandFromRawMetrics(0.7, 0.3, 5, 0.8, 0, 2, 1)];
+    const screens = [demandFromLegacy(0.4, 0.5, 20, 0.4, 0.2, 8, 1), demandFromLegacy(0.7, 0.3, 5, 0.8, 0, 2, 1)];
     const scroll = computeSequentialScrollCTC(prof, screens, { asymmetric: true, interactions: true });
     expect(scroll.screens.length).toBe(2);
     for (const s of scroll.screens) expect(s.screenCTC).toBeGreaterThanOrEqual(0);
@@ -478,7 +479,7 @@ describe("what the percentile buys", () => {
   test("persona differences survive the pooling: on every reference page the raw order is the totalCTC order", () => {
     let differ = 0, pages = 0;
     for (const metrics of referencePages("viewport")) {
-      const demand = computeDemandDistribution(metrics);
+      const demand = computeDemandDistribution(withLawSeconds(metrics));
       const elderly = computeSequentialCTC(toolProfile("elderly-user", ROSTER["elderly-user"]), demand);
       const power = computeSequentialCTC(toolProfile("power-user", ROSTER["power-user"]), demand);
       // A monotone map cannot reverse an order; it can only tie at the ends.
@@ -497,7 +498,7 @@ describe("what the percentile buys", () => {
       const pop = referencePopulation();
       let above = 0, below = 0, n = 0;
       for (const metrics of referencePages(scope)) {
-        const demand = computeDemandDistribution(metrics);
+        const demand = computeDemandDistribution(withLawSeconds(metrics));
         for (const p of pop) {
           const t = computeSequentialCTC({ name: p.name, traits: p.traits } as never, demand).totalCTC;
           if (t > 0.95) above++;
@@ -525,7 +526,7 @@ describe("the curve is derived through the live chain, from raw measurements", (
     expect([...moved.curve.xs]).not.toEqual([...base.curve.xs]);
     expect([...moved.interval.xs]).not.toEqual([...base.interval.xs]);
     // A demand-curve constant moves the reference pages' demand, so it moves the curve too.
-    const demandMoved = withParamOverrides({ "chain.demand.text.readingCapacity": 0.99 }, () => ctcReferenceCurve("viewport"));
+    const demandMoved = withParamOverrides({ "chain.demand.sustained.base": 0.99 }, () => ctcReferenceCurve("viewport"));
     expect([...demandMoved.curve.xs]).not.toEqual([...base.curve.xs]);
     // Out of the override, the original curve is served again.
     expect(ctcReferenceCurve("viewport")).toBe(base);
@@ -537,7 +538,11 @@ describe("the curve is derived through the live chain, from raw measurements", (
   test("a changed page-metric normaliser re-derives the curve: the reference stores raw measurements, not metrics", () => {
     const base = ctcReferenceCurve("viewport");
     // A midpoint, a cap, and a sentence threshold applied to the stored length histograms.
-    for (const [id, v] of [["pageMetrics.informationDensity.midpoint", 2500], ["pageMetrics.choiceCap", 20], ["pageMetrics.alphabetic.sentenceLengthAbove", 20]] as const) {
+    // Stage B: the law constants re-derive the curve from the stored raw records too
+    // (choiceCap no longer does: no demand reads choiceCount, so it only bounds
+    // the reported count).
+    for (const [id, v] of [["pageMetrics.informationDensity.midpoint", 2500], ["pageMetrics.alphabetic.sentenceLengthAbove", 20],
+      ["law.fitts.slope", 0.2], ["law.search.slope", 0.1], ["law.reading.wpm", 300], ["law.klm.mentalPreparation", 2], ["law.timeBudget", 20]] as const) {
       const moved = withParamOverrides({ [id]: v }, () => ctcReferenceCurve("viewport"));
       expect([...moved.curve.xs]).not.toEqual([...base.curve.xs]);
       expect(moved.reads).toContain(id);

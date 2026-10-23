@@ -49,9 +49,10 @@ import {
   checkPreconditions,
   type BoundModule,
 } from "./fixtures/dro-adversary.js";
+import { demandFromLegacy } from "./fixtures/law-seconds.js";
 
 const SEEDS = [1, 2, 3];
-const MID = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
+const MID = demandFromLegacy(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
 const VISUAL = resolve(dirname(fileURLToPath(import.meta.url)), "../src/visual");
 
 interface Mutant { id: string; what: string; from: string; to: string; mustKill: boolean }

@@ -51,7 +51,8 @@ import {
   type WorstCaseBound,
 } from "../../src/visual/dro-bound.js";
 import { param } from "../../src/visual/model-provenance.js";
-import { RAW_DEMANDS } from "./ctc-golden-matrix.js";
+import { RAW_DEMANDS, rawDemand } from "./ctc-golden-matrix.js";
+import { legacySeconds } from "./law-seconds.js";
 
 export const DIMS = DEMAND_DIMENSIONS as readonly string[];
 export type Vec = Record<string, number>;
@@ -91,8 +92,18 @@ export function uniformStream(seed: number): () => number {
 const golden = (id: string) => {
   const p = RAW_DEMANDS.find((r) => r.id === id);
   if (!p) throw new Error(`no golden page ${id}`);
-  return computeDemandFromRawMetrics(...p.args);
+  return rawDemand(p.args, p.seconds);
 };
+
+/** The generator's nine inputs, in computeDemandFromRawMetrics order (Stage B: the four law times replace the two counts). */
+type Args = Parameters<typeof computeDemandFromRawMetrics>;
+const page = (args: Args) => computeDemandFromRawMetrics(...args);
+
+/** A page described by its pre-Stage-B counts, as generator inputs that ask the same demand (tests/fixtures/law-seconds.ts). */
+function fromCounts(info: number, vis: number, interactive: number, text: number, anim: number, choices: number, nav: number): Args {
+  const s = legacySeconds({ interactiveElementCount: interactive, choiceCount: choices, textDensity: text, informationDensity: info });
+  return [info, vis, text, anim, nav, s.pointingSeconds, s.choosingSeconds, s.readingSeconds, s.procedureSeconds];
+}
 
 /**
  * A page from the product's generator over the golden matrix's input range.
@@ -102,14 +113,22 @@ const golden = (id: string) => {
  */
 export function randomPage(u: () => number): DemandDistribution {
   const c = u();
-  return computeDemandFromRawMetrics(c * u(), c * u(), Math.round(c * u() * 1000), c * u(), c * u(), Math.round(c * u() * 500), Math.round(c * u() * 30));
+  return page(INPUT_MAX.map((v, i) => (i === NAV ? Math.round(c * u() * v) : c * u() * v)) as Args);
 }
 
 export interface Page { id: string; demand: DemandDistribution }
 
-/** The generator's seven inputs, in computeDemandFromRawMetrics order, with the golden matrix's maximum for each. */
-const INPUTS = ["informationDensity", "visualComplexity", "interactiveElementCount", "textDensity", "animationLevel", "choiceCount", "navigationDepth"] as const;
-const INPUT_MAX = [1, 1, 1000, 1, 1, 500, 30];
+/**
+ * The generator's nine inputs, in computeDemandFromRawMetrics order, with a
+ * maximum for each: the golden matrix's for the five page features, and for
+ * the four law times the design's maxima (research/stage-b-design.md section
+ * 7), above every page in the reference sample, so the search reaches the
+ * near-saturated demands real full_page measurements sit in.
+ */
+const INPUTS = ["informationDensity", "visualComplexity", "textDensity", "animationLevel", "navigationDepth",
+  "pointingSeconds", "choosingSeconds", "readingSeconds", "procedureSeconds"] as const;
+const INPUT_MAX = [1, 1, 1, 1, 30, 1500, 130, 1800, 15];
+const NAV = INPUTS.indexOf("navigationDepth");
 
 /**
  * Light pages where one interaction partner is barely loaded (its content gate
@@ -126,12 +145,16 @@ const INPUT_MAX = [1, 1, 1000, 1, 1, 500, 30];
  * on 743 pages, one with half the layer maxCost in the interaction terms by up
  * to 1.08x on 329; the shipped bound never (max 0.9999). Each page below kills
  * both on 14 of 14 seeds at margins of at least 1.17x and 1.07x.
+ *
+ * Stage B: each page is still described by the counts the scan found it with,
+ * turned into the law times that ask the same demand (fromCounts), so every
+ * demand vector, and with it every kill margin, is what it was.
  */
-const INTERACTION_PAGES: Array<[string, Parameters<typeof computeDemandFromRawMetrics>]> = [
-  ["trace-text+choices", [0, 0.009, 0, 0.038, 0, 13, 0]],
-  ["trace-text+depth", [0.03, 0, 0, 0.075, 0.002, 0, 11]],
-  ["info+trace-visual+depth", [0.243, 0.027, 0, 0, 0, 0, 7]],
-  ["light-text+choices", [0, 0, 0, 0.16, 0, 15, 0]],
+const INTERACTION_PAGES: Array<[string, Args]> = [
+  ["trace-text+choices", fromCounts(0, 0.009, 0, 0.038, 0, 13, 0)],
+  ["trace-text+depth", fromCounts(0.03, 0, 0, 0.075, 0.002, 0, 11)],
+  ["info+trace-visual+depth", fromCounts(0.243, 0.027, 0, 0, 0, 0, 7)],
+  ["light-text+choices", fromCounts(0, 0, 0, 0.16, 0, 15, 0)],
 ];
 
 /** A page with a random subset of the generator's inputs, each at a level skewed low: the family the interaction scan drew from. */
@@ -139,9 +162,9 @@ export function sparsePage(u: () => number): DemandDistribution {
   const args = INPUT_MAX.map((v, i) => {
     if (u() < 0.5) return 0;
     const r = u() ** 2;
-    return i === 2 || i === 5 || i === 6 ? Math.round(v * r * r) : v * r;
-  }) as Parameters<typeof computeDemandFromRawMetrics>;
-  return computeDemandFromRawMetrics(...args);
+    return i === NAV ? Math.round(v * r * r) : i >= NAV + 1 ? v * r * r : v * r;
+  }) as Args;
+  return page(args);
 }
 
 /**
@@ -162,10 +185,10 @@ export function searchPages(u: () => number, extra: number): Page[] {
   // 2.99 s after "empty"; the same evaluations, a JIT effect).
   const pages: Page[] = ["sparse", "light", "mid", "max", "empty"].map((id) => ({ id, demand: golden(id) }));
   INPUTS.forEach((name, i) => {
-    const args = INPUT_MAX.map((v, j) => (j === i ? v : 0)) as Parameters<typeof computeDemandFromRawMetrics>;
-    pages.push({ id: `only-${name}`, demand: computeDemandFromRawMetrics(...args) });
+    const args = INPUT_MAX.map((v, j) => (j === i ? v : 0)) as Args;
+    pages.push({ id: `only-${name}`, demand: page(args) });
   });
-  for (const [id, args] of INTERACTION_PAGES) pages.push({ id, demand: computeDemandFromRawMetrics(...args) });
+  for (const [id, args] of INTERACTION_PAGES) pages.push({ id, demand: page(args) });
   for (let i = 0; i < extra; i++) pages.push({ id: `random-${i}`, demand: randomPage(u) });
   pages.push({ id: "sparse-random", demand: sparsePage(u) });
   return pages;

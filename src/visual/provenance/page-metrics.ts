@@ -61,7 +61,7 @@ export const PAGE_METRICS_PROVENANCE: ProvenanceEntry[] = [
   h("textDensity.midpoint", 3, MIDPOINT("characters per 1,000 px^2", "textDensity")),
   h("animation.carouselCount", 3, "Hand-set number of running animations a carousel counts as. Rated distraction (or measured reading slowdown) on pages with a carousel against pages with n running animations would set it."),
   h("animation.saturation", 10, "Hand-set animation count at which animationLevel reaches 1 (a linear ramp, capped). Rated distraction against running-animation count across a reference set of pages would set the ramp."),
-  h("choiceCap", 100, "Hand-set cap on choiceCount for the demand math, which saturates well before it (choices/(choices + 10) is 0.91 at 100); the raw count is reported beside it. The distribution of choice counts across a reference set of real pages would show how often it binds (it does on the CU Denver homepage at full_page)."),
+  h("choiceCap", 100, "Hand-set cap on the reported choiceCount (the uncapped count is reported beside it as choiceCountRaw). Since Stage B no demand reads choiceCount: the decision demand is choosing seconds (lawSecondsOf). The distribution of choice counts across a reference set of real pages would show how often it binds (it does on the CU Denver homepage at full_page)."),
 
   // ── Readability: which text counts ──
   h("prose.lengthAbove", 5, "Hand-set: a prose element counts only when its text is longer than this many characters, to skip labels and stray glyphs. The share of such short elements that are labels rather than prose, on a hand-labelled reference set, would set it."),

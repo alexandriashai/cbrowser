@@ -26,6 +26,7 @@ import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 import { computeDemandDistribution, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
 
 const EMPTY_PAGE = {
@@ -42,7 +43,7 @@ const traits = (patience: number, resilience: number): Record<string, number> =>
   patience, resilience,
 });
 const run = (t: Record<string, number>, page = REAL_PAGE) =>
-  computeSequentialCTC(buildOTCognitiveProfile("p", t), computeDemandDistribution(page),
+  computeSequentialCTC(buildOTCognitiveProfile("p", t), computeDemandDistribution(withLawSeconds(page)),
     { asymmetric: true, interactions: true });
 
 describe("abandonment risk has no floor (BUG-17)", () => {
@@ -68,9 +69,9 @@ describe("abandonment risk has no floor (BUG-17)", () => {
   test("risk still rises with cost, monotonically", () => {
     const at = (density: number) => computeSequentialCTC(
       buildOTCognitiveProfile("p", traits(0.2, 0.4)),
-      computeDemandDistribution({ informationDensity: density, visualComplexity: density,
+      computeDemandDistribution(withLawSeconds({ informationDensity: density, visualComplexity: density,
         interactiveElementCount: density * 100, textDensity: density, animationLevel: density * 0.5,
-        choiceCount: density * 30, navigationDepth: density * 5 } as never),
+        choiceCount: density * 30, navigationDepth: density * 5 } as never)),
       { asymmetric: true, interactions: true }).abandonmentRisk;
     const curve = [0, 0.2, 0.4, 0.6, 0.8, 1].map(at);
     for (let i = 1; i < curve.length; i++) expect(curve[i]).toBeGreaterThanOrEqual(curve[i - 1] - 1e-9);

@@ -38,12 +38,13 @@ import {
 } from "../src/visual/cognitive-transport-chain.js";
 import { MODEL_PROVENANCE, param } from "../src/visual/model-provenance.js";
 import { ROSTER, toolProfile, allDemands } from "./fixtures/ctc-golden-matrix.js";
+import { withLawSeconds, demandFromLegacy } from "./fixtures/law-seconds.js";
 
 const CHAIN = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
-const dense = (d: number) => computeDemandDistribution({
+const dense = (d: number) => computeDemandDistribution(withLawSeconds({
   informationDensity: d, visualComplexity: d, interactiveElementCount: Math.round(d * 100),
   textDensity: d, animationLevel: d * 0.5, choiceCount: Math.round(d * 30), navigationDepth: Math.round(d * 5),
-} as never);
+} as never));
 const uniform = (v: number): Record<string, number> =>
   Object.fromEntries((COGNITIVE_TRAITS as readonly string[]).map((t) => [t, v]));
 const run = (traits: Record<string, number>, d = 0.9) =>
@@ -114,7 +115,7 @@ describe("capacityConsumed is what the layer actually drew (ISC-43)", () => {
   // the capacity the layer removed (LayerResult.capacityConsumed).
 
   test("a light page whose layers are all gated off reports 0, while its layers still cost something", () => {
-    const light = computeDemandFromRawMetrics(0.02, 0.02, 0, 0.02, 0, 0, 0);
+    const light = demandFromLegacy(0.02, 0.02, 0, 0.02, 0, 0, 0);
     const gate = param("chain.depletionGate");
     for (const name of ["first-timer", "elderly-user", "power-user"]) {
       const prof = toolProfile(name, ROSTER[name]);
@@ -134,7 +135,7 @@ describe("capacityConsumed is what the layer actually drew (ISC-43)", () => {
     // and the drawdown cap (0.5) binds. (On the first screen it costs 3.28 and
     // does not.)
     const floor = Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, d === "siteFamiliarity" ? 0 : 0.02]));
-    const wall = computeDemandFromRawMetrics(1, 1, 1000, 1, 1, 500, 30);
+    const wall = demandFromLegacy(1, 1, 1000, 1, 1, 500, 30);
     const prof = buildOTCognitiveProfile("boundary-floor", floor);
     const first = computeSequentialCTC(prof, wall, { asymmetric: true, interactions: true });
     const r = computeSequentialCTC(prof, wall, { asymmetric: true, interactions: true, carriedCapacity: first.remainingCapacity });
@@ -166,7 +167,7 @@ describe("capacityConsumed is what the layer actually drew (ISC-43)", () => {
     // (chain.capacityEpsilon) and nothing can be drawn below it, so every
     // layer reports 0 while depletionRate x cost, the old figure, was ~0.5.
     const zero = Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, 0]));
-    const wall = computeDemandFromRawMetrics(1, 1, 1000, 1, 1, 500, 30);
+    const wall = demandFromLegacy(1, 1, 1000, 1, 1, 500, 30);
     const r = computeSequentialCTC(buildOTCognitiveProfile("zero", zero), wall, { asymmetric: true, interactions: true });
     expect(r.layers.map((l) => l.capacityConsumed)).toEqual(r.layers.map(() => 0));
     expect(Math.max(...r.layers.map((l) => param("chain.depletionRate") * l.transportCost))).toBeGreaterThan(0.5);

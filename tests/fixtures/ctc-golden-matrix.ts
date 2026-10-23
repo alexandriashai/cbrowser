@@ -18,6 +18,7 @@
  */
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../../src/personas.js";
 import { bridgeCapacityTraits } from "../../src/visual/cognitive-models.js";
+import { demandFromLegacy, withLawSeconds, MAX_LAW_SECONDS, type LawSeconds } from "./law-seconds.js";
 import { buildOTCognitiveProfile, type OTCognitiveProfile } from "../../src/visual/cognitive-transport.js";
 import {
   computeDemandDistribution,
@@ -39,7 +40,24 @@ export const ROSTER: Record<string, AnyPersona> = {
 } as Record<string, AnyPersona>;
 
 /** Twelve raw-metric demand vectors spanning low to high on all seven inputs. */
-export const RAW_DEMANDS: Array<{ id: string; args: [number, number, number, number, number, number, number] }> = [
+/** A page's demand from its pre-Stage-B counts, or with the law times given. */
+export function rawDemand(args: [number, number, number, number, number, number, number], seconds?: LawSeconds): DemandDistribution {
+  if (!seconds) return demandFromLegacy(...args);
+  const [info, vis, , text, anim, , nav] = args;
+  return computeDemandFromRawMetrics(info, vis, text, anim, nav, seconds.pointingSeconds, seconds.choosingSeconds, seconds.readingSeconds, seconds.procedureSeconds);
+}
+
+/**
+ * Pages described by their pre-Stage-B counts (informationDensity,
+ * visualComplexity, interactiveElementCount, textDensity, animationLevel,
+ * choiceCount, navigationDepth). Stage B takes the motor, decision, procedure
+ * and reading demands from law times; tests/fixtures/law-seconds.ts gives each
+ * page the times that ask what the retired curves asked of its counts, except
+ * where `seconds` is set: "max" and the wall screens carry the design's maxima,
+ * above every page in the reference sample, so the near-saturated regime real
+ * full_page measurements sit in is pinned too.
+ */
+export const RAW_DEMANDS: Array<{ id: string; args: [number, number, number, number, number, number, number]; seconds?: LawSeconds }> = [
   { id: "empty",         args: [0, 0, 0, 0, 0, 0, 0] },
   { id: "sparse",        args: [0.1, 0.1, 2, 0.1, 0, 1, 1] },
   { id: "light",         args: [0.2, 0.25, 8, 0.2, 0.05, 3, 1] },
@@ -51,7 +69,7 @@ export const RAW_DEMANDS: Array<{ id: string; args: [number, number, number, num
   { id: "deep",          args: [0.6, 0.6, 30, 0.6, 0.3, 10, 12] },
   { id: "animated",      args: [0.5, 0.7, 20, 0.5, 1.0, 8, 3] },
   { id: "dense",         args: [0.85, 0.85, 120, 0.8, 0.5, 40, 6] },
-  { id: "max",           args: [1, 1, 1000, 1, 1, 500, 30] },
+  { id: "max",           args: [1, 1, 1000, 1, 1, 500, 30], seconds: MAX_LAW_SECONDS },
 ];
 
 /**
@@ -60,7 +78,7 @@ export const RAW_DEMANDS: Array<{ id: string; args: [number, number, number, num
  * computeDemandFromRawMetrics never reaches) is pinned too, plus boundary
  * pages that put each threshold or max-term in play.
  */
-export const PAGE_DEMANDS: Array<{ id: string; metrics: PageMetrics }> = [
+export const PAGE_DEMANDS: Array<{ id: string; metrics: Omit<PageMetrics, keyof LawSeconds> }> = [
   { id: "readable-prose", metrics: {
     informationDensity: 0.5, visualComplexity: 0.3, interactiveElementCount: 15, textDensity: 0.6,
     animationLevel: 0.1, choiceCount: 5, navigationDepth: 2,
@@ -113,7 +131,7 @@ export const BOUNDARY_PERSONAS: Record<string, Record<string, number>> = {
 };
 
 /** Multi-screen inputs for computeSequentialScrollCTC (3, 5, 8 and 2 screens). */
-export const SCROLL_INPUTS: Array<{ id: string; screens: Array<[number, number, number, number, number, number, number]> }> = [
+export const SCROLL_INPUTS: Array<{ id: string; screens: Array<[number, number, number, number, number, number, number]>; seconds?: LawSeconds }> = [
   { id: "short-3", screens: [[0.4, 0.5, 20, 0.4, 0.2, 8, 1], [0.6, 0.4, 10, 0.7, 0.1, 4, 1], [0.3, 0.3, 30, 0.2, 0.0, 12, 1]] },
   { id: "article-5", screens: [
     [0.5, 0.6, 25, 0.5, 0.3, 10, 2], [0.8, 0.3, 5, 0.9, 0.0, 2, 2], [0.85, 0.3, 4, 0.95, 0.0, 2, 2],
@@ -129,7 +147,7 @@ export const SCROLL_INPUTS: Array<{ id: string; screens: Array<[number, number, 
   // feel it, which nothing reads again on the same page. A second screen is
   // where that capped capacity is read, so this is what pins
   // chain.maxDrawdownFraction (via boundary-floor).
-  { id: "wall-2", screens: [[1, 1, 1000, 1, 1, 500, 30], [1, 1, 1000, 1, 1, 500, 30]] },
+  { id: "wall-2", screens: [[1, 1, 1000, 1, 1, 500, 30], [1, 1, 1000, 1, 1, 500, 30]], seconds: MAX_LAW_SECONDS },
 ];
 
 const SCHWARTZ_KEYS = ["selfDirection", "stimulation", "hedonism", "achievement", "power", "security", "conformity", "tradition", "benevolence", "universalism"];
@@ -195,8 +213,8 @@ export interface GoldenMatrix {
 
 export function allDemands(): Array<{ id: string; demand: DemandDistribution }> {
   return [
-    ...RAW_DEMANDS.map((d) => ({ id: d.id, demand: computeDemandFromRawMetrics(...d.args) })),
-    ...PAGE_DEMANDS.map((d) => ({ id: d.id, demand: computeDemandDistribution(d.metrics) })),
+    ...RAW_DEMANDS.map((d) => ({ id: d.id, demand: rawDemand(d.args, d.seconds) })),
+    ...PAGE_DEMANDS.map((d) => ({ id: d.id, demand: computeDemandDistribution(withLawSeconds(d.metrics)) })),
   ];
 }
 
@@ -244,7 +262,7 @@ export function buildGoldenMatrix(): GoldenMatrix {
     }
     scroll[name] = {};
     for (const s of SCROLL_INPUTS) {
-      const r = computeSequentialScrollCTC(profile, s.screens.map((a) => computeDemandFromRawMetrics(...a)), { asymmetric: true, interactions: true });
+      const r = computeSequentialScrollCTC(profile, s.screens.map((a) => rawDemand(a, s.seconds)), { asymmetric: true, interactions: true });
       scroll[name][s.id] = {
         totalAbandonment: r.totalAbandonment, expectedDepthScreens: r.expectedDepthScreens, reachWeightedCTC: r.reachWeightedCTC,
         dropOff: r.dropOff ? { ...r.dropOff } : null,

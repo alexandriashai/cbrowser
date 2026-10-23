@@ -68,7 +68,7 @@ import {
   estimateCognitiveLoad,
   extractPageMetrics,
 } from "../visual/cognitive-transport.js";
-import { bridgeCapacityTraits } from "../visual/cognitive-models.js";
+import { bridgeCapacityTraits, personaRateContext } from "../visual/cognitive-models.js";
 import {
   analyzeAttention,
 } from "../visual/attention-transport.js";
@@ -3965,7 +3965,7 @@ export async function runEmpathyAudit(
         // the bridge from writing into the persona record itself.
         const loadTraits = { ...((resolvedPersona.cognitiveTraits as unknown as Record<string, number>) || {}) };
         bridgeCapacityTraits(personaName, loadTraits,
-          (resolvedPersona as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+          (resolvedPersona as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(resolvedPersona));
         const otProfile = buildOTCognitiveProfile(personaName, loadTraits);
         const cogLoad = estimateCognitiveLoad(otProfile, pageMetrics);
 

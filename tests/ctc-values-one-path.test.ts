@@ -27,6 +27,7 @@ import {
   computeSequentialCTC,
   type DemandDistribution,
 } from "../src/visual/cognitive-transport-chain.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 import { ROSTER, toolProfile, PAGE_DEMANDS } from "./fixtures/ctc-golden-matrix.js";
 
 const SRC = join(import.meta.dir, "..", "src", "mcp-tools", "base");
@@ -48,7 +49,7 @@ describe("one values path", () => {
     // bound. Clamped, the result is the chain run on a demand already AT that
     // bound with no values; unclamped, a demand of thousands would cost more.
     const profile = toolProfile("first-timer", ROSTER["first-timer"]);
-    const base = computeDemandDistribution(PAGE_DEMANDS[0].metrics);
+    const base = computeDemandDistribution(withLawSeconds(PAGE_DEMANDS[0].metrics));
     const at = (traits: string[], v: number): DemandDistribution => ({
       demands: { ...base.demands, ...Object.fromEntries(traits.map((t) => [t, v])) },
     });

@@ -11,6 +11,17 @@
  * @see Perry, Zorzi & Ziegler (2019) Psychological Science — personalized dyslexia models
  * @since v18.39.0
  */
+import { MODEL_PROVENANCE, param, personaScope } from "./model-provenance.js";
+import { measuredRate, pointingCapacity, readingCapacity } from "./demand-laws.js";
+import { customPointingRule, customReadingRateId, customReadingRule } from "./provenance/persona-rates.js";
+
+/**
+ * A registered constant, read as persona-model work (model-provenance.ts,
+ * personaScope): every read in this module describes a persona or an audit,
+ * not a score, so none lands in a score's recording. Calls into demand-laws.ts
+ * are wrapped the same way.
+ */
+const pp = (id: string): number => personaScope(() => param(id));
 
 // ── Mathematical Primitives ──
 
@@ -58,20 +69,38 @@ function normalPDF(x: number): number {
  * Two models of reading, disagreeing under one name, with the layer using the
  * one that knows nothing about decoding. This is the bridge. (2026-08-02)
  *
- * Weighted toward decoding, because that is what the layer's own reported
- * decomposition measures: orthographic and phonological carry the fluency of
- * word recognition, visualSpan is normalised against the neurotypical 7
- * characters, vocabulary bounds comprehension, and crowding subtracts.
+ * STAGE B: A RATE RATIO. The capacity is c = r_p / (r_p + r_ref)
+ * (demand-laws.ts), the persona's silent reading rate against the reference
+ * reader, so it sits at 0.5 for a typical reader and is on the same scale as a
+ * reading demand in seconds. The weighted sum of the five profile values it
+ * replaced had no unit.
+ *
+ * ONE REFERENCE READER: Brysbaert's 238 wpm (law.reading.wpm), the rate the
+ * reading demand uses, so a persona's own reading time is judged against the
+ * same budget the page is. The fixation model contributes only a ratio: the
+ * profile's per-word time against the neurotypical profile's, so the
+ * neurotypical profile reads at exactly the reference. Its absolute times are
+ * not compared with 238: they start from a fixation duration (250 ms) plus a
+ * penalty the neurotypical profile pays itself, 270 ms per word or 222 wpm, and
+ * would put every reader about 7% below the reference by construction.
  */
 export function readingCapacityOf(profile: ReadingProfile): number {
-  const span = Math.min(1, profile.visualSpan / 7);
-  const raw =
-    profile.orthographic * 0.3 +
-    profile.phonological * 0.3 +
-    span * 0.2 +
-    profile.vocabulary * 0.2 -
-    profile.crowding * 0.15;
-  return Math.max(0, Math.min(1, raw));
+  return personaScope(() => readingCapacity(readingRateRatioOf(profile) * pp("law.reading.wpm")));
+}
+
+/**
+ * The text-independent part of computeReadingDifficulty's per-word time, ms:
+ * base + (1 - phonological) x phonologicalMs + (normalSpan / visualSpan - 1) x spanMs.
+ */
+function perWordMs(profile: Pick<ReadingProfile, "phonological" | "visualSpan">): number {
+  return pp("profile.fixation.baseMs")
+    + (1 - profile.phonological) * pp("profile.fixation.phonologicalMs")
+    + (pp("profile.fixation.normalSpan") / profile.visualSpan - 1) * pp("profile.fixation.spanMs");
+}
+
+/** A reading profile's silent reading rate as a share of the reference reader's: the neurotypical profile's per-word time over its own. */
+export function readingRateRatioOf(profile: ReadingProfile): number {
+  return perWordMs(KNOWN_READING_PROFILES.neurotypical) / perWordMs(profile);
 }
 
 export interface PointingProfile {
@@ -93,14 +122,15 @@ export interface PointingProfile {
  * in motor cost while this module was computing real Fitts movement times and
  * hit probabilities that the layer never saw.
  *
- * Throughput is the standard Fitts capacity measure (bits/s); a neurotypical
- * pointer sits near 5-6, tremor far below. Endpoint dispersion subtracts,
- * because a wide landing distribution misses small targets regardless of speed.
+ * STAGE B: A RATE RATIO. The capacity is c = TP_p / (TP_p + TP_ref), the
+ * profile's Fitts throughput against the reference mouse throughput
+ * (law.rate.pointing.reference, 4.9 bits/s), so it sits at 0.5 for a typical
+ * pointer. Endpoint dispersion no longer subtracts: ISO 9241-9 throughput is
+ * computed with the effective width We = 4.133 SDx, so it already carries
+ * accuracy, and subtracting dispersion again counted it twice.
  */
 export function motorCapacityOf(profile: PointingProfile): number {
-  const tp = Math.min(1, profile.throughput / 6);
-  const spread = Math.min(1, (profile.sigmaX + profile.sigmaY) / 2 / 40);
-  return Math.max(0, Math.min(1, tp * 0.75 + (1 - spread) * 0.25));
+  return personaScope(() => pointingCapacity(profile.throughput));
 }
 
 /**
@@ -165,78 +195,160 @@ export interface MotorAccessibilityResult {
 }
 
 /**
- * Known pointing profiles from the empirical literature.
+ * Pointing profiles. Each throughput is a registered constant, read when the
+ * profile is used (a getter), so an override reaches every profile:
  *
- * - Neurotypical baseline: MacKenzie (1992), Soukoreff & MacKenzie (2004)
- * - Motor tremor: Hwang et al. (2004) ACM ASSETS
- * - Elderly 65+: Chaparro et al. (1999), Ketcham et al. (2002)
- * - ADHD: Flapper et al. (2006) — impulsive timing, near-normal precision
+ * - neurotypical: law.rate.pointing.reference, 4.9 bits/s for regular mouse
+ *   users (MacKenzie, Kauppinen & Silfverberg 2001).
+ * - tremor: the motion-impaired rate measured against its own able-bodied
+ *   controls, 1.77 / 4.88 (Keates et al. 2002, in Soukoreff & MacKenzie 2004,
+ *   Table 4), rescaled to the reference: 4.9 x 1.77 / 4.88 = 1.777 bits/s. It is
+ *   also the low anchor getPointingProfile interpolates toward.
+ * - elderly: a hypothesis with no measured throughput (provenance/profiles.ts).
+ * - adhd: the reference. No throughput for adults with ADHD was found, and the
+ *   4.2 bits/s it carried had no source.
+ *
+ * The endpoint dispersions (sigma, rho) feed the hit-probability audit only;
+ * they are registered hypotheses too (provenance/profiles.ts).
  */
+/**
+ * A pointing profile whose every value is read at use (getters), so an override
+ * reaches it: its endpoint dispersion, the same SD on both axes
+ * (profile.pointing.<kind>.sigma) and their correlation (.rho), both
+ * hypotheses, and its throughput.
+ */
+const pointingProfile = (kind: string, throughput: () => number): PointingProfile => ({
+  get sigmaX() { return pp(`profile.pointing.${kind}.sigma`); },
+  get sigmaY() { return pp(`profile.pointing.${kind}.sigma`); },
+  get rho() { return pp(`profile.pointing.${kind}.rho`); },
+  get throughput() { return throughput(); },
+});
 const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
-  neurotypical: { sigmaX: 4, sigmaY: 4, rho: 0.0, throughput: 4.9 },
-  tremor: { sigmaX: 12, sigmaY: 12, rho: 0.3, throughput: 2.1 },
-  elderly: { sigmaX: 7.2, sigmaY: 7.2, rho: 0.1, throughput: 3.2 },
-  adhd: { sigmaX: 5.5, sigmaY: 5.5, rho: 0.0, throughput: 4.2 },
+  neurotypical: pointingProfile("neurotypical", () => pp("law.rate.pointing.reference")),
+  tremor: pointingProfile("tremor", () => pp("law.rate.pointing.reference") * personaScope(() => measuredRate("motionImpaired").ratio)),
+  elderly: pointingProfile("elderly", () => pp("profile.pointing.elderly.throughput")),
+  adhd: pointingProfile("adhd", () => pp("law.rate.pointing.reference")),
 };
 
 /**
- * Derive a pointing profile from persona traits.
- *
- * Maps cognitive trait values to motor parameters by interpolating
- * between known empirical profiles. Uses `motorPrecision` (derived from
- * proceduralFluency and patience) as the primary interpolation axis.
- *
- * @param persona - Persona traits object with cognitive dimensions
- * @returns Empirically calibrated pointing profile
+ * A built-in persona's registered rate on one channel, as a share of the
+ * reference rate (provenance/persona-rates.ts), or undefined for a persona with
+ * no entry (a custom persona), whose rate comes from a customRate.* rule.
  */
-export function getPointingProfile(persona: {
-  traits?: Record<string, number>;
-  accessibilityTraits?: Record<string, boolean>;
+export function registeredPersonaRate(name: string | undefined, channel: "pointing" | "reading"): number | undefined {
+  if (!name) return undefined;
+  const id = `personaRate.${name}.${channel}`;
+  return id in MODEL_PROVENANCE ? pp(id) : undefined;
+}
+
+/** What a stored persona carries beyond its traits that the custom-persona rate rules read. */
+export interface PersonaRateContext {
+  /** The persona's free-text description. */
+  description?: string;
+  /** demographics.age_range, e.g. "65+". */
+  ageRange?: string;
+}
+
+/** The PersonaRateContext of a stored persona object: its description and demographics.age_range. */
+export function personaRateContext(persona: unknown): PersonaRateContext {
+  const p = (persona ?? {}) as { description?: unknown; demographics?: { age_range?: unknown } };
+  return {
+    description: typeof p.description === "string" ? p.description : undefined,
+    ageRange: typeof p.demographics?.age_range === "string" ? p.demographics.age_range : undefined,
+  };
+}
+
+/** A persona as the rate functions read it. */
+export interface PersonaRef extends PersonaRateContext {
   name?: string;
-}): PointingProfile {
+  traits?: Record<string, number>;
+  /** The persona's stored accessibility traits. Numbers and booleans both occur. */
+  accessibilityTraits?: Record<string, number | boolean>;
+}
+
+/**
+ * A persona's pointing rate as a share of the reference throughput.
+ *
+ * A built-in persona's is registered with it. A custom persona takes the same
+ * rule (customPointingRule, decided 2026-10-23): the measured motion-impaired
+ * ratio with a tremor flag or cue, the elderly profile with an elderly cue,
+ * otherwise the reference ("no measured difference"). It no longer interpolates
+ * a throughput from proceduralFluency and patience, which no source maps to
+ * pointing.
+ */
+export function pointingRateShare(persona: PersonaRef): number {
+  const registered = registeredPersonaRate(persona.name, "pointing");
+  if (registered !== undefined) return registered;
+  const rule = customPointingRule({
+    name: persona.name, description: persona.description, ageRange: persona.ageRange,
+    tremor: Boolean(persona.accessibilityTraits?.tremor),
+  });
+  return pp(`customRate.${rule}.pointing`);
+}
+
+/** The reading-profile values an author can state in accessibilityTraits. */
+const STATED_READING = ["orthographicFluency", "phonologicalDecoding", "visualSpan", "vocabularyBreadth", "crowdingSensitivity"] as const;
+
+/**
+ * A persona's silent reading rate as a share of the reference reader's.
+ *
+ * A built-in persona's is registered with it. A custom persona that states any
+ * reading-profile value is read through the fixation model's ratio for that
+ * profile (an author who wrote a profile down means it; a hypothesis). Any other
+ * custom persona takes the same rule as the built-ins (customReadingRule): the
+ * measured dyslexia ratio with a dyslexia cue, the low-vision ratio with a
+ * low-vision cue, the built-in elderly-user's hypothesis with an elderly cue,
+ * otherwise the reference ("no measured difference").
+ */
+export function readingRateShare(persona: PersonaRef): number {
+  const registered = registeredPersonaRate(persona.name, "reading");
+  if (registered !== undefined) return registered;
+  const a11y = persona.accessibilityTraits ?? {};
+  if (STATED_READING.some((k) => typeof a11y[k] === "number")) {
+    return readingRateRatioOf(getReadingProfile({ name: persona.name, traits: persona.traits, accessibilityTraits: a11y as Record<string, number> }));
+  }
+  return pp(customReadingRateId(customReadingRule(persona)));
+}
+
+/**
+ * The pointing profile a persona is scored and audited with: its throughput is
+ * its pointing rate share times the reference, so the motor layer and the motor
+ * audit read one number; its endpoint dispersion comes from pointingDispersion.
+ */
+export function getPointingProfile(persona: PersonaRef): PointingProfile {
+  return { ...pointingDispersion(persona), throughput: pointingRateShare(persona) * pp("law.rate.pointing.reference") };
+}
+
+/**
+ * The endpoint dispersion (sigma, rho) the hit-probability audit uses: a named
+ * profile's, else interpolated between the neurotypical and tremor profiles on
+ * motorPrecision (or 0.6 proceduralFluency + 0.4 patience). Not registered; the
+ * interpolation has no source. It no longer touches a throughput.
+ */
+function pointingDispersion(persona: PersonaRef): Omit<PointingProfile, "throughput"> {
+  const of = (p: PointingProfile) => ({ sigmaX: p.sigmaX, sigmaY: p.sigmaY, rho: p.rho });
   const traits = persona.traits ?? {};
   const a11y = persona.accessibilityTraits ?? {};
-
-  // Check for explicit tremor trait
-  if (a11y.tremor) {
-    return { ...KNOWN_POINTING_PROFILES.tremor };
-  }
-
-  // Check for persona name hints
+  if (a11y.tremor) return of(KNOWN_POINTING_PROFILES.tremor);
   const name = (persona.name ?? '').toLowerCase();
-  if (name.includes('tremor') || name.includes('parkinson')) {
-    return { ...KNOWN_POINTING_PROFILES.tremor };
-  }
-  if (name.includes('elderly') || name.includes('senior') || name.includes('aging')) {
-    return { ...KNOWN_POINTING_PROFILES.elderly };
-  }
-  if (name.includes('adhd')) {
-    return { ...KNOWN_POINTING_PROFILES.adhd };
-  }
+  if (name.includes('tremor') || name.includes('parkinson')) return of(KNOWN_POINTING_PROFILES.tremor);
+  if (name.includes('elderly') || name.includes('senior') || name.includes('aging')) return of(KNOWN_POINTING_PROFILES.elderly);
+  if (name.includes('adhd')) return of(KNOWN_POINTING_PROFILES.adhd);
 
-  // Derive motorPrecision from available traits
-  // motorPrecision is a composite of fine motor control indicators
   const motorPrecision = traits.motorPrecision
     ?? (traits.proceduralFluency !== undefined && traits.patience !== undefined
-      ? (traits.proceduralFluency * 0.6 + traits.patience * 0.4)
+      ? (traits.proceduralFluency * pp("profile.pointing.precision.proceduralFluencyWeight") + traits.patience * pp("profile.pointing.precision.patienceWeight"))
       : undefined);
+  if (motorPrecision === undefined) return of(KNOWN_POINTING_PROFILES.neurotypical);
 
-  if (motorPrecision === undefined) {
-    return { ...KNOWN_POINTING_PROFILES.neurotypical };
-  }
-
-  // Interpolate between profiles based on motorPrecision (0-1)
-  // 1.0 = neurotypical, 0.0 = severe impairment (tremor)
+  // 1.0 = neurotypical, 0.0 = the tremor profile's dispersion
   const clamped = Math.max(0, Math.min(1, motorPrecision));
-
   const neuro = KNOWN_POINTING_PROFILES.neurotypical;
   const impaired = KNOWN_POINTING_PROFILES.tremor;
-
   return {
     sigmaX: neuro.sigmaX + (impaired.sigmaX - neuro.sigmaX) * (1 - clamped),
     sigmaY: neuro.sigmaY + (impaired.sigmaY - neuro.sigmaY) * (1 - clamped),
     rho: neuro.rho + (impaired.rho - neuro.rho) * (1 - clamped),
-    throughput: neuro.throughput + (impaired.throughput - neuro.throughput) * (1 - clamped),
   };
 }
 
@@ -464,13 +576,24 @@ export interface ReadabilityResult {
  * - Low vision: Legge et al. (2007) — central scotoma and crowding
  * - ADHD: Dhar et al. (2010) — intact decoding, reduced sustained attention
  * - Elderly: Rayner et al. (2006) — aging effects on eye movements
+ *
+ * The citations motivate a direction, not the numbers (provenance/profiles.ts
+ * records what a source check found). phonological and visualSpan, the two
+ * values the per-word rate reads, are registered; the other three are not.
  */
+const readingProfile = (kind: string, rest: Pick<ReadingProfile, "orthographic" | "vocabulary" | "crowding">): ReadingProfile => ({
+  ...rest,
+  // The two values the per-word rate reads are registered (provenance/profiles.ts)
+  // and read at use, so an override reaches the profile.
+  get phonological() { return pp(`profile.reading.${kind}.phonological`); },
+  get visualSpan() { return pp(`profile.reading.${kind}.visualSpan`); },
+});
 const KNOWN_READING_PROFILES: Record<string, ReadingProfile> = {
-  neurotypical: { orthographic: 0.85, phonological: 0.80, visualSpan: 7, vocabulary: 0.75, crowding: 0.15 },
-  dyslexic: { orthographic: 0.40, phonological: 0.35, visualSpan: 4, vocabulary: 0.65, crowding: 0.55 },
-  lowVision: { orthographic: 0.60, phonological: 0.75, visualSpan: 3, vocabulary: 0.75, crowding: 0.70 },
-  adhd: { orthographic: 0.80, phonological: 0.75, visualSpan: 6, vocabulary: 0.70, crowding: 0.20 },
-  elderly: { orthographic: 0.70, phonological: 0.65, visualSpan: 5, vocabulary: 0.85, crowding: 0.30 },
+  neurotypical: readingProfile("neurotypical", { orthographic: 0.85, vocabulary: 0.75, crowding: 0.15 }),
+  dyslexic: readingProfile("dyslexic", { orthographic: 0.40, vocabulary: 0.65, crowding: 0.55 }),
+  lowVision: readingProfile("lowVision", { orthographic: 0.60, vocabulary: 0.75, crowding: 0.70 }),
+  adhd: readingProfile("adhd", { orthographic: 0.80, vocabulary: 0.70, crowding: 0.20 }),
+  elderly: readingProfile("elderly", { orthographic: 0.70, vocabulary: 0.85, crowding: 0.30 }),
 };
 
 /**
@@ -637,8 +760,9 @@ export function computeReadingDifficulty(
   const wordCount = Math.max(1, words.length);
   const penalties: string[] = [];
 
-  // Base fixation duration: fluent adult reader (Rayner 2009)
-  const baseFixation = 250; // ms per word
+  // Base time per word. Registered as a hypothesis: the 250 ms it holds is
+  // Rayner's (2009) fixation duration, not a per-word time.
+  const baseFixation = pp("profile.fixation.baseMs");
 
   // 1. Orthographic deficit: irregular words take longer to process
   // When orthographic route is impaired, the reader must fall back to
@@ -652,16 +776,17 @@ export function computeReadingDifficulty(
   // 2. Phonological deficit: all words require phonological activation
   // Even for skilled readers, phonological codes are activated automatically.
   // Impaired phonological processing slows all word recognition.
-  const phonoPenalty = (1 - profile.phonological) * 100;
+  const phonoPenalty = (1 - profile.phonological) * pp("profile.fixation.phonologicalMs");
   if (phonoPenalty > 10) {
     penalties.push(`phonological: +${Math.round(phonoPenalty)}ms`);
   }
 
-  // 3. Visual span: fewer characters per fixation = more fixations per word
-  // Normal visual span ~7 characters (Legge et al. 2007).
-  // Reduced span means more saccades to read the same word.
-  const spanRatio = 7 / profile.visualSpan;
-  const spanPenalty = (spanRatio - 1) * 80;
+  // 3. Visual span: fewer characters per fixation = more fixations per word.
+  // The normal span (7) is registered; Legge et al. (2007) estimate about 9.
+  // Reduced span means more saccades to read the same word. Not clamped: a
+  // span above normal subtracts time.
+  const spanRatio = pp("profile.fixation.normalSpan") / profile.visualSpan;
+  const spanPenalty = (spanRatio - 1) * pp("profile.fixation.spanMs");
   if (spanPenalty > 5) {
     penalties.push(`visual span: +${Math.round(spanPenalty)}ms (${profile.visualSpan} chars/fixation)`);
   }
@@ -708,11 +833,16 @@ export function computeReadingDifficulty(
   // Total fixation duration per word
   const totalFixation = baseFixation + orthoPenalty + phonoPenalty + spanPenalty + vocabPenalty + crowdingPenalty + fontPenalty + contrastPenalty;
 
-  // Words per minute
-  const wpm = Math.round(60000 / totalFixation);
+  // Words per minute, against the one reference reader: 238 wpm
+  // (law.reading.wpm) x the neurotypical profile's neutral per-word time over
+  // this block's, so a neurotypical reader on neutral text shows 238 and every
+  // penalty slows it from there. 60000 / totalFixation put that reader at 222
+  // wpm, because the fixation model's base is a fixation duration (250 ms), not
+  // a measured time per word.
+  const wpm = Math.round(pp("law.reading.wpm") * perWordMs(KNOWN_READING_PROFILES.neurotypical) / totalFixation);
 
-  // Normalize difficulty: 250ms = 0.0 (fluent), 750ms+ = 1.0 (severe)
-  const difficulty = Math.max(0, Math.min(1, (totalFixation - 250) / 500));
+  // Normalize difficulty: the base time = 0.0 (fluent), base + 500ms+ = 1.0 (severe)
+  const difficulty = Math.max(0, Math.min(1, (totalFixation - baseFixation) / 500));
 
   return {
     difficulty: Math.round(difficulty * 10000) / 10000,
@@ -726,7 +856,7 @@ export function computeReadingDifficulty(
      * threshold, so a component that evaluated to 0 is simply absent from it --
      * and absent is indistinguishable from not modelled at all. That is exactly
      * how `crowdingSensitivity` came to be reported as a trait that does
-     * nothing: it is weighted at 0.15 in readingCapacityOf AND priced here, but
+     * nothing: it was weighted at 0.15 in readingCapacityOf (not since Stage B) AND priced here, but
      * Pelli's critical-spacing effect only begins below 16px, and every page
      * tested set its body text at 16px or larger. Measured on 13px text it
      * discriminates cleanly -- adhd +6ms, dyslexic +17ms, low-vision +21ms,
@@ -882,19 +1012,37 @@ export { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES };
  * dimensions ABSENT rather than defaulted, because a missing capacity is visible as a
  * gap while a defaulted one silently reads as average -- which is the exact failure
  * this function exists to end.
+ *
+ * Runs as persona-model work (model-provenance.ts, personaScope): the registered rates
+ * it reads describe the persona and are not counted in the block of whatever score is
+ * being computed. A tool reports the scored persona's rates on their own by wrapping
+ * this call in collectPersonaReads.
  */
 export function bridgeCapacityTraits(
   personaName: string,
   traits: Record<string, number>,
-  accessibilityTraits?: Record<string, number>,
+  accessibilityTraits?: Record<string, number | boolean>,
+  context: PersonaRateContext = {},
+): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
+  return personaScope(() => bridge(personaName, traits, accessibilityTraits, context));
+}
+
+function bridge(
+  personaName: string,
+  traits: Record<string, number>,
+  accessibilityTraits: Record<string, number | boolean> | undefined,
+  context: PersonaRateContext,
 ): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
   try {
-    traits.readingCapacity = readingCapacityOf(
-      getReadingProfile({ name: personaName, traits, accessibilityTraits }),
-    );
-    const pointing = getPointingProfile({ name: personaName, traits });
+    const persona: PersonaRef = { name: personaName, traits, accessibilityTraits, ...context };
+    // The persona's reading rate share (registered, stated, or a customRate
+    // rule) against the one reference reader, law.reading.wpm.
+    traits.readingCapacity = personaScope(() => readingCapacity(readingRateShare(persona) * pp("law.reading.wpm")));
+    // The accessibility traits go to the pointing profile too: without them a
+    // stated tremor never reached the motor capacity.
+    const pointing = getPointingProfile(persona);
     traits.motorCapacity = motorCapacityOf(pointing);
-    traits.sustainedAttention = sustainedAttentionOf({ traits, accessibilityTraits });
+    traits.sustainedAttention = sustainedAttentionOf({ traits, accessibilityTraits: accessibilityTraits as { attentionSpan?: number } | undefined });
     return pointing;
   } catch (e) {
     console.debug(`[capacity-bridge] unavailable: ${(e as Error).message}`);

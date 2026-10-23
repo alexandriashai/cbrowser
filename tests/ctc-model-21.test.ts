@@ -20,6 +20,7 @@ import {
 } from "../src/visual/cognitive-transport-chain.js";
 import { buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
+import { withLawSeconds, demandFromLegacy } from "./fixtures/law-seconds.js";
 import { ROSTER, RAW_DEMANDS, PAGE_DEMANDS, SCROLL_INPUTS, BOUNDARY_PERSONAS, toolProfile, allDemands } from "./fixtures/ctc-golden-matrix.js";
 
 const ROOT = join(import.meta.dir, "..");
@@ -46,7 +47,7 @@ describe("layer 1 is named for what it computes (visualComplexity, not saliency)
   test("a chain run reports no layer, bottleneck or interaction named saliency", () => {
     const [name, p] = Object.entries(ROSTER)[0];
     for (const args of [[0, 0, 0, 0, 0, 0, 0], [0.3, 0.95, 25, 0.2, 0.9, 6, 2]] as const) {
-      const r = computeSequentialCTC(toolProfile(name, p), computeDemandFromRawMetrics(...args));
+      const r = computeSequentialCTC(toolProfile(name, p), demandFromLegacy(...args));
       expect(r.layers.map((l) => l.name)).not.toContain("saliency");
       expect(r.bottleneckLayer).not.toBe("saliency");
       expect(Object.keys(r.interactions).some((k) => k.includes("saliency"))).toBe(false);
@@ -90,7 +91,7 @@ describe("every trait in a layer can receive demand", () => {
   // resilience and selfEfficacy sat in frustration on these terms through
   // 20.x, halving its gate (mean over four traits, two always zero).
   test("at the all-maximum page, every layer trait has demand above zero", () => {
-    const { demands } = computeDemandDistribution(MAX_PAGE);
+    const { demands } = computeDemandDistribution(withLawSeconds(MAX_PAGE));
     const demandless = LAYER_DEFINITIONS.flatMap((l) => l.traits.filter((t) => !(demands[t] > 0)).map((t) => `${l.name}.${t}`));
     expect(demandless).toEqual([]);
   });
@@ -154,7 +155,7 @@ describe("demand is written only where a layer reads it", () => {
   test("every dimension outside every layer gets zero demand, on every reference page", () => {
     const written = new Set<string>();
     for (const page of pages) {
-      const { demands } = computeDemandDistribution(page);
+      const { demands } = computeDemandDistribution(withLawSeconds(page));
       for (const dim of DEMAND_DIMENSIONS) if (!inLayers.has(dim) && demands[dim] !== 0) written.add(dim);
     }
     expect([...written].sort()).toEqual([]);
@@ -241,7 +242,7 @@ describe("abandonment is driven by unmet demand, not relieved by surplus", () =>
     for (const prof of allPersonas()) {
       const initial = capacityVector(prof.traits);
       for (const s of SCROLL_INPUTS) {
-        const demands = s.screens.map((a) => computeDemandFromRawMetrics(...a));
+        const demands = s.screens.map((a) => demandFromLegacy(...a));
         const scroll = computeSequentialScrollCTC(prof, demands, { asymmetric: true, interactions: true });
         let carried: Record<string, number> | undefined;
         demands.forEach((d, i) => {
@@ -286,7 +287,7 @@ describe("abandonment reads the patience and resilience the page left, not the s
 
   test("both directions: arriving drained raises the risk, arriving rested lowers it", () => {
     const prof = toolProfile("first-timer", ROSTER["first-timer"]);
-    const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
+    const demand = demandFromLegacy(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
     const start = capacityVector(prof.traits);
     const at = (patience: number, resilience: number) =>
       computeSequentialCTC(prof, demand, { asymmetric: true, interactions: true,
@@ -301,7 +302,7 @@ describe("abandonment reads the patience and resilience the page left, not the s
 
   test("deeper screens are judged against a smaller budget: tolerance falls as the scroll goes on", () => {
     const prof = toolProfile("cognitive-adhd", ROSTER["cognitive-adhd"]);
-    const wall = Array.from({ length: 4 }, () => computeDemandFromRawMetrics(0.6, 0.6, 30, 0.6, 0.3, 10, 2));
+    const wall = Array.from({ length: 4 }, () => demandFromLegacy(0.6, 0.6, 30, 0.6, 0.3, 10, 2));
     let carried: Record<string, number> | undefined;
     const tolerances: number[] = [];
     for (const d of wall) {
@@ -320,18 +321,18 @@ describe("a page with no motion makes no animation demand", () => {
   // of emotionalContagion, and fed distractor pressure, so the all-zero page
   // carried a non-zero raw cost.
   const anim = (level: number) =>
-    computeDemandFromRawMetrics(0, 0, 0, 0, level, 0, 0).demands.emotionalContagion / reg("chain.demand.animation.emotionalContagion");
+    demandFromLegacy(0, 0, 0, 0, level, 0, 0).demands.emotionalContagion / reg("chain.demand.animation.emotionalContagion");
 
   test("animationLevel 0 yields zero animation demand", () => {
-    const { demands } = computeDemandFromRawMetrics(0, 0, 0, 0, 0, 0, 0);
+    const { demands } = demandFromLegacy(0, 0, 0, 0, 0, 0, 0);
     expect(demands.emotionalContagion).toBe(0);
     expect(demands.changeBlindness).toBe(0);
     // With visual complexity present and no motion, changeBlindness is the visual term alone.
-    expect(computeDemandFromRawMetrics(0, 0.4, 0, 0, 0, 0, 0).demands.changeBlindness).toBe(0.4);
+    expect(demandFromLegacy(0, 0.4, 0, 0, 0, 0, 0).demands.changeBlindness).toBe(0.4);
   });
 
   test("the all-zero page costs nothing in any layer, raw cost 0, abandonment 0, for every persona", () => {
-    const empty = computeDemandFromRawMetrics(0, 0, 0, 0, 0, 0, 0);
+    const empty = demandFromLegacy(0, 0, 0, 0, 0, 0, 0);
     for (const prof of allPersonas()) {
       const r = computeSequentialCTC(prof, empty, { asymmetric: true, interactions: true });
       expect({ p: prof.name, raw: r.rawCTC, ab: r.abandonmentRisk, layers: r.layers.map((l) => l.transportCost) })

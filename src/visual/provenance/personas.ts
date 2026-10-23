@@ -146,7 +146,7 @@ const POPULATIONS: Record<string, { population: string } | { archetype: string }
 const PERSONA_NOTES: Record<string, string> = {
   "motor-impairment-tremor": "essential tremor prevalence 0.4-5.6% (npj Digital Medicine 2019) and 1-15 Hz tremor filtering",
   "cognitive-adhd": "75-81% of ADHD cases showing central-executive working-memory impairment (Kofler et al. 2020, Neuropsychology, PMC7483636; children aged 8-13)",
-  "dyslexic-user": "dyslexic adults reading about 178 vs 248 words per minute (Scientific Reports 2021)",
+  "dyslexic-user": "students with dyslexia reading 184.63 vs 243.64 words per minute silently (Callens, Tops & Brysbaert 2012, PLoS ONE 7(6), e38081, Table 5); adults with dyslexia 178.09 vs 248.18, medians (Franzen, Stark & Johnson 2021, Scientific Reports 11, 6449)",
   "elderly-low-vision": "memory loss in over a third of people over 70 (ScienceDaily 2025), faster decline after 70 (Nature Communications 2026) and an unnamed PMC review on inhibitory control",
   "autism-spectrum": "Yaneva et al. eye tracking (2018, Behaviour & Information Technology; 2020, W4A) and the AASPIRE guidelines (Raymaker/Nicolaidis 2019)",
   "intellectual-disability": "Karreman, van der Geest & Buursink (2007), Rocha et al. (2015, PMC4467236) and the W3C COGA Down Syndrome module",

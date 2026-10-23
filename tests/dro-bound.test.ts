@@ -64,9 +64,10 @@ import {
   uniformStream,
   type Vec,
 } from "./fixtures/dro-adversary.js";
+import { demandFromLegacy } from "./fixtures/law-seconds.js";
 
 const SEED = 1;
-const MID = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
+const MID = demandFromLegacy(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
 
 describe("rawCTCOfCapacity and ctcOfCapacity are the product's CTC", () => {
   test("equal computeSequentialCTC's rawCTC and totalCTC on every roster persona and golden page, bit for bit", () => {
