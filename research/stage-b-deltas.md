@@ -2,8 +2,8 @@
 
 "Before" is `feat/cot-integration` at 45be7aa. That is ref-v2's final
 reference data (691949d) with no Stage B: the hand-set demand curves and the
-old capacities. "After" is this branch at its merge of 45be7aa (03f4dcd), so
-the delta is everything Stage B adds:
+old capacities. "After" is this branch at its merge of 45be7aa (0d07eb1; the
+golden re-pin on it is 8a447f5), so the delta is everything Stage B adds:
 - part 1's persona rates and rate-ratio capacities
   (`research/stage-b-capacity-deltas.md`);
 - the custom-persona rules;
@@ -11,7 +11,9 @@ the delta is everything Stage B adds:
 
 Both are scored on the same 513 real reference pages in raw format 2. Every
 page carries `groupedLinks`, so none counts its ungrouped links from the
-stored nav sizes. An earlier version of this note measured the wiring alone,
+stored nav sizes. That interim rule is now gone for format 2: a format-2
+record without `groupedLinks` is refused, and only a format-1 record (none
+ships) counts from the nav sizes. An earlier version of this note measured the wiring alone,
 part 1 against the laws on the 97c4888 data. It is this file at a5e2346; its
 commit ids predate a history rewrite (7bc9d5e is now 63b2412, 4aa544e is
 da8cda2).
@@ -67,6 +69,18 @@ nav, and an assumed label length would be one more hand-set number in a chain
 whose point is to remove them. A raw field for the prose words inside nav
 groups would let the reading law exclude them. That needs a re-crawl, so it
 is listed as open.
+
+### Per-screen charging (cognitive_effort, scope sequential)
+
+Each screen of the sequential curve charges pointing and procedure by the
+share of its interactive elements that are new on that screen, and choosing by
+the share of its choices that are new. Procedure takes the interactive share
+rather than a count of new entry fields because KLM charges an entry step once
+per visit: a header search box seen on every screen is one step, not one per
+screen. The share assumes a field is as likely to be new as any other control.
+A direct count of new entry fields, from the same seen-element set, would
+remove that assumption; it is not built. The real-page tables below are
+single-scope scores and do not use this path.
 
 ## 2. Real reference pages, per persona
 

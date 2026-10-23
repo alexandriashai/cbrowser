@@ -150,16 +150,33 @@ as the laws. Both are measured on ref-v2's final 513 reference pages
 | cognitive_effort scope sequential | per-screen curve | each screen's pointing, choosing and procedure charged by the share of newly seen elements |
 | CMS audit worker -> CIF | CIF's CTC components | inherit the totalCTC changes above (ISC-56/57) |
 
-npm API (the package root and ./visual re-export the chain):
-- PageMetrics gains four required fields (pointingSeconds, choosingSeconds,
-  readingSeconds, procedureSeconds).
-- computeDemandDistribution throws without them, naming the field.
-- computeDemandFromRawMetrics takes the four law times in place of
-  interactiveElementCount and choiceCount, and an old 7-argument call throws
-  rather than misreading its arguments.
-- extractPageMetrics and deriveMetrics return the four times and
-  lawDiagnostics.
+### Migration note (for the 21.0 release notes)
 
-The design note called computeDemandFromRawMetrics a test helper "not
-exported from src/index.ts". It is exported through src/visual/index.ts, so
-this is a breaking change for 21.0's release notes.
+The CTC demand functions are public API: the package root and
+`cbrowser/visual` re-export the chain. 21.0 changes three of them. (The design
+note called computeDemandFromRawMetrics a test helper "not exported from
+src/index.ts"; it is exported through src/visual/index.ts, so this is a
+breaking change.)
+
+- `PageMetrics` has four new required fields, `pointingSeconds`,
+  `choosingSeconds`, `readingSeconds` and `procedureSeconds`: the motor,
+  decision, reading and procedure work in seconds. Metrics from
+  `extractPageMetrics` carry them already. A hand-built `PageMetrics` must add
+  them; `lawSecondsOf(raw)` computes all four from a raw page measurement
+  (`measurePageRaw`), and `deriveMetrics(raw)` returns a whole `PageMetrics`.
+- `computeDemandDistribution` throws on a `PageMetrics` without them, naming
+  the field, for example: `computeDemandDistribution: pageMetrics.readingSeconds
+  must be a finite number of seconds >= 0 (got undefined)`. There is no
+  fallback to the 20.x demand curves.
+- `computeDemandFromRawMetrics` now takes `(informationDensity,
+  visualComplexity, textDensity, animationLevel, navigationDepth,
+  pointingSeconds, choosingSeconds, readingSeconds, procedureSeconds)`. In
+  20.x it took `(informationDensity, visualComplexity,
+  interactiveElementCount, textDensity, animationLevel, choiceCount,
+  navigationDepth)`. A 20.x-style call throws, naming `readingSeconds`, rather
+  than reading the counts as seconds.
+- `interactiveElementCount` and `choiceCount` stay on `PageMetrics` as
+  reported counts. No demand reads them.
+- `extractPageMetrics` also returns `lawDiagnostics` (mean Fitts index,
+  targets, entry steps, choice groups, ungrouped links, the expert choosing
+  time).
