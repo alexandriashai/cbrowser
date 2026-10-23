@@ -20,6 +20,8 @@ import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibili
 import { getPersonaValues, rankInfluencePatternsForProfile, resolveValuesForPersona } from "../../values/index.js";
 import { resolvePersonaValues } from "./values-tools.js";
 import { currentRequestIdentity } from "../../request-context.js";
+import { param } from "../../visual/model-provenance.js";
+import { defaultJourneyTraits } from "../../cognitive/default-traits.js";
 import type {
   CognitiveState,
   AbandonmentThresholds,
@@ -37,7 +39,10 @@ import type {
  * 2026-10-09)
  */
 const r3 = (n: number | undefined): number | undefined =>
-  typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1000) / 1000 : n;
+  typeof n === "number" && Number.isFinite(n) ? Math.round(n * param("journeyMcp.display.rounding")) / param("journeyMcp.display.rounding") : n;
+
+/** A Schwartz or self-determination value a CMS persona does not set. */
+const cmsValue = (v: number | undefined): number => v ?? param("journeyMcp.cmsValueDefault");
 
 /**
  * Fetch custom personas from CMS for the current account.
@@ -189,21 +194,21 @@ export function registerCognitiveTools(
               const { registerAccountPersonaValues, createPersonaValues } = await import("../../values/index.js");
               const pv = createPersonaValues(
                 {
-                  selfDirection: cmsMatch.values.selfDirection ?? 0.5,
-                  stimulation: cmsMatch.values.stimulation ?? 0.5,
-                  hedonism: cmsMatch.values.hedonism ?? 0.5,
-                  achievement: cmsMatch.values.achievement ?? 0.5,
-                  power: cmsMatch.values.power ?? 0.5,
-                  security: cmsMatch.values.security ?? 0.5,
-                  conformity: cmsMatch.values.conformity ?? 0.5,
-                  tradition: cmsMatch.values.tradition ?? 0.5,
-                  benevolence: cmsMatch.values.benevolence ?? 0.5,
-                  universalism: cmsMatch.values.universalism ?? 0.5,
+                  selfDirection: cmsValue(cmsMatch.values.selfDirection),
+                  stimulation: cmsValue(cmsMatch.values.stimulation),
+                  hedonism: cmsValue(cmsMatch.values.hedonism),
+                  achievement: cmsValue(cmsMatch.values.achievement),
+                  power: cmsValue(cmsMatch.values.power),
+                  security: cmsValue(cmsMatch.values.security),
+                  conformity: cmsValue(cmsMatch.values.conformity),
+                  tradition: cmsValue(cmsMatch.values.tradition),
+                  benevolence: cmsValue(cmsMatch.values.benevolence),
+                  universalism: cmsValue(cmsMatch.values.universalism),
                 },
                 {
-                  autonomyNeed: cmsMatch.values.autonomyNeed ?? 0.5,
-                  competenceNeed: cmsMatch.values.competenceNeed ?? 0.5,
-                  relatednessNeed: cmsMatch.values.relatednessNeed ?? 0.5,
+                  autonomyNeed: cmsValue(cmsMatch.values.autonomyNeed),
+                  competenceNeed: cmsValue(cmsMatch.values.competenceNeed),
+                  relatednessNeed: cmsValue(cmsMatch.values.relatednessNeed),
                 },
                 "esteem"
               );
@@ -231,34 +236,7 @@ export function registerCognitiveTools(
           }, null, 2) }] };
         }
       } else if (customTraits) {
-        const defaultTraits: CognitiveTraits = {
-          patience: 0.5,
-          riskTolerance: 0.5,
-          comprehension: 0.5,
-          persistence: 0.5,
-          curiosity: 0.5,
-          workingMemory: 0.5,
-          readingTendency: 0.5,
-          resilience: 0.5,
-          selfEfficacy: 0.5,
-          satisficing: 0.5,
-          trustCalibration: 0.5,
-          interruptRecovery: 0.5,
-          informationForaging: 0.5,
-          changeBlindness: 0.3,
-          anchoringBias: 0.5,
-          timeHorizon: 0.5,
-          attributionStyle: 0.5,
-          metacognitivePlanning: 0.5,
-          proceduralFluency: 0.5,
-          transferLearning: 0.5,
-          authoritySensitivity: 0.5,
-          emotionalContagion: 0.5,
-          fearOfMissingOut: 0.5,
-          socialProofSensitivity: 0.5,
-          mentalModelFlexibility: 0.5,
-          siteFamiliarity: 0.5,
-        };
+        const defaultTraits: CognitiveTraits = defaultJourneyTraits();
         personaObj = {
           ...existingPersona,
           cognitiveTraits: {
@@ -278,7 +256,7 @@ export function registerCognitiveTools(
         confusionLevel: 0.0,
         frustrationLevel: 0.0,
         goalProgress: 0.0,
-        confidenceLevel: 0.5,
+        confidenceLevel: param("journey.initialConfidence"),
         currentMood: "neutral",
         memory: {
           pagesVisited: [startUrl],
@@ -291,13 +269,17 @@ export function registerCognitiveTools(
       };
 
       const traits = profile.traits;
+      // Registered in src/visual/provenance/journey-mcp.ts (journeyMcp.*);
+      // the patience floor, bands and time limits are the autonomous
+      // journey's (journey.*).
+      const lowPatience = traits.patience < param("journey.band.low.patience");
       const thresholds: AbandonmentThresholds = {
-        patienceMin: 0.1,
-        confusionMax: traits.comprehension < 0.4 ? 0.6 : 0.8,
-        frustrationMax: traits.patience < 0.3 ? 0.7 : 0.85,
-        maxStepsWithoutProgress: traits.persistence > 0.7 ? 15 : 10,
-        loopDetectionThreshold: 3,
-        timeLimit: traits.patience > 0.7 ? 180 : (traits.patience < 0.3 ? 60 : 120),
+        patienceMin: param("journey.abandon.patienceFloor"),
+        confusionMax: traits.comprehension < param("journey.band.low.comprehension") ? param("journeyMcp.abandon.confusionLimit.lowComprehension") : param("journeyMcp.abandon.confusionLimit"),
+        frustrationMax: lowPatience ? param("journeyMcp.abandon.frustrationLimit.lowPatience") : param("journeyMcp.abandon.frustrationLimit"),
+        maxStepsWithoutProgress: traits.persistence > param("journey.band.high.persistence") ? param("journeyMcp.abandon.noProgressSteps.highPersistence") : param("journeyMcp.abandon.noProgressSteps"),
+        loopDetectionThreshold: param("journeyMcp.abandon.loopVisits"),
+        timeLimit: traits.patience > param("journey.band.high.patience") ? param("journey.abandon.timeLimitSeconds.highPatience") : (lowPatience ? param("journey.abandon.timeLimitSeconds.lowPatience") : param("journey.abandon.timeLimitSeconds")),
       };
 
       // v18.33.0: Use token-based browser for session continuity
@@ -336,7 +318,7 @@ export function registerCognitiveTools(
 
       // v18.30.0: Verify browser is healthy after navigation
       // JS-heavy sites can crash the persistent browser context
-      const MAX_RETRIES = 2;
+      const MAX_RETRIES = param("journeyMcp.init.blankPageRetries");
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
           const page = await b.getPage();
@@ -358,7 +340,10 @@ export function registerCognitiveTools(
       // v18.35.0: Gate site model data by persona's siteFamiliarity trait
       // If persona claims high familiarity but no site model data exists,
       // downgrade to 0.0 and warn — can't simulate "knowing" a site we've never seen
-      const requestedFamiliarity = profile.traits.siteFamiliarity ?? 0.5;
+      const requestedFamiliarity = profile.traits.siteFamiliarity ?? param("journey.defaultTrait");
+      const fullCoverageAt = param("journeyMcp.familiarity.fullCoveragePages");
+      const expertAt = param("journeyMcp.familiarity.expert");
+      const familiarAt = param("journeyMcp.familiarity.familiar");
       let effectiveFamiliarity = requestedFamiliarity;
       let familiarityWarning: string | undefined;
       let siteModelContext: {
@@ -383,7 +368,7 @@ export function registerCognitiveTools(
         const hasData = stats.navigationNodes > 0;
 
         // Downgrade familiarity if persona claims knowledge we don't have
-        if (!hasData && requestedFamiliarity > 0.1) {
+        if (!hasData && requestedFamiliarity > param("journeyMcp.familiarity.claimFloor")) {
           effectiveFamiliarity = 0.0;
           familiarityWarning = `"${personaObj.name}" has siteFamiliarity=${requestedFamiliarity.toFixed(1)} but CBrowser has NO prior knowledge of ${domain}. Downgraded to 0.0 (first visit). To build site knowledge, navigate the site first — data accumulates automatically on every navigate/click/fill.`;
           siteModelContext = {
@@ -392,11 +377,11 @@ export function registerCognitiveTools(
             familiarityDowngraded: true,
             originalFamiliarity: requestedFamiliarity,
             pagesCrawled: 0,
-            fullCoverageAt: 20,
+            fullCoverageAt,
             provenance: "siteFamiliarity is a persona-site variable, not a disposition like the other 25 traits: the same persona is familiar with one site and not another. The effective value is capped by how many pages this install has crawled, which grows as you use the tool — so it is not reproducible across runs and should be read as a ceiling on what may be simulated, not as a measurement of the persona.",
             suggestion: familiarityWarning,
           };
-        } else if (hasData && requestedFamiliarity > 0.05) {
+        } else if (hasData && requestedFamiliarity > param("journeyMcp.familiarity.scaleFloor")) {
           // Scale familiarity by data coverage — partial knowledge = partial familiarity
           // A site with 3 pages mapped shouldn't give "expert" level access
           // Coverage, not familiarity.
@@ -409,23 +394,23 @@ export function registerCognitiveTools(
           // entitled to simulate, which is a useful guard and a bad measurement.
           // The 20-page threshold is a chosen constant, not a finding.
           // Reported alongside so the number explains itself. (2026-08-01)
-          const coverageScore = Math.min(1.0, stats.navigationNodes / 20);
+          const coverageScore = Math.min(1.0, stats.navigationNodes / fullCoverageAt);
           effectiveFamiliarity = Math.min(requestedFamiliarity, coverageScore);
 
-          if (effectiveFamiliarity < requestedFamiliarity - 0.1) {
+          if (effectiveFamiliarity < requestedFamiliarity - param("journeyMcp.familiarity.warnMargin")) {
             familiarityWarning = `"${personaObj.name}" has siteFamiliarity=${requestedFamiliarity.toFixed(1)} but site model only has ${stats.navigationNodes} pages mapped. Adjusted to ${effectiveFamiliarity.toFixed(1)}. More navigation will build fuller site knowledge.`;
           }
 
           const familiarityLevel =
-            effectiveFamiliarity >= 0.8 ? "expert" :
-            effectiveFamiliarity >= 0.5 ? "familiar" :
-            effectiveFamiliarity >= 0.1 ? "vague" : "none";
+            effectiveFamiliarity >= expertAt ? "expert" :
+            effectiveFamiliarity >= familiarAt ? "familiar" :
+            effectiveFamiliarity >= param("journeyMcp.familiarity.vague") ? "vague" : "none";
 
-          if (effectiveFamiliarity >= 0.8) {
+          if (effectiveFamiliarity >= expertAt) {
             siteModelContext = {
               hasModel: true,
               pagesCrawled: stats.navigationNodes,
-              fullCoverageAt: 20,
+              fullCoverageAt,
               provenance: "Capped by crawl coverage (pagesCrawled/fullCoverageAt), which grows as this install uses the tool — a ceiling on what may be simulated, not a reproducible measurement of the persona. siteFamiliarity is a persona-site variable, not a disposition like the other 25 traits.",
               knownPaths: stats.goalPaths,
               familiarityLevel,
@@ -435,11 +420,11 @@ export function registerCognitiveTools(
                 ? `This persona knows this site well. ${stats.goalPaths} known goal paths, ${stats.navigationNodes} mapped pages. Use site_model_query for best path.`
                 : `This persona knows the site layout (${stats.navigationNodes} pages) but hasn't completed goals here.`,
             };
-          } else if (effectiveFamiliarity >= 0.5) {
+          } else if (effectiveFamiliarity >= familiarAt) {
             siteModelContext = {
               hasModel: true,
               pagesCrawled: stats.navigationNodes,
-              fullCoverageAt: 20,
+              fullCoverageAt,
               provenance: "Capped by crawl coverage (pagesCrawled/fullCoverageAt), which grows as this install uses the tool — a ceiling on what may be simulated, not a reproducible measurement of the persona. siteFamiliarity is a persona-site variable, not a disposition like the other 25 traits.",
               familiarityLevel,
               familiarityDowngraded: effectiveFamiliarity < requestedFamiliarity,
@@ -462,7 +447,7 @@ export function registerCognitiveTools(
         }
       } catch {
         // If site model fails, treat as no data — downgrade high familiarity
-        if (requestedFamiliarity > 0.1) {
+        if (requestedFamiliarity > param("journeyMcp.familiarity.claimFloor")) {
           effectiveFamiliarity = 0.0;
           siteModelContext = {
             hasModel: false,
@@ -475,8 +460,18 @@ export function registerCognitiveTools(
       }
 
       const personaValues = resolveValuesForPersona(personaObj.name);
+      const lowP = param("journey.band.low.patience"), highP = param("journey.band.high.patience");
+      const lowR = param("journey.band.low.riskTolerance"), highR = param("journey.band.high.riskTolerance");
+      const lowC = param("journeyMcp.label.lowComprehension"), highC = param("journey.band.high.comprehension");
+      const lowT = param("journey.band.low.readingTendency"), highT = param("journey.band.high.readingTendency");
+      const highV = param("journeyMcp.valueLabel.high"), lowV = param("journeyMcp.valueLabel.low");
+      // The update rules cognitive_journey_update_state applies, stated from
+      // the same registry entries it reads, so the text cannot drift from them.
+      const U = (id: string) => param(`journeyMcp.update.${id}`);
+      const valueNeutral = param("journeyMcp.value.neutral");
+      const valueGain = param("journeyMcp.value.modulationGain");
       const influencePatterns = personaValues
-        ? rankInfluencePatternsForProfile(personaValues).slice(0, 5)
+        ? rankInfluencePatternsForProfile(personaValues).slice(0, param("journeyMcp.init.influencePatterns"))
         : undefined;
 
       return {
@@ -548,20 +543,20 @@ export function registerCognitiveTools(
 COGNITIVE JOURNEY SIMULATION INSTRUCTIONS:
 
 You are now simulating a "${personaObj.name}" user with these cognitive traits:
-- Patience: ${profile.traits.patience.toFixed(2)} ${profile.traits.patience < 0.3 ? "(impatient - will give up quickly)" : profile.traits.patience > 0.7 ? "(patient - will persist)" : "(moderate)"}
-- Risk Tolerance: ${profile.traits.riskTolerance.toFixed(2)} ${profile.traits.riskTolerance < 0.3 ? "(cautious - hesitates)" : profile.traits.riskTolerance > 0.7 ? "(bold - clicks freely)" : "(moderate)"}
-- Comprehension: ${profile.traits.comprehension.toFixed(2)} ${profile.traits.comprehension < 0.3 ? "(struggles with UI)" : profile.traits.comprehension > 0.7 ? "(expert at UI patterns)" : "(moderate)"}
-- Reading Tendency: ${profile.traits.readingTendency.toFixed(2)} ${profile.traits.readingTendency < 0.3 ? "(scans only)" : profile.traits.readingTendency > 0.7 ? "(reads everything)" : "(selective reader)"}
+- Patience: ${profile.traits.patience.toFixed(2)} ${profile.traits.patience < lowP ? "(impatient - will give up quickly)" : profile.traits.patience > highP ? "(patient - will persist)" : "(moderate)"}
+- Risk Tolerance: ${profile.traits.riskTolerance.toFixed(2)} ${profile.traits.riskTolerance < lowR ? "(cautious - hesitates)" : profile.traits.riskTolerance > highR ? "(bold - clicks freely)" : "(moderate)"}
+- Comprehension: ${profile.traits.comprehension.toFixed(2)} ${profile.traits.comprehension < lowC ? "(struggles with UI)" : profile.traits.comprehension > highC ? "(expert at UI patterns)" : "(moderate)"}
+- Reading Tendency: ${profile.traits.readingTendency.toFixed(2)} ${profile.traits.readingTendency < lowT ? "(scans only)" : profile.traits.readingTendency > highT ? "(reads everything)" : "(selective reader)"}
 
 Attention Pattern: ${profile.attentionPattern}
 Decision Style: ${profile.decisionStyle}
 ${personaValues ? `
 MOTIVATIONAL VALUES (Schwartz — influence what this persona notices and clicks):
-- Security: ${personaValues.security.toFixed(2)} ${personaValues.security > 0.7 ? "(seeks trust signals, guarantees, reads policies)" : personaValues.security < 0.3 ? "(skips fine print, comfortable with risk)" : ""}
-- Stimulation: ${personaValues.stimulation.toFixed(2)} ${personaValues.stimulation > 0.7 ? "(drawn to 'New', beta features, novelty)" : personaValues.stimulation < 0.3 ? "(ignores new features, prefers familiar)" : ""}
-- Achievement: ${personaValues.achievement.toFixed(2)} ${personaValues.achievement > 0.7 ? "(seeks ROI, metrics, efficiency)" : ""}
-- Conformity: ${personaValues.conformity.toFixed(2)} ${personaValues.conformity > 0.7 ? "(influenced by reviews, 'Most popular', social proof)" : personaValues.conformity < 0.3 ? "(ignores social proof, independent)" : ""}
-- Self-Direction: ${personaValues.selfDirection.toFixed(2)} ${personaValues.selfDirection > 0.7 ? "(resists defaults, customizes, explores options)" : ""}
+- Security: ${personaValues.security.toFixed(2)} ${personaValues.security > highV ? "(seeks trust signals, guarantees, reads policies)" : personaValues.security < lowV ? "(skips fine print, comfortable with risk)" : ""}
+- Stimulation: ${personaValues.stimulation.toFixed(2)} ${personaValues.stimulation > highV ? "(drawn to 'New', beta features, novelty)" : personaValues.stimulation < lowV ? "(ignores new features, prefers familiar)" : ""}
+- Achievement: ${personaValues.achievement.toFixed(2)} ${personaValues.achievement > highV ? "(seeks ROI, metrics, efficiency)" : ""}
+- Conformity: ${personaValues.conformity.toFixed(2)} ${personaValues.conformity > highV ? "(influenced by reviews, 'Most popular', social proof)" : personaValues.conformity < lowV ? "(ignores social proof, independent)" : ""}
+- Self-Direction: ${personaValues.selfDirection.toFixed(2)} ${personaValues.selfDirection > highV ? "(resists defaults, customizes, explores options)" : ""}
 ` : ""}
 GOAL: "${goal}"
 
@@ -572,16 +567,21 @@ SIMULATION LOOP:
 2. COMPREHEND - Interpret elements as this persona would (lower comprehension = more confusion)
 3. DECIDE - Choose action based on traits. Generate inner monologue.
 4. EXECUTE - Use click/fill/navigate tools (always pass _browserToken).
-5. EVALUATE - Update cognitive state after each action:
-   - patienceRemaining -= 0.02 + (frustrationLevel × 0.05)
-   - confusionLevel changes based on UI clarity
-   - frustrationLevel increases on failures
-6. CHECK ABANDONMENT - If thresholds exceeded, end journey with appropriate message.
+5. EVALUATE - After each action, call cognitive_journey_update_state with its result. It applies these rules:
+   - patienceRemaining -= ${U("patiencePerStep")} + frustrationLevel × ${U("patiencePerFrustration")} × achievement modulation
+   - on success: confusionLevel -= ${U("confusionRecovery")} × stimulation modulation and frustrationLevel -= ${U("frustrationRecovery")}; with progress, confidenceLevel += ${U("confidenceGain")} × achievement modulation and goalProgress += ${U("progressPerStep")}
+   - on failure: frustrationLevel += ${U("frustrationPerFailure")} × security modulation
+   - on a confusing step: confusionLevel += (1 - comprehension) × ${U("confusionPerConfusing")} × conformity modulation
+   - on going back: confidenceLevel -= ${U("confidenceLossOnBack")} × security modulation
+   - timeElapsed += ${U("secondsPerStep")} s per update
+   A value's modulation is 1 + (value - ${valueNeutral}) × ${valueGain}, ${1 - valueNeutral * valueGain} to ${1 + (1 - valueNeutral) * valueGain} across the 0-1 scale (${valueNeutral} = no effect).
+   These rules and every limit below were set by hand. They are hypotheses, untested against people, not measurements: follow them to keep the simulation consistent, and do not report their outputs as findings.
+6. CHECK ABANDONMENT - cognitive_journey_update_state returns shouldAbandon. It checks patience below ${thresholds.patienceMin}, frustration above ${param("journeyMcp.abandon.frustrationLimit")} / security modulation, and confusion above ${param("journeyMcp.abandon.confusionLimit")} / conformity modulation on two consecutive updates; it does not apply this persona's own confusion and frustration limits below, nor the step, page and time limits, which are yours to apply.
 7. LOOP - Return to PERCEIVE until goal achieved or abandoned.
 
-ABANDONMENT TRIGGERS:
+ABANDONMENT TRIGGERS (this persona's limits):
 - Patience < ${thresholds.patienceMin}: "This is taking too long. I give up."
-- Confusion > ${thresholds.confusionMax} for 30s: "I have no idea what to do."
+- Confusion > ${thresholds.confusionMax} on two consecutive updates: "I have no idea what to do."
 - Frustration > ${thresholds.frustrationMax}: "This is so frustrating!"
 - No progress after ${thresholds.maxStepsWithoutProgress} steps: "I'm not getting anywhere."
 - Same page ${thresholds.loopDetectionThreshold}x: "I keep ending up here."
@@ -598,7 +598,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.registerTool("cognitive_journey_update_state", {
     title: "Update Cognitive State",
-    description: "Update the cognitive state during a journey simulation. Call this after each action to track mental state.",
+    description: "Update the cognitive state during a journey simulation. Call this after each action to track mental state. The update rules and abandonment limits it applies were set by hand: hypotheses to keep a simulation consistent, untested against people, not measurements (cognitive_journey_init's instructions state them).",
     inputSchema: {
       currentState: z.object({
         patienceRemaining: z.number(),
@@ -641,44 +641,47 @@ Begin the simulation now. Narrate your thoughts as this persona.
     },
   }, async ({ currentState, actionResult, personaTraits, personaValues }) => {
       // Value modulation factors (0.8-1.2 range, default 1.0 when no values)
+      // Every rule below is registered (journeyMcp.*, src/visual/provenance/journey-mcp.ts).
       const v = personaValues || {};
-      const securityMod = 1 + ((v.security ?? 0.5) - 0.5) * 0.4;       // 0.8-1.2: high security = more reactive to failure
-      const stimulationMod = 1 + ((v.stimulation ?? 0.5) - 0.5) * 0.4;  // 0.8-1.2: high stimulation = more patience for novelty
-      const achievementMod = 1 + ((v.achievement ?? 0.5) - 0.5) * 0.4;  // 0.8-1.2: high achievement = more impatient with inefficiency
-      const conformityMod = 1 + ((v.conformity ?? 0.5) - 0.5) * 0.4;    // 0.8-1.2: high conformity = more frustrated without social proof
+      const neutral = param("journeyMcp.value.neutral");
+      const gain = param("journeyMcp.value.modulationGain");
+      const securityMod = 1 + ((v.security ?? neutral) - neutral) * gain;       // 0.8-1.2: high security = more reactive to failure
+      const stimulationMod = 1 + ((v.stimulation ?? neutral) - neutral) * gain;  // 0.8-1.2: high stimulation = more patience for novelty
+      const achievementMod = 1 + ((v.achievement ?? neutral) - neutral) * gain;  // 0.8-1.2: high achievement = more impatient with inefficiency
+      const conformityMod = 1 + ((v.conformity ?? neutral) - neutral) * gain;    // 0.8-1.2: high conformity = more frustrated without social proof
 
-      let newPatienceRemaining = currentState.patienceRemaining - 0.02;
+      let newPatienceRemaining = currentState.patienceRemaining - param("journeyMcp.update.patiencePerStep");
       let newConfusionLevel = currentState.confusionLevel;
       let newFrustrationLevel = currentState.frustrationLevel;
       let newConfidenceLevel = currentState.confidenceLevel;
       let newMood = currentState.currentMood;
 
       // Patience drain from frustration — achievement-driven personas drain faster
-      newPatienceRemaining -= currentState.frustrationLevel * 0.05 * achievementMod;
+      newPatienceRemaining -= currentState.frustrationLevel * param("journeyMcp.update.patiencePerFrustration") * achievementMod;
 
       if (actionResult.success) {
         // Success recovery — stimulation-seeking personas recover faster from novelty
-        newConfusionLevel = Math.max(0, newConfusionLevel - 0.1 * stimulationMod);
-        newFrustrationLevel = Math.max(0, newFrustrationLevel - 0.05);
+        newConfusionLevel = Math.max(0, newConfusionLevel - param("journeyMcp.update.confusionRecovery") * stimulationMod);
+        newFrustrationLevel = Math.max(0, newFrustrationLevel - param("journeyMcp.update.frustrationRecovery"));
 
         if (actionResult.progressMade) {
           // Achievement-driven personas get bigger confidence boost from progress
-          newConfidenceLevel = Math.min(1, newConfidenceLevel + 0.1 * achievementMod);
+          newConfidenceLevel = Math.min(1, newConfidenceLevel + param("journeyMcp.update.confidenceGain") * achievementMod);
         }
       } else {
         // Failure — security-focused personas accumulate MORE frustration on failure
-        newFrustrationLevel = Math.min(1, newFrustrationLevel + 0.2 * securityMod);
+        newFrustrationLevel = Math.min(1, newFrustrationLevel + param("journeyMcp.update.frustrationPerFailure") * securityMod);
 
       }
 
       if (actionResult.wasConfusing) {
         // Confusion — conformity-seeking personas get more confused without clear guidance
-        newConfusionLevel = Math.min(1, newConfusionLevel + (1 - personaTraits.comprehension) * 0.15 * conformityMod);
+        newConfusionLevel = Math.min(1, newConfusionLevel + (1 - personaTraits.comprehension) * param("journeyMcp.update.confusionPerConfusing") * conformityMod);
       }
 
       if (actionResult.wentBack) {
         // Going back — security-focused personas lose more confidence (risk aversion)
-        newConfidenceLevel = Math.max(0, newConfidenceLevel - 0.15 * securityMod);
+        newConfidenceLevel = Math.max(0, newConfidenceLevel - param("journeyMcp.update.confidenceLossOnBack") * securityMod);
       }
 
       // Mood resolved from the FINAL levels, by whichever dimension actually
@@ -688,9 +691,9 @@ Begin the simulation now. Narrate your thoughts as this persona.
       // persona carrying frustration 0.85 into a successful-but-confusing step
       // came out "confused" while frustration outranked confusion 0.85 to 0.65.
       // (2026-07-29)
-      if (newFrustrationLevel > 0.8 && personaTraits.persistence < 0.5) {
+      if (newFrustrationLevel > param("journeyMcp.mood.defeatedFrustration") && personaTraits.persistence < param("journeyMcp.mood.defeatedPersistence")) {
         newMood = "defeated";
-      } else if (newFrustrationLevel > 0.7 || newConfusionLevel > 0.5) {
+      } else if (newFrustrationLevel > param("journeyMcp.mood.frustrated") || newConfusionLevel > param("journeyMcp.mood.confused")) {
         newMood = newFrustrationLevel >= newConfusionLevel ? "frustrated" : "confused";
       } else if (actionResult.success && actionResult.progressMade) {
         newMood = "hopeful";
@@ -701,7 +704,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       // state threading dropped it. progressMade already means "the goal moved",
       // so advance it there and echo it otherwise.
       const newGoalProgress = actionResult.progressMade
-        ? Math.min(1, currentState.goalProgress + 0.1)
+        ? Math.min(1, currentState.goalProgress + param("journeyMcp.update.progressPerStep"))
         : currentState.goalProgress;
 
       const newState: Partial<CognitiveState> = {
@@ -712,7 +715,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
         confidenceLevel: newConfidenceLevel,
         currentMood: newMood as CognitiveState["currentMood"],
         stepCount: currentState.stepCount + 1,
-        timeElapsed: currentState.timeElapsed + 2,
+        timeElapsed: currentState.timeElapsed + param("journeyMcp.update.secondsPerStep"),
       };
 
       let shouldAbandon = false;
@@ -722,9 +725,11 @@ Begin the simulation now. Narrate your thoughts as this persona.
       // Abandonment thresholds — values shift sensitivity
       // Security-focused personas abandon earlier on risk/uncertainty
       // Achievement-focused personas abandon earlier on inefficiency
-      const patienceThreshold = 0.1;
-      const frustrationThreshold = 0.85 / securityMod;  // Lower threshold for high-security personas
-      const confusionThreshold = 0.8 / conformityMod;   // Lower threshold for high-conformity personas
+      const patienceThreshold = param("journey.abandon.patienceFloor");
+      const frustrationThreshold = param("journeyMcp.abandon.frustrationLimit") / securityMod;  // Lower threshold for high-security personas
+      const confusionThreshold = param("journeyMcp.abandon.confusionLimit") / conformityMod;   // Lower threshold for high-conformity personas
+      const epsilon = param("journeyMcp.update.marginEpsilon");
+      const highValue = param("journeyMcp.valueLabel.high");
 
       // Precedence used to be an implicit if/else chain — patience, then
       // frustration, then confusion — so when two dimensions breached at once
@@ -738,15 +743,15 @@ Begin the simulation now. Narrate your thoughts as this persona.
       if (newState.patienceRemaining! < patienceThreshold) {
         breaches.push({
           reason: "patience",
-          margin: (patienceThreshold - newState.patienceRemaining!) / Math.max(patienceThreshold, 1e-6),
+          margin: (patienceThreshold - newState.patienceRemaining!) / Math.max(patienceThreshold, epsilon),
           message: "This is taking too long. I give up.",
         });
       }
       if (newState.frustrationLevel! > frustrationThreshold) {
         breaches.push({
           reason: "frustration",
-          margin: (newState.frustrationLevel! - frustrationThreshold) / Math.max(frustrationThreshold, 1e-6),
-          message: (v.security ?? 0.5) > 0.7
+          margin: (newState.frustrationLevel! - frustrationThreshold) / Math.max(frustrationThreshold, epsilon),
+          message: (v.security ?? neutral) > highValue
             ? "This doesn't feel safe or reliable. I'm leaving."
             : "This is so frustrating! I'm done.",
         });
@@ -756,8 +761,8 @@ Begin the simulation now. Narrate your thoughts as this persona.
       if (newState.confusionLevel! > confusionThreshold && currentState.confusionLevel > confusionThreshold) {
         breaches.push({
           reason: "confusion",
-          margin: (newState.confusionLevel! - confusionThreshold) / Math.max(confusionThreshold, 1e-6),
-          message: (v.conformity ?? 0.5) > 0.7
+          margin: (newState.confusionLevel! - confusionThreshold) / Math.max(confusionThreshold, epsilon),
+          message: (v.conformity ?? neutral) > highValue
             ? "I can't tell what most people would do here. I'll try something else."
             : "I have no idea what I'm supposed to do here.",
         });
@@ -933,16 +938,16 @@ Begin the simulation now. Narrate your thoughts as this persona.
         cognitiveTraits: p.traits,
         values: p.values ? (() => {
           const sv = {
-            selfDirection: p.values.selfDirection ?? 0.5,
-            stimulation: p.values.stimulation ?? 0.5,
-            hedonism: p.values.hedonism ?? 0.5,
-            achievement: p.values.achievement ?? 0.5,
-            power: p.values.power ?? 0.5,
-            security: p.values.security ?? 0.5,
-            conformity: p.values.conformity ?? 0.5,
-            tradition: p.values.tradition ?? 0.5,
-            benevolence: p.values.benevolence ?? 0.5,
-            universalism: p.values.universalism ?? 0.5,
+            selfDirection: cmsValue(p.values.selfDirection),
+            stimulation: cmsValue(p.values.stimulation),
+            hedonism: cmsValue(p.values.hedonism),
+            achievement: cmsValue(p.values.achievement),
+            power: cmsValue(p.values.power),
+            security: cmsValue(p.values.security),
+            conformity: cmsValue(p.values.conformity),
+            tradition: cmsValue(p.values.tradition),
+            benevolence: cmsValue(p.values.benevolence),
+            universalism: cmsValue(p.values.universalism),
           };
           // Delegated to the shared resolver rather than recomputed here.
           //
@@ -978,9 +983,9 @@ Begin the simulation now. Narrate your thoughts as this persona.
               ? { higherOrderWithImputed: resolved.higherOrderWithImputed }
               : {}),
             sdt: {
-              autonomyNeed: p.values.autonomyNeed ?? 0.5,
-              competenceNeed: p.values.competenceNeed ?? 0.5,
-              relatednessNeed: p.values.relatednessNeed ?? 0.5,
+              autonomyNeed: cmsValue(p.values.autonomyNeed),
+              competenceNeed: cmsValue(p.values.competenceNeed),
+              relatednessNeed: cmsValue(p.values.relatednessNeed),
             },
             valuesSource: resolved.source,
             maslowLevel: resolved.maslowLevel,

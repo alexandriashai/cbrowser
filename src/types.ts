@@ -9,6 +9,11 @@
  * CBrowser Type Definitions
  */
 
+// The journey helpers below (Fitts, keystroke, scan, gaze, peripheral vision,
+// habituation, fatigue) read their constants from the registry. Nothing the
+// registry loads imports this file at runtime, so the import closes no cycle.
+import { param } from "./visual/model-provenance.js";
+
 // ============================================================================
 // Persona Types
 // ============================================================================
@@ -878,7 +883,7 @@ export interface DecisionFatigueState {
  */
 export function calculateFatigueIncrement(optionsConsidered: number): number {
   // Logarithmic: first few options costly, diminishing returns
-  return 0.05 * Math.log(optionsConsidered + 1);
+  return param("journey.fatigue.gain") * Math.log(optionsConsidered + 1);
 }
 
 // ============================================================================
@@ -904,11 +909,12 @@ export interface FittsLawParams {
 }
 
 /**
- * Default Fitts' Law parameters based on empirical research.
+ * Default Fitts' Law parameters. The intercept and slope are registered
+ * (journey.fitts.*, src/visual/provenance/journey.ts) and read when used.
  */
 export const DEFAULT_FITTS_PARAMS: FittsLawParams = {
-  a: 50,      // Base time in ms
-  b: 150,     // Movement coefficient
+  get a() { return param("journey.fitts.intercept"); },      // Base time in ms
+  get b() { return param("journey.fitts.slope"); },          // Movement coefficient
   ageModifier: 1.0,
   tremorModifier: 0,
 };
@@ -932,7 +938,7 @@ export function calculateFittsMovementTime(
   const baseMT = a + b * indexOfDifficulty;
 
   // Apply persona modifiers
-  return baseMT * ageModifier * (1 + tremorModifier * 0.1);
+  return baseMT * ageModifier * (1 + tremorModifier * param("journey.fitts.tremorGain"));
 }
 
 // ============================================================================
@@ -966,7 +972,7 @@ export function shouldSwitchToSystem2(
   confusionLevel: number,
   mode: CognitiveMode
 ): boolean {
-  return confusionLevel > mode.switchThreshold || mode.system1Errors >= 3;
+  return confusionLevel > mode.switchThreshold || mode.system1Errors >= param("journey.dualProcess.system1ErrorLimit");
 }
 
 /**
@@ -977,7 +983,7 @@ export function canReturnToSystem1(
   confusionLevel: number,
   recentSuccess: boolean
 ): boolean {
-  return confusionLevel < 0.2 && recentSuccess;
+  return confusionLevel < param("journey.dualProcess.returnConfusion") && recentSuccess;
 }
 
 // ============================================================================
@@ -985,29 +991,31 @@ export function canReturnToSystem1(
 // ============================================================================
 
 /**
- * Keystroke-Level Model (KLM) timing constants.
- * Empirically derived from Card, Moran & Newell (1983).
+ * Keystroke-Level Model (KLM) timing constants, in ms.
+ * After Card, Moran & Newell (1980, 1983). Each is registered (journey.klm.*,
+ * src/visual/provenance/journey.ts), with whether a source read for the
+ * registry states it, and read when used.
  *
  * @see Card, S. K., Moran, T. P., & Newell, A. (1983). The Psychology of Human-Computer Interaction
  * @see https://github.com/Cogulator/Cogulator
  */
 export const KLM_OPERATORS = {
   /** Keystroke timing - average typist (ms) */
-  K_keystroke: 280,
+  get K_keystroke() { return param("journey.klm.keystrokeAverage"); },
   /** Expert typist keystroke (ms) */
-  K_expert: 120,
+  get K_expert() { return param("journey.klm.keystrokeExpert"); },
   /** Hunt-and-peck typist keystroke (ms) */
-  K_novice: 500,
+  get K_novice() { return param("journey.klm.keystrokeNovice"); },
   /** Mouse pointing to target (ms) - replaced by Fitts' Law */
-  P_pointing: 1100,
+  get P_pointing() { return param("journey.klm.pointing"); },
   /** Hand movement between keyboard and mouse (ms) */
-  H_homing: 400,
+  get H_homing() { return param("journey.klm.homing"); },
   /** Mental preparation before action (ms) */
-  M_mental: 1350,
+  get M_mental() { return param("journey.klm.mentalPreparation"); },
   /** Mental prep for familiar task (ms) */
-  M_familiar: 600,
+  get M_familiar() { return param("journey.klm.mentalFamiliar"); },
   /** Button click time (ms) */
-  B_button: 100,
+  get B_button() { return param("journey.klm.button"); },
   /** System response - variable, depends on application */
   R_system: 0,
 } as const;
@@ -1021,7 +1029,7 @@ export const KLM_OPERATORS = {
  */
 export function calculateTypingTime(
   text: string,
-  expertise: number = 0.5,
+  expertise: number = param("journey.typing.defaultExpertise"),
   includesMentalPrep: boolean = true
 ): number {
   // Interpolate between novice and expert keystroke time
@@ -1064,15 +1072,15 @@ export interface ScanPatternState {
  * @returns Width multiplier for scan pattern
  */
 export function calculateScanWidthMultiplier(cognitiveLoad: number): number {
-  if (cognitiveLoad > 0.8) {
+  if (cognitiveLoad > param("journey.scan.severeLoad")) {
     // Severe tunnel vision: only left 20%
-    return 0.2;
-  } else if (cognitiveLoad > 0.7) {
+    return param("journey.scan.severeWidth");
+  } else if (cognitiveLoad > param("journey.scan.highLoad")) {
     // Tunnel vision: only left 30%
-    return 0.3;
-  } else if (cognitiveLoad > 0.5) {
+    return param("journey.scan.highWidth");
+  } else if (cognitiveLoad > param("journey.scan.moderateLoad")) {
     // Narrowed: left 60%
-    return 0.6;
+    return param("journey.scan.moderateWidth");
   }
   // Normal: full width
   return 1.0;
@@ -1244,21 +1252,20 @@ export function calculateSaliency(factors: SaliencyFactors): number {
 }
 
 /**
- * Calculate gaze-to-mouse lag based on age (WebGazer.js research).
- * Eye movements precede mouse movements by 200-500ms depending on age.
+ * Gaze-to-mouse lag: how long after the eyes reach a target the cursor does.
  *
- * @param ageRange - Age range string (e.g., "18-25", "65+")
+ * The published measurement (Huang, White & Buscher 2012, journey.gazeLag.mean)
+ * is an average over adults aged 26 to 60, with no age function: the same
+ * study found no significant relation between age and gaze-cursor distance.
+ * Until 21.0 this returned a hand-set 200-500 ms by age (300 ms when unknown),
+ * below the measured average for every age; the age is now accepted and not
+ * used, so every persona lags by the measured average.
+ *
+ * @param _ageRange - Age range string (e.g., "18-25", "65+"); not used
  * @returns Gaze-to-mouse lag in milliseconds
  */
-export function calculateGazeMouseLag(ageRange?: string): number {
-  if (!ageRange) return 300; // Default
-
-  const ageMatch = ageRange.match(/(\d+)/);
-  if (!ageMatch) return 300;
-
-  const age = parseInt(ageMatch[1], 10);
-  // Young adults: 200ms, elderly: 500ms
-  return Math.min(500, Math.max(200, 200 + (age - 20) * 5));
+export function calculateGazeMouseLag(_ageRange?: string): number {
+  return param("journey.gazeLag.mean");
 }
 
 // ============================================================================
@@ -1298,18 +1305,18 @@ export function calculatePeripheralVision(
   let widthFactor = 1.0;
   let heightFactor = 1.0;
 
-  if (arousalLevel > 0.8) {
+  if (arousalLevel > param("journey.peripheral.severeArousal")) {
     // Severe tunnel vision
-    widthFactor = 0.3;
-    heightFactor = 0.4;
-  } else if (arousalLevel > 0.6) {
+    widthFactor = param("journey.peripheral.severeWidth");
+    heightFactor = param("journey.peripheral.severeHeight");
+  } else if (arousalLevel > param("journey.peripheral.moderateArousal")) {
     // Moderate tunnel vision
-    widthFactor = 0.5;
-    heightFactor = 0.6;
-  } else if (arousalLevel > 0.4) {
+    widthFactor = param("journey.peripheral.moderateWidth");
+    heightFactor = param("journey.peripheral.moderateHeight");
+  } else if (arousalLevel > param("journey.peripheral.slightArousal")) {
     // Slightly narrowed
-    widthFactor = 0.75;
-    heightFactor = 0.8;
+    widthFactor = param("journey.peripheral.slightWidth");
+    heightFactor = param("journey.peripheral.slightHeight");
   }
 
   return { widthFactor, heightFactor, arousalLevel };
@@ -1403,14 +1410,14 @@ export function calculateHabituationVisibility(
 
   const exposure = habituation.exposureCount[pattern] || 0;
   // Adjust threshold by comprehension (low comprehension = faster blindness)
-  const adjustedThreshold = habituation.blindnessThreshold * (0.5 + comprehension * 0.5);
+  const adjustedThreshold = habituation.blindnessThreshold * (param("journey.habituation.comprehensionBase") + comprehension * param("journey.habituation.comprehensionGain"));
 
   if (exposure >= adjustedThreshold) {
-    return 0.1; // Nearly blind
+    return param("journey.habituation.nearBlindVisibility"); // Nearly blind
   }
 
   // Linear decay toward blindness
-  return 1 - (exposure / adjustedThreshold) * 0.9;
+  return 1 - (exposure / adjustedThreshold) * param("journey.habituation.visibilityRange");
 }
 
 /**
@@ -1419,7 +1426,7 @@ export function calculateHabituationVisibility(
  * @param blindnessThreshold - Exposures before blindness (default: 3)
  * @returns Initial HabituationState
  */
-export function createHabituationState(blindnessThreshold = 3): HabituationState {
+export function createHabituationState(blindnessThreshold = param("journey.habituation.exposures")): HabituationState {
   return {
     exposureCount: {} as Record<UIPattern, number>,
     blindnessThreshold,
@@ -2168,8 +2175,13 @@ export interface AbandonmentThresholds {
   frustrationMax: number;
   /** Abandon if no progress after this many steps (default: 10) */
   maxStepsWithoutProgress: number;
-  /** Abandon if same page visited this many times (default: 3) */
-  loopDetectionThreshold: number;
+  /**
+   * Abandon if same page visited this many times (default: 3). The MCP flow
+   * announces it to the client model; the autonomous journey has no loop
+   * rule (its page history holds each page once, so the one it had could
+   * never fire, and it was removed in 21.0).
+   */
+  loopDetectionThreshold?: number;
   /** Maximum time in seconds (default: 120) */
   timeLimit: number;
   /** Abandon if decision fatigue exceeds this (default: 0.85, v9.9.0) */
