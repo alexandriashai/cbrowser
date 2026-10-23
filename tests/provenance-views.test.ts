@@ -318,3 +318,149 @@ describe("persona and trait views: each built-in value's status", () => {
       expect(v.q["details.drawer[open] .grid tbody tr"].filter((r) => r.includes("norm-anchored")).length).toBe(anchored);
     }, 60000);
 });
+
+/**
+ * The provenance surfaces work from the keyboard: each drawer is reached by
+ * Tab, shows a focus ring of at least 3:1 against what is behind it (WCAG
+ * 1.4.11), and opens with Enter; the hand-set id list opens with Space; a
+ * persona's cited or anchored tag shows its source on focus and hides it on
+ * Escape. Real Tab presses from inside the view, not programmatic focus.
+ */
+const KBD_SHOTS = process.env.PROVENANCE_VIEW_SHOTS; // a directory, to look at the focused states by eye
+
+async function viaKeyboard(widget: string, payload: unknown, theme: "light" | "dark", width: number,
+  target: { summary?: string; tag?: string; ready: string; shot?: string }) {
+  current = { widget, host: hostPage(theme, width, payload) };
+  const page = await browser.getPage();
+  await page.setViewportSize({ width, height: 1100 });
+  await page.emulateMedia({ colorScheme: theme });
+  await page.goto(`http://localhost:${server.port}/host`);
+  const frame = page.frames().find((f) => f.url().endsWith("/widget"))!;
+  await frame.waitForSelector(target.ready, { timeout: 20000 });
+  // The host sizes the frame to the view, as an MCP Apps host does on
+  // size-changed, so the view never scrolls inside its own frame.
+  const fit = async () => {
+    const h = await frame.evaluate(() => document.documentElement.scrollHeight);
+    await page.evaluate((px: number) => { (document.getElementById("view") as HTMLElement).style.height = `${px}px`; }, h + 8);
+  };
+  await fit();
+  // Start inside the view, at its title, as a reader tabbing through it would.
+  await frame.click(".htitle");
+  const isTarget = () => frame.evaluate((t: { summary?: string; tag?: string }) => {
+    const a = document.activeElement as HTMLElement | null;
+    if (!a) return false;
+    const text = (a.textContent || "").trim();
+    return t.summary ? a.tagName === "SUMMARY" && text.startsWith(t.summary) : a.classList.contains("ptag") && text === t.tag;
+  }, target);
+  let tabs = 0;
+  while (!(await isTarget()) && tabs < 200) { await page.keyboard.press("Tab"); tabs++; }
+  const ring = await frame.evaluate((bg: string) => {
+    const a = document.activeElement as HTMLElement;
+    const cs = getComputedStyle(a);
+    const cv = document.createElement("canvas"); cv.width = cv.height = 1;
+    const cx = cv.getContext("2d", { willReadFrequently: true })!;
+    const rgb = (c: string) => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+    const lum = (c: number[]) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+    const host = rgb(bg), o = rgb(cs.outlineColor);
+    const ring = [0, 1, 2].map((i) => o[i] * o[3] + host[i] * (1 - o[3]));
+    const x = lum(ring), y = lum(host);
+    return { style: cs.outlineStyle, width: parseFloat(cs.outlineWidth), contrast: (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05),
+      focusVisible: a.matches(":focus-visible") };
+  }, BG[theme]);
+  const result: Record<string, unknown> = { tabs, reached: await isTarget(), ring };
+  if (target.summary) {
+    await page.keyboard.press("Enter");
+    result.openAfterEnter = await frame.evaluate(() => (document.activeElement?.parentElement as HTMLDetailsElement | null)?.open === true);
+    // The section inside starts open; the id list inside it is a disclosure of its own.
+    let more = 0;
+    const onIds = () => frame.evaluate(() => (document.activeElement?.parentElement as HTMLElement | null)?.classList.contains("pids") === true);
+    const hasIds = await frame.evaluate(() => !!document.activeElement?.parentElement?.querySelector("details.pids"));
+    while (hasIds && !(await onIds()) && more < 20) { await page.keyboard.press("Tab"); more++; }
+    if (hasIds && await onIds()) {
+      await page.keyboard.press(" ");
+      result.idsOpenAfterSpace = await frame.evaluate(() => (document.activeElement?.parentElement as HTMLDetailsElement | null)?.open === true);
+      // Back to the drawer's own summary, for the picture.
+      for (let i = 0; i < more; i++) await page.keyboard.press("Shift+Tab");
+      result.backOnDrawer = await isTarget();
+    }
+  } else {
+    result.tip = await frame.evaluate(() => { const t = document.querySelector(".tip.on"); return t ? (t.textContent || "") : null; });
+  }
+  if (KBD_SHOTS && target.shot) {
+    await fit();
+    // The view is one tall iframe, so the host page scrolls: the focused
+    // control near the top for a drawer, mid-screen for a tag, whose tip
+    // opens above it.
+    // boundingBox is relative to the host's viewport, which focusing has
+    // already scrolled, so the target is that scroll plus both offsets.
+    const box = await (await frame.frameElement()).boundingBox();
+    const at = await frame.evaluate(() => (document.activeElement as HTMLElement).getBoundingClientRect().top);
+    const scrolled = await page.evaluate(() => window.scrollY);
+    await page.evaluate((y: number) => window.scrollTo(0, y), scrolled + (box?.y ?? 0) + at - (target.tag ? 400 : 12));
+    await page.screenshot({ path: join(KBD_SHOTS, `${target.shot}-${theme}-${width}.png`) });
+  }
+  if (target.tag) {
+    await page.keyboard.press("Escape");
+    result.tipAfterEscape = await frame.evaluate(() => !!document.querySelector(".tip.on"));
+  }
+  return result;
+}
+
+function expectRing(r: Record<string, unknown>) {
+  expect(r.reached).toBe(true);
+  const ring = r.ring as { style: string; width: number; contrast: number; focusVisible: boolean };
+  expect(ring.focusVisible).toBe(true);
+  expect(ring.style).toBe("solid");
+  expect(ring.width).toBeGreaterThanOrEqual(2);
+  expect(ring.contrast).toBeGreaterThanOrEqual(3);
+}
+
+describe("the provenance surfaces work from the keyboard", () => {
+  for (const { theme, width } of COMBOS) {
+    test(`effort drawer and id list, ${theme} at ${width}px`, async () => {
+      const r = await viaKeyboard(ui.buildEffortTemplate(), effort(), theme, width,
+        { summary: "What this score rests on", ready: ".chain .seg", shot: "kbd-effort" });
+      expectRing(r);
+      expect(r.openAfterEnter).toBe(true);
+      expect(r.idsOpenAfterSpace).toBe(true);
+      expect(r.backOnDrawer).toBe(true);
+    }, 60000);
+
+    test(`attention drawer, ${theme} at ${width}px`, async () => {
+      const r = await viaKeyboard(ui.buildAttentionTemplate(), attention("builtin", "cognitive-adhd"), theme, width,
+        { summary: "What this map rests on", ready: ".prov", shot: "kbd-attention" });
+      expectRing(r);
+      expect(r.openAfterEnter).toBe(true);
+      expect(r.idsOpenAfterSpace).toBe(true);
+    }, 60000);
+
+    test(`attention_compare drawer, ${theme} at ${width}px`, async () => {
+      const r = await viaKeyboard(ui.buildAttentionCompareTemplate(), compare, theme, width,
+        { summary: "What these maps rest on", ready: ".prov", shot: "kbd-compare" });
+      expectRing(r);
+      expect(r.openAfterEnter).toBe(true);
+      expect(r.idsOpenAfterSpace).toBe(true);
+    }, 60000);
+
+    test(`trait drawer, ${theme} at ${width}px`, async () => {
+      const payload = await call("persona_trait_lookup", { trait: "workingMemory", value: 0.3 });
+      const r = await viaKeyboard(ui.buildTraitTemplate(), payload, theme, width,
+        { summary: "Built-in personas on this scale", ready: ".band", shot: "kbd-trait" });
+      expectRing(r);
+      expect(r.openAfterEnter).toBe(true);
+      // No id list here, so focus stays on the drawer it opened.
+      expect(r.idsOpenAfterSpace).toBeUndefined();
+    }, 60000);
+
+    test(`persona anchored tag, ${theme} at ${width}px`, async () => {
+      const payload = await call("persona_lookup", { persona: "cognitive-adhd" });
+      const r = await viaKeyboard(ui.buildPersonaTemplate(), payload, theme, width,
+        { tag: "anchored", ready: ".pstatus", shot: "kbd-persona" });
+      expectRing(r);
+      expect(r.tip).toContain("Wilson AC 2024");
+      expect(r.tip).toContain("Value interval");
+      expect(r.tipAfterEscape).toBe(false);
+    }, 60000);
+  }
+});
