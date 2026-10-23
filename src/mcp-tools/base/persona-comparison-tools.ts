@@ -38,7 +38,7 @@ import {
   OVERALL_LEVEL_KEY,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
-import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
+import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
 import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
 import { ctcBandsDescription, ctcRank } from "../../visual/ctc-bands.js";
@@ -729,7 +729,7 @@ Begin with the first persona: ${personas[0]}
       // persona scored identically on all three (B29, 2026-10-10). Same helper
       // as cognitive_effort, site_cognitive_assessment and the story tool.
       bridgeCapacityTraits(persona, traits,
-        (p as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+        (p as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(p));
       const otProfile = buildOTProfile(persona, traits);
 
       const load = estimateCognitiveLoad(otProfile, {
@@ -929,7 +929,7 @@ Begin with the first persona: ${personas[0]}
         // inline here and NOWHERE ELSE, which is why the two tools disagreed by
         // 2.6x on the motor layer: the other path scored against the missing-trait
         // fallback of 0.5 and called it a pointing ability.
-        pointingProfileForResponse = bridgeCapacityTraits(personaName, traits, accTraits);
+        pointingProfileForResponse = bridgeCapacityTraits(personaName, traits, accTraits, personaRateContext(personaObj));
       } catch (e) {
         // Left absent rather than defaulted: a missing capacity is visible as a
         // gap, a defaulted one silently reads as average.

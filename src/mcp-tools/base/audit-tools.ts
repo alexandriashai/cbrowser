@@ -10,7 +10,7 @@ import { barrierWeightFor, weightedSeverity, weightKeyFor } from "../../visual/p
 import { htmlUiResource, attachUiResource, uiResourcesEnabled, type ToolContentBlock } from "../../mcp-ui-resources.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js";
-import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
+import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
 import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
@@ -617,7 +617,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             // bottleneck and abandonmentRisk all shift for every persona here, all
             // converging on what cognitive_effort already reported.
             bridgeCapacityTraits(personaName, traits,
-              (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+              (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(personaObj));
 
             const otProfile = buildOTCognitiveProfile(personaName, traits);
             // Rebuilt for each persona from the same metrics, so every persona is
@@ -1031,7 +1031,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // the identical missing-capacity defect and would reproduce the motor
           // disagreement against cognitive_effort the moment anyone compared them.
           bridgeCapacityTraits(persona, traits,
-            (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
+            (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(personaObj));
           const otProfile = buildOTCognitiveProfile(persona, traits);
           // viewport-by-design: visual_cognitive_story declares no `scope` parameter,
           // so it promises the caller nothing about how much of the page it read, and

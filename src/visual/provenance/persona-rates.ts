@@ -35,6 +35,14 @@
  * tests/persona-capacity-rates.test.ts fails if a built-in persona has no
  * entry on a channel, or an entry names no built-in persona.
  *
+ * CUSTOM PERSONAS (customRate.*) take the same rule as the built-ins, decided
+ * 2026-10-23: the reference rate where nothing is measured ("no measured
+ * difference"), a measured ratio where one is. The rule reads what a stored
+ * custom persona carries: the tremor flag, and words in its name and
+ * description (customPointingRule, customReadingRule). An author's stated
+ * reading-profile values are honoured first, through the fixation-model
+ * ratio (cognitive-models.ts, readingRateShare), labelled hypothesis.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
@@ -108,3 +116,51 @@ export const PERSONA_RATE_PROVENANCE: ProvenanceEntry[] = [
     FIXATION_KEPT("aphasia-receptive", "the profile interpolated from comprehension 0.25 (phonological 0.4625, visualSpan 5)", "335.75 ms", "No reading rate for adults with receptive aphasia was retrieved.")),
   ...READING_NO_DIFFERENCE.map((p) => entry(p, "reading", 1, "hypothesis", NO_DIFFERENCE_READING)),
 ];
+
+// ── Custom personas: one entry per rule ──
+
+const custom = (rule: string, channel: Channel, value: number, status: ProvenanceStatus, source: string): ProvenanceEntry =>
+  ({ id: `customRate.${rule}.${channel}`, value, status, source });
+
+export const CUSTOM_RATE_PROVENANCE: ProvenanceEntry[] = [
+  custom("tremor", "pointing", ratio("law.rate.pointing.motionImpaired", "law.rate.pointing.motionImpairedControls"), "published",
+    "A custom persona with the tremor flag (accessibilityTraits.tremor, which the creation tool also sets for motor, arthritis, dexterity and mobility words) or tremor or Parkinson in its name or description: the motion-impaired rate against its same-study controls, 1.77 / 4.88 bits/s (Keates et al. 2002, in Soukoreff & MacKenzie 2004, Table 4), as for motor-impairment-tremor."),
+  custom("elderly", "pointing", ratio("profile.pointing.elderly.throughput", "law.rate.pointing.reference"), "hypothesis",
+    `A custom persona whose name or description says elderly, senior, aging or older adult, or whose age range starts at 65 or above: the elderly profile, as for the built-in elderly personas. ${ELDERLY_POINTING}`),
+  custom("noMeasuredDifference", "pointing", 1, "hypothesis", `A custom persona with no tremor flag and no elderly cue. ${NO_DIFFERENCE_POINTING}`),
+  custom("dyslexia", "reading", ratio("law.rate.reading.dyslexiaAdults", "law.rate.reading.dyslexiaControls"), "published",
+    "A custom persona with dyslexia in its name or description and no stated reading-profile values: students with dyslexia against same-study controls, 184.63 / 243.64 wpm (Callens, Tops & Brysbaert 2012, PLoS ONE 7(6), e38081, Table 5), as for dyslexic-user."),
+  custom("lowVision", "reading", ratio("law.rate.reading.lowVisionIntactFields", "law.reading.wpm"), "hypothesis",
+    "A custom persona with low vision, magnification, visual impairment, partial sight, vision loss, macular degeneration or glaucoma in its name or description and no stated reading-profile values: low vision with intact central fields, 130 wpm median peak (Legge, Rubin, Pelli & Schleske 1985) against the reference 238 wpm, as for the built-in low-vision personas. The ratio crosses methods; Legge et al.'s normal-vision peak rate on the same apparatus would set it. \"Blind\" is not a low-vision word: a blind reader does not read print."),
+  custom("noMeasuredDifference", "reading", 1, "hypothesis", `A custom persona with no stated reading-profile values and no dyslexia or low-vision cue. ${NO_DIFFERENCE_READING}`),
+];
+
+const LOW_VISION_WORDS = /low.?vision|magnif|visual(ly)?.?impair|partial(ly)?.?sight|vision.?loss|macular|glaucoma/;
+const ELDERLY_WORDS = /elderly|senior|aging|older.?adult/;
+
+/** Which customRate.* pointing rule a custom persona falls under. */
+export function customPointingRule(p: { name?: string; description?: string; tremor?: unknown; ageRange?: string }): "tremor" | "elderly" | "noMeasuredDifference" {
+  const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
+  if (p.tremor === true || /tremor|parkinson/.test(text)) return "tremor";
+  if (ELDERLY_WORDS.test(text) || /^\s*(6[5-9]|[7-9]\d|1\d\d)/.test(p.ageRange ?? "")) return "elderly";
+  return "noMeasuredDifference";
+}
+
+/** Which customRate.* reading rule a custom persona with no stated reading-profile values falls under. */
+export function customReadingRule(p: { name?: string; description?: string }): "dyslexia" | "lowVision" | "noMeasuredDifference" {
+  const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
+  if (/dyslexi/.test(text)) return "dyslexia";
+  if (LOW_VISION_WORDS.test(text)) return "lowVision";
+  return "noMeasuredDifference";
+}
+
+/**
+ * A persona's silent reading rate for display, wpm: 238 x its registered
+ * reading share, rounded. For the humanBehavior.timing.readingSpeed a persona
+ * carries, which personas.ts sets at load and so cannot read through param()
+ * (model-provenance.ts imports the persona tables); tests hold it equal to the
+ * param() value.
+ */
+export function displayReadingWpm(rateId: string): number {
+  return Math.round(registered("law.reading.wpm") * [...PERSONA_RATE_PROVENANCE, ...CUSTOM_RATE_PROVENANCE].find((e) => e.id === rateId)!.value);
+}

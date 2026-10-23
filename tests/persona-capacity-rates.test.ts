@@ -20,10 +20,10 @@
 import { describe, test, expect } from "bun:test";
 import {
   bridgeCapacityTraits, getPointingProfile, getReadingProfile, motorCapacityOf, readingCapacityOf, readingRateRatioOf,
-  registeredPersonaRate, motorAccessibility, readability, KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES,
+  registeredPersonaRate, motorAccessibility, readability, personaRateContext, KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES,
 } from "../src/visual/cognitive-models.js";
 import { MODEL_PROVENANCE, param } from "../src/visual/model-provenance.js";
-import { PERSONA_RATE_PROVENANCE } from "../src/visual/provenance/persona-rates.js";
+import { PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE } from "../src/visual/provenance/persona-rates.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../src/personas.js";
 import { collectPersonaReads, startProvenanceRecording, stopProvenanceRecording, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
@@ -58,9 +58,9 @@ describe("persona-model reads never land in a score recording (personaScope)", (
     startProvenanceRecording();
     bridgeCapacityTraits("steady-custom", { proceduralFluency: 0.5, patience: 0.5 }, { tremor: true } as never);
     const session = stopProvenanceRecording();
-    expect(session.has("law.rate.pointing.motionImpaired")).toBe(true);
+    expect(session.has("customRate.tremor.pointing")).toBe(true);
     const moved: Record<string, number> = { proceduralFluency: 0.5, patience: 0.5 };
-    withParamOverrides({ "law.rate.pointing.motionImpaired": 1.5 }, () => bridgeCapacityTraits("steady-custom", moved, { tremor: true } as never));
+    withParamOverrides({ "customRate.tremor.pointing": 0.2 }, () => bridgeCapacityTraits("steady-custom", moved, { tremor: true } as never));
     expect(moved.motorCapacity).not.toBe(traits.motorCapacity);
   });
 
@@ -217,11 +217,63 @@ describe("every built-in persona carries its rate (provenance/persona-rates.ts)"
     expect(dead).toEqual([]);
   });
 
-  test("a custom persona has no entry and still takes its rates from the profiles, off the measured tremor anchor", () => {
+  test("a custom persona has no entry and no longer interpolates a throughput from its dispositions", () => {
     expect(registeredPersonaRate("custom-anyone", "pointing")).toBeUndefined();
-    const traits = { proceduralFluency: 0.5, patience: 0.5 };
-    const tp = getPointingProfile({ name: "custom-anyone", traits }).throughput;
-    const ref = param("law.rate.pointing.reference");
-    expect(Math.abs(tp - (ref + (KNOWN_POINTING_PROFILES.tremor.throughput - ref) * 0.5))).toBeLessThan(1e-12);
+    for (const d of [0, 0.5, 1]) {
+      const tp = getPointingProfile({ name: "custom-anyone", traits: { proceduralFluency: d, patience: d } }).throughput;
+      expect(tp).toBe(param("law.rate.pointing.reference"));
+    }
+  });
+});
+
+describe("custom personas take the built-ins' rule (customRate.*)", () => {
+  const rate = (id: string) => MODEL_PROVENANCE[id]!.value;
+  const bridged = (name: string, a11y: Record<string, number | boolean> = {}, context: { description?: string; ageRange?: string } = {}, traits: Record<string, number> = { proceduralFluency: 0.2, patience: 0.2 }) => {
+    const t: Record<string, number> = { ...traits };
+    bridgeCapacityTraits(name, t, a11y, context);
+    return { motor: t.motorCapacity, reading: t.readingCapacity };
+  };
+  const cOf = (share: number) => share / (share + 1);
+
+  test("six rule entries; published where the population and control share a study", () => {
+    expect(CUSTOM_RATE_PROVENANCE.map((e) => `${e.id}:${e.status}`)).toEqual([
+      "customRate.tremor.pointing:published", "customRate.elderly.pointing:hypothesis", "customRate.noMeasuredDifference.pointing:hypothesis",
+      "customRate.dyslexia.reading:published", "customRate.lowVision.reading:hypothesis", "customRate.noMeasuredDifference.reading:hypothesis",
+    ]);
+    for (const e of CUSTOM_RATE_PROVENANCE) expect(MODEL_PROVENANCE[e.id]).toBe(e);
+    expect(rate("customRate.tremor.pointing")).toBe(1.77 / 4.88);
+    expect(rate("customRate.dyslexia.reading")).toBe(184.63 / 243.64);
+    expect(rate("customRate.lowVision.reading")).toBe(130 / 238);
+    expect(rate("customRate.elderly.pointing")).toBe(3.2 / 4.9);
+  });
+
+  test("pointing: a tremor flag or cue takes the measured ratio, an elderly cue the elderly profile, anything else the reference", () => {
+    expect(bridged("my-user", { tremor: true }).motor).toBeCloseTo(cOf(1.77 / 4.88), 12);
+    expect(bridged("my-user", {}, { description: "Has essential tremor" }).motor).toBeCloseTo(cOf(1.77 / 4.88), 12);
+    expect(bridged("grandad", {}, { ageRange: "65+" }).motor).toBeCloseTo(cOf(3.2 / 4.9), 12);
+    expect(bridged("my-user", {}, { description: "A senior shopper" }).motor).toBeCloseTo(cOf(3.2 / 4.9), 12);
+    expect(bridged("my-user", {}, { ageRange: "45-75" }).motor).toBe(0.5);
+    expect(bridged("my-user", { tremor: false }).motor).toBe(0.5);
+    expect(bridged("custom-adhd-person").motor).toBe(0.5);
+  });
+
+  test("reading: stated profile values are honoured through the fixation model, then dyslexia and low-vision cues, else the reference", () => {
+    const stated = { phonologicalDecoding: 0.35, visualSpan: 4 };
+    const viaModel = readingRateRatioOf(getReadingProfile({ name: "my-reader", accessibilityTraits: stated }));
+    expect(bridged("my-reader", stated, { description: "dyslexic" }).reading).toBeCloseTo(cOf(viaModel), 12);
+    expect(bridged("my-reader", {}, { description: "An adult with dyslexia" }).reading).toBeCloseTo(cOf(184.63 / 243.64), 12);
+    expect(bridged("lv-reader", {}, { description: "uses screen magnification" }).reading).toBeCloseTo(cOf(130 / 238), 12);
+    // A blind reader does not read print: no low-vision rate.
+    expect(bridged("blind-reader", {}, { description: "blind, uses a screen reader" }).reading).toBe(0.5);
+    expect(bridged("my-reader").reading).toBe(0.5);
+  });
+
+  test("dispositions no longer set a custom persona's rates", () => {
+    expect(bridged("my-user", {}, {}, { proceduralFluency: 0, patience: 0, textProcessing: 0, comprehension: 0 })).toEqual({ motor: 0.5, reading: 0.5 });
+  });
+
+  test("personaRateContext reads a stored persona's description and age range", () => {
+    expect(personaRateContext({ description: "x", demographics: { age_range: "65+" } })).toEqual({ description: "x", ageRange: "65+" });
+    expect(personaRateContext({ description: 3 })).toEqual({ description: undefined, ageRange: undefined });
   });
 });

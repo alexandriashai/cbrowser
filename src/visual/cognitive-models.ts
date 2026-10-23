@@ -13,6 +13,7 @@
  */
 import { MODEL_PROVENANCE, param, personaScope } from "./model-provenance.js";
 import { measuredRate, pointingCapacity, readingCapacity } from "./demand-laws.js";
+import { customPointingRule, customReadingRule } from "./provenance/persona-rates.js";
 
 /**
  * A registered constant, read as persona-model work (model-provenance.ts,
@@ -220,7 +221,7 @@ const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
 /**
  * A built-in persona's registered rate on one channel, as a share of the
  * reference rate (provenance/persona-rates.ts), or undefined for a persona with
- * no entry (a custom persona), whose rate comes from the profiles.
+ * no entry (a custom persona), whose rate comes from a customRate.* rule.
  */
 export function registeredPersonaRate(name: string | undefined, channel: "pointing" | "reading"): number | undefined {
   if (!name) return undefined;
@@ -228,86 +229,113 @@ export function registeredPersonaRate(name: string | undefined, channel: "pointi
   return id in MODEL_PROVENANCE ? pp(id) : undefined;
 }
 
-/**
- * The pointing profile a persona is scored and audited with.
- *
- * A built-in persona's throughput is its registered rate (registeredPersonaRate)
- * times the reference, so the motor layer and the motor audit read one number;
- * its endpoint dispersion still comes from the route below. A persona with no
- * registered rate gets the whole profile from the route.
- */
-export function getPointingProfile(persona: {
-  traits?: Record<string, number>;
-  /** The persona's stored accessibility traits; only `tremor` is read here. Numbers and booleans both occur. */
-  accessibilityTraits?: Record<string, number | boolean>;
+/** What a stored persona carries beyond its traits that the custom-persona rate rules read. */
+export interface PersonaRateContext {
+  /** The persona's free-text description. */
+  description?: string;
+  /** demographics.age_range, e.g. "65+". */
+  ageRange?: string;
+}
+
+/** The PersonaRateContext of a stored persona object: its description and demographics.age_range. */
+export function personaRateContext(persona: unknown): PersonaRateContext {
+  const p = (persona ?? {}) as { description?: unknown; demographics?: { age_range?: unknown } };
+  return {
+    description: typeof p.description === "string" ? p.description : undefined,
+    ageRange: typeof p.demographics?.age_range === "string" ? p.demographics.age_range : undefined,
+  };
+}
+
+/** A persona as the rate functions read it. */
+export interface PersonaRef extends PersonaRateContext {
   name?: string;
-}): PointingProfile {
-  const profile = pointingProfileFromTraits(persona);
-  const share = registeredPersonaRate(persona.name, "pointing");
-  return share === undefined ? profile : { ...profile, throughput: share * pp("law.rate.pointing.reference") };
+  traits?: Record<string, number>;
+  /** The persona's stored accessibility traits. Numbers and booleans both occur. */
+  accessibilityTraits?: Record<string, number | boolean>;
 }
 
 /**
- * Derive a pointing profile from persona traits.
+ * A persona's pointing rate as a share of the reference throughput.
  *
- * Maps cognitive trait values to motor parameters by interpolating
- * between known empirical profiles. Uses `motorPrecision` (derived from
- * proceduralFluency and patience) as the primary interpolation axis.
- * The interpolation has no source: dispositions are not motor measures. Only
- * personas without a registered rate reach it.
- *
- * @param persona - Persona traits object with cognitive dimensions
- * @returns Empirically calibrated pointing profile
+ * A built-in persona's is registered with it. A custom persona takes the same
+ * rule (customPointingRule, decided 2026-10-23): the measured motion-impaired
+ * ratio with a tremor flag or cue, the elderly profile with an elderly cue,
+ * otherwise the reference ("no measured difference"). It no longer interpolates
+ * a throughput from proceduralFluency and patience, which no source maps to
+ * pointing.
  */
-function pointingProfileFromTraits(persona: {
-  traits?: Record<string, number>;
-  /** The persona's stored accessibility traits; only `tremor` is read here. Numbers and booleans both occur. */
-  accessibilityTraits?: Record<string, number | boolean>;
-  name?: string;
-}): PointingProfile {
+export function pointingRateShare(persona: PersonaRef): number {
+  const registered = registeredPersonaRate(persona.name, "pointing");
+  if (registered !== undefined) return registered;
+  const rule = customPointingRule({
+    name: persona.name, description: persona.description, ageRange: persona.ageRange,
+    tremor: Boolean(persona.accessibilityTraits?.tremor),
+  });
+  return pp(`customRate.${rule}.pointing`);
+}
+
+/** The reading-profile values an author can state in accessibilityTraits. */
+const STATED_READING = ["orthographicFluency", "phonologicalDecoding", "visualSpan", "vocabularyBreadth", "crowdingSensitivity"] as const;
+
+/**
+ * A persona's silent reading rate as a share of the reference reader's.
+ *
+ * A built-in persona's is registered with it. A custom persona that states any
+ * reading-profile value is read through the fixation model's ratio for that
+ * profile (an author who wrote a profile down means it; a hypothesis). Any other
+ * custom persona takes the same rule as the built-ins (customReadingRule): the
+ * measured dyslexia ratio with a dyslexia cue, the low-vision ratio with a
+ * low-vision cue, otherwise the reference ("no measured difference").
+ */
+export function readingRateShare(persona: PersonaRef): number {
+  const registered = registeredPersonaRate(persona.name, "reading");
+  if (registered !== undefined) return registered;
+  const a11y = persona.accessibilityTraits ?? {};
+  if (STATED_READING.some((k) => typeof a11y[k] === "number")) {
+    return readingRateRatioOf(getReadingProfile({ name: persona.name, traits: persona.traits, accessibilityTraits: a11y as Record<string, number> }));
+  }
+  return pp(`customRate.${customReadingRule(persona)}.reading`);
+}
+
+/**
+ * The pointing profile a persona is scored and audited with: its throughput is
+ * its pointing rate share times the reference, so the motor layer and the motor
+ * audit read one number; its endpoint dispersion comes from pointingDispersion.
+ */
+export function getPointingProfile(persona: PersonaRef): PointingProfile {
+  return { ...pointingDispersion(persona), throughput: pointingRateShare(persona) * pp("law.rate.pointing.reference") };
+}
+
+/**
+ * The endpoint dispersion (sigma, rho) the hit-probability audit uses: a named
+ * profile's, else interpolated between the neurotypical and tremor profiles on
+ * motorPrecision (or 0.6 proceduralFluency + 0.4 patience). Not registered; the
+ * interpolation has no source. It no longer touches a throughput.
+ */
+function pointingDispersion(persona: PersonaRef): Omit<PointingProfile, "throughput"> {
+  const of = (p: PointingProfile) => ({ sigmaX: p.sigmaX, sigmaY: p.sigmaY, rho: p.rho });
   const traits = persona.traits ?? {};
   const a11y = persona.accessibilityTraits ?? {};
-
-  // Check for explicit tremor trait
-  if (a11y.tremor) {
-    return { ...KNOWN_POINTING_PROFILES.tremor };
-  }
-
-  // Check for persona name hints
+  if (a11y.tremor) return of(KNOWN_POINTING_PROFILES.tremor);
   const name = (persona.name ?? '').toLowerCase();
-  if (name.includes('tremor') || name.includes('parkinson')) {
-    return { ...KNOWN_POINTING_PROFILES.tremor };
-  }
-  if (name.includes('elderly') || name.includes('senior') || name.includes('aging')) {
-    return { ...KNOWN_POINTING_PROFILES.elderly };
-  }
-  if (name.includes('adhd')) {
-    return { ...KNOWN_POINTING_PROFILES.adhd };
-  }
+  if (name.includes('tremor') || name.includes('parkinson')) return of(KNOWN_POINTING_PROFILES.tremor);
+  if (name.includes('elderly') || name.includes('senior') || name.includes('aging')) return of(KNOWN_POINTING_PROFILES.elderly);
+  if (name.includes('adhd')) return of(KNOWN_POINTING_PROFILES.adhd);
 
-  // Derive motorPrecision from available traits
-  // motorPrecision is a composite of fine motor control indicators
   const motorPrecision = traits.motorPrecision
     ?? (traits.proceduralFluency !== undefined && traits.patience !== undefined
       ? (traits.proceduralFluency * 0.6 + traits.patience * 0.4)
       : undefined);
+  if (motorPrecision === undefined) return of(KNOWN_POINTING_PROFILES.neurotypical);
 
-  if (motorPrecision === undefined) {
-    return { ...KNOWN_POINTING_PROFILES.neurotypical };
-  }
-
-  // Interpolate between profiles based on motorPrecision (0-1)
-  // 1.0 = neurotypical, 0.0 = severe impairment (tremor)
+  // 1.0 = neurotypical, 0.0 = the tremor profile's dispersion
   const clamped = Math.max(0, Math.min(1, motorPrecision));
-
   const neuro = KNOWN_POINTING_PROFILES.neurotypical;
   const impaired = KNOWN_POINTING_PROFILES.tremor;
-
   return {
     sigmaX: neuro.sigmaX + (impaired.sigmaX - neuro.sigmaX) * (1 - clamped),
     sigmaY: neuro.sigmaY + (impaired.sigmaY - neuro.sigmaY) * (1 - clamped),
     rho: neuro.rho + (impaired.rho - neuro.rho) * (1 - clamped),
-    throughput: neuro.throughput + (impaired.throughput - neuro.throughput) * (1 - clamped),
   };
 }
 
@@ -976,27 +1004,25 @@ export function bridgeCapacityTraits(
   personaName: string,
   traits: Record<string, number>,
   accessibilityTraits?: Record<string, number | boolean>,
+  context: PersonaRateContext = {},
 ): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
-  return personaScope(() => bridge(personaName, traits, accessibilityTraits));
+  return personaScope(() => bridge(personaName, traits, accessibilityTraits, context));
 }
 
 function bridge(
   personaName: string,
   traits: Record<string, number>,
-  accessibilityTraits?: Record<string, number | boolean>,
+  accessibilityTraits: Record<string, number | boolean> | undefined,
+  context: PersonaRateContext,
 ): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
   try {
-    // A built-in persona reads at its registered rate share; a custom persona
-    // at the fixation model's slowdown for its reading profile. Both against
-    // the one reference reader, law.reading.wpm.
-    const readingShare = registeredPersonaRate(personaName, "reading");
-    traits.readingCapacity = readingShare === undefined
-      ? readingCapacityOf(getReadingProfile({ name: personaName, traits, accessibilityTraits: accessibilityTraits as Record<string, number> | undefined }))
-      : personaScope(() => readingCapacity(readingShare * pp("law.reading.wpm")));
+    const persona: PersonaRef = { name: personaName, traits, accessibilityTraits, ...context };
+    // The persona's reading rate share (registered, stated, or a customRate
+    // rule) against the one reference reader, law.reading.wpm.
+    traits.readingCapacity = personaScope(() => readingCapacity(readingRateShare(persona) * pp("law.reading.wpm")));
     // The accessibility traits go to the pointing profile too: without them a
-    // stated tremor never reached the motor capacity, and a custom persona whose
-    // name does not say "tremor" was interpolated from its dispositions instead.
-    const pointing = getPointingProfile({ name: personaName, traits, accessibilityTraits });
+    // stated tremor never reached the motor capacity.
+    const pointing = getPointingProfile(persona);
     traits.motorCapacity = motorCapacityOf(pointing);
     traits.sustainedAttention = sustainedAttentionOf({ traits, accessibilityTraits: accessibilityTraits as { attentionSpan?: number } | undefined });
     return pointing;

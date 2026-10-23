@@ -45,7 +45,7 @@ import { PAGE_METRICS_PROVENANCE } from "./provenance/page-metrics.js";
 import { VISUAL_DISTANCE_PROVENANCE } from "./provenance/visual-distance.js";
 import { LAW_PROVENANCE } from "./provenance/laws.js";
 import { PROFILE_PROVENANCE } from "./provenance/profiles.js";
-import { PERSONA_RATE_PROVENANCE } from "./provenance/persona-rates.js";
+import { PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE } from "./provenance/persona-rates.js";
 
 function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> {
   const out: Record<string, ProvenanceEntry> = {};
@@ -58,7 +58,7 @@ function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> 
 }
 
 export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Object.freeze(
-  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE),
+  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE),
 );
 
 /**
