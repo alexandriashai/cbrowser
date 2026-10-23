@@ -33,9 +33,10 @@
  *
  * landing, plus up to five inner pages found from the landing page's links and
  * forms: form (sign-up, login or contact; loaded, never submitted), search (the
- * GET its own search form sends, query "help"), article, help, cart (as linked:
- * the empty cart). Nothing is clicked, submitted (but a search GET), bought,
- * created, deleted or sent; no login.
+ * GET its own search form sends, query "help", or failing a form the search URL
+ * template the site publishes as a schema.org SearchAction), article, help,
+ * cart (as linked: the empty cart). Nothing is clicked, submitted (but a search
+ * GET), bought, created, deleted or sent; no login.
  *
  * ## Balance
  *
@@ -82,7 +83,7 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { fetchRobots, robotsAllows, type Robots } from "./robots.js";
 import {
-  INNER_TYPES, type InnerType, type Discovered, type AnchorInfo, type FormInfo,
+  INNER_TYPES, type InnerType, type Discovered, type AnchorInfo, type FormInfo, type SearchTemplate,
   discoverInner, siteDomain, domainExclusion, contentFlags, contentExclusion,
 } from "./discover.js";
 
@@ -297,6 +298,9 @@ async function crawlPage(job: PageJob): Promise<PageResult> {
           method: (f.getAttribute("method") || "get").toLowerCase(),
           inSearch: !!f.closest('[role="search"]'),
           role: f.getAttribute("role"),
+          id: f.getAttribute("id"),
+          className: f.getAttribute("class"),
+          label: f.getAttribute("aria-label"),
           fields: Array.from((f as HTMLFormElement).elements).map((e) => ({
             tag: e.tagName.toLowerCase(),
             type: (e.getAttribute("type") || "").toLowerCase(),
@@ -307,9 +311,32 @@ async function crawlPage(job: PageJob): Promise<PageResult> {
             checked: !!(e as HTMLInputElement).checked,
           })),
         }));
-        return { anchors, forms };
-      }).catch(() => ({ anchors: [] as AnchorInfo[], forms: [] as FormInfo[] }));
-      result.discovered = discoverInner(finalUrl, exposed.anchors as AnchorInfo[], exposed.forms as FormInfo[]);
+        // The site's published search URL templates: schema.org SearchAction
+        // anywhere in its JSON-LD (target a string or an EntryPoint's
+        // urlTemplate; query-input a string or a PropertyValueSpecification).
+        const templates: Array<{ url: string; input: string }> = [];
+        const walk = (v: unknown): void => {
+          if (Array.isArray(v)) { v.forEach(walk); return; }
+          if (!v || typeof v !== "object") return;
+          const o = v as Record<string, unknown>;
+          const types = ([] as unknown[]).concat(o["@type"] ?? []);
+          if (types.some((t) => typeof t === "string" && /SearchAction$/.test(t))) {
+            const qi = o["query-input"];
+            const input = typeof qi === "string" ? qi
+              : qi && typeof qi === "object" && typeof (qi as Record<string, unknown>).valueName === "string" ? `required name=${(qi as Record<string, unknown>).valueName}` : "";
+            for (const t of ([] as unknown[]).concat(o.target ?? [])) {
+              const url = typeof t === "string" ? t : t && typeof t === "object" ? (t as Record<string, unknown>).urlTemplate : null;
+              if (typeof url === "string") templates.push({ url, input });
+            }
+          }
+          for (const k of Object.keys(o)) walk(o[k]);
+        };
+        document.querySelectorAll('script[type="application/ld+json"]').forEach((sc) => {
+          try { walk(JSON.parse(sc.textContent || "")); } catch { /* not JSON */ }
+        });
+        return { anchors, forms, templates };
+      }).catch(() => ({ anchors: [] as AnchorInfo[], forms: [] as FormInfo[], templates: [] as SearchTemplate[] }));
+      result.discovered = discoverInner(finalUrl, exposed.anchors as AnchorInfo[], exposed.forms as FormInfo[], exposed.templates as SearchTemplate[]);
     }
     result.bytes = await done();
     result.ms = Date.now() - t0;

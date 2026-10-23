@@ -9,7 +9,8 @@
  *      disallows.
  *   2. Inner-page discovery only follows what a first visitor could: on-site
  *      http(s) links, never one that names a side effect, never a form but a
- *      search, and that only as the GET its own form sends.
+ *      search, and that only as the GET its own form sends, or as the search
+ *      URL template the site itself publishes (schema.org SearchAction).
  *   3. The frame filters exclude what they name and not the innocent
  *      substrings around it.
  *
@@ -19,7 +20,7 @@
 import { describe, test, expect } from "bun:test";
 import { parseRobots, robotsAllows, type Robots } from "../research/ctc-reference/robots.js";
 import {
-  discoverInner, searchUrl, domainExclusion, contentFlags, contentExclusion, DENY,
+  discoverInner, searchUrl, searchFromTemplates, domainExclusion, contentFlags, contentExclusion, DENY,
   type AnchorInfo, type FormInfo,
 } from "../research/ctc-reference/discover.js";
 
@@ -127,6 +128,47 @@ describe("inner-page discovery", () => {
     expect(searchUrl([{ ...form, fields: [field({ name: "s" })] }], new URL(landing))?.url).toBe("https://www.shop.test/search?s=help");
     expect(searchUrl([{ ...form, fields: [field({ name: "term1", placeholder: "Search products" })] }], new URL(landing))?.url).toBe("https://www.shop.test/search?term1=help");
     expect(searchUrl([{ ...form, inSearch: true, fields: [field({ name: "zz" })] }], new URL(landing))?.url).toBe("https://www.shop.test/search?zz=help");
+  });
+});
+
+describe("search discovery beyond the obvious field", () => {
+  const landing = "https://www.agency.test/";
+  const form = (o: Partial<FormInfo>): FormInfo => ({ action: "https://www.agency.test/", method: "get", inSearch: false, role: null, fields: [], ...o });
+
+  test("a form that names itself a search form submits its one named text field (Drupal's search-block-form, field keys)", () => {
+    const drupal = form({ action: "https://www.agency.test/search/node", id: "search-block-form", fields: [field({ name: "keys" }), field({ name: "form_id", type: "hidden", value: "search_block_form" })] });
+    expect(searchUrl([drupal], new URL(landing))?.url).toBe("https://www.agency.test/search/node?keys=help&form_id=search_block_form");
+    // The action path alone names it.
+    expect(searchUrl([form({ action: "https://www.agency.test/search", fields: [field({ name: "terms_all" })] })], new URL(landing))?.url).toBe("https://www.agency.test/search?terms_all=help");
+    // So does a class or an aria-label.
+    expect(searchUrl([form({ className: "site-search", fields: [field({ name: "zz" })] })], new URL(landing))?.url).toBe("https://www.agency.test/?zz=help");
+    expect(searchUrl([form({ label: "Search this site", fields: [field({ name: "zz" })] })], new URL(landing))?.url).toBe("https://www.agency.test/?zz=help");
+  });
+
+  test("but not when the form does not say search, or has more than one text field to choose from", () => {
+    expect(searchUrl([form({ id: "newsletter", fields: [field({ name: "zz" })] })], new URL(landing))).toBeNull();
+    expect(searchUrl([form({ id: "store-search", fields: [field({ name: "what" }), field({ name: "where" })] })], new URL(landing))).toBeNull();
+    // Still GET only, and an email field is not a search box.
+    expect(searchUrl([form({ id: "search-block-form", method: "post", fields: [field({ name: "keys" })] })], new URL(landing))).toBeNull();
+    expect(searchUrl([form({ id: "search-block-form", fields: [field({ name: "email", type: "email" })] })], new URL(landing))).toBeNull();
+  });
+
+  test("the site's published SearchAction template, filled with help, when no form qualifies", () => {
+    const t = (url: string, input = "required name=search_term_string") => ({ url, input });
+    expect(searchFromTemplates([t("https://www.agency.test/search?q={search_term_string}")], new URL(landing))?.url)
+      .toBe("https://www.agency.test/search?q=help");
+    // A path placeholder; an optional one dropped; the only placeholder used when query-input names none.
+    expect(searchFromTemplates([t("https://www.agency.test/find/{query}{?page}", "")], new URL(landing))?.url).toBe("https://www.agency.test/find/help");
+    // Off the site, a side effect in the path, another required placeholder: not followed.
+    expect(searchFromTemplates([t("https://www.google.test/search?q={search_term_string}+site:agency.test")], new URL(landing))).toBeNull();
+    expect(searchFromTemplates([t("https://www.agency.test/subscribe?q={search_term_string}")], new URL(landing))).toBeNull();
+    expect(searchFromTemplates([t("https://www.agency.test/search?q={search_term_string}&lang={lang}")], new URL(landing))).toBeNull();
+    // The form wins when there is one; the template fills in when there is not.
+    const viaForm = discoverInner(landing, [], [form({ fields: [field({ name: "q", type: "search" })] })], [t("https://www.agency.test/s?q={search_term_string}")]);
+    expect(viaForm.search?.url).toBe("https://www.agency.test/?q=help");
+    const viaTemplate = discoverInner(landing, [], [], [t("https://www.agency.test/s?q={search_term_string}")]);
+    expect(viaTemplate.search?.url).toBe("https://www.agency.test/s?q=help");
+    expect(viaTemplate.search?.how).toMatch(/^schema\.org SearchAction template/);
   });
 });
 

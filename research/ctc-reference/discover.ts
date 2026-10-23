@@ -17,8 +17,12 @@
  *   form     a sign-up link, else a login link, else a contact link: by link
  *            text or path (FORM_SIGNUP, FORM_LOGIN, FORM_CONTACT)
  *   search   a GET form with a search field (type=search, a search-like name,
- *            or a placeholder, label or role=search saying so), filled with
- *            "help"; the URL is the one the browser would submit
+ *            or a placeholder, label or role=search saying so; or the one
+ *            named text field of a form that names itself a search form by
+ *            id, class, label or action path), filled with "help"; the URL is
+ *            the one the browser would submit. Failing a form, the site's own
+ *            published search URL template (schema.org WebSite SearchAction,
+ *            JSON-LD), filled with "help": still a GET of the site's search
  *   article  a content link with a slug under a content section (/blog/x,
  *            /news/x, /2026/10/x ...) or a long hyphenated slug, preferring
  *            links in main content over navigation and footer
@@ -41,7 +45,13 @@ export interface FieldInfo {
   tag: string; type: string; name: string | null; value: string;
   placeholder: string | null; label: string | null; checked: boolean;
 }
-export interface FormInfo { action: string; method: string; inSearch: boolean; role: string | null; fields: FieldInfo[] }
+export interface FormInfo {
+  action: string; method: string; inSearch: boolean; role: string | null; fields: FieldInfo[];
+  /** The form's own id, class and aria-label, when it has them. */
+  id?: string | null; className?: string | null; label?: string | null;
+}
+/** A schema.org SearchAction the page publishes: its target URL template and its query-input. */
+export interface SearchTemplate { url: string; input: string }
 export interface Discovered { url: string; how: string }
 
 /** Never followed: the link names an action with a side effect, or leaves the page for an account action. */
@@ -55,7 +65,10 @@ export const HELP = { text: /\b(help|support|faqs?|customer (service|care)|help 
 export const CART = { text: /^(cart|basket|bag|shopping (cart|bag|basket)|view (cart|bag|basket))\b/i, path: /\/(cart|basket|bag|checkout|shopping-?cart)(\/|\?|\.html?|$)/i };
 const CONTENT_SECTION = /\/(blog|news|articles?|stor(y|ies)|posts?|press|insights|learn|guides?|resources|magazine|features)\/[^/?#]{3,}/i;
 const DATED = /\/20\d\d\/\d{1,2}\//;
-const SEARCH_NAME = /^(q|query|search|s|k|kw|keywords?|terms?|text|searchterm|search_?query|searchtext|w|qs|query_?string|search_?term)$/i;
+const SEARCH_NAME = /^(q|query|search|s|k|kw|keys|keywords?|terms?|text|searchterm|search_?query|searchtext|searchword|searchstring|search_api_fulltext|w|qs|query_?string|search_?term)$/i;
+/** A form that names itself a search form: by id, class, aria-label or the path it submits to. */
+const SEARCH_FORM = /search/i;
+const TEXT_LIKE = (x: FieldInfo) => x.tag === "input" && (x.type === "" || x.type === "text" || x.type === "search");
 
 /** The registrable part we treat as "the site": the host without a leading www. */
 export function siteDomain(host: string): string {
@@ -116,15 +129,20 @@ function firstMatch(
 export function searchUrl(forms: FormInfo[], landing: URL): Discovered | null {
   for (const f of forms) {
     if (f.method !== "get") continue;
-    const looksSearch = (x: FieldInfo) =>
-      (x.tag === "input" && x.type === "search") ||
-      ((x.tag === "input" && (x.type === "" || x.type === "text" || x.type === "search")) &&
-        ((x.name !== null && SEARCH_NAME.test(x.name)) || /search/i.test(x.placeholder ?? "") || /search/i.test(x.label ?? "") ||
-          ((f.inSearch || f.role === "search") && x.name !== null)));
-    const field = f.fields.find((x) => looksSearch(x) && x.name);
-    if (!field) continue;
     let action: URL;
     try { action = new URL(f.action || landing.toString(), landing); } catch { continue; }
+    const looksSearch = (x: FieldInfo) =>
+      (x.tag === "input" && x.type === "search") ||
+      (TEXT_LIKE(x) &&
+        ((x.name !== null && SEARCH_NAME.test(x.name)) || /search/i.test(x.placeholder ?? "") || /search/i.test(x.label ?? "") ||
+          ((f.inSearch || f.role === "search") && x.name !== null)));
+    // A form that calls itself a search form (Drupal's search-block-form
+    // submitting to /search/node with a field named "keys", for one) has its
+    // search box as its only named text field.
+    const namedText = f.fields.filter((x) => TEXT_LIKE(x) && x.name);
+    const selfNamed = [f.id, f.className, f.label, action.pathname].some((v) => SEARCH_FORM.test(v ?? ""));
+    const field = f.fields.find((x) => looksSearch(x) && x.name) ?? (selfNamed && namedText.length === 1 ? namedText[0] : undefined);
+    if (!field) continue;
     if (action.protocol !== "https:" && action.protocol !== "http:") continue;
     if (!onSite(action, siteDomain(landing.hostname))) continue;
     if (DENY.test(action.pathname)) continue;
@@ -145,11 +163,37 @@ export function searchUrl(forms: FormInfo[], landing: URL): Discovered | null {
 }
 
 /**
+ * The site's own search URL, from a schema.org SearchAction it publishes
+ * (WebSite potentialAction, JSON-LD), with the query "help": the one required
+ * placeholder (named by query-input, "required name=search_term_string", or
+ * the template's only one) filled, optional ones dropped. Held to the
+ * same rules as a link: http(s), on the site, nothing DENY names.
+ */
+export function searchFromTemplates(templates: SearchTemplate[], landing: URL): Discovered | null {
+  for (const t of templates) {
+    const declared = t.input.match(/name\s*=\s*([\w.-]+)/)?.[1];
+    const required = [...t.url.matchAll(/\{([^}?]+)\}/g)].map((m) => m[1]);
+    const name = declared ?? (required.length === 1 ? required[0] : undefined);
+    if (!name || required.some((r) => r !== name)) continue;
+    // Optional placeholders, OpenSearch's {name?} and a URI template's {?name}, are dropped.
+    const filled = t.url.split(`{${name}}`).join("help").replace(/\{\?[^}]*\}|\{[^}]*\?\}/g, "");
+    let u: URL;
+    try { u = new URL(filled, landing); } catch { continue; }
+    if (u.protocol !== "https:" && u.protocol !== "http:") continue;
+    if (!onSite(u, siteDomain(landing.hostname))) continue;
+    if (DENY.test(`${u.pathname}${u.search}`)) continue;
+    u.hash = "";
+    return { url: u.toString(), how: `schema.org SearchAction template, {${name}} = "help"` };
+  }
+  return null;
+}
+
+/**
  * Pick at most one URL per inner type from what the landing page exposed.
  * Types are resolved in a fixed order (form, search, help, cart, article), so
  * a link taken by one is not offered to the next.
  */
-export function discoverInner(landingUrl: string, anchors: AnchorInfo[], forms: FormInfo[]): Partial<Record<InnerType, Discovered>> {
+export function discoverInner(landingUrl: string, anchors: AnchorInfo[], forms: FormInfo[], templates: SearchTemplate[] = []): Partial<Record<InnerType, Discovered>> {
   const landing = new URL(landingUrl);
   const taken = new Set<string>();
   const out: Partial<Record<InnerType, Discovered>> = {};
@@ -163,7 +207,7 @@ export function discoverInner(landingUrl: string, anchors: AnchorInfo[], forms: 
     firstMatch(anchors, landing, FORM_SIGNUP, "sign-up", chrome, taken) ??
     firstMatch(anchors, landing, FORM_LOGIN, "login", chrome, taken) ??
     firstMatch(anchors, landing, FORM_CONTACT, "contact", chrome, taken));
-  take("search", searchUrl(forms, landing));
+  take("search", searchUrl(forms, landing) ?? searchFromTemplates(templates, landing));
   take("help",
     firstMatch(anchors, landing, HELP, "help", chrome, taken) ??
     firstMatch(anchors, landing, FORM_CONTACT, "contact", chrome, taken));
