@@ -42,7 +42,6 @@ export const JOURNEY_MCP_PROVENANCE: ProvenanceEntry[] = [
   h("abandon.noProgressSteps", 10, ABANDON("number of steps without progress the init tool announces for a persona of ordinary persistence")),
   h("abandon.noProgressSteps.highPersistence", 15, ABANDON("number of steps without progress the init tool announces for a persistent persona")),
   h("abandon.loopVisits", 3, ABANDON("number of visits to the same page the init tool announces as a loop")),
-  h("abandon.confusionSeconds", 30, ABANDON("seconds above the confusion limit the init instructions told the client model to wait before giving up (cognitive_journey_update_state counts two consecutive updates instead)")),
 
   // ── Site familiarity ceiling ──
   h("familiarity.claimFloor", 0.1, `Hand-set siteFamiliarity above which a persona with no crawled pages for the site is downgraded to a first visit. ${FAMILIARITY}`),

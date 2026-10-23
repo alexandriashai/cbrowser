@@ -465,6 +465,11 @@ export function registerCognitiveTools(
       const lowC = param("journeyMcp.label.lowComprehension"), highC = param("journey.band.high.comprehension");
       const lowT = param("journey.band.low.readingTendency"), highT = param("journey.band.high.readingTendency");
       const highV = param("journeyMcp.valueLabel.high"), lowV = param("journeyMcp.valueLabel.low");
+      // The update rules cognitive_journey_update_state applies, stated from
+      // the same registry entries it reads, so the text cannot drift from them.
+      const U = (id: string) => param(`journeyMcp.update.${id}`);
+      const valueNeutral = param("journeyMcp.value.neutral");
+      const valueGain = param("journeyMcp.value.modulationGain");
       const influencePatterns = personaValues
         ? rankInfluencePatternsForProfile(personaValues).slice(0, param("journeyMcp.init.influencePatterns"))
         : undefined;
@@ -562,16 +567,21 @@ SIMULATION LOOP:
 2. COMPREHEND - Interpret elements as this persona would (lower comprehension = more confusion)
 3. DECIDE - Choose action based on traits. Generate inner monologue.
 4. EXECUTE - Use click/fill/navigate tools (always pass _browserToken).
-5. EVALUATE - Update cognitive state after each action:
-   - patienceRemaining -= ${param("journeyMcp.update.patiencePerStep")} + (frustrationLevel × ${param("journeyMcp.update.patiencePerFrustration")})
-   - confusionLevel changes based on UI clarity
-   - frustrationLevel increases on failures
-6. CHECK ABANDONMENT - If thresholds exceeded, end journey with appropriate message.
+5. EVALUATE - After each action, call cognitive_journey_update_state with its result. It applies these rules:
+   - patienceRemaining -= ${U("patiencePerStep")} + frustrationLevel × ${U("patiencePerFrustration")} × achievement modulation
+   - on success: confusionLevel -= ${U("confusionRecovery")} × stimulation modulation and frustrationLevel -= ${U("frustrationRecovery")}; with progress, confidenceLevel += ${U("confidenceGain")} × achievement modulation and goalProgress += ${U("progressPerStep")}
+   - on failure: frustrationLevel += ${U("frustrationPerFailure")} × security modulation
+   - on a confusing step: confusionLevel += (1 - comprehension) × ${U("confusionPerConfusing")} × conformity modulation
+   - on going back: confidenceLevel -= ${U("confidenceLossOnBack")} × security modulation
+   - timeElapsed += ${U("secondsPerStep")} s per update
+   A value's modulation is 1 + (value - ${valueNeutral}) × ${valueGain}, ${1 - valueNeutral * valueGain} to ${1 + (1 - valueNeutral) * valueGain} across the 0-1 scale (${valueNeutral} = no effect).
+   These rules and every limit below were set by hand. They are hypotheses, untested against people, not measurements: follow them to keep the simulation consistent, and do not report their outputs as findings.
+6. CHECK ABANDONMENT - cognitive_journey_update_state returns shouldAbandon. It checks patience below ${thresholds.patienceMin}, frustration above ${param("journeyMcp.abandon.frustrationLimit")} / security modulation, and confusion above ${param("journeyMcp.abandon.confusionLimit")} / conformity modulation on two consecutive updates; it does not apply this persona's own confusion and frustration limits below, nor the step, page and time limits, which are yours to apply.
 7. LOOP - Return to PERCEIVE until goal achieved or abandoned.
 
-ABANDONMENT TRIGGERS:
+ABANDONMENT TRIGGERS (this persona's limits):
 - Patience < ${thresholds.patienceMin}: "This is taking too long. I give up."
-- Confusion > ${thresholds.confusionMax} for ${param("journeyMcp.abandon.confusionSeconds")}s: "I have no idea what to do."
+- Confusion > ${thresholds.confusionMax} on two consecutive updates: "I have no idea what to do."
 - Frustration > ${thresholds.frustrationMax}: "This is so frustrating!"
 - No progress after ${thresholds.maxStepsWithoutProgress} steps: "I'm not getting anywhere."
 - Same page ${thresholds.loopDetectionThreshold}x: "I keep ending up here."
@@ -588,7 +598,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
 
   server.registerTool("cognitive_journey_update_state", {
     title: "Update Cognitive State",
-    description: "Update the cognitive state during a journey simulation. Call this after each action to track mental state.",
+    description: "Update the cognitive state during a journey simulation. Call this after each action to track mental state. The update rules and abandonment limits it applies were set by hand: hypotheses to keep a simulation consistent, untested against people, not measurements (cognitive_journey_init's instructions state them).",
     inputSchema: {
       currentState: z.object({
         patienceRemaining: z.number(),

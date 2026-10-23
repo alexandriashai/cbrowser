@@ -42,11 +42,13 @@ for (const ids of base.reads.values()) for (const id of ids) read.add(id);
 describe("journey provenance registry", () => {
   test("the groups are pinned, ids unique and prefixed by their group", () => {
     // Pinned exactly: a constant added to or removed from the journey must
-    // change these on purpose. At registration (21.0) 155 + 123 + 44 + 67 + 39
-    // = 428 (444 less the 16 that could change nothing, removed).
+    // change these on purpose. 444 at registration (21.0); 428 after the 16
+    // that could change nothing were removed; 427 after the init text's
+    // "for 30s", which update_state never applied, became its two
+    // consecutive updates.
     const counts = Object.fromEntries(Object.entries(JOURNEY_GROUPS).map(([g, es]) => [g, es.length]));
-    expect(counts).toEqual({ journey: 155, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 39 });
-    expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(428);
+    expect(counts).toEqual({ journey: 155, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 38 });
+    expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(427);
     for (const [g, es] of Object.entries(JOURNEY_GROUPS)) for (const e of es) expect(e.id.startsWith(`${g}.`)).toBe(true);
     for (const e of JOURNEY_GROUP_PROVENANCE) expect(MODEL_PROVENANCE[e.id]).toBe(e);
   });
@@ -68,7 +70,7 @@ describe("journey provenance registry", () => {
   test("nothing is fitted; the published entries are the keystroke-level operators read for this registry", () => {
     const counts = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
     for (const e of JOURNEY_GROUP_PROVENANCE) counts[e.status]++;
-    expect(counts).toEqual({ fitted: 0, published: 5, definition: 14, hypothesis: 409 });
+    expect(counts).toEqual({ fitted: 0, published: 5, definition: 14, hypothesis: 408 });
     expect(JOURNEY_GROUP_PROVENANCE.filter((e) => e.status === "published").map((e) => e.id).sort()).toEqual([
       "journey.klm.homing", "journey.klm.keystrokeAverage", "journey.klm.keystrokeExpert", "journey.klm.keystrokeNovice", "journey.klm.pointing",
     ]);
