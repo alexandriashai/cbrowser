@@ -13,7 +13,7 @@
  * hosted servers run. No browser is launched, no network beyond 127.0.0.1.
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdtempSync } from "fs";
+import { mkdtempSync, rmSync } from "fs";
 import { createServer as createNetServer } from "net";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -53,6 +53,8 @@ async function freePort(): Promise<number> {
 }
 
 let child: ReturnType<typeof Bun.spawn> | undefined;
+// The child's HOME and data dir; removed in afterAll.
+let dir = "";
 let MCP = "";
 let childLog = "";
 
@@ -60,7 +62,7 @@ beforeAll(async () => {
   const server = startCms();
   cms = server;
   const port = await freePort();
-  const dir = mkdtempSync(join(tmpdir(), "cb-tenant-http-"));
+  dir = mkdtempSync(join(tmpdir(), "cb-tenant-http-"));
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
   // Open access, so a request with no key reaches the tools as an
@@ -90,9 +92,11 @@ beforeAll(async () => {
   }
 }, 40_000);
 
-afterAll(() => {
+afterAll(async () => {
   child?.kill();
+  await child?.exited;
   cms?.stop(true);
+  if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
 /** One JSON-RPC request as `key` (or no key); returns its result. */
