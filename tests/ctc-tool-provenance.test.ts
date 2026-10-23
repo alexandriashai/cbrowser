@@ -225,6 +225,9 @@ describe("tool responses carry the provenance of the whole answer", () => {
     expect(block.counts).toEqual(direct.provenance.counts);
     // And the same number, so the comparison is against the computation the tool ran.
     expect(data.cognitiveTransportCost.total).toBe(r3(direct.result.totalCTC));
+    // ISC-62: the interval beside the percentile, and stated in the rank.
+    expect(data.cognitiveTransportCost.totalCTCInterval).toEqual(direct.result.totalCTCInterval.map(r3));
+    expect(data.cognitiveTransportCost.rank).toBe(ctcRank(direct.result).sentence);
 
     // The verdict is computed after the motor and readability awaits, so a
     // synchronous recording around the chain could not see its reads: the
@@ -336,6 +339,7 @@ describe("tool responses carry the provenance of the whole answer", () => {
       const rank = ctcRank(d.result);
       expect(data.gate3.personas[persona].band).toBe(rank.band);
       expect(data.gate3.personas[persona].totalCTC).toBe(r3(d.result.totalCTC));
+      expect(data.gate3.personas[persona].totalCTCInterval).toEqual(d.result.totalCTCInterval.map(r3));
       const rec = (data.recommendations as string[]).find((r) => r.startsWith(`${persona}:`))!;
       expect(rec).toBe(`${persona}: reduce ${d.result.bottleneckLayer} complexity first, the costliest layer. ${rank.sentence}`);
     }
@@ -406,6 +410,7 @@ describe("visual_cognitive_story: the effort summary's block, rank and values", 
     expect(block.hypotheses).toEqual(direct.provenance.hypotheses);
     expect(block.counts).toEqual(direct.provenance.counts);
     expect(data.effort.totalCTC).toBe(r3(direct.result.totalCTC));
+    expect(data.effort.totalCTCInterval).toEqual(direct.result.totalCTCInterval.map(r3));
     expect(data.valueModulation).toBeUndefined();
   }, 240_000);
 

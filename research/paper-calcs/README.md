@@ -303,10 +303,14 @@ the studies will find.
 
 **Model-side input** (`ctc-reference-scores.ts` -> `ctc-reference-scores.csv`):
 the shipped model's totalCTC (a percentile, 0-1) for every built-in human
-persona on every graded page of the shipped reference set (111 pages,
-`ctc-reference-2026-10-22`), personas built as `cognitive_effort` builds them
+persona on every graded page of the reference set shipped when round 1 ran
+(v1: 111 brand landing pages, `ctc-reference-2026-10-22`), personas built as
+`cognitive_effort` builds them
 by default (traits, siteFamiliarity 0, capacities bridged, values off).
-Viewport scope is primary (the tool's default); `power-*-full_page.*` repeats
+Every "111" in round 1 below is that v1 set. The shipped reference is now v2
+(`ctc-reference-v2-2026-10-23`: raw measurements, three sampling frames, six
+page types), which `ctc-reference-scores.ts` now reads; round 1's numbers stay
+v1's until it is re-run. Viewport scope is primary (the tool's default); `power-*-full_page.*` repeats
 everything at full_page scope. First-timer viewport CTC over the 111 pages:
 mean 0.709, SD 0.178, quartiles 0.567 / 0.724 / 0.857, range 0.143 to 0.989.
 
@@ -463,7 +467,7 @@ reps, MC SE 0.005).
 ## 5. Page measurement latency on real pages
 
 **Method** (`page-latency.ts`). 30 pages drawn (mulberry32, seed 0x1a7e) from
-the 111 graded pages of the shipped reference set, one page per site. cbrowser's
+the 111 graded pages of the v1 reference set (then shipped), one page per site. cbrowser's
 own `CBrowser`, headless, 1920x1080, direct route (proxy variables cleared),
 one browser for the whole run, warmed on a 31st reference page (hulu.com)
 that is not counted. Per page, as `cognitive_effort` and the reference crawl
@@ -517,8 +521,8 @@ rather than computes, but that is a guess.
    survives: no person's fixations on one image sit in two logs (0 of 4,764
    person x image pairs), so every per-image split was still person-disjoint,
    and a true 31/31 person split gives 0.8137 [0.8082, 0.8190] against
-   0.8112. Only the description was wrong. The fix belongs in run-ceiling.ts
-   (not changed here; it is outside research/paper-calcs/).
+   0.8112. Only the description was wrong. Fixed in run-ceiling.ts in round 2
+   (below).
 2. **About 10 viewers per page, not 62.** 4,764 person x image pairs over 495
    web pages is 9.6 viewers per page. The corpus has 62 people; each page's
    ground truth has about ten, and the split-half ceiling is about five
@@ -587,3 +591,78 @@ python3 -I research/paper-calcs/power.py --reps 10000 --scope viewport
 python3 -I research/paper-calcs/power.py --reps 10000 --scope full_page
 bun research/paper-calcs/page-latency.ts --n 30
 ```
+
+---
+
+## Round 2 (`r2/`): typical-user baseline, power for the final designs, the ceiling fix
+
+Rerun everything, as the tree's owner, from anywhere in the worktree:
+
+```
+UEYES_DIR=<path to UEyes_dataset> bash research/paper-calcs/r2/run.sh
+```
+
+Without `UEYES_DIR` the ceiling step is skipped. `--quick` runs the power
+simulation at 60 reps per cell to check the pipeline (outputs get a `-quick`
+suffix). Every output records `git_head`, `src_tree` (the hash of `src/` at that
+commit, which is what decides the CTC numbers; a research-only commit leaves it
+unchanged) and `src_dirty`; `RUN.json` records the run. The numbers are not
+copied into this README because they move with the reference set and the chain:
+read them from the outputs, or from the scripts' console summaries.
+
+| step | script | outputs |
+|---|---|---|
+| CTC for the typical user and the 25 human personas, both scopes | `typical-user.ts` | `ctc-scores.csv`, `typical-user.json` |
+| face validity: persona minus baseline, page bootstrap | `face_validity.py` | `face-validity.{csv,json}` |
+| power, Studies 2 and 3 | `power.py` (fits with `lmm.py`) | `power-{scope}.json`, `power-study2-{scope}.csv`, `power-study3-{scope}.csv`, `study3-pages-{scope}.csv` |
+| Study 2 in recruits: loss 33% (the paper's, unsourced), 60.8% and 69.6% (Yang & Krajbich 2021: 49 and 38 of 125) | `recruitment.py` | `recruitment-viewport.json` |
+| inter-observer ceiling, split by person | `../../study1/run-ceiling.ts` | `ceiling/ceiling.json`, `ceiling/per_image.csv` |
+| ceiling CIs | `../study1_intervals.py` | `ceiling-intervals.{csv,json}` |
+
+Pages come from the reference module's API (`referenceOutcomes`,
+`referencePages`), not from a data file name, so a new reference set is picked
+up without editing the scripts.
+
+**Typical user** (`typical-user.ts` header has the full statement). Primary: the
+25 authored traits at 0.5, which is the population median on the paper's
+percentile trait scale (Section 3.1.1) by definition and is not computed over
+personas; siteFamiliarity 0; the three bridged capacities at the bridge's own
+neurotypical profiles (reading 0.8225, motor 0.8375, attention 0.7), because the
+bridge's trait routes put a 0.5 trait halfway to the impaired profile. Two
+sensitivity variants are scored beside it: the same traits with capacities
+bridged from them (what `cognitive_effort` gives a custom persona with every
+trait 0.5), and every trait and capacity at its median over the 25 built-in
+human personas (the roster is not a population sample: 11 of the 25 are
+accessibility personas).
+
+**Face validity** (`face_validity.py`). Per persona and baseline, over the 111
+graded pages at each scope: mean and median persona-minus-baseline difference in
+totalCTC and rawCTC, the share of pages where the persona is costlier, each with
+a 95% percentile bootstrap CI over pages (10,000 resamples, PCG64 seed
+20261023), and the correlation over pages. The CTC is deterministic per page,
+so the CIs describe page sampling only; they say nothing about whether a
+persona is right about people.
+
+**Power** (`power.py` header lists every assumption). Study 2: 30 pages, 16 per
+participant, page counts balanced to within one; predictor the typical user's
+totalCTC; analysis the REML mixed model of Analysis 2a with Satterthwaite df
+(`lmm.py`, checked before every run against the identity that on complete
+balanced data its t equals the t of OLS on stimulus means and its df equals
+S - 2; two mutants of the fitter fail that check). Study 3: generic = typical
+user; a common set of 16 divergent pages chosen from the reference pages by the
+model's scores alone (minimax exchange on the matched-minus-generic contrast);
+also the design as the paper currently words it (Study 2's protocol plus 3
+divergent pages), random pages, and per-subgroup page sets as an upper bound.
+Variance assumptions are round 1's (sp 12, se 16, sS 8 with 4 and 12 as
+sensitivity). Effect size r is the correlation of the predictor CTC with a
+page's true mean TLX over pages drawn from the reference distribution; for Study
+3 that is the matched persona's CTC, scaled by its own reference SD (round 1
+scaled both predictors by the generic's SD, so round 1's Study 3 effect sizes
+are on a different scale). The reference pages stand in for the candidate pool
+a real study would screen.
+
+**Ceiling.** `run-ceiling.ts` now reads the person from `NN_khMMM` (case-
+insensitive, normalised to `kh` + three digits), refuses a log name without
+one, splits 31/31 by person, takes `--data` for the corpus (no symlink into the
+tree needed) and writes `per_image.csv`. Its per-image AUC and NSS equal round
+1's `legacy32_personsplit` arm on all 489 images (difference exactly 0).

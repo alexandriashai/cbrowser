@@ -1,0 +1,6 @@
+family,arm,reference,metric,n,mean,boot_lo,boot_hi,t_lo,t_hi,t,p,p_holm,dz,wins,losses,ties
+arm,ceiling_personsplit,,auc,489,0.813659,0.80827,0.818998,0.808191,0.819127,,,,,,,
+arm,ceiling_personsplit,,nss,489,1.43335,1.39221,1.4747,1.39138,1.47531,,,,,,,
+arm,self_fit_halfA,,auc,489,0.899208,0.896591,0.901794,0.89658,0.901836,,,,,,,
+arm,CenterBias_halfB,,auc,489,0.653435,0.646141,0.660582,0.646166,0.660704,,,,,,,
+arm,CenterBias_halfB,,nss,489,0.484791,0.45449,0.515518,0.454324,0.515258,,,,,,,

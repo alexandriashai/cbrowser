@@ -634,6 +634,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             personaResults[personaName] = {
               // A percentile of the real reference pages (21.x); `band` names its band.
               totalCTC: Math.round(result.totalCTC * 1000) / 1000,
+              // Its 95% interval across bootstrap resamples of the reference pages.
+              totalCTCInterval: result.totalCTCInterval.map((x) => Math.round(x * 1000) / 1000),
               band: rank.band,
               referenceScope: result.referenceScope,
               bottleneck: result.bottleneckLayer,
@@ -1059,6 +1061,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           effortData = {
             // A percentile of the real reference pages (21.x); `rank` says it in words.
             totalCTC: Math.round(ctcResult.totalCTC * 1000) / 1000,
+            // Its 95% interval across bootstrap resamples of the reference pages.
+            totalCTCInterval: ctcResult.totalCTCInterval.map((x) => Math.round(x * 1000) / 1000),
             band: rank.band,
             referenceScope: ctcResult.referenceScope,
             rank: rank.sentence,
@@ -1071,6 +1075,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           };
           storyEffort = {
             totalCTC: ctcResult.totalCTC,
+            totalCTCInterval: ctcResult.totalCTCInterval,
             rawCTC: ctcResult.rawCTC,
             referenceScope: ctcResult.referenceScope,
             bottleneck: ctcResult.bottleneckLayer,

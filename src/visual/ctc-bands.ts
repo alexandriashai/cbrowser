@@ -99,9 +99,15 @@ export interface CtcRank {
   percent: number | null;
   /** The band name, or null when the cost could not be ranked. */
   band: string | null;
-  /** "Costlier than N% of the real pages we measured (P pages x Q personas, S scope). Band: B (R)." */
+  /**
+   * The interval the sentence states, whole percents [low, high], rounded
+   * outward so it always contains `percent`. Null when the result carries no
+   * interval, the cost could not be ranked, or it sits at either end.
+   */
+  interval: [number, number] | null;
+  /** "Costlier than N% of the real pages we measured (P pages x Q personas, S scope; 95% interval L-H%). Band: B (R)." */
   sentence: string;
-  /** The rank clause alone, lower-case, to follow "<subject> is": "costlier than N% of ... scope)". */
+  /** The rank clause alone, lower-case, to follow "<subject> is": "costlier than N% of ... scope; 95% interval L-H%)". */
   statement: string;
   /** "Band: B (R)." The sentence that follows the statement. */
   bandSentence: string;
@@ -113,17 +119,29 @@ export interface CtcRank {
  * reach. The two ends say what they are: 0 is at or below the cheapest
  * reference pair and 1 at or above the costliest, and since the percentile
  * cannot separate pages beyond either end, rawCTC is quoted to do it.
+ *
+ * THE INTERVAL. A result from computeSequentialCTC carries totalCTCInterval,
+ * where its rawCTC's percentile falls across bootstrap resamples of the
+ * reference pages (ctc-reference.ts). The sentence states it beside the pool,
+ * at the registered level (ctcReference.interval.level), low rounded down and
+ * high up: how firmly the reference fixes the rank, not whether the cost is
+ * right. At either end the interval is the point, so it is not stated there.
  */
-export function ctcRank(result: { totalCTC: number; rawCTC: number; referenceScope: MetricScope }): CtcRank {
-  const { totalCTC: t, rawCTC: raw, referenceScope: scope } = result;
-  const pool = `(${param(`ctcReference.${scope}`)} pages x ${referencePersonaCount()} personas, ${scope} scope)`;
+export function ctcRank(result: { totalCTC: number; rawCTC: number; referenceScope: MetricScope; totalCTCInterval?: readonly [number, number] }): CtcRank {
+  const { totalCTC: t, rawCTC: raw, referenceScope: scope, totalCTCInterval: iv } = result;
+  const ranked = isPercentile(t) && t !== 0 && t !== 1;
+  const interval: [number, number] | null = ranked && iv && isPercentile(iv[0]) && isPercentile(iv[1])
+    ? [percentOf(iv[0]), Math.ceil(iv[1] * 100 - 1e-9)]
+    : null;
+  const intervalClause = interval ? `; ${pct(param("ctcReference.interval.level"))}% interval ${interval[0]}-${interval[1]}%` : "";
+  const pool = `(${param(`ctcReference.${scope}`)} pages x ${referencePersonaCount()} personas, ${scope} scope${intervalClause})`;
   const band = bandSentence(t);
   if (!isPercentile(t)) {
     const statement = `not rankable among the real pages we measured ${pool}: totalCTC is ${t} and rawCTC ${raw}`;
-    return { percent: null, band: null, statement, bandSentence: band, sentence: `This cost is ${statement}. ${band}` };
+    return { percent: null, band: null, interval: null, statement, bandSentence: band, sentence: `This cost is ${statement}. ${band}` };
   }
   const atEnd = t === 0 || t === 1 ? `; rawCTC ${raw.toFixed(2)} tells such pages apart` : "";
   const statement = rankStatement(t, pool) + atEnd;
   const sentence = `${statement[0].toUpperCase()}${statement.slice(1)}. ${band}`;
-  return { percent: percentOf(t), band: ctcBand(t)!.name, statement, bandSentence: band, sentence };
+  return { percent: percentOf(t), band: ctcBand(t)!.name, interval, statement, bandSentence: band, sentence };
 }

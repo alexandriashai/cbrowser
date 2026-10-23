@@ -1675,8 +1675,8 @@ export async function measurePageRaw(
 
     // ── Text Readability Analysis (v18.56) ──
     // Extract actual visible text for linguistic analysis
-    const cjkRegex = /[　-鿿가-힯＀-￯]/;
-    const cjkCharRegex = /[　-鿿가-힯＀-￯]/g;
+    const cjkRegex = /[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/;
+    const cjkCharRegex = /[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/g;
     const visibleTextParts: string[] = [];
     const textBlocks: number[] = [];
     const proseSelectors = 'p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, figcaption';
@@ -1734,8 +1734,8 @@ export async function measurePageRaw(
     // 3. Alphabetic (Latin, Cyrillic, Greek, Devanagari) — space-delimited, variable word length
 
     // Arabic/Hebrew/Persian/Urdu characters
-    const abjadRegex = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿֐-׿]/;
-    const abjadCharRegex = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿֐-׿]/g;
+    const abjadRegex = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ff]/;
+    const abjadCharRegex = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ff]/g;
     const cjkCharCount = (visibleText.match(cjkCharRegex) || []).length;
     const totalCharCount = visibleText.replace(/\s/g, '').length;
 
@@ -1832,7 +1832,7 @@ export async function measurePageRaw(
       // - Diacritics (tashkeel) and ligatures affect visual complexity
       for (const word of visibleText.split(/\s+/).filter(w => w.length > 0)) {
         // Count only abjad + Latin characters (strip punctuation, numbers)
-        const clean = word.replace(/[^؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿֐-׿a-zA-ZÀ-ÿ]/g, '');
+        const clean = word.replace(/[^\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u0590-\u05ffa-zA-Z\u00c0-\u00ff]/g, '');
         // An abjad word's length is mapped to a Latin equivalent in deriveMetrics
         // (short root-based stems carry more per character); the rest count as Latin.
         tally(abjadRegex.test(clean) ? abjadWordLengths : wordLengths, clean.length);
@@ -1853,7 +1853,7 @@ export async function measurePageRaw(
       }
       // "Long words" and "technical terms" in CJK are compounds: maximal runs of
       // CJK characters, kept by length.
-      for (const run of visibleText.match(/[　-鿿가-힯]+/g) || []) tally(cjkRunLengths, binned(run.length));
+      for (const run of visibleText.match(/[\u3000-\u9fff\uac00-\ud7af]+/g) || []) tally(cjkRunLengths, binned(run.length));
       // Lexical diversity: use unique CJK bigrams as proxy for vocabulary
       for (let i = 0; i < visibleText.length - 1; i++) {
         if (cjkRegex.test(visibleText[i]) && cjkRegex.test(visibleText[i + 1])) {

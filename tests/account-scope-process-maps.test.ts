@@ -22,13 +22,18 @@
  * is a recorder in place of globalThis.fetch.
  */
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test";
-import { mkdtempSync } from "fs";
+import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
 const ROOT = mkdtempSync(join(tmpdir(), "cb-tenant-"));
-process.env.CBROWSER_DATA_DIR ??= join(ROOT, "legacy");
-process.env.CBROWSER_MIRROR_ROOT ??= join(ROOT, "mirror");
+// Assigned, not ??=: an earlier file's value is that file's temp dir (often
+// already removed), and the unscoped "tenant-created-local" persona below
+// would be written there. Restored and removed in afterAll.
+const priorDataDir = process.env.CBROWSER_DATA_DIR;
+const priorMirrorRoot = process.env.CBROWSER_MIRROR_ROOT;
+process.env.CBROWSER_DATA_DIR = join(ROOT, "legacy");
+process.env.CBROWSER_MIRROR_ROOT = join(ROOT, "mirror");
 
 const { withPersonaScope } = await import("../src/persona-scope.js");
 const { withRequestIdentity } = await import("../src/request-context.js");
@@ -108,6 +113,10 @@ afterAll(() => {
   globalThis.fetch = realFetch;
   if (realArtifactDir === undefined) delete process.env.CBROWSER_ARTIFACT_DIR;
   else process.env.CBROWSER_ARTIFACT_DIR = realArtifactDir;
+  for (const [k, v] of [["CBROWSER_DATA_DIR", priorDataDir], ["CBROWSER_MIRROR_ROOT", priorMirrorRoot]] as const) {
+    if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+  rmSync(ROOT, { recursive: true, force: true });
   if (realCmsUrl === undefined) delete process.env.CMS_URL;
   else process.env.CMS_URL = realCmsUrl;
   setSessionApiKey(undefined);

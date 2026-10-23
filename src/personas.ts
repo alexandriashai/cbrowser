@@ -27,7 +27,19 @@ import { customReadingRateId, customReadingRule, displayReadingWpm } from "./vis
 // Custom Personas Storage
 // ============================================================================
 
-const DATA_DIR = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+/**
+ * The unscoped data dir, read per call like the scoped one below.
+ *
+ * It was a constant read once at import. A process that never changes
+ * CBROWSER_DATA_DIR (the CLI, a server) sees no difference, but one that
+ * does kept the first value: in a `bun test` run, which shares one module
+ * registry across files, whichever file imported this first fixed the
+ * directory, and later files' temp CBROWSER_DATA_DIR were ignored, so their
+ * personas landed in ~/.cbrowser/personas (tests/real-personas-dir.test.ts).
+ */
+function dataDir(): string {
+  return process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
+}
 
 /**
  * Resolved per call, not once at module load.
@@ -43,7 +55,7 @@ const DATA_DIR = process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser");
  * is the shape this codebase already removed from the billing path. (2026-08-01)
  */
 function personasDirFor(): string {
-  return join(scopedDataDir() ?? DATA_DIR, "personas");
+  return join(scopedDataDir() ?? dataDir(), "personas");
 }
 
 // ============================================================================
@@ -89,8 +101,9 @@ function scopedAccountPersonas(): Record<string, Persona> {
 }
 
 function ensurePersonasDir(): void {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
+  const base = dataDir();
+  if (!existsSync(base)) {
+    mkdirSync(base, { recursive: true });
   }
   if (!existsSync(personasDirFor())) {
     mkdirSync(personasDirFor(), { recursive: true });

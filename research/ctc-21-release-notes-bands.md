@@ -41,8 +41,15 @@ nothing from the bands.
 Every verdict uses one sentence. It comes from `ctcRank` in
 `src/visual/ctc-bands.ts`:
 
-> Costlier than N% of the real pages we measured (111 sites x 25 personas,
-> viewport scope). Band: high (80th-95th percentile).
+> Costlier than N% of the real pages we measured (P pages x 25 personas,
+> viewport scope; 95% interval L-H%). Band: high (80th-95th percentile).
+
+P is the reference's graded page count at the scope (ctcReference.<scope>).
+On the v1 reference (111 brand landing pages, one per site) the sentence said
+"111 sites" and stated no interval; the v2 reference has several pages per
+site, so it says "pages", and L-H is the result's totalCTCInterval at the
+registered level (ctcReference.interval.level), low rounded down and high up.
+The interval is not stated at either end of the reference.
 
 - **N** is floor(totalCTC x 100). It rounds down, so the sentence never claims a
   rank the page did not reach (0.917 reads 91). Below 1% it reads "under 1%".
@@ -258,7 +265,9 @@ Block counts on the test fixtures (fitted / published / definition / hypothesis)
 ## Examples, before and after
 
 Live pages, 2026-10-22, `cognitive_effort` at viewport. Before is `2d025f3`:
-totalCTC already a percentile, read with the logistic-era sentences.
+totalCTC already a percentile, read with the logistic-era sentences. The
+"after" column is the v1 reference's output as recorded then (111 sites, no
+interval); the numbers move with the v2 reference.
 
 | page, persona | total | before | after |
 |---|---|---|---|
@@ -275,9 +284,9 @@ totalCTC already a percentile, read with the logistic-era sentences.
     reported 0.216 for the same page and persona.
   - With `useValues` on, the value was still 0.134: values never reached the
     chain.
-- **After:** "cognitive-adhd: Costlier than 21% of the real pages we measured
-  (111 sites x 25 personas, viewport scope). Band: lower half (below the 50th
-  percentile)."
+- **After** (v1 reference, as recorded): "cognitive-adhd: Costlier than 21% of
+  the real pages we measured (111 sites x 25 personas, viewport scope). Band:
+  lower half (below the 50th percentile)."
   - totalCTC is 0.216, matching `cognitive_effort`.
   - With `useValues` on, it is 0.27, with `valueModulation.applied: true`.
 - **Verdict:** "**Easy but unfocused.** Low cognitive effort, ..." became

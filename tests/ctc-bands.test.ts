@@ -163,6 +163,42 @@ describe("ctcRank states the rank in the required form", () => {
     expect(rank.band).toBe(ctcBand(r.totalCTC)!.name);
     if (r.totalCTC > 0 && r.totalCTC < 1) expect(rank.percent).toBe(Math.floor(r.totalCTC * 100));
     expect(rank.sentence).toContain(`${r.referenceScope} scope`);
+    // ISC-62: the verdict states the result's own interval.
+    expect(r.totalCTC).toBeGreaterThan(0);
+    expect(r.totalCTC).toBeLessThan(1);
+    expect(rank.interval).toEqual([Math.floor(r.totalCTCInterval[0] * 100 + 1e-9), Math.ceil(r.totalCTCInterval[1] * 100 - 1e-9)]);
+    expect(rank.sentence).toContain(`; 95% interval ${rank.interval![0]}-${rank.interval![1]}%)`);
+    expect(rank.statement).toContain("% interval");
+  });
+});
+
+describe("ctcRank states the interval when the result carries one (ISC-62)", () => {
+  const at = (t: number, iv?: [number, number]) => ctcRank({ totalCTC: t, rawCTC: 1.2, referenceScope: "viewport", ...(iv ? { totalCTCInterval: iv } : {}) });
+
+  test("beside the pool, rounded outward so it always contains the stated rank", () => {
+    const r = at(0.875, [0.8231, 0.9112]);
+    expect(r.sentence).toBe(`Costlier than 87% of the real pages we measured (${PAGES} pages x ${PERSONAS} personas, viewport scope; 95% interval 82-92%). Band: high (80th-95th percentile).`);
+    expect(r.interval).toEqual([82, 92]);
+    fc.assert(fc.property(fc.double({ min: 0.001, max: 0.999, noNaN: true }), fc.double({ min: 0, max: 0.2, noNaN: true }), fc.double({ min: 0, max: 0.2, noNaN: true }), (t, dl, dh) => {
+      const lo = Math.max(0, t - dl), hi = Math.min(1, t + dh);
+      const [a, b] = at(t, [lo, hi]).interval!;
+      const n = at(t, [lo, hi]).percent!;
+      expect(a).toBeLessThanOrEqual(n);
+      expect(b).toBeGreaterThanOrEqual(n);
+    }), { numRuns: 300, seed: 11 });
+  });
+
+  test("the level is the registered one; without an interval, at either end, or unrankable, none is stated", () => {
+    const { ids } = readsOf(() => at(0.6, [0.55, 0.65]));
+    expect(ids.has("ctcReference.interval.level")).toBe(true);
+    withParamOverrides({ "ctcReference.interval.level": 0.9 }, () => {
+      expect(at(0.6, [0.55, 0.65]).sentence).toContain("; 90% interval 55-65%)");
+    });
+    expect(at(0.6).sentence).not.toContain("interval");
+    expect(at(0.6).interval).toBeNull();
+    expect(at(0, [0, 0]).sentence).not.toContain("interval");
+    expect(at(1, [1, 1]).sentence).not.toContain("interval");
+    expect(at(Number.NaN, [Number.NaN, Number.NaN]).sentence).not.toContain("interval");
   });
 });
 
