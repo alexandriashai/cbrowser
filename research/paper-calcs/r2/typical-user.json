@@ -1,0 +1,325 @@
+{
+  "provenance": {
+    "git_head": "9133826e814d9d2c1200ec9ab98e8529b3c9d9a3",
+    "git_branch": "feat/paper-calcs-2",
+    "src_tree": "48c830420a45b3642f780a1980be6796fa68f0d0",
+    "src_dirty": false,
+    "ran": "2026-10-23T19:32:36.210Z",
+    "runtime": "bun 1.3.8"
+  },
+  "reference": {
+    "id": "ctc-reference-2026-10-22",
+    "crawledOn": "2026-10-22",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "scopes": [
+      "viewport",
+      "full_page"
+    ],
+    "cbrowserVersion": "20.0.1",
+    "gitHead": "0a974f1",
+    "measurementCode": "src/browser.ts, src/config.ts and src/visual/cognitive-transport.ts byte-identical to 0a974f1 (the crawl ran on a snapshot of that tree; only chain and provenance files differed, and the crawl does not call them)",
+    "source": "research/benchmark/sites.json, crawled by research/ctc-reference/crawl.ts",
+    "outcomes": {
+      "attempted": 199,
+      "graded": 111,
+      "blocked": 77,
+      "error": 11
+    },
+    "crawlNote": "Two passes on 2026-10-22: the first lost 127 sites to 'no result' when the tree under it was edited mid-run (the worker processes could not import it); those 127 were crawled again once from an isolated snapshot (crawl.ts --resume). Graded and blocked rows of the first pass were kept, not re-run. walmart.com and etrade.com errored in both passes."
+  },
+  "graded_pages": 111,
+  "personas_scored": [
+    "power-user",
+    "first-timer",
+    "mobile-user",
+    "screen-reader-user",
+    "elderly-user",
+    "impatient-user",
+    "distracted-user",
+    "careful-reader",
+    "explorer",
+    "task-focused",
+    "motor-impairment-tremor",
+    "low-vision-magnified",
+    "cognitive-adhd",
+    "dyslexic-user",
+    "deaf-user",
+    "elderly-low-vision",
+    "color-blind-deuteranopia",
+    "autism-spectrum",
+    "intellectual-disability",
+    "aphasia-receptive",
+    "dyscalculia",
+    "anxious-user",
+    "confident-user",
+    "emotional-user",
+    "stoic-user"
+  ],
+  "definition": {
+    "primary": "typical-user",
+    "population_median": "0.5 on the paper's percentile trait scale (Section 3.1.1); not computed over personas",
+    "authored_traits": [
+      "patience",
+      "riskTolerance",
+      "comprehension",
+      "persistence",
+      "resilience",
+      "selfEfficacy",
+      "emotionalContagion",
+      "attributionStyle",
+      "satisficing",
+      "anchoringBias",
+      "timeHorizon",
+      "fearOfMissingOut",
+      "interruptRecovery",
+      "metacognitivePlanning",
+      "proceduralFluency",
+      "transferLearning",
+      "informationForaging",
+      "changeBlindness",
+      "mentalModelFlexibility",
+      "trustCalibration",
+      "socialProofSensitivity",
+      "authoritySensitivity",
+      "workingMemory",
+      "readingTendency",
+      "curiosity"
+    ],
+    "siteFamiliarity": 0,
+    "capacities": {
+      "readingCapacity": "readingCapacityOf(getReadingProfile({})): the neurotypical reading profile",
+      "motorCapacity": "motorCapacityOf(getPointingProfile({})): the neurotypical pointing profile",
+      "sustainedAttention": "sustainedAttentionOf({}): 0.7, the function's default for a persona that states nothing"
+    },
+    "variants": {
+      "typical-user-bridged": "authored traits 0.5, capacities from bridgeCapacityTraits on them",
+      "typical-user-roster-median": "each authored trait and bridged capacity at its median over the 25 built-in human personas"
+    },
+    "scoring": "buildOTCognitiveProfile + computeSequentialCTC, asymmetric and interactions on, values off; percentile against the shipped curve of the same scope"
+  },
+  "traits": {
+    "typical-user": {
+      "patience": 0.5,
+      "riskTolerance": 0.5,
+      "comprehension": 0.5,
+      "persistence": 0.5,
+      "resilience": 0.5,
+      "selfEfficacy": 0.5,
+      "emotionalContagion": 0.5,
+      "attributionStyle": 0.5,
+      "satisficing": 0.5,
+      "anchoringBias": 0.5,
+      "timeHorizon": 0.5,
+      "fearOfMissingOut": 0.5,
+      "interruptRecovery": 0.5,
+      "metacognitivePlanning": 0.5,
+      "proceduralFluency": 0.5,
+      "transferLearning": 0.5,
+      "informationForaging": 0.5,
+      "changeBlindness": 0.5,
+      "mentalModelFlexibility": 0.5,
+      "trustCalibration": 0.5,
+      "socialProofSensitivity": 0.5,
+      "authoritySensitivity": 0.5,
+      "workingMemory": 0.5,
+      "readingTendency": 0.5,
+      "curiosity": 0.5,
+      "siteFamiliarity": 0,
+      "readingCapacity": 0.8225000000000001,
+      "motorCapacity": 0.8375,
+      "sustainedAttention": 0.7
+    },
+    "typical-user-bridged": {
+      "patience": 0.5,
+      "riskTolerance": 0.5,
+      "comprehension": 0.5,
+      "persistence": 0.5,
+      "resilience": 0.5,
+      "selfEfficacy": 0.5,
+      "emotionalContagion": 0.5,
+      "attributionStyle": 0.5,
+      "satisficing": 0.5,
+      "anchoringBias": 0.5,
+      "timeHorizon": 0.5,
+      "fearOfMissingOut": 0.5,
+      "interruptRecovery": 0.5,
+      "metacognitivePlanning": 0.5,
+      "proceduralFluency": 0.5,
+      "transferLearning": 0.5,
+      "informationForaging": 0.5,
+      "changeBlindness": 0.5,
+      "mentalModelFlexibility": 0.5,
+      "trustCalibration": 0.5,
+      "socialProofSensitivity": 0.5,
+      "authoritySensitivity": 0.5,
+      "workingMemory": 0.5,
+      "readingTendency": 0.5,
+      "curiosity": 0.5,
+      "siteFamiliarity": 0,
+      "readingCapacity": 0.6189285714285714,
+      "motorCapacity": 0.6375,
+      "sustainedAttention": 0.5
+    },
+    "typical-user-roster-median": {
+      "siteFamiliarity": 0,
+      "patience": 0.6,
+      "riskTolerance": 0.4,
+      "comprehension": 0.6,
+      "persistence": 0.7,
+      "resilience": 0.5,
+      "selfEfficacy": 0.6,
+      "emotionalContagion": 0.5,
+      "attributionStyle": 0.5,
+      "satisficing": 0.6,
+      "anchoringBias": 0.6,
+      "timeHorizon": 0.5,
+      "fearOfMissingOut": 0.4,
+      "interruptRecovery": 0.4,
+      "metacognitivePlanning": 0.55,
+      "proceduralFluency": 0.6,
+      "transferLearning": 0.6,
+      "informationForaging": 0.55,
+      "changeBlindness": 0.5,
+      "mentalModelFlexibility": 0.6,
+      "trustCalibration": 0.5,
+      "socialProofSensitivity": 0.5,
+      "authoritySensitivity": 0.5,
+      "workingMemory": 0.6,
+      "readingTendency": 0.6,
+      "curiosity": 0.4,
+      "readingCapacity": 0.6714285714285714,
+      "motorCapacity": 0.6535,
+      "sustainedAttention": 0.6
+    }
+  },
+  "population_capacities": {
+    "power-user": {
+      "readingCapacity": 0.7875,
+      "motorCapacity": 0.7015,
+      "sustainedAttention": 0.9
+    },
+    "first-timer": {
+      "readingCapacity": 0.5203571428571429,
+      "motorCapacity": 0.5974999999999999,
+      "sustainedAttention": 0.4
+    },
+    "mobile-user": {
+      "readingCapacity": 0.6539285714285715,
+      "motorCapacity": 0.6295,
+      "sustainedAttention": 0.5
+    },
+    "screen-reader-user": {
+      "readingCapacity": 0.7239285714285715,
+      "motorCapacity": 0.7735000000000001,
+      "sustainedAttention": 0.6
+    },
+    "elderly-user": {
+      "readingCapacity": 0.6728571428571429,
+      "motorCapacity": 0.605,
+      "sustainedAttention": 0.4
+    },
+    "impatient-user": {
+      "readingCapacity": 0.6539285714285715,
+      "motorCapacity": 0.5975000000000001,
+      "sustainedAttention": 0.2
+    },
+    "distracted-user": {
+      "readingCapacity": 0.6189285714285714,
+      "motorCapacity": 0.6214999999999999,
+      "sustainedAttention": 0.1
+    },
+    "careful-reader": {
+      "readingCapacity": 0.7239285714285715,
+      "motorCapacity": 0.7255,
+      "sustainedAttention": 0.7
+    },
+    "explorer": {
+      "readingCapacity": 0.7064285714285715,
+      "motorCapacity": 0.7175,
+      "sustainedAttention": 0.7
+    },
+    "task-focused": {
+      "readingCapacity": 0.6889285714285714,
+      "motorCapacity": 0.7255,
+      "sustainedAttention": 0.8
+    },
+    "motor-impairment-tremor": {
+      "readingCapacity": 0.6889285714285714,
+      "motorCapacity": 0.4375,
+      "sustainedAttention": 0.7
+    },
+    "low-vision-magnified": {
+      "readingCapacity": 0.5357142857142857,
+      "motorCapacity": 0.6934999999999999,
+      "sustainedAttention": 0.6
+    },
+    "cognitive-adhd": {
+      "readingCapacity": 0.7464285714285713,
+      "motorCapacity": 0.7406250000000001,
+      "sustainedAttention": 0.3
+    },
+    "dyslexic-user": {
+      "readingCapacity": 0.38678571428571423,
+      "motorCapacity": 0.6535,
+      "sustainedAttention": 0.5
+    },
+    "deaf-user": {
+      "readingCapacity": 0.7239285714285715,
+      "motorCapacity": 0.7015,
+      "sustainedAttention": 0.8
+    },
+    "elderly-low-vision": {
+      "readingCapacity": 0.5257142857142858,
+      "motorCapacity": 0.605,
+      "sustainedAttention": 0.5
+    },
+    "color-blind-deuteranopia": {
+      "readingCapacity": 0.6889285714285714,
+      "motorCapacity": 0.7015,
+      "sustainedAttention": 0.8
+    },
+    "autism-spectrum": {
+      "readingCapacity": 0.6364285714285715,
+      "motorCapacity": 0.6855,
+      "sustainedAttention": 0.6
+    },
+    "intellectual-disability": {
+      "readingCapacity": 0.48535714285714293,
+      "motorCapacity": 0.5655000000000001,
+      "sustainedAttention": 0.4
+    },
+    "aphasia-receptive": {
+      "readingCapacity": 0.5028571428571429,
+      "motorCapacity": 0.6214999999999999,
+      "sustainedAttention": 0.6
+    },
+    "dyscalculia": {
+      "readingCapacity": 0.6714285714285714,
+      "motorCapacity": 0.6134999999999999,
+      "sustainedAttention": 0.7
+    },
+    "anxious-user": {
+      "readingCapacity": 0.6539285714285715,
+      "motorCapacity": 0.6855,
+      "sustainedAttention": 0.4
+    },
+    "confident-user": {
+      "readingCapacity": 0.6889285714285714,
+      "motorCapacity": 0.6535,
+      "sustainedAttention": 0.7
+    },
+    "emotional-user": {
+      "readingCapacity": 0.6189285714285714,
+      "motorCapacity": 0.5975000000000001,
+      "sustainedAttention": 0.4
+    },
+    "stoic-user": {
+      "readingCapacity": 0.6889285714285714,
+      "motorCapacity": 0.6934999999999999,
+      "sustainedAttention": 0.7
+    }
+  }
+}

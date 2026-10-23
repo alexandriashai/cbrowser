@@ -1,0 +1,21 @@
+{
+  "ran": "2026-10-23T19:52:35.511Z",
+  "git_head": "9133826e814d9d2c1200ec9ab98e8529b3c9d9a3",
+  "src_tree": "48c830420a45b3642f780a1980be6796fa68f0d0",
+  "src_dirty": false,
+  "runtime": "bun 1.3.8",
+  "images": 489,
+  "skipped_thin": 6,
+  "logs": 554,
+  "participants": 62,
+  "half_a": 31,
+  "split": "by person, every other id in sorted order",
+  "viewers_per_image_mean": 9.7,
+  "sigma_cells": 1.5,
+  "human_ceiling_auc": 0.8137,
+  "human_ceiling_nss": 1.4333,
+  "self_fit_auc": 0.8992,
+  "centerbias_auc_same_gt": 0.6534,
+  "centerbias_nss_same_gt": 0.4848,
+  "headroom_over_centerbias": 0.1602
+}
