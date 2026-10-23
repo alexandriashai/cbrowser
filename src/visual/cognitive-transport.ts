@@ -1219,8 +1219,9 @@ export interface ExtractedPageMetrics {
  * sentence-length thresholds included: they read the length histograms below
  * rather than counts already cut at one threshold.
  *
- * FORMAT 2 (RAW_PAGE_FORMAT). Two things format 1 measured wrongly, fixed
- * where they are measured because a stored record cannot be corrected later:
+ * FORMAT 2 (RAW_PAGE_FORMAT). Three things format 1 measured wrongly or not
+ * at all, fixed where they are measured because a stored record cannot be
+ * corrected later:
  *   - Prose counted once. Format 1 took every element matching the prose
  *     selector, so a p inside an li, an li inside a td or a p inside a
  *     blockquote was counted once per matching ancestor (a nested menu many
@@ -1233,8 +1234,15 @@ export interface ExtractedPageMetrics {
  *     and Chinese editions, so the page read as CJK. Text declared to be in
  *     another language (lang, or a link's hreflang) is no longer key-element
  *     text, and a nav that is a language picker is not "the nav".
- * deriveMetrics still accepts a format-1 record (RawPageMeasurementV1),
- * which derives exactly as it did, so the two can be compared.
+ *   - A choice in one group only, with whole nav totals. Format 1 counted a
+ *     nav's links, then a menubar inside it, then its submenus, so one link
+ *     sat in up to three groups, and its nav sizes stopped at the stored
+ *     list's 64 groups. Format 2 gives each choice to the outermost group
+ *     that offers it and stores navGroupCount, navLinks and groupedLinks
+ *     uncapped; format 1's group totals survive as `choiceNested`.
+ * deriveMetrics reads none of these new fields and still accepts a format-1
+ * record (RawPageMeasurementV1), which derives exactly as it did, so the two
+ * can be compared.
  */
 export interface RawPageMeasurement {
   /** Version of this record's layout: RAW_PAGE_FORMAT. */
@@ -1297,10 +1305,29 @@ export interface RawPageMeasurement {
    * Choice groups in scope, two numbers each: kind index and size. A nav's
    * visible links, a select's options, a named radio or checkbox group (an
    * unnamed one is a group of one), a menu, listbox, tablist or radiogroup's
-   * visible items. The first pageMetrics.raw.maxChoiceGroups.
+   * visible items. The first pageMetrics.raw.maxChoiceGroups, navs first,
+   * then selects, toggles and the ARIA composites, each in document order.
+   *
+   * Each choice is in one group only: the outermost nav or composite that
+   * offers it (an item and the link inside it are one choice). A menubar
+   * inside a nav, its submenus, or a nav inside a navigation region keep only
+   * what no outer group took, and are no group when that is nothing.
    */
   choiceGroups: number[];
+  /** Every group, uncapped: the length choiceGroups would have without its bound. */
   choiceGroupCount: number;
+  /** Nav groups (nav, role=navigation) left with at least one link of their own, uncapped. */
+  navGroupCount: number;
+  /** The links those nav groups hold, each once, uncapped: the sum of every nav size, stored or not. */
+  navLinks: number;
+  /** Visible links inside any choice group (nav or composite), each once, uncapped; `links - groupedLinks` are in none. */
+  groupedLinks: number;
+  /**
+   * The group totals as format 1 counted them: every nav, select, toggle and
+   * composite group with a choice, nested groups counting their choices again.
+   * For comparison only; nothing derives from it.
+   */
+  choiceNested: { groups: number; items: number };
   /**
    * The prose elements the readability metrics read, eight numbers each:
    * characters, whitespace-separated words, CJK characters, sentences
@@ -1323,11 +1350,12 @@ export interface RawPageMeasurement {
 export const RAW_PAGE_FORMAT = 2;
 
 /**
- * A format-1 record (2026-10-22): nested prose counted per element and the
- * first-nav script rule, no prose totals. deriveMetrics still derives it,
+ * A format-1 record (2026-10-22): nested prose counted per element, the
+ * first-nav script rule, nested choice groups counted again, no prose or nav
+ * totals. deriveMetrics still derives it,
  * exactly as it did then, so format-1 data can be compared with format 2.
  */
-export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested"> & { format: 1 };
+export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "navGroupCount" | "navLinks" | "groupedLinks" | "choiceNested"> & { format: 1 };
 
 /** The visible prose of a RawPageMeasurement, as length histograms rather than threshold counts. */
 export interface RawText {
@@ -1512,17 +1540,49 @@ export async function measurePageRaw(
     // Choice groups: what the choices are offered in.
     const choiceGroups: number[] = [];
     let choiceGroupCount = 0;
-    const addGroup = (kind: string, size: number) => {
+    // Format 1's count, for comparison: every group, nested ones again.
+    let nestedGroups = 0, nestedItems = 0;
+    const addGroup = (kind: string, size: number, nestedSize = size) => {
+      if (nestedSize > 0) { nestedGroups++; nestedItems += nestedSize; }
       if (size <= 0) return;
       if (choiceGroupCount < P.maxChoiceGroups) choiceGroups.push(kindOf(kind), size);
       choiceGroupCount++;
     };
-    document.querySelectorAll('nav, [role="navigation"]').forEach(nav => {
-      if (!inViewport(nav)) return;
-      let n = 0;
-      nav.querySelectorAll('a[href]').forEach(a => { if (inViewport(a)) n++; });
-      addGroup('nav', n);
+    // Each choice in one group only: the outermost that offers it. A nav's
+    // links are its visible a[href]; a menu, menubar, listbox, tablist or
+    // radiogroup's are its visible items, each read as the link inside it
+    // when it has one, so an item and its link are one choice. Groups are
+    // decided in document order, every ancestor before its descendants, so a
+    // menubar inside a nav (or a submenu inside the menubar, or a nav inside a
+    // navigation region) keeps only the choices no outer group took, and is
+    // no group at all when that is none.
+    const NAV = 'nav, [role="navigation"]';
+    const COMPOSITE = '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"]';
+    const ITEM = '[role^="menuitem"], [role="option"], [role="tab"], [role="radio"]';
+    const claimed = new Set<Element>();
+    const navGroups: Array<[number, number]> = [];
+    const compositeGroups: Array<[string, number, number]> = [];
+    document.querySelectorAll(`${NAV}, ${COMPOSITE}`).forEach(g => {
+      if (!inViewport(g)) return;
+      const nav = g.matches(NAV);
+      const offered = nav
+        ? Array.from(g.querySelectorAll('a[href]')).filter(inViewport)
+        : Array.from(g.querySelectorAll(ITEM)).filter(inViewport).map(x => (x.matches('a[href]') ? x : x.querySelector('a[href]') || x));
+      let own = 0;
+      for (const c of new Set(offered)) {
+        if (claimed.has(c)) continue;
+        claimed.add(c);
+        own++;
+      }
+      if (nav) navGroups.push([own, offered.length]);
+      else compositeGroups.push([g.getAttribute('role') || '', own, offered.length]);
     });
+    // Uncapped, so links minus groupedLinks is the links in no group however
+    // many groups the page has (choiceGroups stores the first maxChoiceGroups).
+    const navGroupCount = navGroups.filter(([own]) => own > 0).length;
+    const navLinks = navGroups.reduce((n, [own]) => n + own, 0);
+    const groupedLinks = Array.from(claimed).filter(c => c.matches('a[href]') && inViewport(c)).length;
+    navGroups.forEach(([own, offered]) => addGroup('nav', own, offered));
     selects.forEach(s => { if (inViewport(s)) addGroup('select', s.querySelectorAll('option').length); });
     const toggles = new Map<string, { kind: string; size: number }>();
     let unnamed = 0;
@@ -1536,12 +1596,7 @@ export async function measurePageRaw(
       else toggles.set(key, { kind, size: 1 });
     });
     toggles.forEach(g => addGroup(g.kind, g.size));
-    document.querySelectorAll('[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"]').forEach(m => {
-      if (!inViewport(m)) return;
-      let n = 0;
-      m.querySelectorAll('[role^="menuitem"], [role="option"], [role="tab"], [role="radio"]').forEach(x => { if (inViewport(x)) n++; });
-      addGroup(m.getAttribute('role') || '', n);
-    });
+    compositeGroups.forEach(([kind, own, offered]) => addGroup(kind, own, offered));
 
     // Animations — count only ACTUAL running animations, not CSS transition utilities
     // WCAG 2.3.3 cares about content that moves/blinks automatically, not hover transitions
@@ -1824,6 +1879,10 @@ export async function measurePageRaw(
       boxes,
       choiceGroups,
       choiceGroupCount,
+      navGroupCount,
+      navLinks,
+      groupedLinks,
+      choiceNested: { groups: nestedGroups, items: nestedItems },
       textBlocks,
       textBlockCount: visibleTextParts.length,
     };

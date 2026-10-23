@@ -103,6 +103,12 @@ describe("the geometry Stage B reads is well formed", () => {
         expect(r.proseNested.elements).toBeGreaterThanOrEqual(r.textBlockCount);
         expect(r.proseNested.chars).toBeGreaterThanOrEqual(r.prose.chars);
         expect(r.proseNested.words).toBeGreaterThanOrEqual(r.prose.words);
+        // The uncapped nav totals sit inside the link count, and format 1's
+        // group count can only be as large or larger.
+        expect(r.navLinks).toBeLessThanOrEqual(r.groupedLinks);
+        expect(r.groupedLinks).toBeLessThanOrEqual(r.links);
+        expect(r.navGroupCount).toBeLessThanOrEqual(r.choiceGroupCount);
+        expect(r.choiceNested.groups).toBeGreaterThanOrEqual(r.choiceGroupCount);
         for (let i = 0; i < r.boxes.length; i += 5) {
           expect(r.kinds[r.boxes[i]]).toBeString();
           expect(r.boxes[i + 3]).toBeGreaterThanOrEqual(0);

@@ -42,6 +42,10 @@ function raw(text: RawText, scope: "viewport" | "full_page" = "full_page"): RawP
     boxes: [0, 10, 20, 100, 24, 1, 200, 20, 80, 32],
     choiceGroups: [2, 12],
     choiceGroupCount: 1,
+    navGroupCount: 1,
+    navLinks: 12,
+    groupedLinks: 12,
+    choiceNested: { groups: 2, items: 24 },
     textBlocks: [120, 20, 0, 2, 16, 24, 640, 48],
     textBlockCount: 1,
   };

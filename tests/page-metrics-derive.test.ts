@@ -16,8 +16,9 @@
  *   4. A length threshold the record's histograms cannot resolve is refused,
  *      not approximated.
  *   5. Both raw layouts derive, and nothing else: a format-1 record derives
- *      exactly as the format-2 record with the same counts (its prose totals
- *      are new fields deriveMetrics does not read); any other format throws.
+ *      exactly as the format-2 record with the same counts (its prose and
+ *      nav totals are new fields deriveMetrics does not read); any other
+ *      format throws.
  *
  * tests/page-metrics-golden.test.ts proves derive(measure()) is still exactly
  * what extractPageMetrics returned before the split; tests/page-metrics-raw.test.ts
@@ -131,7 +132,7 @@ describe("raw formats", () => {
     expect(RAW_PAGE_FORMAT).toBe(2);
     for (const r of Object.values(RAW_FIXTURES)) {
       expect(r.format).toBe(2);
-      const { prose: _prose, proseNested: _nested, ...rest } = r;
+      const { prose: _prose, proseNested: _nested, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...rest } = r;
       const v1: RawPageMeasurementV1 = { ...rest, format: 1 };
       expect(deriveMetrics(v1)).toEqual(deriveMetrics(r));
       for (const format of [0, 3, undefined, "2"]) {

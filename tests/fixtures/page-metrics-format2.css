@@ -10,3 +10,4 @@ p, blockquote, h1, h2, table, figure { margin: 0 0 8px; }
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
 }
+.tiny-nav { display: inline-block; width: 120px; height: 18px; overflow: hidden; font-size: 10px; line-height: 18px; }

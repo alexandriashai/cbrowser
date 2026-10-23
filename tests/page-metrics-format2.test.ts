@@ -1,5 +1,5 @@
 /**
- * Raw format 2: the two measurement defects format 1 carried into the CTC
+ * Raw format 2: the measurement defects format 1 carried into the CTC
  * reference, each on a fixture page whose right answer is known by
  * construction.
  *
@@ -17,8 +17,18 @@
  *      hreflang) is not key-element text, and a nav that is a language picker
  *      (named so, or mostly other-language links) is not the nav. A partial
  *      translation, which the rule exists for, still reads as CJK.
+ *   3. A choice counted in one group only. Format 1 counted a nav's links,
+ *      then the menubar inside it, then the submenu inside that, so the
+ *      same link sat in three groups (a nav inside a navigation region, in
+ *      two). Format 2 gives each choice to the outermost group that offers it
+ *      and drops a group left with none. The fixture has 5 groups and 14
+ *      choices; per group, nested ones again, 8 and 23.
+ *   4. Nav totals the stored list cannot cap. choiceGroups stores the first
+ *      raw.maxChoiceGroups (64) groups, so the nav sizes in it undercount on
+ *      a page with more; navGroupCount, navLinks and groupedLinks are
+ *      uncapped, so links minus groupedLinks is the ungrouped links.
  *
- * Both are browser measurements (measurePageRaw), at both scopes; the pages
+ * All are browser measurements (measurePageRaw), at both scopes; the pages
  * fit the first screen, so both scopes count the same elements.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
@@ -39,6 +49,8 @@ const PAGES = [
   "page-metrics-partial-translation.html",
   "page-metrics-cjk.html",
   "page-metrics-abjad.html",
+  "page-metrics-nested-groups.html",
+  "page-metrics-many-navs.html",
 ];
 const SCOPES: MetricScope[] = ["viewport", "full_page"];
 
@@ -103,6 +115,48 @@ describe("prose is counted once: the outermost matching element only", () => {
     const nonEmpty = r.text.fragmentLengths.filter(([len]) => len > 0).reduce((n, [, c]) => n + c, 0);
     expect(nonEmpty).toBe(11);
   });
+});
+
+/** The stored choice groups as [kind, size] pairs. */
+const groups = (r: Raw) => {
+  const out: Array<[string, number]> = [];
+  for (let i = 0; i < r.choiceGroups.length; i += 2) out.push([r.kinds[r.choiceGroups[i]], r.choiceGroups[i + 1]]);
+  return out;
+};
+type NavTotals = { navGroupCount: number; navLinks: number; groupedLinks: number; choiceNested: { groups: number; items: number } };
+
+describe("a choice is counted in one group only: the outermost that offers it", () => {
+  for (const scope of SCOPES) {
+    test(`${scope}: a menubar, its submenu and a nav inside a navigation region add no second count`, () => {
+      const r = measured["page-metrics-nested-groups.html"][scope];
+      expect(r.links).toBe(11);
+      // Navs first, then the ARIA composites, each in document order; the
+      // menubar, its menu and the inner Legal nav are left with no choice of
+      // their own and are not groups.
+      expect(groups(r)).toEqual([["nav", 5], ["nav", 3], ["nav", 1], ["tablist", 3], ["tablist", 2]]);
+      expect(r.choiceGroupCount).toBe(5);
+      const t = r as Raw & NavTotals;
+      expect(t.navGroupCount).toBe(3);
+      expect(t.navLinks).toBe(9);
+      expect(t.groupedLinks).toBe(9);
+      expect(r.links - t.groupedLinks).toBe(2);
+      // Format 1's count, for comparison, on the same DOM.
+      expect(t.choiceNested).toEqual({ groups: 8, items: 23 });
+    });
+
+    test(`${scope}: past the stored list's 64 groups, the nav totals are still whole`, () => {
+      const r = measured["page-metrics-many-navs.html"][scope];
+      expect(r.choiceGroupCount).toBe(70);
+      expect(r.choiceGroups.length / 2).toBe(64);
+      expect(groups(r).reduce((n, [, size]) => n + size, 0)).toBe(128);
+      const t = r as Raw & NavTotals;
+      expect(t.navGroupCount).toBe(70);
+      expect(t.navLinks).toBe(140);
+      expect(t.groupedLinks).toBe(140);
+      expect(r.links - t.groupedLinks).toBe(1);
+      expect(t.choiceNested).toEqual({ groups: 70, items: 140 });
+    });
+  }
 });
 
 describe("script detection: a language picker is not the page's language", () => {
