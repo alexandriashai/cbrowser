@@ -211,6 +211,13 @@ export function referencePopulation(): Array<{ name: string; traits: Record<stri
   });
 }
 
+let populationSize: number | undefined;
+
+/** How many personas the reference pools: the length of referencePopulation(), counted once. */
+export function referencePersonaCount(): number {
+  return (populationSize ??= referencePopulation().length);
+}
+
 /**
  * A piecewise-linear interpolated empirical distribution function.
  *

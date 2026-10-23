@@ -13,6 +13,11 @@ import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
+import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
+import { ctcRank } from "../../visual/ctc-bands.js";
+import { recordedAnswer } from "./answer-provenance.js";
+import { resolveChainValues, valueModulationReport } from "./chain-values.js";
+import { storyEffortSection, storyVerdict, type StoryEffort } from "./story-narrative.js";
 import {
   runAgentReadyAudit,
   pageAgentReadyFindings,
@@ -76,6 +81,11 @@ export function writeAuditScreenshot(
 /**
  * Register audit tools (4 tools + site_cognitive_assessment + visual_cognitive_story)
  */
+// One shared helper for every attention caller (ISC-48, ISC-48.1): the persona
+// record's own accessibilityTraits, only the fields it sets. It used to be
+// copied here and in the other tool file.
+import { personaStoredAccessibilityTraits as personaAccessibilityTraits } from "../../visual/stored-accessibility-traits.js";
+
 export function registerAuditTools(server: McpServer, context?: ToolRegistrationContext): void {
   const getBrowserByToken = context?.getBrowserByToken;
   server.registerTool("agent_ready_audit", {
@@ -247,7 +257,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, personas, threshold, siteFamiliarity, userLocation, userTimezone, userLanguage, proxy, geoRegion, device, waitAfterLoad, waitForSelector, scope, _browserToken }) => {
+  }, recordedAnswer(async ({ url, personas, threshold, siteFamiliarity, userLocation, userTimezone, userLanguage, proxy, geoRegion, device, waitAfterLoad, waitForSelector, scope, _browserToken }) => {
+    // recordedAnswer: one provenance recording per call, across every await,
+    // reported as modelProvenance once gate 3 has scored (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
     const hostedRefusal = refuseHostedUrl("site_cognitive_assessment", { url });
     if (hostedRefusal) return hostedRefusal;
@@ -514,12 +526,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
         // ── Gate 3: Per-Persona Cognitive Effort ──
         const personaResults: Record<string, unknown> = {};
-        // Set by every persona's demand + chain run (the reads are the same for
-        // each); reported once on the response so the caller can see that every
-        // constant behind these numbers is a hand-set hypothesis today.
-        let ctcProvenance: import("../../visual/model-provenance.js").ProvenanceSummary | undefined;
+        // Each scored persona's rank sentence, for the recommendations below.
+        const rankSentences: Record<string, string> = {};
         const { buildOTCognitiveProfile } = await import("../../visual/cognitive-transport.js");
-        const { withProvenance } = await import("../../visual/model-provenance.js");
         const { computeDemandDistribution, computeSequentialCTC } = await import("../../visual/cognitive-transport-chain.js");
         const { extractPageMetrics } = await import("../../visual/cognitive-transport.js");
         const { getAnyPersona, createCognitivePersona, resolvePersonaOrThrow } = await import("../../personas.js");
@@ -608,17 +617,19 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
               (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits);
 
             const otProfile = buildOTCognitiveProfile(personaName, traits);
-            // The demand is built INSIDE the recording, so the hand-set curves that
-            // turn page metrics into demand are counted with the chain's constants.
             // Rebuilt for each persona from the same metrics, so every persona is
-            // scored against the same demand; this tool has no values option.
-            // (2026-10-22)
-            const { result, provenance } = withProvenance(() =>
-              computeSequentialCTC(otProfile, computeDemandDistribution(pageMetrics), { asymmetric: true, interactions: true }));
-            ctcProvenance = provenance;
+            // scored against the same demand; this tool has no values option. The
+            // whole handler is one provenance recording, so the demand curves and
+            // the chain are counted with everything else the answer read.
+            const result = computeSequentialCTC(otProfile, computeDemandDistribution(pageMetrics), { asymmetric: true, interactions: true });
+            const rank = ctcRank(result);
+            rankSentences[personaName] = rank.sentence;
 
             personaResults[personaName] = {
+              // A percentile of the real reference pages (21.x); `band` names its band.
               totalCTC: Math.round(result.totalCTC * 1000) / 1000,
+              band: rank.band,
+              referenceScope: result.referenceScope,
               bottleneck: result.bottleneckLayer,
               abandonmentRisk: Math.round(result.abandonmentRisk * 100) + "%",
               deficit: Math.round(result.deficitCost * 1000) / 1000,
@@ -637,7 +648,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         }
 
         response.gate3 = { status: "complete", personas: personaResults };
-        if (ctcProvenance) response.modelProvenance = ctcProvenance;
+        // Holds its place in the JSON; filled after the recommendations, which
+        // read the band constants, so the block covers the whole answer.
+        response.modelProvenance = undefined;
         response.pageMetrics = {
           informationDensity: Math.round(pageMetrics.informationDensity * 1000) / 1000,
           visualComplexity: Math.round(pageMetrics.visualComplexity * 1000) / 1000,
@@ -662,14 +675,19 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         if (pageUnderstanding) response.pageUnderstanding = pageUnderstanding;
 
         // Generate recommendations
+        // The rank, not a bare totalCTC: "CTC=0.41" read as a cost on a scale
+        // it is no longer on (a percentile since 21.x), with no reference named.
         const recommendations: string[] = [];
         for (const [name, data] of Object.entries(personaResults)) {
           const d = data as Record<string, unknown>;
           if (d.bottleneck) {
-            recommendations.push(`${name}: Reduce ${d.bottleneck} complexity (primary bottleneck, CTC=${d.totalCTC})`);
+            recommendations.push(`${name}: reduce ${d.bottleneck} complexity first, the costliest layer. ${rankSentences[name]}`);
           }
         }
         response.recommendations = recommendations.slice(0, 5);
+        // Reported when at least one persona was scored, as before.
+        if (Object.keys(rankSentences).length > 0) response.modelProvenance = activeProvenance();
+        else delete response.modelProvenance;
         response.result = "COMPLETE";
         response.duration = `${Date.now() - startTime}ms`;
 
@@ -705,7 +723,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     }
 
     return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-  });
+  }));
 
   // ── Visual Cognitive Story ──
 
@@ -716,7 +734,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       url: z.string().url().describe("URL to analyze"),
       persona: z.string().optional().default("cognitive-adhd").describe("Persona name"),
       device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop' (1920x1080), or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used. Ignored with _browserToken (the session keeps its own)."),
-      useValues: z.boolean().optional().default(false).describe("Enable motivational value influence on saliency map generation, attention scoring, and narrative. Default: false."),
+      useValues: z.boolean().optional().default(false).describe("Apply the persona's Schwartz values (opt-in). They change two things: the attention quality scoring (which CTAs and distractors the persona weights), and the effort summary, where they modulate the page's demand inside the chain through its registered coefficients (chain.valueModulation.*, hand-set hypotheses, counted in modelProvenance), exactly as cognitive_effort's useValues does. They do not change the attention heatmap. `valueModulation` in the response says whether values were found for the chain and which scores it used. Default: false."),
       // Goal-directed attention is the largest single lever in the semantic
       // layer: computeGoalRelevance boosts any element whose text matches the
       // goal's keywords, which is what separates "where the eye lands on this
@@ -734,7 +752,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, persona, device, useValues, goal, aiLayer, _browserToken }) => {
+  }, recordedAnswer(async ({ url, persona, device, useValues, goal, aiLayer, _browserToken }) => {
+    // recordedAnswer: one provenance recording per call, across every await,
+    // reported as modelProvenance (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
     const hostedRefusal = refuseHostedUrl("visual_cognitive_story", { url });
     if (hostedRefusal) return hostedRefusal;
@@ -800,7 +820,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           : "not available (the artifact store was unavailable, so the full-resolution PNG was not saved)";
 
         // ── 1. Attention Heatmap ──
-        let attentionData: { entropy: number; concentration: number; hotspots: Array<{ x: number; y: number; saliency: number; row: number; col: number }>; saliencyMap?: { cells: Float64Array; rows: number; cols: number } } | null = null;
+        let attentionProvenance: ProvenanceSummary | undefined;
+        let attentionData: { entropy: number; concentration: number; hotspots: Array<{ x: number; y: number; saliency: number; row: number; col: number }>; saliencyMap?: { cells: Float64Array; rows: number; cols: number }; perceptualProfile?: { resolution: string; name: string } } | null = null;
         try {
           const { analyzeAttention } = await import("../../visual/attention-transport.js");
           // Feed the DOM in. Without it analyzeAttention falls back to the
@@ -810,12 +831,22 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // different model wearing the same name. (2026-07-29)
           const { collectDomAttentionElements } = await import("../../visual/attention-quality.js");
           const domAttentionElements = await collectDomAttentionElements(page).catch(() => []);
-          const attnResult = await analyzeAttention(ssPath, persona, 4, undefined, domAttentionElements, goal);
+          const a11y = await personaAccessibilityTraits(persona);
+          // Recorded apart from the score (attentionProvenance): the attention
+          // model reads fitted gaze calibration and published colour science,
+          // and counted in modelProvenance they made the effort score look
+          // partly fitted while the map does not feed it.
+          const { result: attnResult, provenance } = await isolatedProvenanceAsync(() => analyzeAttention(
+            ssPath, persona, 4, undefined, domAttentionElements, goal,
+            undefined, undefined, a11y,
+          ), ATTENTION_PROVENANCE_TEXT);
+          attentionProvenance = provenance;
           attentionData = {
             entropy: attnResult.entropy,
             concentration: attnResult.concentration,
             hotspots: attnResult.saliencyMap?.hotspots || [],
             saliencyMap: attnResult.saliencyMap,
+            perceptualProfile: attnResult.perceptualProfile,
           };
 
           if (attnResult.saliencyMap) {
@@ -962,6 +993,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
 
         // ── 4. Cognitive Effort Summary ──
         let effortData: Record<string, unknown> | null = null;
+        // Unrounded, for the narrative: a band edge must not move with display rounding.
+        let storyEffort: StoryEffort | null = null;
+        // useValues reaches the chain here exactly as in cognitive_effort: the
+        // persona's Schwartz scores, through the chain's registered modulation.
+        // Through 21.0 the flag never reached this summary at all.
+        const chainValues = useValues ? await resolveChainValues(persona) : undefined;
         try {
           const { buildOTCognitiveProfile } = await import("../../visual/cognitive-transport.js");
           const { computeDemandDistribution, computeSequentialCTC } = await import("../../visual/cognitive-transport-chain.js");
@@ -976,6 +1013,15 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // cognitive_distance then read as stored traits (first-timer to
           // power-user moved 0.1512 -> 0.1550). (2026-10-21)
           const traits = { ...((personaObj as unknown as Record<string, unknown>).cognitiveTraits || {}) as Record<string, number> };
+          // A first visit, as cognitive_effort and site_cognitive_assessment
+          // score it when no familiarity is supplied (this tool takes none).
+          // Left unset, the chain read the missing-trait capacity (0.5) for
+          // siteFamiliarity, the 20.x defect site-familiarity.ts describes, and
+          // this summary disagreed with cognitive_effort on the same page and
+          // persona (first-timer, prose fixture: 0.669 against 0.700).
+          const { resolveSiteFamiliarity } = await import("./site-familiarity.js");
+          const familiarity = resolveSiteFamiliarity(undefined, false);
+          traits.siteFamiliarity = familiarity.value;
           // Same bridge as Gate 3 and cognitive_effort. Without it this tool has
           // the identical missing-capacity defect and would reproduce the motor
           // disagreement against cognitive_effort the moment anyone compared them.
@@ -990,13 +1036,30 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // a scope, this marker must go and the scope must be threaded.
           const pageMetrics = await extractPageMetrics(page);
           const demand = computeDemandDistribution(pageMetrics);
-          const ctcResult = computeSequentialCTC(otProfile, demand, { asymmetric: true, interactions: true });
+          const ctcResult = computeSequentialCTC(otProfile, demand, {
+            asymmetric: true, interactions: true, ...(chainValues ? { schwartzValues: chainValues } : {}),
+          });
+          const rank = ctcRank(ctcResult);
 
           effortData = {
+            // A percentile of the real reference pages (21.x); `rank` says it in words.
             totalCTC: Math.round(ctcResult.totalCTC * 1000) / 1000,
+            band: rank.band,
+            referenceScope: ctcResult.referenceScope,
+            rank: rank.sentence,
+            raw: Math.round(ctcResult.rawCTC * 1000) / 1000,
             bottleneck: ctcResult.bottleneckLayer,
             abandonmentRisk: Math.round(ctcResult.abandonmentRisk * 100),
             layers: ctcResult.layers.map(l => ({ name: l.name, cost: Math.round(l.transportCost * 1000) / 1000 })),
+            siteFamiliarity: familiarity.value,
+            siteFamiliaritySource: familiarity.source,
+          };
+          storyEffort = {
+            totalCTC: ctcResult.totalCTC,
+            rawCTC: ctcResult.rawCTC,
+            referenceScope: ctcResult.referenceScope,
+            bottleneck: ctcResult.bottleneckLayer,
+            abandonmentRiskPercent: Math.round(ctcResult.abandonmentRisk * 100),
           };
         } catch (e) { console.debug(`[story] Effort failed: ${(e as Error).message}`); }
 
@@ -1052,9 +1115,6 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         // ── Build narrative ──
         const concentration = attentionData?.concentration ?? 0;
         const entropy = attentionData?.entropy ?? 0;
-        const ctc = (effortData?.totalCTC as number) ?? 0;
-        const bottleneck = (effortData?.bottleneck as string) ?? "unknown";
-        const risk = (effortData?.abandonmentRisk as number) ?? 0;
         const qualityData = urls.qualityData as unknown as { ctaCaptureRate?: number; distractorRatio?: number; qualityScore?: number; interpretation?: string } | undefined;
 
         const _nu = new URL(url);
@@ -1080,11 +1140,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           narrative += `Attention is spread evenly (concentration: ${pct}%) without a dominant anchor, though the page is not visually noisy. Nothing is fighting for attention; nothing is claiming it either.\n\n`;
         }
 
-        narrative += `### The Effort: How Hard It Is\n`;
-        narrative += `Total cognitive transport cost: ${ctc.toFixed(2)}. `;
-        narrative += ctc < 0.5 ? `This page is comfortable for ${persona}. ` : ctc < 1.0 ? `Moderate effort required. ` : `Significant cognitive burden. `;
-        narrative += `The bottleneck is **${bottleneck}** — this is where the design creates the most friction.\n`;
-        narrative += `Abandonment risk: **${risk}%**.\n\n`;
+        // The rank, from the registered bands (story-narrative.ts). This read
+        // totalCTC on the logistic: "comfortable" below 0.5, "Significant
+        // cognitive burden" from 1.0, and 0 (comfortable) when effort failed.
+        narrative += storyEffortSection(persona, storyEffort);
 
         narrative += `### The Question: Do They See What Matters?\n`;
         if (qualityData) {
@@ -1102,27 +1161,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         }
 
         narrative += `\n### The Verdict\n`;
-        // The verdict branched on ctc and ctaCaptureRate ONLY, ignoring the
-        // distractor ratio and quality score printed directly above it. So a
-        // page scoring 31/100 with 70% of attention on non-actionable elements
-        // was told "**Strong.** Easy to use AND attention lands on CTAs" — the
-        // verdict contradicting its own evidence one line later. A summary that
-        // reads less of the data than the section above it is worse than no
-        // summary, because it is the line people quote. (2026-07-29)
-        const distractRatio = qualityData?.distractorRatio ?? 0;
-        const qScore = qualityData?.qualityScore ?? 0;
-        const leaking = distractRatio > 0.4 || (qualityData !== undefined && qScore < 50);
-        if (ctc < 0.5 && (qualityData?.ctaCaptureRate ?? 0) > 0.2 && !leaking) {
-          narrative += `**Strong.** Easy to use AND attention lands on CTAs. This page works for ${persona}.`;
-        } else if (ctc < 0.5 && (qualityData?.ctaCaptureRate ?? 0) > 0.2 && leaking) {
-          narrative += `**Mixed.** Low cognitive effort and the CTAs do get seen, but attention quality is ${qScore}/100 with ${(distractRatio * 100).toFixed(0)}% going to non-actionable elements. ${persona} can use this page; the design is spending most of their attention on things that do not convert.`;
-        } else if (ctc < 0.5 && (qualityData?.ctaCaptureRate ?? 0) < 0.1) {
-          narrative += `**Easy but unfocused.** Low cognitive effort, but attention misses the CTAs. The page needs stronger visual hierarchy to guide ${persona} toward conversion.`;
-        } else if (ctc > 1.0 && (qualityData?.ctaCaptureRate ?? 0) > 0.2) {
-          narrative += `**Hard but focused.** High cognitive effort, but when ${persona} pushes through, they see the CTAs. Reduce complexity to lower the abandonment risk without losing the visual focus.`;
-        } else {
-          narrative += `**Needs work.** High effort AND low CTA visibility. ${persona} is both struggling to process the page AND not seeing the conversion path. Prioritize: simplify the ${bottleneck} layer, then make CTAs more prominent.`;
-        }
+        // Reads the distractor ratio and quality score as well as the CTA rate:
+        // a verdict that reads less of the data than the section above it is
+        // the line people quote and the one that contradicts it (2026-07-29).
+        // Cost is the registered band; every branch is reachable and tested
+        // (story-narrative.ts, tests/story-verdict.test.ts).
+        narrative += storyVerdict(persona, storyEffort, qualityData).text;
 
         // ── Assemble response ──
         // Third layer, opt-in. Runs AFTER the deterministic layers and is
@@ -1158,9 +1202,13 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           ...(aiAttention ? { aiAttention } : {}),
           images: urls,
           effort: effortData,
+          // Only when useValues asked for it, as in cognitive_effort.
+          ...(useValues ? { valueModulation: valueModulationReport(chainValues) } : {}),
           attention: {
             entropy: Math.round(entropy * 1000) / 1000,
             concentration: Math.round(concentration * 1000) / 1000,
+            // Which perceptual filter drew the map, as attention_analysis reports it.
+            perceptualProfile: attentionData?.perceptualProfile ?? null,
           },
           quality: qualityData ? {
             ctaCaptureRate: qualityData.ctaCaptureRate,
@@ -1168,6 +1216,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             score: qualityData.qualityScore,
           } : null,
           duration: `${Date.now() - startTime}ms`,
+          // Every registered constant the effort score read, the same block
+          // cognitive_effort reports. Taken here, after every step that reads one;
+          // fitting the previews below reads none.
+          modelProvenance: activeProvenance(),
+          // The attention analysis's own block, kept out of modelProvenance.
+          ...(attentionProvenance ? { attentionProvenance } : {}),
         };
 
         // Every overlay rides along as a preview, the budget split between them
@@ -1193,7 +1247,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         }],
       };
     }
-  });
+  }));
 }
 
 /**

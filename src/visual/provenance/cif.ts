@@ -140,10 +140,13 @@ export const CIF_PROVENANCE: ProvenanceEntry[] = [
   h("sensory.audio.barrierPenalty", 15, PER_BARRIER("caption or audio (each barrier once, even when it mentions both; quoted in the details text)", "deaf and hard-of-hearing users")),
   h("sensory.calm.densityWeight", 50, "Hand-set visualCalm points lost across the full range of information density; calm ratings by users with sensory sensitivities against measured density would fit it."),
   h("sensory.calm.animationPenalty", 15, "Hand-set visualCalm points lost per uncontrolled animation; the same calm ratings would fit it."),
-  h("sensory.overload.easyCTC", 0.3, "Hand-set total CTC up to which overloadThreshold scores full marks ('easy' on cbrowser's own CTC scale, whose constants are hypotheses too); abandonment or overload reports against total CTC would place it."),
-  h("sensory.overload.kneeCTC", 0.6, "Hand-set total CTC at which overloadThreshold's slope changes. The score there is derived from the slope below (kneeScore(): 100 - 0.3 x 130 = 61); until 21.0 it was a separate constant, 60, so the score stepped from 61 to 60 at CTC 0.6. The same abandonment data would place the knee."),
-  h("sensory.overload.slopeBelowKnee", 130, "Hand-set points lost per unit of CTC between easy and the knee; the same abandonment data would fit it."),
-  h("sensory.overload.slopeAboveKnee", 100, "Hand-set points lost per unit of CTC above the knee; the same abandonment data would fit it."),
+  // overloadThreshold's cut points are the verdict bands' (ctcBands.upperHalf,
+  // ctcBands.high; provenance/ctc-reference.ts). Its own easyCTC 0.3 and
+  // kneeCTC 0.6 were cuts on the logistic totalCTC was until 21.x and are
+  // retired; the score at the knee is still derived from the slope below
+  // (kneeScore(): 100 - (0.8 - 0.5) x 130 = 61).
+  h("sensory.overload.slopeBelowKnee", 130, "Hand-set points lost per unit of totalCTC (a percentile of real pages) between ctcBands.upperHalf and the knee at ctcBands.high. Set when totalCTC was a logistic, and kept: on the percentile the stretch it covers is 0.5 to 0.8, the same width as the logistic's 0.3 to 0.6, so the knee still scores 61. Abandonment or overload reports against totalCTC would fit it."),
+  h("sensory.overload.slopeAboveKnee", 100, "Hand-set points lost per unit of totalCTC (a percentile) above the knee at ctcBands.high. Kept from the logistic: the stretch above the knee is now 0.8 to 1, so the lowest score totalCTC can reach is 41, where it was 21 at totalCTC 1 on the logistic. The same abandonment data would fit it."),
 
   // ── Navigation ──
   h("navigation.weight.semanticStructure", 0.25, COMPONENT_WEIGHT("navigation", "semanticStructure")),

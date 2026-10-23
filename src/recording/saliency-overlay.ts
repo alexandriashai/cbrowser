@@ -31,7 +31,9 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { analyzeAttention, type DOMAttentionElement } from "../visual/attention-transport.js";
+import { analyzeAttention, type AttentionAnalysis, type DOMAttentionElement } from "../visual/attention-transport.js";
+import { personaStoredAccessibilityTraits } from "../visual/stored-accessibility-traits.js";
+import type { AccessibilityTraits } from "../types.js";
 import {
   judgeRelevance,
   summarizeCapture,
@@ -119,6 +121,11 @@ export interface OverlayResult {
   personaResolved?: boolean;
   /** The persona actually used, which may differ from the one requested. */
   personaUsed?: string;
+  /**
+   * How the persona's perceptual filter was found for the painted frames
+   * (AttentionAnalysis.perceptualProfile). Absent when no frame was overlaid.
+   */
+  perceptualProfile?: AttentionAnalysis["perceptualProfile"];
 }
 
 /**
@@ -211,8 +218,10 @@ async function renderHeatLayer(
     persona: string;
     domElements?: DOMAttentionElement[];
     goal?: string;
+    /** The persona's stored accessibility traits (storedAccessibilityTraits). */
+    accessibilityTraits?: AccessibilityTraits;
   },
-): Promise<Buffer | null> {
+): Promise<{ layer: Buffer; perceptualProfile: AttentionAnalysis["perceptualProfile"] } | null> {
   const analysis = await analyzeAttention(
     framePath,
     opts.persona,
@@ -220,6 +229,9 @@ async function renderHeatLayer(
     undefined,
     opts.domElements,
     opts.goal,
+    undefined,
+    undefined,
+    opts.accessibilityTraits,
   );
   const map = analysis.saliencyMap;
   if (!map) return null;
@@ -252,7 +264,7 @@ async function renderHeatLayer(
       out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = a;
     }
   }
-  return out;
+  return { layer: out, perceptualProfile: analysis.perceptualProfile };
 }
 
 /**
@@ -275,6 +287,11 @@ export async function overlayAttentionOnFrames(
     persona: options.persona ?? "first-timer",
     domElements: options.domElements,
     goal: options.goal,
+    // Looked up once, not per frame. Without them the overlay painted a persona
+    // through the default filter while attention_analysis drew the same persona
+    // through one synthesized from its record (ISC-48.1, 2026-10-22).
+    accessibilityTraits: await personaStoredAccessibilityTraits(options.persona ?? "first-timer")
+      .catch(() => undefined),
   };
 
   const sharpModule: any = await import("sharp");
@@ -324,6 +341,7 @@ export async function overlayAttentionOnFrames(
 
   const frames: string[] = [];
   let failed = 0;
+  let perceptualProfile: OverlayResult["perceptualProfile"];
 
   for (const [frameIdx, framePath] of framePaths.entries()) {
     const target = join(dir, basename(framePath));
@@ -338,6 +356,7 @@ export async function overlayAttentionOnFrames(
         domElements: domAt(options.frameTimesMs?.[frameIdx] ?? 0),
       });
       if (!heat) throw new Error("no attention map produced");
+      perceptualProfile ??= heat.perceptualProfile;
 
       // Blur at foveal scale. The saliency literature smooths fixation maps with
       // a Gaussian at sigma ~= 1 degree of visual angle BECAUSE that is the size
@@ -345,7 +364,7 @@ export async function overlayAttentionOnFrames(
       // attention map with edges sharper than the eye's own acuity is claiming a
       // precision no measurement supports, so this is the honest rendering as
       // well as the one that reads correctly.
-      const blurred = await sharp(heat, { raw: { width, height, channels: 4 } })
+      const blurred = await sharp(heat.layer, { raw: { width, height, channels: 4 } })
         .blur(Math.max(2, Math.round(Math.min(width, height) * 0.012)))
         .raw()
         .toBuffer();
@@ -460,6 +479,7 @@ export async function overlayAttentionOnFrames(
     quantity: usedDom ? "predicted-attention" : "visual-contrast-only",
     personaResolved,
     personaUsed: opts.persona,
+    ...(perceptualProfile ? { perceptualProfile } : {}),
     ...(moments && moments.length > 0 ? { moments } : {}),
     ...(summary ? { summary } : {}),
   };

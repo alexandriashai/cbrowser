@@ -94,7 +94,7 @@
       }
     },
     "sensory": {
-      "score": 79,
+      "score": 80,
       "components": {
         "animationControl": {
           "score": 94,
@@ -117,8 +117,8 @@
           "measured": true
         },
         "overloadThreshold": {
-          "score": 95,
-          "details": "Total CTC: 0.340 (lower = less cognitive overload risk)",
+          "score": 100,
+          "details": "Total CTC 0.340: costlier than 34% of the real pages we measured. Band: lower half (below the 50th percentile).",
           "measured": true
         }
       }
@@ -196,7 +196,7 @@
     "url": "https://app.example.com/dashboard"
   },
   "cognitive-overload": {
-    "composite": 46,
+    "composite": 47,
     "grade": "D",
     "certification": "none",
     "motor": {
@@ -290,7 +290,7 @@
       }
     },
     "sensory": {
-      "score": 64,
+      "score": 68,
       "components": {
         "animationControl": {
           "score": 100,
@@ -313,8 +313,8 @@
           "measured": true
         },
         "overloadThreshold": {
-          "score": 0,
-          "details": "Total CTC: 1.420 (lower = less cognitive overload risk)",
+          "score": 43,
+          "details": "Total CTC 0.980: costlier than 98% of the real pages we measured. Band: top 5% (95th percentile and above).",
           "measured": true
         }
       }
@@ -363,12 +363,6 @@
         "fix": "Reduce visible elements from 2350 toward 200 -- use progressive disclosure to reveal content incrementally"
       },
       {
-        "category": "sensory",
-        "component": "overloadThreshold",
-        "score": 0,
-        "fix": "Reduce total cognitive load -- simplify page structure, reduce simultaneous information streams"
-      },
-      {
         "category": "cognitive",
         "component": "attentionClarity",
         "score": 14,
@@ -379,6 +373,12 @@
         "component": "spacingDensity",
         "score": 22,
         "fix": "Increase whitespace between content blocks to lower information density (now 78%); above 60% textScalability is penalised too"
+      },
+      {
+        "category": "cognitive",
+        "component": "decisionComplexity",
+        "score": 24,
+        "fix": "Reduce choices from 96 to 10 or fewer per decision point (decision time grows with the number of options: Hick-Hyman law)"
       }
     ],
     "notMeasured": [
@@ -394,7 +394,7 @@
     "url": "https://portal.example.gov/benefits/application"
   },
   "keyboard-trap": {
-    "composite": 73,
+    "composite": 74,
     "grade": "B",
     "certification": "bronze",
     "motor": {
@@ -488,7 +488,7 @@
       }
     },
     "sensory": {
-      "score": 72,
+      "score": 75,
       "components": {
         "animationControl": {
           "score": 50,
@@ -511,8 +511,8 @@
           "measured": true
         },
         "overloadThreshold": {
-          "score": 68,
-          "details": "Total CTC: 0.550 (lower = less cognitive overload risk)",
+          "score": 94,
+          "details": "Total CTC 0.550: costlier than 55% of the real pages we measured. Band: upper half (50th-80th percentile).",
           "measured": true
         }
       }
@@ -1278,7 +1278,7 @@
         },
         "overloadThreshold": {
           "score": 100,
-          "details": "Total CTC: 0.180 — within easy range",
+          "details": "Total CTC 0.180: costlier than 18% of the real pages we measured. Band: lower half (below the 50th percentile).",
           "measured": true
         }
       }

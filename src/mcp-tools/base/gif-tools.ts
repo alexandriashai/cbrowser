@@ -133,6 +133,15 @@ export function registerGifTools(
 
     // Refused before launching anything; an unknown name was animated as if it
     // were a persona. (2026-10-09)
+    //
+    // The account's CMS personas are loaded first, as attention_analysis does,
+    // so an account persona resolves here with the traits on its record rather
+    // than being refused as unknown. (2026-10-22)
+    try {
+      const { loadAccountPersonas } = await import("../account-personas.js");
+      const { getSessionApiKey } = await import("./cognitive-tools.js");
+      await loadAccountPersonas(getSessionApiKey());
+    } catch { /* falls back to disk and built-ins */ }
     {
       const { getAnyPersona, suggestPersonaNames } = await import("../../personas.js");
       if (!getAnyPersona(persona)) {
@@ -163,6 +172,7 @@ export function registerGifTools(
       const page = await browser.getPage();
       const frames: Buffer[] = [];
       const stepDescriptions: string[] = [];
+      let perceptualProfile: { resolution: string; name: string } | undefined;
       const tmpDir = join(tmpdir(), `journey-gif-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
 
@@ -170,6 +180,10 @@ export function registerGifTools(
       const { analyzeAttention } = await import("../../visual/attention-transport.js");
       const { generateHeatmapOverlay } = await import("../../visual/heatmap-overlay.js");
       const { collectDomAttentionElements } = await import("../../visual/attention-quality.js");
+      // The persona's own accessibility traits, so its filter is the one
+      // attention_analysis draws it with (ISC-48.1, 2026-10-22).
+      const { personaStoredAccessibilityTraits } = await import("../../visual/stored-accessibility-traits.js");
+      const accessibilityTraits = await personaStoredAccessibilityTraits(persona);
 
       // Step 0: initial page
       for (let step = 0; step < maxSteps; step++) {
@@ -190,7 +204,10 @@ export function registerGifTools(
           // contrast, and this tool animates that as a persona's attention shifting
           // across a task. (2026-07-29)
           const domAttentionElements = await collectDomAttentionElements(page).catch(() => []);
-          const attnResult = await analyzeAttention(ssPath, persona, 8, undefined, domAttentionElements, goal);
+          const attnResult = await analyzeAttention(
+            ssPath, persona, 8, undefined, domAttentionElements, goal, undefined, undefined, accessibilityTraits,
+          );
+          perceptualProfile ??= attnResult.perceptualProfile;
 
           if (attnResult.saliencyMap) {
             const heatmapB64 = await generateHeatmapOverlay(
@@ -282,6 +299,8 @@ export function registerGifTools(
       const data: Record<string, unknown> = {
         url,
         persona,
+        // Which perceptual filter drew the frames, as attention_analysis reports it.
+        ...(perceptualProfile ? { perceptualProfile } : {}),
         goal,
         frames: frames.length,
         steps: stepDescriptions,

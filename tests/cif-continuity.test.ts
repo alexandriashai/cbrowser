@@ -4,7 +4,8 @@
  *
  * overloadThreshold's score above its knee used to start from a registered
  * constant (60) while the branch below ended at 61, so it stepped down a point
- * at CTC 0.6. interactionCount and informationDensity met only because their
+ * at CTC 0.6; its knee is now the high band's cut point, ctcBands.high.
+ * interactionCount and informationDensity met only because their
  * knee scores happened to agree with their slopes. All three knee scores are
  * now derived from the slope below (kneeScore() in cif-score.ts), so changing
  * a slope cannot open a step; the tests perturb the slopes to prove it.
@@ -32,8 +33,8 @@ const interaction = (x: number) => at({ interactiveCount: x }).motor.components.
 const density = (x: number) => at({ elementCount: x }).cognitive.components.informationDensity.score;
 
 describe("CIF piecewise scores are continuous at their knees", () => {
-  test("overloadThreshold no longer steps at CTC 0.6", () => {
-    const { atKnee, justAbove } = sides(param("cif.sensory.overload.kneeCTC"), overload);
+  test("overloadThreshold does not step at its knee (the high band's cut point, 0.8)", () => {
+    const { atKnee, justAbove } = sides(param("ctcBands.high"), overload);
     expect(atKnee).toBe(61);
     expect(justAbove).toBe(atKnee);
   });
@@ -47,7 +48,7 @@ describe("CIF piecewise scores are continuous at their knees", () => {
 
   test("continuity survives a change of the slope below the knee (the knee score is derived, not registered)", () => {
     const cases: Array<[string, number, string, (x: number) => number]> = [
-      ["cif.sensory.overload.slopeBelowKnee", 70, "cif.sensory.overload.kneeCTC", overload],
+      ["cif.sensory.overload.slopeBelowKnee", 70, "ctcBands.high", overload],
       ["cif.motor.interactive.slopeBelowKnee", 1.5, "cif.motor.interactive.kneeCount", interaction],
       ["cif.cognitive.density.divisorBelowKnee", 10, "cif.cognitive.density.kneeCount", density],
     ];

@@ -809,6 +809,11 @@ function computeTraitModifiers(traits: Record<string, number>): Record<string, n
   };
 }
 
+/** Goal words that never count as keywords. */
+const GOAL_STOP_WORDS: readonly string[] = [
+  "the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "it", "my", "i", "me", "and", "or", "how", "do", "can",
+];
+
 /**
  * Compute goal relevance boost for an element.
  * If the element's text matches the user's goal, massively boost its weight.
@@ -820,7 +825,7 @@ function computeGoalRelevance(elementText: string, goal: string, minKeywordLengt
   const textLower = elementText.toLowerCase();
 
   // Extract goal keywords (remove stop words)
-  const stopWords = new Set(["the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "it", "my", "i", "me", "and", "or", "how", "do", "can"]);
+  const stopWords = new Set(GOAL_STOP_WORDS);
   const goalWords = goalLower.split(/\s+/).filter(w => w.length >= minKeywordLength && !stopWords.has(w));
 
   if (goalWords.length === 0) return 0;
@@ -836,6 +841,40 @@ function computeGoalRelevance(elementText: string, goal: string, minKeywordLengt
   const matchRatio = matches / goalWords.length;
   // 2.0x boost for full match (attention.relevance.gain), proportional for partial
   return matchRatio * gain;
+}
+
+/**
+ * The element weights the semantic layer paints with for this persona: base
+ * weight per type, the persona's modifier per type (from its cognitive traits,
+ * else the static table, as buildSemanticMap chooses), the weight of an unknown
+ * type, and the goal-keyword constants.
+ *
+ * Exported for the in-page journey heatmap (ATTENTION_OVERLAY_SCRIPT in
+ * cognitive/index.ts), which draws inside the browser and cannot call this
+ * module. It received a hand-written copy of these tables that had drifted:
+ * its navigation weight still read siteFamiliarity, dropped here on
+ * 2026-08-05. It now receives this. (ISC-48.1, 2026-10-22;
+ * tests/attention-overlay-config.test.ts checks it against buildSemanticMap.)
+ */
+export function semanticWeightTable(
+  personaName: string,
+  cognitiveTraits?: Record<string, number>,
+): {
+  typeWeights: Record<string, number>;
+  personaMods: Record<string, number>;
+  typeFallback: number;
+  relevanceGain: number;
+  minKeywordLength: number;
+  stopWords: string[];
+} {
+  return {
+    typeWeights: elementTypeWeights(),
+    personaMods: cognitiveTraits ? computeTraitModifiers(cognitiveTraits) : staticPersonaModifiers(personaName),
+    typeFallback: param("attention.type.fallback"),
+    relevanceGain: param("attention.relevance.gain"),
+    minKeywordLength: param("attention.goal.minKeywordLength"),
+    stopWords: [...GOAL_STOP_WORDS],
+  };
 }
 
 /** Text cues for Schwartz-value relevance, in the order their boosts apply. */

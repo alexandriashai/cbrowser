@@ -14,11 +14,13 @@
  * The custom personas are named so that no name keyword infers a profile, so
  * "synthesized" can only come from the traits on record.
  *
- * Known and left for accessibility-empathy.ts: for a CUSTOM persona,
- * runEmpathyAudit replaces the stored accessibilityTraits with ones inferred
- * from the name and cognitive traits before scoring, so both tools now say
- * "synthesized" but from different trait values. For the built-in
- * accessibility personas both read the same stored traits.
+ * runEmpathyAudit used to replace a CUSTOM persona's stored accessibilityTraits
+ * with ones inferred from the name and cognitive traits, so both tools said
+ * "synthesized" from different trait values. Since 2026-10-22 stored traits win
+ * there too, and empathy_audit's own attention pass, journey_heatmap_gif and
+ * the capture overlay pass the record's traits as well
+ * (tests/attention-traits-callers.test.ts, tests/empathy-stored-traits.test.ts,
+ * tests/saliency-overlay-traits.test.ts).
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT

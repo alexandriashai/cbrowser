@@ -6,7 +6,6 @@
  */
 
 import { z } from "zod";
-import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
 import { scopeProse } from "../../visual/scope-prose.js";
@@ -39,10 +38,12 @@ import {
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits } from "../../visual/cognitive-models.js";
-import { withProvenance } from "../../visual/model-provenance.js";
+import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
-import type { SchwartzValues } from "../../values/schwartz-values.js";
+import { ctcBandsDescription, ctcRank } from "../../visual/ctc-bands.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
+import { resolveChainValues, valueModulationReport } from "./chain-values.js";
+import { recordedAnswer } from "./answer-provenance.js";
 
 /**
  * Most base64 characters cognitive_effort spends on its inline motor-overlay
@@ -52,26 +53,6 @@ import { resolveSiteFamiliarity } from "./site-familiarity.js";
  * picture into it instead of dropping it.
  */
 const MOTOR_PREVIEW_MAX_CHARS = 40_000;
-
-const SCHWARTZ_KEYS: Array<keyof SchwartzValues> = [
-  "selfDirection", "stimulation", "hedonism", "achievement", "power",
-  "security", "conformity", "tradition", "benevolence", "universalism",
-];
-
-/**
- * The ten Schwartz scores of a persona's values record, the shape the chain's
- * value modulation reads. A record carries higher-order values, SDT needs and
- * a Maslow level beside them; only the ten are passed on. Undefined when none
- * is a number, so "values applied" is never reported for an empty record.
- */
-function schwartzScores(values: object): Record<string, number> | undefined {
-  const v = values as Record<string, unknown>;
-  const out: Record<string, number> = {};
-  for (const k of SCHWARTZ_KEYS) {
-    if (typeof v[k] === "number" && Number.isFinite(v[k])) out[k] = v[k] as number;
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
 
 /**
  * Reference distribution of cognitive distances across the built-in persona set.
@@ -782,7 +763,7 @@ Begin with the first persona: ${personas[0]}
   server.registerTool("cognitive_effort", {
     _meta: { ui: { resourceUri: "ui://cbrowser/effort" } },
     title: "Cognitive Effort Analysis",
-    description: "Compute total cognitive effort for a persona to use a page. MEASURES THE VIEWPORT BY DEFAULT (above the fold); pass scope='full_page' to measure the whole page. Uses the 8-layer Sequential Transport Chain: visual complexity (a count of visual elements and motion, not the attention model) → cognitive load → decision → motor (target acquisition) → motor procedure (executing a sequence) → frustration → readability (decoding) → reading attention (holding the line, re-reading). Site familiarity is per run: pass siteFamiliarity (0 first visit, 1 daily user) or every persona is scored as a first visit. No persona carries a familiarity of its own, and site knowledge from crawling is reported but does not change the score.",
+    description: "Compute total cognitive effort for a persona to use a page. MEASURES THE VIEWPORT BY DEFAULT (above the fold); pass scope='full_page' to measure the whole page. Uses the 8-layer Sequential Transport Chain: visual complexity (a count of visual elements and motion, not the attention model) → cognitive load → decision → motor (target acquisition) → motor procedure (executing a sequence) → frustration → readability (decoding) → reading attention (holding the line, re-reading). Site familiarity is per run: pass siteFamiliarity (0 first visit, 1 daily user) or every persona is scored as a first visit. No persona carries a familiarity of its own, and site knowledge from crawling is reported but does not change the score. The headline number, cognitiveTransportCost.total, is a percentile: the page's raw cost ranked among the real pages of the shipped reference set, for the built-in personas, at the same scope (0.8 = costlier than 80% of them). The verdict states that rank and its band; the cost is untested against human data, so it says nothing about how a person feels, and abandonmentRisk is a separate quantity.",
     inputSchema: {
       url: z.string().url().describe("URL to analyze"),
       // Per RUN, not per persona. A persona is familiar with one site and new
@@ -808,7 +789,9 @@ Begin with the first persona: ${personas[0]}
       idempotentHint: true,
       openWorldHint: true,
     },
-  }, async ({ url, persona: personaName, siteFamiliarity, _browserToken, userLocation, userTimezone, userLanguage, proxy, useValues, waitAfterLoad, waitForSelector, scope }) => {
+  }, recordedAnswer(async ({ url, persona: personaName, siteFamiliarity, _browserToken, userLocation, userTimezone, userLanguage, proxy, useValues, waitAfterLoad, waitForSelector, scope }) => {
+    // recordedAnswer: one provenance recording per call, across every await,
+    // reported as modelProvenance at the end (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
     const hostedRefusal = refuseHostedUrl("cognitive_effort", { url });
     if (hostedRefusal) return hostedRefusal;
@@ -1008,38 +991,8 @@ Begin with the first persona: ${personas[0]}
       // unclamped (up to 1.3), while the chain's modulation was reached from no
       // tool at all. Two hand-set models of one effect, and the one that ran was
       // the one the provenance block could not see. (2026-10-22)
-      let schwartzValues: Record<string, number> | undefined;
-      if (useValues) try {
-        // regPV2 writes the caller's account store, not the process-wide registry. (tenant, 2026-10-10)
-        const { registerAccountPersonaValues: regPV2, createPersonaValues: createPV2 } = await import("../../values/index.js");
-        let pValues = resolveValuesForPersona(personaName);
-
-        // Custom persona CMS fallback
-        if (!pValues) {
-          try {
-            const { getSessionApiKey } = await import("./cognitive-tools.js"); const _sessionApiKey = getSessionApiKey();
-            if (_sessionApiKey) {
-              const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
-              const res = await fetch(`${cmsUrl}/api/personas`, { headers: { "Authorization": `Bearer ${_sessionApiKey}` } });
-              if (res.ok) {
-                const data = await res.json() as { personas: Array<{ name: string; slug: string; schwartz_values?: string }> };
-                const match = data.personas.find((p: any) => p.slug === personaName || p.name.toLowerCase() === personaName.toLowerCase());
-                if (match?.schwartz_values) {
-                  const sv = typeof match.schwartz_values === "string" ? JSON.parse(match.schwartz_values) : match.schwartz_values;
-                  const pv = createPV2(
-                    { selfDirection: sv.selfDirection ?? 0.5, stimulation: sv.stimulation ?? 0.5, hedonism: sv.hedonism ?? 0.5, achievement: sv.achievement ?? 0.5, power: sv.power ?? 0.5, security: sv.security ?? 0.5, conformity: sv.conformity ?? 0.5, tradition: sv.tradition ?? 0.5, benevolence: sv.benevolence ?? 0.5, universalism: sv.universalism ?? 0.5 },
-                    { autonomyNeed: sv.autonomyNeed ?? 0.5, competenceNeed: sv.competenceNeed ?? 0.5, relatednessNeed: sv.relatednessNeed ?? 0.5 },
-                    "esteem"
-                  );
-                  regPV2([{ personaName, values: pv, rationale: "Custom persona from CMS" }]);
-                  pValues = pv;
-                }
-              }
-            }
-          } catch { /* CMS fallback failed */ }
-        }
-        if (pValues) schwartzValues = schwartzScores(pValues);
-      } catch { /* values not available — proceed without */ }
+      // One resolver, shared with visual_cognitive_story (chain-values.ts).
+      const schwartzValues = useValues ? await resolveChainValues(personaName) : undefined;
       const chainOptions = { asymmetric: true, interactions: true, ...(schwartzValues ? { schwartzValues } : {}) };
 
       // SEQUENTIAL PASS, measuring half. The per-screen metrics are read here and
@@ -1059,18 +1012,14 @@ Begin with the first persona: ${personas[0]}
         }
       }
 
-      // Everything the reported numbers are computed from, under ONE provenance
-      // recording: the demand curves, the chain, the value modulation when
-      // useValues applied it, and the sequential curve when scope asks for it.
-      //
-      // The demand used to be built before this block, so the 35 hand-set
-      // weights that turn page metrics into per-trait demand were read and not
-      // reported: the block listed 22 hypotheses for an answer that read 57.
-      // Synchronous on purpose: the recording is module state, and an await in
-      // here would let another request's reads land in this answer's block. The
-      // persona profile stays outside: its distance.* reads shape the distance
-      // model's distribution, not the traits the chain reads. (2026-10-22)
-      const { result: scored, provenance: ctcProvenance } = withProvenance(() => {
+      // The demand curves, the chain, the value modulation when useValues
+      // applied it, and the sequential curve when scope asks for it. These used
+      // to run under their own synchronous withProvenance, the only part of the
+      // answer the recorder could see while it was module state; the whole
+      // handler is one recording now (recordedAnswer), so this is just the
+      // computation, and the block reported below counts it with everything
+      // else the answer read. (2026-10-22)
+      const scored = (() => {
         let seq: ReturnType<typeof computeSequentialScrollCTC> | undefined;
         let seqError = sequentialError;
         if (perScreen) {
@@ -1082,7 +1031,7 @@ Begin with the first persona: ${personas[0]}
         }
         const demand = computeDemandDistribution(pageMetrics);
         return { aggregate: computeSequentialCTC(otProfile, demand, chainOptions), seq, seqError };
-      });
+      })();
       const result = scored.aggregate;
 
       let sequentialResult: Record<string, unknown> | undefined;
@@ -1108,7 +1057,15 @@ Begin with the first persona: ${personas[0]}
           dropOff: seq.dropOff
             ? { screen: seq.dropOff.screen, layer: seq.dropOff.layer, shareOfSessions: `${Math.round(seq.dropOff.share * 100)}%` }
             : null,
-          reachWeightedCTC: seq.reachWeightedCTC,
+          // The reach-weighted MEAN of the screens' percentiles: where the typical
+          // screen this persona actually sees ranks. Replaces reachWeightedCTC,
+          // the reach-weighted SUM, which grew with every screen reached and so
+          // ranked a long page costlier for being long; a sum of percentiles is
+          // not a percentile of anything. The chain still returns the sum.
+          reachWeightedMeanScreenCTC: (() => {
+            const reach = seq.screens.reduce((a, x) => a + x.reachProbability, 0);
+            return reach > 0 ? Math.round((seq.screens.reduce((a, x) => a + x.reachProbability * x.screenCTC, 0) / reach) * 1000) / 1000 : null;
+          })(),
           curve: seq.screens.map((x) => ({
             screen: x.screen,
             reach: `${Math.round(x.reachProbability * 100)}%`,
@@ -1118,6 +1075,7 @@ Begin with the first persona: ${personas[0]}
             bottleneck: x.bottleneckLayer,
           })),
           note: "Each screen is measured on ITS OWN content, and capacity carries forward -- screen 7 is scored against what screens 1-6 left, not against a fresh persona. Count-based demands (interactive elements, choices) charge only elements not seen on an earlier screen, so a sticky nav is one decision rather than one per screen; text and visual density are NOT deduplicated, because re-encountering text is re-reading it.",
+          screenCTCNote: "screenCTC is a percentile, like the aggregate total: the screen's raw cost ranked among the first screens of the real reference pages, scored for the built-in personas arriving fresh. A later screen is scored against the capacity earlier screens left, so its rank reflects that depletion as well as its own content. reachWeightedMeanScreenCTC averages the screens' percentiles, each weighted by the chance of reaching it: the rank of the typical screen this persona sees. It replaces reachWeightedCTC, an unnormalised sum that grew with the number of screens reached.",
           differsFrom: "The aggregate `abandonmentRisk` above asks what the whole document would cost if it were all processed. This asks how far they get. They are different questions and will not agree.",
           uncalibrated: "The per-screen hazard uses the same ABANDONMENT_HILL_EXPONENT as the aggregate, which nothing empirical set. At 2 the curve is superlinear, so this model inherits a thumb on the scale.",
           readThisFirst: "TRUST THE SHAPE, NOT THE TOTAL. `totalAbandonment` compounds a per-screen hazard across every screen, so on a long page it saturates toward 100% almost regardless of the page -- measured, elderly-user reached 100% on a 7-screen university homepage. That is the uncalibrated exponent compounding, not a finding about that page. `expectedDepthScreens` and `dropOff` are the numbers to act on: they say how far people get and what stops them, and both depend on the RANKING of per-screen hazards rather than their absolute level, which is the part the exponent least disturbs. `dropOff` is persona-dependent by design and that is not noise: an impatient reader drops on screen one, a patient one survives to whichever screen is genuinely hardest, and the two answers are both correct for their reader.",
@@ -1277,6 +1235,10 @@ Begin with the first persona: ${personas[0]}
       const hostOf = (u: string) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ""; } };
       const redirected = !!landedUrl && hostOf(landedUrl) !== "" && hostOf(landedUrl) !== hostOf(url);
 
+      // Where the cost ranks among the real reference pages (ctc-bands.ts): the
+      // band, the rank sentence and the verdict all read this one value.
+      const rank = ctcRank(result);
+
       const response: Record<string, unknown> = {
         url,
         ...(redirected ? {
@@ -1284,38 +1246,42 @@ Begin with the first persona: ${personas[0]}
           redirectNote: `Requested ${hostOf(url)} and landed on ${hostOf(landedUrl)}. Every number below describes ${hostOf(landedUrl)}.`,
         } : { resolvedUrl: landedUrl }),
         persona: personaName,
-        // Status counts of every registry constant this answer read -- demand
-        // curves, chain, value modulation if applied, sequential curve if
-        // scored -- and the ids of the hand-set ones.
-        modelProvenance: ctcProvenance,
+        // Status counts of every registry constant the score read, and the ids
+        // of the hand-set ones. A placeholder here so the field keeps its place
+        // in the JSON; filled as the last step before serialising, so the block
+        // covers the whole score: page measurement, demand, chain, values,
+        // sequential curve and verdict. The saliency overlay, drawn as context,
+        // carries its own block on its layerOverlays entry.
+        modelProvenance: undefined,
         // Only when useValues asked for it, so a persona with no values is
         // visibly scored without them rather than silently.
-        ...(useValues ? {
-          valueModulation: schwartzValues
-            ? { applied: true, scores: schwartzValues }
-            : { applied: false, reason: "No Schwartz values were found for this persona (registry, its own schwartzValues, its Big Five, or an account persona in the CMS), so it was scored without them." },
-        } : {}),
+        ...(useValues ? { valueModulation: valueModulationReport(schwartzValues) } : {}),
         cognitiveTransportCost: {
+          // A percentile (21.x): raw ranked among the real reference pages for
+          // the built-in personas at the same scope. 0.8 is costlier than 80%.
           total: Math.round(result.totalCTC * 1000) / 1000,
+          band: rank.band,
+          referenceScope: result.referenceScope,
+          rank: rank.sentence,
           additive: Math.round(result.additiveCTC * 1000) / 1000,
-          // The un-normalized cost. `total` is a sigmoid of this, so the two
-          // are not interchangeable and any ratio must use `raw`.
+          // The un-normalized cost. `total` is its percentile among real pages,
+          // so the two are not interchangeable and any ratio must use `raw`.
           raw: Math.round(result.rawCTC * 1000) / 1000,
           // raw / additive — both in layer-cost units, so this is the genuine
           // contribution of interactions and sequential depletion.
           chainCoefficient: Math.round((result.rawCTC / Math.max(0.001, result.additiveCTC)) * 1000) / 1000,
           /**
            * @deprecated Use chainCoefficient. NOTE ITS VALUE CHANGED: this used
-           * to divide `total` (a sigmoid, 0-1) by `additive` (a raw sum) and
+           * to divide `total` (then a logistic, 0-1) by `additive` (a raw sum) and
            * reported ~0.3-0.5, which read as the chain dampening by 60%. That
            * was a unit error, not a measurement — it was reporting the sigmoid.
            * Preserving the old number bit-for-bit would preserve a meaningless
            * one, so this now carries the corrected value.
            */
           sequentialAmplification: Math.round((result.rawCTC / Math.max(0.001, result.additiveCTC)) * 1000) / 1000,
-          chainNote: "chainCoefficient = raw / additive, both in layer-cost units. Above 1 means interactions and sequential depletion added cost. Re-measured 1.002-1.036 at EIGHT layers, after `motor` was split into target acquisition and sequence execution (2026-08-03). It was 1.003-1.054 at seven and 1.002-1.019 at six. The range narrowed rather than widening this time: splitting one layer into two halves each layer's per-step cost, so the same total is reached through smaller increments and less of it compounds. Real, and small. Do NOT compute total/additive — total is a sigmoid of raw and the ratio compares different units.",
+          chainNote: "chainCoefficient = raw / additive, both in layer-cost units. Above 1 means interactions and sequential depletion added cost. Re-measured 1.002-1.036 at EIGHT layers, after `motor` was split into target acquisition and sequence execution (2026-08-03). It was 1.003-1.054 at seven and 1.002-1.019 at six. The range narrowed rather than widening this time: splitting one layer into two halves each layer's per-step cost, so the same total is reached through smaller increments and less of it compounds. Real, and small. Do NOT compute total/additive — total is the percentile of raw among the real reference pages, not a cost, and the ratio compares different units.",
           interpretationBasis: "total",
-          interpretationBands: "total < 0.3 comfortable, < 0.6 moderate, < 0.8 struggling, else likely abandon",
+          interpretationBands: `total is a percentile of the real reference pages, banded ${ctcBandsDescription()}. The cut points are registered definitions (ctcBands.*), chosen as conventions and not fitted. A band is a rank among real pages: the CTC is untested against human data, so it says nothing about how a person experiences the page, and it is not an abandonment prediction (that is abandonmentRisk, a separate quantity).`,
         },
         layers: result.layers.map(l => ({
           name: l.name,
@@ -1353,8 +1319,8 @@ Begin with the first persona: ${personas[0]}
         abandonmentRisk: Math.round(result.abandonmentRisk * 100) + "%",
         // Says out loud that these two are different constructs.
         //
-        // A run can read "easy" on CTC and 53% on abandonment and both be
-        // correct, which looks like a contradiction and is not one:
+        // A run can rank in the lower half on CTC and read 53% on abandonment
+        // and both be correct, which looks like a contradiction and is not one:
         // abandonmentRisk is a Hill hazard of the deficit (unmet demand; surplus
         // no longer relieves it, 21.0) against the blended patience and
         // resilience this persona has LEFT after the page (21.0), and never touches
@@ -1484,13 +1450,13 @@ Begin with the first persona: ${personas[0]}
           const screens = pageMetrics.pageScreens > 1.2
             ? `${wholeDocument ? " Measured across" : `${where}; the page is`} ${pageMetrics.pageScreens} screens${wholeDocument ? "." : ", so most of it was not measured — pass scope='full_page' for the whole thing.)"}${seqTail}`
             : where ? `${where}.)` : seqTail;
-          const verdict = result.totalCTC < 0.3
-            ? `${personaName} should handle ${subject} comfortably.`
-            : result.totalCTC < 0.6
-            ? `${personaName} will experience moderate cognitive effort on ${subject}. Bottleneck: ${result.bottleneckLayer}.`
-            : result.totalCTC < 0.8
-            ? `${personaName} will struggle significantly with ${subject}. ${result.bottleneckLayer} is the primary barrier. Consider simplifying.`
-            : `${personaName} is likely to abandon ${subject}. Cognitive transport cost is ${Math.round(result.totalCTC * 100)}%. Immediate remediation needed on ${result.bottleneckLayer}.`;
+          // The rank, not a comfort claim. Through 21.0 this said "should handle
+          // comfortably", "will struggle significantly" and "is likely to
+          // abandon" off fixed points on a logistic nobody fitted; the CTC is
+          // untested against human data, so a sentence on it can say where the
+          // page ranks among real pages and nothing about how a person feels.
+          // Abandonment stays in abandonmentRisk, its own quantity.
+          const verdict = `For ${personaName}, ${subject} is ${rank.statement}. ${rank.bandSentence} Bottleneck: ${result.bottleneckLayer}.`;
           return verdict + screens;
         })(),
         // ONE AUTHORITATIVE FIELD PER READING DIMENSION, stated rather than
@@ -1611,7 +1577,7 @@ Begin with the first persona: ${personas[0]}
       // and two silently are not reads as a broken widget, while "no overlay for
       // this layer, and here is why" is information. Nothing is fabricated to
       // fill the gap. (2026-08-02)
-      const layerOverlays: Array<{ layer: string; file?: string; legend?: string; available: boolean; reason?: string }> = [];
+      const layerOverlays: Array<{ layer: string; file?: string; legend?: string; available: boolean; reason?: string; provenance?: ProvenanceSummary }> = [];
       try {
         const { join: joinPath } = await import("path");
         const { tmpdir: getTmpDir } = await import("os");
@@ -1628,11 +1594,19 @@ Begin with the first persona: ${personas[0]}
         try {
           const { computeLabSaliency } = await import("../../visual/attention-transport.js");
           const { generateHeatmapOverlay } = await import("../../visual/heatmap-overlay.js");
-          const sal = await computeLabSaliency(ssPath);
-          const b64 = await generateHeatmapOverlay(ssPath, sal.cells, sal.rows, sal.cols, `${personaName} — saliency`);
+          // Recorded apart from the score. The map reads the attention model's
+          // constants (published colour science, fitted gaze calibration), and
+          // counted in modelProvenance they made the score look partly fitted
+          // while the map is context, not an input. Its own block rides on
+          // this overlay entry.
+          const { result: b64, provenance: mapProvenance } = await isolatedProvenanceAsync(async () => {
+            const sal = await computeLabSaliency(ssPath);
+            return generateHeatmapOverlay(ssPath, sal.cells, sal.rows, sal.cols, `${personaName} — saliency`);
+          }, ATTENTION_PROVENANCE_TEXT);
           const w = writeArtifact(Buffer.from(b64, "base64"), `saliency-${personaName}-${Date.now()}.png`);
           if (w) layerOverlays.push({ layer: "visualComplexity", file: w.url.split("/").pop(), available: true,
-            legend: "Lab-space saliency of the screenshot, shown as context. Hotter = more visually salient. The layer's cost is not computed from this map: it comes from the page's visual-complexity count and animation level." });
+            legend: "Lab-space saliency of the screenshot, shown as context. Hotter = more visually salient. The layer's cost is not computed from this map: it comes from the page's visual-complexity count and animation level.",
+            provenance: mapProvenance });
         } catch (e) {
           layerOverlays.push({ layer: "visualComplexity", available: false, reason: `saliency map failed: ${(e as Error).message}` });
         }
@@ -1695,6 +1669,10 @@ Begin with the first persona: ${personas[0]}
         response.layerOverlayNote = "Each entry maps to a bar in the transport chain. Layers without an overlay say why.";
       }
 
+      // Last, so it covers everything above. Serialising the previews reads no
+      // registered constant.
+      response.modelProvenance = activeProvenance();
+
       const content = motorPng
         ? await buildContentWithPreviews(
             response,
@@ -1726,5 +1704,5 @@ Begin with the first persona: ${personas[0]}
         }],
       };
     }
-  });
+  }));
 }

@@ -48,9 +48,11 @@ import type {
   AccessibilityFrictionPoint,
   RemediationItem,
   AccessibilityPersona,
+  AccessibilityTraits,
   AgentReadyEffort,
 } from "../types.js";
 import { getAccessibilityPersona, PERSONA_ALIASES } from "../personas.js";
+import { storedAccessibilityTraits } from "../visual/stored-accessibility-traits.js";
 import {
   runCognitiveJourney,
   isApiKeyConfigured,
@@ -3672,6 +3674,65 @@ export function deriveWcagViolations(
   });
 }
 
+/**
+ * The accessibility traits empathy_audit scores a persona with when it is not
+ * one of the built-in accessibility personas (those carry their own record).
+ *
+ * Inferred from name keywords and cognitive traits, then overlaid with what the
+ * persona's record stores: a stored trait always wins, and inference fills only
+ * the fields the record leaves out. Until 2026-10-22 the inference replaced the
+ * record outright, so a custom persona with low vision on record (visionLevel
+ * 0.3) was audited as fully sighted (1.0), and its stored reading traits were
+ * dropped, while attention_analysis drew the same persona through a low-vision
+ * filter. No built-in persona on this path stores accessibility traits, so the
+ * change moves custom personas only. (ISC-48.1)
+ *
+ * The name hints also decide whether the persona is reported as a disability
+ * persona; stored traits do not, yet.
+ */
+export function wrappedPersonaAccessibility(
+  personaName: string,
+  persona: object,
+): {
+  accessibilityTraits: AccessibilityTraits;
+  hints: { vision: boolean; motor: boolean; cognitive: boolean; screenReader: boolean; hearing: boolean };
+  /** The fields that came from the record rather than from inference. */
+  storedFields: string[];
+} {
+  const ct = (persona as { cognitiveTraits?: Record<string, number> }).cognitiveTraits || {};
+  const name = personaName.toLowerCase();
+  const vision = name.includes("vision") || name.includes("blind") || name.includes("elderly") || name.includes("magnif");
+  const motor = name.includes("motor") || name.includes("tremor") || name.includes("parkinsons");
+  const cognitive = name.includes("adhd") || name.includes("dyslexic") || name.includes("cognitive") || name.includes("memory");
+  // Assistive-technology and hearing personas were in neither bucket, so
+  // screen-reader-user came back isDisabilityPersona: false -- while the
+  // same payload listed it as an exemplar on a sensory barrier and
+  // list_cognitive_personas filed it under accessibility. Three parts of
+  // the system disagreeing about whether a screen reader user has a
+  // disability, and the "no" was the one that drove the score.
+  const screenReader = name.includes("screen-reader") || name.includes("screenreader")
+    || name.includes("nvda") || name.includes("jaws") || name.includes("voiceover");
+  const hearing = name.includes("deaf") || name.includes("hearing")
+    || name.includes("hard-of-hearing");
+
+  const inferred: AccessibilityTraits = {
+    motorControl: motor ? 0.3 : ct.motorControl ?? 1.0,
+    tremor: motor,
+    reachability: motor ? 0.4 : 1.0,
+    visionLevel: vision ? 0.4 : ct.visionLevel ?? 1.0,
+    contrastSensitivity: vision ? 0.5 : ct.contrastSensitivity ?? 1.0,
+    processingSpeed: ct.comprehension ?? (cognitive ? 0.4 : 0.8),
+    attentionSpan: ct.patience ?? (cognitive ? 0.3 : 0.7),
+    fatigueSusceptibility: vision || motor ? 0.7 : 0.3,
+  };
+  const stored = storedAccessibilityTraits(persona);
+  return {
+    accessibilityTraits: { ...inferred, ...stored },
+    hints: { vision, motor, cognitive, screenReader, hearing },
+    storedFields: stored ? Object.keys(stored) : [],
+  };
+}
+
 export async function runEmpathyAudit(
   url: string,
   options: EmpathyAuditOptions
@@ -3713,6 +3774,9 @@ export async function runEmpathyAudit(
     const personaName = resolvedNames[index];
     let persona = getAccessibilityPersona(personaName);
     let isDisabilityPersona = !!persona;
+    // What the persona's record stores, for the attention pass below: the
+    // filter attention_analysis draws this persona with. (ISC-48.1)
+    let storedTraits = storedAccessibilityTraits(persona);
 
     if (!persona) {
       // Try to find as a regular cognitive persona and wrap it
@@ -3724,40 +3788,15 @@ export async function runEmpathyAudit(
       // a name nothing resolves was refused before the loop. (2026-10-09)
 
       if (cognitivePersona) {
-        // Wrap cognitive persona as accessibility persona, inferring traits from name + cognitive traits
-        const ct = (cognitivePersona as any).cognitiveTraits || {};
-        const name = personaName.toLowerCase();
-        const hasVisionHint = name.includes("vision") || name.includes("blind") || name.includes("elderly") || name.includes("magnif");
-        const hasMotorHint = name.includes("motor") || name.includes("tremor") || name.includes("parkinsons");
-        const hasCognitiveHint = name.includes("adhd") || name.includes("dyslexic") || name.includes("cognitive") || name.includes("memory");
-        // Assistive-technology and hearing personas were in neither bucket, so
-        // screen-reader-user came back isDisabilityPersona: false -- while the
-        // same payload listed it as an exemplar on a sensory barrier and
-        // list_cognitive_personas filed it under accessibility. Three parts of
-        // the system disagreeing about whether a screen reader user has a
-        // disability, and the "no" was the one that drove the score.
-        const hasScreenReaderHint = name.includes("screen-reader") || name.includes("screenreader")
-          || name.includes("nvda") || name.includes("jaws") || name.includes("voiceover");
-        const hasHearingHint = name.includes("deaf") || name.includes("hearing")
-          || name.includes("hard-of-hearing");
-
-        persona = {
-          ...cognitivePersona,
-          accessibilityTraits: {
-            motorControl: hasMotorHint ? 0.3 : ct.motorControl ?? 1.0,
-            tremor: hasMotorHint,
-            reachability: hasMotorHint ? 0.4 : 1.0,
-            visionLevel: hasVisionHint ? 0.4 : ct.visionLevel ?? 1.0,
-            contrastSensitivity: hasVisionHint ? 0.5 : ct.contrastSensitivity ?? 1.0,
-            processingSpeed: ct.comprehension ?? (hasCognitiveHint ? 0.4 : 0.8),
-            attentionSpan: ct.patience ?? (hasCognitiveHint ? 0.3 : 0.7),
-            fatigueSusceptibility: hasVisionHint || hasMotorHint ? 0.7 : 0.3,
-          },
-        } as any;
+        // Wrap cognitive persona as accessibility persona: its stored traits,
+        // and traits inferred from name + cognitive traits for the rest.
+        storedTraits = storedAccessibilityTraits(cognitivePersona);
+        const wrapped = wrappedPersonaAccessibility(personaName, cognitivePersona);
+        const h = wrapped.hints;
+        persona = { ...cognitivePersona, accessibilityTraits: wrapped.accessibilityTraits } as any;
         // If the name hints at a disability, treat it as a disability persona for routing
-        isDisabilityPersona = hasVisionHint || hasMotorHint || hasCognitiveHint
-          || hasScreenReaderHint || hasHearingHint;
-        console.log(`[empathy_audit] "${disability}" wrapped as ${isDisabilityPersona ? "disability" : "general"} persona (vision=${hasVisionHint}, motor=${hasMotorHint}, cognitive=${hasCognitiveHint}, screenReader=${hasScreenReaderHint}, hearing=${hasHearingHint})`);
+        isDisabilityPersona = h.vision || h.motor || h.cognitive || h.screenReader || h.hearing;
+        console.log(`[empathy_audit] "${disability}" wrapped as ${isDisabilityPersona ? "disability" : "general"} persona (vision=${h.vision}, motor=${h.motor}, cognitive=${h.cognitive}, screenReader=${h.screenReader}, hearing=${h.hearing}, stored=[${wrapped.storedFields.join(",")}])`);
       } else {
         // Return an explicit error instead of silently skipping
         console.error(`[empathy_audit] Persona "${disability}" not found in any registry (built-in, custom, CMS)`);
@@ -3817,7 +3856,11 @@ export async function runEmpathyAudit(
         const attnScreenshot = joinAttn(tmpdirAttn(), `empathy-attn-${Date.now()}.png`);
         await page.screenshot({ path: attnScreenshot, fullPage: false });
 
-        const attnAnalysis = await analyzeAttention(attnScreenshot, personaName, 16);
+        // The record's stored traits, not the wrapped set: attention_analysis
+        // passes the record's, so both tools resolve the same filter.
+        const attnAnalysis = await analyzeAttention(
+          attnScreenshot, personaName, 16, undefined, undefined, undefined, undefined, undefined, storedTraits,
+        );
         attentionData = {
           entropy: attnAnalysis.entropy,
           concentration: attnAnalysis.concentration,
@@ -3835,12 +3878,15 @@ export async function runEmpathyAudit(
         //
         // Anyone who wants attention metrics should call attention_analysis,
         // which runs the same function at the finer default grid.
+        // perceptualProfile is not a metric: it says which filter drew the
+        // pass, as attention_analysis reports it, so the two can be compared.
         (result as any).attentionAnalysis = {
           entropy: attnAnalysis.entropy,
           concentration: attnAnalysis.concentration,
           transportCost: attnAnalysis.transportCost,
           computeTimeMs: Math.round(attnAnalysis.computeTimeMs),
           gridCellPx: 16,
+          perceptualProfile: attnAnalysis.perceptualProfile,
         };
 
         try { ulAttn(attnScreenshot); } catch {}
