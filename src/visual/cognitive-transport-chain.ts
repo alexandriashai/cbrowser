@@ -18,15 +18,19 @@
 import {
   type OTCognitiveProfile,
   type MetricScope,
+  deriveMetrics,
   extractPageMetrics,
 } from './cognitive-transport.js';
 import { activeOverrides, param, readsOf } from './model-provenance.js';
 import {
   type PercentileCurve,
+  type PercentileInterval,
+  bootstrapPercentileInterval,
+  intervalAt,
   percentileAt,
   percentileCurve,
-  referencePages,
   referencePopulation,
+  referenceRaw,
 } from './ctc-reference.js';
 
 // ── Types ──
@@ -109,6 +113,15 @@ export interface SequentialTransportResult {
    * not a validated difficulty: no human data has tested it.
    */
   totalCTC: number;
+  /**
+   * 95% interval for totalCTC, [low, high]: where this rawCTC's percentile
+   * falls across bootstrap resamples of the reference PAGES
+   * (ctc-reference.ts, bootstrapPercentileInterval). It measures how firmly
+   * the reference fixes the scale, the sampling error of ranking against a
+   * few hundred real pages; it says nothing about whether rawCTC is right.
+   * [0, 0] below the reference and [1, 1] above it.
+   */
+  totalCTCInterval: [number, number];
   /** Which reference totalCTC was ranked against: the demand's scope, or viewport when it has none. */
   referenceScope: MetricScope;
   /** Per-layer results in sequential order */
@@ -959,7 +972,8 @@ export function computeSequentialCTC(
   if (registeredPages !== reference.pages) {
     throw new Error(`ctcReference.${referenceScope} registers ${registeredPages} pages; the shipped reference has ${reference.pages}`);
   }
-  return { ...cost, totalCTC: percentileAt(reference.curve, cost.rawCTC), referenceScope };
+  const totalCTC = percentileAt(reference.curve, cost.rawCTC);
+  return { ...cost, totalCTC, totalCTCInterval: intervalAt(reference.interval, cost.rawCTC, totalCTC), referenceScope };
 }
 
 /** Options every chain entry point takes. */
@@ -978,8 +992,8 @@ export interface ChainOptions {
   carriedCapacity?: Record<string, number>;
 }
 
-/** The chain without its output scale: every result field except totalCTC and referenceScope. */
-type ChainCost = Omit<SequentialTransportResult, 'totalCTC' | 'referenceScope'>;
+/** The chain without its output scale: every result field except totalCTC, its interval and referenceScope. */
+type ChainCost = Omit<SequentialTransportResult, 'totalCTC' | 'totalCTCInterval' | 'referenceScope'>;
 
 /**
  * The transport chain itself: demand against capacity, layer by layer, ending
@@ -1322,9 +1336,15 @@ export interface ReferenceCurve {
   pages: number;
   /** Built-in personas pooled on every page. */
   personas: number;
-  /** Every registry id the build read (the chain's constants, demand curves included). */
+  /**
+   * Every registry id the build read: the chain's constants (demand curves
+   * included), the page-metric constants the reference pages were derived and
+   * measured with, the reference's page count and the interval's settings.
+   */
   reads: readonly string[];
   curve: PercentileCurve;
+  /** The bootstrap interval of the curve, precomputed on a grid of raw costs. */
+  interval: PercentileInterval;
 }
 
 const referenceCurves = new Map<string, ReferenceCurve>();
@@ -1333,7 +1353,9 @@ const overriddenReferenceCurves = new WeakMap<object, Map<string, ReferenceCurve
 /**
  * The percentile curve for one scope and option set: rawCTC of every graded
  * reference page (ctc-reference.ts) for every built-in persona, through this
- * chain, pooled.
+ * chain, pooled. Each page's metrics are derived from its stored raw
+ * measurement (deriveMetrics) inside the build, so the page-metric
+ * normalisers move the curve exactly as the chain's constants do.
  *
  * WHICH OPTIONS SELECT A CURVE. `asymmetric` and `interactions` change the
  * cost function, so each pair has its own curve: a symmetric raw cost ranked
@@ -1346,12 +1368,14 @@ const overriddenReferenceCurves = new WeakMap<object, Map<string, ReferenceCurve
  * arrives at a page. cognitive_effort's useValues edits demand before the chain
  * runs, which lands in the same place.
  *
- * COST AND CACHE. One build is one chain run per page per persona; cached per
- * scope and option set for the life of the process, so every later score
- * pays a binary search. While a test overrides registered constants
- * (activeOverrides() is non-null) a curve is cached against that override
- * object instead: a change to any chain constant re-derives the curve rather
- * than reusing one built under other constants.
+ * COST AND CACHE. One build is one deriveMetrics per page, one chain run per
+ * page per persona, and the page bootstrap (ctcReference.interval.*), under a
+ * second for the whole reference; cached per scope and option set for the
+ * life of the process, so every later score pays two binary searches. While a
+ * test overrides registered constants (activeOverrides() is non-null) a curve
+ * is cached against that override object instead: a change to any chain or
+ * page-metric constant re-derives the curve rather than reusing one built
+ * under other constants.
  */
 export function ctcReferenceCurve(
   scope: MetricScope,
@@ -1368,21 +1392,31 @@ export function ctcReferenceCurve(
   const key = `${scope}|${asymmetric}|${interactions}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const pages = referencePages(scope);
   const population = referencePopulation();
-  const { result: costs, ids } = readsOf(() => {
-    const out: number[] = [];
-    for (const metrics of pages) {
-      const demand = computeDemandDistribution(metrics);
-      for (const persona of population) out.push(transportChain(persona, demand, { asymmetric, interactions }).rawCTC);
+  const { result: { costs, pages, settings }, ids } = readsOf(() => {
+    const raws = referenceRaw(scope);
+    // Page-major, every persona of a page together: the bootstrap resamples pages.
+    const out = new Float64Array(raws.length * population.length);
+    let k = 0;
+    for (const raw of raws) {
+      const demand = computeDemandDistribution(deriveMetrics(raw));
+      for (const persona of population) out[k++] = transportChain(persona, demand, { asymmetric, interactions }).rawCTC;
     }
-    return out;
+    const settings = {
+      replicates: param('ctcReference.interval.replicates'),
+      seed: param('ctcReference.interval.seed'),
+      level: param('ctcReference.interval.level'),
+      grid: param('ctcReference.interval.grid'),
+    };
+    return { costs: out, pages: raws.length, settings };
   });
+  const curve = percentileCurve(costs);
   const built: ReferenceCurve = {
     scope, asymmetric, interactions,
-    pages: pages.length, personas: population.length,
+    pages, personas: population.length,
     reads: [...ids].sort(),
-    curve: percentileCurve(costs),
+    curve,
+    interval: bootstrapPercentileInterval(costs, population.length, settings),
   };
   cache.set(key, built);
   return built;

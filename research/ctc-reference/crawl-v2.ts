@@ -43,7 +43,8 @@
  * it reaches FRAME_QUOTA; a site's inner types are tried in the order of its
  * frame's deficit and skipped once that (frame, type) cell holds TYPE_QUOTA.
  * Every site's landing is measured (discovery needs it), so landing pages
- * outnumber each inner type; the curve weights the cells (ctc-reference.ts).
+ * outnumber each inner type. The curve does not reweight the cells: every
+ * graded page counts once (ctc-reference.ts, WEIGHTING).
  *
  * ## Politeness and routing
  *
