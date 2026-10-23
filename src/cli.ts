@@ -3059,15 +3059,20 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     const { askCbrowser } = await import("./help-client.js");
+    const { formatAnswerForTerminal, sourceLines, sourcePath, sourceUrls } = await import("./help-format.js");
     try {
       const r = await askCbrowser(question, { context: typeof options.context === "string" ? options.context : undefined });
       if (options.json === true || getOutputOptions().json) {
-        printData("ask", { question: r.question, answer: r.answer, sources: r.sources });
+        // The answer stays as the service sent it (markdown); the links are added beside it.
+        printData("ask", { question: r.question, answer: r.answer, sources: r.sources, sourceUrls: sourceUrls(r.sources) });
       } else {
-        console.log(r.answer);
-        if (r.sources.length > 0) {
+        // A terminal gets plain text and full links (help-format.ts).
+        const known = r.sources.map(sourcePath).filter((p): p is string => p !== null);
+        console.log(formatAnswerForTerminal(r.answer, known));
+        const lines = sourceLines(r.sources);
+        if (lines.length > 0) {
           console.log("\nSources:");
-          for (const s of r.sources) console.log(`  - ${s.split("\n")[0].slice(0, 120)}`);
+          for (const line of lines) console.log(`  - ${line}`);
         }
       }
       process.exit(0);
