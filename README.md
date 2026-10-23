@@ -186,7 +186,7 @@ The agent-perceivability axis measures whether a machine can perceive your eleme
 
 ## Cognitive User Simulation
 
-Research-backed cognitive traits and motivational values model how real users think, struggle and give up:
+Cognitive traits and motivational values model how users think, struggle and give up. Each trait's scale is drawn from the research in the table below; the values the built-in personas carry on those scales are set by hand and registered as hypotheses, not measured:
 
 | Trait | Research Basis | What It Models |
 |-------|---------------|----------------|

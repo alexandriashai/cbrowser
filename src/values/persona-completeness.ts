@@ -141,7 +141,7 @@ export function assessTraitCompleteness(
     message:
       `${unaccounted.length} of ${ALL_TRAITS.length} traits are unaccounted for: ${unaccounted.join(", ")}. `
       + `Every trait needs either a value inferred from the description, or a place in \`unsupportedTraits\` saying the description does not speak to it. `
-      + `Both are acceptable; leaving one out is not, because an unsupplied trait is silently filled from a population baseline and the result is indistinguishable from a considered value. `
+      + `Both are acceptable; leaving one out is not, because an unsupplied trait is silently filled with the package's hand-set default and the result is indistinguishable from a considered value. `
       + `See \`trait_criteria\` in the persona_create_from_description response for what each trait looks like in a description.`,
   };
 }

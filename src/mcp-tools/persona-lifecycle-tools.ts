@@ -38,6 +38,7 @@ import { widgetUri } from "./widget-kit.js";
 import { diffPersona, describeDrift, summariseTraits } from "../values/persona-diff.js";
 import { TRAIT_INFERENCE_CRITERIA, ALL_TRAITS } from "../values/persona-completeness.js";
 import { BIG_FIVE_INFERENCE_ANCHORS } from "../values/big-five-inference.js";
+import { traitProvenance } from "./trait-provenance.js";
 
 const CMS_URL = () => process.env.CMS_URL || "http://localhost:3200";
 
@@ -123,6 +124,9 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
           // in the view is instant. Only writes go back to the server.
           traits: (p.cognitiveTraits ?? {}) as Record<string, number>,
           builtin: isBuiltinPersona(name),
+          // Hand-set and registered (a built-in), or set by the persona's
+          // author (custom): the sliders showed both as bare numbers.
+          provenance: traitProvenance(name, p, p.cognitiveTraits as Record<string, unknown> | undefined, "cognitiveTraits"),
           ...(valuesRoute ? { valuesRoute } : {}),
         };
       })
@@ -170,7 +174,7 @@ export function registerPersonaLifecycleTools(server: McpServer): void {
         survey: {
           label: "From a survey",
           completesInWidget: true,
-          note: "Set the traits you know; the rest take research-backed defaults. Writes immediately.",
+          note: "Set the traits you know; the rest take documented defaults, set by hand rather than fitted to data. Writes immediately.",
         },
         bigfive: {
           label: "From Big Five",

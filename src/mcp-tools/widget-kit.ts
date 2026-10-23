@@ -42,6 +42,15 @@ export interface FactSpec {
   countFlag?: string;
   /** Highlight when the count is short of the total. */
   attnWhenShort?: boolean;
+  /**
+   * For an object value: one template per value of its `by` key, with {key}
+   * placeholders filled from the object ("*" is the fallback). Built for
+   * perceptualProfile, whose {resolution, name} pair reads as one phrase only
+   * when the resolution picks the wording: "generic default" says what
+   * "default (default)" does not.
+   */
+  by?: string;
+  templates?: Record<string, string>;
 }
 
 export interface HealthCheck {
@@ -113,7 +122,13 @@ export type BlockSpec =
       ramp?: "trait" | "value" | "accessibility";
       nameKey?: string; valueKey?: string;
       /** Show a definition tooltip on each label, from the baked-in glossary. */
-      describe?: boolean }
+      describe?: boolean;
+      /**
+       * Where the values come from (trait-provenance.ts): a status line over
+       * the meters, "cited" on a value personas.ts cites a source beside, and
+       * "default" on a value the persona does not set.
+       */
+      provenanceField?: FieldPath }
   /**
    * Editable trait sliders that write back through app.callServerTool.
    *
@@ -134,7 +149,9 @@ export type BlockSpec =
       saveTool?: string;
       ramp?: "trait" | "value" | "accessibility";
       nameKey?: string; valueKey?: string;
-      describe?: boolean }
+      describe?: boolean;
+      /** As on `traits`. */
+      provenanceField?: FieldPath }
   /**
    * A banded scale with the queried point marked.
    *
@@ -193,8 +210,34 @@ export type BlockSpec =
        * running state, not a place on the page" is information.
        */
       overlaysField?: FieldPath; fetchTool?: string }
-  /** Free prose. */
-  | { type: "note"; title?: string; field: FieldPath }
+  /**
+   * What the numbers in an answer rest on: a provenance summary
+   * ({counts, hypotheses, scope, note}, model-provenance.ts).
+   *
+   * "line" is one sentence of counts, for beside the finding. "full" adds
+   * what each status means, the summary's own scope and note, and the
+   * hypothesis ids behind a disclosure. Without this block the summary fell
+   * into the rest dump, where its hundred ids printed as one joined string.
+   */
+  | { type: "provenance"; title?: string; field: FieldPath;
+      variant?: "line" | "full";
+      /** What read the constants, for the sentence: "score" reads "This score reads ...". */
+      subject?: string;
+      /** The drawer that holds the full block, named at the end of the line. */
+      seeAlso?: string;
+      /** Start the section open when the drawer holding it is opened. */
+      open?: boolean;
+      /**
+       * A [low, high] pair shown first in the full block when the payload
+       * carries it: the interval the score's own uncertainty spans. Absent
+       * from the payload, nothing is drawn.
+       */
+      intervalField?: FieldPath; intervalLabel?: string }
+  /**
+   * Free prose. For an object value, `by` and `templates` pick the sentence
+   * as FactSpec's do, so a {resolution, name} pair can read as a sentence.
+   */
+  | { type: "note"; title?: string; field: FieldPath; by?: string; templates?: Record<string, string> }
   /** Everything not consumed by another block, so no field is silently dropped. */
   | { type: "rest"; title: string }
   /** Groups blocks behind one expander; the default state stays a card. */
@@ -539,6 +582,8 @@ const CSS = `
   .mgrrow:hover{background:color-mix(in oklch,var(--accent) 12%,transparent)}
   .mgrrow.on{background:color-mix(in oklch,var(--accent) 22%,transparent);
     box-shadow:inset 3px 0 0 var(--accent)}
+  /* --sub on the selected row's accent tint measured 4.03:1. */
+  .mgrrow.on .cap{color:var(--ink)}
   .mgrrow:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   .mgrname{font-size:.85rem;font-weight:600}
   .modetabs{display:flex;gap:.3rem;flex-wrap:wrap;margin:.4rem 0 .5rem}
@@ -567,7 +612,7 @@ const CSS = `
   .editbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.75rem;
     padding-top:.75rem;border-top:1px solid var(--line)}
   .btn{font:inherit;font-size:.8rem;padding:.35rem .7rem;border-radius:.375rem;
-    border:1px solid var(--line);background:var(--accent);color:#fff;cursor:pointer}
+    border:1px solid var(--line);background:var(--accent);color:var(--on-accent);cursor:pointer}
   .btn:disabled{opacity:.45;cursor:default}
   .btn.ghost{background:none;color:var(--sub)}
   .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -622,10 +667,12 @@ const CSS = `
   .chain button.seg:hover .track,.chain button.seg:focus-visible .track{outline:2px solid var(--brand);outline-offset:2px}
   .chain button.seg:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
   .chain button.seg[aria-expanded="true"] .lbl{text-decoration:underline}
-  .chain .noov{flex:0 0 auto;font-size:.7rem;opacity:.55;margin-left:.35rem}
+  /* --sub, not opacity: at .55 the tag measured 4.4:1 on a light host. */
+  .chain .noov{flex:0 0 auto;font-size:.7rem;color:var(--sub);margin-left:.35rem}
   .ovpane{margin:.6rem 0 1rem;padding:.6rem;border:1px solid rgba(127,127,127,.28);border-radius:6px}
   .ovpane img{max-width:100%;height:auto;display:block;border-radius:4px}
-  .ovpane .cap{font-size:.8rem;opacity:.8;margin:.45rem 0 0}
+  /* No opacity on the legend: at .8 it measured 3.59:1 on a light host. */
+  .ovpane .cap{font-size:.8rem;margin:.45rem 0 0}
   @media (max-width:520px){
     /* The fixed 9.5rem label column took a third of a 393px viewport and left
        the bars as stubs — the one thing the block exists to show. Labels move
@@ -641,11 +688,16 @@ const CSS = `
   .ampnote{font-size:.8rem;opacity:.75;margin:.45rem 0 0}
   .scale{margin:1.5rem 0 .8rem}
   .bands{display:flex;gap:3px;position:relative}
+  /* Inactive bands are dimmed through their fill's alpha, not opacity:
+     opacity .42 dimmed the label with the fill, to 1.7-2.1:1. The active
+     band's fill is the same in both themes, so its label is not --ink (light
+     on an orange fill in dark) but whichever of near-black or near-white
+     reads on that fill, chosen in levelsBlock. */
   .band{flex:1;height:30px;border-radius:5px;display:grid;place-items:center;
     font:.62rem/1 var(--mono);text-transform:uppercase;letter-spacing:.05em;
-    color:color-mix(in srgb, var(--ink) 78%, transparent);opacity:.42;
+    color:var(--ink);
     border:2px solid transparent;overflow:hidden;white-space:nowrap;padding:0 .2rem}
-  .band.on{opacity:1;border-color:var(--ink);font-weight:650}
+  .band.on{border-color:var(--ink);font-weight:650}
   .marker{position:absolute;top:-17px;transform:translateX(-50%);font:600 .64rem/1 var(--mono);
     color:var(--ink);white-space:nowrap;pointer-events:none}
   /* Stops at the band's top edge rather than crossing it. */
@@ -693,6 +745,57 @@ const CSS = `
   .offlist li{padding:.18rem 0;color:var(--sub)}
   .shot{max-width:100%;height:auto;display:block;border-radius:6px;border:1px solid var(--line)}
   .cap{font-size:.77rem;color:var(--sub);margin:.35rem 0 0}
+  /* Provenance: what an answer's numbers rest on. Status is named in text on
+     every row and chip; the colour of a swatch repeats it and never carries
+     it alone (WCAG 1.4.1). Chip text is the status hue mixed into --ink, the
+     same construction the severity chips use, so it follows the theme. */
+  .prov{font-size:.8rem;line-height:1.45;color:var(--sub);margin:.15rem 0 0}
+  .prov b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .pint{margin:0 0 .6rem;font-size:.85rem}
+  .pint b{font-variant-numeric:tabular-nums}
+  .pstack{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--raise);margin:.2rem 0 .5rem}
+  .pstack i{display:block;height:100%}
+  .pcounts{list-style:none;padding:0;margin:0 0 .6rem}
+  .pcounts li{display:grid;grid-template-columns:auto 2.4rem 1fr;gap:.15rem .6rem;align-items:baseline;
+    padding:.32rem 0;border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+  .pcounts li:last-child{border-bottom:0}
+  .pnum{font:.82rem/1 var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+  .pmean{font-size:.8rem;color:var(--sub)}
+  @media (max-width:30rem){
+    .pcounts li{grid-template-columns:auto 1fr}
+    .pcounts .pnum{text-align:left}
+    .pcounts .pmean{grid-column:1/-1}
+  }
+  .pchip{display:inline-flex;align-items:center;gap:.3rem;font:650 .64rem/1.2 var(--mono);letter-spacing:.05em;
+    text-transform:uppercase;padding:.16rem .38rem;border-radius:3px;white-space:nowrap;
+    background:var(--raise);color:var(--ink)}
+  .pchip .sw{width:8px;height:8px}
+  .pchip.hypothesis{background:color-mix(in srgb,var(--warn) 20%,transparent);color:color-mix(in srgb,var(--warn) 62%,var(--ink))}
+  .pchip.fitted{background:color-mix(in srgb,var(--ok) 20%,transparent);color:color-mix(in srgb,var(--ok) 55%,var(--ink))}
+  .pchip.published{background:color-mix(in srgb,var(--brand) 18%,transparent);color:color-mix(in srgb,var(--brand) 70%,var(--ink))}
+  .pchip.definition,.pchip.mixed{background:var(--raise);color:var(--ink)}
+  .pchip.custom{background:color-mix(in srgb,var(--brand-2) 20%,transparent);color:color-mix(in srgb,var(--brand-2) 55%,var(--ink))}
+  .psw-fitted{background:var(--ok)} .psw-published{background:var(--brand)}
+  .psw-definition{background:color-mix(in srgb,var(--ink) 35%,transparent)} .psw-hypothesis{background:var(--warn)}
+  .pscope{font-size:.79rem;color:var(--sub);margin:.4rem 0 0}
+  details.pids{margin:.6rem 0 0}
+  details.pids>summary{cursor:pointer;font-size:.8rem;color:var(--ink);padding:.25rem 0}
+  details.pids>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+  .pgrp{font:600 .72rem/1.3 var(--mono);color:var(--sub);margin:.55rem 0 .2rem}
+  .pidl{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:.2rem .35rem}
+  .pidl li{font:.7rem/1.35 var(--mono);color:var(--ink);background:var(--raise);border-radius:3px;
+    padding:.08rem .3rem;overflow-wrap:anywhere;max-width:100%}
+  /* Trait rows that carry a status: one fixed slot after the value on every
+     row, so the tracks stay aligned whether or not a row is marked. */
+  .pstatus{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .5rem;margin:0 0 .55rem;font-size:.79rem;color:var(--sub)}
+  .pstatus .pchip{flex:0 0 auto}
+  .pstatus span.ptext{flex:1 1 14rem;min-width:0}
+  .pslot{flex:0 0 4.4rem;display:flex;justify-content:flex-start}
+  .ptag{font:650 .6rem/1.2 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:.14rem .3rem;
+    border-radius:3px;border:1px solid var(--line);background:none;color:var(--ink);white-space:nowrap}
+  button.ptag{cursor:help;text-decoration:underline dotted currentColor;text-underline-offset:2px}
+  button.ptag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (max-width:30rem){ .pslot{flex-basis:4.1rem} }
   .foot{padding:0 18px 14px;font-size:.77rem;color:var(--sub)}
   .msg{padding:16px 18px;font-size:.85rem;color:var(--sub)}
   @media (max-width:420px){
@@ -940,8 +1043,9 @@ const RUNTIME = String.raw`
    * write to two stores, and a slider dragged across its range would produce a
    * dozen persona versions of which only the last was meant.
    */
-  function editorBlock(rows, b, data) {
+  function editorBlock(rows, b, data, prov) {
     var wrap = el("div", "traits");
+    if (prov) wrap.appendChild(traitStatusLine(prov));
     var personaName = at(data, b.personaField || "persona") || at(data, "persona_name");
     var edited = {};
     var controls = [];
@@ -969,7 +1073,9 @@ const RUNTIME = String.raw`
           ? Object.keys(edited).length + " unsaved change(s)" : "";
         save.disabled = !Object.keys(edited).length;
       });
-      line.appendChild(label); line.appendChild(input); line.appendChild(out); line.appendChild(orig);
+      line.appendChild(label); line.appendChild(input); line.appendChild(out);
+      if (prov) line.appendChild(traitTag(prov, name));
+      line.appendChild(orig);
       wrap.appendChild(line);
       controls.push({ name: name, input: input, out: out, base: v });
     });
@@ -1066,6 +1172,8 @@ const RUNTIME = String.raw`
         row.appendChild(el("span", "mgrname", String(p.name || "(unnamed)")));
         var meta = [];
         if (p.builtin) meta.push("built-in");
+        // Where the values come from, on the row that picks the persona.
+        if (p.provenance && p.provenance.label) meta.push(String(p.provenance.label));
         if (p.valuesRoute) meta.push(String(p.valuesRoute));
         if (meta.length) row.appendChild(el("span", "cap", meta.join(" · ")));
         row.addEventListener("click", function () {
@@ -1086,6 +1194,8 @@ const RUNTIME = String.raw`
       var traits = p.traits || {};
       var names = Object.keys(traits);
       var box = el("div", "traits");
+      var prov = p.provenance && p.provenance.status ? p.provenance : null;
+      if (prov) box.appendChild(traitStatusLine(prov));
       names.forEach(function (k) {
         var v = Number(traits[k]);
         if (!isFinite(v)) return;
@@ -1106,6 +1216,7 @@ const RUNTIME = String.raw`
             ? Object.keys(edited).length + " unsaved change(s) on " + p.name : "";
         });
         line.appendChild(input); line.appendChild(out);
+        if (prov) line.appendChild(traitTag(prov, k));
         box.appendChild(line);
       });
       pane.appendChild(box);
@@ -1327,8 +1438,9 @@ const RUNTIME = String.raw`
     return wrap;
   }
 
-  function traitsBlock(rows, b) {
+  function traitsBlock(rows, b, prov) {
     var wrap = el("div", "traits");
+    if (prov) wrap.appendChild(traitStatusLine(prov));
     rows.forEach(function (r) {
       var name = r.name, v = Number(r.value);
       if (!isFinite(v)) return;
@@ -1362,6 +1474,7 @@ const RUNTIME = String.raw`
       track.appendChild(fill);
       line.appendChild(track);
       line.appendChild(el("span", "tval", v.toFixed(2)));
+      if (prov) line.appendChild(traitTag(prov, String(name)));
       wrap.appendChild(line);
     });
     return wrap;
@@ -1382,6 +1495,180 @@ const RUNTIME = String.raw`
         .map(function (k) { return { name: k, value: v[k] }; });
     }
     return [];
+  }
+
+  // One sentence from an object: the template for the value of its by key
+  // ("*" the fallback), with {key} filled from the object. A perceptual
+  // profile is {resolution, name}, and "default (default)" says nothing that
+  // "none: the generic default" does not say better.
+  function fillTemplate(obj, by, templates) {
+    if (!obj || typeof obj !== "object" || !templates) return null;
+    var key = by ? String(obj[by]) : "*";
+    var t = Object.prototype.hasOwnProperty.call(templates, key) ? templates[key] : templates["*"];
+    if (typeof t !== "string") return null;
+    return t.replace(/\{(\w+)\}/g, function (_m, k) {
+      return obj[k] === undefined || obj[k] === null ? "" : String(obj[k]);
+    });
+  }
+
+  // What an answer's numbers rest on (model-provenance.ts). The statuses in
+  // reading order, from what data or the literature backs to what is set by
+  // hand, each with what the registry means by it. Through 21.0 the views
+  // drew these answers' numbers bare, and the summary fell into the rest dump
+  // with its hypothesis ids printed as one joined string.
+  var PROV_ORDER = ["fitted", "published", "definition", "hypothesis"];
+  var PROV_MEANING = {
+    fitted: "estimated from named data, with a held-out score",
+    published: "taken from a cited law or measurement in the literature",
+    definition: "a choice of units, scale or encoding; no empirical claim",
+    hypothesis: "set by hand; nothing in data or the literature backs the value yet",
+  };
+  var PROV_PHRASE = {
+    fitted: "fitted to data", published: "published",
+    definition: "definitions", hypothesis: "set by hand (hypotheses)",
+  };
+  function isProvenance(p) {
+    return !!(p && typeof p === "object" && p.counts && typeof p.counts === "object");
+  }
+  function provTotal(p) {
+    return PROV_ORDER.reduce(function (s, k) { return s + (Number(p.counts[k]) || 0); }, 0);
+  }
+
+  // One sentence of counts, every status named even at zero: "0 fitted to
+  // data" is the finding for a score, not an omission.
+  function provenanceLine(p, subject, seeAlso, qualifier) {
+    var line = el("p", "prov");
+    var total = provTotal(p);
+    line.appendChild(document.createTextNode("This " + (subject || "answer") + " reads "));
+    line.appendChild(el("b", null, String(total)));
+    line.appendChild(document.createTextNode(" registered constant" + (total === 1 ? "" : "s")
+      + (qualifier ? " " + qualifier : "") + ": "));
+    PROV_ORDER.forEach(function (k, i) {
+      if (i) line.appendChild(document.createTextNode(i === PROV_ORDER.length - 1 ? ", and " : ", "));
+      line.appendChild(el("b", null, String(Number(p.counts[k]) || 0)));
+      line.appendChild(document.createTextNode(" " + PROV_PHRASE[k]));
+    });
+    line.appendChild(document.createTextNode("." + (seeAlso ? ' What each means is under "' + seeAlso + '".' : "")));
+    return line;
+  }
+
+  function provenanceFull(p, b, data) {
+    var wrap = el("div");
+    // The interval comes first when the payload has one: it bounds the
+    // number itself, where the counts below say what the number is made of.
+    var iv = b.intervalField ? at(data, b.intervalField) : null;
+    if (Array.isArray(iv) && iv.length === 2 && isFinite(iv[0]) && isFinite(iv[1])) {
+      var pi = el("p", "pint");
+      pi.appendChild(el("b", null, (b.intervalLabel || "95% interval") + ": "));
+      pi.appendChild(document.createTextNode(num(Number(iv[0])) + " to " + num(Number(iv[1]))));
+      wrap.appendChild(pi);
+    }
+    wrap.appendChild(provenanceLine(p, b.subject, null));
+    var total = provTotal(p);
+    if (total > 0) {
+      // A picture of the shares. Hidden from assistive tech: the list under
+      // it says the same thing in text.
+      var stack = el("div", "pstack");
+      stack.setAttribute("aria-hidden", "true");
+      PROV_ORDER.forEach(function (k) {
+        var n = Number(p.counts[k]) || 0;
+        if (!n) return;
+        var seg = el("i", "psw-" + k);
+        seg.style.width = (n / total * 100) + "%";
+        stack.appendChild(seg);
+      });
+      wrap.appendChild(stack);
+    }
+    var ul = el("ul", "pcounts");
+    PROV_ORDER.forEach(function (k) {
+      var li = el("li");
+      var chip = el("span", "pchip " + k);
+      chip.appendChild(el("span", "sw psw-" + k));
+      chip.appendChild(document.createTextNode(k));
+      li.appendChild(chip);
+      li.appendChild(el("span", "pnum", String(Number(p.counts[k]) || 0)));
+      li.appendChild(el("span", "pmean", PROV_MEANING[k]));
+      ul.appendChild(li);
+    });
+    wrap.appendChild(ul);
+    if (p.scope) wrap.appendChild(el("p", "pscope", String(p.scope)));
+    if (p.note) wrap.appendChild(el("p", "pscope", String(p.note)));
+    var ids = Array.isArray(p.hypotheses) ? p.hypotheses : [];
+    if (ids.length) {
+      // Grouped by area (the id's first segment), behind a disclosure: a
+      // hundred ids are the evidence, not the summary.
+      var d = el("details", "pids");
+      d.appendChild(el("summary", null, "The " + ids.length + " hand-set constant" + (ids.length === 1 ? "" : "s")
+        + " it read, by area"));
+      var groups = {}, order = [];
+      ids.forEach(function (id) {
+        var g = String(id).split(".")[0];
+        if (!groups[g]) { groups[g] = []; order.push(g); }
+        groups[g].push(String(id));
+      });
+      order.forEach(function (g) {
+        d.appendChild(el("p", "pgrp", g + " (" + groups[g].length + ")"));
+        var l = el("ul", "pidl");
+        groups[g].forEach(function (id) { l.appendChild(el("li", null, id)); });
+        d.appendChild(l);
+      });
+      wrap.appendChild(d);
+    }
+    return wrap;
+  }
+
+  // Where a group of trait values comes from (trait-provenance.ts): a status
+  // line over the meters, and on a row, a tag where that value differs from
+  // the line: the model's default, a citation, or another registry status.
+  function traitProv(data, b) {
+    if (!b.provenanceField) return null;
+    used[b.provenanceField.split(".")[0]] = true;
+    var p = at(data, b.provenanceField);
+    return p && typeof p === "object" && p.status ? p : null;
+  }
+  function traitStatusLine(p) {
+    var box = el("div", "pstatus");
+    box.appendChild(el("span", "pchip " + String(p.status), String(p.label || p.status)));
+    box.appendChild(el("span", "ptext", String(p.note || "")));
+    var marks = [];
+    if (p.anchored && Object.keys(p.anchored).length) marks.push("anchored: the value is the percentile a published population mean implies on a normed instrument, still a hypothesis (select the tag for the source)");
+    if (p.cited && Object.keys(p.cited).length) marks.push("cited: a finding is cited for the direction of this value, not for its number (select the tag for the source)");
+    if (Array.isArray(p.unset) && p.unset.length) marks.push("default: the persona does not set this trait, so the model's default is shown");
+    if (p.statuses && Object.keys(p.statuses).length) marks.push("a status name: that value's registry status differs from the line above");
+    if (marks.length) box.appendChild(el("span", "ptext", "Marked on a row: " + marks.join("; ") + "."));
+    return box;
+  }
+  function traitTag(p, name) {
+    var slot = el("span", "pslot");
+    if (!p) return slot;
+    var cited = p.cited && p.cited[name];
+    var anch = p.anchored && p.anchored[name];
+    var st = p.statuses && p.statuses[name];
+    if (Array.isArray(p.unset) && p.unset.indexOf(name) >= 0) {
+      slot.appendChild(el("span", "ptag", "default"));
+    } else if (anch || cited) {
+      var word = anch ? "anchored" : "cited";
+      var btn = el("button", "ptag", word);
+      btn.type = "button";
+      btn.setAttribute("aria-describedby", "kit-tip");
+      btn.setAttribute("aria-label", word + ": source for " + titleize(name));
+      var iv = anch && Array.isArray(anch.interval) ? anch.interval : null;
+      var info = anch
+        ? { label: "Norm-anchored" + (st ? " (" + st + ")" : " (hypothesis)"),
+            description: String(anch.cite) + ". " + String(anch.reported) + "."
+              + (iv ? " Value interval " + iv[0] + " to " + iv[1] + "." : "")
+              + " Mapping the instrument onto this trait is cbrowser's choice, so the value stays a hypothesis." }
+        : { label: "Cited for direction" + (st ? " (" + st + ")" : ""),
+            description: String(cited.cite) + ", for " + String(cited["for"]) + ". That supports the direction of this persona's difference from typical users, not the number." };
+      btn.addEventListener("mouseenter", function () { showTip(btn, info); });
+      btn.addEventListener("focus", function () { showTip(btn, info); });
+      btn.addEventListener("mouseleave", hideTip);
+      btn.addEventListener("blur", hideTip);
+      slot.appendChild(btn);
+    } else if (st) {
+      slot.appendChild(el("span", "ptag", String(st)));
+    }
+    return slot;
   }
 
   async function chainBlock(data, b) {
@@ -1470,6 +1757,11 @@ const RUNTIME = String.raw`
         node.alt = label + " overlay for this page: " + (ov.legend || "");
         pane.appendChild(node);
         if (ov.legend) pane.appendChild(el("p", "cap", String(ov.legend)));
+        // The map's own block: the attention model's constants, which the
+        // score's block leaves out because the map is context, not input.
+        if (isProvenance(ov.provenance)) {
+          pane.appendChild(provenanceLine(ov.provenance, "map", null, "of the attention model, counted apart from the score"));
+        }
       } catch (e) {
         pane.innerHTML = "";
         pane.appendChild(el("p", "cap", "Could not load the " + label + " overlay: " + (e && e.message ? e.message : e)));
@@ -1561,10 +1853,15 @@ const RUNTIME = String.raw`
     levels.forEach(function (lv) {
       var band = el("div", "band", String(lv.label || ""));
       var v = Number(lv.value);
-      if (isFinite(v)) band.style.backgroundColor = "hsl(" + (v * 120) + ", 65%, 50%)";
       // Active band chosen by nearest level, since the queried value rarely
       // lands exactly on a band's own value.
-      if (label && String(lv.label) === String(label)) band.classList.add("on");
+      var on = !!label && String(lv.label) === String(label);
+      if (isFinite(v)) {
+        var fill = hslHex(v * 120, 0.65, 0.5);
+        if (on) { band.style.backgroundColor = fill; band.style.color = readableOn(fill); }
+        else band.style.backgroundColor = "hsla(" + (v * 120) + ", 65%, 50%, .42)";
+      }
+      if (on) band.classList.add("on");
       band.title = String(lv.label || "");
       bands.appendChild(band);
     });
@@ -1689,6 +1986,18 @@ const RUNTIME = String.raw`
     medium: "#ca8a04", moderate: "#ca8a04",
     minor: "#2563eb", low: "#2563eb", info: "#64748b", notice: "#64748b",
   };
+
+  // hsl (degrees, 0-1, 0-1) as #rrggbb, so a fill drawn as hsl can be given
+  // a readable label by readableOn below.
+  function hslHex(h, s, l) {
+    var k = function (n) { return (n + h / 30) % 12; };
+    var a = s * Math.min(l, 1 - l);
+    var f = function (n) {
+      var c = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return ("0" + Math.round(c * 255).toString(16)).slice(-2);
+    };
+    return "#" + f(0) + f(8) + f(4);
+  }
 
   // Whichever of near-white / near-black contrasts better with a fill, by WCAG
   // relative luminance rather than by eye.
@@ -2000,7 +2309,8 @@ const RUNTIME = String.raw`
     if (b.type === "traits") {
       used[b.field.split(".")[0]] = true;
       var rows = normaliseTraits(at(data, b.field), b);
-      return rows.length ? { node: traitsBlock(rows, b), count: rows.length } : null;
+      var tprov = traitProv(data, b);
+      return rows.length ? { node: traitsBlock(rows, b, tprov), count: rows.length } : null;
     }
     if (b.type === "manager") {
       used[b.field.split(".")[0]] = true;
@@ -2011,7 +2321,8 @@ const RUNTIME = String.raw`
       used[b.field.split(".")[0]] = true;
       if (b.personaField) used[b.personaField.split(".")[0]] = true;
       var erows = normaliseTraits(at(data, b.field), b);
-      return erows.length ? { node: editorBlock(erows, b, data), count: erows.length } : null;
+      var eprov = traitProv(data, b);
+      return erows.length ? { node: editorBlock(erows, b, data, eprov), count: erows.length } : null;
     }
     if (b.type === "chain") {
       [b.field, b.bottleneckField, b.additiveField, b.totalField, b.overlaysField].forEach(function (f) {
@@ -2040,7 +2351,19 @@ const RUNTIME = String.raw`
     if (b.type === "note") {
       used[b.field.split(".")[0]] = true;
       var t = at(data, b.field);
+      if (b.templates && t && typeof t === "object") {
+        var said = fillTemplate(t, b.by, b.templates);
+        return said ? { node: el("p", null, said), count: null } : null;
+      }
       return t ? { node: el("p", null, fmt(t)), count: null } : null;
+    }
+    if (b.type === "provenance") {
+      used[b.field.split(".")[0]] = true;
+      var pv = at(data, b.field);
+      if (!isProvenance(pv)) return null;
+      return b.variant === "full"
+        ? { node: provenanceFull(pv, b, data), count: provTotal(pv) }
+        : { node: provenanceLine(pv, b.subject, b.seeAlso), count: null };
     }
     if (b.type === "rest") {
       var rest = [];
@@ -2063,7 +2386,7 @@ const RUNTIME = String.raw`
       var b = blocks[i];
       if (b.type === "drawer") continue;
       var built = await buildBlock(data, b);
-      if (built) out.push(section(b.title || titleize(b.type), built.count, built.node, false));
+      if (built) out.push(section(b.title || titleize(b.type), built.count, built.node, !!b.open));
     }
     return out;
   }
@@ -2159,6 +2482,8 @@ const RUNTIME = String.raw`
           attn = !!f.attnWhenShort && ok < v.length;
         } else if (Array.isArray(v)) {
           value = String(v.length);
+        } else if (f.templates && v && typeof v === "object") {
+          value = fillTemplate(v, f.by, f.templates);
         } else if (v && typeof v === "object") {
           // A bag of named numbers is a countable collection too. Without this
           // a fact pointing at a traits object silently produced nothing, which
