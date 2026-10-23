@@ -81,25 +81,10 @@ async function resolveOrRefuse(requested: string): Promise<
   }
 }
 
-type PerceptualTraits = NonNullable<Parameters<typeof import("../../visual/perceptual-transport.js").resolvePerceptualProfile>[1]>;
-
-/**
- * The persona's own accessibility traits, when its record carries any.
- *
- * The attention model synthesizes a perceptual filter from them for a persona
- * with no built-in profile, which is how empathy_audit scores the same persona.
- * Without them the attention tools fell back to name inference or the generic
- * default, so one persona was drawn through two different filters, and the
- * built-in accessibility personas without a perceptual profile (autism-spectrum,
- * intellectual-disability, aphasia-receptive, dyscalculia) always got the
- * default. A built-in profile still wins over the traits. Resolved after
- * resolveOrRefuse, which loaded the account's personas. (ISC-48, 2026-10-22)
- */
-async function personaAccessibilityTraits(name: string): Promise<PerceptualTraits | undefined> {
-  const { getAnyPersona } = await import("../../personas.js");
-  const a11y = (getAnyPersona(name) as { accessibilityTraits?: PerceptualTraits } | undefined)?.accessibilityTraits;
-  return a11y && Object.keys(a11y).length > 0 ? a11y : undefined;
-}
+// One shared helper for every attention caller (ISC-48, ISC-48.1): the persona
+// record's own accessibilityTraits, only the fields it sets. It used to be
+// copied here and in the other tool file.
+import { personaStoredAccessibilityTraits as personaAccessibilityTraits } from "../../visual/stored-accessibility-traits.js";
 
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { confineToAccountDir, refuseHostedUrl } from "../hosted-inputs.js";

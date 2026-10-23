@@ -20,7 +20,9 @@
  * @license MIT
  */
 
-export type ProvenanceStatus = "fitted" | "published" | "definition" | "hypothesis";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+export type ProvenanceStatus ="fitted" | "published" | "definition" | "hypothesis";
 
 export interface ProvenanceEntry {
   /** Stable id, `<area>.<name>`, e.g. "chain.weightDeficit". */
@@ -40,6 +42,7 @@ import { CTC_REFERENCE_PROVENANCE } from "./provenance/ctc-reference.js";
 import { ATTENTION_PROVENANCE } from "./provenance/attention.js";
 import { PERCEPTUAL_PROVENANCE } from "./provenance/perceptual.js";
 import { PAGE_METRICS_PROVENANCE } from "./provenance/page-metrics.js";
+import { VISUAL_DISTANCE_PROVENANCE } from "./provenance/visual-distance.js";
 import { LAW_PROVENANCE } from "./provenance/laws.js";
 import { PROFILE_PROVENANCE } from "./provenance/profiles.js";
 import { PERSONA_RATE_PROVENANCE } from "./provenance/persona-rates.js";
@@ -55,17 +58,34 @@ function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> 
 }
 
 export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Object.freeze(
-  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE),
+  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE),
 );
 
-let recording: Set<string> | null = null;
+/**
+ * WHERE A READ IS RECORDED. Every recording (withProvenance, readsOf,
+ * withProvenanceAsync) is a set bound to the async context it runs in, so a
+ * read lands in the recording of the code that made it, across awaits, and
+ * never in a concurrent request's. Through 21.0 this was one module-level
+ * set: correct only while every recorded computation was synchronous, which
+ * is why a tool could record its chain run and not the page measurement or
+ * verdict around it (both happen across awaits). startProvenanceRecording is
+ * the one recording outside any context: a whole-process session for tests,
+ * seen by any read that no scoped recording claims.
+ */
+const scoped = new AsyncLocalStorage<Set<string>>();
+let session: Set<string> | null = null;
 let overrides: Readonly<Record<string, number>> | null = null;
+
+/** The recording a read made here lands in: the innermost scoped one, else the session, else none. */
+function current(): Set<string> | null {
+  return scoped.getStore() ?? session;
+}
 
 /** Read a registered constant. Throws on an unregistered id, so a typo cannot fall back silently. */
 export function param(id: string): number {
   const e = MODEL_PROVENANCE[id];
   if (!e) throw new Error(`unregistered model constant "${id}"`);
-  if (recording) recording.add(id);
+  current()?.add(id);
   if (overrides && id in overrides) return overrides[id];
   return e.value;
 }
@@ -102,13 +122,13 @@ export function activeOverrides(): Readonly<Record<string, number>> | null {
 
 /** Start recording which ids `param()` reads. Returns the live set. Test and reporting use only. */
 export function startProvenanceRecording(): Set<string> {
-  recording = new Set();
-  return recording;
+  session = new Set();
+  return session;
 }
 
 export function stopProvenanceRecording(): Set<string> {
-  const r = recording ?? new Set<string>();
-  recording = null;
+  const r = session ?? new Set<string>();
+  session = null;
   return r;
 }
 
@@ -121,8 +141,46 @@ export interface ProvenanceSummary {
   note: string;
 }
 
+/** What a block says it covers. Tools report the score's block with the defaults below. */
+export interface ProvenanceText {
+  scope?: string;
+  note?: string;
+}
+
+/**
+ * The score block's scope: what a tool's `modelProvenance` counts. The
+ * attention maps a tool draws as context are recorded apart
+ * (isolatedProvenanceAsync) and carry ATTENTION_PROVENANCE_TEXT instead.
+ */
+const SCORE_SCOPE =
+  "Every registered constant the score in this answer read: the page-metric extraction that measured the page (pageMetrics.*), " +
+  "the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation " +
+  "when values were applied), the reference set totalCTC is ranked against and the verdict bands cut on it (definitions), and the two " +
+  "persona-distance constants the persona profile reads. It does not count the attention model: an attention map in this answer " +
+  "(cognitive_effort's saliency overlay, visual_cognitive_story's attention analysis) is context for the page, not an input to the " +
+  "score, and carries its own block for the attention model's constants: published colour science, the gaze constants fitted on " +
+  "UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) where a map applies them, and hand-set weights and filters.";
+
+const SCORE_NOTE =
+  "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; " +
+  "it is not a validation of the score. See MODEL_PROVENANCE for each source.";
+
+/** The text of an attention map's own block. */
+export const ATTENTION_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Object.freeze({
+  scope:
+    "Every registered constant the attention model read to draw this map. The model's constants are the colour-science conversion " +
+    "(published: sRGB, CIE XYZ and L*a*b*), the gaze blend, smoothing width and spatial prior fitted on UEyes eye-tracking (held-out " +
+    "AUC 0.7367, GAZE_CALIBRATION), and hand-set channel weights, element weights and persona filters (hypotheses); the counts say " +
+    "which of them this map read. The map is context for the page, not an input to the cognitive transport score, whose constants " +
+    "are counted in modelProvenance.",
+  note:
+    "Constants labelled fitted were estimated from free-viewing eye-tracking pooled over many people, so they say nothing about a " +
+    "particular persona; those labelled hypothesis are set by hand. This reports where each number in the map comes from; it is " +
+    "not a validation of the map. See MODEL_PROVENANCE for each source.",
+});
+
 /** Summarise a set of ids (what one computation read) for a tool response. */
-export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
+export function provenanceSummary(ids: Iterable<string>, text: ProvenanceText = {}): ProvenanceSummary {
   const counts: Record<ProvenanceStatus, number> = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
   const hypotheses: string[] = [];
   for (const id of ids) {
@@ -135,8 +193,8 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
   return {
     counts,
     hypotheses,
-    scope: "Every registered constant this answer read, from: the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation when values were applied), the reference set totalCTC is ranked against (a definition), and the persona distance. The page metrics themselves are measured from the page, not set. The attention model (Layer 1) is calibrated separately against UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) and is not counted here.",
-    note: "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; it is not a validation of the score. See MODEL_PROVENANCE for each source.",
+    scope: text.scope ?? SCORE_SCOPE,
+    note: text.note ?? SCORE_NOTE,
   };
 }
 
@@ -147,45 +205,120 @@ export function provenanceSummary(ids: Iterable<string>): ProvenanceSummary {
  * would have.
  */
 export function readsOf<T>(fn: () => T): { result: T; ids: ReadonlySet<string> } {
-  const outer = recording;
+  const outer = current();
   const mine = new Set<string>();
-  recording = mine;
   try {
-    return { result: fn(), ids: mine };
+    return { result: scoped.run(mine, fn), ids: mine };
   } finally {
     if (outer) for (const id of mine) outer.add(id);
-    recording = outer;
   }
 }
 
 /**
- * Run `fn` with recording suspended: what it reads is counted in no enclosing
- * recording. Overrides still apply. For persona properties: a persona's
- * capacity rates (provenance/persona-rates.ts, provenance/profiles.ts) describe
- * the persona, as its catalogued traits do, not the score. A score's block
- * counts demand, chain, reference and distance, and would otherwise also count
- * whichever personas the reference curve happened to bridge on a cache miss.
+ * The persona models' own recording channel. Reads made by the persona models
+ * in cognitive-models.ts (capacity rates, pointing and reading profiles, the
+ * fixation model the readability audit shares) describe the persona or an
+ * audit, not the score, so they never land in a score's recording: a score
+ * block counts demand, chain, reference and distance. Without this, a block
+ * would also count whichever personas the CTC reference curve happened to bridge
+ * on a cache miss, and the motor and readability audits a tool runs beside its
+ * score. A process-wide session (startProvenanceRecording) still sees them, as
+ * with isolatedProvenanceAsync, since coverage tests count every read the
+ * process makes. Overrides apply as usual.
  */
-export function unrecorded<T>(fn: () => T): T {
-  const outer = recording;
-  recording = null;
+const personaCollector = new AsyncLocalStorage<Set<string>>();
+
+/** Run `fn` as persona-model work: its reads go to the active collectPersonaReads set (if any) and the session, never to a score recording. */
+export function personaScope<T>(fn: () => T): T {
+  const mine = personaCollector.getStore() ?? new Set<string>();
   try {
-    return fn();
+    return scoped.run(mine, fn);
   } finally {
-    recording = outer;
+    if (session) for (const id of mine) session.add(id);
   }
 }
 
-/** Run `fn` and return its result with the provenance of every constant it read. */
-export function withProvenance<T>(fn: () => T): { result: T; provenance: ProvenanceSummary } {
-  const outer = recording;
+/**
+ * Run `fn` as persona-model work and return the ids it read. A tool wraps the
+ * scored persona's bridge in this to report the rates that persona was scored
+ * with in a section of their own: computed from the persona, so no cache state
+ * can change it.
+ */
+export function collectPersonaReads<T>(fn: () => T): { result: T; ids: ReadonlySet<string> } {
   const mine = new Set<string>();
-  recording = mine;
+  const result = personaCollector.run(mine, () => personaScope(fn));
+  return { result, ids: mine };
+}
+
+/**
+ * Run `fn` and return its result with the provenance of every constant it read.
+ *
+ * Synchronous: it records what `fn` reads before returning, so an async `fn`
+ * is recorded only up to its first await. Use withProvenanceAsync for that.
+ */
+export function withProvenance<T>(fn: () => T): { result: T; provenance: ProvenanceSummary } {
+  const outer = current();
+  const mine = new Set<string>();
   try {
-    const result = fn();
+    const result = scoped.run(mine, fn);
     return { result, provenance: provenanceSummary(mine) };
   } finally {
     if (outer) for (const id of mine) outer.add(id);
-    recording = outer;
   }
+}
+
+/**
+ * withProvenance for an async function: every param() read inside `fn`,
+ * before and after each await, is recorded, and nothing read by code running
+ * concurrently in another context is. Nests like withProvenance in both
+ * directions: its reads land in any enclosing recording when it settles, and
+ * withProvenance, readsOf or another withProvenanceAsync inside it land in it.
+ *
+ * Covers what `fn` awaits. Work it starts and does not await (a fire-and-forget
+ * promise) can still read into this recording after the summary is taken, and
+ * is then counted nowhere; a tool answer awaits everything it reports.
+ */
+export async function withProvenanceAsync<T>(fn: () => Promise<T>): Promise<{ result: T; provenance: ProvenanceSummary }> {
+  const outer = current();
+  const mine = new Set<string>();
+  try {
+    const result = await scoped.run(mine, fn);
+    return { result, provenance: provenanceSummary(mine) };
+  } finally {
+    if (outer) for (const id of mine) outer.add(id);
+  }
+}
+
+/**
+ * withProvenanceAsync whose reads do NOT land in an enclosing recording: a
+ * block of its own. For work a tool does beside its score, such as the
+ * attention map cognitive_effort draws as context, whose constants (fitted
+ * gaze calibration, published colour science) would otherwise be counted as
+ * the score's and make it look partly fitted. Recordings nested inside it land
+ * in it as usual. A process-wide session (startProvenanceRecording) still sees
+ * its reads, since coverage tests count every read the process makes.
+ */
+export async function isolatedProvenanceAsync<T>(
+  fn: () => Promise<T>,
+  text: ProvenanceText = {},
+): Promise<{ result: T; provenance: ProvenanceSummary }> {
+  const mine = new Set<string>();
+  try {
+    const result = await scoped.run(mine, fn);
+    return { result, provenance: provenanceSummary(mine, text) };
+  } finally {
+    if (session) for (const id of mine) session.add(id);
+  }
+}
+
+/**
+ * The provenance of the recording this code runs inside, as read so far, or
+ * null outside any. A tool handler running under withProvenanceAsync calls it
+ * as the last step before serialising its answer, so the block it reports is
+ * everything that answer read. Nested recordings that have finished are
+ * already merged into it; ones still running are not.
+ */
+export function activeProvenance(): ProvenanceSummary | null {
+  const r = current();
+  return r ? provenanceSummary(r) : null;
 }

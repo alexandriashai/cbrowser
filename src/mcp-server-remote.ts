@@ -1381,7 +1381,7 @@ SELF-HELP:
 • If you are unsure what a tool does, what a score means, which persona to use, or how tools work together — call question_answer with your question
 • question_answer searches 290+ pages of CBrowser documentation and returns a grounded answer
 • Use it before guessing. Example: question_answer(question: "What is the difference between viewport and full_page scope?")
-• Use it to explain results to the user. Example: question_answer(question: "What does a CTC of 1.6 with readability bottleneck mean?")`;
+• Use it to explain results to the user. Example: question_answer(question: "What does a CTC in the high band with a readability bottleneck mean?")`;
 }
 
 /** Body of docs://tools-overview, counted from TOOL_CATEGORIES. */

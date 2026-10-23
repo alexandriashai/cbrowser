@@ -35,7 +35,9 @@ describe("CIF provenance registry", () => {
   test("the registry is pinned, unique and cif-prefixed", () => {
     // Pinned exactly: a constant added to or removed from cif-score.ts must
     // change this number on purpose.
-    expect(CIF_PROVENANCE.length).toBe(89);
+    // 87 after overloadThreshold's own CTC cut points (easyCTC 0.3, kneeCTC 0.6,
+    // cuts on the logistic totalCTC used to be) gave way to the verdict bands.
+    expect(CIF_PROVENANCE.length).toBe(87);
     expect(registered.size).toBe(CIF_PROVENANCE.length);
     for (const e of CIF_PROVENANCE) expect(e.id.startsWith("cif.")).toBe(true);
   });
@@ -73,7 +75,7 @@ describe("CIF provenance registry", () => {
       counts[e.status]++;
       if (e.status === "hypothesis") expect(e.source).toMatch(/would (fit|set|test|place)/);
     }
-    expect(counts).toEqual({ fitted: 0, published: 5, definition: 4, hypothesis: 80 });
+    expect(counts).toEqual({ fitted: 0, published: 5, definition: 4, hypothesis: 78 });
     expect(CIF_PROVENANCE.filter((e) => e.status === "definition").map((e) => e.id).sort()).toEqual([
       "cif.display.costDecimals",
       "cif.emptyAverage",
@@ -91,10 +93,12 @@ describe("CIF provenance registry", () => {
     }
   });
 
-  test("every id the score reads is registered, and only cif ids are read", () => {
-    const unregistered = [...read].filter((id) => !registered.has(id));
+  test("every id the score reads is registered, and only cif ids and the verdict bands are read", () => {
+    const unregistered = [...read].filter((id) => !registered.has(id) && !id.startsWith("ctcBands."));
     expect(unregistered).toEqual([]);
-    expect([...read].every((id) => id.startsWith("cif."))).toBe(true);
+    // overloadThreshold cuts totalCTC at the registered verdict bands and
+    // states its band, so CIF reads those three and nothing else outside cif.*.
+    expect([...read].filter((id) => !id.startsWith("cif.")).sort()).toEqual(["ctcBands.high", "ctcBands.top", "ctcBands.upperHalf"]);
   });
 
   test("every registered id is read at least once (no dead entries)", () => {

@@ -12,6 +12,8 @@
  * @since v18.60.0
  */
 
+import { param } from "./visual/model-provenance.js";
+
 // ── Types ──
 
 export interface AttentionTarget {
@@ -36,10 +38,30 @@ export interface StructuralConstraint {
 }
 
 export interface CognitiveThreshold {
+  /**
+   * The highest totalCTC this profile accepts. totalCTC is a percentile of the
+   * reference (21.x), so 0.6 means "no costlier than 60% of the real (page,
+   * persona) pairs we measured". Through 21.0 it was a logistic of rawCTC, on
+   * which the same 0.6 sat near the 93rd percentile of real first screens: the
+   * values are unchanged and their meaning is not. Read from the registry
+   * (idealProfiles.maxCTC.<persona>, hand-set hypotheses).
+   */
   maxCTC: number;
   maxAbandonmentRisk: number;
   maxDecisionComplexity: number;
   maxReadabilityCost: number;
+}
+
+/**
+ * A profile's thresholds with maxCTC read through the registry on every
+ * access, so the profile and its provenance entry cannot disagree. A getter on
+ * the literal, so it is enumerable and serialises as the plain number.
+ */
+function thresholds(persona: string, rest: Omit<CognitiveThreshold, "maxCTC">): CognitiveThreshold {
+  return {
+    get maxCTC() { return param(`idealProfiles.maxCTC.${persona}`); },
+    ...rest,
+  };
 }
 
 export interface IdealProfile {
@@ -82,12 +104,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 44,
       maxInformationDensity: 0.3,
     },
-    thresholds: {
-      maxCTC: 0.6,
+    thresholds: thresholds('cognitive-adhd', {
       maxAbandonmentRisk: 40,
       maxDecisionComplexity: 0.3,
       maxReadabilityCost: 0.4,
-    },
+    }),
     research: [
       'Barkley 1997',
       'Castellanos & Tannock 2002',
@@ -115,12 +136,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 44,
       maxInformationDensity: 0.4,
     },
-    thresholds: {
-      maxCTC: 0.7,
+    thresholds: thresholds('autism-spectrum', {
       maxAbandonmentRisk: 50,
       maxDecisionComplexity: 0.4,
       maxReadabilityCost: 0.5,
-    },
+    }),
     research: [
       'Baron-Cohen 2009',
       'Happ\u00e9 & Frith 2006',
@@ -148,12 +168,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 48,
       maxInformationDensity: 0.5,
     },
-    thresholds: {
-      maxCTC: 0.8,
+    thresholds: thresholds('motor-impairment-tremor', {
       maxAbandonmentRisk: 50,
       maxDecisionComplexity: 0.5,
       maxReadabilityCost: 0.6,
-    },
+    }),
     research: [],
   },
   {
@@ -177,12 +196,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 44,
       maxInformationDensity: 0.5,
     },
-    thresholds: {
-      maxCTC: 0.8,
+    thresholds: thresholds('first-timer', {
       maxAbandonmentRisk: 50,
       maxDecisionComplexity: 0.5,
       maxReadabilityCost: 0.6,
-    },
+    }),
     research: [],
   },
   {
@@ -206,12 +224,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 44,
       maxInformationDensity: 0.2,
     },
-    thresholds: {
-      maxCTC: 0.5,
+    thresholds: thresholds('impatient-user', {
       maxAbandonmentRisk: 30,
       maxDecisionComplexity: 0.2,
       maxReadabilityCost: 0.3,
-    },
+    }),
     research: [],
   },
   {
@@ -235,12 +252,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 48,
       maxInformationDensity: 0.3,
     },
-    thresholds: {
-      maxCTC: 0.7,
+    thresholds: thresholds('elderly-user', {
       maxAbandonmentRisk: 45,
       maxDecisionComplexity: 0.4,
       maxReadabilityCost: 0.4,
-    },
+    }),
     research: [],
   },
   {
@@ -264,12 +280,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 48,
       maxInformationDensity: 0.3,
     },
-    thresholds: {
-      maxCTC: 0.8,
+    thresholds: thresholds('low-vision-magnified', {
       maxAbandonmentRisk: 50,
       maxDecisionComplexity: 0.5,
       maxReadabilityCost: 0.5,
-    },
+    }),
     research: [],
   },
   {
@@ -293,12 +308,11 @@ export const IDEAL_PROFILES: IdealProfile[] = [
       minTouchTarget: 44,
       maxInformationDensity: 0.3,
     },
-    thresholds: {
-      maxCTC: 0.7,
+    thresholds: thresholds('dyslexic-user', {
       maxAbandonmentRisk: 45,
       maxDecisionComplexity: 0.4,
       maxReadabilityCost: 0.3,
-    },
+    }),
     research: [],
   },
 ];

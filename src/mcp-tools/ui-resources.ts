@@ -586,7 +586,9 @@ export const EFFORT_SPEC: WidgetSpec = {
     variant: "gradient",
     subtitle: { field: "interpretation" },
     facts: [
-      { field: "cognitiveTransportCost.total", label: "transport cost" },
+      // A percentile since 21.x: labelled as the rank it is, with its band.
+      { field: "cognitiveTransportCost.total", label: "percentile vs real pages" },
+      { field: "cognitiveTransportCost.band", label: "band" },
       { field: "abandonmentRisk", label: "abandonment risk" },
       { field: "bottleneck", label: "bottleneck" },
       { field: "url", label: "page" },
@@ -602,7 +604,10 @@ export const EFFORT_SPEC: WidgetSpec = {
       nameKey: "name", costKey: "cost", capacityKey: "capacityConsumed",
       bottleneckField: "bottleneck",
       additiveField: "cognitiveTransportCost.additive",
-      totalField: "cognitiveTransportCost.total",
+      // raw, not total: the bars share one scale with the layer costs and the
+      // additive sum, which are layer-cost units. total is a percentile (21.x),
+      // and drawn on that scale it was a 0-1 rank beside costs of 1 and more.
+      totalField: "cognitiveTransportCost.raw",
       // Each bar opens into that layer's overlay on the real page. Layers with
       // no overlay stay inert and say why.
       overlaysField: "layerOverlays", fetchTool: "artifact_fetch" },

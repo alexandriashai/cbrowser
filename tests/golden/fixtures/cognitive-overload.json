@@ -1,6 +1,6 @@
 {
   "url": "https://portal.example.gov/benefits/application",
-  "totalCTC": 1.42,
+  "totalCTC": 0.98,
   "layers": [
     { "name": "perception", "cost": 0.22 },
     { "name": "decision", "cost": 0.38 },

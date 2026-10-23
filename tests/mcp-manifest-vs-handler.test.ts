@@ -109,7 +109,11 @@ const MANIFEST = buildManifest();
  * deleted, which is worse than not having it.
  */
 function destructuredParams(fn: (...a: unknown[]) => unknown): string[] | null {
-  const src = fn.toString();
+  // A handler registered through recordedAnswer (answer-provenance.ts) is a
+  // wrapper whose own parameters are a rest argument; the handler as written
+  // is kept on it. Read that one, or the three CTC tools drop out of the check.
+  const inner = (fn as unknown as Record<symbol, unknown>)[Symbol.for("cbrowser.recordedAnswer.handler")];
+  const src = (typeof inner === "function" ? inner : fn).toString();
   const open = src.indexOf("{");
   if (open === -1 || open > src.indexOf(")")) return null;
   let depth = 0;

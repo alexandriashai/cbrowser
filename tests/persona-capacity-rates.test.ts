@@ -5,9 +5,9 @@
  * readingCapacity and motorCapacity the chain reads. These tests pin what the
  * bridge is given: the persona's accessibility traits reach the pointing
  * profile, so a stated tremor is not ignored because the name does not say
- * "tremor". The bridge runs unrecorded: the rates it reads describe the
- * persona and are not counted in any score's block, while an override still
- * reaches them. Capacities are rate ratios, c = r_p / (r_p + r_ref), with one
+ * "tremor". Persona-model reads (the bridge, the motor and readability
+ * audits) never land in a score's recording, while an override still reaches
+ * them, and collectPersonaReads returns the scored persona's rate ids. Capacities are rate ratios, c = r_p / (r_p + r_ref), with one
  * reference per channel: 4.9 bits/s for pointing, Brysbaert's 238 wpm for
  * reading, the fixation model contributing only a slowdown against its own
  * neurotypical profile. Every built-in persona carries a registered rate on
@@ -20,12 +20,13 @@
 import { describe, test, expect } from "bun:test";
 import {
   bridgeCapacityTraits, getPointingProfile, getReadingProfile, motorCapacityOf, readingCapacityOf, readingRateRatioOf,
-  registeredPersonaRate, KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES,
+  registeredPersonaRate, motorAccessibility, readability, KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES,
 } from "../src/visual/cognitive-models.js";
 import { MODEL_PROVENANCE, param } from "../src/visual/model-provenance.js";
 import { PERSONA_RATE_PROVENANCE } from "../src/visual/provenance/persona-rates.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../src/personas.js";
-import { startProvenanceRecording, stopProvenanceRecording, withParamOverrides } from "../src/visual/model-provenance.js";
+import { collectPersonaReads, startProvenanceRecording, stopProvenanceRecording, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
+import { buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import fc from "fast-check";
 
 describe("the bridge passes accessibility traits to the pointing profile", () => {
@@ -48,16 +49,40 @@ describe("the bridge passes accessibility traits to the pointing profile", () =>
   });
 });
 
-describe("the bridge runs unrecorded", () => {
-  test("a recording around it counts nothing, and an override still reaches it", () => {
+describe("persona-model reads never land in a score recording (personaScope)", () => {
+  test("the bridge in a scoped recording counts nothing, the process session still sees it, and an override still reaches it", () => {
     const traits: Record<string, number> = { proceduralFluency: 0.5, patience: 0.5 };
+    const { provenance } = withProvenance(() => bridgeCapacityTraits("steady-custom", traits, { tremor: true } as never));
+    expect(provenance.counts).toEqual({ fitted: 0, published: 0, definition: 0, hypothesis: 0 });
+    // Coverage tests count every read the process makes, as with isolatedProvenanceAsync.
     startProvenanceRecording();
-    bridgeCapacityTraits("steady-custom", traits, { tremor: true } as never);
-    const read = stopProvenanceRecording();
-    expect([...read]).toEqual([]);
+    bridgeCapacityTraits("steady-custom", { proceduralFluency: 0.5, patience: 0.5 }, { tremor: true } as never);
+    const session = stopProvenanceRecording();
+    expect(session.has("law.rate.pointing.motionImpaired")).toBe(true);
     const moved: Record<string, number> = { proceduralFluency: 0.5, patience: 0.5 };
     withParamOverrides({ "law.rate.pointing.motionImpaired": 1.5 }, () => bridgeCapacityTraits("steady-custom", moved, { tremor: true } as never));
     expect(moved.motorCapacity).not.toBe(traits.motorCapacity);
+  });
+
+  test("the motor and readability audits a tool runs beside its score count nothing in the score's recording", () => {
+    const profile = buildOTCognitiveProfile("first-timer", { ...(ROSTER["first-timer"].cognitiveTraits ?? {}) });
+    const { provenance } = withProvenance(() => {
+      motorAccessibility([{ selector: "a", width: 20, height: 20, distance: 300 }], profile);
+      readability([{ text: "a cat sat on the mat", fontSize: 14, lineHeight: 1.4, fontFamily: "serif", isSerif: true, contrastRatio: 3 }], { name: "dyslexic-user" });
+    });
+    expect(provenance.counts).toEqual({ fitted: 0, published: 0, definition: 0, hypothesis: 0 });
+  });
+
+  test("collectPersonaReads returns the scored persona's rate ids, the same on every call", () => {
+    const ids = (name: string) => {
+      const t: Record<string, number> = { ...(ROSTER[name].cognitiveTraits ?? {}) };
+      return [...collectPersonaReads(() => bridgeCapacityTraits(name, t, ROSTER[name].accessibilityTraits)).ids].sort();
+    };
+    const first = ids("dyslexic-user");
+    expect(first).toContain("personaRate.dyslexic-user.reading");
+    expect(first).toContain("personaRate.dyslexic-user.pointing");
+    expect(first.filter((id) => id.startsWith("personaRate.") && !id.startsWith("personaRate.dyslexic-user."))).toEqual([]);
+    expect(ids("dyslexic-user")).toEqual(first);
   });
 });
 

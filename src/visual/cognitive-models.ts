@@ -11,8 +11,16 @@
  * @see Perry, Zorzi & Ziegler (2019) Psychological Science — personalized dyslexia models
  * @since v18.39.0
  */
-import { MODEL_PROVENANCE, param, unrecorded } from "./model-provenance.js";
+import { MODEL_PROVENANCE, param, personaScope } from "./model-provenance.js";
 import { measuredRate, pointingCapacity, readingCapacity } from "./demand-laws.js";
+
+/**
+ * A registered constant, read as persona-model work (model-provenance.ts,
+ * personaScope): every read in this module describes a persona or an audit,
+ * not a score, so none lands in a score's recording. Calls into demand-laws.ts
+ * are wrapped the same way.
+ */
+const pp = (id: string): number => personaScope(() => param(id));
 
 // ── Mathematical Primitives ──
 
@@ -76,7 +84,7 @@ function normalPDF(x: number): number {
  * would put every reader about 7% below the reference by construction.
  */
 export function readingCapacityOf(profile: ReadingProfile): number {
-  return readingCapacity(readingRateRatioOf(profile) * param("law.reading.wpm"));
+  return personaScope(() => readingCapacity(readingRateRatioOf(profile) * pp("law.reading.wpm")));
 }
 
 /**
@@ -84,9 +92,9 @@ export function readingCapacityOf(profile: ReadingProfile): number {
  * base + (1 - phonological) x phonologicalMs + (normalSpan / visualSpan - 1) x spanMs.
  */
 function perWordMs(profile: Pick<ReadingProfile, "phonological" | "visualSpan">): number {
-  return param("profile.fixation.baseMs")
-    + (1 - profile.phonological) * param("profile.fixation.phonologicalMs")
-    + (param("profile.fixation.normalSpan") / profile.visualSpan - 1) * param("profile.fixation.spanMs");
+  return pp("profile.fixation.baseMs")
+    + (1 - profile.phonological) * pp("profile.fixation.phonologicalMs")
+    + (pp("profile.fixation.normalSpan") / profile.visualSpan - 1) * pp("profile.fixation.spanMs");
 }
 
 /** A reading profile's silent reading rate as a share of the reference reader's: the neurotypical profile's per-word time over its own. */
@@ -121,7 +129,7 @@ export interface PointingProfile {
  * accuracy, and subtracting dispersion again counted it twice.
  */
 export function motorCapacityOf(profile: PointingProfile): number {
-  return pointingCapacity(profile.throughput);
+  return personaScope(() => pointingCapacity(profile.throughput));
 }
 
 /**
@@ -203,10 +211,10 @@ export interface MotorAccessibilityResult {
  * are not registered.
  */
 const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
-  neurotypical: { sigmaX: 4, sigmaY: 4, rho: 0.0, get throughput() { return param("law.rate.pointing.reference"); } },
-  tremor: { sigmaX: 12, sigmaY: 12, rho: 0.3, get throughput() { return param("law.rate.pointing.reference") * measuredRate("motionImpaired").ratio; } },
-  elderly: { sigmaX: 7.2, sigmaY: 7.2, rho: 0.1, get throughput() { return param("profile.pointing.elderly.throughput"); } },
-  adhd: { sigmaX: 5.5, sigmaY: 5.5, rho: 0.0, get throughput() { return param("law.rate.pointing.reference"); } },
+  neurotypical: { sigmaX: 4, sigmaY: 4, rho: 0.0, get throughput() { return pp("law.rate.pointing.reference"); } },
+  tremor: { sigmaX: 12, sigmaY: 12, rho: 0.3, get throughput() { return pp("law.rate.pointing.reference") * personaScope(() => measuredRate("motionImpaired").ratio); } },
+  elderly: { sigmaX: 7.2, sigmaY: 7.2, rho: 0.1, get throughput() { return pp("profile.pointing.elderly.throughput"); } },
+  adhd: { sigmaX: 5.5, sigmaY: 5.5, rho: 0.0, get throughput() { return pp("law.rate.pointing.reference"); } },
 };
 
 /**
@@ -217,7 +225,7 @@ const KNOWN_POINTING_PROFILES: Record<string, PointingProfile> = {
 export function registeredPersonaRate(name: string | undefined, channel: "pointing" | "reading"): number | undefined {
   if (!name) return undefined;
   const id = `personaRate.${name}.${channel}`;
-  return id in MODEL_PROVENANCE ? param(id) : undefined;
+  return id in MODEL_PROVENANCE ? pp(id) : undefined;
 }
 
 /**
@@ -236,7 +244,7 @@ export function getPointingProfile(persona: {
 }): PointingProfile {
   const profile = pointingProfileFromTraits(persona);
   const share = registeredPersonaRate(persona.name, "pointing");
-  return share === undefined ? profile : { ...profile, throughput: share * param("law.rate.pointing.reference") };
+  return share === undefined ? profile : { ...profile, throughput: share * pp("law.rate.pointing.reference") };
 }
 
 /**
@@ -536,8 +544,8 @@ const readingProfile = (kind: string, rest: Pick<ReadingProfile, "orthographic" 
   ...rest,
   // The two values the per-word rate reads are registered (provenance/profiles.ts)
   // and read at use, so an override reaches the profile.
-  get phonological() { return param(`profile.reading.${kind}.phonological`); },
-  get visualSpan() { return param(`profile.reading.${kind}.visualSpan`); },
+  get phonological() { return pp(`profile.reading.${kind}.phonological`); },
+  get visualSpan() { return pp(`profile.reading.${kind}.visualSpan`); },
 });
 const KNOWN_READING_PROFILES: Record<string, ReadingProfile> = {
   neurotypical: readingProfile("neurotypical", { orthographic: 0.85, vocabulary: 0.75, crowding: 0.15 }),
@@ -713,7 +721,7 @@ export function computeReadingDifficulty(
 
   // Base time per word. Registered as a hypothesis: the 250 ms it holds is
   // Rayner's (2009) fixation duration, not a per-word time.
-  const baseFixation = param("profile.fixation.baseMs");
+  const baseFixation = pp("profile.fixation.baseMs");
 
   // 1. Orthographic deficit: irregular words take longer to process
   // When orthographic route is impaired, the reader must fall back to
@@ -727,7 +735,7 @@ export function computeReadingDifficulty(
   // 2. Phonological deficit: all words require phonological activation
   // Even for skilled readers, phonological codes are activated automatically.
   // Impaired phonological processing slows all word recognition.
-  const phonoPenalty = (1 - profile.phonological) * param("profile.fixation.phonologicalMs");
+  const phonoPenalty = (1 - profile.phonological) * pp("profile.fixation.phonologicalMs");
   if (phonoPenalty > 10) {
     penalties.push(`phonological: +${Math.round(phonoPenalty)}ms`);
   }
@@ -736,8 +744,8 @@ export function computeReadingDifficulty(
   // The normal span (7) is registered; Legge et al. (2007) estimate about 9.
   // Reduced span means more saccades to read the same word. Not clamped: a
   // span above normal subtracts time.
-  const spanRatio = param("profile.fixation.normalSpan") / profile.visualSpan;
-  const spanPenalty = (spanRatio - 1) * param("profile.fixation.spanMs");
+  const spanRatio = pp("profile.fixation.normalSpan") / profile.visualSpan;
+  const spanPenalty = (spanRatio - 1) * pp("profile.fixation.spanMs");
   if (spanPenalty > 5) {
     penalties.push(`visual span: +${Math.round(spanPenalty)}ms (${profile.visualSpan} chars/fixation)`);
   }
@@ -959,15 +967,17 @@ export { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES };
  * gap while a defaulted one silently reads as average -- which is the exact failure
  * this function exists to end.
  *
- * Runs unrecorded (model-provenance.ts): the registered rates it reads describe the
- * persona, and are not counted in the block of whatever score is being computed.
+ * Runs as persona-model work (model-provenance.ts, personaScope): the registered rates
+ * it reads describe the persona and are not counted in the block of whatever score is
+ * being computed. A tool reports the scored persona's rates on their own by wrapping
+ * this call in collectPersonaReads.
  */
 export function bridgeCapacityTraits(
   personaName: string,
   traits: Record<string, number>,
   accessibilityTraits?: Record<string, number | boolean>,
 ): { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined {
-  return unrecorded(() => bridge(personaName, traits, accessibilityTraits));
+  return personaScope(() => bridge(personaName, traits, accessibilityTraits));
 }
 
 function bridge(
@@ -982,7 +992,7 @@ function bridge(
     const readingShare = registeredPersonaRate(personaName, "reading");
     traits.readingCapacity = readingShare === undefined
       ? readingCapacityOf(getReadingProfile({ name: personaName, traits, accessibilityTraits: accessibilityTraits as Record<string, number> | undefined }))
-      : readingCapacity(readingShare * param("law.reading.wpm"));
+      : personaScope(() => readingCapacity(readingShare * pp("law.reading.wpm")));
     // The accessibility traits go to the pointing profile too: without them a
     // stated tremor never reached the motor capacity, and a custom persona whose
     // name does not say "tremor" was interpolated from its dispositions instead.

@@ -74,6 +74,7 @@ import {
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 import { writeSecretFile } from "../secure-file.js";
+import { semanticWeightTable } from "../visual/attention-transport.js";
 import type { DecisionProvider } from "./journey-trace.js";
 import {
   JourneyTraceWriter,
@@ -485,7 +486,12 @@ const MOUSE_OVERLAY_SCRIPT = `(() => {
  * payload, no dashboard-side overlay positioning. Per-frame compute is
  * sub-millisecond on modern pages because we're just reading bounding boxes.
  *
- * Config is injected as `window.__cbAttentionConfig` by the journey runner.
+ * Config is injected as `window.__cbAttentionConfig` by the journey runner
+ * (attentionOverlayInitScript). Every weight and goal constant comes from it,
+ * that is from attention-transport's semanticWeightTable; this script holds
+ * none of its own (ISC-48.1, 2026-10-22). It is still a simpler model than
+ * analyzeAttention: max per cell, max-normalised, no values layer, no
+ * perceptual filter, no gaze calibration, and its own element classifier.
  */
 const ATTENTION_OVERLAY_SCRIPT = `(() => {
   if (window.__cbAttentionInstalled || window.__cbAttentionPending) return;
@@ -494,9 +500,11 @@ const ATTENTION_OVERLAY_SCRIPT = `(() => {
   const install = () => {
     if (window.__cbAttentionInstalled) return;
     if (!document.documentElement || !document.body) return;
+    // No config, no overlay: drawing with invented weights is what this
+    // replaced.
+    const config = window.__cbAttentionConfig;
+    if (!config) return;
     window.__cbAttentionInstalled = true;
-
-    const config = window.__cbAttentionConfig || { typeWeights: {}, personaMods: {}, goal: "" };
     const cellSize = 16;
 
     const css = \`
@@ -578,15 +586,16 @@ const ATTENTION_OVERLAY_SCRIPT = `(() => {
       return 'content';
     };
 
-    // Sum of weight from goal-keyword matches in element text.
+    // Goal relevance as computeGoalRelevance scores it, with its constants.
+    const stopWords = new Set(config.stopWords || []);
     const goalWords = (config.goal || '').toLowerCase()
-      .split(/\\s+/).filter(w => w.length > 2 && !/^(the|a|an|to|for|of|in|on|at|is|it|my|i|me|and|or|how|do|can)$/.test(w));
+      .split(/\\s+/).filter(w => w.length >= config.minKeywordLength && !stopWords.has(w));
     const goalRelevance = (text) => {
       if (!text || !goalWords.length) return 0;
       const t = text.toLowerCase();
       let m = 0;
       for (const w of goalWords) if (t.includes(w)) m++;
-      return (m / goalWords.length) * 2.0;
+      return (m / goalWords.length) * config.relevanceGain;
     };
 
     let lastCells = null;
@@ -617,9 +626,10 @@ const ATTENTION_OVERLAY_SCRIPT = `(() => {
         if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
 
         const type = classify(el);
-        let weight = (config.typeWeights && config.typeWeights[type]) || 0.2;
-        const mod = (config.personaMods && config.personaMods[type]) || 1.0;
-        weight *= mod;
+        // As buildSemanticMap: an unknown type takes the fallback weight, and
+        // a type without a modifier is unmodified.
+        let weight = config.typeWeights[type] ?? config.typeFallback;
+        weight *= config.personaMods[type] ?? 1;
         const text = (el.innerText || el.textContent || '').slice(0, 200);
         const gr = goalRelevance(text);
         if (gr > 0) weight *= (1 + gr);
@@ -685,6 +695,11 @@ const ATTENTION_OVERLAY_SCRIPT = `(() => {
       canvas.style.display = visible === false ? 'none' : '';
     };
     window.__cbAttentionRefresh = schedule;
+    // The raw weights of the last frame (before max-normalisation), so a test
+    // can read what was painted rather than decode the canvas.
+    window.__cbAttentionCells = () => lastCells
+      ? { cols: lastDims.cols, rows: lastDims.rows, cellSize, cells: Array.from(lastCells) }
+      : null;
   };
 
   if (typeof window.requestIdleCallback === 'function') {
@@ -697,36 +712,31 @@ const ATTENTION_OVERLAY_SCRIPT = `(() => {
 /**
  * Build the JSON config bundle that drives the in-browser attention heatmap.
  * The browser-side script doesn't have access to the SDK's persona profiles,
- * so we precompute the type-weight × persona-modifier table here and ship it.
+ * so the weight table is computed here and shipped.
+ *
+ * The table is attention-transport's own (semanticWeightTable), not a copy.
+ * Until 2026-10-22 this function held a hand-written mirror "kept in sync by
+ * hand", and it had drifted: navigation still read siteFamiliarity, which the
+ * model dropped on 2026-08-05, so a journey given customTraits
+ * { siteFamiliarity: 0 } drew navigation at 1.0 while attention_analysis drew
+ * it at 0.7. The page script also kept its own fallback weight, goal gain,
+ * keyword length and stop words; they now come from here too. (ISC-48.1)
  */
-function buildAttentionConfig(
+export function buildAttentionConfig(
   personaName: string,
   goal: string | undefined,
   traits: Partial<CognitiveTraits> | undefined,
-): { typeWeights: Record<string, number>; personaMods: Record<string, number>; goal: string; persona: string } {
-  // Mirror of ELEMENT_TYPE_WEIGHTS in attention-transport.ts. Kept in sync by
-  // hand — small enough that drift hasn't been a problem.
-  const typeWeights: Record<string, number> = {
-    cta: 1.0, heading: 0.8, form: 0.7, search: 0.7,
-    image: 0.5, navigation: 0.4, link: 0.3,
-    content: 0.2, decorative: 0.1, price: 0.9, error: 0.9,
+): ReturnType<typeof semanticWeightTable> & { goal: string; persona: string } {
+  return {
+    ...semanticWeightTable(personaName, traits as Record<string, number> | undefined),
+    goal: goal || "",
+    persona: personaName,
   };
-  // Trait-driven modifiers. Mirrors computeTraitModifiers in attention-transport.
-  const t = (k: string) => (traits as Record<string, number> | undefined)?.[k] ?? 0.5;
-  const personaMods: Record<string, number> = {
-    cta: 1.0 + (1.0 - t("patience")) * 0.5,
-    search: 0.7 + (1.0 - t("patience")) * 0.6,
-    content: t("readingTendency") > 0.6 ? 0.4 + t("readingTendency") * 0.4 : 0.2 + t("patience") * 0.4,
-    heading: 0.8 + t("curiosity") * 0.4,
-    image: 0.5 + t("curiosity") * 0.5,
-    navigation: 0.4 + (1.0 - t("siteFamiliarity")) * 0.6,
-    error: 0.5 + (1.0 - t("selfEfficacy")) * 0.5,
-    price: 0.5 + (1.0 - t("riskTolerance")) * 0.5,
-    decorative: 0.1 + (1.0 - t("metacognitivePlanning")) * 0.4,
-    form: 0.5 + t("proceduralFluency") * 0.3,
-    link: 1.0,
-  };
-  return { typeWeights, personaMods, goal: goal || "", persona: personaName };
+}
+
+/** The init script that installs the in-page heatmap with `config`. */
+export function attentionOverlayInitScript(config: ReturnType<typeof buildAttentionConfig>): string {
+  return `window.__cbAttentionConfig = ${JSON.stringify(config)};` + ATTENTION_OVERLAY_SCRIPT;
 }
 
 export interface CognitiveJourneyOptions {
@@ -1193,8 +1203,7 @@ export async function runCognitiveJourney(
       // Persona modifiers (type weights × cognitive traits) are precomputed
       // here in Node and serialized into the page as window.__cbAttentionConfig.
       const attentionConfig = buildAttentionConfig(personaObj.name, options.goal, traits);
-      const configBootstrap = `window.__cbAttentionConfig = ${JSON.stringify(attentionConfig)};`;
-      await initialPage.context().addInitScript(configBootstrap + ATTENTION_OVERLAY_SCRIPT);
+      await initialPage.context().addInitScript(attentionOverlayInitScript(attentionConfig));
     } catch (e) {
       console.warn(`[cognitive] Overlay context init failed: ${(e as Error).message}`);
     }
