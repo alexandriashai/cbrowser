@@ -16,7 +16,7 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
-import { deriveMetrics, extractPerScreenMetrics, lawSecondsOf, type RawPageMeasurement } from "../src/visual/cognitive-transport.js";
+import { deriveMetrics, extractPerScreenMetrics, lawSecondsOf, type RawPageMeasurement, type RawPageMeasurementV1 } from "../src/visual/cognitive-transport.js";
 import { computeDemandDistribution } from "../src/visual/cognitive-transport-chain.js";
 import { LAW_PROVENANCE } from "../src/visual/provenance/laws.js";
 import { MODEL_PROVENANCE, param, withParamOverrides } from "../src/visual/model-provenance.js";
@@ -109,11 +109,20 @@ describe("the law times, on raw measurements, and the demands they make", () => 
     expect(demandOf(large).satisficing).toBeGreaterThan(demandOf(small).satisficing);
   });
 
-  test("links in no group form one more choice set: from groupedLinks in format 2, from the nav sizes before it", () => {
+  test("links in no group form one more choice set: from groupedLinks in format 2, from the nav sizes in format 1", () => {
     const some = variant((r) => { r.groupedLinks = 50; });
     expect(lawSecondsOf(some).lawDiagnostics).toMatchObject({ ungroupedLinks: RAW_LATIN.links - 50, ungroupedLinksFrom: "groupedLinks" });
-    const before = variant((r) => { delete (r as Partial<RawPageMeasurement>).groupedLinks; });
-    expect(lawSecondsOf(before).lawDiagnostics).toMatchObject({ ungroupedLinks: RAW_LATIN.links - 12, ungroupedLinksFrom: "navGroupSizes" });
+    const { prose: _p, proseNested: _pn, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...v1 } = RAW_LATIN;
+    expect(lawSecondsOf({ ...v1, format: 1 } satisfies RawPageMeasurementV1).lawDiagnostics).toMatchObject({ ungroupedLinks: RAW_LATIN.links - 12, ungroupedLinksFrom: "navGroupSizes" });
+  });
+
+  test("a format-2 record without groupedLinks is refused, not counted by the format-1 rule", () => {
+    // Records measured before the nav totals existed (the 97c4888 reference) took
+    // the nav sizes as an interim rule; the reference no longer holds any, and
+    // decodeReferenceRaw already refuses them.
+    const early = variant((r) => { delete (r as Partial<RawPageMeasurement>).groupedLinks; });
+    expect(() => lawSecondsOf(early)).toThrow(/raw format 2 record without groupedLinks/);
+    expect(() => deriveMetrics(early)).toThrow(/raw format 2 record without groupedLinks/);
   });
 
   test("entry fields and toggle groups ask procedure; links and buttons do not", () => {

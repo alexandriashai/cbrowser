@@ -1146,7 +1146,12 @@ export async function extractPerScreenMetrics(
     // The law times are re-charged for the same share: what this screen
     // introduces, so a sticky nav or a header search box is not acquired, chosen
     // from or filled in again on every screen (a definition; exact per-element
-    // times would need box identities across screens).
+    // times would need box identities across screens). Procedure takes the
+    // interactive share, not a count of new entry fields: KLM charges an entry
+    // step once per visit, so a header search box seen on every screen is one
+    // step, not one per screen. Scaling this screen's steps by the share of its
+    // controls that are new assumes a field is as likely to be new as any other
+    // control.
     const share = (newOnes: number, all: number) => (all > 0 ? Math.min(1, newOnes / all) : 0);
     const pointShare = share(fresh.newInteractive, metrics.interactiveElementCount);
     const chooseShare = share(fresh.newChoices, metrics.choiceCountRaw);
@@ -1220,9 +1225,8 @@ export interface LawDiagnostics {
   /** Links in no choice group, which form one more choice set. */
   ungroupedLinks: number;
   /**
-   * How ungroupedLinks was counted: `groupedLinks` (format 2 from eaf3b36:
-   * links - groupedLinks, each link once) or `navGroupSizes` (format 1, and
-   * format-2 records measured before groupedLinks existed: links minus the
+   * How ungroupedLinks was counted: `groupedLinks` (format 2: links -
+   * groupedLinks, each link once) or `navGroupSizes` (format 1: links minus the
    * stored nav groups' sizes, where a link in nested groups may count twice).
    */
   ungroupedLinksFrom: "groupedLinks" | "navGroupSizes";
@@ -1272,9 +1276,11 @@ export interface LawDiagnostics {
  *     list's 64 groups. Format 2 gives each choice to the outermost group
  *     that offers it and stores navGroupCount, navLinks and groupedLinks
  *     uncapped; format 1's group totals survive as `choiceNested`.
- * deriveMetrics reads none of these new fields and still accepts a format-1
- * record (RawPageMeasurementV1), which derives exactly as it did, so the two
- * can be compared.
+ * deriveMetrics reads groupedLinks (the links in no group, for the choosing
+ * law) and none of the other new fields. It still accepts a format-1 record
+ * (RawPageMeasurementV1), which derives as format 2 does except choosing,
+ * whose ungrouped links come from the stored nav sizes, so the two can be
+ * compared.
  */
 export interface RawPageMeasurement {
   /** Version of this record's layout: RAW_PAGE_FORMAT. */
@@ -1929,9 +1935,10 @@ export async function measurePageRaw(
  * record's lengthBins cannot be re-derived from it and throws.
  *
  * Both layouts derive: format 2, and format 1 (RawPageMeasurementV1), whose
- * fields this reads are the same and which derives exactly as it did, its
- * nested-prose counts included. Any other format is refused rather than
- * guessed at.
+ * fields this reads are the same but for groupedLinks and which derives as it
+ * did, its nested-prose counts included; its ungrouped links come from the
+ * stored nav sizes. A format-2 record without groupedLinks (measured before
+ * the nav totals) and any other format are refused rather than guessed at.
  */
 /** Numbers per entry in RawPageMeasurement.boxes and .choiceGroups (the record's layout, not model constants). */
 const RAW_BOX_FIELDS = 5;
@@ -1995,9 +2002,14 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
     if (kind === "radio" || kind === "checkbox") toggleGroups++;
   }
   const totalGroups = Math.max(raw.choiceGroupCount, groups.length);
-  const grouped = (raw as Partial<RawPageMeasurement>).groupedLinks;
-  const ungroupedLinksFrom = typeof grouped === "number" ? "groupedLinks" as const : "navGroupSizes" as const;
-  const ungroupedLinks = Math.max(0, raw.links - (typeof grouped === "number" ? grouped : storedNavLinks));
+  // Format 2 counts every grouped link once. Format 1 has no such count, so its
+  // grouped links are the stored nav groups' sizes. A format-2 record without
+  // the count predates the nav totals and is refused rather than read as format 1.
+  if (raw.format !== 1 && typeof raw.groupedLinks !== "number") {
+    throw new Error("lawSecondsOf: raw format 2 record without groupedLinks (measured before the nav totals existed); re-measure the page");
+  }
+  const ungroupedLinksFrom = raw.format === 1 ? "navGroupSizes" as const : "groupedLinks" as const;
+  const ungroupedLinks = Math.max(0, raw.links - (raw.format === 1 ? storedNavLinks : raw.groupedLinks));
   const choose = (law: "novice" | "expert") => choosingSeconds(groups, law, totalGroups)
     + (law === "novice" ? noviceSearchSeconds(ungroupedLinks) : hickHymanSeconds(ungroupedLinks));
 
