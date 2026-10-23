@@ -848,6 +848,14 @@ export interface CognitiveStep {
   phase: "perceive" | "comprehend" | "decide" | "execute" | "evaluate";
   monologue: string;
   action?: string;
+  /** What the action is aimed at, in the persona's words ("the Pricing link"). */
+  actionTarget?: string;
+  /**
+   * False when the model's reply could not be read as JSON. The step then
+   * takes no action, and `phase` holds the engine's fallback ("evaluate"),
+   * not anything the model said.
+   */
+  replyReadable: boolean;
   state: CognitiveState;
   /** Step-aligned screenshot. Captured only on initial page load + scroll>100. */
   screenshotPath?: string;
@@ -1397,6 +1405,8 @@ Right now it's ${temporalState.description}.`;
     url: string;
     pageTitle: string;
     phase: string;
+    /** False when the model's reply could not be read (phase is then the fallback). */
+    replyReadable: boolean;
     action: string | null;
     actionTarget: string | null;
     focusedElement: string | null;
@@ -1620,8 +1630,10 @@ Right now it's ${temporalState.description}.`;
       });
     }
 
-    // Parse Claude's response
+    // Parse Claude's response. An unreadable reply parses to {} (no phase, no
+    // action); say so rather than let it pass as an "evaluate" step.
     const parsed = parseCognitiveResponse(assistantMessage);
+    const replyReadable = Object.keys(parsed).length > 0;
 
     // Capture URL BEFORE we apply any action. We use the previous URL +
     // the post-action URL to gate goal progress on real evidence — Claude's
@@ -1871,6 +1883,7 @@ Right now it's ${temporalState.description}.`;
       url: currentUrl,
       pageTitle: pageTitle,
       phase: parsed.phase || "evaluate",
+      replyReadable,
       action: parsed.action || null,
       actionTarget: parsed.actionTarget || null,
       focusedElement: parsed.focusedElement || null,
@@ -1908,6 +1921,8 @@ Right now it's ${temporalState.description}.`;
         phase: parsed.phase || "evaluate",
         monologue: parsed.monologue || "",
         action: parsed.action,
+        actionTarget: parsed.actionTarget || undefined,
+        replyReadable,
         state: { ...state },
         screenshotPath,
         attentionHeatmapBase64,

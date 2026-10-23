@@ -65,6 +65,7 @@ import {
   removeAnthropicApiKey,
   isApiKeyConfigured,
 } from "./cognitive/index.js";
+import { formatJourneyStep } from "./cognitive/journey-dialog.js";
 
 // Lightpanda integration (v18.20.0) - OPT-IN ONLY with security guardrails
 import {
@@ -7740,8 +7741,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override
             capture: buildAutoCaptureSetting(options, `journey-${personaName.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`),
+            // Each step's dialog as it happens: phase and mood, the persona's
+            // monologue, and what it did (src/cognitive/journey-dialog.ts).
+            // --verbose prints its own fuller block instead.
             onStep: verbose ? undefined : (step) => {
-              process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
+              console.log(formatJourneyStep(step).join("\n"));
             },
           });
 
