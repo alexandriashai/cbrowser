@@ -15,6 +15,7 @@ import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
 import { effectiveDataDir } from "../config.js";
+import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
@@ -156,7 +157,9 @@ async function captureForAB(
 
     // Take screenshot
     const screenshotsPath = getABScreenshotsPath();
-    const filename = `${label.toLowerCase()}-${Date.now()}.png`;
+    // Time plus random bits (src/temp-files.ts): two comparisons in the same
+    // millisecond wrote one "a" file and compared each other's capture.
+    const filename = `${label.toLowerCase()}-${uniqueStamp()}.png`;
     const screenshotPath = join(screenshotsPath, filename);
 
     const viewport = page.viewportSize() || { width: 1920, height: 1080 };

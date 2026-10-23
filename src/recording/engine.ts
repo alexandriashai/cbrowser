@@ -32,6 +32,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { randomPart } from "../temp-files.js";
 import type { CDPSession, ConsoleMessage, Locator, Page, Request } from "playwright";
 
 import { buildContactSheet } from "./contact-sheet.js";
@@ -458,7 +459,9 @@ export class VideoCaptureSession {
     this.startDelayMs = options.startDelayMs ?? 0;
     this.stopTrigger = options.stopTrigger;
     this.target = options.target ?? { kind: "viewport" };
-    this.slug = options.slug ?? `recording-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    // The time, plus random bits (src/temp-files.ts): two captures started in
+    // the same millisecond under one base dir shared a directory.
+    this.slug = options.slug ?? `recording-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomPart()}`;
     this.outDir = options.outDir ?? join(this.baseDir, this.slug);
     this.framesDir = join(this.outDir, "frames");
     mkdirSync(this.framesDir, { recursive: true });

@@ -15,6 +15,7 @@ import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
 import { effectiveDataDir } from "../config.js";
+import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
@@ -350,7 +351,9 @@ async function captureAtViewport(
 
     // Take screenshot
     const screenshotsPath = getResponsiveScreenshotsPath();
-    const filename = `${viewport.name}-${Date.now()}.png`;
+    // Time plus random bits (src/temp-files.ts): two runs at one viewport in
+    // the same millisecond wrote one file.
+    const filename = `${viewport.name}-${uniqueStamp()}.png`;
     const screenshotPath = join(screenshotsPath, filename);
 
     // CSS pixels: a device's pixel ratio would make the phone shot three

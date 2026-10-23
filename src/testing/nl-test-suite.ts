@@ -13,6 +13,7 @@
 
 import type { Page } from "playwright";
 import { existsSync, readFileSync } from "fs";
+import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser, namedClickables } from "../browser.js";
 import {
@@ -603,7 +604,7 @@ export async function runNLTestSuite(
     captureSession = await startAutoCapture(
       await browser.getPage(),
       capture,
-      `suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${Date.now()}`,
+      `suite-${suite.name.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`,
     );
     if (captureSession) console.log(`   🎥 Capturing to ${captureSession.status().outDir}`);
 

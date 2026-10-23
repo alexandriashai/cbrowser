@@ -13,6 +13,7 @@ import { scopedDataDir } from "../../persona-scope.js";
 import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
+import { makeTempDir, uniqueStamp, type CallTempDir } from "../../temp-files.js";
 import type { ContentBlock } from "../screenshot-utils.js";
 
 /**
@@ -142,6 +143,17 @@ export function transportMapsDir(): string {
  */
 export function heatmapFallbackDir(): string {
   return join(scopedDataDir() ?? join(homedir(), ".cbrowser"), "heatmaps");
+}
+
+/**
+ * The file name that fallback writes. The persona name is the caller's (an
+ * account can name a persona anything, "/" included), so it gets the filter
+ * writeArtifact applies, which this path skipped: a name with "/" and ".."
+ * put the file outside heatmapFallbackDir. Random bits too, as writeArtifact
+ * adds, instead of the clock alone.
+ */
+export function heatmapFallbackFile(persona: string): string {
+  return `attn-${String(persona).replace(/[^a-zA-Z0-9._-]+/g, "-")}-${uniqueStamp()}.png`;
 }
 
 /**
@@ -570,7 +582,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       const { writeFileSync, mkdirSync, existsSync } = await import("fs");
       const mapsDir = transportMapsDir();
       if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
-      const svgPath = join(mapsDir, `transport-map-${Date.now()}.svg`);
+      const svgPath = join(mapsDir, `transport-map-${uniqueStamp()}.svg`);
       writeFileSync(svgPath, result.svg);
 
       return {
@@ -654,8 +666,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         }),
       });
       const { join } = await import("path");
-      const { tmpdir } = await import("os");
-      const { unlinkSync } = await import("fs");
+      // The screenshot's own temp dir, removed in the finally below: a
+      // clock-named file in the shared temp dir was read by concurrent calls.
+      let attnTemp: CallTempDir | undefined;
 
       const ownsBrowser = !_browserToken;
       let restoreSession: (() => Promise<void>) | undefined;
@@ -705,7 +718,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         // did not take, which must not be silent.
         animationsStillRunning = await countRunningAnimations(page as never);
 
-        const screenshotPath = join(tmpdir(), `attn-${Date.now()}.png`);
+        attnTemp = await makeTempDir("attn");
+        const screenshotPath = attnTemp.file("page.png");
         await page.screenshot({ path: screenshotPath, fullPage: false });
 
         // Extract DOM elements BEFORE saliency computation so they feed into the
@@ -969,6 +983,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // cbrowser.ai URL for a file no one could fetch. One store now owns
             // the directory and the URL together. (2026-07-29)
             const cbrowserDir = heatmapFallbackDir();
+            let fallbackFile = "";
             let savedPath = "";
             let publicUrl = "";
 
@@ -982,7 +997,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
               // Served store unavailable — keep the local copy, and return the
               // local path rather than a URL that would not resolve.
               if (!existsSync(cbrowserDir)) mkdirSync(cbrowserDir, { recursive: true });
-              savedPath = join(cbrowserDir, `${heatmapId}.png`);
+              fallbackFile = heatmapFallbackFile(persona);
+              savedPath = join(cbrowserDir, fallbackFile);
               writeFileSync(savedPath, png);
               publicUrl = savedPath;
               heatmapFullResolution = "the PNG at the local path in heatmapUrl (the artifact store was unavailable, so artifact_fetch cannot serve it)";
@@ -993,7 +1009,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // that URL, so the view asks artifact_fetch for these bytes over
             // the MCP connection instead. The name as written, which carries the
             // store's random part, not the name asked for. (r1010 artifact-nonce, 2026-10-10)
-            data.heatmapFile = written ? written.filename : `${heatmapId}.png`;
+            data.heatmapFile = written ? written.filename : fallbackFile;
             data.heatmapNote = "Show this heatmap image to the user. The red areas show where this persona's attention concentrates. Blue areas receive little attention.";
             heatmapPng = png;
 
@@ -1015,10 +1031,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           }
         }
 
-        try { unlinkSync(screenshotPath); } catch {}
-
         return { content: await assembleAttentionContent(data, heatmapPng, heatmapFullResolution) };
       } finally {
+        await attnTemp?.remove();
         if (ownsBrowser) await browser.close();
         else await restoreSession?.();
       }
@@ -1074,9 +1089,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         });
       const ownsBrowser = !_browserToken;
       let restoreSession: (() => Promise<void>) | undefined;
-      const { join } = await import("path");
-      const { tmpdir } = await import("os");
-      const { unlinkSync } = await import("fs");
+      // The screenshot's own temp dir, removed in the finally below.
+      let cmpTemp: CallTempDir | undefined;
 
       try {
         if (ownsBrowser) await browser.launch();
@@ -1090,7 +1104,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         const viewport = page.viewportSize?.() ?? null;
         const { scroll, restore: restoreScroll } = await scrollForAnalysis(page as never, scrollY);
         if (!ownsBrowser) restoreSession = restoreScroll;
-        const screenshotPath = join(tmpdir(), `attn-cmp-${Date.now()}.png`);
+        cmpTemp = await makeTempDir("attn-cmp");
+        const screenshotPath = cmpTemp.file("page.png");
         await page.screenshot({ path: screenshotPath, fullPage: false });
 
         // Extract DOM elements for semantic attention layer
@@ -1177,8 +1192,6 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           }
         }
 
-        try { unlinkSync(screenshotPath); } catch {}
-
         // The comparison map was pushed inline at full PNG size, ~500 KB of
         // base64 against a ~150k result cap, so on a real page this tool
         // blew the cap that attention_analysis was fixed for. Same remedy:
@@ -1193,6 +1206,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
 
         return { content };
       } finally {
+        await cmpTemp?.remove();
         if (ownsBrowser) await browser.close();
         else await restoreSession?.();
       }

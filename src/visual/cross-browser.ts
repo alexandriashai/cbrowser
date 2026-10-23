@@ -14,7 +14,8 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { effectiveDataDir } from "../config.js";
+import { effectiveDataDir, getPaths } from "../config.js";
+import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
@@ -125,7 +126,9 @@ async function captureWithBrowser(
 
     // Take screenshot
     const screenshotsPath = getCrossBrowserScreenshotsPath();
-    const filename = `${browserType}-${Date.now()}.png`;
+    // Time plus random bits (src/temp-files.ts): two runs on one engine in the
+    // same millisecond wrote one file and compared each other's capture.
+    const filename = `${browserType}-${uniqueStamp()}.png`;
     const screenshotPath = join(screenshotsPath, filename);
 
     const page = await browser.getPage();
@@ -805,8 +808,15 @@ export async function crossBrowserDiff(
       const resourceCount = await page.evaluate(() => performance.getEntriesByType("resource").length);
       metrics[browserName] = { loadTime, resourceCount };
 
-      // Capture screenshot
-      const screenshotPath = `/tmp/cross-browser-${browserName}-${Date.now()}.png`;
+      // Capture screenshot, into the calling account's session screenshots dir,
+      // which retention sweeps (as regression's current captures do, v8 B36).
+      // It went to the shared /tmp under a clock-only name: same-millisecond
+      // runs on one engine wrote one file, every account's full-page captures
+      // sat there readable by any local user, and nothing deleted them. The CLI
+      // prints these paths; the MCP tool does not return them.
+      const shotsDir = getPaths().screenshotsDir;
+      if (!existsSync(shotsDir)) mkdirSync(shotsDir, { recursive: true });
+      const screenshotPath = join(shotsDir, `cross-browser-${browserName}-${uniqueStamp()}.png`);
       await page.screenshot({ path: screenshotPath, fullPage: true });
       screenshots[browserName] = screenshotPath;
 

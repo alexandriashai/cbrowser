@@ -76,6 +76,7 @@ import {
   getEmotionVisualizationStyles,
   generateEmotionVisualizationSection,
 } from "../utils.js";
+import { makeTempDir, type CallTempDir } from "../temp-files.js";
 
 // ============================================================================
 // WCAG Mapping
@@ -3849,11 +3850,12 @@ export async function runEmpathyAudit(
 
       // v18.28.0: Run attention analysis FIRST so we can pass page-specific data to perceptual transport
       let attentionData: { entropy: number; concentration: number; transportCost: number } | undefined;
+      // This call's own temp dir, not a clock-named file in the shared one:
+      // concurrent audits read each other's screenshots (src/temp-files.ts).
+      let attnTemp: CallTempDir | undefined;
       try {
-        const { join: joinAttn } = await import("path");
-        const { tmpdir: tmpdirAttn } = await import("os");
-        const { unlinkSync: ulAttn } = await import("fs");
-        const attnScreenshot = joinAttn(tmpdirAttn(), `empathy-attn-${Date.now()}.png`);
+        attnTemp = await makeTempDir("empathy-attn");
+        const attnScreenshot = attnTemp.file("page.png");
         await page.screenshot({ path: attnScreenshot, fullPage: false });
 
         // The record's stored traits, not the wrapped set: attention_analysis
@@ -3889,18 +3891,18 @@ export async function runEmpathyAudit(
           perceptualProfile: attnAnalysis.perceptualProfile,
         };
 
-        try { ulAttn(attnScreenshot); } catch {}
       } catch (e) {
         console.debug(`[empathy_audit] Attention analysis failed: ${(e as Error).message}`);
+      } finally {
+        await attnTemp?.remove();
       }
 
       // v18.26.0: Screenshot-based perceptual transport analysis
       // Now receives attention data for page-specific differentiation
+      let shotTemp: CallTempDir | undefined;
       try {
-        const { join } = await import("path");
-        const { tmpdir } = await import("os");
-        const { unlinkSync } = await import("fs");
-        const screenshotPath = join(tmpdir(), `empathy-screenshot-${Date.now()}.png`);
+        shotTemp = await makeTempDir("empathy-screenshot");
+        const screenshotPath = shotTemp.file("page.png");
         await page.screenshot({ path: screenshotPath, fullPage: false });
 
         const perceptualAnalysis = await analyzePerceptualTransport(screenshotPath, personaName, attentionData, (resolvedPersona as any).accessibilityTraits);
@@ -3947,10 +3949,11 @@ export async function runEmpathyAudit(
             `The deductions above explain the barrier-only score, not the headline.`;
         }
 
-        try { unlinkSync(screenshotPath); } catch {}
       } catch (e) {
         // Perceptual analysis is optional — don't fail the audit if it errors
         console.debug(`[empathy_audit] Perceptual transport analysis failed: ${(e as Error).message}`);
+      } finally {
+        await shotTemp?.remove();
       }
 
       // v18.27.0: Cognitive load estimation via optimal transport
