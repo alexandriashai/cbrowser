@@ -25,15 +25,37 @@ import {
   PERSONA_PROVENANCE_KEYS,
   PERSONA_TABLES,
   TRAIT_GROUPS,
+  NORM_ANCHORS,
   cataloguePersonaTraits,
 } from "../src/visual/provenance/personas.js";
 import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
+import { _normalCDF as Phi } from "../src/visual/cognitive-models.js";
 
 const PERSONAS_PATH = join(import.meta.dir, "..", "src", "personas.ts");
 
 // Pinned exactly. 25 personas: 10 built-in, 11 accessibility, 4 emotional.
 const PERSONA_COUNT = 25;
 const ENTRY_COUNT = 686;
+
+// The cells set to their norm-implied value (research/persona-norms/applied.md).
+const NORM_ANCHORED = ["autism-spectrum.workingMemory", "cognitive-adhd.workingMemory"];
+
+/**
+ * Anchored entries whose value is not Phi(z) to two decimals, falls outside
+ * the source's interval, or does not name the source. Empty when all hold.
+ */
+function anchorMismatches(entries: Array<{ id: string; value: number; source: string }>): string[] {
+  const out: string[] = [];
+  for (const [key, a] of Object.entries(NORM_ANCHORS)) {
+    const e = entries.find((x) => x.id === `persona.${key}`);
+    const expected = Math.round(Phi(a.z) * 100) / 100;
+    const ok = !!e && Object.is(e.value, expected) &&
+      e.value >= Phi(a.zLo) && e.value <= Phi(a.zHi) &&
+      e.source.includes(a.cite) && e.source.includes("norm-anchored");
+    if (!ok) out.push(`persona.${key}`);
+  }
+  return out;
+}
 
 /** Walk the runtime tables: id -> value for every numeric trait. */
 function runtimeTraits(): Map<string, number[]> {
@@ -129,8 +151,42 @@ describe("persona trait provenance", () => {
       expect(MODEL_PROVENANCE[e.id]).toBe(e);
       expect(e.status).toBe("hypothesis");
       expect(e.source).toMatch(/would (then )?test it/);
-      expect(e.source).toMatch(/set by hand/);
+      const anchored = NORM_ANCHORED.includes(e.id.slice("persona.".length));
+      expect({ id: e.id, says: e.source.match(/set by hand|norm-anchored/)?.[0] })
+        .toEqual({ id: e.id, says: anchored ? "norm-anchored" : "set by hand" });
     }
+  });
+
+  test("a norm-anchored value is Phi of its source's z to two decimals, inside the source's 95% CI, and still a hypothesis", () => {
+    expect([...PERSONA_PROVENANCE_KEYS.normAnchors].sort()).toEqual(NORM_ANCHORED);
+    expect(anchorMismatches(PERSONA_PROVENANCE)).toEqual([]);
+    for (const key of NORM_ANCHORED) {
+      const e = byId.get(`persona.${key}`)!;
+      expect(e.status).toBe("hypothesis");
+      expect(e.source).toContain("Still a hypothesis");
+      expect(e.source).toContain("Until 21.0 the value was");
+      // An anchored value is a measurement-derived number, so it is not also
+      // described as a direction-only citation.
+      expect(PERSONA_PROVENANCE_KEYS.valueCitations).not.toContain(key);
+    }
+  });
+
+  test("an anchored value moved off Phi(z) is caught (absence test)", () => {
+    const [persona, trait] = NORM_ANCHORED[0].split(".");
+    const tampered = {
+      ...PERSONA_TABLES,
+      ACCESSIBILITY_PERSONAS: {
+        ...PERSONA_TABLES.ACCESSIBILITY_PERSONAS,
+        [persona]: {
+          ...PERSONA_TABLES.ACCESSIBILITY_PERSONAS[persona as keyof typeof PERSONA_TABLES.ACCESSIBILITY_PERSONAS],
+          cognitiveTraits: {
+            ...PERSONA_TABLES.ACCESSIBILITY_PERSONAS[persona as keyof typeof PERSONA_TABLES.ACCESSIBILITY_PERSONAS].cognitiveTraits,
+            [trait]: 0.6,
+          },
+        },
+      },
+    } as unknown as Parameters<typeof cataloguePersonaTraits>[0];
+    expect(anchorMismatches(cataloguePersonaTraits(tampered).entries)).toEqual([`persona.${NORM_ANCHORED[0]}`]);
   });
 
   test("a citation beside a value is named in that entry and never upgrades its status", () => {
@@ -152,6 +208,7 @@ describe("persona trait provenance", () => {
     const traits = new Set(PERSONA_PROVENANCE.map((e) => e.id.split(".")[2]));
     expect(PERSONA_PROVENANCE_KEYS.populations.filter((p) => !personas.has(p))).toEqual([]);
     expect(PERSONA_PROVENANCE_KEYS.notes.filter((p) => !personas.has(p))).toEqual([]);
+    expect(PERSONA_PROVENANCE_KEYS.normAnchors.filter((k) => !byId.has(`persona.${k}`))).toEqual([]);
     expect(PERSONA_PROVENANCE_KEYS.measures.filter((t) => !traits.has(t))).toEqual([]);
   });
 
