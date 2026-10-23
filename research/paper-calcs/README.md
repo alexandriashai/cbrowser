@@ -611,6 +611,7 @@ read them from the outputs, or from the scripts' console summaries.
 | CTC for the typical user and the 25 human personas, both scopes | `typical-user.ts` | `ctc-scores.csv`, `typical-user.json` |
 | face validity: persona minus baseline, page bootstrap | `face_validity.py` | `face-validity.{csv,json}` |
 | power, Studies 2 and 3 | `power.py` (fits with `lmm.py`) | `power-{scope}.json`, `power-study2-{scope}.csv`, `power-study3-{scope}.csv`, `study3-pages-{scope}.csv` |
+| Study 2 in recruits: loss 33% (the paper's, unsourced), 60.8% and 69.6% (Yang & Krajbich 2021: 49 and 38 of 125) | `recruitment.py` | `recruitment-viewport.json` |
 | inter-observer ceiling, split by person | `../../study1/run-ceiling.ts` | `ceiling/ceiling.json`, `ceiling/per_image.csv` |
 | ceiling CIs | `../study1_intervals.py` | `ceiling-intervals.{csv,json}` |
 
