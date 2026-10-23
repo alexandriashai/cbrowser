@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.1.3](https://github.com/alexandriashai/cbrowser/compare/v20.1.2...v20.1.3) (2026-10-23)
+
+### Fixed
+
+* **journey:** accessibility personas run on their own traits; three journey reports fixed ([7bb0edf](https://github.com/alexandriashai/cbrowser/commit/7bb0edf91107f9a96ccc73d6ef9de140e37b9703))
+
 ## [20.1.2](https://github.com/alexandriashai/cbrowser/compare/v20.1.1...v20.1.2) (2026-10-23)
 
 ### Fixed
