@@ -155,21 +155,56 @@ describe("site familiarity is Cockburn et al.'s expertise e on the choosing time
     ), { numRuns: 300 });
   });
 
-  test("property: more familiarity never costs any persona more, on any reference page", () => {
-    const names = Object.keys(ROSTER);
-    const profiles = names.map((n) => toolProfile(n, ROSTER[n]));
+  // The invariant that kept e off the decision layer (research/stage-c-design.md
+  // 10.2): with e also shortening the dispositions' choosing time, a familiar
+  // visit cost MORE than a first one on 72 of 513 viewport reference pages for
+  // the typical user (billed surplus). Checked on every persona, the typical
+  // user included, as a property and as a sweep over a sample of the reference.
+  const TYPICAL = { name: "typical-user", traits: Object.fromEntries(Object.keys(ROSTER["power-user"].cognitiveTraits!).map((t) => [t, 0.5])) };
+  const FAMILIARITY_PERSONAS = [...Object.keys(ROSTER).map((n) => toolProfile(n, ROSTER[n])), TYPICAL];
+  const SAMPLE = PAGES.filter((_, i) => i % 8 === 0);
+  const E_PAIRS: Array<[number, number]> = [[0, 0.5], [0.5, 1], [0, 1]];
+  const costlierWhenFamiliar = (demandAt: (m: (typeof PAGES)[number], e: number) => ReturnType<typeof computeDemandDistribution>) => {
+    let n = 0;
+    for (const p of FAMILIARITY_PERSONAS) for (const m of SAMPLE) for (const [lo, hi] of E_PAIRS) {
+      if (computeSequentialCTC(p as never, demandAt(m, hi)).rawCTC > computeSequentialCTC(p as never, demandAt(m, lo)).rawCTC + 1e-12) n++;
+    }
+    return n;
+  };
+
+  test("property: for any persona, reference page and e1 < e2, the more familiar visit never costs more", () => {
     fc.assert(fc.property(
       fc.integer({ min: 0, max: PAGES.length - 1 }),
-      fc.integer({ min: 0, max: names.length - 1 }),
-      fc.double({ min: 0, max: 1, noNaN: true }),
-      fc.double({ min: 0, max: 1, noNaN: true }),
-      (i, k, a, b) => {
-        const [lo, hi] = a <= b ? [a, b] : [b, a];
-        const at = (e: number) => computeSequentialCTC(profiles[k], computeDemandDistribution(PAGES[i], { siteFamiliarity: e })).rawCTC;
-        return at(hi) <= at(lo) + 1e-12;
+      fc.integer({ min: 0, max: FAMILIARITY_PERSONAS.length - 1 }),
+      fc.integer({ min: 0, max: 999 }),
+      fc.integer({ min: 1, max: 1000 }),
+      (i, k, a, step) => {
+        const e1 = a / 1000;
+        const e2 = Math.min(1, (a + step) / 1000);
+        const at = (e: number) => computeSequentialCTC(FAMILIARITY_PERSONAS[k] as never, computeDemandDistribution(PAGES[i], { siteFamiliarity: e })).rawCTC;
+        return at(e2) <= at(e1) + 1e-12;
       },
-    ), { numRuns: 400 });
+    ), { numRuns: 500 });
   });
+
+  test("sweep: every persona and the typical user, every 8th reference page at both scopes, e pairs 0-0.5, 0.5-1 and 0-1: none costlier when familiar", () => {
+    expect(SAMPLE.length).toBeGreaterThan(120);
+    expect(costlierWhenFamiliar((m, e) => computeDemandDistribution(m, { siteFamiliarity: e }))).toBe(0);
+  }, 60_000);
+
+  test("the sweep goes red when e also reaches the decision dispositions (absence test of the test)", () => {
+    const DECISION = ["satisficing", "anchoringBias", "fearOfMissingOut", "socialProofSensitivity", "riskTolerance"];
+    const onDecisionToo = (m: (typeof PAGES)[number], e: number) => {
+      const d = computeDemandDistribution(m, { siteFamiliarity: e });
+      const first = computeDemandDistribution(m).demands;
+      const scale = first.satisficing > 0 ? d.demands.comprehension / first.satisficing : 1;
+      const out = { ...d, demands: { ...d.demands } };
+      for (const t of DECISION) out.demands[t] = first[t] * scale;
+      return out;
+    };
+    // 1,464 of the sweep's 10,062 cases when measured (2026-10-23).
+    expect(costlierWhenFamiliar(onDecisionToo)).toBeGreaterThan(0);
+  }, 60_000);
 
   test("property: within a run the demand is the run's, not the persona's: a persona's own siteFamiliarity changes nothing", () => {
     const names = Object.keys(ROSTER);

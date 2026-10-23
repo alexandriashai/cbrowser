@@ -396,6 +396,9 @@ informationDensity, so no pageMetrics constant goes dead.
 - PageMetrics gains `choosingSecondsExpert` (today only on
   `lawDiagnostics`), derived by deriveMetrics from the same groups. No raw
   field.
+- e stays off the decision layer (decided 2026-10-23, 10.2): the decision
+  dispositions bill surplus, so a shorter choosing time would make a familiar
+  visit cost more than a first one, which knowing a site cannot do.
 - `siteFamiliarity` leaves `DEMAND_DIMENSIONS` and `SURPLUS_FREE_DIMENSIONS`.
   The tools (`cognitive_effort`, `site_cognitive_assessment`) pass the run's
   value to the demand instead of writing it into each persona's traits; the
@@ -784,10 +787,14 @@ Built instead: e acts on the four cognitiveLoad abilities, which are
 surplus-free and are the finding abilities Cockburn's e substitutes for ("their
 visual search time decreases towards zero"); the decision dispositions keep the
 first-visit choosing time Stage B gave them. Measured: **0 of 40,014**
-(26 personas, the typical user included, x 513 viewport pages x three e pairs: 0 to 1, 0 to 0.5, 0.5 to 1) where more
-familiarity costs more; a fast-check property in tests/stage-c-load.test.ts
-holds it on random pages, personas and e. Nothing changes at e = 0. Reported
-to review as a change to decision 1.
+(26 personas, the typical user included, x 513 viewport pages x three e pairs:
+0 to 1, 0 to 0.5, 0.5 to 1) where more familiarity costs more. Accepted in
+review the same day. tests/stage-c-load.test.ts keeps the check: a fast-check
+property over (persona, page, e1 < e2) on every reference page, a sweep of
+every persona and the typical user over every 8th reference page at both
+scopes and the three e pairs (10,062 cases, 0 costlier), and an absence test
+that puts e back on the decision dispositions and finds the sweep red (1,464 of
+the 10,062 costlier when familiar). Nothing changes at e = 0.
 
 What familiarity does on the reference pages as built (e = 1 against 0, mean
 rawCTC change per page, totalCTC in brackets), viewport: first-timer -0.026 (totalCTC -0.015), elderly-user
@@ -915,7 +922,10 @@ is where their language-comprehension deficit actually landed.
 **The one targeted search** (PubMed, 2026-10-23: aphasia or intellectual
 disability, with reading rate, reading speed or words per minute, in title or
 abstract; 51 records; titles of all 51 and the abstracts of the 25 that could
-hold a rate read by me) found one same-study measurement:
+hold a rate read by me, and the metadata of records 21-51 checked again by a
+second reader, who found the same: 21 of those 31 measure spoken words per
+minute, the rest have no controls, no numbers or are children) found one
+same-study measurement:
 
 | source | what I read | what is taken |
 |---|---|---|
@@ -975,15 +985,16 @@ first-timer.
 
 ### 10.7 Tests
 
-- `tests/stage-c-load.test.ts`, 10 tests: on 7ed78e5's src (`git checkout
-  7ed78e5 -- src`), 9 fail and 1 passes (the guard "more familiarity never costs
-  any persona more", which holds trivially when e does nothing); on this
-  branch 10 pass; `git checkout HEAD -- src` leaves an empty diff. fast-check
-  properties: for any e in [0, 1] the abilities are asked
+- `tests/stage-c-load.test.ts`, 12 tests: on 7ed78e5's src (`git checkout
+  7ed78e5 -- src`), 10 fail and 2 pass (the familiarity guards, the property
+  over e1 < e2 and the sweep, which hold trivially when e does nothing); on
+  this branch 12 pass; `git checkout HEAD -- src` leaves an empty diff.
+  fast-check properties: for any e in [0, 1] the abilities are asked
   d((1 - e) T_novice + e T_expert), the dispositions the first-visit time, and
   e = 0 is the pre-change time to the bit (500 runs); monotone in e (300); a
-  persona's own siteFamiliarity changes nothing within a run (200); more
-  familiarity never costs more (400).
+  persona's own siteFamiliarity changes nothing within a run (200); for any
+  persona, page and e1 < e2 the more familiar visit never costs more (500),
+  with the 10,062-case sweep and its absence test of 10.2.
 - Rewritten to the new mechanism, not loosened: transport-dimension-alignment
   (the familiarity block asks the 2026-08-02 questions of e), site-familiarity
   -gate (the tools pass the value to the demand and write no trait),
