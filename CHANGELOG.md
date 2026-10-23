@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.0.3](https://github.com/alexandriashai/cbrowser/compare/v20.0.2...v20.0.3) (2026-10-23)
+
+### Fixed
+
+* **cli:** cbrowser ask links the home page source ([26df8c7](https://github.com/alexandriashai/cbrowser/commit/26df8c71415ca2758768d864a2920d702d1ed402))
+* **files:** per-call temp dirs for hosted temp images; crossBrowserDiff out of /tmp (20.0.3) ([5ee0913](https://github.com/alexandriashai/cbrowser/commit/5ee09138afb24a2f435aac0206f262bc80102306))
+
 ## [20.0.2](https://github.com/alexandriashai/cbrowser/compare/v20.0.1...v20.0.2) (2026-10-23)
 
 ### Fixed
