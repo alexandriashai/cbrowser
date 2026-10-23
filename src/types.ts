@@ -2177,8 +2177,13 @@ export interface AbandonmentThresholds {
   frustrationMax: number;
   /** Abandon if no progress after this many steps (default: 10) */
   maxStepsWithoutProgress: number;
-  /** Abandon if same page visited this many times (default: 3) */
-  loopDetectionThreshold: number;
+  /**
+   * Abandon if same page visited this many times (default: 3). The MCP flow
+   * announces it to the client model; the autonomous journey has no loop
+   * rule (its page history holds each page once, so the one it had could
+   * never fire, and it was removed in 21.0).
+   */
+  loopDetectionThreshold?: number;
   /** Maximum time in seconds (default: 120) */
   timeLimit: number;
   /** Abandon if decision fatigue exceeds this (default: 0.85, v9.9.0) */

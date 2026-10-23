@@ -110,8 +110,6 @@ export const EMOTION_PROVENANCE: ProvenanceEntry[] = [
   h("decisionSpeed.impulsiveOnset", 0.6, "Hand-set frustration above which decisions speed up (impulsive). The same regression, with a frustration breakpoint, would set it."),
   h("decisionSpeed.impulsiveGain", 0.5, "Hand-set speed-up per unit of frustration above its onset. The same regression would fit it."),
   h("decisionSpeed.excitement", 0.2, "Hand-set speed-up per unit of excitement. The same regression would fit it."),
-  h("decisionSpeed.min", 0.5, "Hand-set lower clamp of the decision-time multiplier. The range of fitted decision-time ratios would set it."),
-  h("decisionSpeed.max", 2, "Hand-set upper clamp of the decision-time multiplier. The range of fitted decision-time ratios would set it."),
 
   // ── Describing a state ──
   h("describe.very", 0.7, "Hand-set intensity above which an emotion is described as \"very\". Ratings of how people label an intensity would set the three word bands."),

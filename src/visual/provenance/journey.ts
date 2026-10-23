@@ -78,8 +78,6 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("abandon.frustrationLimit.lowPatience", 0.8, ABANDON("frustration above which an impatient persona gives up")),
   h("abandon.noProgressSteps", 15, ABANDON("number of steps without progress after which a persona of ordinary persistence gives up")),
   h("abandon.noProgressSteps.highPersistence", 20, ABANDON("number of steps without progress after which a persistent persona gives up")),
-  h("abandon.loopWindow", 5, ABANDON("number of most recent pages the loop rule looks at")),
-  h("abandon.loopUniquePages", 3, ABANDON("number of distinct pages in that window at or below which the persona feels it is going in circles")),
   h("abandon.timeLimitSeconds", 120, ABANDON("time limit, in seconds, of a persona of ordinary patience")),
   h("abandon.timeLimitSeconds.highPatience", 180, ABANDON("time limit, in seconds, of a patient persona")),
   h("abandon.timeLimitSeconds.lowPatience", 60, ABANDON("time limit, in seconds, of an impatient persona")),
@@ -89,12 +87,6 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("emotionalAbandon.anxiety", 0.85, ABANDON("anxiety above which, with high frustration and low patience, the persona gives up from stress")),
   h("emotionalAbandon.frustration", 0.8, ABANDON("frustration above which, with high anxiety and low patience, the persona gives up from stress")),
   h("emotionalAbandon.patience", 0.3, ABANDON("patience below which high anxiety and frustration make the persona give up")),
-  h("emotionalAbandon.boredom", 0.9, ABANDON("boredom above which, with no excitement, the persona gives up")),
-  h("emotionalAbandon.excitement", 0.1, ABANDON("excitement below which extreme boredom makes the persona give up")),
-  h("emotionalAbandon.boredomSteps", 8, ABANDON("number of steps after which extreme boredom can end the journey")),
-  h("emotionalAbandon.valence", -0.85, ABANDON("valence below which, with high arousal and low patience, the persona gives up")),
-  h("emotionalAbandon.arousal", 0.85, ABANDON("arousal above which, with very negative valence and low patience, the persona gives up")),
-  h("emotionalAbandon.valencePatience", 0.4, ABANDON("patience below which very negative, aroused feelings make the persona give up")),
   h("emotionalAbandon.modifier", 1.3, ABANDON("emotional abandonment modifier (the multiplier on the patience floor) above which a raised floor ends the journey")),
 
   // ── The persona's reported state becomes triggers ──
@@ -199,7 +191,6 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("evidence.minWordChars", 3, "Hand-set word length a word of the evidence must exceed to be checked. The share of matched short words that are stop words, across real claims, would set it."),
   h("evidence.verifiedShare", 0.3, "Hand-set share of the evidence's words that must appear on the page for the claim to be marked verified. Agreement with human checks of claimed evidence would set it."),
   h("finalEval.pageChars", 3000, SHOWN("number of characters of the final page the closing evaluation is shown")),
-  h("failure.pageChars", 1000, SHOWN("number of characters of the page read when the persona abandons")),
   h("quoteChars", 200, SHOWN("number of characters of page text or monologue quoted in evidence and failure reasons")),
 
   // ── What the model is shown ──
@@ -211,7 +202,6 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("content.minChars", 3, SHOWN("smallest text length of an element whose text is shown")),
   h("content.maxChars", 220, SHOWN("number of characters of one element's text shown before it is cut")),
   h("content.maxLines", 30, SHOWN("number of visible text lines shown")),
-  h("prompt.changedElements", 8, SHOWN("number of appeared and disappeared clickables kept from one step to the next")),
   h("prompt.changedElementsShown", 5, SHOWN("number of appeared and disappeared clickables named in the prompt")),
   h("prompt.headings", 6, SHOWN("number of visible headings named in the prompt")),
   h("prompt.scrollReportPx", 10, "Hand-set scroll distance, px, below which the prompt does not report a scroll. The smallest scroll people notice would set it."),
@@ -247,19 +237,15 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   d("live.screenHeight", 1080, "Height, px, of the live viewer's virtual screen and window."),
   d("live.pageHeight", 995, "Height, px, of the page area in the live viewer: the screen height less the 85 px of browser chrome, so the in-page attention overlay matches the stream."),
   h("live.navigationTimeoutMs", 60000, PAGE_WAIT("navigation budget, ms, of a live-viewer journey (heavy sites with many third-party scripts)")),
-  h("live.dwellMs", 1200, "Hand-set pause, ms, after a step whose attention heatmap was captured, so a live viewer can see it. Viewer comprehension of the overlay by dwell time would set it."),
   d("live.bannerChars", 120, "Most characters of the action banner shown in the live viewer; a display length."),
 
   // ── Text-click matching ──
   h("clickMatch.exact", 1000, "Hand-set score of an exact text match when a click names an element by text; with the prefix and contains scores and the distance cap it sets which match wins. How often each rule picks the element people meant, on labelled clicks, would set it."),
   h("clickMatch.prefix", 500, "Hand-set score of a prefix match. The same labelled-click accuracy would set it."),
   h("clickMatch.contains", 100, "Hand-set score of a contains match. The same labelled-click accuracy would set it."),
-  h("clickMatch.maxDistancePx", 5000, "Hand-set cap, px, on the distance from the viewport centre subtracted from a match's score. The same labelled-click accuracy would set it."),
 
   // ── Verbose logging ──
-  d("log.tunnelWidth", 0.5, "Scanned-width share below which a verbose run logs tunnel vision; a reporting cut, not a claim about the persona."),
   d("log.arousalChange", 0.2, "Change in arousal above which a verbose run reports the peripheral field; a reporting cut."),
-  d("log.peripheralWidth", 0.5, "Peripheral width factor below which a verbose run logs stress tunnel vision; a reporting cut."),
 
   // ── Units ──
   d("msPerSecond", 1000, "Milliseconds per second."),

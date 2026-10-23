@@ -1001,7 +1001,6 @@ export async function runCognitiveJourney(
     confusionMax: lowComprehension ? param("journey.abandon.confusionLimit.lowComprehension") : param("journey.abandon.confusionLimit"),
     frustrationMax: lowPatience ? param("journey.abandon.frustrationLimit.lowPatience") : param("journey.abandon.frustrationLimit"),
     maxStepsWithoutProgress: highPersistence ? param("journey.abandon.noProgressSteps.highPersistence") : param("journey.abandon.noProgressSteps"),
-    loopDetectionThreshold: param("journey.abandon.loopUniquePages"),
     timeLimit:
       options.maxTime ||
       (highPatience ? param("journey.abandon.timeLimitSeconds.highPatience") : lowPatience ? param("journey.abandon.timeLimitSeconds.lowPatience") : param("journey.abandon.timeLimitSeconds")),
@@ -1499,9 +1498,9 @@ Right now it's ${temporalState.description}.`;
     // step 2 onward (step 1 has no prior to compare against).
     if (lastActionOutcome) {
       const currentTexts = new Set(availableElements.map(e => e.text));
-      const keep = param("journey.prompt.changedElements");
-      const newClickables = [...currentTexts].filter(t => t && !prevClickableTexts.has(t)).slice(0, keep);
-      const removedClickables = [...prevClickableTexts].filter(t => t && !currentTexts.has(t)).slice(0, keep);
+      // Uncapped: the prompt names the first few (journey.prompt.changedElementsShown).
+      const newClickables = [...currentTexts].filter(t => t && !prevClickableTexts.has(t));
+      const removedClickables = [...prevClickableTexts].filter(t => t && !currentTexts.has(t));
       lastActionOutcome.newClickables = newClickables;
       lastActionOutcome.removedClickables = removedClickables;
       lastActionOutcome.scrollDelta = viewportCtx.scroll.y - prevScrollY;
@@ -1848,7 +1847,8 @@ Right now it's ${temporalState.description}.`;
 
       // Log if pattern narrowed significantly
       if (options.verbose && prevWidth !== state.scanPattern.widthMultiplier) {
-        if (state.scanPattern.widthMultiplier < param("journey.log.tunnelWidth")) {
+        // The scan width takes only its registered values; the two narrowest are tunnel vision.
+        if (state.scanPattern.widthMultiplier <= param("journey.scan.highWidth")) {
           console.log(`👁️ Tunnel vision: scanning only left ${state.scanPattern.effectiveWidth.toFixed(0)}% of viewport`);
         } else if (prevWidth < state.scanPattern.widthMultiplier) {
           console.log(`👁️ Vision widening: now scanning ${state.scanPattern.effectiveWidth.toFixed(0)}% of viewport`);
@@ -1866,7 +1866,8 @@ Right now it's ${temporalState.description}.`;
 
       // Log significant arousal changes
       if (options.verbose && Math.abs(state.peripheralVision.arousalLevel - prevArousal) > param("journey.log.arousalChange")) {
-        if (state.peripheralVision.widthFactor < param("journey.log.peripheralWidth")) {
+        // The field takes only its registered factors; the severe one is reported.
+        if (state.peripheralVision.widthFactor <= param("journey.peripheral.severeWidth")) {
           console.log(`😰 Stress tunnel vision: peripheral field reduced to ${(state.peripheralVision.widthFactor * 100).toFixed(0)}%`);
         }
       }
@@ -1930,13 +1931,9 @@ Right now it's ${temporalState.description}.`;
       });
     }
 
-    // Live viewer dwell — when a fresh attention map was computed this step,
-    // hold briefly before executing the action so the viewer can register the
-    // heatmap. 1.2s is enough to glance at it without making the journey feel
-    // sluggish. Skipped on non-capture steps so the journey paces normally.
-    if (options.enableMouseOverlay && attentionHeatmapBase64) {
-      await new Promise((r) => setTimeout(r, param("journey.live.dwellMs")));
-    }
+    // (A 1.2 s live-viewer dwell after a step with a fresh heatmap stood
+    // here until 21.0. Nothing assigns attentionHeatmapBase64 since the
+    // heatmap moved into the page, so the pause could never run.)
 
     // Verbose output
     if (options.verbose) {
@@ -1982,8 +1979,8 @@ Right now it's ${temporalState.description}.`;
 
       // v18.29.0: Capture failure context
       try {
-        const pageText = await page.evaluate((n) => document.body.innerText?.substring(0, n) || '', param("journey.failure.pageChars"));
-        failureReason = parsed.failureReason || `Abandoned on "${pageTitle}" (${currentUrl}). Last visible: ${pageText.substring(0, param("journey.quoteChars"))}...`;
+        const pageText = await page.evaluate((n) => document.body.innerText?.substring(0, n) || '', param("journey.quoteChars"));
+        failureReason = parsed.failureReason || `Abandoned on "${pageTitle}" (${currentUrl}). Last visible: ${pageText}...`;
       } catch {
         failureReason = parsed.failureReason || `Abandoned on "${pageTitle}" (${currentUrl})`;
       }
@@ -2035,10 +2032,12 @@ Right now it's ${temporalState.description}.`;
             else if (t.startsWith(wanted) || wanted.startsWith(t)) base = param("journey.clickMatch.prefix");
             else if (t.includes(wanted) || wanted.includes(t)) base = param("journey.clickMatch.contains");
             else return -Infinity;
-            // Penalize distance from viewport center (closer = preferred)
+            // Penalize distance from viewport center (closer = preferred). A
+            // match further away than its own score is never chosen (the
+            // best score must be positive), so no cap on the distance is needed.
             const ey = (e.y ?? 0) + (e.height ?? 0) / 2;
             const dist = Math.abs(ey - vc);
-            return base - Math.min(dist, param("journey.clickMatch.maxDistancePx"));
+            return base - dist;
           };
           let best: Bbox | undefined;
           let bestScore = -Infinity;
@@ -2732,19 +2731,9 @@ function checkAbandonmentTriggers(
     };
   }
 
-  // Loop detection
-  const loopWindow = param("journey.abandon.loopWindow");
-  const recentPages = state.memory.pagesVisited.slice(-loopWindow);
-  const uniqueRecent = new Set(recentPages).size;
-  if (
-    recentPages.length >= loopWindow &&
-    uniqueRecent <= thresholds.loopDetectionThreshold
-  ) {
-    return {
-      reason: "loop",
-      message: "I keep ending up on the same pages. Something is wrong.",
-    };
-  }
+  // (Loop detection stood here until 21.0: abandon when the last 5 pages
+  // held 3 or fewer distinct ones. pagesVisited records each page once, so
+  // the last 5 were always 5 distinct pages and it could never fire.)
 
   // No progress
   if (
@@ -2769,21 +2758,11 @@ function checkAbandonmentTriggers(
       };
     }
 
-    // Extreme boredom — only after significant time with zero engagement
-    if (emotional.boredom > param("journey.emotionalAbandon.boredom") && emotional.excitement < param("journey.emotionalAbandon.excitement") && state.stepCount > param("journey.emotionalAbandon.boredomSteps")) {
-      return {
-        reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
-        message: "This is so boring... I'll do this later.",
-      };
-    }
-
-    // Overwhelming negative valence — only with sustained high arousal AND low patience
-    if (emotional.valence < param("journey.emotionalAbandon.valence") && emotional.arousal > param("journey.emotionalAbandon.arousal") && state.patienceRemaining < param("journey.emotionalAbandon.valencePatience")) {
-      return {
-        reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
-        message: "I can't deal with this right now.",
-      };
-    }
+    // Two rules stood here until 21.0 that no journey can reach: extreme
+    // boredom (boredom > 0.9), when no trigger the journey fires raises
+    // boredom above its starting value of at most 0.1; and very negative
+    // valence (< -0.85), when valence is an average of the emotions'
+    // valences and the most negative of those is -0.8.
 
     // Apply emotional abandonment modifier to patience threshold
     const emotionalModifier = calculateAbandonmentModifier(emotional);

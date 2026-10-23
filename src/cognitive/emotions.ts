@@ -398,9 +398,9 @@ export function calculateDecisionSpeedModifier(state: EmotionalState): number {
   // Excitement slightly speeds up decisions
   const speedingFactor = state.excitement * param("emotion.decisionSpeed.excitement") + impulsiveFactor;
 
-  const modifier = 1.0 + slowingFactors - speedingFactor;
-
-  return Math.max(param("emotion.decisionSpeed.min"), Math.min(param("emotion.decisionSpeed.max"), modifier));
+  // No clamp: with every intensity in 0-1 this lies in [0.6, 1.7] (the
+  // [0.5, 2] clamp it had until 21.0 could never bind).
+  return 1.0 + slowingFactors - speedingFactor;
 }
 
 /**
