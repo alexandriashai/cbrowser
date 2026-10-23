@@ -17,6 +17,15 @@
 import type { ProvenanceEntry } from "../model-provenance.js";
 
 const h = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `humanInput.${id}`, value, status: "hypothesis", source });
+const p = (id: string, value: number, source: string): ProvenanceEntry => ({ id: `humanInput.${id}`, value, status: "published", source });
+
+// Read for this registry: Table 3, the Typist Groups definition and the
+// Results section. Online transcription of sentences on physical keyboards,
+// 136,857,600 keystrokes from 168,960 participants.
+const DHAKAL =
+  "Dhakal, V., Feit, A. M., Kristensson, P. O. & Oulasvirta, A. (2018). Observations on typing from 136 million keystrokes. CHI '18, Paper 646";
+const GROUPS =
+  "\"Fast Typists are the typists with speeds higher than that of 90% of participants (above approx. 78 WPM in our data), Slow Typists are those whose performance is among the slowest 10% (less than approx. 26 WPM in our data)\"";
 
 const KEYS = (what: string) => `Hand-set ${what}. Inter-key intervals and corrections from a large keystroke log, by typing speed, would set it.`;
 const POINTER = (what: string) => `Hand-set ${what}. Pointer logs of real clicks (offset from the target centre, path samples, dwell before the press), by user motor ability, would set it.`;
@@ -27,11 +36,11 @@ export const HUMAN_INPUT_PROVENANCE: ProvenanceEntry[] = [
   h("clampSd", 2, "Hand-set number of standard deviations at which a random offset is clamped: the aim offset of a click, and a scroll's distance (whose standard deviation is its clamp / 2). The tails of real click offsets and wheel deltas would set it."),
 
   // ── Typing ──
-  h("type.slowIntervalMs", 260, KEYS("mean inter-key interval, ms, at proceduralFluency 0")),
-  h("type.fluencySpeedupMs", 170, KEYS("drop in the mean inter-key interval, ms, from proceduralFluency 0 to 1 (90 ms at 1)")),
-  h("type.intervalSdMs", 50, KEYS("standard deviation of inter-key intervals, ms, at proceduralFluency 1")),
+  p("type.slowIntervalMs", 481.03, `Mean inter-key interval, ms, at proceduralFluency 0: the slowest decile of typists. ${DHAKAL}, Table 3, row "IKI (ms)", column Slow: 481.03 (SD 123.36 between typists); ${GROUPS}. Placing fluency 0 at the slowest decile is the timing's choice.`),
+  p("type.fastIntervalMs", 121.7, `Mean inter-key interval, ms, at proceduralFluency 1: the fastest decile of typists. ${DHAKAL}, Table 3, row "IKI (ms)", column Fast: 121.70 (SD 11.96 between typists); ${GROUPS}. Placing fluency 1 at the fastest decile is the timing's choice; between the two the mean is linear in fluency, which is a hypothesis.`),
+  h("type.intervalSdMs", 50, KEYS("standard deviation of one typist's inter-key intervals, ms, at proceduralFluency 1. The SDs in Dhakal et al. (2018) Table 3 are between typists, not within one, so they do not set it")),
   h("type.intervalSdPerSlowness", 60, KEYS("extra standard deviation, ms, per unit of (1 - proceduralFluency)")),
-  h("type.minIntervalMs", 30, KEYS("shortest inter-key interval, ms, after a keystroke or a correction")),
+  p("type.minIntervalMs", 60, `Shortest inter-key interval, ms, after a keystroke or a correction. ${DHAKAL}, Results, Inter-key intervals: "Average inter-key interval is 238.656 ms (SD = 111.6). A lower bound of about 60 ms can be observed."`),
   h("type.maxIntervalMs", 800, KEYS("longest inter-key interval, ms")),
   h("type.focusMinMs", 300, KEYS("shortest pause, ms, before the first key (finding the field)")),
   h("type.focusMaxMs", 800, KEYS("longest pause, ms, before the first key")),
@@ -40,7 +49,7 @@ export const HUMAN_INPUT_PROVENANCE: ProvenanceEntry[] = [
   h("type.pauseMinMs", 600, KEYS("shortest thinking pause, ms")),
   h("type.pauseMaxMs", 1500, KEYS("longest thinking pause, ms")),
   h("type.pauseSlownessGain", 0.5, KEYS("lengthening of a thinking pause per unit of (1 - proceduralFluency)")),
-  h("type.typoRate", 0.05, KEYS("chance per letter of a typo that is noticed and corrected")),
+  h("type.typoRate", 0.05, KEYS("chance per letter of a typo that is noticed and corrected (one wrong key and one backspace). Dhakal et al. (2018) report backspace or delete in 6.31% of keypresses (3.40% fast, 9.05% slow typists, Table 3, \"Error Correct. (%)\"); turning that into a rate per letter is a model step this entry has not taken")),
   h("type.noticeMeanMs", 220, KEYS("mean pause, ms, before a typo is noticed")),
   h("type.noticeSdMs", 90, KEYS("standard deviation of that pause, ms")),
   h("type.noticeMinMs", 80, KEYS("shortest pause, ms, before a typo is noticed")),

@@ -46,7 +46,8 @@ describe("journey provenance registry", () => {
     // that could change nothing were removed; 427 after the init text's
     // "for 30s", which update_state never applied, became its two
     // consecutive updates; 423 after the five hand-set gaze-lag constants
-    // gave way to the published average (journey.gazeLag.mean).
+    // gave way to the published average (journey.gazeLag.mean). The typing
+    // grounding (Dhakal et al. 2018) replaced one entry with one.
     const counts = Object.fromEntries(Object.entries(JOURNEY_GROUPS).map(([g, es]) => [g, es.length]));
     expect(counts).toEqual({ journey: 151, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 38 });
     expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(423);
@@ -71,8 +72,9 @@ describe("journey provenance registry", () => {
   test("nothing is fitted; the published entries are the ones read for this registry", () => {
     const counts = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
     for (const e of JOURNEY_GROUP_PROVENANCE) counts[e.status]++;
-    expect(counts).toEqual({ fitted: 0, published: 6, definition: 14, hypothesis: 403 });
+    expect(counts).toEqual({ fitted: 0, published: 9, definition: 14, hypothesis: 400 });
     expect(JOURNEY_GROUP_PROVENANCE.filter((e) => e.status === "published").map((e) => e.id).sort()).toEqual([
+      "humanInput.type.fastIntervalMs", "humanInput.type.minIntervalMs", "humanInput.type.slowIntervalMs",
       "journey.gazeLag.mean",
       "journey.klm.homing", "journey.klm.keystrokeAverage", "journey.klm.keystrokeExpert", "journey.klm.keystrokeNovice", "journey.klm.pointing",
     ]);

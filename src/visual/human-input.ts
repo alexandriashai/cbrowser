@@ -96,8 +96,11 @@ export async function humanType(
   inputTraits?: InputTraits,
 ): Promise<void> {
   const t = traits(inputTraits);
-  // Faster procedural fluency → smaller mean and stddev. Range μ ≈ 90-260ms.
-  const meanInterval = P("type.slowIntervalMs") - P("type.fluencySpeedupMs") * t.proceduralFluency;
+  // Faster procedural fluency → smaller mean and stddev: from the slowest
+  // decile's mean inter-key interval at 0 to the fastest decile's at 1
+  // (Dhakal et al. 2018, about 481 and 122 ms).
+  const slow = P("type.slowIntervalMs");
+  const meanInterval = slow - (slow - P("type.fastIntervalMs")) * t.proceduralFluency;
   const stdInterval = P("type.intervalSdMs") + P("type.intervalSdPerSlowness") * (1 - t.proceduralFluency);
 
   // Initial dwell — patient/thorough readers take longer to find the field
