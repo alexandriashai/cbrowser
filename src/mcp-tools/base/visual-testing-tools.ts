@@ -14,6 +14,8 @@ import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
 import { makeTempDir, uniqueStamp, type CallTempDir } from "../../temp-files.js";
+import { isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT } from "../../visual/model-provenance.js";
+import { widgetUri } from "../widget-kit.js";
 import type { ContentBlock } from "../screenshot-utils.js";
 
 /**
@@ -785,10 +787,15 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           } catch { /* keyword path inside buildSemanticMap remains the floor */ }
         }
 
-        const result = await analyzeAttention(
+        // Every registered constant the map read (colour science, the fitted
+        // gaze calibration, the hand-set weights and persona filter), as the
+        // answer's own block. The answer reported these numbers with nothing
+        // saying which were fitted and which were set by hand.
+        const storedTraits = await personaAccessibilityTraits(persona);
+        const { result, provenance: attentionProvenance } = await isolatedProvenanceAsync(() => analyzeAttention(
           screenshotPath, persona, cellSize, undefined, domAttentionElements, goal,
-          undefined, relevanceScores, await personaAccessibilityTraits(persona),
-        );
+          undefined, relevanceScores, storedTraits,
+        ), ATTENTION_PROVENANCE_TEXT);
 
         // Compute attention quality — cross-reference hotspots with classified elements
         let attentionQuality: unknown = null;
@@ -867,6 +874,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             // Which perceptual filter shaped the map: a built-in, one inferred
             // from the name, or the generic default for a name nothing matched.
             perceptualProfile: result.perceptualProfile,
+            attentionProvenance,
             // Stated, because two tools silently rendering at different sizes is
             // exactly what made these coordinates incomparable with a CTC run.
             // A reader can now check instead of assuming they match.
@@ -1057,6 +1065,9 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       idempotentHint: true,
       openWorldHint: true,
     },
+    // The comparison map, both personas' perceptual filters and what the map
+    // rests on. It returned JSON only.
+    _meta: { ui: { resourceUri: widgetUri("attention-compare") } },
   }, async ({ url, personaA: requestedA, personaB: requestedB, _browserToken, scrollY }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("attention_compare", { url });
@@ -1120,10 +1131,12 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         }));
 
         const { compareAttention } = await import("../../visual/attention-transport.js");
-        const result = await compareAttention(
-          screenshotPath, personaA, personaB, 4, domEls, undefined,
-          await personaAccessibilityTraits(personaA), await personaAccessibilityTraits(personaB),
-        );
+        // One block for both maps: what the attention model read to draw them.
+        const traitsA = await personaAccessibilityTraits(personaA);
+        const traitsB = await personaAccessibilityTraits(personaB);
+        const { result, provenance: attentionProvenance } = await isolatedProvenanceAsync(() => compareAttention(
+          screenshotPath, personaA, personaB, 4, domEls, undefined, traitsA, traitsB,
+        ), ATTENTION_PROVENANCE_TEXT);
 
         const responseData: Record<string, unknown> = {
           url: pageUrl,
@@ -1135,6 +1148,8 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           personaA: {
             name: personaA,
             ...(resolvedA.resolvedFrom ? { resolvedFrom: resolvedA.resolvedFrom } : {}),
+            // Which filter shaped this persona's map, and how it was found.
+            perceptualProfile: result.personaA.perceptualProfile,
             alignment: result.personaA.alignmentScore,
             entropy: result.personaA.entropy,
             concentration: result.personaA.concentration,
@@ -1142,6 +1157,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
           personaB: {
             name: personaB,
             ...(resolvedB.resolvedFrom ? { resolvedFrom: resolvedB.resolvedFrom } : {}),
+            perceptualProfile: result.personaB.perceptualProfile,
             alignment: result.personaB.alignmentScore,
             entropy: result.personaB.entropy,
             concentration: result.personaB.concentration,
@@ -1153,6 +1169,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
             ? "Moderate attention differences"
             : "Substantially different attention patterns",
           divergentRegions: result.divergentRegions.slice(0, 5),
+          attentionProvenance,
         };
 
         // Generate comparison heatmap overlay

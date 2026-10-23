@@ -634,7 +634,7 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
             trait_criteria: TRAIT_INFERENCE_CRITERIA,
             completeness_contract: {
               rule: `All ${ALL_TRAITS.length} traits must be accounted for. Give each one a value inferred from the description, OR list it in unsupportedTraits.`,
-              why: "An unsupplied trait is filled from a population baseline and the result is indistinguishable from a considered value — the persona looks complete either way. Naming what the description cannot support keeps that visible.",
+              why: "An unsupplied trait is filled with the package's default for it, set by hand, and the result is indistinguishable from a considered value — the persona looks complete either way. Naming what the description cannot support keeps that visible.",
               unsupportedTraits: "string[] — traits this description genuinely does not speak to. A legitimate answer, not a failure.",
               enforcement: "persona_create_submit_traits returns an error listing the unaccounted traits and writes nothing.",
             },
@@ -1008,7 +1008,7 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
             // value is a different question, and the sentence has to stop
             // answering it by implication.
             traitCompleteness: (() => {
-              const base = `${providedTraits.length} of ${allTraitNames.length} supplied; ${defaultedTraits.length} filled from research baselines`;
+              const base = `${providedTraits.length} of ${allTraitNames.length} supplied; ${defaultedTraits.length} filled with the package's hand-set defaults`;
               const a = completeness.asserted?.length ?? 0;
               const u = completeness.unlabelled?.length ?? 0;
               if (a || u) {
@@ -1053,14 +1053,14 @@ Phase: VALUES (${session.currentIndex + 1} of ${session.valueQuestions.length})`
             valuesRoute: bigFiveAccepted ? "bigfive_inferred" : "cognitive_traits",
             traitSummary: summariseTraits(builtTraits as unknown as Record<string, number>),
             // Named at creation, which is the only moment the distinction is
-            // free: a declared-unsupported trait sits at a population baseline
+            // free: a declared-unsupported trait sits at the hand-set default
             // and is indistinguishable from a considered value in every later
             // view of this persona.
             ...(unsupportedTraits?.length ? {
               unsupportedTraits,
               unsupportedDetail: unsupportedTraits.map((t) => ({
                 trait: t, value: (builtTraits as unknown as Record<string, number>)[t],
-                source: "population baseline — the description did not speak to this",
+                source: "the package's hand-set default — the description did not speak to this",
               })),
             } : {}),
             ...(bigFiveAccepted ? { bigFive: bigFiveAccepted, bigFiveEvidence: bigFiveEvidence ?? [] } : {}),

@@ -12,6 +12,7 @@ import { getAnyPersona, getCognitiveProfile } from "../../personas.js";
 import { valueAxisCorrelationCounts, TRAIT_VALUE_CORRELATIONS } from "../../persona-questionnaire.js";
 import { deriveValuesFromBigFive, bigFiveReachableAxes, BIG_FIVE_VALUE_LINKS } from "../../values/big-five-values.js";
 import { widgetUri } from "../widget-kit.js";
+import { traitProvenance, builtinTraitValues, traitScaleNote } from "../trait-provenance.js";
 import type { McpServer } from "../types.js";
 import {
   getPersonaValues,
@@ -1003,6 +1004,15 @@ export function registerValuesTools(server: McpServer): void {
         })(),
         ...(rec.accessibility_traits ? { accessibility_traits: rec.accessibility_traits } : {}),
         ...(rec.accessibilityTraits ? { accessibility_traits: rec.accessibilityTraits } : {}),
+        // Where the numbers on the meters come from: a built-in's are hand-set
+        // and registered as hypotheses, a custom persona's were set by its
+        // author. The view drew both as bare numbers. (21.0 provenance)
+        traitProvenance: traitProvenance(
+          (p as { name: string }).name, p, (profile?.traits ?? {}) as unknown as Record<string, unknown>, "cognitiveTraits"),
+        ...((rec.accessibilityTraits ?? rec.accessibility_traits)
+          ? { accessibilityProvenance: traitProvenance((p as { name: string }).name, p,
+              (rec.accessibilityTraits ?? rec.accessibility_traits) as Record<string, unknown>, "accessibilityTraits") }
+          : {}),
         ...(profile?.attentionPattern ? { attentionPattern: profile.attentionPattern } : {}),
         // NOT a truthiness guard. `decisionStyle` is null when the margin
         // between the top two styles is below threshold, and a truthiness
@@ -1111,7 +1121,7 @@ export function registerValuesTools(server: McpServer): void {
 
   server.registerTool("list_influence_patterns", {
     title: "List Influence Patterns",
-    description: "List research-backed behavioral persuasion patterns (Cialdini, Kahneman) and which persona values correlate with susceptibility to each pattern.",
+    description: "List behavioral persuasion patterns from the persuasion literature (Cialdini, Kahneman), each with the source it is named from, and the persona values linked to susceptibility to it. The value links are set by hand, not measured correlations.",
     inputSchema: {},
     annotations: {
       title: "List Influence Patterns",
@@ -1148,7 +1158,7 @@ export function registerValuesTools(server: McpServer): void {
 
   server.registerTool("persona_questionnaire_get", {
     title: "Get Persona Questionnaire",
-    description: "Get the persona questionnaire for building a custom persona. Returns research-backed questions that map to cognitive traits. Use comprehensive=true for all 25 persona traits, or leave false for the 8 core ones. v16.12.0: Now includes optional category question for disability-specific value safeguards.",
+    description: "Get the persona questionnaire for building a custom persona. Returns questions whose answers set cognitive trait values; the mapping and the level wording are written by hand. Use comprehensive=true for all 25 persona traits, or leave false for the 8 core ones. v16.12.0: Now includes optional category question for disability-specific value safeguards.",
     inputSchema: {
       comprehensive: z.boolean().optional().default(false).describe("Include all 25 persona traits (true) or just the 8 core ones (false)"),
       traits: z.array(z.string()).optional().describe("Specific trait names to include (overrides comprehensive)"),
@@ -1182,7 +1192,7 @@ export function registerValuesTools(server: McpServer): void {
               rawQuestions: questions,
               ...(includeCategory && {
                 categoryQuestion: CATEGORY_QUESTION,
-                categoryInstructions: "Ask this FIRST to determine persona category. The category affects which values are applied and provides research-based safeguards for disability simulations.",
+                categoryInstructions: "Ask this FIRST to determine persona category. The category affects which values are applied, and applies that category's value safeguards for disability simulations: hand-set rules, documented with the sources they draw on by persona_category_guidance.",
               }),
             }, null, 2),
           },
@@ -1193,7 +1203,7 @@ export function registerValuesTools(server: McpServer): void {
 
   server.registerTool("persona_questionnaire_build", {
     title: "Build Persona Questionnaire",
-    description: "Build a custom persona from questionnaire answers with category-aware value safeguards. Answers should be a map of trait names to values (0-1). Missing traits will use intelligent defaults based on research correlations. v16.12.0: Optionally specify category for disability-specific value handling.",
+    description: "Build a custom persona from questionnaire answers with category-aware value safeguards. Answers should be a map of trait names to values (0-1). Missing traits take the package's hand-set defaults, adjusted by hand-set correlation rules (for example, low patience lowers resilience); neither is fitted to data. v16.12.0: Optionally specify category for disability-specific value handling.",
     inputSchema: {
       name: z.string().describe("Name for the new persona"),
       description: z.string().describe("Description of the persona"),
@@ -1323,6 +1333,10 @@ _meta: { ui: { resourceUri: "ui://cbrowser/trait-v2" } },
         };
       }
 
+      // Where the shipped personas sit on this scale, each with its registry
+      // status. The view drew researchBasis under the bands with nothing
+      // saying it defines the scale and supports no value on it. (21.0 provenance)
+      const builtinValues = builtinTraitValues(reference.name);
       return {
         content: [
           {
@@ -1331,10 +1345,12 @@ _meta: { ui: { resourceUri: "ui://cbrowser/trait-v2" } },
               trait: reference.name,
               description: reference.description,
               researchBasis: reference.researchBasis,
+              scaleProvenance: traitScaleNote(builtinValues),
               value,
               label: getTraitLabel(trait as keyof import("../../types.js").CognitiveTraits, value),
               behaviors: getTraitBehaviors(trait as keyof import("../../types.js").CognitiveTraits, value),
               allLevels: reference.levels,
+              builtinValues,
             }, null, 2),
           },
         ],

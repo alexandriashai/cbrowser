@@ -8310,8 +8310,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
 CBrowser Persona Questionnaire (v16.5.0)
 ========================================
 
-Build custom personas using a research-based questionnaire that maps
-behavioral answers to cognitive traits.
+Build custom personas from a questionnaire that maps behavioral answers
+to cognitive trait values. The mapping and the level wording are written
+by hand; traits you skip take hand-set defaults.
 
 Commands:
   persona-questionnaire start        Start interactive questionnaire
@@ -8346,7 +8347,7 @@ Examples:
 
             console.log(`\n🧠 CBrowser Persona Questionnaire`);
             console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-            console.log(`This questionnaire will help you create a research-backed persona.`);
+            console.log(`This questionnaire sets a custom persona's traits from your answers (a hand-written mapping, not a measurement).`);
             console.log(`Answer each question to define cognitive traits.\n`);
 
             // Get persona name
@@ -8424,7 +8425,7 @@ Examples:
           case "list-traits": {
             console.log(`\n🧠 CBrowser Cognitive Traits Reference`);
             console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-            console.log(`${TRAIT_REFERENCE_MATRIX.length} research-backed traits available:\n`);
+            console.log(`${TRAIT_REFERENCE_MATRIX.length} traits available (scales named after the research each is drawn from; levels written by hand):\n`);
 
             for (const trait of TRAIT_REFERENCE_MATRIX) {
               console.log(`📍 ${trait.name}`);

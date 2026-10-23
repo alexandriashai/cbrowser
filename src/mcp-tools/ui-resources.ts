@@ -210,9 +210,14 @@ export const PERSONA_SPEC: WidgetSpec = {
     // blocks already use -- so the sliders write straight back through
     // persona_update rather than asking the reader to copy numbers into a
     // separate tool call. (2026-08-01)
-    { type: "editor", title: "Cognitive traits", field: "traits", personaField: "name", ramp: "trait", describe: true },
+    // Each meter section opens with where its numbers come from: a
+    // built-in's are set by hand and registered as hypotheses, a custom
+    // persona's by its author. Both were drawn as bare numbers. (21.0)
+    { type: "editor", title: "Cognitive traits", field: "traits", personaField: "name", ramp: "trait", describe: true,
+      provenanceField: "traitProvenance" },
     { type: "traits", title: "Values", field: "values", ramp: "value" },
-    { type: "traits", title: "Accessibility traits", field: "accessibility_traits", ramp: "accessibility", describe: true },
+    { type: "traits", title: "Accessibility traits", field: "accessibility_traits", ramp: "accessibility", describe: true,
+      provenanceField: "accessibilityProvenance" },
     {
       type: "drawer",
       title: "Details",
@@ -352,6 +357,26 @@ export const PERSONA_UPDATED_SPEC: WidgetSpec = {
  * artifact_fetch rather than embedded or linked: the result cannot carry it
  * past the host's size cap, and the sandbox will not load cbrowser.ai.
  */
+/**
+ * How a perceptual profile was found (perceptual-transport.ts:
+ * PerceptualResolution), as a hero chip and as a sentence. Shared by both
+ * attention views so the two say it the same way.
+ */
+const PERCEPTUAL_FACT: Record<string, string> = {
+  builtin: "built-in: {name}",
+  synthesized: "synthesized from traits",
+  inferred: "borrowed: {name}",
+  default: "none (neutral default)",
+  "*": "{resolution}: {name}",
+};
+const PERCEPTUAL_SENTENCE: Record<string, string> = {
+  builtin: "Drawn through the built-in perceptual filter for {name}. Its settings are set by hand and registered as hypotheses (perceptual.{name}.*); the count above covers how a filter is applied, not these settings.",
+  synthesized: "Drawn through a filter synthesized from {name}'s own accessibility traits. The rules that turn traits into filter settings are not registered yet, so nothing here says where those numbers come from.",
+  inferred: "This persona has no perceptual filter of its own. Its name matched the built-in {name}, so the map was drawn through that persona's filter, whose settings are set by hand (hypotheses, perceptual.{name}.*).",
+  default: "No perceptual filter matched this persona, so the map used the neutral default: it filters nothing and models no one (its settings are registered as definitions).",
+  "*": "Perceptual filter: {name} ({resolution}).",
+};
+
 export const ATTENTION_SPEC: WidgetSpec = {
   id: "attention",
   toolPage: "https://cbrowser.ai/docs/tool-attention-analysis/",
@@ -369,6 +394,9 @@ export const ATTENTION_SPEC: WidgetSpec = {
       { field: "attentionQuality", label: "quality" },
       { field: "alignmentScore", label: "alignment" },
       { field: "concentration", label: "concentration" },
+      // Which filter drew the map, and how it was found: a name nothing
+      // matched used to look exactly like a modelled persona.
+      { field: "perceptualProfile", label: "perceptual filter", by: "resolution", templates: PERCEPTUAL_FACT },
     ],
   },
   blocks: [
@@ -380,12 +408,58 @@ export const ATTENTION_SPEC: WidgetSpec = {
       caption: "heatmapNote",
       emptyNote: "No heatmap in this result: the call passed heatmap: false, so no picture was made. Run attention_analysis again without heatmap: false to see where attention lands.",
     },
+    // What the map rests on, beside the map; the full block is a drawer.
+    { type: "provenance", field: "attentionProvenance", variant: "line", subject: "map", seeAlso: "What this map rests on" },
+    { type: "note", title: "Perceptual filter", field: "perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
     { type: "table", title: "Where attention lands", field: "topAttentionAreas" },
+    { type: "drawer", title: "What this map rests on", blocks: [
+      { type: "provenance", title: "Where each number comes from", field: "attentionProvenance", variant: "full", subject: "map", open: true },
+    ] },
     {
       type: "drawer",
       title: "Details",
       blocks: [{ type: "rest", title: "All fields" }],
     },
+  ],
+};
+
+/**
+ * Attention compare: the two personas' maps differenced, each persona's
+ * perceptual filter, and what the maps rest on. attention_compare returned
+ * JSON only, so neither filter nor the block reached a reader. (21.0)
+ */
+export const ATTENTION_COMPARE_SPEC: WidgetSpec = {
+  id: "attention-compare",
+  toolPage: "https://cbrowser.ai/docs/tool-attention-compare/",
+  title: "Attention compare",
+  hero: {
+    variant: "gradient",
+    subtitle: { field: "interpretation" },
+    facts: [
+      { field: "attentionDivergence", label: "divergence (0-2)" },
+      { field: "personaA.perceptualProfile", label: "filter, persona A", by: "resolution", templates: PERCEPTUAL_FACT },
+      { field: "personaB.perceptualProfile", label: "filter, persona B", by: "resolution", templates: PERCEPTUAL_FACT },
+    ],
+  },
+  blocks: [
+    {
+      type: "image",
+      title: "Where they look differently",
+      fetchTool: "artifact_fetch",
+      fetchArgs: { file: "comparisonHeatmapFile" },
+      caption: "heatmapNote",
+      emptyNote: "No comparison map in this result: it was not drawn or could not be saved, so there is no picture to fetch.",
+    },
+    { type: "provenance", field: "attentionProvenance", variant: "line", subject: "comparison", seeAlso: "What these maps rest on" },
+    { type: "kv", title: "Persona A", field: "personaA" },
+    { type: "note", title: "Persona A's perceptual filter", field: "personaA.perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
+    { type: "kv", title: "Persona B", field: "personaB" },
+    { type: "note", title: "Persona B's perceptual filter", field: "personaB.perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
+    { type: "table", title: "Regions that differ most", field: "divergentRegions" },
+    { type: "drawer", title: "What these maps rest on", blocks: [
+      { type: "provenance", title: "Where each number comes from", field: "attentionProvenance", variant: "full", subject: "comparison", open: true },
+    ] },
+    { type: "drawer", title: "Details", blocks: [{ type: "rest", title: "All fields" }] },
   ],
 };
 
@@ -471,7 +545,17 @@ export const TRAIT_SPEC: WidgetSpec = {
       labelField: "label",
       behaviorsField: "behaviors",
     },
-    { type: "note", title: "Research basis", field: "researchBasis" },
+    // The source names what the scale means. Titled "Research basis" under
+    // the bands, it read as backing for the bands and for the value; the
+    // sentence under it says what it does and does not cover. (21.0)
+    { type: "note", title: "Scale source", field: "researchBasis" },
+    { type: "note", title: "What the source covers", field: "scaleProvenance" },
+    {
+      type: "drawer",
+      title: "Built-in personas on this scale",
+      blocks: [{ type: "table", title: "Each built-in value and its status", field: "builtinValues",
+        columns: ["persona", "value", "status", "citation"] }],
+    },
     {
       type: "drawer",
       title: "Every level",
@@ -611,6 +695,10 @@ export const EFFORT_SPEC: WidgetSpec = {
       // Each bar opens into that layer's overlay on the real page. Layers with
       // no overlay stay inert and say why.
       overlaysField: "layerOverlays", fetchTool: "artifact_fetch" },
+    // What the score rests on, in one sentence beside the finding: how many
+    // of the constants it read are fitted, published, definitions or set by
+    // hand. The full block is its own drawer below.
+    { type: "provenance", field: "modelProvenance", variant: "line", subject: "score", seeAlso: "What this score rests on" },
     // familiarityWarning had a note here; 21.0 removed the site-knowledge
     // downgrade that produced it, so nothing emits the field any more.
     { type: "note", field: "languageWarning" },
@@ -645,6 +733,15 @@ export const EFFORT_SPEC: WidgetSpec = {
       { type: "note", field: "abandonmentBasis" },
       { type: "note", field: "siteFamiliarityEffect" },
     ] },
+    // modelProvenance in full: counts with what each status means, the
+    // block's scope and note, and the hand-set ids behind a disclosure.
+    // intervalField is where the percentile's 95% interval will show once
+    // the payload carries it (ISC-70): absent, nothing is drawn.
+    { type: "drawer", title: "What this score rests on", blocks: [
+      { type: "provenance", title: "Where each number comes from", field: "modelProvenance", variant: "full",
+        subject: "score", open: true,
+        intervalField: "cognitiveTransportCost.totalCTCInterval", intervalLabel: "95% interval of the percentile" },
+    ] },
     { type: "drawer", title: "Everything else", blocks: [
       { type: "rest", title: "Remaining fields" },
     ] },
@@ -669,6 +766,10 @@ export function buildScreenshotTemplate(): string {
 
 export function buildAttentionTemplate(): string {
   return buildWidget(ATTENTION_SPEC);
+}
+
+export function buildAttentionCompareTemplate(): string {
+  return buildWidget(ATTENTION_COMPARE_SPEC);
 }
 
 export function buildPersonaTemplate(): string {
@@ -776,6 +877,15 @@ export function registerUiResources(server: McpServer): void {
     { description: "Attention heatmap with ranked elements", mimeType: MCP_APP_MIME },
     async () => ({
       contents: [{ uri: widgetUri("attention"), mimeType: MCP_APP_MIME, text: buildAttentionTemplate() }],
+    }),
+  );
+
+  server.registerResource(
+    "cbrowser-attention-compare-ui",
+    widgetUri("attention-compare"),
+    { description: "Two personas' attention differenced, with each one's perceptual filter", mimeType: MCP_APP_MIME },
+    async () => ({
+      contents: [{ uri: widgetUri("attention-compare"), mimeType: MCP_APP_MIME, text: buildAttentionCompareTemplate() }],
     }),
   );
 
