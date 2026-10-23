@@ -50,7 +50,7 @@ function needles(id: string): string[] {
   if (id.startsWith("emotion.effect.")) out.push("`emotion.effect.${trigger}.${emotion}`");
   if (id.startsWith("emotion.valence.")) out.push("`emotion.valence.${emotion}`");
   if (id.startsWith("emotion.arousal.") && id !== "emotion.arousal.neutral") out.push("`emotion.arousal.${emotion}`");
-  if (id.startsWith("journey.klm.") || id.startsWith("journey.fitts.intercept") || id.startsWith("journey.fitts.slope")) out.push(`param("${id}")`);
+  if (id.startsWith("journey.klm.")) out.push(`param("${id}")`);
   return out;
 }
 
