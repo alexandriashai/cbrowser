@@ -101,3 +101,5 @@ tests/attention-traits-callers.test.ts
 tests/attention-overlay-config.test.ts
 # Runs journey_heatmap_gif (its own browser per call) with custom personas on disk.
 tests/journey-gif-traits.test.ts
+# Runs scripted cognitive journeys over the journey-*.html fixtures and compares every state number with its golden.
+tests/journey-golden-browser.test.ts

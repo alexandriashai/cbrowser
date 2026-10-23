@@ -1,0 +1,26 @@
+/* Fixed geometry for the journey browser golden: every box has an explicit
+   position and size, so element coordinates do not depend on fonts. */
+html, body { margin: 0; padding: 0; }
+body { position: relative; font: 16px/20px sans-serif; width: 1280px; }
+.page-short { height: 900px; }
+.page-long { height: 2400px; }
+.box { position: absolute; display: block; overflow: hidden; height: 24px; width: 600px; }
+.nav-1 { top: 16px; left: 600px; width: 100px; }
+.nav-2 { top: 16px; left: 720px; width: 100px; }
+.nav-3 { top: 16px; left: 840px; width: 100px; }
+.h1 { top: 80px; left: 40px; height: 40px; font-size: 32px; line-height: 40px; }
+.p1 { top: 140px; left: 40px; }
+.p2 { top: 180px; left: 40px; }
+.p3 { top: 220px; left: 40px; }
+.cta { top: 300px; left: 40px; width: 160px; height: 44px; }
+.field { top: 300px; left: 40px; width: 300px; height: 28px; }
+.field-2 { top: 360px; left: 40px; width: 300px; height: 28px; }
+.field-3 { top: 420px; left: 40px; width: 300px; height: 28px; }
+.label { left: 360px; width: 120px; }
+.label-1 { top: 302px; }
+.label-2 { top: 362px; }
+.label-3 { top: 422px; }
+.submit { top: 500px; left: 40px; width: 160px; height: 44px; }
+.far { top: 1500px; left: 40px; width: 200px; }
+.far-text { top: 1560px; left: 40px; }
+.more { top: 640px; left: 40px; height: 60px; }
