@@ -101,10 +101,13 @@ export async function withVirtualTime<T>(fn: () => Promise<T>): Promise<{ result
   const delays: number[] = [];
   setSystemTime(new Date(now));
 
+  // setImmediate, not setTimeout(0): it still waits for every pending
+  // microtask, and it is not clamped to a millisecond, so a journey with a
+  // hundred timers costs no real time at all.
   const kick = () => {
     if (pumping) return;
     pumping = true;
-    realSet(pump, 0);
+    setImmediate(pump);
   };
   const pump = () => {
     pumping = false;
@@ -306,7 +309,8 @@ export function createWorldBrowser(world: World, log: BrowserLog) {
       click: async (x: number, y: number) => {
         const docY = y + state.scrollY;
         const hit = current().elements.find((e) => x >= e.x && x <= e.x + e.width && docY >= e.y && docY <= e.y + e.height);
-        log.calls.push(`mouse ${Math.round(x)},${Math.round(docY)}`);
+        // Unrounded: a human-input click's aim offset is sub-pixel.
+        log.calls.push(`mouse ${x},${docY}`);
         if (hit) clickElement(hit);
       },
       move: async () => {},

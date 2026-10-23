@@ -158,7 +158,9 @@ function inputPage(log: string[]) {
  */
 async function withTailRandom<T>(fn: () => Promise<T>): Promise<T> {
   const real = Math.random;
-  const cycle = [1e-12, 0.5, 1 - 1e-12, 0.25, 0.019, 0.039, 0.049, 0.75, 1e-4, 0.6, 0.021, 0.041, 0.051, 0.3, 0.999, 0.1];
+  // Odd length, so a pair (u, v) drawn by gauss starts on either parity; the
+  // tiny-tiny pair gives z of about +7.4 and tiny-then-half about -7.4.
+  const cycle = [1e-12, 1e-12, 0.5, 1e-12, 0.5, 1 - 1e-12, 0.25, 0.019, 0.039, 0.049, 0.75, 1e-4, 0.6, 0.021, 0.041, 0.051, 0.3, 0.999, 0.1];
   let i = 0;
   Math.random = () => cycle[i++ % cycle.length];
   try {
@@ -236,11 +238,33 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
   await seed("full.example", 25, 3, 0);
   await seed("fullnogoal.example", 25, 0, 0);
 
+  // A custom persona on disk that sets only some traits, and a CMS custom
+  // persona that sets only some values (served by a stub CMS).
+  const { getPersonasDir } = await import("../../src/personas.js");
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  mkdirSync(getPersonasDir(), { recursive: true });
+  writeFileSync(`${getPersonasDir()}/mcp-partial-traits.json`, JSON.stringify({
+    name: "mcp-partial-traits", description: "A custom persona that sets only three traits",
+    demographics: { age_range: "30-40", tech_level: "intermediate", device: "desktop" },
+    cognitiveTraits: { patience: 0.6, comprehension: 0.55, riskTolerance: 0.45 },
+  }));
+  const cms = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    fetch: () => Response.json({ personas: [{
+      name: "CMS Shopper", slug: "cms-shopper", description: "A shopper from the CMS", source: "cms",
+      traits: JSON.stringify({ patience: 0.4, comprehension: 0.6 }),
+      schwartz_values: JSON.stringify({ security: 0.8, stimulation: 0.2 }),
+    }] }),
+  });
+  const { setSessionApiKey } = await import("../../src/mcp-tools/base/cognitive-tools.js");
+  const savedCms = process.env.CMS_URL;
+
   const out: Record<string, unknown> = {};
   const init: unknown[] = [];
   const traitGrid = [0.2, 0.28, 0.31, 0.37, 0.42, 0.65, 0.72, 0.8];
   for (const domain of ["none.example", "two.example", "five.example", "ten.example", "twelve.example", "sixteen.example", "full.example", "fullnogoal.example"]) {
-    for (const fam of [0, 0.04, 0.05, 0.08, 0.1, 0.3, 0.55, 0.9]) {
+    for (const fam of [0, 0.04, 0.05, 0.08, 0.1, 0.3, 0.55, 0.6, 0.9]) {
       const r = await handlers.cognitive_journey_init({ persona: "first-timer", goal: "g", startUrl: `https://${domain}/`, customTraits: { siteFamiliarity: fam } });
       init.push(JSON.parse(r.content[0].text!));
     }
@@ -257,6 +281,18 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
   const r = await handlers.cognitive_journey_init({ persona: "first-timer", goal: "g", startUrl: "https://none.example/" });
   init.push(JSON.parse(r.content[0].text!));
   blank = false;
+  init.push(JSON.parse((await handlers.cognitive_journey_init({ persona: "mcp-partial-traits", goal: "g", startUrl: "https://none.example/", customTraits: { curiosity: 0.4 } })).content[0].text!));
+  try {
+    process.env.CMS_URL = `http://127.0.0.1:${cms.port}`;
+    setSessionApiKey("cbk_journey_sweep");
+    init.push(JSON.parse((await handlers.cognitive_journey_init({ persona: "cms-shopper", goal: "g", startUrl: "https://none.example/" })).content[0].text!));
+    out.cmsRoster = JSON.parse((await handlers.list_cognitive_personas({})).content[0].text!).personas.filter((p: { name: string }) => p.name === "CMS Shopper");
+  } finally {
+    setSessionApiKey(undefined);
+    if (savedCms === undefined) delete process.env.CMS_URL;
+    else process.env.CMS_URL = savedCms;
+    cms.stop(true);
+  }
   out.initBrowserCalls = browserCalls;
   // _browserToken is null without a token-based browser, so the pin holds no session id.
   out.init = init;

@@ -1,7 +1,7 @@
 /**
  * The cognitive journey's numbers are pinned, bit for bit, on a virtual clock.
  *
- * Thirty-eight scripted journeys through runCognitiveJourney
+ * Forty scripted journeys through runCognitiveJourney
  * (tests/fixtures/journey-scenarios.ts: every emotional trigger, the progress
  * gate, every abandonment reason the loop can reach, the final evaluation and
  * its fallback, every action, returning visits, the time of day, human input,

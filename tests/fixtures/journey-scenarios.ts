@@ -425,10 +425,10 @@ SCENARIOS.push(
   {
     // Failures drain patience; then a step that succeeds and reports nothing
     // new fires time pressure instead of success.
+    // Patience after the fourth failure is 0.289, inside 10% of the cut.
     name: "time-pressure",
-    options: { persona: "careful-reader", goal: "Contact sales", startUrl: U("/"), temporalContext: WEDNESDAY_10AM, customTraits: { patience: 0.75 } },
+    options: { persona: "careful-reader", goal: "Contact sales", startUrl: U("/"), temporalContext: WEDNESDAY_10AM, customTraits: { patience: 0.71 } },
     steps: [
-      ok("click:Talk to sales", { actionSuccess: false }),
       ok("click:Talk to sales", { actionSuccess: false }),
       ok("click:Talk to sales", { actionSuccess: false }),
       ok("click:Talk to sales", { actionSuccess: false }),
@@ -436,6 +436,20 @@ SCENARIOS.push(
       ok("hover:Pricing", {}),
       ok("hover:Pricing", {}),
     ],
+  },
+  {
+    // An error then failures: stress ends the journey at step 5 with
+    // patience inside 10% of the emotional rule's patience cut.
+    name: "emotional-abandon-edge",
+    options: { persona: "careful-reader", goal: "Contact sales", startUrl: U("/"), temporalContext: WEDNESDAY_10AM, maxSteps: 8, customTraits: { patience: 0.88, resilience: 0.5 } },
+    steps: [ok("click:Talk to sales", { actionSuccess: false, errorMessage: "Page failed to load" }), ok("click:Talk to sales", { actionSuccess: false })],
+  },
+  {
+    // Verbose, with failures that raise arousal by 0.217 in one step into
+    // the severe band: the peripheral-field line the verbose run prints.
+    name: "verbose-stress",
+    options: { persona: "careful-reader", goal: "Find the API docs", startUrl: U("/docs"), temporalContext: WEDNESDAY_10AM, verbose: true, maxSteps: 6, customTraits: { patience: 0.9, resilience: 0.1, selfEfficacy: 0.5 } },
+    steps: [ok("scroll:down", { newFrustration: 0.6 }), ok("click:Nothing here", { actionSuccess: false })],
   },
   {
     // The start page fails three times with a transient network error and
