@@ -11,6 +11,7 @@ import { htmlUiResource, attachUiResource, uiResourcesEnabled, type ToolContentB
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js";
 import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
+import { lawTimesReport } from "../../visual/law-times-report.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
@@ -668,6 +669,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           longWordRatio: Math.round(pageMetrics.longWordRatio * 1000) / 1000,
           technicalDensity: Math.round(pageMetrics.technicalDensity * 1000) / 1000,
           scriptFamily: pageMetrics.scriptFamily || "alphabetic",
+          // Stage B: the four law times behind the motor, decision, procedure and reading demands.
+          lawTimes: lawTimesReport(pageMetrics),
           // Every ratio above is 0-1 NORMALIZED, not a raw measurement.
           // cognitive_effort's readability penalties report avg word length in
           // raw CHARACTERS (e.g. 11.4), so the same name carried two scales

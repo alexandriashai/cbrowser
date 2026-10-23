@@ -39,6 +39,7 @@ import {
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
+import { lawTimesReport } from "../../visual/law-times-report.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
 import { ctcBandsDescription, ctcRank } from "../../visual/ctc-bands.js";
@@ -1261,6 +1262,9 @@ Begin with the first persona: ${personas[0]}
         // The scored persona's motor and reading rates, counted apart from the
         // score's constants (they describe the persona).
         personaRateProvenance: personaRateProvenance(personaRateIds),
+        // Stage B: the four law times the motor, decision, procedure and reading
+        // demands come from, beside the demand each makes against the budget.
+        lawTimes: lawTimesReport(pageMetrics),
         // Only when useValues asked for it, so a persona with no values is
         // visibly scored without them rather than silently.
         ...(useValues ? { valueModulation: valueModulationReport(schwartzValues) } : {}),

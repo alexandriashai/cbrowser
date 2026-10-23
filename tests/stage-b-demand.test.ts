@@ -21,6 +21,7 @@ import { computeDemandDistribution } from "../src/visual/cognitive-transport-cha
 import { LAW_PROVENANCE } from "../src/visual/provenance/laws.js";
 import { MODEL_PROVENANCE, param, withParamOverrides } from "../src/visual/model-provenance.js";
 import { RAW_LATIN } from "./fixtures/raw-page-measurements.js";
+import { lawTimesReport } from "../src/visual/law-times-report.js";
 import { buildGoldenMatrix } from "./fixtures/ctc-golden-matrix.js";
 
 /** The golden matrix with the per-dimension state arrays dropped: scores only (as ctc-no-dead-constants.test.ts). */
@@ -192,4 +193,18 @@ describe("every law constant the score reads moves a score in the golden matrix"
     const moved = withParamOverrides({ "law.timeBudget": 30 }, () => buildGoldenMatrix().runs["first-timer"]["mid"]["asym+inter"].totalCTC);
     expect(moved).not.toBe(base);
   }, 120_000);
+});
+
+describe("the law times as a tool reports them (lawTimesReport)", () => {
+  test("each time beside its demand against the budget, the expert limit beside choosing", () => {
+    const m = deriveMetrics(RAW_LATIN);
+    const r = lawTimesReport(m);
+    expect(r.budgetSeconds).toBe(param("law.timeBudget"));
+    for (const [k, s] of [["pointing", m.pointingSeconds], ["choosing", m.choosingSeconds], ["reading", m.readingSeconds], ["procedure", m.procedureSeconds]] as const) {
+      expect(r[k].seconds).toBe(Math.round(s * 10) / 10);
+      expect(r[k].demand).toBe(Math.round((s / (s + r.budgetSeconds)) * 1000) / 1000);
+    }
+    expect(r.choosing.expertSeconds).toBe(Math.round(m.lawDiagnostics.choosingSecondsExpert * 10) / 10);
+    expect(r.note).toContain("hypothesis");
+  });
 });

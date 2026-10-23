@@ -187,6 +187,12 @@ describe("the scored persona's rates are reported apart from the score (personaR
     expect(again.personaRateProvenance).toEqual(block);
     // The score's own block is untouched by the persona's rates.
     expectHonestSummary(tremor.modelProvenance as Summary);
+    // Stage B: the response carries the four law times beside their demands.
+    expect(tremor.lawTimes.budgetSeconds).toBe(12.4);
+    for (const k of ["pointing", "choosing", "reading", "procedure"]) {
+      expect(tremor.lawTimes[k].seconds).toBeGreaterThanOrEqual(0);
+      expect(tremor.lawTimes[k].demand).toBeCloseTo(tremor.lawTimes[k].seconds / (tremor.lawTimes[k].seconds + 12.4), 2);
+    }
     const first = (await effort({ url, persona: "first-timer" })).personaRateProvenance as RateBlock;
     expect(first.counts).toEqual({ fitted: 0, published: 0, definition: 0, hypothesis: 2 });
   }, 180_000);
@@ -199,6 +205,7 @@ describe("the scored persona's rates are reported apart from the score (personaR
     expect(Object.keys(data.personaRateProvenance).sort()).toEqual(["dyslexic-user", "first-timer"]);
     expect(data.personaRateProvenance["dyslexic-user"].rates).toEqual(["personaRate.dyslexic-user.pointing", "personaRate.dyslexic-user.reading"]);
     expect(data.personaRateProvenance["dyslexic-user"].counts.published).toBe(1);
+    expect(Object.keys(data.pageMetrics.lawTimes).sort()).toEqual(["budgetSeconds", "choosing", "note", "pointing", "procedure", "reading"]);
     expectHonestSummary(data.modelProvenance as Summary);
   }, 240_000);
 });
