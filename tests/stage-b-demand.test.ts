@@ -21,6 +21,7 @@ import { computeDemandDistribution } from "../src/visual/cognitive-transport-cha
 import { LAW_PROVENANCE } from "../src/visual/provenance/laws.js";
 import { MODEL_PROVENANCE, param, withParamOverrides } from "../src/visual/model-provenance.js";
 import { RAW_LATIN } from "./fixtures/raw-page-measurements.js";
+import { referenceRaw } from "../src/visual/ctc-reference.js";
 import { lawTimesReport } from "../src/visual/law-times-report.js";
 import { buildGoldenMatrix } from "./fixtures/ctc-golden-matrix.js";
 
@@ -206,5 +207,28 @@ describe("the law times as a tool reports them (lawTimesReport)", () => {
     }
     expect(r.choosing.expertSeconds).toBe(Math.round(m.lawDiagnostics.choosingSecondsExpert * 10) / 10);
     expect(r.note).toContain("hypothesis");
+  });
+});
+
+describe("the reading law reads the outermost prose, each character once", () => {
+  // ref-v2 (format 2): text and prose are built from the same outermost prose
+  // elements (measurePageRaw joins them into one visible text), while textChars
+  // still sums nested elements. The reading law takes letters from
+  // text.wordLengths, so it reads exactly what prose totals: checked on every
+  // real reference page. Nav list items are prose too, so a nav label is read
+  // here and also searched in choosing; the raw record does not separate it.
+  test("on every alphabetic reference page, the letter histogram's words are prose.words", () => {
+    for (const scope of ["viewport", "full_page"] as const) {
+      const pages = referenceRaw(scope).filter((r) => r.text.script === "alphabetic");
+      expect(pages.length).toBeGreaterThan(400);
+      const off = pages.filter((r) => r.text.wordLengths.reduce((a, [, c]) => a + c, 0) !== r.prose.words);
+      expect(off.length).toBe(0);
+    }
+  });
+
+  test("every reference page carries groupedLinks, so no page uses the format-1 nav-size rule", () => {
+    for (const scope of ["viewport", "full_page"] as const) {
+      expect(referenceRaw(scope).filter((r) => lawSecondsOf(r).lawDiagnostics.ungroupedLinksFrom !== "groupedLinks").length).toBe(0);
+    }
   });
 });
