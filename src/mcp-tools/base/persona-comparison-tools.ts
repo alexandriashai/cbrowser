@@ -1260,6 +1260,9 @@ Begin with the first persona: ${personas[0]}
           // A percentile (21.x): raw ranked among the real reference pages for
           // the built-in personas at the same scope. 0.8 is costlier than 80%.
           total: Math.round(result.totalCTC * 1000) / 1000,
+          // The 95% interval of that percentile across bootstrap resamples of
+          // the reference pages: how firmly the reference fixes the rank.
+          totalCTCInterval: result.totalCTCInterval.map((x) => Math.round(x * 1000) / 1000),
           band: rank.band,
           referenceScope: result.referenceScope,
           rank: rank.sentence,
@@ -1281,7 +1284,7 @@ Begin with the first persona: ${personas[0]}
           sequentialAmplification: Math.round((result.rawCTC / Math.max(0.001, result.additiveCTC)) * 1000) / 1000,
           chainNote: "chainCoefficient = raw / additive, both in layer-cost units. Above 1 means interactions and sequential depletion added cost. Re-measured 1.002-1.036 at EIGHT layers, after `motor` was split into target acquisition and sequence execution (2026-08-03). It was 1.003-1.054 at seven and 1.002-1.019 at six. The range narrowed rather than widening this time: splitting one layer into two halves each layer's per-step cost, so the same total is reached through smaller increments and less of it compounds. Real, and small. Do NOT compute total/additive — total is the percentile of raw among the real reference pages, not a cost, and the ratio compares different units.",
           interpretationBasis: "total",
-          interpretationBands: `total is a percentile of the real reference pages, banded ${ctcBandsDescription()}. The cut points are registered definitions (ctcBands.*), chosen as conventions and not fitted. A band is a rank among real pages: the CTC is untested against human data, so it says nothing about how a person experiences the page, and it is not an abandonment prediction (that is abandonmentRisk, a separate quantity).`,
+          interpretationBands: `total is a percentile of the real reference pages, banded ${ctcBandsDescription()}. The cut points are registered definitions (ctcBands.*), chosen as conventions and not fitted. A band is a rank among real pages: the CTC is untested against human data, so it says nothing about how a person experiences the page, and it is not an abandonment prediction (that is abandonmentRisk, a separate quantity). totalCTCInterval is the 95% interval of the percentile across bootstrap resamples of the reference pages: how firmly the reference pages fix the rank, not whether the cost is right.`,
         },
         layers: result.layers.map(l => ({
           name: l.name,

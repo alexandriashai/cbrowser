@@ -22,6 +22,8 @@ import type { MetricScope } from "../../visual/cognitive-transport.js";
 
 export interface StoryEffort {
   totalCTC: number;
+  /** Its 95% interval (SequentialTransportResult.totalCTCInterval), stated in the rank sentence when present. */
+  totalCTCInterval?: [number, number];
   rawCTC: number;
   referenceScope: MetricScope;
   bottleneck: string;
