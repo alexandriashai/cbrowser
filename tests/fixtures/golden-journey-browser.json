@@ -61,7 +61,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.3014625,
        "frustration": 0.050858749999999994,
@@ -148,7 +148,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.13137893750000001,
        "frustration": 0,
@@ -264,7 +264,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.06149414906250002,
        "frustration": 0,
@@ -408,7 +408,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.02625,
        "frustration": 0,
@@ -579,7 +579,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.02625,
        "frustration": 0,
@@ -777,7 +777,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.02625,
        "frustration": 0,
@@ -1003,7 +1003,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 200,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.02625,
        "frustration": 0,
@@ -1263,7 +1263,7 @@
       "blindnessThreshold": 2,
       "blindPatterns": []
      },
-     "gazeMouseLag": 200,
+     "gazeMouseLag": 700,
      "emotionalState": {
       "anxiety": 0.02625,
       "frustration": 0,
@@ -1821,7 +1821,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.4384775,
        "frustration": 0.30941487500000003,
@@ -1919,7 +1919,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.48722053225,
        "frustration": 0.35019800127812506,
@@ -2032,7 +2032,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.43235903035562495,
        "frustration": 0.24789303640973873,
@@ -2172,7 +2172,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.25378902489595145,
        "frustration": 0,
@@ -2341,7 +2341,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.35074459496859617,
        "frustration": 0.19962250000000004,
@@ -2536,7 +2536,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.4308251951351331,
        "frustration": 0.2135950740482207,
@@ -2757,7 +2757,7 @@
        "blindnessThreshold": 2,
        "blindPatterns": []
       },
-      "gazeMouseLag": 425,
+      "gazeMouseLag": 700,
       "emotionalState": {
        "anxiety": 0.4785017705326697,
        "frustration": 0.20154441199464224,
@@ -3015,7 +3015,7 @@
       "blindnessThreshold": 2,
       "blindPatterns": []
      },
-     "gazeMouseLag": 425,
+     "gazeMouseLag": 700,
      "emotionalState": {
       "anxiety": 0.4785017705326697,
       "frustration": 0.13554441199464223,

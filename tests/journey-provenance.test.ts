@@ -45,10 +45,11 @@ describe("journey provenance registry", () => {
     // change these on purpose. 444 at registration (21.0); 428 after the 16
     // that could change nothing were removed; 427 after the init text's
     // "for 30s", which update_state never applied, became its two
-    // consecutive updates.
+    // consecutive updates; 423 after the five hand-set gaze-lag constants
+    // gave way to the published average (journey.gazeLag.mean).
     const counts = Object.fromEntries(Object.entries(JOURNEY_GROUPS).map(([g, es]) => [g, es.length]));
-    expect(counts).toEqual({ journey: 155, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 38 });
-    expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(427);
+    expect(counts).toEqual({ journey: 151, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 38 });
+    expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(423);
     for (const [g, es] of Object.entries(JOURNEY_GROUPS)) for (const e of es) expect(e.id.startsWith(`${g}.`)).toBe(true);
     for (const e of JOURNEY_GROUP_PROVENANCE) expect(MODEL_PROVENANCE[e.id]).toBe(e);
   });
@@ -67,11 +68,12 @@ describe("journey provenance registry", () => {
     }
   });
 
-  test("nothing is fitted; the published entries are the keystroke-level operators read for this registry", () => {
+  test("nothing is fitted; the published entries are the ones read for this registry", () => {
     const counts = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
     for (const e of JOURNEY_GROUP_PROVENANCE) counts[e.status]++;
-    expect(counts).toEqual({ fitted: 0, published: 5, definition: 14, hypothesis: 408 });
+    expect(counts).toEqual({ fitted: 0, published: 6, definition: 14, hypothesis: 403 });
     expect(JOURNEY_GROUP_PROVENANCE.filter((e) => e.status === "published").map((e) => e.id).sort()).toEqual([
+      "journey.gazeLag.mean",
       "journey.klm.homing", "journey.klm.keystrokeAverage", "journey.klm.keystrokeExpert", "journey.klm.keystrokeNovice", "journey.klm.pointing",
     ]);
   });

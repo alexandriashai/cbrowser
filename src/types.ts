@@ -1252,22 +1252,20 @@ export function calculateSaliency(factors: SaliencyFactors): number {
 }
 
 /**
- * Calculate gaze-to-mouse lag based on age (WebGazer.js research).
- * Eye movements precede mouse movements by 200-500ms depending on age.
+ * Gaze-to-mouse lag: how long after the eyes reach a target the cursor does.
  *
- * @param ageRange - Age range string (e.g., "18-25", "65+")
+ * The published measurement (Huang, White & Buscher 2012, journey.gazeLag.mean)
+ * is an average over adults aged 26 to 60, with no age function: the same
+ * study found no significant relation between age and gaze-cursor distance.
+ * Until 21.0 this returned a hand-set 200-500 ms by age (300 ms when unknown),
+ * below the measured average for every age; the age is now accepted and not
+ * used, so every persona lags by the measured average.
+ *
+ * @param _ageRange - Age range string (e.g., "18-25", "65+"); not used
  * @returns Gaze-to-mouse lag in milliseconds
  */
-export function calculateGazeMouseLag(ageRange?: string): number {
-  if (!ageRange) return param("journey.gazeLag.default"); // Default
-
-  const ageMatch = ageRange.match(/(\d+)/);
-  if (!ageMatch) return param("journey.gazeLag.default");
-
-  const age = parseInt(ageMatch[1], 10);
-  // Young adults: 200ms, elderly: 500ms
-  const min = param("journey.gazeLag.min");
-  return Math.min(param("journey.gazeLag.max"), Math.max(min, min + (age - param("journey.gazeLag.baseAge")) * param("journey.gazeLag.perYear")));
+export function calculateGazeMouseLag(_ageRange?: string): number {
+  return param("journey.gazeLag.mean");
 }
 
 // ============================================================================

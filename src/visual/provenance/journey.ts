@@ -149,11 +149,7 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   h("habituation.visibilityRange", 0.9, "Hand-set fall in visibility from the first sighting to the threshold. The same fixation-rate curve would set it."),
 
   // ── Gaze leads the mouse ──
-  h("gazeLag.default", 300, "Hand-set gaze-to-mouse lag, ms, when the persona's age is unknown. The code cites \"WebGazer.js research\", which reports no lag. The time by which gaze reaches a target before the cursor, measured with an eye tracker during web tasks, would set it."),
-  h("gazeLag.min", 200, "Hand-set smallest gaze-to-mouse lag, ms (young adults). The same eye-tracker measurement, by age, would set it."),
-  h("gazeLag.max", 500, "Hand-set largest gaze-to-mouse lag, ms (older adults). The same measurement, by age, would set it."),
-  h("gazeLag.baseAge", 20, "Hand-set age, in years, at which the lag is smallest. The same measurement, by age, would set it."),
-  h("gazeLag.perYear", 5, "Hand-set increase in the lag, ms per year of age. The same measurement, by age, would set it."),
+  p("gazeLag.mean", 700, "Gaze-to-cursor lag, ms, added before a pointer action: the time by which the cursor follows the eyes to where they look. Huang, J., White, R. W. & Buscher, G. (2012). User see, user point: gaze and cursor alignment in Web search. CHI '12, 1341-1350: \"they lag their cursor behind their gaze by at least 250 ms and on average by 700 ms\"; \"shifting the cursor positions 700 ms into the future minimizes the RMSE. This means mouse cursor lags behind eye gaze by about 700 ms\". 36 adults aged 26-60 (M = 45.5) on 32 web search tasks, Tobii x50 eye tracker; the per-person lag ran from 250 ms to over one second, and age had no significant relation to gaze-cursor distance (rho = 0.22, p = 0.18). One average for every persona is the journey's use; the study gives no age function."),
 
   // ── Motor timing (Fitts) ──
   h("fitts.intercept", 50, `The journey's Fitts' law intercept a, ms. Its comment attributes 50 ms and 150 ms/bit to Card, Moran & Newell (1983); ${KLM_1980.replace(", Figure 1", "")} gives the mouse's law as "tP = .8 + .1 log2 (d/s + .5) sec" (section 3.1), a different form and different values, so the attribution does not hold for the 1980 paper. Stage B registers a published Fitts' law for the same quantity (law.fitts.intercept, MacKenzie & Buxton 1992: 230 ms); the journey should read that id, which would replace this value.`),
