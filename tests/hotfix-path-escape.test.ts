@@ -13,8 +13,8 @@
  *    location any local user can list, shared across accounts, never deleted.
  *    The fix writes them in the account's own session screenshots dir.
  *
- * Run as wyld-web. The scratch dir is under wyld-web's home, never anywhere a
- * root process reads.
+ * The scratch dir is a fresh directory under the system temp dir, removed at
+ * the end. Run as an ordinary user: root ignores the read-only temp base.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -22,12 +22,13 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 
-const SCRATCH_ROOT = "/home/wyld-web/hotfix-scratch";
 const sharp = (await import("sharp")).default;
 
-const run = mkdtempSync(join(SCRATCH_ROOT, "run-"));
+// Its own directory under the system temp dir: a fixed path here (it was one
+// machine's home directory) does not exist on CI and failed the release gate.
+const run = mkdtempSync(join(tmpdir(), "cb-hotfix-escape-"));
 // A read-only temp base. The old filtered path escapes it (so the write lands
 // in the scratch target below); the fix's mkdtemp inside it would fail, which
 // is itself proof the fix never writes a clock/persona-named file in it.
@@ -91,7 +92,9 @@ describe("crossBrowserDiff keeps captures in the account dir, not world-readable
       const paths = Object.values(r.screenshots);
       expect(paths.length).toBeGreaterThanOrEqual(1);
       for (const p of paths) {
-        expect(p.startsWith("/tmp/")).toBe(false);
+        // Not in the shared temp root, where the old code wrote /tmp/cross-browser-*.png
+        // (this test's own data dir lives under the temp dir, so "starts with /tmp" cannot be the check).
+        expect([tmpdir(), "/tmp"]).not.toContain(dirname(p));
         expect(relative(dataDir, p).startsWith("..")).toBe(false);
       }
       expect(basename(paths[0])).toMatch(/^cross-browser-chromium-\d+-[0-9a-f]{12}\.png$/);
