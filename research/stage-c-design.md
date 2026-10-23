@@ -1,12 +1,19 @@
 # Stage C: the cognitiveLoad layer
 
-Design note. Nothing under `src/` has changed. Worktree
-`cbrowser-public-wt-stage-c`, branch `feat/stage-c`, from `feat/cot-integration`
-at `8707e49` (Stage B merged).
+Design note, then build. Worktree `cbrowser-public-wt-stage-c`, branch
+`feat/stage-c`, from `feat/cot-integration` at `8707e49` (Stage B merged).
+Sections 0-9 are the design as reviewed (7ed78e5) plus the patience design
+written before the build (4.5); **section 10 is what was built and measured**,
+including one refinement to where familiarity acts (10.2).
+
+Every number names the reference it came from. All of them, before and after,
+are on `ctc-reference-v2-2026-10-23` (raw format 2, 513 graded pages, crawled
+from eaf3b36); the proseInNav re-crawl from 711f0b4 had not landed when this
+was written.
 
 Every number below was read from a source retrieved in this session (section 1)
-or measured on the 513 reference pages of raw format 2 with the scripts in
-section 9. Where a number is neither, it is labelled. Nothing in the chain was
+or measured on the 513 reference pages of raw format 2
+(`ctc-reference-v2-2026-10-23`) with the scripts in section 9. Where a number is neither, it is labelled. Nothing in the chain was
 edited to produce the predictions: the scripts patch the exported layer tables
 at run time and override demands after `computeDemandDistribution`.
 
@@ -101,7 +108,7 @@ experienced dyslexic reader is a claim the model makes, not an error it can be
 shown to make. The paper's baseline is now the typical user, and against it the
 order holds in every variant.
 
-**Decisions for you** (recommendation first):
+**Decisions for you** (recommendation first; all five decided 2026-10-23, as built in section 10.1):
 
 1. **Retire the 15 text and navigation demand terms.** Alternative: keep them as
    hypotheses. I recommend against it: they are not ungroundable constants with
@@ -724,3 +731,336 @@ All under `research/`, run as the tree's owner from the worktree root with bun.
 | `stage-c-predict.ts` | one variant (`VARIANT=V0..V4`), writes `research/stage-c-predict/<V>.json` (not committed, about 1 MB each) |
 | `stage-c-predict-report.ts` | the tables of section 6 from those files |
 | `stage-c-layers-report.ts` | mean layer cost per persona per variant (6.3) |
+
+---
+
+## 10. Build (2026-10-23)
+
+Built on `feat/stage-c`: 7da64e6 (patience design, 4.5), b29fe43 (red tests),
+0793190 (chain, registry, tools), 59e31c0 (golden re-pin), d9ab204 (measured
+aphasia reading rate, second re-pin), 02f2414 (the aphasia times registered as
+a measured population, so the law registry reads them). All numbers in
+this section are on `ctc-reference-v2-2026-10-23`, 513 pages, scripts
+`stage-c-refset.ts` (run on a clean export of 7ed78e5 for "before" and on
+this branch for "after") and `stage-c-refset-report.ts`.
+
+### 10.1 Decisions as built
+
+1. Design C. The 15 cognitiveLoad terms are retired; comprehension,
+   workingMemory, informationForaging and transferLearning take the choosing
+   demand whole. PageMetrics gains `choosingSecondsExpert` (required; it moved
+   out of `lawDiagnostics`, values unchanged in the page-metrics golden).
+2. siteFamiliarity is Cockburn et al.'s e directly
+   (`computeDemandDistribution(pageMetrics, { siteFamiliarity })`, default 0,
+   refused outside [0, 1]). No visit count, no L.
+3. aphasia-receptive and intellectual-disability: the drop ships and is
+   stated; the one targeted search found a same-study rate for aphasia, now
+   registered as published (10.5).
+4. Frustration's two text-to-patience terms are retired; patience takes the
+   reading demand whole (4.5).
+5. `comprehension` is not renamed. Four comments that called it reading or
+   text ability (`personas.ts` x3, `persona-questionnaire.ts`) now say UI
+   conventions.
+
+Each persona value of the five traits now carries, in its registry entry
+(`persona.<name>.<trait>`, provenance/personas.ts), the tolerated time it
+reads as, e.g. `persona.first-timer.comprehension`: "5.3 s of reference work
+against the 12.4 s budget ... 2.33 times the time of Cockburn, Gutwin &
+Greenberg's (2007) novice searchers". The two norm-anchored workingMemory
+values say that a percentile and a rate ratio agree only at 0.5.
+
+### 10.2 One refinement: familiarity acts on the four abilities only
+
+The approved wording put e on "the choosing time". Built that way, e also
+shortened the decision layer's demand, and the decision dispositions
+(satisficing, anchoringBias, fearOfMissingOut, socialProofSensitivity,
+riskTolerance) bill surplus. A shorter choosing time turned a small deficit
+into billed surplus, so **a familiar visit cost more than a first visit on 72
+of 513 viewport pages for the typical user, and on 39 for cognitive-adhd and
+for dyslexic-user** (rawCTC at e = 1 against e = 0). Three tests of the
+existing rule "more site knowledge is never a penalty" caught it.
+
+Built instead: e acts on the four cognitiveLoad abilities, which are
+surplus-free and are the finding abilities Cockburn's e substitutes for ("their
+visual search time decreases towards zero"); the decision dispositions keep the
+first-visit choosing time Stage B gave them. Measured: **0 of 40,014**
+(26 personas, the typical user included, x 513 viewport pages x three e pairs: 0 to 1, 0 to 0.5, 0.5 to 1) where more
+familiarity costs more; a fast-check property in tests/stage-c-load.test.ts
+holds it on random pages, personas and e. Nothing changes at e = 0. Reported
+to review as a change to decision 1.
+
+What familiarity does on the reference pages as built (e = 1 against 0, mean
+rawCTC change per page, totalCTC in brackets), viewport: first-timer -0.026 (totalCTC -0.015), elderly-user
+-0.043 (-0.015), intellectual-disability -0.072 (-0.024), cognitive-adhd
+-0.006, dyslexic-user -0.007, power-user 0.000 (its abilities, 0.9, exceed the
+choosing demand at any e); at full_page first-timer -0.130 (-0.064),
+elderly-user -0.198 (-0.070), intellectual-disability -0.303 (-0.105). No page
+costs more for any of them. The persona the knob helps most is the one with
+the weakest finding abilities, which is the direction the trait definitions
+describe.
+
+### 10.3 Registry, counted from the code (`stage-c-registry.ts`)
+
+| | 7ed78e5 | feat/stage-c |
+|---|---|---|
+| chain.* | 63 (60 hypothesis, 3 definition) | 46 (43 hypothesis, 3 definition) |
+| law.* | 21 (19 published, 1 definition, 1 hypothesis) | 23 (21 published, 1 definition, 1 hypothesis) |
+| personaRate.* | 50 (2 published, 48 hypothesis) | 50 (3 published, 47 hypothesis) |
+| whole MODEL_PROVENANCE | 1,446 (1,323 hypothesis, 67 definition, 51 published, 5 fitted) | 1,431 (1,305 hypothesis, 67 definition, 54 published, 5 fitted) |
+
+The 17 retired ids are all hypotheses. Two published ids were added (the
+aphasia and control reading times, 10.5), and
+`personaRate.aphasia-receptive.reading` moved from hypothesis to published.
+persona.* (686) keeps its count; 5 x 25 entries gained the tolerated-time
+sentence.
+`law.hick.intercept` / `.slope` (published) are now read by a demand when e is
+above 0; at e = 0, where the golden matrix and the reference curve run, they
+still move no score, so stage-b-demand's absence test for them still holds.
+
+The page-metric text constants (`pageMetrics.informationDensity.midpoint`,
+`textDensity.*`, `text.nestedShare`, `wordLength.*`, `sentenceLength.saturation`,
+`lexicalDiversity.window`, the long/technical word minima, the sentence
+thresholds, `cjk.charsPerWord`) are still read by deriveMetrics for the
+reported metrics (and by CIF and `cognitive_load_estimate`), so they still
+appear in a CTC answer's provenance block, but no longer move its score. The
+curve test (ctc-reference.test.ts) now pins that they do not.
+
+### 10.4 What it does on the real pages
+
+Before is 7ed78e5 (Stage B), after is this branch at d9ab204; the shipped
+percentile curve is rebuilt from each chain, so totalCTC is each one's own
+scale. The typical user is paper-calcs round 2's (25 authored traits at 0.5,
+first visit, the bridge's no-statement capacities), built on each tree and not
+in the pool. Before the measured aphasia rate (10.5) the build matched the
+prediction of section 4.5 (V5) to the third decimal (first-timer 0.533, ADHD
+0.682, dyslexic 0.440 at the viewport); the tables are the final branch.
+
+### viewport: face validity, before -> after
+
+first-timer minus X (mean totalCTC difference; share of pages where first-timer's rawCTC is the larger), and X minus the typical user:
+
+| X | first-timer minus X | first-timer costlier on | X minus typical-user |
+|---|---|---|---|
+| typical-user | +0.337 -> +0.142 | 100% -> 99% |  |
+| cognitive-adhd | +0.150 -> -0.151 | 94% -> 13% | +0.188 -> +0.292 |
+| dyslexic-user | +0.202 -> +0.092 | 100% -> 95% | +0.136 -> +0.049 |
+| low-vision-magnified | +0.267 -> +0.040 | 99% -> 73% | +0.071 -> +0.102 |
+| motor-impairment-tremor | +0.234 -> +0.014 | 96% -> 62% | +0.103 -> +0.127 |
+| elderly-user | -0.083 -> -0.064 | 0% -> 4% | +0.420 -> +0.205 |
+| elderly-low-vision | -0.039 -> -0.130 | 15% -> 0% | +0.377 -> +0.272 |
+| intellectual-disability | -0.130 -> -0.112 | 0% -> 5% | +0.468 -> +0.254 |
+| aphasia-receptive | +0.075 -> +0.013 | 92% -> 45% | +0.262 -> +0.129 |
+| power-user | +0.412 -> +0.045 | 99% -> 53% | -0.075 -> +0.097 |
+| first-timer | | | +0.337 -> +0.142 |
+
+### full_page: face validity, before -> after
+
+first-timer minus X (mean totalCTC difference; share of pages where first-timer's rawCTC is the larger), and X minus the typical user:
+
+| X | first-timer minus X | first-timer costlier on | X minus typical-user |
+|---|---|---|---|
+| typical-user | +0.346 -> +0.143 | 100% -> 100% |  |
+| cognitive-adhd | +0.159 -> -0.202 | 97% -> 12% | +0.186 -> +0.346 |
+| dyslexic-user | +0.188 -> +0.111 | 100% -> 98% | +0.157 -> +0.032 |
+| low-vision-magnified | +0.279 -> +0.089 | 99% -> 90% | +0.067 -> +0.054 |
+| motor-impairment-tremor | +0.219 -> +0.049 | 98% -> 82% | +0.127 -> +0.094 |
+| elderly-user | -0.101 -> -0.097 | 0% -> 2% | +0.447 -> +0.241 |
+| elderly-low-vision | -0.067 -> -0.121 | 4% -> 0% | +0.413 -> +0.264 |
+| intellectual-disability | -0.131 -> -0.158 | 0% -> 1% | +0.477 -> +0.301 |
+| aphasia-receptive | +0.078 -> -0.035 | 92% -> 21% | +0.267 -> +0.178 |
+| power-user | +0.375 -> -0.045 | 100% -> 23% | -0.029 -> +0.188 |
+| first-timer | | | +0.346 -> +0.143 |
+
+Read plainly:
+
+- **Against the typical user, the order holds at both scopes**: every
+  impaired persona costs more than it (smallest gaps dyslexic-user +0.049 at
+  the viewport and +0.032 at full_page, low vision +0.054 at full_page).
+- **first-timer against the impaired personas**: cognitive-adhd is now costlier
+  than first-timer on 87% of viewport pages (6% before) and 88% at full_page.
+  motor-impairment-tremor and low-vision-magnified are near ties at the
+  viewport (first-timer costlier on 62% and 73%), aphasia-receptive is a tie
+  there (45%) and costlier at full_page (first-timer on 21%). dyslexic-user
+  stays below first-timer on 95% of viewport pages: as the design said, no
+  grounded design of this layer reverses it, and the gap now sits in decision
+  (+0.027) and readingAttention (+0.042).
+- **power-user is now costlier than the typical user** (+0.097 viewport,
+  +0.188 full_page; before -0.075 and -0.029): its authored patience 0.3 now
+  prices against the reading time, on top of Stage B's billed decision
+  surplus. Same for the other low-patience personas, viewport totalCTC:
+  impatient-user 0.583 -> 0.735, confident-user 0.336 -> 0.502, mobile-user
+  0.485 -> 0.611, emotional-user 0.629 -> 0.734.
+- **cognitiveLoad nearly vanishes on real pages** (first-timer 0.436 -> 0.024
+  at the viewport, 0.590 -> 0.113 at full_page): the median choosing demand is
+  0.16 at the viewport and 0.34 at full_page, below most authored abilities.
+- **frustration grows** (typical user 0.043 -> 0.096 at the viewport, 0.041 ->
+  0.186 at full_page; cognitive-adhd 0.117 -> 0.280 and 0.107 -> 0.486): the
+  reading demand is the patience demand now.
+- **abandonmentRisk falls for the personas whose cost was cognitiveLoad**
+  (viewport: first-timer 0.325 -> 0.078, elderly-user 0.425 -> 0.120,
+  intellectual-disability 0.613 -> 0.176) and rises for the low-patience ones
+  (power-user 0.154 -> 0.207, confident-user 0.126 -> 0.175), because unmet
+  demand moved from cognitiveLoad to patience.
+
+All 26 rows (25 personas and the typical user), both scopes, totalCTC, rawCTC,
+abandonmentRisk and every layer: `stage-c-refset-report.ts` on the two JSON
+outputs of `stage-c-refset.ts`.
+
+### 10.5 aphasia-receptive and intellectual-disability
+
+Through Stage B their largest cost was cognitiveLoad: the text terms charged
+their `comprehension` (0.25 and 0.2, a UI-convention trait) against text, which
+is where their language-comprehension deficit actually landed.
+
+**The one targeted search** (PubMed, 2026-10-23: aphasia or intellectual
+disability, with reading rate, reading speed or words per minute, in title or
+abstract; 51 records; titles of all 51 and the abstracts of the 25 that could
+hold a rate read by me) found one same-study measurement:
+
+| source | what I read | what is taken |
+|---|---|---|
+| Webster, J., Morris, J., Howard, D. & Garraffa, M. (2018). Reading for meaning: what influences paragraph understanding in aphasia? AJSLP 27(1S), 423-437, doi:10.1044/2017_AJSLP-16-0213 (authors' accepted manuscript, Newcastle University repository) | Methods, Results, Table 1 | 75 people with post-stroke aphasia and 87 age-matched controls, silent reading of narrative paragraphs, "the paragraph was removed and then a series of written questions were presented". "On average, the control participants took 30 seconds to read approximately 100 words (SD = 10.87, range 10.96 to 73.23 seconds) (paragraph 14). The PWA took approximately double that time with PWA: NRI taking an average of 55 seconds (SD = 34.46, range 17.52 to 185.44 seconds) and PWA: RI taking 71 seconds (SD = 71.43, range 22.09 to 224.29)." PWA: RI are the 35 whose comprehension accuracy fell below the controls' 5th percentile |
+
+Registered: `law.rate.reading.aphasiaControlsSeconds` 30 and
+`law.rate.reading.aphasiaReadingImpairedSeconds` 71 (published), and
+`personaRate.aphasia-receptive.reading` = 30 / 71 = 0.423 (published, same
+study and method; c = 0.297), replacing the fixation model's 0.804, which was
+interpolated from comprehension 0.25. I chose the reading-impaired group as
+the closer analogue of receptive aphasia; the study does not classify aphasia
+type, and the group without a reading impairment would give 0.545. The
+condition is reading for later recall, slower than Brysbaert's rate for both
+groups, so only the ratio is used. Customer-visible: the persona's reading
+speed becomes 238 x 0.423 = 101 wpm (was 191).
+
+**Intellectual disability: no adult rate.** The search's only
+intellectual-disability record is of children (grades 2 to 8). Its entry now
+says the reading share (0.444, a hypothesis interpolated from comprehension
+0.2) is the only place its deficit is priced.
+
+Mean totalCTC (ref ctc-reference-v2-2026-10-23):
+
+| persona | viewport | full_page |
+|---|---|---|
+| aphasia-receptive, Stage B | 0.651 | 0.632 |
+| aphasia-receptive, Stage C with the old reading share | 0.432 | 0.446 |
+| aphasia-receptive, Stage C with the measured share | 0.515 | 0.537 |
+| intellectual-disability, Stage B | 0.856 | 0.842 |
+| intellectual-disability, Stage C | 0.640 | 0.660 |
+
+Both stay above the typical user (aphasia +0.129 viewport, +0.178 full_page;
+intellectual disability +0.254, +0.301) and intellectual-disability above
+first-timer.
+
+### 10.6 Golden matrix and DRO
+
+- **Golden** (`stage-c-golden-deltas.md`, measured before regenerating):
+  158,181 of 227,745 pinned numbers move. The per-dimension arrays lost the
+  siteFamiliarity slot, so every index after it counts as changed. On the
+  hand-built golden pages (where a choice count c asks c / (c + 10), far above
+  real pages) mean rawCTC falls for every human persona (-0.063 cognitive-adhd
+  to -0.204 explorer); cognitiveLoad falls (first-timer 0.435 -> 0.300) and
+  frustration rises (impatient-user 0.139 -> 0.211). A third boundary persona,
+  `boundary-zero` (every dimension 0), was added because the dead-constant test
+  found `chain.capacityEpsilon` moved no golden number once siteFamiliarity,
+  the dimension it used to lift on every run, was gone; it is the only path that
+  reaches the floor now.
+- **DRO** (`dro-bound.test.ts`, `dro-bound-mutants.test.ts`, re-run on this
+  branch): 58 of 58 pass. Every must-kill mutant is killed on 3 of 3 seeds;
+  the two informational ones (M11, M14) survive as before. The thinnest kill is
+  M10 (halve the layer maxCost the interaction terms read), by 2, 15 and 2
+  counterexamples per seed. The interaction pages were found by the 21.0 scan
+  on inputs (informationDensity, navigationDepth) that make no demand now, so
+  their vectors changed; they still kill, but the full interaction re-scan
+  Stage B owes is still owed.
+
+### 10.7 Tests
+
+- `tests/stage-c-load.test.ts`, 10 tests: on 7ed78e5's src (`git checkout
+  7ed78e5 -- src`), 9 fail and 1 passes (the guard "more familiarity never costs
+  any persona more", which holds trivially when e does nothing); on this
+  branch 10 pass; `git checkout HEAD -- src` leaves an empty diff. fast-check
+  properties: for any e in [0, 1] the abilities are asked
+  d((1 - e) T_novice + e T_expert), the dispositions the first-visit time, and
+  e = 0 is the pre-change time to the bit (500 runs); monotone in e (300); a
+  persona's own siteFamiliarity changes nothing within a run (200); more
+  familiarity never costs more (400).
+- Rewritten to the new mechanism, not loosened: transport-dimension-alignment
+  (the familiarity block asks the 2026-08-02 questions of e), site-familiarity
+  -gate (the tools pass the value to the demand and write no trait),
+  ctc-reference (the curve moves with the visual and motion normalisers and
+  not with the text ones), sequential-scroll (the drop-off case needed early
+  screens at 0.8 to stay discriminating), stage-b-demand (law-times report at
+  e), capacity-depletion (the floor's text).
+- persona-capacity-rates: aphasia-receptive's decided reading share is 30 / 71
+  and it is published; the fixation-kept list is three personas.
+- The 26 affected non-browser files, DRO and golden included, on d9ab204:
+  464 pass, 0 fail.
+- `bun run test:gate` (every file but the browser ones) on 02f2414: 2,230
+  pass, 0 fail, 194 files, exit 0. The run before 02f2414 failed 4 law
+  registry tests (the two aphasia times were registered but read by no law
+  function); that is what 02f2414 fixes.
+- The browser files around the scoring tools, each run alone on 02f2414's
+  src: cognitive-effort-motor-preview, visual-story-inline,
+  effort-widget-render, story-attention-traits, ctc-tool-provenance,
+  visual-story-registry, page-metrics-golden, page-metrics-raw,
+  page-metrics-format2, effort-widget: 73 pass, 0 fail. Run together in one
+  process earlier, visual-story-registry failed once on "Target page, context
+  or browser has been closed" and a second combined run hung in
+  story-attention-traits for 17 minutes (killed); both pass alone.
+
+### 10.8 For the release report (21.0 is a major)
+
+API (npm):
+- `PageMetrics.choosingSecondsExpert` is required; on `ExtractedPageMetrics` it
+  moved from `lawDiagnostics` to the top level (same value).
+- `computeDemandDistribution(pageMetrics, options?)` takes `DemandOptions`
+  (`siteFamiliarity`, refused outside [0, 1]); `computeDemandFromRawMetrics`
+  takes `choosingSecondsExpert` as a tenth argument and the options as an
+  eleventh.
+- `DEMAND_DIMENSIONS` has 29 entries (siteFamiliarity removed);
+  `SURPLUS_FREE_DIMENSIONS` loses it; cognitiveLoad's traits are four.
+- `lawTimesReport(m, siteFamiliarity?)`: on a familiar run `choosing` adds
+  `siteFamiliarity`, `familiarSeconds`, `familiarDemand`.
+
+Customer-visible:
+- every totalCTC, rawCTC and abandonmentRisk moves (10.4): the largest
+  viewport moves in mean totalCTC are power-user +0.169, confident-user
+  +0.166, impatient-user +0.152, mobile-user +0.126 (up) and elderly-user
+  -0.217, intellectual-disability -0.216, first-timer -0.198,
+  aphasia-receptive -0.136 (down);
+- aphasia-receptive's reading speed in tool output and the CLI becomes 101 wpm
+  (was 191);
+- siteFamiliarity now shortens the search the cognitiveLoad abilities are
+  asked, the same for every persona, and never raises a cost; the
+  `siteFamiliarityEffect` note in cognitive_effort says so;
+- 17 ids leave the provenance block's hypothesis list.
+
+### 10.9 Found, not changed
+
+- **intellectual-disability's reading share comes from `comprehension` too.**
+  `getReadingProfile` (cognitive-models.ts) interpolates a reading profile from
+  `0.6 textProcessing + 0.4 comprehension` for a persona with no name match and
+  no stated reading fields, and that is where its registered share came from
+  ("the profile interpolated from comprehension 0.2"; aphasia-receptive's did
+  too until d9ab204). So after Stage C its language deficit is priced only by a
+  reading rate that rests on the same category error, a UI-convention trait
+  read as reading ability. Changing the interpolation moves readability audits
+  and custom personas, and is outside this stage's decisions.
+- `estimateCognitiveLoad` (the `cognitive_load_estimate` tool, not the chain)
+  multiplies informationDensity by `1 - 0.8 x comprehension`: the same error.
+- `feat/cot-integration` has moved since 8707e49 (journey-grounding merged,
+  5fa96d2); this branch has not been merged with it.
+- `tests/persona-provenance.test.ts` fails when run alone ("Cannot access
+  'PERSONA_PROVENANCE' before initialization", an import cycle through
+  cognitive-models.ts), on 7ed78e5 as on this branch; it passes when another
+  provenance test loads first, which is how the gate runs it.
+
+### 10.10 Scripts added for the build
+
+| script | what it prints |
+|---|---|
+| `stage-c-refset.ts` | per persona and scope on the shipped curve of the tree `TREE`: mean totalCTC, rawCTC, abandonmentRisk, layer costs, face validity (JSON) |
+| `stage-c-refset-report.ts` | the before/after tables of 10.4 from two `stage-c-refset.ts` outputs |
+| `stage-c-registry.ts` | registry counts by prefix and status for the tree `TREE` (10.3) |
+| `stage-c-golden-deltas.ts` | old and new golden means per persona (`stage-c-golden-deltas.md`) |
+| `stage-c-predict.ts` V5-V7 | the patience variants of 4.5 |
