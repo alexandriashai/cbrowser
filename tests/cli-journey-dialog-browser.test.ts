@@ -96,7 +96,8 @@ describe("cbrowser cognitive-journey prints the dialog", () => {
   });
 
   test("an unreadable reply is named instead of passing as an 'evaluate' step", () => {
-    expect(out).toContain("Step 2: the model's reply could not be read, so this step took no action");
+    // 20.1.2: the line also says why (here, the reply was cut off mid-object).
+    expect(out).toMatch(/Step 2: the model's reply could not be read \(the reply was not a JSON object \(.+\); it began: \{"phase": "comprehend".*\), so this step took no action/);
     expect(out).not.toMatch(/Step 2: evaluate/);
   });
 

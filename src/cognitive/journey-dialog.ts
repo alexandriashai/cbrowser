@@ -24,7 +24,8 @@ function actionVerb(action: string): string {
 /** The lines that describe one journey step, without trailing newlines. */
 export function formatJourneyStep(step: CognitiveStep): string[] {
   if (step.replyReadable === false) {
-    return [`   Step ${step.step}: the model's reply could not be read, so this step took no action`];
+    const why = step.replyProblem ? ` (${step.replyProblem})` : "";
+    return [`   Step ${step.step}: the model's reply could not be read${why}, so this step took no action`];
   }
   const lines = [`   Step ${step.step} · ${step.phase} · ${step.state.currentMood}`];
   const monologue = step.monologue.trim();

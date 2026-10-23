@@ -9,6 +9,8 @@ export interface ParsedArgs {
   command: string;
   args: string[];
   options: Record<string, string | boolean>;
+  /** Things the parser repaired and the user should know about, for stderr. */
+  notes?: string[];
 }
 
 /**
@@ -35,6 +37,7 @@ export function parseArgs(args: string[], booleanFlags: ReadonlySet<string> = BO
   const command = args[0] || "help";
   const restArgs: string[] = [];
   const options: Record<string, string | boolean> = {};
+  const notes: string[] = [];
 
   for (let i = 1; i < args.length; i++) {
     if (args[i].startsWith("--") && args[i].length > 2) {
@@ -45,7 +48,9 @@ export function parseArgs(args: string[], booleanFlags: ReadonlySet<string> = BO
         // `--max-pages=50`: before 2026-10-21 this became a flag literally
         // named "max-pages=50", and the command ran with its default.
         const key = body.slice(0, eq);
-        const value = body.slice(eq + 1);
+        const quoted = joinCurlyQuoted(key, body.slice(eq + 1), args, i, notes);
+        const value = quoted.value;
+        i += quoted.extra;
         options[key] = booleanFlags.has(key) && (value === "true" || value === "false") ? value === "true" : value;
         continue;
       }
@@ -58,8 +63,9 @@ export function parseArgs(args: string[], booleanFlags: ReadonlySet<string> = BO
       const takesNoValue = booleanFlags.has(key) || key.startsWith("no-");
 
       if (!takesNoValue && next && !next.startsWith("--")) {
-        options[key] = next;
-        i++;
+        const quoted = joinCurlyQuoted(key, next, args, i + 1, notes);
+        options[key] = quoted.value;
+        i += 1 + quoted.extra;
       } else {
         options[key] = true;
       }
@@ -72,7 +78,40 @@ export function parseArgs(args: string[], booleanFlags: ReadonlySet<string> = BO
     }
   }
 
-  return { command, args: restArgs, options };
+  return { command, args: restArgs, options, ...(notes.length ? { notes } : {}) };
+}
+
+const CURLY_OPEN = new Set(["\u201C", "\u2018", "\u201E", "\u201A", "\u00AB"]);
+const CURLY_CLOSE = new Set(["\u201D", "\u2019", "\u201C", "\u2018", "\u00BB"]);
+
+/**
+ * A flag value typed in curly quotes. Shells quote only with straight quotes,
+ * so `--goal “find exact tuition cost”` reaches the CLI as four words: the
+ * goal was "“find" and the other three were dropped as stray positionals
+ * (2026-10-23, a journey that ran with the goal "“find"). When the value
+ * opens with a curly quote, this takes the words up to the one that closes
+ * it, strips both quotes and leaves a note. `at` is the index in `args` of
+ * the word holding `first`; `extra` is how many more words it took. With no
+ * closing quote before the next flag it takes nothing more and says so.
+ */
+function joinCurlyQuoted(
+  key: string, first: string, args: string[], at: number, notes: string[],
+): { value: string; extra: number } {
+  if (!CURLY_OPEN.has(first[0])) return { value: first, extra: 0 };
+  const closes = (word: string) => CURLY_CLOSE.has(word[word.length - 1]);
+  if (first.length > 1 && closes(first)) {
+    const value = first.slice(1, -1);
+    notes.push(`--${key} was in curly quotes; read it as "${value}"`);
+    return { value, extra: 0 };
+  }
+  for (let j = at + 1; j < args.length && !args[j].startsWith("--"); j++) {
+    if (!closes(args[j])) continue;
+    const value = [first, ...args.slice(at + 1, j + 1)].join(" ").slice(1, -1);
+    notes.push(`--${key} was in curly quotes, which the shell splits into separate words; read it as "${value}". Straight quotes (") avoid this.`);
+    return { value, extra: j - at };
+  }
+  notes.push(`--${key} opens with a curly quote that never closes, so it is only "${first}". Use straight quotes (") around it.`);
+  return { value: first, extra: 0 };
 }
 
 /**
