@@ -35,6 +35,7 @@ step() {
 step bun "$R2/typical-user.ts"
 step python3 -I "$R2/face_validity.py"
 step python3 -I "$R2/power.py" --scope viewport $QUICK
+[[ -z "$QUICK" ]] && step python3 -I "$R2/recruitment.py" --scope viewport
 step python3 -I "$R2/power.py" --scope full_page $QUICK
 if [[ -n "${UEYES_DIR:-}" ]]; then
   step bun research/study1/run-ceiling.ts --data "$UEYES_DIR" --out "$R2/ceiling"
