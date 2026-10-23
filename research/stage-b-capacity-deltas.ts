@@ -14,7 +14,8 @@ import { join } from "node:path";
 import { buildGoldenMatrix, ROSTER, toolProfile, type GoldenMatrix } from "../tests/fixtures/ctc-golden-matrix.js";
 
 type Run = { rawCTC: number; totalCTC: number; abandonmentRisk: number };
-const before = JSON.parse(readFileSync(join(import.meta.dir, "..", "tests", "fixtures", "ctc-golden-21.0.0.json"), "utf8")) as GoldenMatrix;
+// BEFORE: another pin to compare against (e.g. git show <commit>:tests/fixtures/ctc-golden-21.0.0.json > before.json).
+const before = JSON.parse(readFileSync(process.env.BEFORE ?? join(import.meta.dir, "..", "tests", "fixtures", "ctc-golden-21.0.0.json"), "utf8")) as GoldenMatrix;
 const after = buildGoldenMatrix();
 const METRICS = ["rawCTC", "totalCTC", "abandonmentRisk"] as const;
 

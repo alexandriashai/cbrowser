@@ -125,22 +125,25 @@ temp data dir.
   "motorCapacity weights throughput at 0.75". It now gives
   throughput / (throughput + 4.9 bits/s).
 
-## 4. Phase 2b wiring: the law-based demand (commits 7bc9d5e, 5db0797, 69d8f28)
+## 4. Phase 2b wiring: the law-based demand (commits 63b2412, a5e2346, b8ed05c)
 
-Before is 4aa544e (part 1 plus the v2 reference set, on the old demand curves).
-After is this branch. Both are measured on the 513 real reference pages of the
-97c4888 data (research/stage-b-deltas.md has the full tables).
+Before is integration at 45be7aa, which would ship without Stage B; after is
+this branch. So these rows include part 1 and the custom-persona rules as well
+as the laws. Both are measured on ref-v2's final 513 reference pages
+(research/stage-b-deltas.md has the full tables).
 
 | tool | field | before -> after (mean over the 513 viewport pages) |
 |---|---|---|
-| cognitive_effort, site_cognitive_assessment, visual_cognitive_story | totalCTC: first-timer | 0.694 -> 0.723 |
-| same | totalCTC: power-user | 0.498 -> 0.316 |
-| same | totalCTC: careful-reader | 0.689 -> 0.357 |
-| same | totalCTC: impatient-user | 0.424 -> 0.581 |
-| same | totalCTC: motor-impairment-tremor | 0.388 -> 0.491 |
-| same | totalCTC: dyslexic-user | 0.426 -> 0.522 |
-| same | totalCTC: low-vision-magnified | 0.352 -> 0.461 |
-| same | rawCTC, abandonmentRisk, layer costs, bottleneck | all move; decision cost falls (power-user 0.375 -> 0.082), motor and readability rise (tremor motor 0.095 -> 0.182) |
+| cognitive_effort, site_cognitive_assessment, visual_cognitive_story | totalCTC: first-timer | 0.714 -> 0.726 |
+| same | totalCTC: power-user | 0.502 -> 0.314 |
+| same | totalCTC: careful-reader | 0.701 -> 0.355 |
+| same | totalCTC: impatient-user | 0.426 -> 0.583 |
+| same | totalCTC: mobile-user | 0.273 -> 0.485 |
+| same | totalCTC: motor-impairment-tremor | 0.333 -> 0.492 |
+| same | totalCTC: dyslexic-user | 0.449 -> 0.524 |
+| same | totalCTC: low-vision-magnified | 0.321 -> 0.459 |
+| same | abandonmentRisk | power-user 0.329 -> 0.154, careful-reader 0.340 -> 0.098, impatient-user 0.468 -> 0.582, mobile-user 0.141 -> 0.250 |
+| same | rawCTC, layer costs, bottleneck | all move; decision cost falls (power-user 0.377 -> 0.070), motor and readability rise (tremor motor 0.031 -> 0.184, low-vision-magnified readability 0.012 -> 0.117) |
 | cognitive_effort | lawTimes (new) | the four law times, each beside its demand, and the 12.4 s budget |
 | site_cognitive_assessment | pageMetrics.lawTimes (new) | the same |
 | cognitive_effort, site_cognitive_assessment, visual_cognitive_story | modelProvenance | published 0 -> 12 (the laws); law.timeBudget among the hypotheses; scope names the laws |
