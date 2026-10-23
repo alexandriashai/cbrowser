@@ -9,6 +9,7 @@ import { z } from "zod";
 import { resolveValuesForPersona } from "../../values/persona-values.js";
 import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews } from "../inline-image.js";
+import { makeTempDir, type CallTempDir } from "../../temp-files.js";
 import { scopeProse } from "../../visual/scope-prose.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
@@ -1486,13 +1487,14 @@ Begin with the first persona: ${personas[0]}
       // Generate motor accessibility overlay
       let motorPng: Buffer | undefined;
       let motorFullResolution = "";
+      // Each screenshot below goes in this call's own temp dir, removed in a
+      // finally (src/temp-files.ts): clock-named files in the shared temp dir
+      // were read by concurrent calls, and this one was never deleted at all.
+      let motorTemp: CallTempDir | undefined;
       try {
         if (motorResult && motorResult.elements.length > 0) {
-          const { join: joinPath } = await import("path");
-          const { tmpdir: getTmpDir } = await import("os");
-          const { writeFileSync, mkdirSync, existsSync, unlinkSync: ul } = await import("fs");
-
-          const ssPath = joinPath(getTmpDir(), `cog-effort-${Date.now()}.png`);
+          motorTemp = await makeTempDir("cog-effort");
+          const ssPath = motorTemp.file("page.png");
           await page.screenshot({ path: ssPath, fullPage: false });
 
           // Get element bounding boxes for motor overlay
@@ -1539,12 +1541,16 @@ Begin with the first persona: ${personas[0]}
           // a JPEG preview is fitted into that same 40k (see the end of this
           // handler), so the overlay is always visible without a round trip
           // and the result stays small. (2026-10-09)
-          // ssPath is deliberately NOT deleted here any more -- the other
-          // layer overlays are drawn from the same screenshot below.
+          // The layer overlays below take their own screenshot.
         }
       } catch (e) {
         console.debug(`[cognitive_effort] Motor overlay failed: ${(e as Error).message}`);
+      } finally {
+        await motorTemp?.remove();
       }
+
+      // The layer overlays' screenshot, in its own temp dir like the motor one.
+      let layersTemp: CallTempDir | undefined;
 
       // Per-layer visual evidence, so a bar in the chain can be opened into the
       // thing it measured.
@@ -1556,10 +1562,8 @@ Begin with the first persona: ${personas[0]}
       // fill the gap. (2026-08-02)
       const layerOverlays: Array<{ layer: string; file?: string; legend?: string; available: boolean; reason?: string }> = [];
       try {
-        const { join: joinPath } = await import("path");
-        const { tmpdir: getTmpDir } = await import("os");
-        const { unlinkSync: ul, existsSync: ex } = await import("fs");
-        const ssPath = joinPath(getTmpDir(), `cog-effort-layers-${Date.now()}.png`);
+        layersTemp = await makeTempDir("cog-effort-layers");
+        const ssPath = layersTemp.file("page.png");
         await page.screenshot({ path: ssPath, fullPage: false });
 
         // saliency -- keyless. Lab-space centre-surround over the screenshot,
@@ -1625,9 +1629,10 @@ Begin with the first persona: ${personas[0]}
         layerOverlays.push({ layer: "readingAttention", available: false,
           reason: "attentional reading cost is a property of the reader against the whole page, not of any one region \u2014 the readability overlay above shows where DECODING is slow" });
 
-        if (ex(ssPath)) { try { ul(ssPath); } catch {} }
       } catch (e) {
         console.debug(`[cognitive_effort] Layer overlays failed: ${(e as Error).message}`);
+      } finally {
+        await layersTemp?.remove();
       }
       if (layerOverlays.length) {
         response.layerOverlays = layerOverlays;

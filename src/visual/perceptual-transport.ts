@@ -14,6 +14,7 @@
  */
 
 import { computeWassersteinDistance, type WassersteinConfig } from './distance-metrics.js';
+import { withTempDir } from '../temp-files.js';
 
 // ── Types ──
 
@@ -829,27 +830,27 @@ export async function analyzePerceptualTransport(
     filtered = filtered.modulate({ brightness: factor });
   }
 
-  // Save filtered version to temp file
-  const { join } = await import('path');
-  const { tmpdir } = await import('os');
-  const filteredPath = join(tmpdir(), `perceptual-${personaName}-${Date.now()}.png`);
-  await filtered.png().toFile(filteredPath);
+  // The filtered and downscaled images go in a directory of this call's own,
+  // removed however the call ends (src/temp-files.ts). The files were named by
+  // Date.now() in the shared temp dir, so two calls in the same millisecond
+  // (the hosted servers run requests concurrently) wrote, read and deleted
+  // each other's images; the persona name went into the path too, so a name
+  // with ../ segments wrote outside the temp dir.
+  const transportResult = await withTempDir('perceptual', async (dir) => {
+    const filteredPath = dir.file('filtered.png');
+    await filtered.png().toFile(filteredPath);
 
-  // Also save downscaled original for comparison
-  const originalPath = join(tmpdir(), `perceptual-original-${Date.now()}.png`);
-  await sharp(screenshotPath).resize(width, height).png().toFile(originalPath);
+    // Also save downscaled original for comparison
+    const originalPath = dir.file('original.png');
+    await sharp(screenshotPath).resize(width, height).png().toFile(originalPath);
 
-  // Compute Wasserstein distance between original and filtered
-  const transportResult = await computeWassersteinDistance(originalPath, filteredPath, {
-    compareMode: 'combined',
-    numProjections: 32,
-    downscale: 1.0, // Already downscaled
+    // Compute Wasserstein distance between original and filtered
+    return computeWassersteinDistance(originalPath, filteredPath, {
+      compareMode: 'combined',
+      numProjections: 32,
+      downscale: 1.0, // Already downscaled
+    });
   });
-
-  // Clean up temp files
-  const { unlinkSync } = await import('fs');
-  try { unlinkSync(filteredPath); } catch {}
-  try { unlinkSync(originalPath); } catch {}
 
   // Derive metrics — all MUST incorporate page-specific transport distance
   const distance = transportResult.distance;
