@@ -147,7 +147,7 @@ let rawCache: Array<Record<MetricScope, RawPageMeasurement>> | null = null;
  * one measurement against another.
  */
 /** What format 2 adds to format 1; a record without any of them is not format 2. */
-const FORMAT_2_FIELDS = ["prose", "proseNested", "navGroupCount", "navLinks", "groupedLinks", "choiceNested"] as const;
+const FORMAT_2_FIELDS = ["prose", "proseNested", "proseInNav", "navGroupCount", "navLinks", "groupedLinks", "choiceNested"] as const;
 
 export function decodeReferenceRaw(packed: string, graded: number, id: string): Array<Record<MetricScope, RawPageMeasurement>> {
   const decoded = JSON.parse(brotliDecompressSync(Buffer.from(packed, "base64")).toString("utf8")) as Array<Record<string, { format?: unknown }>>;
@@ -161,9 +161,10 @@ export function decodeReferenceRaw(packed: string, graded: number, id: string): 
       if (format !== RAW_PAGE_FORMAT) {
         throw new Error(`ctc reference ${id}: graded page ${i} ${scope} is raw format ${String(format)}; this build measures and ranks against format ${RAW_PAGE_FORMAT}. Re-crawl the reference (research/ctc-reference/crawl-v2.ts) rather than mixing layouts.`);
       }
-      // Format 2 gained its nav totals before it left the branch it was made
-      // on, so an early format-2 record (crawled 2026-10-23 from fd28165)
-      // carries the number without them: refused by its fields, not its number.
+      // Format 2 gained its nav totals and proseInNav before it left the
+      // branch it was made on, so an early format-2 record (crawled 2026-10-23
+      // from fd28165 or eaf3b36) carries the number without them: refused by
+      // its fields, not its number.
       const missing = FORMAT_2_FIELDS.filter((k) => !(k in record!));
       if (missing.length) {
         throw new Error(`ctc reference ${id}: graded page ${i} ${scope} is raw format ${RAW_PAGE_FORMAT} without ${missing.join(", ")}; re-crawl the reference (research/ctc-reference/crawl-v2.ts).`);
