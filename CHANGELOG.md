@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.1.2](https://github.com/alexandriashai/cbrowser/compare/v20.1.1...v20.1.2) (2026-10-23)
+
+### Fixed
+
+* **journey:** read every reply block, say why a step is unreadable, keep the run's name and goal ([c07bede](https://github.com/alexandriashai/cbrowser/commit/c07bede5b20e6686273612b6ae53b7784aae3cb8))
+* **journey:** say a run stopped at the step limit instead of "ABANDONED: undefined" ([87a9862](https://github.com/alexandriashai/cbrowser/commit/87a986265c5df4f7b41d7101cd0b49027722ecdc))
+
 ## [20.1.1](https://github.com/alexandriashai/cbrowser/compare/v20.1.0...v20.1.1) (2026-10-23)
 
 ### Fixed
