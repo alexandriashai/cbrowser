@@ -76,7 +76,7 @@ import { loadConfigFile, getDataDir } from "../config.js";
 import { writeSecretFile } from "../secure-file.js";
 import { uniqueStamp } from "../temp-files.js";
 import { semanticWeightTable } from "../visual/attention-transport.js";
-import type { DecisionProvider } from "./journey-trace.js";
+import type { DecisionProvider, StepContext } from "./journey-trace.js";
 import {
   JourneyTraceWriter,
   TraceReplayProvider,
@@ -743,6 +743,8 @@ export function attentionOverlayInitScript(config: ReturnType<typeof buildAttent
 export interface CognitiveJourneyOptions {
   /** Persona name or description */
   persona: string;
+  /** A label for this run (the CLI's first word). Names its trace and capture files and is returned on the result. */
+  name?: string;
   /** Goal statement for the journey */
   goal: string;
   /** Starting URL */
@@ -859,6 +861,16 @@ export interface CognitiveStep {
   phase: "perceive" | "comprehend" | "decide" | "execute" | "evaluate";
   monologue: string;
   action?: string;
+  /** What the action is aimed at, in the persona's words ("the Pricing link"). */
+  actionTarget?: string;
+  /**
+   * False when the model's reply could not be read as JSON. The step then
+   * takes no action, and `phase` holds the engine's fallback ("evaluate"),
+   * not anything the model said.
+   */
+  replyReadable: boolean;
+  /** Why the reply could not be read, when replyReadable is false. */
+  replyProblem?: string;
   state: CognitiveState;
   /** Step-aligned screenshot. Captured only on initial page load + scroll>100. */
   screenshotPath?: string;
@@ -914,25 +926,17 @@ export async function runCognitiveJourney(
   // Decision-provider seam (v18.68.0): the per-step LLM call sits behind a
   // DecisionProvider so a recorded trace (or an injected fake) can stand in
   // for the live API. The default path is the same anthropic.messages.create
-  // call as before — params and text extraction unchanged. The post-journey
+  // call as before, reading every text block (20.1.2). The post-journey
   // goal evaluation goes through the same provider (FINAL_EVAL_STEP), so a
   // replay reproduces the recorded verdict with no model call.
-  const liveLLMProvider: DecisionProvider = {
-    decide: async (ctx) => {
-      if (!anthropic) throw new Error("Anthropic API key not configured.");
-      const response = await anthropic.messages.create({
-        model,
-        max_tokens: 2000,
-        ...(ctx.systemPrompt ? { system: ctx.systemPrompt } : {}),
-        messages: ctx.messages.map((m) => ({ role: m.role, content: m.content })),
-      });
-      return response.content[0].type === "text" ? response.content[0].text : "";
-    },
-  };
+  const liveLLMProvider: DecisionProvider = createLiveDecisionProvider(anthropic, model);
   const decisionProvider: DecisionProvider =
     options.decisionProvider ??
     (options.replayTrace ? new TraceReplayProvider(options.replayTrace) : liveLLMProvider);
-  const traceWriter = options.trace ? new JourneyTraceWriter() : null;
+  const nameSlug = options.name ? journeySlug(options.name) : undefined;
+  const traceWriter = options.trace
+    ? new JourneyTraceWriter(nameSlug ? { journeyId: `journey-${nameSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` } : undefined)
+    : null;
 
   // Get or create persona
   const existingPersona = getPersona(options.persona);
@@ -1244,7 +1248,7 @@ export async function runCognitiveJourney(
   const captureSession = await startAutoCapture(
     await browser.getPage(),
     options.capture,
-    `journey-${options.persona.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`,
+    `journey-${nameSlug ?? journeySlug(options.persona)}-${uniqueStamp()}`,
   );
 
   // Apply geolocation at runtime as well (ensures permission is granted after context exists)
@@ -1407,6 +1411,10 @@ Right now it's ${temporalState.description}.`;
     url: string;
     pageTitle: string;
     phase: string;
+    /** False when the model's reply could not be read (phase is then the fallback). */
+    replyReadable: boolean;
+    /** Why it could not be read: no text (with the stop reason) or not a JSON object. */
+    replyProblem?: string;
     action: string | null;
     actionTarget: string | null;
     focusedElement: string | null;
@@ -1630,8 +1638,13 @@ Right now it's ${temporalState.description}.`;
       });
     }
 
-    // Parse Claude's response
+    // Parse Claude's response. An unreadable reply parses to {} (no phase, no
+    // action); say so rather than let it pass as an "evaluate" step.
     const parsed = parseCognitiveResponse(assistantMessage);
+    const replyReadable = Object.keys(parsed).length > 0;
+    const replyProblem = replyReadable
+      ? undefined
+      : decisionProvider.describeLastReply?.() ?? readReplyJson(assistantMessage).problem;
 
     // Capture URL BEFORE we apply any action. We use the previous URL +
     // the post-action URL to gate goal progress on real evidence — Claude's
@@ -1881,6 +1894,8 @@ Right now it's ${temporalState.description}.`;
       url: currentUrl,
       pageTitle: pageTitle,
       phase: parsed.phase || "evaluate",
+      replyReadable,
+      ...(replyProblem ? { replyProblem } : {}),
       action: parsed.action || null,
       actionTarget: parsed.actionTarget || null,
       focusedElement: parsed.focusedElement || null,
@@ -1918,6 +1933,9 @@ Right now it's ${temporalState.description}.`;
         phase: parsed.phase || "evaluate",
         monologue: parsed.monologue || "",
         action: parsed.action,
+        actionTarget: parsed.actionTarget || undefined,
+        replyReadable,
+        ...(replyProblem ? { replyProblem } : {}),
         state: { ...state },
         screenshotPath,
         attentionHeatmapBase64,
@@ -2279,7 +2297,7 @@ Answer with JSON:
         });
       }
       try {
-        const evalJson = JSON.parse(evalText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+        const evalJson = (readReplyJson(evalText).value ?? {}) as { achieved?: boolean; evidence?: string };
         if (evalJson.achieved) {
           goalAchieved = true;
           goalEvidence = `[FINAL EVAL] ${evalJson.evidence || finalPageText.substring(0, 200)}`;
@@ -2319,6 +2337,7 @@ Answer with JSON:
 
   // Build result
   return {
+    ...(options.name ? { name: options.name } : {}),
     persona: personaObj.name,
     goal: options.goal,
     goalAchieved,
@@ -2676,17 +2695,114 @@ interface ParsedCognitiveResponse {
   failureReason?: string;
 }
 
+/**
+ * The live per-step decision: one messages.create call, its text blocks read
+ * together, and one more ask for the JSON alone when the reply does not hold
+ * a JSON object. describeLastReply says why the last reply was unreadable.
+ * Exported for tests, which pass a fake client.
+ */
+export function createLiveDecisionProvider(anthropic: Pick<Anthropic, "messages"> | null, model: string): DecisionProvider {
+  // Why the last live reply could not be read; the step reports it as
+  // replyProblem. Undefined after a readable reply.
+  let lastLiveProblem: string | undefined;
+  return {
+    decide: async (ctx) => {
+      if (!anthropic) throw new Error("Anthropic API key not configured.");
+      const ask = (messages: StepContext["messages"], maxTokens = 2000) => anthropic.messages.create({
+        model,
+        max_tokens: maxTokens,
+        ...(ctx.systemPrompt ? { system: ctx.systemPrompt } : {}),
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      // Every text block, not content[0] alone: a reply whose first block was
+      // not text (2026-10-23, a ucdenver.edu journey: 15 of 17 steps) read as
+      // "", parsed to {}, and the step was labelled "evaluate" with no action.
+      // The default model thinks unless told not to, and its reply then opens
+      // with a thinking block whose text is empty by default.
+      type Reply = Awaited<ReturnType<typeof ask>>;
+      const textOf = (r: Reply) => r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+      const whyUnreadable = (r: Reply, text: string) => text.trim()
+        ? readReplyJson(text).problem
+        : `the model returned no text (stop_reason ${r.stop_reason ?? "none"}; content blocks: ${r.content.map((b) => b.type).join(", ") || "none"})`;
+
+      lastLiveProblem = undefined;
+      const first = await ask(ctx.messages);
+      const firstText = textOf(first);
+      if (readReplyJson(firstText).value) return firstText;
+      // Asked once more, for the JSON alone. Inside the provider, so a trace
+      // records one decision per step and still replays.
+      // Thinking counts against max_tokens, so a reply cut off there may hold
+      // no text at all; the second ask gets room for both.
+      const firstProblem = whyUnreadable(first, firstText);
+      const retry = await ask([
+        ...ctx.messages,
+        { role: "assistant", content: firstText.trim() || "(no text)" },
+        { role: "user", content: "Your reply could not be read as the JSON object the response format asks for. Reply again with only that JSON object, nothing before or after it." },
+      ], first.stop_reason === "max_tokens" ? 8000 : 2000);
+      const retryText = textOf(retry);
+      if (readReplyJson(retryText).value) return retryText;
+      lastLiveProblem = `${firstProblem}; asked once more, and ${whyUnreadable(retry, retryText)}`;
+      return retryText;
+    },
+    describeLastReply: () => lastLiveProblem,
+  };
+}
+
+/** A journey or persona name as a file-name part: letters, digits, - and _ only. */
+export function journeySlug(name: string): string {
+  return name.replace(/[^a-zA-Z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "journey";
+}
+
 function parseCognitiveResponse(response: string): ParsedCognitiveResponse {
-  try {
-    // Extract JSON from response (may have markdown code blocks)
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+  return (readReplyJson(response).value ?? {}) as ParsedCognitiveResponse;
+}
+
+/**
+ * The JSON object in a model reply, or why there is none. Tried in order: the
+ * reply with any code fences removed, each balanced {...} in it (string-aware,
+ * so a reply with prose after its JSON still reads), then the old greedy
+ * first-"{"-to-last-"}" match; the first that parses to an object wins.
+ */
+export function readReplyJson(reply: string): { value?: Record<string, unknown>; problem?: string } {
+  const text = reply.trim();
+  if (!text) return { problem: "the model returned no text" };
+  const unfenced = text.replace(/```(?:json)?/gi, "").trim();
+  const candidates: string[] = [unfenced];
+  for (let i = 0; i < unfenced.length; i++) {
+    if (unfenced[i] !== "{") continue;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let j = i; j < unfenced.length; j++) {
+      const c = unfenced[j];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (c === "\\") escaped = true;
+        else if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') inString = true;
+      else if (c === "{") depth++;
+      else if (c === "}" && --depth === 0) {
+        candidates.push(unfenced.slice(i, j + 1));
+        i = j;
+        break;
+      }
     }
-  } catch {
-    // Parsing failed
   }
-  return {};
+  const greedy = unfenced.match(/\{[\s\S]*\}/);
+  if (greedy) candidates.push(greedy[0]);
+  let firstError = "";
+  for (const candidate of candidates) {
+    try {
+      const value = JSON.parse(candidate);
+      if (value && typeof value === "object" && !Array.isArray(value)) return { value };
+    } catch (e) {
+      if (!firstError) firstError = (e as Error).message;
+    }
+  }
+  const start = text.slice(0, 80).replace(/\s+/g, " ");
+  return { problem: `the reply was not a JSON object (${firstError || "no {...} in it"}); it began: ${start}${text.length > 80 ? "..." : ""}` };
 }
 
 function checkAbandonmentTriggers(

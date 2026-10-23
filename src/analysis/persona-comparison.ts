@@ -174,9 +174,10 @@ export async function comparePersonas(
 
         const result = mapCognitiveResult(journey, persona);
 
+        // No reason means the run used every step (it printed "ABANDONED (undefined)").
         const status = journey.goalAchieved
           ? "SUCCESS"
-          : `ABANDONED (${journey.abandonmentReason})`;
+          : journey.abandonmentReason ? `ABANDONED (${journey.abandonmentReason})` : "NOT REACHED (step limit)";
         const patience = `${Math.round(journey.finalState.patienceRemaining * 100)}%`;
         const frustration = `${Math.round(journey.finalState.frustrationLevel * 100)}%`;
 
@@ -459,7 +460,7 @@ export function formatComparisonReport(
     lines.push("ABANDONMENT ANALYSIS");
     lines.push("-".repeat(60));
     for (const p of abandonedPersonas) {
-      const reason = p.cognitive?.abandonmentReason || "unknown";
+      const reason = p.cognitive ? p.cognitive.abandonmentReason || "step limit" : "unknown";
       lines.push(`  ${p.persona}: ${reason.toUpperCase()}`);
       if (p.cognitive?.monologue && p.cognitive.monologue.length > 0) {
         const lastThought =

@@ -12,6 +12,7 @@ import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { evaluateScriptRefusal } from "../../security/script-gate.js";
 import { redZoneRefusal } from "../red-zone-refusal.js";
 import { evaluateScript } from "../../eval-script.js";
+import { isJourneyBrowser, JOURNEY_SCRIPT_REFUSAL } from "../journey-sessions.js";
 
 /**
  * Register browser state tools (5 tools)
@@ -28,7 +29,7 @@ export function registerBrowserStateTools(
   // ran as one line of evaluate_script and the response named no zone.
   server.registerTool("evaluate_script", {
     title: "Execute JavaScript",
-    description: "Run JavaScript in the page context and return the result. Four shapes work, as with `cbrowser evaluate`: an expression (its value); statements (the value of the last one, e.g. `function t(){ return document.title }; t()`); a body with a top-level `return` (run as a function body); and a function literal such as `(sel, n) => ...`, which is called with `args`. `args` is also in scope as an array in the statement forms. Red zone: arbitrary page script can activate any control (click, submit, delete) without passing the element-level red-zone gate that click, press_key, type_text and drag apply, so it is refused unless force is true. A refused call runs nothing and returns zone \"red\"; a forced call runs and reports zone \"red\". For reading the page, prefer extract, analyze_page or get_console_messages, which need no force.",
+    description: "Run JavaScript in the page context and return the result. Four shapes work, as with `cbrowser evaluate`: an expression (its value); statements (the value of the last one, e.g. `function t(){ return document.title }; t()`); a body with a top-level `return` (run as a function body); and a function literal such as `(sel, n) => ...`, which is called with `args`. `args` is also in scope as an array in the statement forms. Red zone: arbitrary page script can activate any control (click, submit, delete) without passing the element-level red-zone gate that click, press_key, type_text and drag apply, so it is refused unless force is true. A refused call runs nothing and returns zone \"red\"; a forced call runs and reports zone \"red\". Refused on a session that is running a cognitive journey (cognitive_journey_init), even with force, until cognitive_journey_update_state reports the journey over. For reading the page, prefer extract, analyze_page or get_console_messages, which need no force.",
     inputSchema: {
       script: z.string().describe("JavaScript to execute in the page context: an expression, statements, a body with return, or a function literal"),
       args: z.array(z.unknown()).optional().describe("Arguments for a function-literal script, and `args` in scope for the other forms. JSON values only. Default []."),
@@ -44,6 +45,14 @@ export function registerBrowserStateTools(
     let b, token;
     if (getBrowserByToken) { const r = await getBrowserByToken(_browserToken); b = r.browser; token = r.token; }
     else { b = await getBrowser(); }
+    // A session running a cognitive journey takes no page script, force or
+    // not (src/mcp-tools/journey-sessions.ts): the script would act for a
+    // simulated person who could not have done it.
+    if (isJourneyBrowser(b)) {
+      return { isError: true, content: [{ type: "text" as const, text: JSON.stringify({
+        result: null, zone: "red", refused: "journey_session", reason: JOURNEY_SCRIPT_REFUSAL, _browserToken: token,
+      }, null, 2) }] };
+    }
     const page = await b.getPage();
     try {
       // The compiler `cbrowser evaluate` and the daemon use. page.evaluate on

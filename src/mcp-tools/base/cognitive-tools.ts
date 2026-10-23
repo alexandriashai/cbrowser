@@ -20,6 +20,7 @@ import { listAccessibilityPersonas, getAccessibilityPersona, describeAccessibili
 import { getPersonaValues, rankInfluencePatternsForProfile, resolveValuesForPersona } from "../../values/index.js";
 import { resolvePersonaValues } from "./values-tools.js";
 import { currentRequestIdentity } from "../../request-context.js";
+import { markJourneyBrowser, releaseJourneyBrowser } from "../journey-sessions.js";
 import type {
   CognitiveState,
   AbandonmentThresholds,
@@ -310,6 +311,9 @@ export function registerCognitiveTools(
       } else {
         b = await getBrowser();
       }
+      // A journey session takes no page script until the journey is over
+      // (src/mcp-tools/journey-sessions.ts; evaluate_script refuses it).
+      markJourneyBrowser(b);
 
       // Apply location settings: explicit override > persona default
       const effectiveLocation: PersonaLocation = {
@@ -565,7 +569,8 @@ MOTIVATIONAL VALUES (Schwartz — influence what this persona notices and clicks
 ` : ""}
 GOAL: "${goal}"
 
-IMPORTANT: Pass _browserToken="${browserToken || ''}" to ALL subsequent tool calls (navigate, screenshot, click, fill, scroll, extract) to maintain browser state across calls.
+IMPORTANT: Pass _browserToken="${browserToken || ''}" to ALL subsequent tool calls (navigate, screenshot, click, fill, scroll, extract, cognitive_journey_update_state) to maintain browser state across calls.
+Use only what a person could: look, click, fill, scroll, navigate. evaluate_script is refused on this session until the journey is over, even with force, because a script can see and do what this persona cannot. Passing _browserToken to cognitive_journey_update_state lets it release the session when the journey ends.
 
 SIMULATION LOOP:
 1. PERCEIVE - Use screenshot (with _browserToken) to see the page. Filter by attention pattern.
@@ -631,6 +636,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
         tradition: z.number().optional(),
         power: z.number().optional(),
       }).optional().describe("Schwartz motivational values (0-1). Modulate cognitive state changes: security increases risk aversion, stimulation rewards novelty, achievement increases impatience with inefficiency."),
+      _browserToken: z.string().optional().describe("The journey's browser session token (from cognitive_journey_init). When this update ends the journey (abandoned, or goal progress reaches 1), the session is released and page scripts may run on it again."),
     },
     annotations: {
       title: "Update Cognitive State",
@@ -639,7 +645,7 @@ Begin the simulation now. Narrate your thoughts as this persona.
       idempotentHint: false,
       openWorldHint: false,
     },
-  }, async ({ currentState, actionResult, personaTraits, personaValues }) => {
+  }, async ({ currentState, actionResult, personaTraits, personaValues, _browserToken }) => {
       // Value modulation factors (0.8-1.2 range, default 1.0 when no values)
       const v = personaValues || {};
       const securityMod = 1 + ((v.security ?? 0.5) - 0.5) * 0.4;       // 0.8-1.2: high security = more reactive to failure
@@ -772,6 +778,23 @@ Begin the simulation now. Narrate your thoughts as this persona.
         if (breaches.length > 1) alsoBreached = breaches.slice(1).map((b) => b.reason);
       }
 
+      // The journey is over: release its session so page scripts may run on it
+      // again. Only with the caller's token, or the single local browser: a
+      // hosted call without a token must not mint a session just to release one.
+      const journeyOver = shouldAbandon || newGoalProgress >= 1;
+      let sessionReleased = false;
+      if (journeyOver) {
+        try {
+          if (getBrowserByToken && _browserToken) {
+            releaseJourneyBrowser((await getBrowserByToken(_browserToken)).browser);
+            sessionReleased = true;
+          } else if (!getBrowserByToken) {
+            releaseJourneyBrowser(await getBrowser());
+            sessionReleased = true;
+          }
+        } catch { /* an expired session has nothing left to release */ }
+      }
+
       return {
         content: [
           {
@@ -779,6 +802,8 @@ Begin the simulation now. Narrate your thoughts as this persona.
             text: JSON.stringify({
               newState,
               shouldAbandon,
+              journeyOver,
+              ...(journeyOver ? { sessionReleased } : {}),
               abandonmentReason,
               abandonmentMessage,
               // Named so a caller can see the reason was a choice between

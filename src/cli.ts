@@ -61,11 +61,13 @@ import type { StartTrigger, StopTrigger } from "./recording/engine.js";
 import { printEnterpriseStatus } from "./stealth/index.js";
 import {
   runCognitiveJourney,
+  journeySlug,
   getAnthropicApiKey,
   setAnthropicApiKey,
   removeAnthropicApiKey,
   isApiKeyConfigured,
 } from "./cognitive/index.js";
+import { formatJourneyStep, journeyEndLine } from "./cognitive/journey-dialog.js";
 
 // Lightpanda integration (v18.20.0) - OPT-IN ONLY with security guardrails
 import {
@@ -201,7 +203,8 @@ SITE EXPLORATION (API-powered)
     Note: the keyless heuristic explorer was removed in 20.0.0; its success verdicts were not accurate.
 
 COGNITIVE JOURNEY (API-powered, realistic user simulation)
-  cognitive-journey           Simulate a real user with emotions, patience, and abandonment
+  cognitive-journey [name]    Simulate a real user with emotions, patience, and abandonment
+                              (name, optional: labels the run, its trace and its capture)
     --capture                 Record the run to GIF/WebP/video
     --capture-fps <n>         Capture frame rate (default: 10)
     --capture-format <list>   gif,webp,webm,mp4 (default: gif)
@@ -3002,7 +3005,9 @@ function rewriteScroll(parsed: ReturnType<typeof parseArgs>): ReturnType<typeof 
 }
 
 async function main(): Promise<void> {
-  const { command, args, options } = rewriteScroll(parseArgs(process.argv.slice(2)));
+  const parsed = parseArgs(process.argv.slice(2));
+  for (const note of parsed.notes ?? []) console.error(`Note: ${note}`);
+  const { command, args, options } = rewriteScroll(parsed);
 
   // Initialize accessible output system (v18.54.0)
   const outputOpts = detectOutputOptions(options);
@@ -7659,6 +7664,15 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           console.error("Error: --goal <goal> is required");
           process.exit(1);
         }
+        // The first word names the run (`cognitive-journey ucdenver --start ...`).
+        // It used to be dropped without a word (2026-10-23); more than one
+        // word is refused, since the rest would be dropped the same way.
+        if (args.length > 1) {
+          console.error(`Error: cognitive-journey takes one name before its flags; got ${args.map((a) => JSON.stringify(a)).join(" ")}.`);
+          console.error(`  The persona goes in --persona <name>, the site in --start <url>, the goal in --goal "<goal>".`);
+          process.exit(1);
+        }
+        const journeyName = args[0];
 
         const personaName = (options.persona as string) || "first-timer";
         const maxSteps = options["max-steps"] ? parseInt(options["max-steps"] as string) : 50;
@@ -7702,7 +7716,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
         }
 
-        console.log(`\n🧠 COGNITIVE JOURNEY`);
+        console.log(`\n🧠 COGNITIVE JOURNEY${journeyName ? `: ${journeyName}` : ""}`);
         console.log(`   Persona: ${personaName}`);
         console.log(`   Goal: "${goal}"`);
         console.log(`   URL: ${startUrl}`);
@@ -7722,6 +7736,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           assertCaptureNamespaceFlags("cognitive-journey", options);
 
           const result = await runCognitiveJourney({
+            ...(journeyName ? { name: journeyName } : {}),
             persona: personaName,
             goal,
             startUrl,
@@ -7740,9 +7755,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             vision,
             customTraits, // Pass custom traits from env var
             location: locationOverride, // Pass location override
-            capture: buildAutoCaptureSetting(options, `journey-${personaName.replace(/[^a-zA-Z0-9-_]+/g, "-").toLowerCase()}-${uniqueStamp()}`),
+            capture: buildAutoCaptureSetting(options, `journey-${journeySlug(journeyName ?? personaName)}-${uniqueStamp()}`),
+            // Each step's dialog as it happens: phase and mood, the persona's
+            // monologue, and what it did (src/cognitive/journey-dialog.ts).
+            // --verbose prints its own fuller block instead.
             onStep: verbose ? undefined : (step) => {
-              process.stdout.write(`\r   Step ${step.step}: ${step.phase} (${step.state.currentMood})`);
+              console.log(formatJourneyStep(step).join("\n"));
             },
           });
 
@@ -7753,10 +7771,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`   Replay it with no API calls: cbrowser cognitive-journey --start <url> --goal <goal> --replay-trace ${result.tracePath}`);
           }
 
-          if (result.goalAchieved) {
-            console.log(`✅ GOAL ACHIEVED in ${result.stepCount} steps (${result.totalTime.toFixed(1)}s)`);
-          } else {
-            console.log(`❌ ABANDONED: ${result.abandonmentReason}`);
+          console.log(journeyEndLine(result));
+          if (!result.goalAchieved) {
             if (result.abandonmentMessage) {
               console.log(`   💭 "${result.abandonmentMessage}"`);
             }
@@ -7800,6 +7816,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           // journey.complete, once per journey (audit O17: it was the default
           // event and nothing ever sent it). Never fails the journey.
           await sendWebhookEvent(browser.getDataDir(), "journey.complete", {
+            ...(journeyName ? { name: journeyName } : {}),
             persona: personaName,
             goal,
             startUrl,

@@ -49,6 +49,8 @@ export interface StepContext {
  */
 export interface DecisionProvider {
   decide(ctx: StepContext): Promise<string>;
+  /** Why the last decision's reply could not be read, if the provider knows more than the text shows. */
+  describeLastReply?(): string | undefined;
 }
 
 /** One recorded decision — a single JSONL line in the trace file. */
