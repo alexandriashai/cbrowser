@@ -31,9 +31,11 @@ import { CBrowser } from "../browser.js";
 import { finishAutoCapture, resolveCaptureOptions, startAutoCapture, type AutoCaptureSetting } from "../recording/auto-capture.js";
 import {
   getPersona,
+  getAnyPersona,
   getCognitiveProfile,
   createCognitivePersona,
 } from "../personas.js";
+import { isAgentPersonaObject } from "../agent-personas.js";
 import type {
   CognitiveState,
   CognitiveProfile,
@@ -927,61 +929,7 @@ export async function runCognitiveJourney(
     ? new JourneyTraceWriter(nameSlug ? { journeyId: `journey-${nameSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` } : undefined)
     : null;
 
-  // Get or create persona
-  const existingPersona = getPersona(options.persona);
-  let personaObj: Persona;
-
-  if (!existingPersona) {
-    personaObj = createCognitivePersona(
-      options.persona,
-      options.persona,
-      options.customTraits || {}
-    );
-  } else if (options.customTraits) {
-    // v16.7.1: full default trait set (was only 7, causing trait dropout).
-    // Said 25 until 2026-08-01; the model has 26.
-    const defaultTraits: CognitiveTraits = {
-      // Required traits (7)
-      patience: 0.5,
-      riskTolerance: 0.5,
-      comprehension: 0.5,
-      persistence: 0.5,
-      curiosity: 0.5,
-      workingMemory: 0.5,
-      readingTendency: 0.5,
-      // Optional traits - Tier 1: Core
-      resilience: 0.5,
-      selfEfficacy: 0.5,
-      satisficing: 0.5,
-      trustCalibration: 0.5,
-      interruptRecovery: 0.5,
-      // Optional traits - Tier 2+
-      informationForaging: 0.5,
-      changeBlindness: 0.3,
-      anchoringBias: 0.5,
-      timeHorizon: 0.5,
-      attributionStyle: 0.5,
-      metacognitivePlanning: 0.5,
-      proceduralFluency: 0.5,
-      transferLearning: 0.5,
-      authoritySensitivity: 0.5,
-      emotionalContagion: 0.5,
-      fearOfMissingOut: 0.5,
-      socialProofSensitivity: 0.5,
-      mentalModelFlexibility: 0.5,
-      siteFamiliarity: 0.5,
-    };
-    personaObj = {
-      ...existingPersona,
-      cognitiveTraits: {
-        ...defaultTraits,
-        ...(existingPersona.cognitiveTraits || {}),
-        ...options.customTraits,
-      },
-    };
-  } else {
-    personaObj = existingPersona;
-  }
+  const personaObj = resolveJourneyPersona(options.persona, options.customTraits);
 
   const profile = getCognitiveProfile(personaObj);
   const traits = profile.traits;
@@ -1512,7 +1460,13 @@ Right now it's ${temporalState.description}.`;
       const removedClickables = [...prevClickableTexts].filter(t => t && !currentTexts.has(t)).slice(0, 8);
       lastActionOutcome.newClickables = newClickables;
       lastActionOutcome.removedClickables = removedClickables;
-      lastActionOutcome.scrollDelta = viewportCtx.scroll.y - prevScrollY;
+      // After a navigation the scroll position belongs to the new page, so the
+      // difference is not a scroll: every link followed from partway down a
+      // page was reported as "Scrolled up Npx" (2026-10-23). An in-page anchor
+      // keeps its scroll.
+      const pageOf = (u?: string) => (u ?? "").split("#")[0];
+      const navigated = lastActionOutcome.urlChanged && pageOf(lastActionOutcome.fromUrl) !== pageOf(lastActionOutcome.toUrl);
+      lastActionOutcome.scrollDelta = navigated ? undefined : viewportCtx.scroll.y - prevScrollY;
     }
     prevClickableTexts = new Set(availableElements.map(e => e.text));
     prevScrollY = viewportCtx.scroll.y;
@@ -2118,6 +2072,10 @@ Right now it's ${temporalState.description}.`;
           target: parsed.actionTarget,
           success: result.success,
         });
+        // A failed action in fast mode counts toward shouldSwitchToSystem2's
+        // three-error rule. Nothing counted them, so the rule never fired
+        // (2026-10-23).
+        if (!result.success && state.cognitiveMode?.system === 1) state.cognitiveMode.system1Errors++;
 
         // Track page visits if URL changed
         const urlChanged = !!result.newUrl && result.newUrl !== _urlBeforeAction;
@@ -2175,6 +2133,7 @@ Right now it's ${temporalState.description}.`;
           error: error instanceof Error ? error.message : String(error),
           context: `Step ${step}: ${parsed.action}`,
         });
+        if (state.cognitiveMode?.system === 1) state.cognitiveMode.system1Errors++;
         lastActionOutcome = {
           action: parsed.action,
           target: parsed.actionTarget,
@@ -2321,9 +2280,7 @@ Answer with JSON:
   await browser.close();
 
   // Calculate summary stats
-  const avgConfusion = frictionPoints.length > 0
-    ? frictionPoints.reduce((sum, _fp) => sum + (state.confusionLevel), 0) / frictionPoints.length
-    : state.confusionLevel;
+  const emotion = journeyEmotionSummary(journeyLog, state);
 
   // Build result
   return {
@@ -2343,8 +2300,8 @@ Answer with JSON:
     fullMonologue,
     finalState: state,
     summary: {
-      avgConfusionLevel: avgConfusion,
-      maxFrustrationLevel: state.frustrationLevel,
+      avgConfusionLevel: emotion.avgConfusionLevel,
+      maxFrustrationLevel: emotion.maxFrustrationLevel,
       backtrackCount: state.memory.backtrackCount,
       timeInConfusion: frictionPoints.length * 2, // Estimate
       // Decision fatigue metrics (v9.9.0)
@@ -2683,6 +2640,101 @@ interface ParsedCognitiveResponse {
   goalEvidence?: string;
   /** v18.29.0: Reason for failure — what was sought but not found */
   failureReason?: string;
+}
+
+/**
+ * The journey's average confusion and peak frustration, over the state each
+ * step logged plus the final state for the peak. Both read only the final
+ * state before 20.1.3: the "average" added the final confusion once per
+ * friction point and divided by their count, and the "max" was the last
+ * frustration (2026-10-23). With no step logged, both are the final state's.
+ */
+export function journeyEmotionSummary(
+  steps: ReadonlyArray<{ confusion: number; frustration: number }>,
+  final: { confusionLevel: number; frustrationLevel: number },
+): { avgConfusionLevel: number; maxFrustrationLevel: number } {
+  if (steps.length === 0) return { avgConfusionLevel: final.confusionLevel, maxFrustrationLevel: final.frustrationLevel };
+  let confusion = 0;
+  let peak = final.frustrationLevel;
+  for (const s of steps) {
+    confusion += s.confusion;
+    if (s.frustration > peak) peak = s.frustration;
+  }
+  return { avgConfusionLevel: confusion / steps.length, maxFrustrationLevel: peak };
+}
+
+/**
+ * The persona a journey runs as.
+ *
+ * A known name resolves to its own record: built-in, custom and account
+ * personas through getPersona, and the accessibility and emotional ones
+ * (cognitive-adhd, anxious-user, ...) through getAnyPersona. Only getPersona
+ * was asked before 20.1.3, so a journey for any of those 15 personas, which is
+ * what empathy_audit starts, ran on traits generated from the name: 14 to 24 of
+ * their 25 traits differed from the persona's own (2026-10-23). A name nothing
+ * knows is still read as a description of the person, as `--persona` says. An
+ * agent persona is refused, because a journey simulates a person.
+ */
+export function resolveJourneyPersona(name: string, customTraits?: Partial<CognitiveTraits>): Persona {
+  const known = getPersona(name) ?? getAnyPersona(name);
+  if (known && isAgentPersonaObject(known)) {
+    throw new Error(`"${name}" is an AI agent persona, and a cognitive journey simulates a person. Pick a human persona (cbrowser persona list).`);
+  }
+  const existingPersona = known as Persona | undefined;
+  let personaObj: Persona;
+
+  if (!existingPersona) {
+    personaObj = createCognitivePersona(
+      name,
+      name,
+      customTraits || {}
+    );
+  } else if (customTraits) {
+    // v16.7.1: full default trait set (was only 7, causing trait dropout).
+    // Said 25 until 2026-08-01; the model has 26.
+    const defaultTraits: CognitiveTraits = {
+      // Required traits (7)
+      patience: 0.5,
+      riskTolerance: 0.5,
+      comprehension: 0.5,
+      persistence: 0.5,
+      curiosity: 0.5,
+      workingMemory: 0.5,
+      readingTendency: 0.5,
+      // Optional traits - Tier 1: Core
+      resilience: 0.5,
+      selfEfficacy: 0.5,
+      satisficing: 0.5,
+      trustCalibration: 0.5,
+      interruptRecovery: 0.5,
+      // Optional traits - Tier 2+
+      informationForaging: 0.5,
+      changeBlindness: 0.3,
+      anchoringBias: 0.5,
+      timeHorizon: 0.5,
+      attributionStyle: 0.5,
+      metacognitivePlanning: 0.5,
+      proceduralFluency: 0.5,
+      transferLearning: 0.5,
+      authoritySensitivity: 0.5,
+      emotionalContagion: 0.5,
+      fearOfMissingOut: 0.5,
+      socialProofSensitivity: 0.5,
+      mentalModelFlexibility: 0.5,
+      siteFamiliarity: 0.5,
+    };
+    personaObj = {
+      ...existingPersona,
+      cognitiveTraits: {
+        ...defaultTraits,
+        ...(existingPersona.cognitiveTraits || {}),
+        ...customTraits,
+      },
+    };
+  } else {
+    personaObj = existingPersona;
+  }
+  return personaObj;
 }
 
 /**

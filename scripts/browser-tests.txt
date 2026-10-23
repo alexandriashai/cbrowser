@@ -89,3 +89,4 @@ tests/webhooks-export.test.ts
 # reaches every file in the same process, so it runs alone.
 tests/benchmark-device-wiring.test.ts
 tests/journey-replies-browser.test.ts
+tests/journey-fixes-browser.test.ts
