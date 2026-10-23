@@ -172,9 +172,12 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
   // Seed site models with 0, 5, 12 and 25 crawled pages, with and without
   // known goal paths and failures, for the familiarity ceiling.
   const manager = SiteModelManager.getInstance();
+  // Idempotent, so the sweep can run more than once in a process.
   const seed = async (domain: string, pages: number, goals: number, failures: number) => {
     const model = await manager.loadModel(domain);
     for (let i = 0; i < pages; i++) (model.navigation.nodes as Record<string, unknown>)[`/p${i}`] = { url: `/p${i}`, lastVisited: 0 };
+    (model.goalPaths as unknown[]).length = 0;
+    (model.failures as unknown[]).length = 0;
     for (let i = 0; i < goals; i++) (model.goalPaths as unknown[]).push({ lastUsed: 0 });
     for (let i = 0; i < failures; i++) (model.failures as unknown[]).push({ lastSeen: 0 });
   };
@@ -225,12 +228,17 @@ async function mcpSweeps(): Promise<Record<string, unknown>> {
   return out;
 }
 
+/** Each sweep by name, in the order the pin holds them. */
+export const SWEEPS: Record<string, () => Promise<Record<string, unknown>>> = {
+  helpers: helperSweeps,
+  emotions: emotionSweeps,
+  temporal: temporalSweeps,
+  humanInput: humanInputSweeps,
+  mcp: mcpSweeps,
+};
+
 export async function runHelperSweeps(): Promise<Record<string, unknown>> {
-  return {
-    helpers: await helperSweeps(),
-    emotions: await emotionSweeps(),
-    temporal: await temporalSweeps(),
-    humanInput: await humanInputSweeps(),
-    mcp: await mcpSweeps(),
-  };
+  const out: Record<string, unknown> = {};
+  for (const [name, run] of Object.entries(SWEEPS)) out[name] = await run();
+  return out;
 }

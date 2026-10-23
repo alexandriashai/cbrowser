@@ -74,6 +74,8 @@ import {
 } from "../types.js";
 import { loadConfigFile, getDataDir } from "../config.js";
 import type { CBrowserConfig } from "../config.js";
+import { param } from "../visual/model-provenance.js";
+import { defaultJourneyTraits } from "./default-traits.js";
 import { writeSecretFile } from "../secure-file.js";
 import { uniqueStamp } from "../temp-files.js";
 import { semanticWeightTable } from "../visual/attention-transport.js";
@@ -929,7 +931,7 @@ export async function runCognitiveJourney(
       if (!anthropic) throw new Error("Anthropic API key not configured.");
       const response = await anthropic.messages.create({
         model,
-        max_tokens: 2000,
+        max_tokens: param("journey.llm.maxTokens"),
         ...(ctx.systemPrompt ? { system: ctx.systemPrompt } : {}),
         messages: ctx.messages.map((m) => ({ role: m.role, content: m.content })),
       });
@@ -954,37 +956,7 @@ export async function runCognitiveJourney(
   } else if (options.customTraits) {
     // v16.7.1: full default trait set (was only 7, causing trait dropout).
     // Said 25 until 2026-08-01; the model has 26.
-    const defaultTraits: CognitiveTraits = {
-      // Required traits (7)
-      patience: 0.5,
-      riskTolerance: 0.5,
-      comprehension: 0.5,
-      persistence: 0.5,
-      curiosity: 0.5,
-      workingMemory: 0.5,
-      readingTendency: 0.5,
-      // Optional traits - Tier 1: Core
-      resilience: 0.5,
-      selfEfficacy: 0.5,
-      satisficing: 0.5,
-      trustCalibration: 0.5,
-      interruptRecovery: 0.5,
-      // Optional traits - Tier 2+
-      informationForaging: 0.5,
-      changeBlindness: 0.3,
-      anchoringBias: 0.5,
-      timeHorizon: 0.5,
-      attributionStyle: 0.5,
-      metacognitivePlanning: 0.5,
-      proceduralFluency: 0.5,
-      transferLearning: 0.5,
-      authoritySensitivity: 0.5,
-      emotionalContagion: 0.5,
-      fearOfMissingOut: 0.5,
-      socialProofSensitivity: 0.5,
-      mentalModelFlexibility: 0.5,
-      siteFamiliarity: 0.5,
-    };
+    const defaultTraits: CognitiveTraits = defaultJourneyTraits();
     personaObj = {
       ...existingPersona,
       cognitiveTraits: {
@@ -1008,28 +980,34 @@ export async function runCognitiveJourney(
   // (low-vision-magnified, motor-impairment-tremor) get extra penalty so
   // their clicks visibly miss more often.
   const aTraits = (personaObj as { accessibilityTraits?: { motorControl?: number } }).accessibilityTraits;
-  const motorBase = traits.proceduralFluency ?? 0.5;
+  const motorBase = traits.proceduralFluency ?? param("journey.defaultTrait");
   const motorPenalty = aTraits?.motorControl !== undefined ? aTraits.motorControl : 1.0;
   const inputTraits = {
-    proceduralFluency: traits.proceduralFluency ?? 0.5,
-    motorPrecision: Math.max(0.1, Math.min(1, motorBase * motorPenalty)),
-    patience: traits.patience ?? 0.5,
-    readingTendency: traits.readingTendency ?? 0.5,
+    proceduralFluency: traits.proceduralFluency ?? param("journey.defaultTrait"),
+    motorPrecision: Math.max(param("journey.input.motorPrecisionFloor"), Math.min(1, motorBase * motorPenalty)),
+    patience: traits.patience ?? param("journey.defaultTrait"),
+    readingTendency: traits.readingTendency ?? param("journey.defaultTrait"),
   };
 
   // Calculate abandonment thresholds
+  // Every limit is registered (journey.abandon.*, src/visual/provenance/journey.ts).
+  const lowComprehension = traits.comprehension < param("journey.band.low.comprehension");
+  const lowPatience = traits.patience < param("journey.band.low.patience");
+  const highPatience = traits.patience > param("journey.band.high.patience");
+  const lowPersistence = traits.persistence < param("journey.band.low.persistence");
+  const highPersistence = traits.persistence > param("journey.band.high.persistence");
   const thresholds: AbandonmentThresholds = {
-    patienceMin: 0.1,
-    confusionMax: traits.comprehension < 0.4 ? 0.75 : 0.9,
-    frustrationMax: traits.patience < 0.3 ? 0.8 : 0.95,
-    maxStepsWithoutProgress: traits.persistence > 0.7 ? 20 : 15,
-    loopDetectionThreshold: 3,
+    patienceMin: param("journey.abandon.patienceFloor"),
+    confusionMax: lowComprehension ? param("journey.abandon.confusionLimit.lowComprehension") : param("journey.abandon.confusionLimit"),
+    frustrationMax: lowPatience ? param("journey.abandon.frustrationLimit.lowPatience") : param("journey.abandon.frustrationLimit"),
+    maxStepsWithoutProgress: highPersistence ? param("journey.abandon.noProgressSteps.highPersistence") : param("journey.abandon.noProgressSteps"),
+    loopDetectionThreshold: param("journey.abandon.loopUniquePages"),
     timeLimit:
       options.maxTime ||
-      (traits.patience > 0.7 ? 180 : traits.patience < 0.3 ? 60 : 120),
+      (highPatience ? param("journey.abandon.timeLimitSeconds.highPatience") : lowPatience ? param("journey.abandon.timeLimitSeconds.lowPatience") : param("journey.abandon.timeLimitSeconds")),
     // Decision fatigue threshold based on persistence (v9.9.0)
     // High persistence = can handle more decisions before giving up
-    decisionFatigueMax: traits.persistence > 0.7 ? 0.95 : traits.persistence < 0.3 ? 0.7 : 0.85,
+    decisionFatigueMax: highPersistence ? param("journey.abandon.fatigueLimit.highPersistence") : lowPersistence ? param("journey.abandon.fatigueLimit.lowPersistence") : param("journey.abandon.fatigueLimit"),
   };
 
   // Initialize state
@@ -1038,7 +1016,7 @@ export async function runCognitiveJourney(
     confusionLevel: 0.0,
     frustrationLevel: 0.0,
     goalProgress: 0.0,
-    confidenceLevel: 0.5,
+    confidenceLevel: param("journey.initialConfidence"),
     currentMood: "neutral",
     memory: {
       pagesVisited: [options.startUrl],
@@ -1058,8 +1036,8 @@ export async function runCognitiveJourney(
     // Dual-process cognitive mode (v10.0.0)
     // Experts start in System 1 (fast), novices in System 2 (slow)
     cognitiveMode: {
-      system: traits.comprehension > 0.7 ? 1 : 2,
-      switchThreshold: traits.comprehension < 0.4 ? 0.4 : 0.6,
+      system: traits.comprehension > param("journey.band.high.comprehension") ? 1 : 2,
+      switchThreshold: lowComprehension ? param("journey.dualProcess.switchThreshold.lowComprehension") : param("journey.dualProcess.switchThreshold"),
       system1Errors: 0,
       timeInSystem1: 0,
       timeInSystem2: 0,
@@ -1068,7 +1046,7 @@ export async function runCognitiveJourney(
     scanPattern: {
       basePattern: personaObj.humanBehavior?.attention?.pattern || "f-pattern",
       widthMultiplier: 1.0,
-      effectiveWidth: 100,
+      effectiveWidth: param("journey.percentScale"),
     },
     missedDueToTunnelVision: 0,
     // Peripheral vision affected by stress (v10.1.0) - Yerkes-Dodson Law
@@ -1080,7 +1058,9 @@ export async function runCognitiveJourney(
     // Habituation/banner blindness state (v10.1.0)
     habituation: createHabituationState(
       // Low comprehension = faster blindness (lower threshold)
-      traits.comprehension > 0.7 ? 5 : traits.comprehension < 0.4 ? 2 : 3
+      traits.comprehension > param("journey.band.high.comprehension")
+        ? param("journey.habituation.exposures.highComprehension")
+        : lowComprehension ? param("journey.habituation.exposures.lowComprehension") : param("journey.habituation.exposures")
     ),
     // Gaze-to-mouse lag based on age (v10.1.0) - WebGazer.js research
     gazeMouseLag: calculateGazeMouseLag(personaObj.demographics?.age_range),
@@ -1105,7 +1085,8 @@ export async function runCognitiveJourney(
     if (ageMatch) {
       const age = parseInt(ageMatch[1], 10);
       // Motor control degrades with age: 1.0 at 25, 1.5 at 65, 2.0 at 85
-      ageModifier = age > 40 ? 1 + (age - 40) / 50 : 1.0;
+      const onset = param("journey.fitts.ageOnset");
+      ageModifier = age > onset ? 1 + (age - onset) / param("journey.fitts.agePerSlowdown") : 1.0;
     }
   }
 
@@ -1113,7 +1094,7 @@ export async function runCognitiveJourney(
   let tremorModifier = 0;
   if (mouseParams) {
     // Higher jitter = more tremor effect
-    tremorModifier = (mouseParams.jitter || 0) / 10;
+    tremorModifier = (mouseParams.jitter || 0) / param("journey.fitts.jitterScale");
   }
 
   const fittsParams: Partial<FittsLawParams> = {
@@ -1165,14 +1146,14 @@ export async function runCognitiveJourney(
   // Window size stays at 1920×1080 so chromium fills Xvfb edge-to-edge.
   // Dashboard overlay positions: top:7.87% (85/1080), height:92.13% (995/1080).
   if (options.enableMouseOverlay) {
-    browserConfig.viewportWidth = 1920;
-    browserConfig.viewportHeight = 995;
-    browserConfig.windowWidth = 1920;
-    browserConfig.windowHeight = 1080;
+    browserConfig.viewportWidth = param("journey.live.screenWidth");
+    browserConfig.viewportHeight = param("journey.live.pageHeight");
+    browserConfig.windowWidth = param("journey.live.screenWidth");
+    browserConfig.windowHeight = param("journey.live.screenHeight");
     // Heavy university / news / e-commerce sites often need >30s to reach
     // domcontentloaded with all their analytics/CDN scripts. Live journeys
     // get a 60s navigation budget per attempt.
-    browserConfig.timeout = 60000;
+    browserConfig.timeout = param("journey.live.navigationTimeoutMs");
     // When a click opens target="_blank" or window.open, follow the new tab
     // so VNC keeps showing where the persona actually went.
     browserConfig.followPopups = true;
@@ -1226,7 +1207,8 @@ export async function runCognitiveJourney(
   // Hard timeout per attempt is browserConfig.timeout (set to 60s above for
   // live mode).
   let lastErr: Error | undefined;
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  const navAttempts = param("journey.nav.attempts");
+  for (let attempt = 1; attempt <= navAttempts; attempt++) {
     try {
       await browser.navigate(options.startUrl, { waitStrategy: "domcontentloaded" });
       lastErr = undefined;
@@ -1234,10 +1216,10 @@ export async function runCognitiveJourney(
     } catch (navErr) {
       lastErr = navErr as Error;
       const isTransient = /ERR_NETWORK_CHANGED|ERR_CONNECTION|ERR_TIMED_OUT|Timeout/i.test(lastErr.message);
-      if (attempt === 4 || !isTransient) {
+      if (attempt === navAttempts || !isTransient) {
         if (!isTransient) throw lastErr;
       }
-      await new Promise(r => setTimeout(r, 2500 * attempt));
+      await new Promise(r => setTimeout(r, param("journey.nav.backoffMs") * attempt));
     }
   }
   if (lastErr) throw lastErr;
@@ -1262,7 +1244,7 @@ export async function runCognitiveJourney(
   const fullMonologue: string[] = [];
   const frictionPoints: FrictionPoint[] = [];
   const startTime = Date.now();
-  const maxSteps = options.maxSteps || 50;
+  const maxSteps = options.maxSteps || param("journey.maxSteps");
 
   // ── Returning-visit familiarity boost ─────────────────────────────────
   // The persona's existing siteFamiliarity trait already drives perception
@@ -1274,8 +1256,8 @@ export async function runCognitiveJourney(
   // 5 ≈ +0.72, 10+ ≈ +0.92 — asymptotes near 1.
   if (options.priorMemory && options.priorMemory.visitCount > 0) {
     const v = options.priorMemory.visitCount;
-    const familiarityBoost = 1 - Math.exp(-v / 4);
-    const baseline = traits.siteFamiliarity ?? 0.5;
+    const familiarityBoost = 1 - Math.exp(-v / param("journey.familiarity.visitScale"));
+    const baseline = traits.siteFamiliarity ?? param("journey.defaultTrait");
     // Boost toward 1.0 from baseline. The persona keeps any fundamental
     // cognitive trait (e.g. low transferLearning still matters) but the
     // domain-specific familiarity component lifts.
@@ -1299,7 +1281,7 @@ export async function runCognitiveJourney(
     temporalModulators = computeTemporalModulators(temporalState);
 
     // Apply trait deltas
-    traits.patience = Math.max(0, Math.min(1, (traits.patience ?? 0.5) + temporalModulators.patienceDelta));
+    traits.patience = Math.max(0, Math.min(1, (traits.patience ?? param("journey.defaultTrait")) + temporalModulators.patienceDelta));
     if (traits.workingMemory !== undefined) {
       traits.workingMemory = Math.max(0, Math.min(1, traits.workingMemory + temporalModulators.workingMemoryDelta));
     }
@@ -1331,7 +1313,7 @@ export async function runCognitiveJourney(
   if (options.priorMemory && options.priorMemory.visitCount > 0) {
     const m = options.priorMemory;
     const sinceDays = m.lastVisitAt
-      ? Math.round((Date.now() - new Date(m.lastVisitAt.replace(" ", "T") + "Z").getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.round((Date.now() - new Date(m.lastVisitAt.replace(" ", "T") + "Z").getTime()) / param("journey.msPerDay"))
       : null;
     const sinceStr = sinceDays === null
       ? "before"
@@ -1433,7 +1415,7 @@ Right now it's ${temporalState.description}.`;
   // Main cognitive loop
   for (let step = 1; step <= maxSteps; step++) {
     state.stepCount = step;
-    state.timeElapsed = (Date.now() - startTime) / 1000;
+    state.timeElapsed = (Date.now() - startTime) / param("journey.msPerSecond");
 
     // Check time limit
     if (state.timeElapsed > thresholds.timeLimit) {
@@ -1467,7 +1449,7 @@ Right now it's ${temporalState.description}.`;
     try {
       await Promise.race([
         page.evaluate("1+1"),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("renderer health check timed out")), 5000)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("renderer health check timed out")), param("journey.healthCheckMs"))),
       ]);
     } catch (healthErr) {
       console.warn(`[cognitive] step ${step}: ${(healthErr as Error).message} — aborting journey`);
@@ -1489,7 +1471,7 @@ Right now it's ${temporalState.description}.`;
     const screenshotKey = currentUrl.split('?')[0]; // strip query for stable keying
     const lastCapturedScrollY = lastScreenshotScroll.get(screenshotKey);
     const isInitialLoadForUrl = lastCapturedScrollY === undefined;
-    const scrolledEnough = lastCapturedScrollY !== undefined && Math.abs(viewportCtx.scroll.y - lastCapturedScrollY) > 100;
+    const scrolledEnough = lastCapturedScrollY !== undefined && Math.abs(viewportCtx.scroll.y - lastCapturedScrollY) > param("journey.screenshot.scrollPx");
     const shouldCapture = isInitialLoadForUrl || scrolledEnough;
     let screenshotPath: string | undefined;
     let attentionHeatmapBase64: string | undefined;
@@ -1517,8 +1499,9 @@ Right now it's ${temporalState.description}.`;
     // step 2 onward (step 1 has no prior to compare against).
     if (lastActionOutcome) {
       const currentTexts = new Set(availableElements.map(e => e.text));
-      const newClickables = [...currentTexts].filter(t => t && !prevClickableTexts.has(t)).slice(0, 8);
-      const removedClickables = [...prevClickableTexts].filter(t => t && !currentTexts.has(t)).slice(0, 8);
+      const keep = param("journey.prompt.changedElements");
+      const newClickables = [...currentTexts].filter(t => t && !prevClickableTexts.has(t)).slice(0, keep);
+      const removedClickables = [...prevClickableTexts].filter(t => t && !currentTexts.has(t)).slice(0, keep);
       lastActionOutcome.newClickables = newClickables;
       lastActionOutcome.removedClickables = removedClickables;
       lastActionOutcome.scrollDelta = viewportCtx.scroll.y - prevScrollY;
@@ -1531,24 +1514,35 @@ Right now it's ${temporalState.description}.`;
     // omitted the actual prices, and a long article omitted its body. The new
     // version walks the visible viewport and captures every meaningful text
     // node above-the-fold + a band just below, ordered top-to-bottom.
-    const pageContent = await page.evaluate(() => {
+    // The extractor runs in the page, which cannot call param(); its limits
+    // are read here and passed in.
+    const contentLimits = {
+      lookaheadShare: param("journey.content.lookaheadShare"),
+      aboveViewportPx: param("journey.content.aboveViewportPx"),
+      minWidthPx: param("journey.content.minWidthPx"),
+      minHeightPx: param("journey.content.minHeightPx"),
+      minChars: param("journey.content.minChars"),
+      maxChars: param("journey.content.maxChars"),
+      maxLines: param("journey.content.maxLines"),
+    };
+    const pageContent = await page.evaluate((L) => {
       const vh = window.innerHeight;
-      const lookahead = vh * 0.4; // include a strip just below the fold so AI can plan ahead
+      const lookahead = vh * L.lookaheadShare; // include a strip just below the fold so AI can plan ahead
       const out: Array<{ y: number; line: string }> = [];
       const skipTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'svg', 'IFRAME']);
       const nodes = document.querySelectorAll('h1, h2, h3, h4, p, li, td, th, [role="heading"], [data-testid]');
       nodes.forEach(el => {
         if (skipTags.has(el.tagName)) return;
         const r = el.getBoundingClientRect();
-        if (r.bottom < -50) return; // above viewport
+        if (r.bottom < -L.aboveViewportPx) return; // above viewport
         if (r.top > vh + lookahead) return; // far below
-        if (r.width < 20 || r.height < 8) return;
+        if (r.width < L.minWidthPx || r.height < L.minHeightPx) return;
         const style = window.getComputedStyle(el);
         if (style.display === 'none' || style.visibility === 'hidden') return;
         const text = (el as HTMLElement).innerText?.trim();
-        if (!text || text.length < 3) return;
+        if (!text || text.length < L.minChars) return;
         // Trim long paragraphs but keep prices/key info
-        const trimmed = text.length > 220 ? text.substring(0, 220) + '…' : text;
+        const trimmed = text.length > L.maxChars ? text.substring(0, L.maxChars) + '…' : text;
         const tag = el.tagName.toLowerCase();
         const tagLabel = ['h1','h2','h3','h4'].includes(tag) ? tag.toUpperCase() : tag;
         const visMark = r.top < vh && r.bottom > 0 ? '👁' : '↓';
@@ -1561,8 +1555,8 @@ Right now it's ${temporalState.description}.`;
       for (const o of out) {
         if (o.line !== prev) { dedup.push(o.line); prev = o.line; }
       }
-      return dedup.slice(0, 30).join('\n');
-    }).catch(() => '');
+      return dedup.slice(0, L.maxLines).join('\n');
+    }, contentLimits).catch(() => '');
 
     // Habituation/Banner Blindness tracking (v10.1.0)
     // Detect UI patterns in available elements and update habituation state
@@ -1670,9 +1664,10 @@ Right now it's ${temporalState.description}.`;
       const actionSuccess = parsed.actionSuccess !== false;
       const claudeConfusion = parsed.newConfusion ?? state.emotionalState.confusion;
       const claudeFrustration = parsed.newFrustration ?? state.emotionalState.frustration;
-      const confusionIncreased = claudeConfusion > state.emotionalState.confusion + 0.05;
-      const confusionDecreased = claudeConfusion < state.emotionalState.confusion - 0.05;
-      const frustrationIncreased = claudeFrustration > state.emotionalState.frustration + 0.05;
+      const signalThreshold = param("journey.signal.changeThreshold");
+      const confusionIncreased = claudeConfusion > state.emotionalState.confusion + signalThreshold;
+      const confusionDecreased = claudeConfusion < state.emotionalState.confusion - signalThreshold;
+      const frustrationIncreased = claudeFrustration > state.emotionalState.frustration + signalThreshold;
 
       // Severity scales with the magnitude of the LLM-reported delta — Claude
       // proposes a value, we use the *delta* (clamped to [0, 1]) as the
@@ -1689,7 +1684,7 @@ Right now it's ${temporalState.description}.`;
       }> = [];
 
       if (!actionSuccess && parsed.errorMessage) {
-        triggersToFire.push({ trigger: "error", severity: 1.2, description: parsed.errorMessage });
+        triggersToFire.push({ trigger: "error", severity: param("journey.severity.error"), description: parsed.errorMessage });
       } else if (!actionSuccess) {
         triggersToFire.push({ trigger: "failure", severity: 1.0, description: "Action did not succeed" });
       }
@@ -1697,7 +1692,7 @@ Right now it's ${temporalState.description}.`;
       if (confusionIncreased) {
         triggersToFire.push({
           trigger: "confusion_onset",
-          severity: Math.max(0.5, confusionDelta * 2),
+          severity: Math.max(param("journey.severity.signalFloor"), confusionDelta * param("journey.severity.signalGain")),
           description: parsed.frictionDescription || "UI became confusing",
         });
       } else if (confusionDecreased) {
@@ -1706,7 +1701,7 @@ Right now it's ${temporalState.description}.`;
         // via decay.
         triggersToFire.push({
           trigger: "clarity",
-          severity: 0.8,
+          severity: param("journey.severity.clarity"),
           description: "UI became clear",
         });
       }
@@ -1714,24 +1709,24 @@ Right now it's ${temporalState.description}.`;
         // Friction without outright failure
         triggersToFire.push({
           trigger: "setback",
-          severity: Math.max(0.5, frustrationDelta * 2),
+          severity: Math.max(param("journey.severity.signalFloor"), frustrationDelta * param("journey.severity.signalGain")),
           description: "Encountered friction",
         });
       }
       // Time pressure fires when patience is already derived-low (recompute
       // briefly here using current state for the gating check).
       const patiencePreview = deriveSimplifiedState(state.emotionalState, traits).patienceRemaining;
-      if (patiencePreview < 0.3 && !triggersToFire.length) {
+      if (patiencePreview < param("journey.timePressure.patience") && !triggersToFire.length) {
         triggersToFire.push({
           trigger: "time_pressure",
-          severity: 0.8,
+          severity: param("journey.severity.timePressure"),
           description: "Running out of patience",
         });
       }
       if (actionSuccess && !triggersToFire.length) {
         triggersToFire.push({
           trigger: "success",
-          severity: 0.8,
+          severity: param("journey.severity.success"),
           description: parsed.action || "Action completed",
         });
       }
@@ -1781,7 +1776,7 @@ Right now it's ${temporalState.description}.`;
       if (wasInteractive && actionSucceeded) {
         // Allow up to the LLM's proposed delta; URL-change reconciliation later
         // expands the cap to full LLM proposal if URL changed.
-        progressDeltaAllowed = Math.min(progressDeltaProposed, 0.05);
+        progressDeltaAllowed = Math.min(progressDeltaProposed, param("journey.progress.inPageCap"));
       }
       // No evidence at all → no progress (Claude was hallucinating advancement)
     } else {
@@ -1849,11 +1844,11 @@ Right now it's ${temporalState.description}.`;
       const cognitiveLoad = (state.confusionLevel + state.frustrationLevel) / 2;
       const prevWidth = state.scanPattern.widthMultiplier;
       state.scanPattern.widthMultiplier = calculateScanWidthMultiplier(cognitiveLoad);
-      state.scanPattern.effectiveWidth = state.scanPattern.widthMultiplier * 100;
+      state.scanPattern.effectiveWidth = state.scanPattern.widthMultiplier * param("journey.percentScale");
 
       // Log if pattern narrowed significantly
       if (options.verbose && prevWidth !== state.scanPattern.widthMultiplier) {
-        if (state.scanPattern.widthMultiplier < 0.5) {
+        if (state.scanPattern.widthMultiplier < param("journey.log.tunnelWidth")) {
           console.log(`👁️ Tunnel vision: scanning only left ${state.scanPattern.effectiveWidth.toFixed(0)}% of viewport`);
         } else if (prevWidth < state.scanPattern.widthMultiplier) {
           console.log(`👁️ Vision widening: now scanning ${state.scanPattern.effectiveWidth.toFixed(0)}% of viewport`);
@@ -1870,8 +1865,8 @@ Right now it's ${temporalState.description}.`;
       );
 
       // Log significant arousal changes
-      if (options.verbose && Math.abs(state.peripheralVision.arousalLevel - prevArousal) > 0.2) {
-        if (state.peripheralVision.widthFactor < 0.5) {
+      if (options.verbose && Math.abs(state.peripheralVision.arousalLevel - prevArousal) > param("journey.log.arousalChange")) {
+        if (state.peripheralVision.widthFactor < param("journey.log.peripheralWidth")) {
           console.log(`😰 Stress tunnel vision: peripheral field reduced to ${(state.peripheralVision.widthFactor * 100).toFixed(0)}%`);
         }
       }
@@ -1905,13 +1900,14 @@ Right now it's ${temporalState.description}.`;
     });
 
     // Record friction point if confusion/frustration spiked
-    if (parsed.frictionDescription && (state.confusionLevel > 0.4 || state.frustrationLevel > 0.4)) {
+    const frictionLevel = param("journey.friction.level");
+    if (parsed.frictionDescription && (state.confusionLevel > frictionLevel || state.frustrationLevel > frictionLevel)) {
       frictionPoints.push({
         step,
         url: currentUrl,
         element: parsed.frictionElement,
         type: "confusing_ui",
-        frustrationIncrease: parsed.newFrustration ? parsed.newFrustration - state.frustrationLevel : 0.1,
+        frustrationIncrease: parsed.newFrustration ? parsed.newFrustration - state.frustrationLevel : param("journey.friction.defaultIncrease"),
         monologue: parsed.monologue || "",
       });
     }
@@ -1939,7 +1935,7 @@ Right now it's ${temporalState.description}.`;
     // heatmap. 1.2s is enough to glance at it without making the journey feel
     // sluggish. Skipped on non-capture steps so the journey paces normally.
     if (options.enableMouseOverlay && attentionHeatmapBase64) {
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, param("journey.live.dwellMs")));
     }
 
     // Verbose output
@@ -1961,11 +1957,12 @@ Right now it's ${temporalState.description}.`;
       // v18.29.0: Validate goal evidence against actual page content
       if (goalEvidence) {
         try {
-          const pageText = await page.evaluate(() => document.body.innerText?.substring(0, 5000) || '');
-          const evidenceWords = goalEvidence.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+          const pageText = await page.evaluate((n) => document.body.innerText?.substring(0, n) || '', param("journey.evidence.pageChars"));
+          const minWordChars = param("journey.evidence.minWordChars");
+          const evidenceWords = goalEvidence.toLowerCase().split(/\s+/).filter((w: string) => w.length > minWordChars);
           const matchCount = evidenceWords.filter((w: string) => pageText.toLowerCase().includes(w)).length;
           const matchRatio = evidenceWords.length > 0 ? matchCount / evidenceWords.length : 0;
-          if (matchRatio < 0.3) {
+          if (matchRatio < param("journey.evidence.verifiedShare")) {
             // Evidence doesn't match page content — flag as unverified
             goalEvidence = `[UNVERIFIED - ${Math.round(matchRatio * 100)}% match] ${goalEvidence}`;
           } else {
@@ -1985,8 +1982,8 @@ Right now it's ${temporalState.description}.`;
 
       // v18.29.0: Capture failure context
       try {
-        const pageText = await page.evaluate(() => document.body.innerText?.substring(0, 1000) || '');
-        failureReason = parsed.failureReason || `Abandoned on "${pageTitle}" (${currentUrl}). Last visible: ${pageText.substring(0, 200)}...`;
+        const pageText = await page.evaluate((n) => document.body.innerText?.substring(0, n) || '', param("journey.failure.pageChars"));
+        failureReason = parsed.failureReason || `Abandoned on "${pageTitle}" (${currentUrl}). Last visible: ${pageText.substring(0, param("journey.quoteChars"))}...`;
       } catch {
         failureReason = parsed.failureReason || `Abandoned on "${pageTitle}" (${currentUrl})`;
       }
@@ -2007,7 +2004,7 @@ Right now it's ${temporalState.description}.`;
           await p.evaluate((t) => {
             // @ts-expect-error window helper installed by overlay script
             if (window.__cbShowAction) window.__cbShowAction(t);
-          }, label.slice(0, 120));
+          }, label.slice(0, param("journey.live.bannerChars")));
         } catch { /* page navigated mid-call, helper will reinstall */ }
       }
       try {
@@ -2034,14 +2031,14 @@ Right now it's ${temporalState.description}.`;
             const t = (e.text || "").toLowerCase().trim();
             if (!t) return -Infinity;
             let base = 0;
-            if (t === wanted) base = 1000;
-            else if (t.startsWith(wanted) || wanted.startsWith(t)) base = 500;
-            else if (t.includes(wanted) || wanted.includes(t)) base = 100;
+            if (t === wanted) base = param("journey.clickMatch.exact");
+            else if (t.startsWith(wanted) || wanted.startsWith(t)) base = param("journey.clickMatch.prefix");
+            else if (t.includes(wanted) || wanted.includes(t)) base = param("journey.clickMatch.contains");
             else return -Infinity;
             // Penalize distance from viewport center (closer = preferred)
             const ey = (e.y ?? 0) + (e.height ?? 0) / 2;
             const dist = Math.abs(ey - vc);
-            return base - Math.min(dist, 5000);
+            return base - Math.min(dist, param("journey.clickMatch.maxDistancePx"));
           };
           let best: Bbox | undefined;
           let bestScore = -Infinity;
@@ -2071,7 +2068,7 @@ Right now it's ${temporalState.description}.`;
                 // "instant" behavior — no animation, no stacking with page handlers
                 window.scrollTo({ top: t, behavior: "instant" as ScrollBehavior });
               }, { y: cy });
-              await page.waitForTimeout(150);
+              await page.waitForTimeout(param("journey.click.scrollSettleMs"));
             }
             // Re-read post-scroll coords; click at center via raw mouse so
             // Playwright's locator auto-scroll-into-view never engages.
@@ -2090,7 +2087,7 @@ Right now it's ${temporalState.description}.`;
             } else {
               await page.mouse.click(ctr.x, ctr.y);
             }
-            await page.waitForTimeout(800);
+            await page.waitForTimeout(param("journey.action.navigationWaitMs"));
             const urlAfter = page.url();
             result = { success: true, ...(urlAfter !== urlBefore ? { newUrl: urlAfter } : {}) };
           } catch (clickErr) {
@@ -2141,8 +2138,9 @@ Right now it's ${temporalState.description}.`;
         // Goal progress cap was previously +0.05 max (no-evidence fallback).
         // If the URL actually changed, expand the cap to the LLM's full
         // proposed delta — that's strong navigation evidence.
-        if (urlChanged && _llmProposedProgressDelta > 0.05) {
-          const additionalAllowed = _llmProposedProgressDelta - 0.05;
+        const inPageCap = param("journey.progress.inPageCap");
+        if (urlChanged && _llmProposedProgressDelta > inPageCap) {
+          const additionalAllowed = _llmProposedProgressDelta - inPageCap;
           state.goalProgress = Math.min(1, state.goalProgress + additionalAllowed);
         }
 
@@ -2151,7 +2149,7 @@ Right now it's ${temporalState.description}.`;
         // which were overwritten next step by deriveSimplifiedState anyway.
         if (state.emotionalState) {
           if (result.success) {
-            const progressMade = urlChanged || state.goalProgress > 0.1;
+            const progressMade = urlChanged || state.goalProgress > param("journey.progress.madeLevel");
             // Progress = stronger positive trigger than plain success
             const { state: newEmotional, event } = applyEmotionalTrigger(
               state.emotionalState,
@@ -2159,7 +2157,7 @@ Right now it's ${temporalState.description}.`;
               emotionalConfig,
               state.stepCount,
               {
-                severity: progressMade ? 1.2 : 0.8,
+                severity: progressMade ? param("journey.severity.progress") : param("journey.severity.success"),
                 description: progressMade
                   ? `Action advanced goal (${urlChanged ? "URL change" : "in-page progress"})`
                   : `Action completed: ${parsed.action}`,
@@ -2189,7 +2187,7 @@ Right now it's ${temporalState.description}.`;
             emotionalConfig,
             state.stepCount,
             {
-              severity: 1.3,
+              severity: param("journey.severity.actionThrew"),
               description: error instanceof Error ? error.message : String(error),
             },
           );
@@ -2216,16 +2214,16 @@ Right now it's ${temporalState.description}.`;
         // Estimate decision complexity: clicks on links = easy (2 options),
         // form fills = medium (5), navigation choices = hard (8+)
         const estimatedOptions = parsed.action.toLowerCase().includes("fill")
-          ? 5
+          ? param("journey.fatigue.options.fill")
           : parsed.action.toLowerCase().includes("navigate") || parsed.action.toLowerCase().includes("search")
-            ? 8
-            : 3;
+            ? param("journey.fatigue.options.navigate")
+            : param("journey.fatigue.options.other");
         const fatigueIncrement = calculateFatigueIncrement(estimatedOptions);
         state.decisionFatigue.fatigueLevel = Math.min(1, state.decisionFatigue.fatigueLevel + fatigueIncrement);
         state.decisionFatigue.lastDecisionComplexity = estimatedOptions;
 
         // High fatigue triggers default-seeking behavior
-        if (state.decisionFatigue.fatigueLevel > 0.7) {
+        if (state.decisionFatigue.fatigueLevel > param("journey.fatigue.defaultsLevel")) {
           state.decisionFatigue.choosingDefaults = true;
         }
 
@@ -2238,14 +2236,14 @@ Right now it's ${temporalState.description}.`;
     }
 
     // Small delay between steps
-    await sleep(500);
+    await sleep(param("journey.stepPauseMs"));
   }
 
   // Post-journey goal validation — final evaluation of the current page
   if (!goalAchieved) {
     try {
       const page = await browser.getPage();
-      const finalPageText = await page.evaluate(() => document.body.innerText?.substring(0, 3000) || '');
+      const finalPageText = await page.evaluate((n) => document.body.innerText?.substring(0, n) || '', param("journey.finalEval.pageChars"));
       const finalUrl = page.url();
 
       // Ask Claude: did we actually achieve the goal? Through the decision
@@ -2289,7 +2287,7 @@ Answer with JSON:
         const evalJson = JSON.parse(evalText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
         if (evalJson.achieved) {
           goalAchieved = true;
-          goalEvidence = `[FINAL EVAL] ${evalJson.evidence || finalPageText.substring(0, 200)}`;
+          goalEvidence = `[FINAL EVAL] ${evalJson.evidence || finalPageText.substring(0, param("journey.quoteChars"))}`;
           abandonmentReason = undefined;
           abandonmentMessage = undefined;
         }
@@ -2298,13 +2296,13 @@ Answer with JSON:
   }
 
   // Fallback: only if goalProgress is very high (90%+) AND final monologue explicitly says "found"
-  if (!goalAchieved && state.goalProgress >= 0.9) {
+  if (!goalAchieved && state.goalProgress >= param("journey.fallback.progress")) {
     const lastMonologue = (fullMonologue[fullMonologue.length - 1] || '').toLowerCase();
     const strongSignals = ['found it', 'found exactly', 'this is exactly', 'goal achieved', 'here it is', 'perfect, this is'];
     const hasStrongSignal = strongSignals.some(s => lastMonologue.includes(s));
     if (hasStrongSignal) {
       goalAchieved = true;
-      goalEvidence = `[AUTO-DETECTED: goalProgress=${Math.round(state.goalProgress * 100)}%] ${fullMonologue[fullMonologue.length - 1]?.substring(0, 200) || ''}`;
+      goalEvidence = `[AUTO-DETECTED: goalProgress=${Math.round(state.goalProgress * 100)}%] ${fullMonologue[fullMonologue.length - 1]?.substring(0, param("journey.quoteChars")) || ''}`;
       abandonmentReason = undefined;
       abandonmentMessage = undefined;
     }
@@ -2335,7 +2333,7 @@ Answer with JSON:
     ...(traceWriter ? { tracePath: traceWriter.filePath } : {}),
     abandonmentReason,
     abandonmentMessage,
-    totalTime: (Date.now() - startTime) / 1000,
+    totalTime: (Date.now() - startTime) / param("journey.msPerSecond"),
     stepCount: state.stepCount,
     frictionPoints,
     fullMonologue,
@@ -2344,7 +2342,7 @@ Answer with JSON:
       avgConfusionLevel: avgConfusion,
       maxFrustrationLevel: state.frustrationLevel,
       backtrackCount: state.memory.backtrackCount,
-      timeInConfusion: frictionPoints.length * 2, // Estimate
+      timeInConfusion: frictionPoints.length * param("journey.summary.secondsPerFriction"), // Estimate
       // Decision fatigue metrics (v9.9.0)
       decisionsMade: state.decisionFatigue?.decisionsMade ?? 0,
       finalDecisionFatigue: state.decisionFatigue?.fatigueLevel ?? 0,
@@ -2380,18 +2378,22 @@ function buildCognitiveSystemPrompt(
   thresholds: AbandonmentThresholds
 ): string {
   const traits = profile.traits;
+  const lowP = param("journey.band.low.patience"), highP = param("journey.band.high.patience");
+  const lowR = param("journey.band.low.riskTolerance"), highR = param("journey.band.high.riskTolerance");
+  const lowC = param("journey.band.low.comprehension"), highC = param("journey.band.high.comprehension");
+  const lowT = param("journey.band.low.readingTendency"), highT = param("journey.band.high.readingTendency");
 
   return `You are simulating a "${persona.name}" user navigating a website.
 
 PERSONA DESCRIPTION: ${persona.description}
 
 COGNITIVE TRAITS:
-- Patience: ${traits.patience.toFixed(2)} ${traits.patience < 0.3 ? "(impatient)" : traits.patience > 0.7 ? "(patient)" : "(moderate)"}
-- Risk Tolerance: ${traits.riskTolerance.toFixed(2)} ${traits.riskTolerance < 0.3 ? "(cautious)" : traits.riskTolerance > 0.7 ? "(bold)" : "(moderate)"}
-- Comprehension: ${traits.comprehension.toFixed(2)} ${traits.comprehension < 0.4 ? "(struggles with UI)" : traits.comprehension > 0.7 ? "(expert)" : "(moderate)"}
+- Patience: ${traits.patience.toFixed(2)} ${traits.patience < lowP ? "(impatient)" : traits.patience > highP ? "(patient)" : "(moderate)"}
+- Risk Tolerance: ${traits.riskTolerance.toFixed(2)} ${traits.riskTolerance < lowR ? "(cautious)" : traits.riskTolerance > highR ? "(bold)" : "(moderate)"}
+- Comprehension: ${traits.comprehension.toFixed(2)} ${traits.comprehension < lowC ? "(struggles with UI)" : traits.comprehension > highC ? "(expert)" : "(moderate)"}
 - Persistence: ${traits.persistence.toFixed(2)}
 - Curiosity: ${traits.curiosity.toFixed(2)}
-- Reading Tendency: ${traits.readingTendency.toFixed(2)} ${traits.readingTendency < 0.3 ? "(scans only)" : traits.readingTendency > 0.7 ? "(reads everything)" : "(selective reader)"}
+- Reading Tendency: ${traits.readingTendency.toFixed(2)} ${traits.readingTendency < lowT ? "(scans only)" : traits.readingTendency > highT ? "(reads everything)" : "(selective reader)"}
 
 ATTENTION PATTERN: ${profile.attentionPattern}
 DECISION STYLE: ${profile.decisionStyle}
@@ -2552,7 +2554,7 @@ function buildStepPrompt(
   let viewportStr = "";
   if (viewportCtx) {
     const { viewport, scroll, headings, activeModals, formErrors, bannersBlocking } = viewportCtx;
-    const visHeadings = headings.filter(h => h.visible).slice(0, 6).map(h => `H${h.level}: ${h.text}`).join(' | ');
+    const visHeadings = headings.filter(h => h.visible).slice(0, param("journey.prompt.headings")).map(h => `H${h.level}: ${h.text}`).join(' | ');
     const lines = [
       `- Viewport: ${viewport.width}×${viewport.height}`,
       `- Scroll: ${scroll.y}/${scroll.max}px (${Math.round(scroll.pct * 100)}%)${scroll.atTop ? ' [at top]' : ''}${scroll.atBottom ? ' [at bottom]' : ''}`,
@@ -2576,15 +2578,15 @@ function buildStepPrompt(
     } else if (lastOutcome.action.startsWith('click')) {
       lines.push(`- Page did NOT navigate (click had no nav effect — element may be JS-only or wasn't matched)`);
     }
-    if (typeof lastOutcome.scrollDelta === 'number' && Math.abs(lastOutcome.scrollDelta) > 10) {
+    if (typeof lastOutcome.scrollDelta === 'number' && Math.abs(lastOutcome.scrollDelta) > param("journey.prompt.scrollReportPx")) {
       const dir = lastOutcome.scrollDelta > 0 ? 'down' : 'up';
       lines.push(`- Scrolled ${dir} ${Math.abs(lastOutcome.scrollDelta)}px`);
     }
     if (lastOutcome.newClickables?.length) {
-      lines.push(`- New elements appeared: ${lastOutcome.newClickables.slice(0, 5).map(t => `"${t}"`).join(', ')}`);
+      lines.push(`- New elements appeared: ${lastOutcome.newClickables.slice(0, param("journey.prompt.changedElementsShown")).map(t => `"${t}"`).join(', ')}`);
     }
     if (lastOutcome.removedClickables?.length) {
-      lines.push(`- Elements no longer visible: ${lastOutcome.removedClickables.slice(0, 5).map(t => `"${t}"`).join(', ')}`);
+      lines.push(`- Elements no longer visible: ${lastOutcome.removedClickables.slice(0, param("journey.prompt.changedElementsShown")).map(t => `"${t}"`).join(', ')}`);
     }
     outcomeStr = `\nWHAT HAPPENED LAST STEP:\n${lines.join('\n')}\n`;
   }
@@ -2612,14 +2614,16 @@ CURRENT STATE:
 ${(() => {
   // Loop detection: if the last 4 actions are alternating scrolls, surface
   // it loudly so the AI breaks out instead of pumping scroll:down/up forever.
-  const recent = state.memory.actionsAttempted.slice(-4).map(a => a.action || "");
-  if (recent.length >= 4 && recent.every(a => a.startsWith("scroll:"))) {
-    return `\n⚠️ LOOP DETECTED: your last 4 actions were all scrolls (${recent.join(", ")}). Pick a click/back/dismiss/find action instead — scrolling more will not help.`;
+  const scrollLoop = param("journey.prompt.scrollLoop");
+  const recent = state.memory.actionsAttempted.slice(-scrollLoop).map(a => a.action || "");
+  if (recent.length >= scrollLoop && recent.every(a => a.startsWith("scroll:"))) {
+    return `\n⚠️ LOOP DETECTED: your last ${scrollLoop} actions were all scrolls (${recent.join(", ")}). Pick a click/back/dismiss/find action instead — scrolling more will not help.`;
   }
   // Repeated failed actions
-  const lastTwo = state.memory.actionsAttempted.slice(-2);
-  if (lastTwo.length === 2 && lastTwo.every(a => a.success === false)) {
-    return `\n⚠️ Last 2 actions failed (${lastTwo.map(a => a.action).join(", ")}). The element you wanted may not exist with that exact text — try a click:#N index from AVAILABLE ELEMENTS above, or a different element entirely.`;
+  const failedRun = param("journey.prompt.failedRun");
+  const lastTwo = state.memory.actionsAttempted.slice(-failedRun);
+  if (lastTwo.length === failedRun && lastTwo.every(a => a.success === false)) {
+    return `\n⚠️ Last ${failedRun} actions failed (${lastTwo.map(a => a.action).join(", ")}). The element you wanted may not exist with that exact text — try a click:#N index from AVAILABLE ELEMENTS above, or a different element entirely.`;
   }
   return "";
 })()}
@@ -2729,10 +2733,11 @@ function checkAbandonmentTriggers(
   }
 
   // Loop detection
-  const recentPages = state.memory.pagesVisited.slice(-5);
+  const loopWindow = param("journey.abandon.loopWindow");
+  const recentPages = state.memory.pagesVisited.slice(-loopWindow);
   const uniqueRecent = new Set(recentPages).size;
   if (
-    recentPages.length >= 5 &&
+    recentPages.length >= loopWindow &&
     uniqueRecent <= thresholds.loopDetectionThreshold
   ) {
     return {
@@ -2744,7 +2749,7 @@ function checkAbandonmentTriggers(
   // No progress
   if (
     state.stepCount > thresholds.maxStepsWithoutProgress &&
-    state.goalProgress < 0.1
+    state.goalProgress < param("journey.progress.madeLevel")
   ) {
     return {
       reason: "no_progress",
@@ -2757,7 +2762,7 @@ function checkAbandonmentTriggers(
     const emotional = state.emotionalState;
 
     // High anxiety + high frustration — only abandon if BOTH are extreme AND patience is depleted
-    if (emotional.anxiety > 0.85 && emotional.frustration > 0.8 && state.patienceRemaining < 0.3) {
+    if (emotional.anxiety > param("journey.emotionalAbandon.anxiety") && emotional.frustration > param("journey.emotionalAbandon.frustration") && state.patienceRemaining < param("journey.emotionalAbandon.patience")) {
       return {
         reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
         message: "This is too stressful. I need to take a break.",
@@ -2765,7 +2770,7 @@ function checkAbandonmentTriggers(
     }
 
     // Extreme boredom — only after significant time with zero engagement
-    if (emotional.boredom > 0.9 && emotional.excitement < 0.1 && state.stepCount > 8) {
+    if (emotional.boredom > param("journey.emotionalAbandon.boredom") && emotional.excitement < param("journey.emotionalAbandon.excitement") && state.stepCount > param("journey.emotionalAbandon.boredomSteps")) {
       return {
         reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
         message: "This is so boring... I'll do this later.",
@@ -2773,7 +2778,7 @@ function checkAbandonmentTriggers(
     }
 
     // Overwhelming negative valence — only with sustained high arousal AND low patience
-    if (emotional.valence < -0.85 && emotional.arousal > 0.85 && state.patienceRemaining < 0.4) {
+    if (emotional.valence < param("journey.emotionalAbandon.valence") && emotional.arousal > param("journey.emotionalAbandon.arousal") && state.patienceRemaining < param("journey.emotionalAbandon.valencePatience")) {
       return {
         reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
         message: "I can't deal with this right now.",
@@ -2783,7 +2788,7 @@ function checkAbandonmentTriggers(
     // Apply emotional abandonment modifier to patience threshold
     const emotionalModifier = calculateAbandonmentModifier(emotional);
     const adjustedPatienceThreshold = thresholds.patienceMin * emotionalModifier;
-    if (state.patienceRemaining < adjustedPatienceThreshold && emotionalModifier > 1.3) {
+    if (state.patienceRemaining < adjustedPatienceThreshold && emotionalModifier > param("journey.emotionalAbandon.modifier")) {
       return {
         reason: "emotional" as CognitiveJourneyResult["abandonmentReason"],
         message: "I don't have the energy for this anymore.",
@@ -2839,8 +2844,8 @@ async function executeAction(
   if (["click", "hover", "hoverclick"].includes(type) && fittsParams) {
     // Estimate target size and distance
     // Average button width ~80px, average screen movement distance ~300px
-    const estimatedDistance = 300;
-    const estimatedTargetWidth = 80;
+    const estimatedDistance = param("journey.fitts.distancePx");
+    const estimatedTargetWidth = param("journey.fitts.targetWidthPx");
 
     movementTimeMs = calculateFittsMovementTime(
       estimatedDistance,
@@ -2873,8 +2878,8 @@ async function executeAction(
       try {
         const escapedSel = selector.replace(/"/g, '\\"');
         const link = page.locator(`a:has-text("${escapedSel}")`).first();
-        if (await link.isVisible({ timeout: 1500 }).catch(() => false)) {
-          await link.click({ timeout: 3000 });
+        if (await link.isVisible({ timeout: param("journey.action.linkVisibleMs") }).catch(() => false)) {
+          await link.click({ timeout: param("journey.action.clickTimeoutMs") });
           clicked = true;
         }
       } catch {}
@@ -2883,8 +2888,8 @@ async function executeAction(
         try {
           const escapedSel = selector.replace(/"/g, '\\"');
           const btn = page.locator(`button:has-text("${escapedSel}"), [role="button"]:has-text("${escapedSel}")`).first();
-          if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await btn.click({ timeout: 3000 });
+          if (await btn.isVisible({ timeout: param("journey.action.buttonVisibleMs") }).catch(() => false)) {
+            await btn.click({ timeout: param("journey.action.clickTimeoutMs") });
             clicked = true;
           }
         } catch {}
@@ -2895,7 +2900,7 @@ async function executeAction(
         if (!result.success) return { success: false, movementTimeMs };
       }
 
-      try { await page.waitForTimeout(1000); } catch {}
+      try { await page.waitForTimeout(param("journey.action.clickSettleMs")); } catch {}
       let urlAfter = page.url();
 
       // If click didn't navigate but the element had an href, follow it directly
@@ -2905,11 +2910,11 @@ async function executeAction(
           const escapedSel = selector.replace(/"/g, '\\"');
           const href = await page.locator(`a:has-text("${escapedSel}")`).first().getAttribute('href').catch(() => null);
           if (href && href.startsWith('http')) {
-            await page.goto(href, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            await page.goto(href, { waitUntil: 'domcontentloaded', timeout: param("journey.action.gotoTimeoutMs") });
             urlAfter = page.url();
           } else if (href && href.startsWith('/')) {
             const base = new URL(urlBefore).origin;
-            await page.goto(base + href, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            await page.goto(base + href, { waitUntil: 'domcontentloaded', timeout: param("journey.action.gotoTimeoutMs") });
             urlAfter = page.url();
           }
         } catch {}
@@ -2945,8 +2950,8 @@ async function executeAction(
             const r = await browser.fill(selector, value);
             return { success: r.success };
           }
-          await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-          await loc.click({ timeout: 3000 });
+          await loc.scrollIntoViewIfNeeded({ timeout: param("journey.action.focusScrollMs") }).catch(() => {});
+          await loc.click({ timeout: param("journey.action.clickTimeoutMs") });
           // Clear if there's existing content
           await page.keyboard.press("Control+A").catch(() => {});
           await page.keyboard.press("Delete").catch(() => {});
@@ -2964,7 +2969,7 @@ async function executeAction(
       // Use age modifier as proxy for typing expertise (younger = faster)
       const expertise = fittsParams?.ageModifier
         ? Math.max(0, 1 - (fittsParams.ageModifier - 1))
-        : 0.5;
+        : param("journey.typing.defaultExpertise");
       const typingTimeMs = calculateTypingTime(value, expertise, true);
 
       // Add realistic typing delay
@@ -2986,10 +2991,11 @@ async function executeAction(
 
       try {
         const beforeY = await page.evaluate(() => window.scrollY);
+        const step = param("journey.action.scrollPx");
         if (humanInput && (direction === "down" || direction === "up")) {
           // Human-realistic scroll: variable delta + occasional glance-back.
           const { humanScroll } = await import("../visual/human-input.js");
-          const baseDelta = direction === "down" ? 400 : -400;
+          const baseDelta = direction === "down" ? step : -step;
           await humanScroll(page, baseDelta, inputTraits);
         } else {
           switch (direction) {
@@ -3000,20 +3006,20 @@ async function executeAction(
               await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
               break;
             case "up":
-              await page.evaluate(() => window.scrollBy({ top: -400, behavior: "smooth" }));
+              await page.evaluate((d) => window.scrollBy({ top: -d, behavior: "smooth" }), step);
               break;
             case "down":
             default:
-              await page.evaluate(() => window.scrollBy({ top: 400, behavior: "smooth" }));
+              await page.evaluate((d) => window.scrollBy({ top: d, behavior: "smooth" }), step);
               break;
           }
-          await sleep(300);
+          await sleep(param("journey.action.scrollSettleMs"));
         }
         // Report success only if the page actually moved. A no-op scroll
         // (already at top/bottom, or scroll blocked) returns failure so the
         // AI knows to try something else instead of looping scroll:up/down.
         const afterY = await page.evaluate(() => window.scrollY);
-        const moved = Math.abs(afterY - beforeY) > 5;
+        const moved = Math.abs(afterY - beforeY) > param("journey.action.scrollMovedPx");
         return { success: moved };
       } catch {
         return { success: false };
@@ -3023,8 +3029,8 @@ async function executeAction(
       // Browser back button — most common recovery action
       const page = await browser.getPage();
       try {
-        await page.goBack({ waitUntil: "domcontentloaded", timeout: 10000 });
-        await sleep(500);
+        await page.goBack({ waitUntil: "domcontentloaded", timeout: param("journey.action.gotoTimeoutMs") });
+        await sleep(param("journey.action.backSettleMs"));
         return { success: true, newUrl: page.url() };
       } catch {
         return { success: false };
@@ -3047,7 +3053,7 @@ async function executeAction(
           }
           return false;
         }, query);
-        await sleep(500);
+        await sleep(param("journey.action.findSettleMs"));
         return { success: found };
       } catch {
         return { success: false };
@@ -3058,9 +3064,9 @@ async function executeAction(
       const page = await browser.getPage();
       const count = parseInt(args[0] || "1", 10);
       try {
-        for (let i = 0; i < Math.min(count, 10); i++) {
+        for (let i = 0; i < Math.min(count, param("journey.action.maxTabs")); i++) {
           await page.keyboard.press("Tab");
-          await sleep(150);
+          await sleep(param("journey.action.tabIntervalMs"));
         }
         return { success: true };
       } catch {
@@ -3072,7 +3078,7 @@ async function executeAction(
       const page = await browser.getPage();
       try {
         await page.keyboard.press("Enter");
-        await sleep(800);
+        await sleep(param("journey.action.navigationWaitMs"));
         const newUrl = page.url();
         return { success: true, newUrl };
       } catch {
@@ -3096,7 +3102,7 @@ async function executeAction(
     case "dismiss": {
       // Dismiss overlay/popup/modal — close cookie banners, newsletter popups
       try {
-        await browser.dismissOverlay({ type: "auto", timeout: 3000 });
+        await browser.dismissOverlay({ type: "auto", timeout: param("journey.action.dismissTimeoutMs") });
         return { success: true };
       } catch {
         return { success: false };
@@ -3108,7 +3114,7 @@ async function executeAction(
       const page = await browser.getPage();
       try {
         await page.click(`details:has(summary:has-text("${selector}")) summary, [role="tab"]:has-text("${selector}"), button:has-text("${selector}")`);
-        await sleep(400);
+        await sleep(param("journey.action.expandSettleMs"));
         return { success: true };
       } catch {
         // Fall back to regular click
@@ -3118,7 +3124,7 @@ async function executeAction(
     }
     case "wait": {
       // Wait for page to load / content to appear
-      await sleep(parseInt(args[0] || "1000", 10));
+      await sleep(args[0] ? parseInt(args[0], 10) : param("journey.action.waitDefaultMs"));
       return { success: true };
     }
     default:
