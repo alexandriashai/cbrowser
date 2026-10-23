@@ -52,6 +52,7 @@ export const EXCEPTIONS: Record<string, Record<string, Record<number, number>>> 
   "src/cognitive/index.ts": {
     runCognitiveJourney: { 2: 8 },
     matchClickable: { 2: 1 },
+    boxGeometry: { 2: 1 },
     score: { 2: 1 },
     // English ordinal suffixes: 11th-13th, then by the last digit.
     ordinalSuffix: { 100: 1, 11: 1, 13: 1, 10: 1, 2: 1, 3: 1 },

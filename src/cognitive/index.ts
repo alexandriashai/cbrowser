@@ -2067,14 +2067,14 @@ Right now it's ${temporalState.description}.`;
           } catch (clickErr) {
             console.warn(`[cognitive] coordinate click failed: ${(clickErr as Error).message}`);
             const fallback = target.text ? `click:${target.text}` : parsed.action;
-            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits, boxGeometry(target, viewportCtx.viewport));
+            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits, boxGeometry(target, viewportCtx.viewport, viewportCtx.scroll.y));
           }
         } else {
           // No bbox — let executeAction handle (non-click actions, or click
           // text not found in availableElements). A hover names its element
           // the same way; its listed geometry, if any, times the pointing.
           result = await executeAction(browser, parsed.action, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits,
-            pointingGeometry(parsed.action, availableElements as Bbox[], viewportCtx.viewport));
+            pointingGeometry(parsed.action, availableElements as Bbox[], viewportCtx.viewport, viewportCtx.scroll.y));
         }
 
         // Inter-action settle pause — humans don't fire actions back-to-back
@@ -2824,16 +2824,22 @@ interface PointingGeometry { distance: number; width: number }
 
 /**
  * The Fitts geometry of a listed element, as Stage B measures pointing: the
- * distance from the centre of the screen (the pointer's assumed start) to the
- * element's centre, and the smaller of its width and height. Undefined when
+ * distance from the centre of the screen it is seen on (the pointer's assumed
+ * start) to the element's centre, and the smaller of its width and height.
+ * The box is in viewport coordinates, taken with the page scrolled to
+ * `scrollY`. An element whose centre is on the current screen is seen there;
+ * one above or below is seen once scrolled to, on the screen-sized band of
+ * the page that holds its centre (Stage B's full-page tiling). Undefined when
  * the element has no usable box.
  */
-function boxGeometry(el: ClickableBox | undefined, viewport: { width: number; height: number }): PointingGeometry | undefined {
+function boxGeometry(el: ClickableBox | undefined, viewport: { width: number; height: number }, scrollY: number): PointingGeometry | undefined {
   if (!el || typeof el.x !== "number" || typeof el.y !== "number" || typeof el.width !== "number" || typeof el.height !== "number") return undefined;
-  if (!(viewport.width > 0 && viewport.height > 0 && el.width >= 0 && el.height >= 0)) return undefined;
-  const box = { x: el.x, y: el.y, width: el.width, height: el.height };
+  if (!(viewport.width > 0 && viewport.height > 0 && el.width >= 0 && el.height >= 0 && Number.isFinite(scrollY))) return undefined;
+  const centreY = el.y + el.height / 2;
+  const onScreen = centreY >= 0 && centreY <= viewport.height;
+  const box = { x: el.x, y: el.y + scrollY, width: el.width, height: el.height };
   return {
-    distance: distanceToScreenCentre(box, { viewportWidth: viewport.width, viewportHeight: viewport.height, scrollY: 0 }, "viewport"),
+    distance: distanceToScreenCentre(box, { viewportWidth: viewport.width, viewportHeight: viewport.height, scrollY }, onScreen ? "viewport" : "full_page"),
     width: smallerOfWidth(box.width, box.height),
   };
 }
@@ -2844,7 +2850,7 @@ function boxGeometry(el: ClickableBox | undefined, viewport: { width: number; he
  * action that moves no pointer, or one whose element is not listed; executeAction
  * then charges the registered fallback move (journey.fitts.unlocated*).
  */
-function pointingGeometry(action: string, elements: ClickableBox[], viewport: { width: number; height: number }): PointingGeometry | undefined {
+function pointingGeometry(action: string, elements: ClickableBox[], viewport: { width: number; height: number }, scrollY: number): PointingGeometry | undefined {
   const [type, ...args] = action.split(":");
   if (!["click", "hover", "hoverclick"].includes(type)) return undefined;
   const name = type === "hoverclick" ? (args[0] ?? "") : args.join(":");
@@ -2852,7 +2858,7 @@ function pointingGeometry(action: string, elements: ClickableBox[], viewport: { 
   const el = index
     ? elements[parseInt(index[1], 10)]
     : elements.find(e => e.selector === name) ?? matchClickable(elements, name, viewport.height);
-  return boxGeometry(el, viewport);
+  return boxGeometry(el, viewport, scrollY);
 }
 
 async function executeAction(
