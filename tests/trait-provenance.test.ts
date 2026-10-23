@@ -12,12 +12,18 @@
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
-import { describe, test, expect, beforeAll } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-trait-prov-"));
+const priorDataDir = process.env.CBROWSER_DATA_DIR;
+const dataDir = mkdtempSync(join(tmpdir(), "cb-trait-prov-"));
+process.env.CBROWSER_DATA_DIR = dataDir;
+afterAll(() => {
+  if (priorDataDir === undefined) delete process.env.CBROWSER_DATA_DIR; else process.env.CBROWSER_DATA_DIR = priorDataDir;
+  rmSync(dataDir, { recursive: true, force: true });
+});
 
 const { MODEL_PROVENANCE } = await import("../src/visual/model-provenance.js");
 const { PERSONA_PROVENANCE_KEYS } = await import("../src/visual/provenance/personas.js");

@@ -21,11 +21,13 @@
  * @license MIT
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdtempSync } from "fs";
+import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-prov-views-"));
+const priorDataDir = process.env.CBROWSER_DATA_DIR;
+const dataDir = mkdtempSync(join(tmpdir(), "cb-prov-views-"));
+process.env.CBROWSER_DATA_DIR = dataDir;
 const ui = await import("../src/mcp-tools/ui-resources.js");
 const { CBrowser } = await import("../src/browser.js");
 const { MODEL_PROVENANCE, provenanceSummary, ATTENTION_PROVENANCE_TEXT } = await import("../src/visual/model-provenance.js");
@@ -106,7 +108,12 @@ beforeAll(async () => {
     { headers: { "content-type": "text/html; charset=utf-8" } }) });
   browser = new CBrowser({ headless: true, persistent: false, skipSessionRestore: true });
 });
-afterAll(async () => { await browser?.close(); server?.stop(true); });
+afterAll(async () => {
+  await browser?.close();
+  server?.stop(true);
+  if (priorDataDir === undefined) delete process.env.CBROWSER_DATA_DIR; else process.env.CBROWSER_DATA_DIR = priorDataDir;
+  rmSync(dataDir, { recursive: true, force: true });
+});
 
 interface Seen {
   dark: boolean; overflow: number; text: string;
