@@ -73,10 +73,13 @@ function expectHonestSummary(p: Summary) {
   // The output logistic's constants are gone (totalCTC is a percentile since
   // 21.x); the percentile's reference is a definition, so it is counted there.
   expect(p.hypotheses).not.toContain("chain.ctcSigmoidSlope");
-  // The score's hypotheses: the page-metric extraction, the chain, and the one
-  // the persona profile reads. No attention.* id: an attention map drawn as
-  // context carries its own block (expectAttentionBlock).
+  // The score's hypotheses: the page-metric extraction (the page's own, and
+  // the normalisers the reference pages are derived with: the reference
+  // stores raw measurements, so its curve rests on them too), the chain, and
+  // the one the persona profile reads. No attention.* id: an attention map
+  // drawn as context carries its own block (expectAttentionBlock).
   expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && !id.startsWith("pageMetrics.") && id !== "distance.missingTraitDefault")).toEqual([]);
+  expect(p.hypotheses).toContain("pageMetrics.informationDensity.midpoint");
   expect(p.note).toContain("hypothesis");
   // The scope says what the score block covers, and where the attention
   // model's constants (the fitted ones among them) are counted instead.

@@ -99,7 +99,7 @@ export interface CtcRank {
   percent: number | null;
   /** The band name, or null when the cost could not be ranked. */
   band: string | null;
-  /** "Costlier than N% of the real pages we measured (P sites x Q personas, S scope). Band: B (R)." */
+  /** "Costlier than N% of the real pages we measured (P pages x Q personas, S scope). Band: B (R)." */
   sentence: string;
   /** The rank clause alone, lower-case, to follow "<subject> is": "costlier than N% of ... scope)". */
   statement: string;
@@ -116,7 +116,7 @@ export interface CtcRank {
  */
 export function ctcRank(result: { totalCTC: number; rawCTC: number; referenceScope: MetricScope }): CtcRank {
   const { totalCTC: t, rawCTC: raw, referenceScope: scope } = result;
-  const pool = `(${param(`ctcReference.${scope}`)} sites x ${referencePersonaCount()} personas, ${scope} scope)`;
+  const pool = `(${param(`ctcReference.${scope}`)} pages x ${referencePersonaCount()} personas, ${scope} scope)`;
   const band = bandSentence(t);
   if (!isPercentile(t)) {
     const statement = `not rankable among the real pages we measured ${pool}: totalCTC is ${t} and rawCTC ${raw}`;

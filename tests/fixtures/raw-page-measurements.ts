@@ -17,7 +17,7 @@ import type { RawPageMeasurement, RawText } from "../../src/visual/cognitive-tra
 
 function raw(text: RawText, scope: "viewport" | "full_page" = "full_page"): RawPageMeasurement {
   return {
-    format: 1,
+    format: 2,
     scope,
     viewportWidth: 1280,
     viewportHeight: 800,
@@ -36,10 +36,16 @@ function raw(text: RawText, scope: "viewport" | "full_page" = "full_page"): RawP
     visibleElements: 300,
     images: 15,
     text,
+    prose: { chars: 120, words: 20 },
+    proseNested: { elements: 2, chars: 240, words: 40 },
     kinds: ["a", "button", "nav"],
     boxes: [0, 10, 20, 100, 24, 1, 200, 20, 80, 32],
     choiceGroups: [2, 12],
     choiceGroupCount: 1,
+    navGroupCount: 1,
+    navLinks: 12,
+    groupedLinks: 12,
+    choiceNested: { groups: 2, items: 24 },
     textBlocks: [120, 20, 0, 2, 16, 24, 640, 48],
     textBlockCount: 1,
   };

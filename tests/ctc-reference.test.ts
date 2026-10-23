@@ -2,19 +2,31 @@
  * totalCTC is a percentile against real pages (src/visual/ctc-reference.ts).
  *
  * Claims:
- *   1. The reference is what it says: every attempted site has an outcome,
- *      only graded pages carry metrics, both scopes are present, and the
- *      registry entries name the graded count the code ranks against.
- *   2. The population is the golden matrix's: the same 25 personas, built the
+ *   1. The reference is what it says: every attempted page has one outcome,
+ *      only graded pages carry measurements, both scopes are present, the
+ *      frames and page types are all represented, and the registry entries
+ *      name the graded count the code ranks against.
+ *   2. The crawl's rules show in the record: the proxy only after a blocked
+ *      direct attempt and never for .gov or .mil, proxy failures as codes
+ *      only, every graded page allowed by robots.txt, every robots outcome a
+ *      disallow, and the measure-stage page-metric constants recorded and
+ *      enforced.
+ *   3. The population is the golden matrix's: the same 25 personas, built the
  *      way cognitive_effort builds them.
- *   3. The curve is a continuous, monotone, piecewise-linear interpolated ECDF
+ *   4. The curve is a continuous, monotone, piecewise-linear interpolated ECDF
  *      with 0 below the reference and 1 above it, Lipschitz with curveSlope.
- *   4. totalCTC is that curve at rawCTC, for the curve of the demand's scope
+ *   5. totalCTC is that curve at rawCTC, for the curve of the demand's scope
  *      and the run's asymmetric/interactions options; values and carried
- *      capacity do not select a curve.
- *   5. Persona differences survive the pooling, and the reference pages use
+ *      capacity do not select a curve. totalCTCInterval is the curve's
+ *      bootstrap interval at the same rawCTC.
+ *   6. The interval resamples PAGES, contains the point, collapses outside
+ *      the reference, is monotone, is reproducible, covers about 95% when the
+ *      truth is known, and costs microseconds per score.
+ *   7. Persona differences survive the pooling, and the reference pages use
  *      the whole scale: about 5% of them above 0.95 and 5% below 0.05 (ISC-41).
- *   6. The curve is derived through the live chain: a changed constant moves it.
+ *   8. The curve is derived through the live chain from raw measurements: a
+ *      changed chain constant or page-metric normaliser moves it, a changed
+ *      measure-stage constant is refused, and a build stays under a second.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -22,15 +34,21 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { brotliCompressSync } from "node:zlib";
 import fc from "fast-check";
 import {
   CTC_REFERENCE,
+  bootstrapPercentileInterval,
   curveSlope,
+  decodeReferenceRaw,
+  intervalAt,
   percentileAt,
   percentileCurve,
+  referenceGraded,
   referenceOutcomes,
   referencePages,
   referencePopulation,
+  referenceRaw,
 } from "../src/visual/ctc-reference.js";
 import {
   computeDemandDistribution,
@@ -39,8 +57,10 @@ import {
   computeSequentialScrollCTC,
   ctcReferenceCurve,
 } from "../src/visual/cognitive-transport-chain.js";
-import { MODEL_PROVENANCE, readsOf, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
+import { RAW_PAGE_FORMAT } from "../src/visual/cognitive-transport.js";
+import { MODEL_PROVENANCE, param, readsOf, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { CTC_REFERENCE_PROVENANCE } from "../src/visual/provenance/ctc-reference.js";
+import { PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
 import { ROSTER, toolProfile, allDemands, schwartzFor } from "./fixtures/ctc-golden-matrix.js";
 
 const ROOT = join(import.meta.dir, "..");
@@ -50,30 +70,63 @@ const OPTION_PAIRS = [
   { asymmetric: false, interactions: true },
   { asymmetric: false, interactions: false },
 ];
+const FRAMES = ["brand", "tranco", "public"];
+const TYPES = ["landing", "form", "search", "article", "help", "cart"];
 
 describe("the reference set", () => {
-  test("every attempted site has one outcome; only graded pages carry metrics, at both scopes", () => {
+  test("every attempted page has one outcome; only graded pages carry measurements, at both scopes", () => {
     const o = CTC_REFERENCE.outcomes;
-    expect(o.graded + o.blocked + o.error).toBe(o.attempted);
-    const sites = JSON.parse(readFileSync(join(ROOT, "research", "benchmark", "sites.json"), "utf8")) as unknown[];
-    expect(o.attempted).toBe(sites.length);
+    expect(o.graded + o.blocked + o.error + o.excluded + o.robots).toBe(o.attempted);
     const rows = referenceOutcomes();
     expect(rows.length).toBe(o.attempted);
-    expect(rows.filter((r) => r.outcome === "graded").length).toBe(o.graded);
-    expect(rows.filter((r) => r.outcome === "blocked").length).toBe(o.blocked);
+    for (const k of ["graded", "blocked", "error", "excluded", "robots"] as const) expect(rows.filter((r) => r.outcome === k).length).toBe(o[k]);
     // An excluded page says why.
     for (const r of rows.filter((x) => x.outcome !== "graded")) expect(typeof r.detail).toBe("string");
     expect(CTC_REFERENCE.scopes).toEqual(["viewport", "full_page"]);
     expect(CTC_REFERENCE.viewport).toEqual({ width: 1920, height: 1080 });
     for (const scope of ["viewport", "full_page"] as const) {
+      const raws = referenceRaw(scope);
+      expect(raws.length).toBe(o.graded);
+      for (const r of raws) expect(r.scope).toBe(scope);
       const pages = referencePages(scope);
       expect(pages.length).toBe(o.graded);
       for (const m of pages) expect(m.scope).toBe(scope);
     }
+    expect(referenceGraded().length).toBe(o.graded);
+  });
+
+  test("every frame and every core page type is in the graded reference", () => {
+    const graded = referenceGraded();
+    for (const r of referenceOutcomes()) {
+      expect(FRAMES).toContain(r.frame);
+      expect(TYPES).toContain(r.pageType);
+    }
+    for (const f of FRAMES) expect(graded.filter((r) => r.frame === f).length).toBeGreaterThan(0);
+    for (const t of TYPES.filter((x) => x !== "cart")) expect(graded.filter((r) => r.pageType === t).length).toBeGreaterThan(0);
+    // An inner page says how it was found; a landing page needs no finding.
+    for (const r of referenceOutcomes()) {
+      if (r.pageType === "landing") expect(r.how).toBeUndefined();
+      else expect(typeof r.how).toBe("string");
+    }
+    expect(CTC_REFERENCE.frames.map((f) => f.id)).toEqual(FRAMES);
+    for (const f of CTC_REFERENCE.frames) expect(f.sitesTaken).toBeLessThanOrEqual(f.sitesListed);
+  });
+
+  test("the shipped measurements are raw format 2, and a record of another format is refused, not derived", () => {
+    for (const scope of ["viewport", "full_page"] as const) for (const r of referenceRaw(scope)) expect(r.format).toBe(RAW_PAGE_FORMAT);
+    const pack = (records: unknown[]) => brotliCompressSync(Buffer.from(JSON.stringify(records), "utf8")).toString("base64");
+    const vp = referenceRaw("viewport"), fp = referenceRaw("full_page");
+    const good = [0, 1].map((i) => ({ viewport: vp[i], full_page: fp[i] }));
+    expect(decodeReferenceRaw(pack(good), 2, "t")).toEqual(good);
+    // A format-1 record (nested prose counted again) is not ranked against.
+    const old = good.map((p, i) => (i === 1 ? { ...p, full_page: { ...p.full_page, format: 1 } } : p));
+    expect(() => decodeReferenceRaw(pack(old), 2, "t")).toThrow(/graded page 1 full_page is raw format 1; this build measures and ranks against format 2/);
+    expect(() => decodeReferenceRaw(pack([{ viewport: vp[0] }, good[1]]), 2, "t")).toThrow(/graded page 0 full_page is raw format undefined/);
+    expect(() => decodeReferenceRaw(pack(good), 3, "t")).toThrow(/2 raw measurements for 3 graded pages/);
   });
 
   test("blocked means did not load: no graded page has zero interactive elements on the whole document", () => {
-    for (const m of referencePages("full_page")) expect(m.interactiveElementCount).toBeGreaterThan(0);
+    for (const m of referenceRaw("full_page")) expect(m.interactiveElements).toBeGreaterThan(0);
   });
 
   test("the registry names the graded count at each scope, as a definition, and the chain ranks only against it", () => {
@@ -81,13 +134,17 @@ describe("the reference set", () => {
       const e = MODEL_PROVENANCE[`ctcReference.${scope}`];
       expect(e.status).toBe("definition");
       expect(e.value).toBe(CTC_REFERENCE.outcomes.graded);
-      expect(e.source).toContain(CTC_REFERENCE.id);
+      expect(e.source).toContain(`src/data/${CTC_REFERENCE.id}.ts`);
       expect(e.source).toMatch(/not a fit/);
     }
     // The file also registers what is defined ON the percentile (ctcBands.*,
     // idealProfiles.maxCTC.*; tests/ctc-bands.test.ts, tests/ideal-profiles-ctc.test.ts).
-    expect(CTC_REFERENCE_PROVENANCE.map((e) => e.id).filter((id) => id.startsWith("ctcReference.")).sort())
-      .toEqual(["ctcReference.full_page", "ctcReference.viewport"]);
+    const own = CTC_REFERENCE_PROVENANCE.filter((e) => e.id.startsWith("ctcReference."));
+    expect(own.map((e) => e.id).sort()).toEqual([
+      "ctcReference.full_page", "ctcReference.interval.grid", "ctcReference.interval.level",
+      "ctcReference.interval.replicates", "ctcReference.interval.seed", "ctcReference.viewport",
+    ]);
+    for (const e of own) expect(e.status).toBe("definition");
     const demand = computeDemandFromRawMetrics(0.5, 0.5, 40, 0.5, 0.2, 12, 3);
     const prof = toolProfile("first-timer", ROSTER["first-timer"]);
     // A registry that disagrees with the shipped data is refused, not ranked against.
@@ -105,23 +162,76 @@ describe("the reference set", () => {
     // records exactly what a cached one does.
     expect(withParamOverrides({}, summary)).toEqual(first);
     // The demand curves shape the reference pages, so the score depends on them
-    // even though this demand was computed outside the recording.
+    // even though this demand was computed outside the recording; so do the
+    // normalisers the reference pages' metrics are derived with.
     expect(first.hypotheses).toContain("chain.demand.info.workingMemory");
+    expect(first.hypotheses).toContain("pageMetrics.informationDensity.midpoint");
     const { ids } = readsOf(() => computeSequentialCTC(prof, demand));
     expect(ids.has("ctcReference.viewport")).toBe(true);
     expect(ids.has("ctcReference.full_page")).toBe(false);
+    for (const id of ["ctcReference.interval.replicates", "ctcReference.interval.seed", "ctcReference.interval.level", "ctcReference.interval.grid"]) expect(ids.has(id)).toBe(true);
+    for (const id of PAGE_METRICS_MEASURE_IDS) expect(ids.has(id)).toBe(true);
   });
 
-  test("the BLOCK_SIGNATURES the crawl applied are cognitive_effort's, verbatim", () => {
+  test("the BLOCK_SIGNATURES both crawls applied are cognitive_effort's, verbatim", () => {
     const list = (src: string) => {
       const m = src.match(/BLOCK_SIGNATURES = \[([\s\S]*?)\];/);
       if (!m) throw new Error("no BLOCK_SIGNATURES list");
       return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
     };
     const tool = list(readFileSync(join(ROOT, "src", "mcp-tools", "base", "persona-comparison-tools.ts"), "utf8"));
-    const crawl = list(readFileSync(join(ROOT, "research", "ctc-reference", "crawl.ts"), "utf8"));
     expect(tool.length).toBeGreaterThan(5);
-    expect(crawl).toEqual(tool);
+    for (const crawler of ["crawl.ts", "crawl-v2.ts"]) {
+      expect(list(readFileSync(join(ROOT, "research", "ctc-reference", crawler), "utf8"))).toEqual(tool);
+    }
+  });
+});
+
+describe("the crawl's rules, as the record shows them", () => {
+  const rows = referenceOutcomes();
+
+  test("the proxy only for a page whose direct attempt was blocked, never for .gov or .mil", () => {
+    for (const r of rows) {
+      if (r.route === "proxy") {
+        expect(/\.(gov|mil)$/i.test(new URL(r.url).hostname)).toBe(false);
+        if (r.finalUrl) expect(/\.(gov|mil)$/i.test(new URL(r.finalUrl).hostname)).toBe(false);
+        expect(r.proxyBytes).toBeGreaterThanOrEqual(0);
+        // The record says why: the direct attempt before it was classified blocked.
+        expect(r.proxiedBecause).toMatch(/^blocked: /);
+      } else {
+        expect(r.proxyBytes).toBe(0);
+        expect(r.proxiedBecause).toBeUndefined();
+      }
+    }
+    const p = CTC_REFERENCE.proxy;
+    expect(p.region).toBe("us-central");
+    expect(p.budgetBytes).toBe(3 * 1024 ** 3);
+    // Every proxy attempt is counted, including one that a www. retry later replaced.
+    expect(p.pages).toBeGreaterThanOrEqual(rows.filter((r) => r.route === "proxy").length);
+    expect(p.bytes).toBeGreaterThanOrEqual(rows.reduce((x, r) => x + r.proxyBytes, 0));
+    // The budget is only reported spent when it was.
+    if (p.budgetExhausted) expect(p.bytes).toBeGreaterThanOrEqual(p.budgetBytes);
+  });
+
+  test("a failure through the proxy is stored as a code, never as a message that could name the proxy", () => {
+    for (const r of rows.filter((x) => x.route === "proxy" && x.outcome === "error")) {
+      expect(r.detail).toMatch(/^(net::ERR_[A-Z_]+|timeout|navigation failed|no result|unparseable result)$/);
+    }
+    for (const r of rows) for (const s of [r.detail, r.robots, r.how]) if (s) expect(s).not.toMatch(/proxy:|<proxy>|iproyal|_country-/i);
+  });
+
+  test("robots.txt: every graded page was allowed, every robots outcome was a disallow", () => {
+    for (const r of rows.filter((x) => x.outcome === "graded")) expect(r.robots.startsWith("allowed")).toBe(true);
+    for (const r of rows.filter((x) => x.outcome === "robots")) expect(r.robots.startsWith("disallowed")).toBe(true);
+  });
+
+  test("the measure-stage page-metric constants are recorded, and a different live value is refused", () => {
+    expect(Object.keys(CTC_REFERENCE.measureParams).sort()).toEqual([...PAGE_METRICS_MEASURE_IDS].sort());
+    for (const id of PAGE_METRICS_MEASURE_IDS) expect(CTC_REFERENCE.measureParams[id]).toBe(param(id));
+    for (const id of ["pageMetrics.visual.colourSample", "pageMetrics.prose.lengthAbove", "pageMetrics.script.textShare"]) {
+      expect(() => withParamOverrides({ [id]: param(id) * 1.1 }, () => ctcReferenceCurve("viewport")))
+        .toThrow(new RegExp(`${id.replace(/\./g, "\\.")} is applied while a page is measured`));
+    }
   });
 });
 
@@ -190,11 +300,13 @@ describe("the percentile curve", () => {
         expect(r.personas).toBe(25);
         expect(r.curve.samples).toBe(r.pages * r.personas);
         expect(r.curve.xs.length).toBeGreaterThan(r.pages);
+        expect(r.interval.replicates).toBe(param("ctcReference.interval.replicates"));
+        expect(r.interval.level).toBe(param("ctcReference.interval.level"));
       }
   });
 });
 
-describe("totalCTC is the curve at rawCTC", () => {
+describe("totalCTC is the curve at rawCTC, and totalCTCInterval its interval there", () => {
   test("for every roster persona, golden page and option pair, against the demand's scope", () => {
     let n = 0;
     for (const [name, p] of Object.entries(ROSTER)) {
@@ -202,8 +314,12 @@ describe("totalCTC is the curve at rawCTC", () => {
       for (const { demand } of allDemands())
         for (const opts of OPTION_PAIRS) {
           const r = computeSequentialCTC(prof, demand, opts);
+          const ref = ctcReferenceCurve("viewport", opts);
           expect(r.referenceScope).toBe("viewport");
-          expect(Object.is(r.totalCTC, percentileAt(ctcReferenceCurve("viewport", opts).curve, r.rawCTC))).toBe(true);
+          expect(Object.is(r.totalCTC, percentileAt(ref.curve, r.rawCTC))).toBe(true);
+          expect(r.totalCTCInterval).toEqual(intervalAt(ref.interval, r.rawCTC, r.totalCTC));
+          expect(r.totalCTCInterval[0]).toBeLessThanOrEqual(r.totalCTC);
+          expect(r.totalCTCInterval[1]).toBeGreaterThanOrEqual(r.totalCTC);
           n++;
         }
     }
@@ -243,7 +359,115 @@ describe("totalCTC is the curve at rawCTC", () => {
   test("the option pairs are different yardsticks: a symmetric cost is ranked among symmetric costs", () => {
     const a = ctcReferenceCurve("viewport", { asymmetric: true, interactions: true }).curve;
     const s = ctcReferenceCurve("viewport", { asymmetric: false, interactions: true }).curve;
-    expect(s.xs[s.xs.length - 1]).toBeGreaterThan(a.xs[a.xs.length - 1]);
+    // Symmetric costs also bill surplus, so they sit higher: the asymmetric
+    // median raw cost ranks far lower among symmetric costs. (The top can be
+    // shared: on the v2 reference the costliest pair carries no surplus, so
+    // both curves end at the same raw cost.)
+    expect(s.xs[s.xs.length - 1]).toBeGreaterThanOrEqual(a.xs[a.xs.length - 1]);
+    const median = a.xs[Math.floor((a.xs.length - 1) / 2)];
+    expect(percentileAt(s, median)).toBeLessThan(percentileAt(a, median) - 0.1);
+  });
+});
+
+describe("the interval", () => {
+  const settings = { replicates: 1000, seed: 20261022, level: 0.95, grid: 101 };
+
+  test("contains the point, sits in [0, 1], collapses below and above the reference, and is monotone in rawCTC", () => {
+    for (const scope of ["viewport", "full_page"] as const) {
+      const ref = ctcReferenceCurve(scope);
+      const { xs } = ref.curve;
+      const lo = xs[0], hi = xs[xs.length - 1];
+      expect(intervalAt(ref.interval, lo - 1, 0)).toEqual([0, 0]);
+      expect(intervalAt(ref.interval, hi + 1, 1)).toEqual([1, 1]);
+      let prev: [number, number] = [0, 0];
+      for (let k = 0; k <= 400; k++) {
+        const x = lo + ((hi - lo) * k) / 400;
+        const p = percentileAt(ref.curve, x);
+        const [a, b] = intervalAt(ref.interval, x, p);
+        expect(a).toBeGreaterThanOrEqual(0);
+        expect(b).toBeLessThanOrEqual(1);
+        expect(a).toBeLessThanOrEqual(p);
+        expect(b).toBeGreaterThanOrEqual(p);
+        expect(a).toBeGreaterThanOrEqual(prev[0] - 1e-12);
+        expect(b).toBeGreaterThanOrEqual(prev[1] - 1e-12);
+        prev = [a, b];
+      }
+      // Real width in the middle of the reference: a few hundred pages do not fix a median exactly.
+      const mid = ref.interval.xs[Math.floor(ref.interval.xs.length / 2)];
+      const [a, b] = intervalAt(ref.interval, mid, percentileAt(ref.curve, mid));
+      expect(b - a).toBeGreaterThan(0.005);
+      expect(b - a).toBeLessThan(0.3);
+    }
+  });
+
+  test("pages are the sampling unit: a page's personas move together, and treating pairs as independent would narrow it", () => {
+    // 60 pages whose 25 costs are all the page's own value: perfectly correlated within a page.
+    const rng = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+    const perPage = 25;
+    const values = Array.from({ length: 60 }, () => rng() * 3);
+    const costs = Float64Array.from(values.flatMap((v) => Array(perPage).fill(v)));
+    const byPage = bootstrapPercentileInterval(costs, perPage, settings);
+    const oneEach = bootstrapPercentileInterval(Float64Array.from(values), 1, settings);
+    const pairs = bootstrapPercentileInterval(costs, 1, settings);
+    const curve = percentileCurve(costs);
+    const width = (iv: typeof byPage, x: number) => {
+      const [a, b] = intervalAt(iv, x, percentileAt(curve, x));
+      return b - a;
+    };
+    for (const x of [0.75, 1.5, 2.25]) {
+      // The same as resampling the 60 pages' values: 25 equal costs are one draw.
+      expect(Math.abs(width(byPage, x) - width(oneEach, x))).toBeLessThan(0.03);
+      // Treating the 1,500 pairs as independent draws claims far more certainty.
+      expect(width(pairs, x)).toBeLessThan(width(byPage, x) / 2);
+    }
+  });
+
+  test("reproducible: the registered seed gives the same interval, another seed a different one", () => {
+    const costs = Float64Array.from({ length: 40 * 5 }, (_, i) => Math.sin(i * 12.9898) * 43758.5453 % 1 + 1);
+    const a = bootstrapPercentileInterval(costs, 5, settings);
+    const b = bootstrapPercentileInterval(costs, 5, settings);
+    const c = bootstrapPercentileInterval(costs, 5, { ...settings, seed: settings.seed + 1 });
+    expect([...a.lo]).toEqual([...b.lo]);
+    expect([...a.hi]).toEqual([...b.hi]);
+    expect([...a.lo]).not.toEqual([...c.lo]);
+  });
+
+  test("calibration: on samples from a known distribution it covers the true percentile about 95% of the time", () => {
+    // Uniform(0, 1) pages, one cost each: the true percentile of x is x. 200
+    // reference sets of 150 pages; the interval at x = 0.5 and x = 0.8 should
+    // contain 0.5 and 0.8 in roughly 95% of them.
+    let seed = 1;
+    const rand = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+    let hits50 = 0, hits80 = 0;
+    const runs = 200;
+    for (let r = 0; r < runs; r++) {
+      const sample = Float64Array.from({ length: 150 }, rand);
+      const iv = bootstrapPercentileInterval(sample, 1, { ...settings, seed: 1000 + r, replicates: 400, grid: 21 });
+      const curve = percentileCurve(sample);
+      const [a, b] = intervalAt(iv, 0.5, percentileAt(curve, 0.5));
+      if (a <= 0.5 && 0.5 <= b) hits50++;
+      const [c, d] = intervalAt(iv, 0.8, percentileAt(curve, 0.8));
+      if (c <= 0.8 && 0.8 <= d) hits80++;
+    }
+    expect(hits50 / runs).toBeGreaterThan(0.88);
+    expect(hits80 / runs).toBeGreaterThan(0.88);
+    expect(hits50 / runs).toBeLessThanOrEqual(1);
+  }, 60_000);
+
+  test("a score pays microseconds for the percentile and its interval", () => {
+    const ref = ctcReferenceCurve("viewport");
+    const { xs } = ref.curve;
+    const span = xs[xs.length - 1] - xs[0];
+    let sink = 0;
+    const t0 = performance.now();
+    for (let i = 0; i < 100_000; i++) {
+      const x = xs[0] + ((i * 0.618033988749895) % 1) * span;
+      const p = percentileAt(ref.curve, x);
+      sink += intervalAt(ref.interval, x, p)[1] - p;
+    }
+    const perCall = ((performance.now() - t0) * 1000) / 100_000;
+    expect(Number.isFinite(sink)).toBe(true);
+    expect(perCall).toBeLessThan(5);
   });
 });
 
@@ -289,13 +513,14 @@ describe("what the percentile buys", () => {
   });
 });
 
-describe("the curve is derived through the live chain", () => {
+describe("the curve is derived through the live chain, from raw measurements", () => {
   test("a changed chain constant re-derives the curve, and the cache never serves it across the change", () => {
     const base = ctcReferenceCurve("viewport");
     expect(ctcReferenceCurve("viewport")).toBe(base);
     const moved = withParamOverrides({ "chain.weightDeficit": 1.1 }, () => ctcReferenceCurve("viewport"));
     expect(moved).not.toBe(base);
     expect([...moved.curve.xs]).not.toEqual([...base.curve.xs]);
+    expect([...moved.interval.xs]).not.toEqual([...base.interval.xs]);
     // A demand-curve constant moves the reference pages' demand, so it moves the curve too.
     const demandMoved = withParamOverrides({ "chain.demand.text.readingCapacity": 0.99 }, () => ctcReferenceCurve("viewport"));
     expect([...demandMoved.curve.xs]).not.toEqual([...base.curve.xs]);
@@ -304,5 +529,28 @@ describe("the curve is derived through the live chain", () => {
     // The same raw cost ranks differently against the two curves.
     const mid = base.curve.xs[Math.floor(base.curve.xs.length / 2)];
     expect(percentileAt(moved.curve, mid)).not.toBe(percentileAt(base.curve, mid));
+  });
+
+  test("a changed page-metric normaliser re-derives the curve: the reference stores raw measurements, not metrics", () => {
+    const base = ctcReferenceCurve("viewport");
+    // A midpoint, a cap, and a sentence threshold applied to the stored length histograms.
+    for (const [id, v] of [["pageMetrics.informationDensity.midpoint", 2500], ["pageMetrics.choiceCap", 20], ["pageMetrics.alphabetic.sentenceLengthAbove", 20]] as const) {
+      const moved = withParamOverrides({ [id]: v }, () => ctcReferenceCurve("viewport"));
+      expect([...moved.curve.xs]).not.toEqual([...base.curve.xs]);
+      expect(moved.reads).toContain(id);
+    }
+    // The pages it ranks against moved with it.
+    const before = referencePages("viewport")[0].informationDensity;
+    const after = withParamOverrides({ "pageMetrics.informationDensity.midpoint": 2500 }, () => referencePages("viewport")[0].informationDensity);
+    expect(after).toBeGreaterThan(before);
+  });
+
+  test("a curve build stays under a second per scope and option pair", () => {
+    for (const scope of ["viewport", "full_page"] as const)
+      for (const opts of OPTION_PAIRS) {
+        const t0 = performance.now();
+        withParamOverrides({}, () => ctcReferenceCurve(scope, opts));
+        expect(performance.now() - t0).toBeLessThan(1000);
+      }
   });
 });

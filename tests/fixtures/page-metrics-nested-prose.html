@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page metrics fixture: nested prose</title>
+<link rel="stylesheet" href="page-metrics-format2.css">
+</head>
+<body>
+<main>
+<!-- Eight outermost prose elements, 45 words. Counted per element, nested
+     ones again, it is 15 elements and 74 words. -->
+<p>Alpha bravo charlie delta echo.</p>
+<ul><li><p>Foxtrot golf hotel india juliet.</p></li></ul>
+<ul><li>Kilo lima mike.<ul><li>November oscar papa.</li><li>Quebec romeo sierra.</li></ul></li></ul>
+<table><tr><td><ul><li>Tango uniform victor whiskey.</li></ul></td><th>Xray yankee zulu.</th></tr></table>
+<blockquote><p>One two three four five six.</p><p>Seven eight nine ten.</p></blockquote>
+<figure><img width="40" height="40" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23369'/%3E%3C/svg%3E"><figcaption><p>Eleven twelve thirteen fourteen.</p></figcaption></figure>
+<h2>Heading with <span>inline words</span> here</h2>
+</main>
+</body>
+</html>

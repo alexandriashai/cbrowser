@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page metrics fixture: choice groups inside choice groups</title>
+<link rel="stylesheet" href="page-metrics-format2.css">
+</head>
+<body>
+<!-- 11 links. Each choice counted once, in the outermost group that offers
+     it: 5 groups (3 of them navs, 9 nav links), 14 choices, 9 links in a
+     group and 2 outside any. Counted per group, nested groups again: 8
+     groups, 23 choices. -->
+<nav aria-label="Main">
+<ul role="menubar">
+<li role="none"><a role="menuitem" href="/a">Alpha</a></li>
+<li role="none"><a role="menuitem" href="/b">Bravo</a>
+<ul role="menu"><li role="none"><a role="menuitem" href="/b1">Bravo one</a></li><li role="none"><a role="menuitem" href="/b2">Bravo two</a></li></ul>
+</li>
+<li role="none"><a role="menuitem" href="/c">Charlie</a></li>
+</ul>
+</nav>
+<div role="tablist" aria-label="Plans"><button role="tab" type="button">Monthly</button><button role="tab" type="button">Yearly</button><button role="tab" type="button">Lifetime</button></div>
+<div role="navigation" aria-label="Footer">
+<nav aria-label="Legal"><a href="/p">Privacy</a> <a href="/t">Terms</a></nav>
+<a href="/s">Sitemap</a>
+</div>
+<nav aria-label="Sections">
+<a href="/x">Section link</a>
+<div role="tablist" aria-label="Views"><button role="tab" type="button">List</button><button role="tab" type="button">Grid</button></div>
+</nav>
+<p>Two links outside any group: <a href="/u1">first</a> and <a href="/u2">second</a>.</p>
+</body>
+</html>

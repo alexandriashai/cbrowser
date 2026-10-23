@@ -1,6 +1,12 @@
 /**
  * Crawl the CTC reference set: what extractPageMetrics measures on real pages.
  *
+ * THE v1 RECORD. This crawled the first reference (2026-10-22, 111 brand
+ * landing pages, normalised metrics). It was replaced by crawl-v2.ts, which
+ * stores raw measurements from three frames and six page types; the v1 data
+ * moved to research/ctc-reference/v1/ctc-reference-2026-10-22.ts and is no
+ * longer shipped. Kept unchanged below as the method that produced it.
+ *
  * ## Why this exists
  *
  * totalCTC was a logistic of the raw transport cost with a hand-set slope (2.5)

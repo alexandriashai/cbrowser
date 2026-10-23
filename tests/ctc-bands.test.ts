@@ -27,7 +27,7 @@ import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
 
 const PAGES = CTC_REFERENCE.outcomes.graded;
 const PERSONAS = referencePopulation().length;
-const POOL = `(${PAGES} sites x ${PERSONAS} personas, viewport scope)`;
+const POOL = `(${PAGES} pages x ${PERSONAS} personas, viewport scope)`;
 
 /** Words that describe a person's experience, or abandonment, rather than a rank. */
 const FEELING = /comfort|struggl|abandon|easy|easily|hard\b|difficult|frustrat|overwhelm|burden|likely to|will experience|should handle/i;
@@ -129,13 +129,13 @@ describe("ctcRank states the rank in the required form", () => {
 
   test("the scope is the result's, and the page count is the registered one at that scope", () => {
     const full = ctcRank({ totalCTC: 0.6, rawCTC: 2, referenceScope: "full_page" });
-    expect(full.sentence).toContain(`(${PAGES} sites x ${PERSONAS} personas, full_page scope)`);
+    expect(full.sentence).toContain(`(${PAGES} pages x ${PERSONAS} personas, full_page scope)`);
     const { ids } = readsOf(() => ctcRank({ totalCTC: 0.6, rawCTC: 2, referenceScope: "full_page" }));
     expect(ids.has("ctcReference.full_page")).toBe(true);
     expect(ids.has("ctcReference.viewport")).toBe(false);
     // Overriding the registered count changes the sentence: it is read, not typed.
     withParamOverrides({ "ctcReference.full_page": 999 }, () => {
-      expect(ctcRank({ totalCTC: 0.6, rawCTC: 2, referenceScope: "full_page" }).sentence).toContain("(999 sites x");
+      expect(ctcRank({ totalCTC: 0.6, rawCTC: 2, referenceScope: "full_page" }).sentence).toContain("(999 pages x");
     });
   });
 

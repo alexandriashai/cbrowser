@@ -161,7 +161,7 @@ export const OPTION_SETS: Array<{ id: string; options: { asymmetric?: boolean; i
 ];
 
 export interface GoldenRun {
-  totalCTC: number; rawCTC: number; additiveCTC: number; deficitCost: number; surplusCost: number;
+  totalCTC: number; totalCTCInterval: [number, number]; rawCTC: number; additiveCTC: number; deficitCost: number; surplusCost: number;
   bottleneckLayer: string; abandonmentRisk: number;
   layers: Array<{ name: string; transportCost: number; capacityConsumed: number; headroom: number }>;
   interactions: Record<string, number>; interactionTotal: number;
@@ -213,7 +213,7 @@ function pickRun(r: ReturnType<typeof computeSequentialCTC>): GoldenRun {
   let interactionTotal = 0;
   for (const v of Object.values(r.interactions)) interactionTotal += v;
   return {
-    totalCTC: r.totalCTC, rawCTC: r.rawCTC, additiveCTC: r.additiveCTC, deficitCost: r.deficitCost, surplusCost: r.surplusCost,
+    totalCTC: r.totalCTC, totalCTCInterval: [...r.totalCTCInterval], rawCTC: r.rawCTC, additiveCTC: r.additiveCTC, deficitCost: r.deficitCost, surplusCost: r.surplusCost,
     bottleneckLayer: r.bottleneckLayer, abandonmentRisk: r.abandonmentRisk,
     layers: r.layers.map((l) => ({ name: l.name, transportCost: l.transportCost, capacityConsumed: l.capacityConsumed, headroom: l.headroom })),
     interactions: { ...r.interactions }, interactionTotal,

@@ -1,0 +1,13 @@
+/* Format-2 measurement fixtures (tests/page-metrics-format2.test.ts). Small
+   pages that fit the first 1280x800 screen, so viewport and full_page scope
+   count the same elements, and the counts are known by construction. */
+html, body { margin: 0; padding: 0; }
+body { width: 1280px; background: #fafaf7; color: #1a1a1a; font: 16px/20px sans-serif; }
+nav ul, main ul { margin: 0; padding: 0 0 0 20px; }
+nav li { display: inline-block; margin-right: 12px; }
+p, blockquote, h1, h2, table, figure { margin: 0 0 8px; }
+.visuallyhidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.tiny-nav { display: inline-block; width: 120px; height: 18px; overflow: hidden; font-size: 10px; line-height: 18px; }

@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { chromium, type Browser } from "playwright";
 import { serveFixtures } from "./fixtures/serve-fixtures.js";
 import { PAGE_METRICS_FIXTURES, type PageMetricsGolden } from "./fixtures/page-metrics-measure.js";
-import { measurePageRaw, deriveMetrics, type RawPageMeasurement, type MetricScope } from "../src/visual/cognitive-transport.js";
+import { measurePageRaw, deriveMetrics, RAW_PAGE_FORMAT, type RawPageMeasurement, type MetricScope } from "../src/visual/cognitive-transport.js";
 import { param, withParamOverrides } from "../src/visual/model-provenance.js";
 
 const golden = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "page-metrics-golden.json"), "utf8")) as PageMetricsGolden;
@@ -84,7 +84,8 @@ describe("the geometry Stage B reads is well formed", () => {
     for (const name of PAGE_METRICS_FIXTURES)
       for (const scope of ["viewport", "full_page"] as const) {
         const r = parsed(name, scope);
-        expect(r.format).toBe(1);
+        expect(r.format).toBe(RAW_PAGE_FORMAT);
+        expect(r.format).toBe(2);
         expect(r.scope).toBe(scope);
         expect(r.boxes.length % 5).toBe(0);
         expect(r.boxes.length / 5).toBe(Math.min(r.interactiveElements, maxBoxes));
@@ -92,6 +93,22 @@ describe("the geometry Stage B reads is well formed", () => {
         expect(r.choiceGroups.length / 2).toBe(Math.min(r.choiceGroupCount, maxGroups));
         expect(r.textBlocks.length % 8).toBe(0);
         expect(r.textBlocks.length / 8).toBe(Math.min(r.textBlockCount, maxBlocks));
+        // The prose totals are the blocks' sums when no block was cut, and
+        // format 1's per-element count can only be as large or larger.
+        if (r.textBlockCount <= maxBlocks) {
+          let chars = 0, words = 0;
+          for (let i = 0; i < r.textBlocks.length; i += 8) { chars += r.textBlocks[i]; words += r.textBlocks[i + 1]; }
+          expect(r.prose).toEqual({ chars, words });
+        }
+        expect(r.proseNested.elements).toBeGreaterThanOrEqual(r.textBlockCount);
+        expect(r.proseNested.chars).toBeGreaterThanOrEqual(r.prose.chars);
+        expect(r.proseNested.words).toBeGreaterThanOrEqual(r.prose.words);
+        // The uncapped nav totals sit inside the link count, and format 1's
+        // group count can only be as large or larger.
+        expect(r.navLinks).toBeLessThanOrEqual(r.groupedLinks);
+        expect(r.groupedLinks).toBeLessThanOrEqual(r.links);
+        expect(r.navGroupCount).toBeLessThanOrEqual(r.choiceGroupCount);
+        expect(r.choiceNested.groups).toBeGreaterThanOrEqual(r.choiceGroupCount);
         for (let i = 0; i < r.boxes.length; i += 5) {
           expect(r.kinds[r.boxes[i]]).toBeString();
           expect(r.boxes[i + 3]).toBeGreaterThanOrEqual(0);
