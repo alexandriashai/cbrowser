@@ -897,10 +897,13 @@ export async function analyzePerceptualTransport(
   const originalPath = join(tmpdir(), `perceptual-original-${Date.now()}.png`);
   await sharp(screenshotPath).resize(width, height).png().toFile(originalPath);
 
-  // Compute Wasserstein distance between original and filtered
+  // Compute Wasserstein distance between original and filtered. The registry
+  // is read here rather than imported: it imports this file
+  // (provenance/perceptual.ts).
+  const { param } = await import('./model-provenance.js');
   const transportResult = await computeWassersteinDistance(originalPath, filteredPath, {
     compareMode: 'combined',
-    numProjections: 32,
+    numProjections: param('visualDistance.perceptualNumProjections'),
     downscale: 1.0, // Already downscaled
   });
 
