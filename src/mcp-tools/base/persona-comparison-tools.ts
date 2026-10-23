@@ -1573,6 +1573,9 @@ Begin with the first persona: ${personas[0]}
         await motorTemp?.remove();
       }
 
+      // The layer overlays' screenshot, in its own temp dir like the motor one.
+      let layersTemp: CallTempDir | undefined;
+
       // Per-layer visual evidence, so a bar in the chain can be opened into the
       // thing it measured.
       //
@@ -1582,7 +1585,6 @@ Begin with the first persona: ${personas[0]}
       // this layer, and here is why" is information. Nothing is fabricated to
       // fill the gap. (2026-08-02)
       const layerOverlays: Array<{ layer: string; file?: string; legend?: string; available: boolean; reason?: string }> = [];
-      let layersTemp: CallTempDir | undefined;
       try {
         layersTemp = await makeTempDir("cog-effort-layers");
         const ssPath = layersTemp.file("page.png");
