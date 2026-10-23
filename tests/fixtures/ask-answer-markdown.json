@@ -1,0 +1,11 @@
+{
+ "note": "A real answer from the public help endpoint (2026-10-23, cbrowser ask \"how do I take a full page screenshot\"), sources as the 20.0.1 CLI printed them (first line, 120 chars).",
+ "answer": "Based on the documentation provided, you can take a screenshot using the **screenshot tool**.\n\n**Basic usage:**\n- Use the `screenshot` tool to capture the current page\n- **Important:** Pass `_browserToken` from a previous tool call to screenshot the same page. Without it, you get a blank new browser.\n\n**For full-page captures:**\nThe documentation mentions the `visual_baseline` tool, which is designed to capture multiple screenshots and compute an optimal consensus baseline using the Wasserstein barycenter method. This appears to be CBrowser's approach to comprehensive page capture.\n\n**Relevant documentation:**\n- `/docs/tool-screenshot` — core screenshot functionality\n- `/docs/tool-visual-baseline` — for capturing baseline screenshots with outlier rejection\n- `/docs/mcp-server` — lists the `screenshot` tool among navigation tools\n\nHowever, the docs provided don't explicitly detail parameters for full-page vs. viewport-only screenshots. For more specific guidance on full-page capture options, I'd recommend checking the complete `/docs/tool-screenshot` documentation or the `/docs/mcp-server` reference for detailed parameter options.",
+ "sources": [
+  "[/docs/tool-screenshot — full]: ...All Take a screenshot of the current page. IMPORTANT: Pass _browserToken from a previ",
+  "[/docs/natural-language-tests — full]: ...Search Functionality go to https://example.com/search type \"test query\" in sea",
+  "[/docs/tool-visual-baseline — full]: ...All 131 Tools Blog Security Enterprise Back to docs Copy page Tool Visual Baseli",
+  "[/docs/tool-transport-map — full]: ...Compare the desktop and mobile screenshots with a transport map Cross-Browser Diff",
+  "[/automated-testing — full]: ...full automated testing lifecycle. Use them individually or let CBrowser orchestrate them"
+ ]
+}
