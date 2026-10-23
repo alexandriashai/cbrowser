@@ -27,6 +27,7 @@ import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import { DEMAND_DIMENSIONS, computeDemandDistribution, computeSequentialCTC, ctcReferenceCurve } from "../src/visual/cognitive-transport-chain.js";
 import { percentileAt } from "../src/visual/ctc-reference.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 
 const CHAIN_SRC = readFileSync(join(import.meta.dir, "..", "src", "visual", "cognitive-transport-chain.ts"), "utf8");
 
@@ -107,7 +108,7 @@ describe("siteFamiliarity actually reaches the chain", () => {
   } as never;
 
   function run(fam: number): { total: number; cognitiveLoad: number } {
-    const demand = computeDemandDistribution(deepPage);
+    const demand = computeDemandDistribution(withLawSeconds(deepPage));
     const profile = buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: fam });
     const r = computeSequentialCTC(profile, demand, { asymmetric: true, interactions: true });
     const cl = r.layers.find((l: { name: string }) => l.name === "cognitiveLoad");
@@ -136,10 +137,10 @@ describe("siteFamiliarity actually reaches the chain", () => {
     // site cannot make it harder, so familiarity surplus is now free, and the
     // claim is checked across the range rather than at one convenient point.
     for (const navigationDepth of [0, 1, 2, 4, 8]) {
-      const demand = computeDemandDistribution({
+      const demand = computeDemandDistribution(withLawSeconds({
         informationDensity: 0.6, visualComplexity: 0.5, interactiveElementCount: 40,
         textDensity: 0.5, animationLevel: 0.1, choiceCount: 12, navigationDepth,
-      } as never);
+      } as never));
       const at = (fam: number) => computeSequentialCTC(
         buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: fam }),
         demand, { asymmetric: true, interactions: true }).totalCTC;
@@ -150,10 +151,10 @@ describe("siteFamiliarity actually reaches the chain", () => {
   });
 
   test("more site knowledge is never a penalty, at any value", () => {
-    const demand = computeDemandDistribution({
+    const demand = computeDemandDistribution(withLawSeconds({
       informationDensity: 0.6, visualComplexity: 0.5, interactiveElementCount: 40,
       textDensity: 0.5, animationLevel: 0.1, choiceCount: 12, navigationDepth: 3,
-    } as never);
+    } as never));
     const at = (fam: number) => computeSequentialCTC(
       buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: fam }),
       demand, { asymmetric: true, interactions: true }).totalCTC;
@@ -168,7 +169,7 @@ describe("siteFamiliarity actually reaches the chain", () => {
     // A one-click page asks nothing of your site knowledge, so familiarity
     // legitimately does not move the number there. If this ever stops holding,
     // the demand term has become a constant rather than a function of depth.
-    const flat = computeDemandDistribution({ ...(deepPage as object), navigationDepth: 0 } as never);
+    const flat = computeDemandDistribution(withLawSeconds({ ...(deepPage as object), navigationDepth: 0 } as never));
     expect(flat.demands.siteFamiliarity).toBe(0);
   });
 
@@ -290,10 +291,10 @@ describe("the chain coefficient compares matched units", () => {
   const base: Record<string, number> = Object.fromEntries(
     (COGNITIVE_TRAITS as readonly string[]).map((t) => [t, 0.5]));
   const at = (informationDensity: number) => {
-    const demand = computeDemandDistribution({
+    const demand = computeDemandDistribution(withLawSeconds({
       informationDensity, visualComplexity: informationDensity, interactiveElementCount: 40,
       textDensity: informationDensity, animationLevel: 0.1, choiceCount: 12, navigationDepth: 3,
-    } as never);
+    } as never));
     return computeSequentialCTC(buildOTCognitiveProfile("p", base), demand,
       { asymmetric: true, interactions: true });
   };
@@ -333,10 +334,10 @@ describe("the chain coefficient compares matched units", () => {
     // cheap in absolute terms and still exhaust a persona with little patience.
     // Two personas with identical trait vectors except patience must produce
     // the same CTC and different abandonment.
-    const demand = computeDemandDistribution({
+    const demand = computeDemandDistribution(withLawSeconds({
       informationDensity: 0.8, visualComplexity: 0.6, interactiveElementCount: 40,
       textDensity: 0.7, animationLevel: 0.1, choiceCount: 12, navigationDepth: 3,
-    } as never);
+    } as never));
     const run = (patience: number) => computeSequentialCTC(
       buildOTCognitiveProfile("p", { ...base, patience }), demand,
       { asymmetric: true, interactions: true });
@@ -421,10 +422,10 @@ describe("capacity layers read capacity, not disposition", () => {
     const { getAnyPersona } = await import("../src/personas.js");
     const { getReadingProfile, getPointingProfile, readingCapacityOf, motorCapacityOf } =
       await import("../src/visual/cognitive-models.js");
-    const demand = computeDemandDistribution({
+    const demand = computeDemandDistribution(withLawSeconds({
       informationDensity: 0.8, visualComplexity: 0.6, interactiveElementCount: 60,
       textDensity: 0.85, animationLevel: 0.1, choiceCount: 20, navigationDepth: 3,
-    } as never);
+    } as never));
     const cost = (name: string) => {
       const t: Record<string, number> = { ...((getAnyPersona(name) as never as { cognitiveTraits: Record<string, number> }).cognitiveTraits) };
       t.readingCapacity = readingCapacityOf(getReadingProfile({ name, traits: t }));
@@ -480,7 +481,7 @@ describe("readingTendency modulates demand, not capacity", () => {
   // to decode, so as of the layer split (2026-08-02) it modulates only the
   // attentional demand. Skimming reduces exposure, not difficulty.
   const cost = (readingTendency: number) => {
-    const demand = computeDemandDistribution(textPage);
+    const demand = computeDemandDistribution(withLawSeconds(textPage));
     const r = computeSequentialCTC(
       buildOTCognitiveProfile("probe", { ...base, readingTendency, readingCapacity: 0.5, sustainedAttention: 0.3 }),
       demand, { asymmetric: true, interactions: true });
@@ -501,7 +502,7 @@ describe("readingTendency modulates demand, not capacity", () => {
     // 0.724 paid 0.016, purely because the skimmer's demand had been scaled
     // down. A contract stated across personas must be computed against a demand
     // that does not vary by persona.
-    const demand = computeDemandDistribution(textPage);
+    const demand = computeDemandDistribution(withLawSeconds(textPage));
     const decode = (readingTendency: number) => {
       const r = computeSequentialCTC(
         buildOTCognitiveProfile("p", { ...base, readingTendency, readingCapacity: 0.35 }),
@@ -530,7 +531,7 @@ describe("readingTendency modulates demand, not capacity", () => {
   test("a skimmer with poor decoding still costs more than a careful reader with good decoding", () => {
     // The load-bearing case. ADHD skims (0.2) and decodes well (0.75);
     // dyslexic reads more (0.4) and decodes poorly (0.39). Decoding must win.
-    const demand = computeDemandDistribution(textPage);
+    const demand = computeDemandDistribution(withLawSeconds(textPage));
     const run = (readingTendency: number, readingCapacity: number) => {
       const r = computeSequentialCTC(
         buildOTCognitiveProfile("p", { ...base, readingTendency, readingCapacity }),
@@ -768,7 +769,7 @@ describe("attentional reading cost has a home (BUG-07)", () => {
   }
 
   async function layerOf(name: string, page: object, layer = "readingAttention"): Promise<number> {
-    const demand = computeDemandDistribution(page as never);
+    const demand = computeDemandDistribution(withLawSeconds(page as never));
     const r = computeSequentialCTC(buildOTCognitiveProfile(name, await bridged(name)), demand,
       { asymmetric: true, interactions: true });
     const l = (r.layers as Array<{ name: string; transportCost: number }>).find((x) => x.name === layer);
@@ -815,7 +816,7 @@ describe("attentional reading cost has a home (BUG-07)", () => {
     // page with no text that nonetheless has text, which extraction cannot
     // produce. The old fixture did exactly that and passed only because the
     // demand read the area-normalised half alone, which is the defect (BUG-27).
-    const d = computeDemandDistribution({ ...BUSY, textDensity: 0, informationDensity: 0 } as never);
+    const d = computeDemandDistribution(withLawSeconds({ ...BUSY, textDensity: 0, informationDensity: 0 } as never));
     expect(d.demands.sustainedAttention).toBe(0);
   });
 
@@ -824,19 +825,19 @@ describe("attentional reading cost has a home (BUG-07)", () => {
     // document lowers textDensity while informationDensity holds, and attentional
     // reading cost must not fall: twice the page to hold your place across is not
     // easier because the text is further apart.
-    const dense = computeDemandDistribution({ ...BUSY, textDensity: 0.7, informationDensity: 0.6 } as never);
-    const spread = computeDemandDistribution({ ...BUSY, textDensity: 0.49, informationDensity: 0.8 } as never);
+    const dense = computeDemandDistribution(withLawSeconds({ ...BUSY, textDensity: 0.7, informationDensity: 0.6 } as never));
+    const spread = computeDemandDistribution(withLawSeconds({ ...BUSY, textDensity: 0.49, informationDensity: 0.8 } as never));
     expect(spread.demands.sustainedAttention).toBeGreaterThanOrEqual(dense.demands.sustainedAttention);
   });
 
   test("distractors raise the demand, and text alone does not max it", () => {
-    const quiet = computeDemandDistribution(STATIC as never).demands.sustainedAttention;
-    const loud = computeDemandDistribution(BUSY as never).demands.sustainedAttention;
+    const quiet = computeDemandDistribution(withLawSeconds(STATIC as never)).demands.sustainedAttention;
+    const loud = computeDemandDistribution(withLawSeconds(BUSY as never)).demands.sustainedAttention;
     expect(loud).toBeGreaterThan(quiet);
     // Below decoding demand on a still page: decoding is the primary cost of
     // text, attention the secondary one. Reversing this re-creates the exact
     // inversion that removing readingTendency fixed.
-    expect(quiet).toBeLessThan(computeDemandDistribution(STATIC as never).demands.readingCapacity);
+    expect(quiet).toBeLessThan(computeDemandDistribution(withLawSeconds(STATIC as never)).demands.readingCapacity);
   });
 
   test("an attentional reader now responds to a page full of movement", async () => {
@@ -882,7 +883,7 @@ describe("attentional reading cost has a home (BUG-07)", () => {
     // 0.50 -- a penalty for concentrating well.
     const { sustainedAttentionOf } = await import("../src/visual/cognitive-models.js");
     const base = await bridged("power-user");
-    const demand = computeDemandDistribution(STATIC as never);
+    const demand = computeDemandDistribution(withLawSeconds(STATIC as never));
     const at = (v: number) => {
       const r = computeSequentialCTC(buildOTCognitiveProfile("p", { ...base, sustainedAttention: v }),
         demand, { asymmetric: true, interactions: true });
@@ -983,7 +984,7 @@ describe("the legibilityQuality contract, restored and pinned (BUG-01 / D-3)", (
   }
   const layer = (traits: Record<string, number>, name = "readability") => {
     const r = computeSequentialCTC(buildOTCognitiveProfile("p", traits),
-      computeDemandDistribution(PAGE), { asymmetric: true, interactions: true });
+      computeDemandDistribution(withLawSeconds(PAGE)), { asymmetric: true, interactions: true });
     return (r.layers as Array<{ name: string; transportCost: number }>).find((l) => l.name === name)!.transportCost;
   };
 

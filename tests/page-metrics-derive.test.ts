@@ -31,6 +31,7 @@ import { describe, test, expect } from "bun:test";
 import { deriveMetrics, measurePageRaw, extractPageMetrics, RAW_PAGE_FORMAT, type RawPageMeasurement, type RawPageMeasurementV1 } from "../src/visual/cognitive-transport.js";
 import { readsOf, withParamOverrides } from "../src/visual/model-provenance.js";
 import { PAGE_METRICS_PROVENANCE, PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
+import { LAW_PROVENANCE } from "../src/visual/provenance/laws.js";
 import { RAW_FIXTURES, RAW_LATIN } from "./fixtures/raw-page-measurements.js";
 
 const DERIVE_IDS = PAGE_METRICS_PROVENANCE.map((e) => e.id).filter((id) => !PAGE_METRICS_MEASURE_IDS.includes(id));
@@ -83,7 +84,10 @@ describe("each constant is read on one side of the split", () => {
   test("deriveMetrics reads exactly the derive-stage ids", () => {
     const read = new Set<string>();
     for (const r of Object.values(RAW_FIXTURES)) for (const id of readsOf(() => deriveMetrics(r)).ids) read.add(id);
-    expect([...read].sort()).toEqual([...DERIVE_IDS].sort());
+    // Stage B: and the law constants the four law times read (lawSecondsOf). Not
+    // the persona rates or the time budget, which the chain and the capacities read.
+    const LAW_DERIVE_IDS = LAW_PROVENANCE.map((e) => e.id).filter((id) => !id.startsWith("law.rate.") && id !== "law.timeBudget");
+    expect([...read].sort()).toEqual([...DERIVE_IDS, ...LAW_DERIVE_IDS].sort());
   });
 
   test("measurePageRaw reads exactly the measure-stage ids", async () => {
@@ -134,7 +138,16 @@ describe("raw formats", () => {
       expect(r.format).toBe(2);
       const { prose: _prose, proseNested: _nested, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...rest } = r;
       const v1: RawPageMeasurementV1 = { ...rest, format: 1 };
-      expect(deriveMetrics(v1)).toEqual(deriveMetrics(r));
+      // Everything derives the same except the choosing time: format 1 has no
+      // groupedLinks, so its ungrouped links are links minus the stored nav sizes.
+      const { choosingSeconds: c1, lawDiagnostics: d1, ...same1 } = deriveMetrics(v1);
+      const { choosingSeconds: c2, lawDiagnostics: d2, ...same2 } = deriveMetrics(r);
+      expect(same1).toEqual(same2);
+      expect([d1.ungroupedLinksFrom, d2.ungroupedLinksFrom]).toEqual(["navGroupSizes", "groupedLinks"]);
+      expect(Number.isFinite(c1) && Number.isFinite(c2)).toBe(true);
+      const { choosingSecondsExpert: _e1, ungroupedLinks: _u1, ungroupedLinksFrom: _f1, choiceGroups: _g1, ...rest1 } = d1;
+      const { choosingSecondsExpert: _e2, ungroupedLinks: _u2, ungroupedLinksFrom: _f2, choiceGroups: _g2, ...rest2 } = d2;
+      expect(rest1).toEqual(rest2);
       for (const format of [0, 3, undefined, "2"]) {
         expect(() => deriveMetrics({ ...r, format } as never)).toThrow(/raw page format .* is not one this build reads \(1 or 2\)/);
       }

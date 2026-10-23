@@ -2,6 +2,13 @@
  * Provenance entries for the cognitive transport chain's constants
  * (cognitive-transport-chain.ts). See ../model-provenance.ts for the statuses.
  *
+ * Stage B: the motor, decision, procedure and reading demands are law times
+ * (demand-laws.ts, provenance/laws.ts: Fitts, novice search, KLM, Brysbaert)
+ * against one time budget, law.timeBudget; the seven hand-set curve constants
+ * they replaced (demand.interactive.*, demand.choice.halfSaturation,
+ * demand.text.readingCapacity) are gone. What remains here are the shares of
+ * those demands that land on each trait, and the rest of the chain.
+ *
  * Nothing in this chain is fitted or published today. Every curve constant,
  * weight, rate, cap and modulation coefficient was set by hand, so it is a
  * `hypothesis` whose `source` names the data that would test or fit it. The
@@ -27,21 +34,19 @@ const d = (id: string, value: number, source: string): ProvenanceEntry => ({ id:
 const DEMAND = (feature: string, trait: string) =>
   `Hand-set share of ${feature} that lands on ${trait}; a regression of measured ${trait}-driven effort on pages varying ${feature} alone would fit it.`;
 
+// What would fit a share of the decision demand (choosing seconds against law.timeBudget).
+const DECISION = (trait: string) =>
+  `Hand-set share of the decision demand (choosing seconds by Cockburn et al.'s novice search, against law.timeBudget) that lands on ${trait}; satisficing takes all of it. Decision time decomposed by a validated ${trait} measure on pages varying their choices alone would fit it.`;
+
 export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   // ── Demand curves: page feature -> trait demand ──
   h("demand.info.workingMemory", 0.9, DEMAND("informationDensity", "workingMemory")),
   h("demand.info.informationForaging", 0.8, DEMAND("informationDensity", "informationForaging")),
 
 
-  h("demand.interactive.halfSaturation", 20, "Hand-set element count at which interactive demand reaches 0.5 (n/(n+20)); task-time or error rate against interactive element count across pages would fit the half-saturation point."),
-  h("demand.interactive.riskTolerance", 0.75, DEMAND("interactiveElementCount", "riskTolerance")),
-  h("demand.interactive.satisficing", 0.8, DEMAND("interactiveElementCount", "satisficing")),
-  h("demand.interactive.proceduralFluency", 0.9, DEMAND("interactiveElementCount", "proceduralFluency")),
-  h("demand.interactive.motorCapacity", 0.9, DEMAND("interactiveElementCount", "motorCapacity")),
 
   h("demand.text.patience", 0.7, DEMAND("textDensity", "patience")),
   h("demand.text.comprehension", 0.85, DEMAND("textDensity", "comprehension")),
-  h("demand.text.readingCapacity", 0.9, DEMAND("max(textDensity, informationDensity)", "readingCapacity")),
 
   h("demand.wordLength.comprehension", 0.9, DEMAND("avgWordLength", "comprehension")),
   h("demand.sentenceLength.workingMemory", 0.85, DEMAND("avgSentenceLength", "workingMemory")),
@@ -60,13 +65,13 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
 
   h("demand.distractor.animationShare", 0.7, "Hand-set share of distractor pressure from motion (vs static clutter); re-reading rates on text beside animated vs cluttered-static panels would fit it."),
   h("demand.distractor.visualShare", 0.3, "Hand-set share of distractor pressure from static visual complexity; the same re-reading measurement would fit it."),
-  h("demand.sustained.base", 0.7, "Hand-set attentional demand per unit of text, kept below readingCapacity's 0.9 so decoding dominates on a still page; measured line-loss or re-reading rates on still prose would fit it."),
+  h("demand.sustained.base", 0.7, "Hand-set share of the reading demand (reading seconds against law.timeBudget) that lands on sustainedAttention, kept below readability's (all of it) so decoding dominates on a still page; measured line-loss or re-reading rates on still prose would fit it."),
   h("demand.sustained.distractorGain", 0.7, "Hand-set gain by which distractor pressure raises attentional demand; re-reading rates on the same prose with and without peripheral motion would fit it."),
 
-  h("demand.choice.halfSaturation", 10, "Hand-set choice count at which decision demand reaches 0.5 (c/(c+10)); decision time against option count (Hick-Hyman style data on real pages) would fit it."),
-  h("demand.choice.anchoringBias", 0.85, DEMAND("choiceCount", "anchoringBias")),
-  h("demand.choice.fearOfMissingOut", 0.75, DEMAND("choiceCount", "fearOfMissingOut")),
-  h("demand.choice.socialProofSensitivity", 0.7, DEMAND("choiceCount", "socialProofSensitivity")),
+  h("demand.choice.anchoringBias", 0.85, DECISION("anchoringBias")),
+  h("demand.choice.fearOfMissingOut", 0.75, DECISION("fearOfMissingOut")),
+  h("demand.choice.socialProofSensitivity", 0.7, DECISION("socialProofSensitivity")),
+  h("demand.decision.riskTolerance", 0.75, DECISION("riskTolerance") + " Moved from the interactive-count curve (demand.interactive.riskTolerance, the same 0.75) when that curve was retired."),
 
   h("demand.nav.halfSaturation", 3, "Hand-set navigation depth at which wayfinding demand reaches 0.5 (d/(d+3)); task completion against click depth would fit it."),
   h("demand.nav.workingMemory", 0.95, DEMAND("navigationDepth", "workingMemory")),

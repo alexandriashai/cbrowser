@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { resolveSiteFamiliarity } from "../src/mcp-tools/base/site-familiarity.js";
 import { computeDemandFromRawMetrics, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
 import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
+import { demandFromLegacy } from "./fixtures/law-seconds.js";
 
 const ROOT = join(import.meta.dir, "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -54,7 +55,7 @@ describe("the value a run scores against", () => {
     // Why the value must always be SET: leaving it undefined reads 0.5.
     const [name, p] = ["power-user", ROSTER["power-user"]];
     const prof = toolProfile(name, p);
-    const deep = computeDemandFromRawMetrics(0.6, 0.6, 30, 0.6, 0.3, 10, 12);
+    const deep = demandFromLegacy(0.6, 0.6, 30, 0.6, 0.3, 10, 12);
     const unset = { ...prof, traits: { ...prof.traits } };
     delete (unset.traits as Record<string, number>).siteFamiliarity;
     expect(computeSequentialCTC(unset, deep).totalCTC).not.toBe(computeSequentialCTC(prof, deep).totalCTC);

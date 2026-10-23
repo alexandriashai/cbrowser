@@ -18,16 +18,17 @@ import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COGNITIVE_TRAITS, buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 import { computeDemandDistribution, computeSequentialCTC, computeSequentialScrollCTC } from "../src/visual/cognitive-transport-chain.js";
 
 const traits = (over: Record<string, number> = {}) => ({
   ...Object.fromEntries((COGNITIVE_TRAITS as readonly string[]).map((t) => [t, 0.5])), ...over,
 });
-const screen = (density: number) => computeDemandDistribution({
+const screen = (density: number) => computeDemandDistribution(withLawSeconds({
   informationDensity: density, visualComplexity: density, interactiveElementCount: Math.round(density * 60),
   textDensity: density, animationLevel: density * 0.4, choiceCount: Math.round(density * 20),
   navigationDepth: 2,
-} as never);
+} as never));
 const run = (densities: number[], over: Record<string, number> = {}) =>
   computeSequentialScrollCTC(buildOTCognitiveProfile("p", traits(over)), densities.map(screen),
     { asymmetric: true, interactions: true });

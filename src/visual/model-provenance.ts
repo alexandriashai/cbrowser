@@ -154,7 +154,10 @@ export interface ProvenanceText {
  */
 const SCORE_SCOPE =
   "Every registered constant the score in this answer read: the page-metric extraction that measured the page (pageMetrics.*), " +
-  "the demand curves that turn page metrics into per-trait demand, the cognitive transport chain (with its Schwartz value modulation " +
+  "the published laws that turn the page into seconds of pointing, choosing, reading and procedure for the reference user " +
+  "(law.*: Fitts, novice visual search, Brysbaert's reading rate, the keystroke-level model) and the one time budget each is a " +
+  "demand against (law.timeBudget, a hypothesis), the demand curves that turn the other page metrics into per-trait demand, " +
+  "the cognitive transport chain (with its Schwartz value modulation " +
   "when values were applied), the reference set totalCTC is ranked against and the verdict bands cut on it (definitions), and the two " +
   "persona-distance constants the persona profile reads. It does not count the attention model: an attention map in this answer " +
   "(cognitive_effort's saliency overlay, visual_cognitive_story's attention analysis) is context for the page, not an input to the " +

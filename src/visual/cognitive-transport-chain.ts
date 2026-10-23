@@ -22,6 +22,7 @@ import {
   extractPageMetrics,
 } from './cognitive-transport.js';
 import { activeOverrides, param, readsOf } from './model-provenance.js';
+import { timeDemand } from './demand-laws.js';
 import {
   type PercentileCurve,
   type PercentileInterval,
@@ -53,6 +54,17 @@ export interface PageMetrics {
   scriptFamily?: 'alphabetic' | 'cjk' | 'abjad';  // Detected script family
   /** What the metrics were measured over; extractPageMetrics always sets it. */
   scope?: MetricScope;
+  /**
+   * Stage B: seconds of work for the reference user from published laws
+   * (deriveMetrics, demand-laws.ts). The motor, decision, procedure and
+   * reading demands are these against one time budget, d = T / (T + tau)
+   * (law.timeBudget). Required: computeDemandDistribution throws without them,
+   * so no demand falls back to a hand-set curve.
+   */
+  pointingSeconds: number;
+  choosingSeconds: number;
+  readingSeconds: number;
+  procedureSeconds: number;
 }
 
 export interface DemandDistribution {
@@ -542,14 +554,8 @@ function readParams<K extends string>(ids: Record<K, string>): Record<K, number>
 const DEMAND_IDS = {
   infoWorkingMemory: 'chain.demand.info.workingMemory',
   infoInformationForaging: 'chain.demand.info.informationForaging',
-  interactiveHalfSaturation: 'chain.demand.interactive.halfSaturation',
-  interactiveRiskTolerance: 'chain.demand.interactive.riskTolerance',
-  interactiveSatisficing: 'chain.demand.interactive.satisficing',
-  interactiveProceduralFluency: 'chain.demand.interactive.proceduralFluency',
-  interactiveMotorCapacity: 'chain.demand.interactive.motorCapacity',
   textPatience: 'chain.demand.text.patience',
   textComprehension: 'chain.demand.text.comprehension',
-  textReadingCapacity: 'chain.demand.text.readingCapacity',
   wordLengthComprehension: 'chain.demand.wordLength.comprehension',
   sentenceLengthWorkingMemory: 'chain.demand.sentenceLength.workingMemory',
   sentenceLengthPatience: 'chain.demand.sentenceLength.patience',
@@ -567,10 +573,10 @@ const DEMAND_IDS = {
   distractorVisualShare: 'chain.demand.distractor.visualShare',
   sustainedBase: 'chain.demand.sustained.base',
   sustainedDistractorGain: 'chain.demand.sustained.distractorGain',
-  choiceHalfSaturation: 'chain.demand.choice.halfSaturation',
   choiceAnchoringBias: 'chain.demand.choice.anchoringBias',
   choiceFearOfMissingOut: 'chain.demand.choice.fearOfMissingOut',
   choiceSocialProofSensitivity: 'chain.demand.choice.socialProofSensitivity',
+  decisionRiskTolerance: 'chain.demand.decision.riskTolerance',
   navHalfSaturation: 'chain.demand.nav.halfSaturation',
   navWorkingMemory: 'chain.demand.nav.workingMemory',
   navTransferLearning: 'chain.demand.nav.transferLearning',
@@ -648,11 +654,27 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
 
   const infoDensity = safe(pageMetrics.informationDensity);
   const visCplx = safe(pageMetrics.visualComplexity);
-  const interactiveCount = safe(pageMetrics.interactiveElementCount);
   const textDens = safe(pageMetrics.textDensity);
   const animLevel = safe(pageMetrics.animationLevel);
-  const choices = safe(pageMetrics.choiceCount);
   const navDepth = safe(pageMetrics.navigationDepth);
+
+  // ── Stage B: the law times, each a demand against one budget ──
+  // d = T / (T + tau), tau = law.timeBudget: 0 at no work, 0.5 at the budget.
+  // No fallback: a PageMetrics without them was not derived from a measurement
+  // (deriveMetrics) and has no motor, decision, procedure or reading demand to
+  // give. interactiveElementCount and choiceCount stay on PageMetrics as
+  // reported counts; no demand reads them now.
+  const lawTime = (k: 'pointingSeconds' | 'choosingSeconds' | 'readingSeconds' | 'procedureSeconds'): number => {
+    const v = (pageMetrics as Partial<PageMetrics>)[k];
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+      throw new Error(`computeDemandDistribution: pageMetrics.${k} must be a finite number of seconds >= 0 (got ${String(v)}). Derive the metrics from a measurement (extractPageMetrics, deriveMetrics) or pass the four law times to computeDemandFromRawMetrics.`);
+    }
+    return timeDemand(v);
+  };
+  const pointingDemand = lawTime('pointingSeconds');
+  const decisionDemand = lawTime('choosingSeconds');
+  const readingDemand = lawTime('readingSeconds');
+  const procedureDemand = lawTime('procedureSeconds');
 
   // Demand is written only to dimensions some layer reads. Through 20.x these
   // curves also wrote readingTendency, mentalModelFlexibility,
@@ -671,12 +693,8 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   const visDemand = visCplx; // already 0-1 from logScale
   demands.changeBlindness = Math.max(demands.changeBlindness, visDemand);
 
-  // ── interactiveElementCount → riskTolerance, satisficing, proceduralFluency
-  // Use logScale for element count — 20 elements = 0.5, 100 = 0.83, 500 = 0.96
-  const interDemand = interactiveCount / (interactiveCount + D.interactiveHalfSaturation);
-  demands.riskTolerance = Math.max(demands.riskTolerance, interDemand * D.interactiveRiskTolerance);
-  demands.satisficing = Math.max(demands.satisficing, interDemand * D.interactiveSatisficing);
-  demands.proceduralFluency = Math.max(demands.proceduralFluency, interDemand * D.interactiveProceduralFluency);
+  // ── procedure (KLM M per entry step) → proceduralFluency
+  demands.proceduralFluency = Math.max(demands.proceduralFluency, procedureDemand);
 
   // ── textDensity → patience, comprehension
   const textDemand = textDens; // already 0-1 from logScale
@@ -780,17 +798,20 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // because its traits are surplus-BILLED, so rising demand shrinks the surplus gap
   // and the 0.3-weighted cost with it. Same symptom, unrelated mechanism, and it
   // needs its own decision rather than this one applied twice.
-  const sustainBase = Math.max(textDemand, infoDensity);
-  const sustainDemand = Math.min(1, sustainBase * D.sustainedBase * (1 + distractorPressure * D.sustainedDistractorGain));
+  //
+  // STAGE B: the base is the reading demand (reading seconds against the time
+  // budget), which is absolute in the amount of prose, the property the
+  // max(textDensity, informationDensity) base above was chosen for.
+  const sustainDemand = Math.min(1, readingDemand * D.sustainedBase * (1 + distractorPressure * D.sustainedDistractorGain));
   demands.sustainedAttention = Math.max(demands.sustainedAttention, sustainDemand);
 
-  // ── choiceCount → satisficing, anchoringBias, fearOfMissingOut, socialProofSensitivity
-  // LogScale: 10 choices = 0.5, 30 = 0.75, 100 = 0.91
-  const choiceDemand = choices / (choices + D.choiceHalfSaturation);
-  demands.satisficing = Math.max(demands.satisficing, choiceDemand);
-  demands.anchoringBias = Math.max(demands.anchoringBias, choiceDemand * D.choiceAnchoringBias);
-  demands.fearOfMissingOut = Math.max(demands.fearOfMissingOut, choiceDemand * D.choiceFearOfMissingOut);
-  demands.socialProofSensitivity = Math.max(demands.socialProofSensitivity, choiceDemand * D.choiceSocialProofSensitivity);
+  // ── choosing (novice linear search, Cockburn et al. 2007) → the decision traits
+  // satisficing takes the whole decision demand; the others hand-set shares of it.
+  demands.satisficing = Math.max(demands.satisficing, decisionDemand);
+  demands.anchoringBias = Math.max(demands.anchoringBias, decisionDemand * D.choiceAnchoringBias);
+  demands.fearOfMissingOut = Math.max(demands.fearOfMissingOut, decisionDemand * D.choiceFearOfMissingOut);
+  demands.socialProofSensitivity = Math.max(demands.socialProofSensitivity, decisionDemand * D.choiceSocialProofSensitivity);
+  demands.riskTolerance = Math.max(demands.riskTolerance, decisionDemand * D.decisionRiskTolerance);
 
   // ── navigationDepth → workingMemory, transferLearning
   // LogScale: depth 2 = 0.4, depth 5 = 0.63, depth 10 = 0.77
@@ -813,12 +834,13 @@ export function computeDemandDistribution(pageMetrics: PageMetrics): DemandDistr
   // under workingMemory (0.95), since knowing the layout substitutes for
   // holding it in mind. (2026-08-02)
   demands.siteFamiliarity = Math.max(demands.siteFamiliarity, navDemand * D.navSiteFamiliarity);
-  // Reading capacity is demanded by how much text there is to decode, and motor
-  // capacity by how many things there are to hit. Both proportional, so a page
-  // with no text asks nothing of decoding and a page with no controls asks
-  // nothing of pointing.
-  demands.readingCapacity = Math.max(demands.readingCapacity, Math.max(textDens, infoDensity) * D.textReadingCapacity);
-  demands.motorCapacity = Math.max(demands.motorCapacity, interDemand * D.interactiveMotorCapacity);
+  // Reading capacity is demanded by the time the prose takes to read, and motor
+  // capacity by the time its targets take to acquire, each against the same
+  // budget as the persona's rate-ratio capacity (cognitive-models.ts), so a
+  // deficit means the persona's own time exceeds the budget. A page with no
+  // prose asks nothing of decoding, one with no controls nothing of pointing.
+  demands.readingCapacity = Math.max(demands.readingCapacity, readingDemand);
+  demands.motorCapacity = Math.max(demands.motorCapacity, pointingDemand);
 
   // Clamp all demands to [0, 1]
   for (const dim of DEMAND_DIMENSIONS) {
@@ -1463,20 +1485,28 @@ export async function computeFullCOT(
 export function computeDemandFromRawMetrics(
   informationDensity: number,
   visualComplexity: number,
-  interactiveElementCount: number,
   textDensity: number,
   animationLevel: number,
-  choiceCount: number,
   navigationDepth: number,
+  pointingSeconds: number,
+  choosingSeconds: number,
+  readingSeconds: number,
+  procedureSeconds: number,
 ): DemandDistribution {
+  // interactiveElementCount and choiceCount are reported counts that no demand
+  // reads since Stage B; the four law times replace them.
   return computeDemandDistribution({
     informationDensity,
     visualComplexity,
-    interactiveElementCount,
+    interactiveElementCount: 0,
     textDensity,
     animationLevel,
-    choiceCount,
+    choiceCount: 0,
     navigationDepth,
+    pointingSeconds,
+    choosingSeconds,
+    readingSeconds,
+    procedureSeconds,
   });
 }
 

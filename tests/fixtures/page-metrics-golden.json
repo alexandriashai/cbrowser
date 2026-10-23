@@ -17,7 +17,20 @@
       "technicalDensity": 0.24193548387096775,
       "scriptFamily": "alphabetic",
       "scope": "viewport",
-      "pageScreens": 6
+      "pageScreens": 6,
+      "pointingSeconds": 6.0076862902121855,
+      "choosingSeconds": 1.24,
+      "readingSeconds": 22.6890756302521,
+      "procedureSeconds": 2.7,
+      "lawDiagnostics": {
+        "choosingSecondsExpert": 0.7925512476486815,
+        "meanFittsID": 4.646271375715045,
+        "targets": 6,
+        "entrySteps": 2,
+        "choiceGroups": 2,
+        "ungroupedLinks": 0,
+        "ungroupedLinksFrom": "groupedLinks"
+      }
     },
     "fullPage": {
       "informationDensity": 0.3327995729917267,
@@ -36,7 +49,20 @@
       "technicalDensity": 0.11696869851729819,
       "scriptFamily": "alphabetic",
       "scope": "full_page",
-      "pageScreens": 6
+      "pageScreens": 6,
+      "pointingSeconds": 99.57022916031383,
+      "choosingSeconds": 11.940000000000001,
+      "readingSeconds": 169.4008037997808,
+      "procedureSeconds": 2.7,
+      "lawDiagnostics": {
+        "choosingSecondsExpert": 1.594340672690958,
+        "meanFittsID": 3.024903843033036,
+        "targets": 136,
+        "entrySteps": 2,
+        "choiceGroups": 3,
+        "ungroupedLinks": 130,
+        "ungroupedLinksFrom": "groupedLinks"
+      }
     },
     "perScreen": [
       {
@@ -56,7 +82,20 @@
         "technicalDensity": 0.24193548387096775,
         "scriptFamily": "alphabetic",
         "scope": "viewport",
-        "pageScreens": 6
+        "pageScreens": 6,
+        "pointingSeconds": 6.0076862902121855,
+        "choosingSeconds": 1.24,
+        "readingSeconds": 22.6890756302521,
+        "procedureSeconds": 2.7,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.7925512476486815,
+          "meanFittsID": 4.646271375715045,
+          "targets": 6,
+          "entrySteps": 2,
+          "choiceGroups": 2,
+          "ungroupedLinks": 0,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.07885040530582167,
@@ -75,7 +114,20 @@
         "technicalDensity": 0.23703703703703705,
         "scriptFamily": "alphabetic",
         "scope": "viewport",
-        "pageScreens": 6
+        "pageScreens": 6,
+        "pointingSeconds": 0,
+        "choosingSeconds": 0,
+        "readingSeconds": 50.42016806722689,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0,
+          "meanFittsID": 0,
+          "targets": 0,
+          "entrySteps": 0,
+          "choiceGroups": 0,
+          "ungroupedLinks": 0,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.08340971585701192,
@@ -94,7 +146,20 @@
         "technicalDensity": 0.05982905982905983,
         "scriptFamily": "alphabetic",
         "scope": "viewport",
-        "pageScreens": 6
+        "pageScreens": 6,
+        "pointingSeconds": 20.35361662229317,
+        "choosingSeconds": 2.6199999999999997,
+        "readingSeconds": 28.55316039459262,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.6286384796102058,
+          "meanFittsID": 2.8424629460517603,
+          "targets": 29,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 29,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.09024745269286755,
@@ -113,7 +178,20 @@
         "technicalDensity": 0.06306306306306306,
         "scriptFamily": "alphabetic",
         "scope": "viewport",
-        "pageScreens": 6
+        "pageScreens": 6,
+        "pointingSeconds": 26.640757605562293,
+        "choosingSeconds": 3.171891891891892,
+        "readingSeconds": 25.86773839970771,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.6390060998111182,
+          "meanFittsID": 3.0724159313189916,
+          "targets": 37,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 37,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.0925589836660617,
@@ -132,7 +210,20 @@
         "technicalDensity": 0.06140350877192982,
         "scriptFamily": "alphabetic",
         "scope": "viewport",
-        "pageScreens": 6
+        "pageScreens": 6,
+        "pointingSeconds": 27.60892266094202,
+        "choosingSeconds": 3.252105263157895,
+        "readingSeconds": 26.525392765801975,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.6424701431524477,
+          "meanFittsID": 3.1095608370143317,
+          "targets": 38,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 38,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.09008189262966333,
@@ -151,7 +242,20 @@
         "technicalDensity": 0.0625,
         "scriptFamily": "alphabetic",
         "scope": "viewport",
-        "pageScreens": 6
+        "pageScreens": 6,
+        "pointingSeconds": 19.883784759835823,
+        "choosingSeconds": 2.5109677419354837,
+        "readingSeconds": 27.347460723419804,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.5747548301698903,
+          "meanFittsID": 2.8923805421333535,
+          "targets": 31,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 31,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       }
     ]
   },
@@ -173,7 +277,20 @@
       "technicalDensity": 0.09230769230769231,
       "scriptFamily": "cjk",
       "scope": "viewport",
-      "pageScreens": 1.7
+      "pageScreens": 1.7,
+      "pointingSeconds": 3.1047390515626105,
+      "choosingSeconds": 0.45999999999999996,
+      "readingSeconds": 36.28459009021669,
+      "procedureSeconds": 0,
+      "lawDiagnostics": {
+        "choosingSecondsExpert": 0.32,
+        "meanFittsID": 4.84887359751528,
+        "targets": 3,
+        "entrySteps": 0,
+        "choiceGroups": 1,
+        "ungroupedLinks": 0,
+        "ungroupedLinksFrom": "groupedLinks"
+      }
     },
     "fullPage": {
       "informationDensity": 0.04616558565433041,
@@ -192,7 +309,20 @@
       "technicalDensity": 0.1324200913242009,
       "scriptFamily": "cjk",
       "scope": "full_page",
-      "pageScreens": 1.7
+      "pageScreens": 1.7,
+      "pointingSeconds": 9.59354818963864,
+      "choosingSeconds": 1.72,
+      "readingSeconds": 60.876872488125684,
+      "procedureSeconds": 0,
+      "lawDiagnostics": {
+        "choosingSecondsExpert": 0.8467970000576925,
+        "meanFittsID": 2.46728842957375,
+        "targets": 15,
+        "entrySteps": 0,
+        "choiceGroups": 2,
+        "ungroupedLinks": 12,
+        "ungroupedLinksFrom": "groupedLinks"
+      }
     },
     "perScreen": [
       {
@@ -212,7 +342,20 @@
         "technicalDensity": 0.09230769230769231,
         "scriptFamily": "cjk",
         "scope": "viewport",
-        "pageScreens": 1.7
+        "pageScreens": 1.7,
+        "pointingSeconds": 3.1047390515626105,
+        "choosingSeconds": 0.45999999999999996,
+        "readingSeconds": 36.28459009021669,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.32,
+          "meanFittsID": 4.84887359751528,
+          "targets": 3,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 0,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.033255993812838364,
@@ -231,7 +374,20 @@
         "technicalDensity": 0.15492957746478872,
         "scriptFamily": "cjk",
         "scope": "viewport",
-        "pageScreens": 1.7
+        "pageScreens": 1.7,
+        "pointingSeconds": 10.06596229149701,
+        "choosingSeconds": 1.26,
+        "readingSeconds": 39.36151316713977,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.5267970000576925,
+          "meanFittsID": 3.667651752759543,
+          "targets": 12,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 12,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       }
     ]
   },
@@ -253,7 +409,20 @@
       "technicalDensity": 0.36607142857142855,
       "scriptFamily": "abjad",
       "scope": "viewport",
-      "pageScreens": 1.6
+      "pageScreens": 1.6,
+      "pointingSeconds": 5.10781722890763,
+      "choosingSeconds": 0.62,
+      "readingSeconds": 37.61498353845502,
+      "procedureSeconds": 0,
+      "lawDiagnostics": {
+        "choosingSecondsExpert": 0.4,
+        "meanFittsID": 4.768454492659794,
+        "targets": 5,
+        "entrySteps": 0,
+        "choiceGroups": 1,
+        "ungroupedLinks": 0,
+        "ungroupedLinksFrom": "groupedLinks"
+      }
     },
     "fullPage": {
       "informationDensity": 0.08759124087591241,
@@ -272,7 +441,20 @@
       "technicalDensity": 0.3522727272727273,
       "scriptFamily": "abjad",
       "scope": "full_page",
-      "pageScreens": 1.6
+      "pageScreens": 1.6,
+      "pointingSeconds": 8.877567401545589,
+      "choosingSeconds": 1.56,
+      "readingSeconds": 56.66643116530782,
+      "procedureSeconds": 0,
+      "lawDiagnostics": {
+        "choosingSecondsExpert": 0.88,
+        "meanFittsID": 2.7282518079451283,
+        "targets": 13,
+        "entrySteps": 0,
+        "choiceGroups": 2,
+        "ungroupedLinks": 8,
+        "ungroupedLinksFrom": "groupedLinks"
+      }
     },
     "perScreen": [
       {
@@ -292,7 +474,20 @@
         "technicalDensity": 0.36607142857142855,
         "scriptFamily": "abjad",
         "scope": "viewport",
-        "pageScreens": 1.6
+        "pageScreens": 1.6,
+        "pointingSeconds": 5.10781722890763,
+        "choosingSeconds": 0.62,
+        "readingSeconds": 37.61498353845502,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.4,
+          "meanFittsID": 4.768454492659794,
+          "targets": 5,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 0,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       },
       {
         "informationDensity": 0.06191369606003752,
@@ -311,7 +506,20 @@
         "technicalDensity": 0.35833333333333334,
         "scriptFamily": "abjad",
         "scope": "viewport",
-        "pageScreens": 1.6
+        "pageScreens": 1.6,
+        "pointingSeconds": 7.029162104308119,
+        "choosingSeconds": 0.94,
+        "readingSeconds": 38.10289525370561,
+        "procedureSeconds": 0,
+        "lawDiagnostics": {
+          "choosingSecondsExpert": 0.48,
+          "meanFittsID": 3.907501584569367,
+          "targets": 8,
+          "entrySteps": 0,
+          "choiceGroups": 1,
+          "ungroupedLinks": 8,
+          "ungroupedLinksFrom": "groupedLinks"
+        }
       }
     ]
   }

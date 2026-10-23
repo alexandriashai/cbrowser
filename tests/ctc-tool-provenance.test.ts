@@ -38,6 +38,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { withLawSeconds } from "./fixtures/law-seconds.js";
 import { serveFixtures } from "./fixtures/serve-fixtures.js";
 
 process.env.CBROWSER_DATA_DIR = mkdtempSync(join(tmpdir(), "cb-ctc-prov-data-"));
@@ -67,8 +68,15 @@ function expectHonestSummary(p: Summary) {
   expect(p.counts.hypothesis).toBeGreaterThan(0);
   expect(p.counts.definition).toBeGreaterThan(0);
   expect(p.counts.fitted).toBe(0);
-  expect(p.counts.published).toBe(0);
+  // Stage B: the page measurement reads the published laws (law.*: Fitts, novice
+  // search, Brysbaert, KLM), so the score's block counts them: the 10 published
+  // ones a score depends on (of 12 scored law ids, law.fitts.minWidth is a
+  // definition and law.timeBudget a hypothesis) and the Hick-Hyman pair the
+  // measurement reads for its expert diagnostic. The persona rates (law.rate.*)
+  // are read as persona-model work and counted in personaRateProvenance instead.
+  expect(p.counts.published).toBe(12);
   expect(p.hypotheses.length).toBe(p.counts.hypothesis);
+  expect(p.hypotheses).toContain("law.timeBudget");
   expect(p.hypotheses).toContain("chain.depletionRate");
   // The output logistic's constants are gone (totalCTC is a percentile since
   // 21.x); the percentile's reference is a definition, so it is counted there.
@@ -78,13 +86,14 @@ function expectHonestSummary(p: Summary) {
   // stores raw measurements, so its curve rests on them too), the chain, and
   // the one the persona profile reads. No attention.* id: an attention map
   // drawn as context carries its own block (expectAttentionBlock).
-  expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && !id.startsWith("pageMetrics.") && id !== "distance.missingTraitDefault")).toEqual([]);
+  expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && !id.startsWith("pageMetrics.") && id !== "distance.missingTraitDefault" && id !== "law.timeBudget")).toEqual([]);
   expect(p.hypotheses).toContain("pageMetrics.informationDensity.midpoint");
   expect(p.note).toContain("hypothesis");
   // The scope says what the score block covers, and where the attention
   // model's constants (the fitted ones among them) are counted instead.
   expect(p.scope).toContain("demand");
   expect(p.scope).toContain("pageMetrics");
+  expect(p.scope).toContain("law.timeBudget");
   expect(p.scope).toContain("does not count the attention model");
   expect(p.scope).toContain("carries its own block");
   expect(p.scope).toContain("0.7367");
@@ -125,7 +134,7 @@ async function directAnswer(persona: string, scope: "viewport" | "full_page", op
   return withProvenanceAsync(async () => {
     const metrics = await metricsNow(scope);
     const profile = toolProfile(persona, ROSTER[persona]);
-    const result = computeSequentialCTC(profile, computeDemandDistribution(metrics), options);
+    const result = computeSequentialCTC(profile, computeDemandDistribution(withLawSeconds(metrics)), options);
     if (verdict) {
       ctcRank(result);
       ctcBandsDescription();
@@ -263,13 +272,13 @@ describe("tool responses carry the provenance of the whole answer", () => {
     const direct = await withProvenanceAsync(async () => {
       await metricsNow("full_page");
       const p = toolProfile("first-timer", ROSTER["first-timer"]);
-      const aggregate = computeSequentialCTC(p, computeDemandDistribution(metrics), CHAIN_OPTIONS);
+      const aggregate = computeSequentialCTC(p, computeDemandDistribution(withLawSeconds(metrics)), CHAIN_OPTIONS);
       ctcRank(aggregate);
       ctcBandsDescription();
-      return computeSequentialScrollCTC(p, [computeDemandDistribution(screen)], CHAIN_OPTIONS);
+      return computeSequentialScrollCTC(p, [computeDemandDistribution(withLawSeconds(screen))], CHAIN_OPTIONS);
     });
-    const screenReads = readsOf(() => computeSequentialScrollCTC(profile, [computeDemandDistribution(screen)], CHAIN_OPTIONS)).ids;
-    const aggregateReads = readsOf(() => computeSequentialCTC(profile, computeDemandDistribution(metrics), CHAIN_OPTIONS)).ids;
+    const screenReads = readsOf(() => computeSequentialScrollCTC(profile, [computeDemandDistribution(withLawSeconds(screen))], CHAIN_OPTIONS)).ids;
+    const aggregateReads = readsOf(() => computeSequentialCTC(profile, computeDemandDistribution(withLawSeconds(metrics)), CHAIN_OPTIONS)).ids;
     expect(screenReads.has("ctcReference.viewport")).toBe(true);
     expect(aggregateReads.has("ctcReference.full_page")).toBe(true);
     expect(block.hypotheses).toEqual(direct.provenance.hypotheses);
@@ -285,7 +294,7 @@ describe("tool responses carry the provenance of the whole answer", () => {
     // The same per-screen measurement the tool took, scored directly.
     const page = await browser.getPage();
     const screens = await extractPerScreenMetrics(page, 20, await measurePageGeometry(page));
-    const curve = computeSequentialScrollCTC(toolProfile("first-timer", ROSTER["first-timer"]), screens.map((m) => computeDemandDistribution(m)), CHAIN_OPTIONS);
+    const curve = computeSequentialScrollCTC(toolProfile("first-timer", ROSTER["first-timer"]), screens.map((m) => computeDemandDistribution(withLawSeconds(m))), CHAIN_OPTIONS);
     expect(seq.curve.map((c: { screenCTC: number }) => c.screenCTC)).toEqual(curve.screens.map((x) => x.screenCTC));
     const reach = curve.screens.reduce((a, x) => a + x.reachProbability, 0);
     const mean = curve.screens.reduce((a, x) => a + x.reachProbability * x.screenCTC, 0) / reach;

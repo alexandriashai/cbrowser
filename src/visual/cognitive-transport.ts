@@ -24,6 +24,10 @@
  */
 
 import { param } from "./model-provenance.js";
+import {
+  choosingSeconds, distanceToScreenCentre, fittsIndexOfDifficulty, klmSeconds, noviceSearchSeconds, hickHymanSeconds,
+  pointingSeconds, readingSeconds, smallerOfWidth, type ChoiceGroup, type PointingTarget,
+} from "./demand-laws.js";
 import { exactW1 } from "./exact-w1.js";
 
 // ── Types ──
@@ -1139,12 +1143,23 @@ export async function extractPerScreenMetrics(
       }
       return { newInteractive, newChoices };
     });
+    // The law times are re-charged for the same share: what this screen
+    // introduces, so a sticky nav or a header search box is not acquired, chosen
+    // from or filled in again on every screen (a definition; exact per-element
+    // times would need box identities across screens).
+    const share = (newOnes: number, all: number) => (all > 0 ? Math.min(1, newOnes / all) : 0);
+    const pointShare = share(fresh.newInteractive, metrics.interactiveElementCount);
+    const chooseShare = share(fresh.newChoices, metrics.choiceCountRaw);
     out.push({
       ...metrics,
       interactiveElementCount: fresh.newInteractive,
       choiceCount: Math.min(fresh.newChoices, choiceCap),
       choiceCountRaw: fresh.newChoices,
       choiceCountCapped: fresh.newChoices > choiceCap,
+      pointingSeconds: metrics.pointingSeconds * pointShare,
+      choosingSeconds: metrics.choosingSeconds * chooseShare,
+      procedureSeconds: metrics.procedureSeconds * pointShare,
+      lawDiagnostics: { ...metrics.lawDiagnostics, choosingSecondsExpert: metrics.lawDiagnostics.choosingSecondsExpert * chooseShare },
     });
   }
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -1177,6 +1192,40 @@ export interface ExtractedPageMetrics {
   /** Uncapped choice count, so the cap below is visible rather than silent. */
   choiceCountRaw: number;
   choiceCountCapped: boolean;
+  /**
+   * Stage B: seconds of work for the reference user, from published laws
+   * (demand-laws.ts). The chain turns each into a demand against one time
+   * budget (computeDemandDistribution). See lawSecondsOf for what each covers.
+   */
+  pointingSeconds: number;
+  choosingSeconds: number;
+  readingSeconds: number;
+  procedureSeconds: number;
+  /** Diagnostics beside the four law times; no demand reads them. */
+  lawDiagnostics: LawDiagnostics;
+}
+
+/** What lawSecondsOf measured besides the four times. */
+export interface LawDiagnostics {
+  /** Choosing time by Hick-Hyman, the expert limit of the menu model the demand uses the novice limit of. */
+  choosingSecondsExpert: number;
+  /** Mean Fitts index of difficulty over the stored targets, bits. */
+  meanFittsID: number;
+  /** Targets acquired (interactiveElements, uncapped). */
+  targets: number;
+  /** Entry steps the KLM time charges an M for. */
+  entrySteps: number;
+  /** Choice groups resolved, uncapped, plus the ungrouped links as one more when there are any. */
+  choiceGroups: number;
+  /** Links in no choice group, which form one more choice set. */
+  ungroupedLinks: number;
+  /**
+   * How ungroupedLinks was counted: `groupedLinks` (format 2 from eaf3b36:
+   * links - groupedLinks, each link once) or `navGroupSizes` (format 1, and
+   * format-2 records measured before groupedLinks existed: links minus the
+   * stored nav groups' sizes, where a link in nested groups may count twice).
+   */
+  ungroupedLinksFrom: "groupedLinks" | "navGroupSizes";
 }
 
 /**
@@ -1884,6 +1933,100 @@ export async function measurePageRaw(
  * nested-prose counts included. Any other format is refused rather than
  * guessed at.
  */
+/** Numbers per entry in RawPageMeasurement.boxes and .choiceGroups (the record's layout, not model constants). */
+const RAW_BOX_FIELDS = 5;
+const RAW_GROUP_FIELDS = 2;
+
+/**
+ * Input types whose field takes typed or picked entry: one KLM mental
+ * preparation each, with textarea and select (a definition; KLM places M by
+ * rules on a task method, which a page does not give).
+ */
+const ENTRY_INPUT_TYPES = new Set(["text", "email", "password", "search", "tel", "url", "number", "date", "datetime-local", "month", "week", "time", "color", "file", "range"]);
+
+function isEntryKind(kind: string | undefined): boolean {
+  const m = /^([a-z0-9-]+)(?::([a-z0-9-]+))?/.exec(kind ?? "");
+  if (!m) return false;
+  if (m[1] === "textarea" || m[1] === "select") return true;
+  return m[1] === "input" && ENTRY_INPUT_TYPES.has(m[2] ?? "text");
+}
+
+/**
+ * Stage B's four law times for a raw page measurement, in seconds for the
+ * reference user, with what they rest on. Everything in scope, once
+ * (research/stage-b-design.md, decision 1):
+ *
+ *   pointing   every interactive box acquired once: Fitts, SMALLER-OF width,
+ *              from the centre of the screen it is seen on; the stored boxes'
+ *              sum scaled to interactiveElements when the box list is capped.
+ *   choosing   every choice group resolved once by novice linear search
+ *              (Cockburn et al. 2007); a checkbox group is one yes/no per box;
+ *              links in no group form one more set. Groups beyond the stored
+ *              ones are scaled to choiceGroupCount.
+ *   reading    the prose read once at Brysbaert's rate: letters of the
+ *              alphabetic words, abjad words, CJK characters. Format 2 counts
+ *              each character once.
+ *   procedure  KLM's M per entry step: an entry field (ENTRY_INPUT_TYPES,
+ *              textarea, select) or a radio or checkbox group.
+ */
+export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pick<ExtractedPageMetrics, "pointingSeconds" | "choosingSeconds" | "readingSeconds" | "procedureSeconds" | "lawDiagnostics"> {
+  const view = { viewportWidth: raw.viewportWidth, viewportHeight: raw.viewportHeight, scrollY: raw.scrollY };
+  const targets: PointingTarget[] = [];
+  let idSum = 0;
+  let entryBoxes = 0;
+  for (let i = 0; i + RAW_BOX_FIELDS <= raw.boxes.length; i += RAW_BOX_FIELDS) {
+    const [kind, x, y, width, height] = raw.boxes.slice(i, i + RAW_BOX_FIELDS);
+    const distance = distanceToScreenCentre({ x, y, width, height }, view, raw.scope);
+    targets.push({ distance, width, height });
+    idSum += fittsIndexOfDifficulty(distance, smallerOfWidth(width, height));
+    if (isEntryKind(raw.kinds[kind])) entryBoxes++;
+  }
+  const storedTargets = targets.length;
+  const totalTargets = Math.max(raw.interactiveElements, storedTargets);
+
+  const groups: ChoiceGroup[] = [];
+  let storedNavLinks = 0;
+  let toggleGroups = 0;
+  for (let i = 0; i + RAW_GROUP_FIELDS <= raw.choiceGroups.length; i += RAW_GROUP_FIELDS) {
+    const kind = raw.kinds[raw.choiceGroups[i]];
+    const size = raw.choiceGroups[i + 1];
+    groups.push({ size, each: kind === "checkbox" });
+    if (kind === "nav") storedNavLinks += size;
+    if (kind === "radio" || kind === "checkbox") toggleGroups++;
+  }
+  const totalGroups = Math.max(raw.choiceGroupCount, groups.length);
+  const grouped = (raw as Partial<RawPageMeasurement>).groupedLinks;
+  const ungroupedLinksFrom = typeof grouped === "number" ? "groupedLinks" as const : "navGroupSizes" as const;
+  const ungroupedLinks = Math.max(0, raw.links - (typeof grouped === "number" ? grouped : storedNavLinks));
+  const choose = (law: "novice" | "expert") => choosingSeconds(groups, law, totalGroups)
+    + (law === "novice" ? noviceSearchSeconds(ungroupedLinks) : hickHymanSeconds(ungroupedLinks));
+
+  let letters = 0;
+  for (const [len, c] of raw.text.wordLengths) letters += len * c;
+  let abjadWords = 0;
+  for (const [, c] of raw.text.abjadWordLengths) abjadWords += c;
+
+  // Entry boxes scale with the box cap like targets; toggle groups with the group cap.
+  const entrySteps = (storedTargets > 0 ? entryBoxes * (totalTargets / storedTargets) : 0)
+    + (groups.length > 0 ? toggleGroups * (totalGroups / groups.length) : 0);
+
+  return {
+    pointingSeconds: pointingSeconds(targets, totalTargets),
+    choosingSeconds: choose("novice"),
+    readingSeconds: readingSeconds({ letters, abjadWords, cjkChars: raw.text.cjkChars }),
+    procedureSeconds: klmSeconds(entrySteps),
+    lawDiagnostics: {
+      choosingSecondsExpert: choose("expert"),
+      meanFittsID: storedTargets > 0 ? idSum / storedTargets : 0,
+      targets: totalTargets,
+      entrySteps,
+      choiceGroups: totalGroups + (ungroupedLinks > 0 ? 1 : 0),
+      ungroupedLinks,
+      ungroupedLinksFrom,
+    },
+  };
+}
+
 export function deriveMetrics(raw: RawPageMeasurement | RawPageMeasurementV1): ExtractedPageMetrics {
   if (raw.format !== RAW_PAGE_FORMAT && raw.format !== 1) {
     throw new Error(`deriveMetrics: raw page format ${String((raw as { format?: unknown }).format)} is not one this build reads (1 or ${RAW_PAGE_FORMAT})`);
@@ -2041,6 +2184,7 @@ export function deriveMetrics(raw: RawPageMeasurement | RawPageMeasurementV1): E
     // From the shared measurement, so it can never disagree with the screenCount
     // the sequential curve was scored over.
     pageScreens: raw.pageScreens,
+    ...lawSecondsOf(raw),
   };
 }
 
