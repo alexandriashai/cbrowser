@@ -105,4 +105,14 @@ describe("sources", () => {
     expect(sourcePath("Devices | docs")).toBeNull();
     expect(sourceUrls(sources)).toEqual(["https://cbrowser.ai/docs/tool-screenshot/", "https://cbrowser.ai/automated-testing/"]);
   });
+  // Found on the first live 20.0.2 answer: the home page's source label is "/",
+  // which printed as its raw label and page-chrome snippet.
+  test("a labelled home-page source is the site's root", () => {
+    const home = "[/ — Test like 17 users, not like you]: ...Try Free — 5 Tests See Example Report";
+    expect(sourcePath(home)).toBe("/");
+    expect(sourceLines([home])).toEqual(["https://cbrowser.ai/"]);
+  });
+  test("with the home page among the sources, a slash in prose stays a slash", () => {
+    expect(formatAnswerForTerminal("Pick gif / webp, and/or webm.", ["/"])).toBe("Pick gif / webp, and/or webm.");
+  });
 });

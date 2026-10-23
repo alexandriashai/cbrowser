@@ -41,6 +41,9 @@ export function absoluteSiteUrl(url: string, origin = DOCS_ORIGIN): string {
 /** The page path a source names, or null: "[/docs/x — full]: snippet" gives "/docs/x". */
 export function sourcePath(source: string): string | null {
   const labelled = /^\[\s*(\S+)\s+[—-][^\]]*\]/.exec(source.trim());
+  // The home page's label is a bare "/". Only a label can name it: a lone
+  // slash in prose ("gif / webp") is never read as a page.
+  if (labelled?.[1] === "/") return "/";
   const first = labelled?.[1] ?? source.trim().split(/\s/)[0] ?? "";
   if (/^https?:\/\//i.test(first)) return first;
   return PATH_TOKEN.test(first) ? first : null;
