@@ -47,10 +47,12 @@ describe("journey provenance registry", () => {
     // "for 30s", which update_state never applied, became its two
     // consecutive updates; 423 after the five hand-set gaze-lag constants
     // gave way to the published average (journey.gazeLag.mean). The typing
-    // grounding (Dhakal et al. 2018) replaced one entry with one.
+    // grounding (Dhakal et al. 2018) replaced one entry with one. 420 after
+    // the journey's copies of Fitts' law and KLM's mental operator gave way
+    // to Stage B's (law.fitts.*, law.klm.mentalPreparation).
     const counts = Object.fromEntries(Object.entries(JOURNEY_GROUPS).map(([g, es]) => [g, es.length]));
-    expect(counts).toEqual({ journey: 151, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 38 });
-    expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(423);
+    expect(counts).toEqual({ journey: 148, emotion: 123, temporal: 44, humanInput: 67, journeyMcp: 38 });
+    expect(new Set(JOURNEY_GROUP_PROVENANCE.map((e) => e.id)).size).toBe(420);
     for (const [g, es] of Object.entries(JOURNEY_GROUPS)) for (const e of es) expect(e.id.startsWith(`${g}.`)).toBe(true);
     for (const e of JOURNEY_GROUP_PROVENANCE) expect(MODEL_PROVENANCE[e.id]).toBe(e);
   });
@@ -72,7 +74,7 @@ describe("journey provenance registry", () => {
   test("nothing is fitted; the published entries are the ones read for this registry", () => {
     const counts = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
     for (const e of JOURNEY_GROUP_PROVENANCE) counts[e.status]++;
-    expect(counts).toEqual({ fitted: 0, published: 9, definition: 14, hypothesis: 400 });
+    expect(counts).toEqual({ fitted: 0, published: 9, definition: 14, hypothesis: 397 });
     expect(JOURNEY_GROUP_PROVENANCE.filter((e) => e.status === "published").map((e) => e.id).sort()).toEqual([
       "humanInput.type.fastIntervalMs", "humanInput.type.minIntervalMs", "humanInput.type.slowIntervalMs",
       "journey.gazeLag.mean",

@@ -50,7 +50,8 @@ export const EXCEPTIONS: Record<string, Record<string, Record<number, number>>> 
   // Centres of boxes (x + width / 2), the mean of confusion and frustration,
   // and System 2 of the dual-process mode (an enum label, twice).
   "src/cognitive/index.ts": {
-    runCognitiveJourney: { 2: 9 },
+    runCognitiveJourney: { 2: 8 },
+    matchClickable: { 2: 1 },
     score: { 2: 1 },
     // English ordinal suffixes: 11th-13th, then by the last digit.
     ordinalSuffix: { 100: 1, 11: 1, 13: 1, 10: 1, 2: 1, 3: 1 },
@@ -178,10 +179,10 @@ describe("the journey's code carries no inline constants", () => {
     expect(index).toContain(marker);
     expect(offenders("src/cognitive/index.ts", index.replace(marker, "progressDeltaAllowed = Math.min(progressDeltaProposed, 0.05);")))
       .toEqual([expect.stringMatching(/ runCognitiveJourney = 0\.05$/)]);
-    // A second centre in a function allowed nine is a tenth.
-    const centre = "const vc = viewportCtx.viewport.height / 2;";
+    // A second centre in a function allowed one is a second.
+    const centre = "const vc = viewportHeight / 2;";
     expect(index).toContain(centre);
-    expect(offenders("src/cognitive/index.ts", index.replace(centre, `${centre} const vc2 = viewportCtx.viewport.width / 2;`))).toHaveLength(1);
+    expect(offenders("src/cognitive/index.ts", index.replace(centre, `${centre} const vc2 = viewportHeight / 2;`))).toHaveLength(1);
     // A display scaling outside a template string is computation.
     expect(offenders("src/cognitive/index.ts", index.replace(marker, `${marker} const pct = state.goalProgress * 100;`))).toHaveLength(1);
 

@@ -76,6 +76,7 @@ import { loadConfigFile, getDataDir } from "../config.js";
 import type { CBrowserConfig } from "../config.js";
 import { param } from "../visual/model-provenance.js";
 import { defaultJourneyTraits } from "./default-traits.js";
+import { distanceToScreenCentre, smallerOfWidth } from "../visual/demand-laws.js";
 import { writeSecretFile } from "../secure-file.js";
 import { uniqueStamp } from "../temp-files.js";
 import { semanticWeightTable } from "../visual/attention-transport.js";
@@ -2018,34 +2019,8 @@ Right now it's ${temporalState.description}.`;
         if (indexMatch) {
           target = availableElements[parseInt(indexMatch[1], 10)] as Bbox;
         } else if (textMatch && !textMatch[1].startsWith("#")) {
-          // Find best element match by text. Prefer (1) exact match, then
-          // (2) starts-with, then (3) includes; among ties, pick the one
-          // closest to the current viewport center.
-          const wanted = textMatch[1].trim().toLowerCase();
-          const vc = viewportCtx.viewport.height / 2;
-          const candidates = (availableElements as Bbox[]).filter(e => e.text);
-          const score = (e: Bbox): number => {
-            const t = (e.text || "").toLowerCase().trim();
-            if (!t) return -Infinity;
-            let base = 0;
-            if (t === wanted) base = param("journey.clickMatch.exact");
-            else if (t.startsWith(wanted) || wanted.startsWith(t)) base = param("journey.clickMatch.prefix");
-            else if (t.includes(wanted) || wanted.includes(t)) base = param("journey.clickMatch.contains");
-            else return -Infinity;
-            // Penalize distance from viewport center (closer = preferred). A
-            // match further away than its own score is never chosen (the
-            // best score must be positive), so no cap on the distance is needed.
-            const ey = (e.y ?? 0) + (e.height ?? 0) / 2;
-            const dist = Math.abs(ey - vc);
-            return base - dist;
-          };
-          let best: Bbox | undefined;
-          let bestScore = -Infinity;
-          for (const e of candidates) {
-            const s = score(e);
-            if (s > bestScore) { bestScore = s; best = e; }
-          }
-          if (best && bestScore > 0) target = best;
+          // Find best element match by text (matchClickable).
+          target = matchClickable(availableElements as Bbox[], textMatch[1], viewportCtx.viewport.height);
         }
         let result: ActionResult;
         const hasBbox = target && typeof target.x === "number" && typeof target.y === "number"
@@ -2092,12 +2067,14 @@ Right now it's ${temporalState.description}.`;
           } catch (clickErr) {
             console.warn(`[cognitive] coordinate click failed: ${(clickErr as Error).message}`);
             const fallback = target.text ? `click:${target.text}` : parsed.action;
-            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits);
+            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits, boxGeometry(target, viewportCtx.viewport));
           }
         } else {
           // No bbox — let executeAction handle (non-click actions, or click
-          // text not found in availableElements).
-          result = await executeAction(browser, parsed.action, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits);
+          // text not found in availableElements). A hover names its element
+          // the same way; its listed geometry, if any, times the pointing.
+          result = await executeAction(browser, parsed.action, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits,
+            pointingGeometry(parsed.action, availableElements as Bbox[], viewportCtx.viewport));
         }
 
         // Inter-action settle pause — humans don't fire actions back-to-back
@@ -2808,6 +2785,76 @@ function ordinalSuffix(n: number): string {
   }
 }
 
+/** A listed clickable, with its box in viewport coordinates when the page gave one. */
+type ClickableBox = PageElement & { x?: number; y?: number; width?: number; height?: number };
+
+/**
+ * The listed clickable a text names. Prefer (1) an exact match, then (2)
+ * starts-with, then (3) includes, each scored less its distance from the
+ * viewport's middle (journey.clickMatch.*); none unless the best score is
+ * positive, so a match further away than its own score is never chosen.
+ */
+function matchClickable(elements: ClickableBox[], text: string, viewportHeight: number): ClickableBox | undefined {
+  const wanted = text.trim().toLowerCase();
+  const vc = viewportHeight / 2;
+  const candidates = elements.filter(e => e.text);
+  const score = (e: ClickableBox): number => {
+    const t = (e.text || "").toLowerCase().trim();
+    if (!t) return -Infinity;
+    let base = 0;
+    if (t === wanted) base = param("journey.clickMatch.exact");
+    else if (t.startsWith(wanted) || wanted.startsWith(t)) base = param("journey.clickMatch.prefix");
+    else if (t.includes(wanted) || wanted.includes(t)) base = param("journey.clickMatch.contains");
+    else return -Infinity;
+    const ey = (e.y ?? 0) + (e.height ?? 0) / 2;
+    const dist = Math.abs(ey - vc);
+    return base - dist;
+  };
+  let best: ClickableBox | undefined;
+  let bestScore = -Infinity;
+  for (const e of candidates) {
+    const s = score(e);
+    if (s > bestScore) { bestScore = s; best = e; }
+  }
+  return best && bestScore > 0 ? best : undefined;
+}
+
+/** Where a pointer move goes, for Fitts' law: distance and width, CSS px. */
+interface PointingGeometry { distance: number; width: number }
+
+/**
+ * The Fitts geometry of a listed element, as Stage B measures pointing: the
+ * distance from the centre of the screen (the pointer's assumed start) to the
+ * element's centre, and the smaller of its width and height. Undefined when
+ * the element has no usable box.
+ */
+function boxGeometry(el: ClickableBox | undefined, viewport: { width: number; height: number }): PointingGeometry | undefined {
+  if (!el || typeof el.x !== "number" || typeof el.y !== "number" || typeof el.width !== "number" || typeof el.height !== "number") return undefined;
+  if (!(viewport.width > 0 && viewport.height > 0 && el.width >= 0 && el.height >= 0)) return undefined;
+  const box = { x: el.x, y: el.y, width: el.width, height: el.height };
+  return {
+    distance: distanceToScreenCentre(box, { viewportWidth: viewport.width, viewportHeight: viewport.height, scrollY: 0 }, "viewport"),
+    width: smallerOfWidth(box.width, box.height),
+  };
+}
+
+/**
+ * The Fitts geometry of the element a click, hover or hover-click names: by
+ * index (#N), by selector, or by text (matchClickable). Undefined for an
+ * action that moves no pointer, or one whose element is not listed; executeAction
+ * then charges the registered fallback move (journey.fitts.unlocated*).
+ */
+function pointingGeometry(action: string, elements: ClickableBox[], viewport: { width: number; height: number }): PointingGeometry | undefined {
+  const [type, ...args] = action.split(":");
+  if (!["click", "hover", "hoverclick"].includes(type)) return undefined;
+  const name = type === "hoverclick" ? (args[0] ?? "") : args.join(":");
+  const index = /^#(\d+)$/.exec(name);
+  const el = index
+    ? elements[parseInt(index[1], 10)]
+    : elements.find(e => e.selector === name) ?? matchClickable(elements, name, viewport.height);
+  return boxGeometry(el, viewport);
+}
+
 async function executeAction(
   browser: CBrowser,
   action: string,
@@ -2815,22 +2862,19 @@ async function executeAction(
   gazeMouseLag?: number,
   humanInput?: boolean,
   inputTraits?: { proceduralFluency?: number; motorPrecision?: number; patience?: number; readingTendency?: number },
+  pointing?: PointingGeometry,
 ): Promise<ActionResult> {
   const [type, ...args] = action.split(":");
 
-  // Apply Fitts' Law timing for mouse actions (v9.9.0)
+  // Apply Fitts' Law timing for mouse actions (v9.9.0): Stage B's law, on the
+  // measured geometry of the element the action names, or the registered
+  // fallback move for one the journey has not listed.
   let movementTimeMs = 0;
   if (["click", "hover", "hoverclick"].includes(type) && fittsParams) {
-    // Estimate target size and distance
-    // Average button width ~80px, average screen movement distance ~300px
-    const estimatedDistance = param("journey.fitts.distancePx");
-    const estimatedTargetWidth = param("journey.fitts.targetWidthPx");
+    const distance = pointing ? pointing.distance : param("journey.fitts.unlocatedDistancePx");
+    const width = pointing ? pointing.width : param("journey.fitts.unlocatedTargetWidthPx");
 
-    movementTimeMs = calculateFittsMovementTime(
-      estimatedDistance,
-      estimatedTargetWidth,
-      fittsParams
-    );
+    movementTimeMs = calculateFittsMovementTime(distance, width, fittsParams);
 
     // Add gaze-to-mouse lag (v10.1.0) - WebGazer.js research
     // Eye movements precede mouse movements by 200-500ms
