@@ -180,6 +180,33 @@ export const ATTENTION_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Obj
 });
 
 /** Summarise a set of ids (what one computation read) for a tool response. */
+/** The two reference rates a capacity is a ratio against; they cancel in c = r_p / (r_p + r_ref). */
+const REFERENCE_RATE_IDS = new Set(["law.rate.pointing.reference", "law.reading.wpm"]);
+
+export const PERSONA_RATE_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Object.freeze({
+  scope:
+    "The rates the scored persona's motor and reading capacities were computed from, counted apart from modelProvenance because " +
+    "they describe the persona, not the score's constants. A built-in persona's are registered with it (personaRate.*); a custom " +
+    "persona's are the rule it fell under (customRate.*), or, where it stated a reading profile, the fixation-model constants that " +
+    "turn that profile into a rate (profile.*). Each capacity is c = r_p / (r_p + r_ref) against the reference rates " +
+    "law.rate.pointing.reference and law.reading.wpm (published), which cancel in the ratio and are not counted here. The other " +
+    "personas' rates are part of the reference population totalCTC is ranked against (a definition) and are not listed.",
+  note:
+    "A rate labelled published was measured on the persona's population against same-study controls; hypothesis rates include " +
+    "\"no measured difference\", the reference rate given where no source measures one. See MODEL_PROVENANCE for each source.",
+});
+
+export interface PersonaRateProvenance extends ProvenanceSummary {
+  /** Every rate id counted, sorted, so the published ones can be named as well as counted. */
+  rates: string[];
+}
+
+/** The persona-rate section of an answer, from the ids collectPersonaReads returned for the scored persona's bridge. */
+export function personaRateProvenance(ids: Iterable<string>): PersonaRateProvenance {
+  const rates = [...new Set(ids)].filter((id) => MODEL_PROVENANCE[id] && !REFERENCE_RATE_IDS.has(id)).sort();
+  return { ...provenanceSummary(rates, PERSONA_RATE_PROVENANCE_TEXT), rates };
+}
+
 export function provenanceSummary(ids: Iterable<string>, text: ProvenanceText = {}): ProvenanceSummary {
   const counts: Record<ProvenanceStatus, number> = { fitted: 0, published: 0, definition: 0, hypothesis: 0 };
   const hypotheses: string[] = [];

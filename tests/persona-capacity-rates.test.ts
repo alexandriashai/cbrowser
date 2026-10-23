@@ -25,7 +25,7 @@ import {
 import { MODEL_PROVENANCE, param } from "../src/visual/model-provenance.js";
 import { PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE } from "../src/visual/provenance/persona-rates.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../src/personas.js";
-import { collectPersonaReads, startProvenanceRecording, stopProvenanceRecording, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
+import { collectPersonaReads, personaRateProvenance, startProvenanceRecording, stopProvenanceRecording, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { buildOTCognitiveProfile } from "../src/visual/cognitive-transport.js";
 import fc from "fast-check";
 
@@ -83,6 +83,23 @@ describe("persona-model reads never land in a score recording (personaScope)", (
     expect(first).toContain("personaRate.dyslexic-user.pointing");
     expect(first.filter((id) => id.startsWith("personaRate.") && !id.startsWith("personaRate.dyslexic-user."))).toEqual([]);
     expect(ids("dyslexic-user")).toEqual(first);
+  });
+
+  test("personaRateProvenance counts the persona's rates, names them, and leaves out the reference rates", () => {
+    const t: Record<string, number> = { ...(ROSTER["dyslexic-user"].cognitiveTraits ?? {}) };
+    const { ids } = collectPersonaReads(() => bridgeCapacityTraits("dyslexic-user", t, ROSTER["dyslexic-user"].accessibilityTraits));
+    expect(ids.has("law.reading.wpm")).toBe(true);
+    const block = personaRateProvenance(ids);
+    expect(block.rates).toEqual(["personaRate.dyslexic-user.pointing", "personaRate.dyslexic-user.reading"]);
+    expect(block.counts).toEqual({ fitted: 0, published: 1, definition: 0, hypothesis: 1 });
+    expect(block.hypotheses).toEqual(["personaRate.dyslexic-user.pointing"]);
+    expect(block.scope).toContain("cancel in the ratio");
+    expect(block.scope).toContain("reference population totalCTC is ranked against (a definition)");
+    // A custom persona with a stated reading profile: its rule and the fixation-model constants.
+    const custom = personaRateProvenance(collectPersonaReads(() => bridgeCapacityTraits("my-reader", { patience: 0.5 }, { phonologicalDecoding: 0.4, tremor: true })).ids);
+    expect(custom.rates).toContain("customRate.tremor.pointing");
+    expect(custom.rates).toContain("profile.fixation.baseMs");
+    expect(custom.counts.published).toBe(1);
   });
 });
 

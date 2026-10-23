@@ -162,6 +162,35 @@ afterAll(async () => {
   }
 });
 
+describe("the scored persona's rates are reported apart from the score (personaRateProvenance)", () => {
+  type RateBlock = Summary & { rates: string[] };
+  test("cognitive_effort names the persona's two rates, published where measured, the same on a cold and a warm call", async () => {
+    const url = `${fixtures.base}noisy-page.html`;
+    const tremor = await effort({ url, persona: "motor-impairment-tremor" });
+    const again = await effort({ url, persona: "motor-impairment-tremor" });
+    const block = tremor.personaRateProvenance as RateBlock;
+    expect(block.rates).toEqual(["personaRate.motor-impairment-tremor.pointing", "personaRate.motor-impairment-tremor.reading"]);
+    expect(block.counts).toEqual({ fitted: 0, published: 1, definition: 0, hypothesis: 1 });
+    expect(block.scope).toContain("reference population");
+    expect(again.personaRateProvenance).toEqual(block);
+    // The score's own block is untouched by the persona's rates.
+    expectHonestSummary(tremor.modelProvenance as Summary);
+    const first = (await effort({ url, persona: "first-timer" })).personaRateProvenance as RateBlock;
+    expect(first.counts).toEqual({ fitted: 0, published: 0, definition: 0, hypothesis: 2 });
+  }, 180_000);
+
+  test("site_cognitive_assessment reports one section per scored persona", async () => {
+    const result = await handlers.site_cognitive_assessment({
+      url: `${fixtures.base}prose-page.html`, personas: "dyslexic-user,first-timer", threshold: 0, _browserToken: "shared",
+    });
+    const data = JSON.parse(result.content[0].text!);
+    expect(Object.keys(data.personaRateProvenance).sort()).toEqual(["dyslexic-user", "first-timer"]);
+    expect(data.personaRateProvenance["dyslexic-user"].rates).toEqual(["personaRate.dyslexic-user.pointing", "personaRate.dyslexic-user.reading"]);
+    expect(data.personaRateProvenance["dyslexic-user"].counts.published).toBe(1);
+    expectHonestSummary(data.modelProvenance as Summary);
+  }, 240_000);
+});
+
 describe("tool responses carry the provenance of the whole answer", () => {
   test("cognitive_effort: the block equals demand + chain run under withProvenance directly", async () => {
     const data = await effort({ url: `${fixtures.base}noisy-page.html`, persona: "first-timer" });

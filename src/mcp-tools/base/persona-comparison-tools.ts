@@ -39,7 +39,7 @@ import {
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
-import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
+import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import type { PageMetrics } from "../../visual/cognitive-transport-chain.js";
 import { ctcBandsDescription, ctcRank } from "../../visual/ctc-bands.js";
 import { resolveSiteFamiliarity } from "./site-familiarity.js";
@@ -920,6 +920,9 @@ Begin with the first persona: ${personas[0]}
       // the persona's profile, so storing them would create a second copy that
       // can drift from the model that produces it. (2026-08-02)
       let pointingProfileForResponse: { sigmaX: number; sigmaY: number; rho: number; throughput: number } | undefined;
+      // The ids the bridge read for THIS persona, reported as personaRateProvenance:
+      // collected from the call, so no cache state can change them.
+      let personaRateIds: ReadonlySet<string> = new Set<string>();
       try {
         const { bridgeCapacityTraits } = await import("../../visual/cognitive-models.js");
         // accessibilityTraits passed so an author's STATED reading capacity is
@@ -929,7 +932,8 @@ Begin with the first persona: ${personas[0]}
         // inline here and NOWHERE ELSE, which is why the two tools disagreed by
         // 2.6x on the motor layer: the other path scored against the missing-trait
         // fallback of 0.5 and called it a pointing ability.
-        pointingProfileForResponse = bridgeCapacityTraits(personaName, traits, accTraits, personaRateContext(personaObj));
+        ({ result: pointingProfileForResponse, ids: personaRateIds } = collectPersonaReads(() =>
+          bridgeCapacityTraits(personaName, traits, accTraits, personaRateContext(personaObj))));
       } catch (e) {
         // Left absent rather than defaulted: a missing capacity is visible as a
         // gap, a defaulted one silently reads as average.
@@ -1254,6 +1258,9 @@ Begin with the first persona: ${personas[0]}
         // sequential curve and verdict. The saliency overlay, drawn as context,
         // carries its own block on its layerOverlays entry.
         modelProvenance: undefined,
+        // The scored persona's motor and reading rates, counted apart from the
+        // score's constants (they describe the persona).
+        personaRateProvenance: personaRateProvenance(personaRateIds),
         // Only when useValues asked for it, so a persona with no values is
         // visibly scored without them rather than silently.
         ...(useValues ? { valueModulation: valueModulationReport(schwartzValues) } : {}),

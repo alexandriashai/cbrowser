@@ -13,7 +13,7 @@ import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js
 import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
-import { activeProvenance, isolatedProvenanceAsync, ATTENTION_PROVENANCE_TEXT, type ProvenanceSummary } from "../../visual/model-provenance.js";
+import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import { ctcRank } from "../../visual/ctc-bands.js";
 import { recordedAnswer } from "./answer-provenance.js";
 import { resolveChainValues, valueModulationReport } from "./chain-values.js";
@@ -531,6 +531,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         const personaResults: Record<string, unknown> = {};
         // Each scored persona's rank sentence, for the recommendations below.
         const rankSentences: Record<string, string> = {};
+        // Each scored persona's motor and reading rates (personaRateProvenance).
+        const personaRates: Record<string, PersonaRateProvenance> = {};
         const { buildOTCognitiveProfile } = await import("../../visual/cognitive-transport.js");
         const { computeDemandDistribution, computeSequentialCTC } = await import("../../visual/cognitive-transport-chain.js");
         const { extractPageMetrics } = await import("../../visual/cognitive-transport.js");
@@ -616,8 +618,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             // This moves more than motor. readability, readingAttention, totalCTC,
             // bottleneck and abandonmentRisk all shift for every persona here, all
             // converging on what cognitive_effort already reported.
-            bridgeCapacityTraits(personaName, traits,
-              (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(personaObj));
+            personaRates[personaName] = personaRateProvenance(collectPersonaReads(() => bridgeCapacityTraits(personaName, traits,
+              (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(personaObj))).ids);
 
             const otProfile = buildOTCognitiveProfile(personaName, traits);
             // Rebuilt for each persona from the same metrics, so every persona is
@@ -689,8 +691,11 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         }
         response.recommendations = recommendations.slice(0, 5);
         // Reported when at least one persona was scored, as before.
-        if (Object.keys(rankSentences).length > 0) response.modelProvenance = activeProvenance();
-        else delete response.modelProvenance;
+        if (Object.keys(rankSentences).length > 0) {
+          response.modelProvenance = activeProvenance();
+          // Per scored persona, counted apart from the score's constants.
+          response.personaRateProvenance = Object.fromEntries(Object.keys(rankSentences).map((n) => [n, personaRates[n]]));
+        } else delete response.modelProvenance;
         response.result = "COMPLETE";
         response.duration = `${Date.now() - startTime}ms`;
 
@@ -1000,6 +1005,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         let effortData: Record<string, unknown> | null = null;
         // Unrounded, for the narrative: a band edge must not move with display rounding.
         let storyEffort: StoryEffort | null = null;
+        // The ids the bridge read for this persona: personaRateProvenance below.
+        let storyPersonaRateIds: ReadonlySet<string> = new Set<string>();
         // useValues reaches the chain here exactly as in cognitive_effort: the
         // persona's Schwartz scores, through the chain's registered modulation.
         // Through 21.0 the flag never reached this summary at all.
@@ -1030,8 +1037,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // Same bridge as Gate 3 and cognitive_effort. Without it this tool has
           // the identical missing-capacity defect and would reproduce the motor
           // disagreement against cognitive_effort the moment anyone compared them.
-          bridgeCapacityTraits(persona, traits,
-            (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(personaObj));
+          storyPersonaRateIds = collectPersonaReads(() => bridgeCapacityTraits(persona, traits,
+            (personaObj as unknown as { accessibilityTraits?: Record<string, number> }).accessibilityTraits, personaRateContext(personaObj))).ids;
           const otProfile = buildOTCognitiveProfile(persona, traits);
           // viewport-by-design: visual_cognitive_story declares no `scope` parameter,
           // so it promises the caller nothing about how much of the page it read, and
@@ -1225,6 +1232,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // cognitive_effort reports. Taken here, after every step that reads one;
           // fitting the previews below reads none.
           modelProvenance: activeProvenance(),
+          // The scored persona's motor and reading rates, counted apart from the score's constants.
+          ...(storyEffort ? { personaRateProvenance: personaRateProvenance(storyPersonaRateIds) } : {}),
           // The attention analysis's own block, kept out of modelProvenance.
           ...(attentionProvenance ? { attentionProvenance } : {}),
         };
