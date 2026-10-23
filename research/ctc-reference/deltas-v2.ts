@@ -28,6 +28,8 @@
  *     interactive elements, textChars) moved between the two crawls; and on
  *     every v2 page, format 1's per-element count (proseNested) against the
  *     outermost-only count, measured on the same DOM;
+ *   - the share of each page's prose words that sit in nav and composite
+ *     groups (proseInNav), median and p90, by scope and page type;
  *   - what counting each choice in one group did, on every v2 page, same
  *     DOM: format 1's group totals (choiceNested) against the deduplicated
  *     ones, how many pages have more groups than the stored list holds, and
@@ -148,13 +150,22 @@ function widths(curve: PercentileCurve, iv: PercentileInterval, costs: Float64Ar
 console.log(`\n## bootstrap interval of the percentile (pages resampled, ${settings.replicates} replicates, seed ${settings.seed}), asymmetric + interactions`);
 const v1Curves: Partial<Record<MetricScope, PercentileCurve>> = {};
 const v1Costs: Partial<Record<MetricScope, Float64Array>> = {};
+// v1 stored normalised metrics, not raw measurements. Since Stage B the
+// demand also needs the four law times, which only a raw measurement gives,
+// so v1's pages cannot be scored by this chain; their earlier numbers stand
+// in deltas-v2-2026-10-23.txt's first edition (890e93f).
+let v1Scorable = true;
+try { costsOf(v1Pages("viewport").slice(0, 1)); } catch { v1Scorable = false; }
+if (!v1Scorable) console.log("  v1: not scorable by this chain (its stored metrics carry no law times); v2 only");
 for (const scope of SCOPES) {
-  const c1 = costsOf(v1Pages(scope));
-  const curve1 = percentileCurve(c1);
-  v1Curves[scope] = curve1;
-  v1Costs[scope] = c1;
-  const iv1 = bootstrapPercentileInterval(c1, population.length, settings);
-  console.log(`  ${scope} v1 (${c1.length / population.length} pages): ${widths(curve1, iv1, c1)}`);
+  if (v1Scorable) {
+    const c1 = costsOf(v1Pages(scope));
+    const curve1 = percentileCurve(c1);
+    v1Curves[scope] = curve1;
+    v1Costs[scope] = c1;
+    const iv1 = bootstrapPercentileInterval(c1, population.length, settings);
+    console.log(`  ${scope} v1 (${c1.length / population.length} pages): ${widths(curve1, iv1, c1)}`);
+  }
   const ref = ctcReferenceCurve(scope);
   const c2 = costsOf(referencePages(scope));
   if (c2.length !== ref.curve.samples) throw new Error(`rebuilt ${c2.length} v2 costs, the curve holds ${ref.curve.samples}`);
@@ -163,7 +174,8 @@ for (const scope of SCOPES) {
 
 // ── totalCTC on real pages: the v1 landing pages ranked against each curve ──
 console.log(`\n## the v1 reference's own landing pages ranked against v1 and against v2 (totalCTC v2 minus v1, tool-default options)`);
-for (const scope of SCOPES) {
+if (!v1Scorable) console.log("  skipped: v1 is not scorable by this chain");
+for (const scope of v1Scorable ? SCOPES : []) {
   const c1 = v1Costs[scope]!, curve1 = v1Curves[scope]!, curve2 = ctcReferenceCurve(scope).curve;
   const n = c1.length / population.length;
   const lines: string[] = [];
@@ -243,6 +255,20 @@ for (const scope of SCOPES) {
   };
   console.log(`  ${scope}: pages with a group inside another group ${nested.length} of ${raws.length}; choices counted per group / once (pages under the cap) median ${f3(median(itemRatio))}, mean ${f3(mean(itemRatio))}, max ${f3(Math.max(...itemRatio))}; groups per group / once, all pages: ${raws.reduce((n, r) => n + r.choiceNested.groups, 0)} / ${raws.reduce((n, r) => n + r.choiceGroupCount, 0)}`);
   console.log(`    pages over the stored list's ${param("pageMetrics.raw.maxChoiceGroups")} groups: ${capped.length}; there, stored nav sizes / navLinks: ${capped.map((r) => `${storedNav(r)}/${r.navLinks}`).join(", ") || "-"}; ungrouped links (links - groupedLinks) median ${f3(median(raws.map((r) => r.links - r.groupedLinks)))}, share of links median ${f3(median(raws.filter((r) => r.links > 0).map((r) => (r.links - r.groupedLinks) / r.links)))}`);
+}
+
+console.log(`\n## prose inside nav and composite groups (proseInNav), per page`);
+for (const scope of SCOPES) {
+  const raws = referenceRaw(scope);
+  const graded = referenceGraded();
+  const share = (r: RawPageMeasurement) => (r.prose.words > 0 ? r.proseInNav.words / r.prose.words : 0);
+  const shares = raws.map(share).sort((a, b) => a - b);
+  const q = (p: number) => shares[Math.min(shares.length - 1, Math.floor(p * (shares.length - 1)))];
+  const byType = TYPES.map((t) => {
+    const s2 = raws.filter((_, i) => graded[i].pageType === t).map(share);
+    return s2.length ? `${t} ${f3(median(s2))}` : "";
+  }).filter(Boolean).join(", ");
+  console.log(`  ${scope}: share of prose words in groups, median ${f3(q(0.5))}, p90 ${f3(q(0.9))}, mean ${f3(mean(shares))}, max ${f3(shares[shares.length - 1])}; pages with none ${shares.filter((x) => x === 0).length} of ${shares.length}; median by type: ${byType}`);
 }
 
 console.log(`\n## raw format 2's prose fix`);

@@ -29,7 +29,7 @@
 import type { ProvenanceEntry } from "../model-provenance.js";
 
 /** Graded pages in the shipped reference; both scopes measure the same pages. */
-const GRADED = 513;
+const GRADED = 512;
 
 const DATASET =
   "src/data/ctc-reference-v2-2026-10-23.ts: raw measurements (measurePageRaw, raw format 2) of real pages crawled 2026-10-23 by research/ctc-reference/crawl-v2.ts " +
