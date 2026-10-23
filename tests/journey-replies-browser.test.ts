@@ -16,7 +16,10 @@ import { basename, join, resolve } from "node:path";
 
 const requests: unknown[] = [];
 let calls = 0;
+// "find" reaches the goal on the second reply; "wander" never does, so that run uses every step.
+let mode: "find" | "wander" = "find";
 const CLICK = { phase: "decide", monologue: "Tuition should be under Pricing.", action: "click:Pricing", actionTarget: "the Pricing link", goalProgress: 0.4, mood: "hopeful", goalAchieved: false };
+const WANDER = { phase: "decide", monologue: "Nothing about tuition yet. I'll scroll.", action: "scroll:down", goalProgress: 0.1, mood: "neutral", goalAchieved: false, achieved: false, evidence: "" };
 const FOUND = { phase: "evaluate", monologue: "There it is: $20 a credit hour.", action: null, goalProgress: 1, mood: "relieved", goalAchieved: true, goalEvidence: "$20 a credit hour", achieved: true, evidence: "$20 a credit hour" };
 
 class FakeAnthropic {
@@ -24,7 +27,7 @@ class FakeAnthropic {
     create: async (params: unknown) => {
       requests.push(params);
       calls++;
-      return { stop_reason: "end_turn", content: [{ type: "thinking", thinking: "..." }, { type: "text", text: JSON.stringify(calls === 1 ? CLICK : FOUND) }] };
+      return { stop_reason: "end_turn", content: [{ type: "thinking", thinking: "..." }, { type: "text", text: JSON.stringify(mode === "wander" ? WANDER : calls === 1 ? CLICK : FOUND) }] };
     },
   };
 }
@@ -45,6 +48,7 @@ let url = "";
 const savedKey = process.env.ANTHROPIC_API_KEY;
 const steps: Array<{ step: number; replyReadable: boolean }> = [];
 let result: { name?: string; tracePath?: string; goalAchieved: boolean };
+let wandered: { tracePath?: string; goalAchieved: boolean; abandonmentReason?: string; stepCount: number };
 
 beforeAll(async () => {
   server = Bun.serve({
@@ -63,6 +67,11 @@ beforeAll(async () => {
     name: "ucdenver", persona: "first-timer", goal: GOAL, startUrl: url, maxSteps: 4, headless: true,
     persistent: false, vision: false, trace: true,
     onStep: (s) => { steps.push({ step: s.step, replyReadable: s.replyReadable }); },
+  });
+  mode = "wander";
+  wandered = await runCognitiveJourney({
+    persona: "first-timer", goal: GOAL, startUrl: url, maxSteps: 2, headless: true,
+    persistent: false, vision: false, trace: true,
   });
 }, 240_000);
 
@@ -126,5 +135,21 @@ describe("cbrowser cognitive-journey <name>", () => {
       "--persona", "first-timer", "--max-steps", "4", "--no-vision", "--replay-trace", String(result.tracePath));
     expect(r.stderr).toContain("Note: --goal was in curly quotes");
     expect(r.stdout).toContain(`Goal: "${GOAL}"`);
+  }, 240_000);
+});
+
+describe("a journey that uses every step", () => {
+  test("ends with no goal and no abandonment reason", () => {
+    expect(wandered.goalAchieved).toBe(false);
+    expect(wandered.abandonmentReason).toBeUndefined();
+    expect(wandered.stepCount).toBe(2);
+  });
+
+  test("the CLI says it stopped at the step limit, not 'ABANDONED: undefined'", async () => {
+    const r = await cli("cognitive-journey", "--start", url, "--goal", GOAL, "--persona", "first-timer",
+      "--max-steps", "2", "--no-vision", "--replay-trace", String(wandered.tracePath));
+    expect(r.stdout).toContain("❌ GOAL NOT REACHED: stopped at the step limit after 2 steps");
+    expect(r.stdout).not.toContain("undefined");
+    expect(r.code).toBe(1);
   }, 240_000);
 });

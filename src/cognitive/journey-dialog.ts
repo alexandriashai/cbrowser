@@ -14,6 +14,7 @@
  */
 
 import type { CognitiveStep } from "./index.js";
+import type { CognitiveJourneyResult } from "../types.js";
 
 /** Where an action string ("click:#pricing", "fill:#email:me@x") says to act, minus its value. */
 function actionVerb(action: string): string {
@@ -37,4 +38,17 @@ export function formatJourneyStep(step: CognitiveStep): string[] {
     lines.push("   → no action");
   }
   return lines;
+}
+
+/**
+ * The line that says how a journey ended. A run that used every step without
+ * reaching the goal or giving up has no abandonmentReason, and the CLI
+ * printed "ABANDONED: undefined" (2026-10-23).
+ */
+export function journeyEndLine(
+  result: Pick<CognitiveJourneyResult, "goalAchieved" | "abandonmentReason" | "stepCount" | "totalTime">,
+): string {
+  if (result.goalAchieved) return `✅ GOAL ACHIEVED in ${result.stepCount} steps (${result.totalTime.toFixed(1)}s)`;
+  if (result.abandonmentReason) return `❌ ABANDONED: ${result.abandonmentReason}`;
+  return `❌ GOAL NOT REACHED: stopped at the step limit after ${result.stepCount} steps (raise it with --max-steps)`;
 }

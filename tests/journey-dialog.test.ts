@@ -4,7 +4,7 @@
  * tests/cli-journey-dialog-browser.test.ts runs the command end to end.
  */
 import { describe, expect, test } from "bun:test";
-import { formatJourneyStep } from "../src/cognitive/journey-dialog.js";
+import { formatJourneyStep, journeyEndLine } from "../src/cognitive/journey-dialog.js";
 import type { CognitiveStep } from "../src/cognitive/index.js";
 
 function step(over: Partial<CognitiveStep>): CognitiveStep {
@@ -46,5 +46,23 @@ describe("formatJourneyStep", () => {
     const lines = formatJourneyStep(step({ phase: "evaluate", replyReadable: false }));
     expect(lines).toEqual(["   Step 2: the model's reply could not be read, so this step took no action"]);
     expect(lines.join("\n")).not.toContain("evaluate");
+  });
+});
+
+describe("journeyEndLine", () => {
+  const end = { stepCount: 4, totalTime: 12.34 };
+
+  test("a reached goal", () => {
+    expect(journeyEndLine({ ...end, goalAchieved: true })).toBe("✅ GOAL ACHIEVED in 4 steps (12.3s)");
+  });
+
+  test("an abandoned run names its reason", () => {
+    expect(journeyEndLine({ ...end, goalAchieved: false, abandonmentReason: "timeout" })).toBe("❌ ABANDONED: timeout");
+  });
+
+  test("a run that used every step says so instead of 'ABANDONED: undefined'", () => {
+    const line = journeyEndLine({ ...end, goalAchieved: false });
+    expect(line).toBe("❌ GOAL NOT REACHED: stopped at the step limit after 4 steps (raise it with --max-steps)");
+    expect(line).not.toContain("undefined");
   });
 });

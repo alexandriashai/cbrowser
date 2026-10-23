@@ -66,7 +66,7 @@ import {
   removeAnthropicApiKey,
   isApiKeyConfigured,
 } from "./cognitive/index.js";
-import { formatJourneyStep } from "./cognitive/journey-dialog.js";
+import { formatJourneyStep, journeyEndLine } from "./cognitive/journey-dialog.js";
 
 // Lightpanda integration (v18.20.0) - OPT-IN ONLY with security guardrails
 import {
@@ -7770,10 +7770,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
             console.log(`   Replay it with no API calls: cbrowser cognitive-journey --start <url> --goal <goal> --replay-trace ${result.tracePath}`);
           }
 
-          if (result.goalAchieved) {
-            console.log(`✅ GOAL ACHIEVED in ${result.stepCount} steps (${result.totalTime.toFixed(1)}s)`);
-          } else {
-            console.log(`❌ ABANDONED: ${result.abandonmentReason}`);
+          console.log(journeyEndLine(result));
+          if (!result.goalAchieved) {
             if (result.abandonmentMessage) {
               console.log(`   💭 "${result.abandonmentMessage}"`);
             }
