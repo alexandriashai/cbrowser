@@ -384,7 +384,8 @@ informationDensity, so no pageMetrics constant goes dead.
 
 - `computeDemandDistribution(pageMetrics, { siteFamiliarity })`, default 0.
   `T_choose = (1 - e) choosingSeconds + e choosingSecondsExpert`, then the decision
-  demand as today. e = siteFamiliarity, clamped to [0, 1] (definition).
+  demand as today. e = siteFamiliarity (definition); a value outside [0, 1]
+  or not a finite number is refused, not clamped.
 - PageMetrics gains `choosingSecondsExpert` (today only on
   `lawDiagnostics`), derived by deriveMetrics from the same groups. No raw
   field.
@@ -430,6 +431,74 @@ informationDensity, so no pageMetrics constant goes dead.
   reproduces today's shape (first-timer 0.685, above ADHD on 87% of pages), with
   a demand whose meaning (all information-processing time) no source supports
   any better than the old one.
+
+### 4.5 Frustration's two text-to-patience terms (designed before the build)
+
+Decided 2026-10-23: fix them in 21.0 the way the cognitiveLoad terms are fixed,
+with a law time on Stage B's scale or a labelled hypothesis with its reason.
+
+**Today.** `patience = max(0.7 x textDensity, 0.7 x avgSentenceLength)`
+(`chain.demand.text.patience`, `chain.demand.sentenceLength.patience`, both
+hypotheses). textDensity is the nested `textChars x 0.4` per unit area
+(section 2.3, finding 3); sentence length has no time law (3.2). Both are text,
+and the time text takes is Stage B's reading time.
+
+**Proposal: patience takes the reading demand, `d(readingSeconds)`, with no
+share constant.** Both terms retire (chain registry 48 -> 46, both
+hypotheses). The reasons, in order:
+
+1. The trait is already a time. Its registered measure is "time to abandonment
+   under injected load delays and repeated failures in a usability task"
+   (`provenance/personas.ts`). On Stage B's scale a capacity c is a tolerated
+   reference time `tau c / (1 - c)`, so patience 0.5 tolerates 12.4 s, which is
+   the published statistic tau is: the median stay on a first-time page visit
+   (Weinreich et al. 2008, via the `law.timeBudget` entry; not re-read by me).
+   A persona with patience 0.2 tolerates 3.1 s of reference reading before it
+   falls short; 0.8 tolerates 49.6 s.
+2. The two terms priced text. The law time of text is reading seconds. Taking
+   the whole demand (share 1, satisficing's and design C's convention) adds no
+   number; keeping one of the 0.7s re-pointed would keep a hand-set share whose
+   only justification was the curve it multiplied.
+3. Not the whole page's time. Summing pointing, choosing, reading and
+   procedure into one patience time would be a convention Stage B did not make
+   (each channel is judged against tau on its own), and no source I read sets
+   it.
+
+**What stays hypothesis.** The persona patience values, now read as tolerated
+reading time; that patience is demanded the reading time at all; tau as the
+budget.
+
+**Measured before building** (`stage-c-predict.ts`, V5 = design C plus this,
+V6 = patience on the whole page's law time, V7 = patience on 0.7 x d_read; ref
+ctc-reference-v2-2026-10-23, 513 pages, viewport, mean totalCTC on each
+variant's own curve):
+
+| persona | design C | C + patience on d_read (V5) | V6 | V7 |
+|---|---|---|---|---|
+| typical-user | 0.344 | 0.390 | 0.423 | 0.344 |
+| first-timer | 0.564 | 0.533 | 0.489 | 0.569 |
+| cognitive-adhd | 0.627 | 0.682 | 0.779 | 0.617 |
+| dyslexic-user | 0.477 | 0.440 | 0.386 | 0.482 |
+| low-vision-magnified | 0.534 | 0.493 | 0.442 | 0.539 |
+| motor-impairment-tremor | 0.572 | 0.518 | 0.448 | 0.576 |
+| elderly-user | 0.640 | 0.596 | 0.536 | 0.644 |
+| power-user | 0.384 | 0.487 | 0.577 | 0.381 |
+| impatient-user | 0.692 | 0.738 | 0.839 | 0.680 |
+
+Patience demand rises from a median of 0.423 at the viewport and 0.388 at
+full_page (p10-p90 0.221-0.655 and 0.224-0.693, the two 0.7 x text terms) to the
+reading demand's 0.676 and 0.889 (0.220-0.855 and 0.545-0.968), so the
+personas authored with low patience (power-user 0.3, cognitive-adhd and
+impatient-user 0.2) rise and the high-patience ones (dyslexic-user 0.75,
+tremor and elderly-user 0.8) fall. Under V5 every impaired persona stays above
+the typical user (viewport: dyslexic +0.050, low vision +0.102, tremor +0.128,
+ADHD +0.292); under V6 dyslexic-user falls below it (-0.036), which is one more
+reason against the whole-page sum. power-user rises further above the typical
+user (+0.040 -> +0.096), the authored patience 0.3 now pricing. V7 is the
+small-move alternative: within 0.01 of design C everywhere at the viewport,
+with one hand-set share kept.
+
+**Building V5.** The before and after on the shipped chain are in section 10.
 
 ---
 

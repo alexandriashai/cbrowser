@@ -11,7 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-const VARIANTS = ["V0", "V1", "V2", "V3", "V4"];
+const VARIANTS = (process.env.VARIANTS ?? "V0,V1,V2,V3,V4").split(",");
 const data = Object.fromEntries(VARIANTS.map((v) => [v, JSON.parse(readFileSync(join(import.meta.dir, "stage-c-predict", `${v}.json`), "utf8"))]));
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const f = (x: number) => x.toFixed(3);
@@ -19,7 +19,7 @@ const FACE = ["typical-user", "cognitive-adhd", "dyslexic-user", "low-vision-mag
 for (const scope of ["viewport", "full_page"]) {
   console.log(`\n### ${scope}: mean totalCTC (variant's own percentile scale)\n`);
   console.log("| persona | " + VARIANTS.join(" | ") + " |\n|---|" + VARIANTS.map(() => "---").join("|") + "|");
-  const personas = Object.keys(data.V0[scope].total);
+  const personas = Object.keys(data[VARIANTS[0]][scope].total);
   for (const p of personas) console.log(`| ${p} | ` + VARIANTS.map((v) => f(mean(data[v][scope].total[p]))).join(" | ") + " |");
   console.log(`\n### ${scope}: mean rawCTC\n`);
   console.log("| persona | " + VARIANTS.join(" | ") + " |\n|---|" + VARIANTS.map(() => "---").join("|") + "|");

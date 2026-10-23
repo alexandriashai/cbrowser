@@ -7,7 +7,7 @@
  * personas x 513 pages, pooled, as ctc-reference.ts does), so totalCTC is the
  * variant's own scale, not the shipped one.
  *
- *   VARIANT=V0|V1|V2|V3|V4 bun research/stage-c-predict.ts   (one variant per process)
+ *   VARIANT=V0|V1|V2|V3|V4|V5|V6|V7 bun research/stage-c-predict.ts   (one variant per process)
  *
  *   V0  today (feat/cot-integration 8707e49)
  *   V1  cognitiveLoad retired: layer removed, its three interaction pairs removed
@@ -16,6 +16,12 @@
  *       siteFamiliarity out of the layer (it becomes Cockburn's e on choosing, 0 here)
  *   V3  as V2, but workingMemory demanded the reading-time demand d(readingSeconds)
  *   V4  as V2, every trait demanded d(readingSeconds + choosingSeconds)
+ *   V5  as V2, and frustration's patience demanded d(readingSeconds) in place
+ *       of its two text terms
+ *   V6  as V2, and patience demanded d(pointing + choosing + reading + procedure
+ *       seconds), the whole page's reference time
+ *   V7  as V2, and patience demanded 0.7 x d(readingSeconds): the retired
+ *       chain.demand.text.patience share re-pointed at the reading demand
  *
  * Writes research/stage-c-predict/<VARIANT>.json.
  *
@@ -47,7 +53,7 @@ if (V === "V1") {
   cl.traits = [...LOAD];
 }
 
-function override(d: { demands: Record<string, number> }, m: { choosingSeconds: number; readingSeconds: number }) {
+function override(d: { demands: Record<string, number> }, m: { choosingSeconds: number; readingSeconds: number; pointingSeconds: number; procedureSeconds: number }) {
   if (V === "V0") return d;
   const out = { ...d, demands: { ...d.demands } };
   for (const t of [...LOAD, "siteFamiliarity"]) out.demands[t] = 0;
@@ -55,6 +61,9 @@ function override(d: { demands: Record<string, number> }, m: { choosingSeconds: 
   const dc = timeDemand(m.choosingSeconds), dr = timeDemand(m.readingSeconds), dt = timeDemand(m.choosingSeconds + m.readingSeconds);
   for (const t of LOAD) out.demands[t] = V === "V4" ? dt : dc;
   if (V === "V3") out.demands.workingMemory = dr;
+  if (V === "V5") out.demands.patience = dr;
+  if (V === "V7") out.demands.patience = 0.7 * dr;
+  if (V === "V6") out.demands.patience = timeDemand(m.pointingSeconds + m.choosingSeconds + m.readingSeconds + m.procedureSeconds);
   return out;
 }
 
