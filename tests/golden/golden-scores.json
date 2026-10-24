@@ -2,7 +2,9 @@
   "aria-rich": {
     "composite": 75,
     "grade": "B",
-    "certification": "bronze",
+    "certification": "none",
+    "notMeasuredCount": 6,
+    "certificationNote": "Not certified: 6 of 25 components not measured.",
     "motor": {
       "score": 66,
       "components": {
@@ -199,6 +201,8 @@
     "composite": 47,
     "grade": "D",
     "certification": "none",
+    "notMeasuredCount": 8,
+    "certificationNote": "Not certified: 8 of 25 components not measured.",
     "motor": {
       "score": 40,
       "components": {
@@ -393,10 +397,203 @@
     ],
     "url": "https://portal.example.gov/benefits/application"
   },
+  "fully-measured": {
+    "composite": 82,
+    "grade": "B",
+    "certification": "silver",
+    "notMeasuredCount": 0,
+    "certificationNote": null,
+    "motor": {
+      "score": 79,
+      "components": {
+        "touchTargetCompliance": {
+          "score": 50,
+          "details": "1/2 interactive elements meet 44px minimum (50%)",
+          "measured": true
+        },
+        "hitProbability": {
+          "score": 87,
+          "details": "Average minimum dimension: 39px (sigmoid-scored)",
+          "measured": true
+        },
+        "interactionCount": {
+          "score": 88,
+          "details": "25 interactive elements on page (fewer is easier for motor impairments)",
+          "measured": true
+        },
+        "spacingAdequacy": {
+          "score": 100,
+          "details": "No close-spacing barriers detected",
+          "measured": true
+        },
+        "dragFreeAlternatives": {
+          "score": 100,
+          "details": "No drag-dependent interactions detected",
+          "measured": true
+        }
+      }
+    },
+    "visual": {
+      "score": 90,
+      "components": {
+        "contrastCompliance": {
+          "score": 100,
+          "details": "1 contrast issues among 300 elements (1 normal text below 4.5:1, 0 large text below 3:1)",
+          "measured": true
+        },
+        "textScalability": {
+          "score": 100,
+          "details": "Information density 50% is at or below 60%, so no deduction; resizing text to 200% (WCAG 1.4.4) was not checked",
+          "measured": true
+        },
+        "colorIndependence": {
+          "score": 100,
+          "details": "No color-only information barriers detected",
+          "measured": true
+        },
+        "focusVisibility": {
+          "score": 82,
+          "details": "Estimated from semantic score (82/100)",
+          "measured": true
+        },
+        "spacingDensity": {
+          "score": 50,
+          "details": "Information density: 50% (lower is better for visual processing)",
+          "measured": true
+        }
+      }
+    },
+    "cognitive": {
+      "score": 77,
+      "components": {
+        "decisionComplexity": {
+          "score": 80,
+          "details": "Decision layer cost: 0.100 (lower is better)",
+          "measured": true
+        },
+        "readability": {
+          "score": 72,
+          "details": "Flesch readability score: 60 (higher = more readable)",
+          "measured": true
+        },
+        "informationDensity": {
+          "score": 83,
+          "details": "300 elements on page (progressive penalty above 200)",
+          "measured": true
+        },
+        "attentionClarity": {
+          "score": 60,
+          "details": "CTA capture rate: 30.0% (higher = clearer attention guidance)",
+          "measured": true
+        },
+        "predictability": {
+          "score": 90,
+          "details": "9 navigation items (7 or fewer is optimal for cognitive predictability)",
+          "measured": true
+        }
+      }
+    },
+    "sensory": {
+      "score": 74,
+      "components": {
+        "animationControl": {
+          "score": 60,
+          "details": "2 animations detected without motion preference support (each deducts 20 points)",
+          "measured": true
+        },
+        "sensoryIndependence": {
+          "score": 100,
+          "details": "No audio/caption accessibility barriers detected",
+          "measured": true
+        },
+        "visualCalm": {
+          "score": 45,
+          "details": "Information density: 50%, 2 uncontrolled animations",
+          "measured": true
+        },
+        "layoutConsistency": {
+          "score": 80,
+          "details": "Layout consistency derived from structural score (80/100)",
+          "measured": true
+        },
+        "overloadThreshold": {
+          "score": 100,
+          "details": "Total CTC 0.450: costlier than 45% of the real pages we measured. Band: lower half (below the 50th percentile).",
+          "measured": true
+        }
+      }
+    },
+    "navigation": {
+      "score": 90,
+      "components": {
+        "semanticStructure": {
+          "score": 81,
+          "details": "Average of 3 semantic sub-scores: 81/100",
+          "measured": true
+        },
+        "keyboardOperability": {
+          "score": 100,
+          "details": "No keyboard accessibility barriers detected",
+          "measured": true
+        },
+        "skipMechanisms": {
+          "score": 100,
+          "details": "No skip navigation issues detected",
+          "measured": true
+        },
+        "linkButtonClarity": {
+          "score": 78,
+          "details": "ARIA label score: 78/100",
+          "measured": true
+        },
+        "formAccessibility": {
+          "score": 88,
+          "details": "Form label score: 88/100",
+          "measured": true
+        }
+      }
+    },
+    "topIssues": [
+      {
+        "category": "sensory",
+        "component": "visualCalm",
+        "score": 45,
+        "fix": "Reduce visual noise -- fewer animations, lower information density, more whitespace"
+      },
+      {
+        "category": "motor",
+        "component": "touchTargetCompliance",
+        "score": 50,
+        "fix": "Increase 1 interactive element sizes to at least 44x44px (WCAG 2.5.5 AAA)"
+      },
+      {
+        "category": "visual",
+        "component": "spacingDensity",
+        "score": 50,
+        "fix": "Increase whitespace between content blocks to lower information density (now 50%); above 60% textScalability is penalised too"
+      },
+      {
+        "category": "cognitive",
+        "component": "attentionClarity",
+        "score": 60,
+        "fix": "Make primary CTA visually dominant -- increase size, contrast, and whitespace around conversion elements"
+      },
+      {
+        "category": "sensory",
+        "component": "animationControl",
+        "score": 60,
+        "fix": "Add prefers-reduced-motion support for 2 animations and provide pause controls"
+      }
+    ],
+    "notMeasured": [],
+    "url": "https://example.com/fully-measured"
+  },
   "keyboard-trap": {
     "composite": 74,
     "grade": "B",
-    "certification": "bronze",
+    "certification": "none",
+    "notMeasuredCount": 4,
+    "certificationNote": "Not certified: 4 of 25 components not measured.",
     "motor": {
       "score": 81,
       "components": {
@@ -590,7 +787,9 @@
   "low-contrast": {
     "composite": 79,
     "grade": "B",
-    "certification": "silver",
+    "certification": "none",
+    "notMeasuredCount": 4,
+    "certificationNote": "Not certified: 4 of 25 components not measured.",
     "motor": {
       "score": 87,
       "components": {
@@ -784,7 +983,9 @@
   "minimal-empty": {
     "composite": 50,
     "grade": "C",
-    "certification": "bronze",
+    "certification": "none",
+    "notMeasuredCount": 25,
+    "certificationNote": "Not certified: 25 of 25 components not measured.",
     "motor": {
       "score": 50,
       "components": {
@@ -968,7 +1169,9 @@
   "missing-alt-barriers": {
     "composite": 75,
     "grade": "B",
-    "certification": "bronze",
+    "certification": "none",
+    "notMeasuredCount": 4,
+    "certificationNote": "Not certified: 4 of 25 components not measured.",
     "motor": {
       "score": 84,
       "components": {
@@ -1162,7 +1365,9 @@
   "perfect-page": {
     "composite": 86,
     "grade": "A",
-    "certification": "silver",
+    "certification": "none",
+    "notMeasuredCount": 6,
+    "certificationNote": "Not certified: 6 of 25 components not measured.",
     "motor": {
       "score": 86,
       "components": {
@@ -1358,7 +1563,9 @@
   "tiny-touch-targets": {
     "composite": 69,
     "grade": "C",
-    "certification": "bronze",
+    "certification": "none",
+    "notMeasuredCount": 4,
+    "certificationNote": "Not certified: 4 of 25 components not measured.",
     "motor": {
       "score": 54,
       "components": {

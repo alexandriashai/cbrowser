@@ -25,6 +25,13 @@
  * is an array, even an empty one (an audit ran and found nothing); undefined
  * means no audit ran.
  *
+ * CERTIFICATION needs every component measured. The grade is read from the
+ * composite as always, but platinum, gold, silver and bronze are issued only
+ * when all 25 components were measured; otherwise the certification is "none"
+ * and `certificationNote` says how many were not. An unmeasured component scores
+ * cif.noData.score, so without this a page with nothing measured certified
+ * bronze. (Alexa, 2026-10-24.)
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  * @since v19.0.0
@@ -51,7 +58,15 @@ export interface CIFComponentScore {
 export interface CIFScore {
   composite: number;
   grade: string;
+  /** platinum, gold, silver or bronze only when every component was measured; otherwise "none". */
   certification: string;
+  /** How many of the components were not measured (the length of `notMeasured`). */
+  notMeasuredCount: number;
+  /**
+   * The sentence a customer reads when a component went unmeasured, e.g.
+   * "Not certified: 3 of 25 components not measured."; null when all were measured.
+   */
+  certificationNote: string | null;
 
   motor: {
     score: number;
@@ -1166,23 +1181,30 @@ export function computeCIFScore(data: CIFInput): CIFScore {
   );
 
   const grade = computeGrade(composite);
-  const certification = computeCertification(
-    motor.score,
-    visual.score,
-    cognitive.score,
-    sensory.score,
-    navigation.score,
-  );
 
   const topIssues = buildTopIssues(motor, visual, cognitive, sensory, navigation, data);
-  const notMeasuredComponents = everyComponent(motor, visual, cognitive, sensory, navigation)
+  const components = everyComponent(motor, visual, cognitive, sensory, navigation);
+  const notMeasuredComponents = components
     .filter((c) => !c.measured)
     .map((c) => `${c.category}.${c.component}`);
+
+  // A certification speaks for the whole page, so it needs every component
+  // measured. The band is still computed from the category scores; it is only
+  // issued when nothing was left unmeasured.
+  const allMeasured = notMeasuredComponents.length === 0;
+  const certification = allMeasured
+    ? computeCertification(motor.score, visual.score, cognitive.score, sensory.score, navigation.score)
+    : "none";
+  const certificationNote = allMeasured
+    ? null
+    : `Not certified: ${notMeasuredComponents.length} of ${components.length} components not measured.`;
 
   return {
     composite,
     grade,
     certification,
+    notMeasuredCount: notMeasuredComponents.length,
+    certificationNote,
     motor,
     visual,
     cognitive,

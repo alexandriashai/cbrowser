@@ -1,0 +1,22 @@
+{
+  "url": "https://example.com/fully-measured",
+  "barriers": [],
+  "touchTargets": [{ "width": 48, "height": 48 }, { "width": 30, "height": 30 }],
+  "contrastIssues": [{ "ratio": 3.2, "isLargeText": false }],
+  "agentReadyScore": 80,
+  "semanticScore": 82,
+  "ariaScore": 78,
+  "landmarkScore": 76,
+  "headingScore": 84,
+  "formLabelScore": 88,
+  "totalCTC": 0.45,
+  "layers": [{ "name": "decision", "cost": 0.1 }, { "name": "motor", "cost": 0.05 }],
+  "elementCount": 300,
+  "interactiveCount": 25,
+  "navItemCount": 9,
+  "animationCount": 2,
+  "hasReducedMotionSupport": false,
+  "ctaCaptureRate": 0.3,
+  "fleschScore": 60,
+  "informationDensity": 0.5
+}
