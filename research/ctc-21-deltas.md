@@ -392,24 +392,24 @@ worst single segment.
 - `tests/ctc-no-dead-constants.test.ts` rebuilds the curves for every perturbed
   constant, so it takes 7.1 s instead of 2.1 s.
 
-## Reference v2: 512 real pages, raw format 2
+## Reference v2: 513 real pages, raw format 2
 
-Measured 2026-10-23. The full numbers are in
-`research/ctc-reference/deltas-v2-2026-10-23.txt`, written by
+Measured 2026-10-24. The full numbers are in
+`research/ctc-reference/deltas-v2-2026-10-24.txt`, written by
 `research/ctc-reference/deltas-v2.ts`. The v1 comparisons below come from
-that file's first edition (`890e93f`, before Stage B). The chain can no
+that report's first edition (`890e93f`, before Stage B). The chain can no
 longer score v1 pages, because Stage B's demand needs law times that v1's
 stored metrics do not carry.
 
 ### What changed
 
 - **The reference stores raw measurements.** It no longer stores normalised
-  metrics. `src/data/ctc-reference-v2-2026-10-23.ts` holds what
+  metrics. `src/data/ctc-reference-v2-2026-10-24.ts` holds what
   `measurePageRaw` returned (raw format 2), and the curve derives each page's
   metrics through `deriveMetrics` at load. A changed page-metric normaliser
   now moves the curve, as a chain constant does. The measure-stage constants
   are recorded with the data, and a live value that differs is refused.
-- **Raw format 2** fixes four things at measurement time:
+- **Raw format 2** fixes five things at measurement time:
   - prose is counted once (the outermost matching element only);
   - a language picker is not read as the page's script (www.w3.org read as
     CJK);
@@ -417,10 +417,13 @@ stored metrics do not carry.
     (`navGroupCount`, `navLinks`, `groupedLinks`);
   - the prose inside nav and composite groups is reported apart
     (`proseInNav`), so the reading law can leave out the menu labels the
-    choosing law already reads.
+    choosing law already reads;
+  - the grouped links a sighted user can read are counted
+    (`groupedLinksWithText`: drawn text with a letter, so icons, aria-labels
+    and visually-hidden words do not count).
 
-  The loader refuses a record without these fields, and a record of any
-  other layout.
+  The loader refuses a record without these fields, and names the missing
+  ones. It also refuses a record of any other layout.
 - **Three sampling frames:** the v1 brand list; a seeded draw from Tranco list
   746PX, 60 domains per rank band; and government and nonprofit sites (CISA's
   .gov registry, USAGov's state pages, Wikidata).
@@ -436,22 +439,22 @@ stored metrics do not carry.
 
 ### The crawl
 
-From a frozen export of `711f0b4` (22:31 to 23:13 UTC): 754 pages attempted,
-512 graded (brand 171, tranco 170, public 171), 99 blocked, 99 disallowed by
-robots.txt, 19 errors, 25 excluded (Tranco filters and duplicates).
+From a frozen export of `44d70a7` (2026-10-24, 01:34 to 02:20 UTC): 778 pages
+attempted, 513 graded (171 per frame), 99 blocked, 109 disallowed by
+robots.txt, 30 errors, 27 excluded (Tranco filters and duplicates).
 
 | page type | graded | brand | tranco | public |
 |---|---|---|---|---|
-| landing | 158 | 54 | 57 | 47 |
-| form | 91 | 32 | 26 | 33 |
-| search | 57 | 14 | 23 | 20 |
-| article | 107 | 36 | 34 | 37 |
-| help | 92 | 32 | 27 | 33 |
-| cart | 7 | 3 | 3 | 1 |
+| landing | 162 | 56 | 59 | 47 |
+| form | 91 | 31 | 26 | 34 |
+| search | 56 | 12 | 23 | 21 |
+| article | 106 | 37 | 33 | 36 |
+| help | 90 | 32 | 26 | 32 |
+| cart | 8 | 3 | 4 | 1 |
 
 - **Routing.** Direct first. The residential proxy was used only after a
-  blocked direct attempt, and never for .gov or .mil: 109 pages, 22 of them
-  graded, 179 MB of the 3 GB budget.
+  blocked direct attempt, and never for .gov or .mil: 117 pages, 27 of them
+  graded, 219 MB of the 3 GB budget.
 - **robots.txt** was honoured for every page.
 - **The record.** Every attempted page is listed with its outcome, reason,
   route and bytes.
@@ -460,30 +463,39 @@ robots.txt, 19 errors, 25 excluded (Tranco filters and duplicates).
 
 ### What it moved
 
-- **The interval.** Its width at the median is 4.9 points at viewport
-  (11.6 on v1) and 5.2 at full_page (10.1). At the 80th percentile it is 3.9
+- **The interval.** Its width at the median is 5.3 points at viewport
+  (11.6 on v1) and 5.2 at full_page (10.1). At the 80th percentile it is 4.1
   (9.5) and 3.5 (6.6).
-- **Menu labels.** The share of each page's prose words that sit in nav or
-  composite groups:
-  - at viewport, median 0.065 and p90 0.400;
-  - at full_page, median 0.023 and p90 0.241;
-  - 184 and 160 of 512 pages have none.
-- **Crawl to crawl.** The same frames crawled from `eaf3b36` (two hours
-  earlier, before `proseInNav`) and from `711f0b4` give nearly the same
-  curve. Each old quantile's raw cost ranks within 0.7 points of its old
-  percentile on the new curve, at both scopes (deriveMetrics does not read
-  `proseInNav`, so this is the crawl's own variation).
+- **Grouped links a sighted user can read.** The share of a page's grouped
+  links with drawn text, over the pages that have any:
+  - at viewport, median 0.900, p90 1.000, p10 0.088;
+  - at full_page, median 0.923, p90 1.000, p10 0.120.
+
+  10 pages at viewport (6 at full_page) have grouped links and none with
+  text; 139 (119) have no grouped link. Pooled over all pages, only 54% of
+  grouped links (52%) have text: the few pages with many icon links carry
+  most of the icons.
+- **Menu labels in the prose.** The share of each page's prose words that sit
+  in nav or composite groups:
+  - at viewport, median 0.063 and p90 0.400;
+  - at full_page, median 0.024 and p90 0.249;
+  - 184 and 164 of 513 pages have none.
+- **Crawl to crawl.** The same frames crawled from `711f0b4` (a few hours
+  earlier, before `groupedLinksWithText`) and from `44d70a7` give nearly the
+  same curve. Each old quantile's raw cost ranks within 0.8 points of its old
+  percentile on the new curve, at both scopes. deriveMetrics does not read
+  the new field, so this is the crawl's own variation.
 - **Against v1** (first edition, `890e93f`):
   - the golden matrix moved per human persona by a mean of -0.005 to 0.000,
     largest absolute change 0.009 to 0.022, Spearman 0.9979 to 0.9999;
   - the v1 landing pages re-ranked moved -0.003 at viewport and +0.098 at
     full_page.
-- **The prose fix,** on the 445 pages graded in both the format-1 and the
+- **The prose fix,** on the 446 pages graded in both the format-1 and the
   format-2 crawls: the median change of every readability metric is 0, and
-  the mean absolute change is 0.005 to 0.029 at viewport. No page changed
+  the mean absolute change is 0.005 to 0.030 at viewport. No page changed
   script family.
-- **Choice groups,** on the same DOM: 72 of 512 pages had a group inside
-  another group at viewport (78 at full_page). Format 1 counted 1,106 groups
-  where there are 826 at viewport.
-- **Cost.** One curve, 512 pages x 25 personas plus the page bootstrap, takes
+- **Choice groups,** on the same DOM: 70 of 513 pages had a group inside
+  another group at viewport (76 at full_page). Format 1 counted 1,117 groups
+  where there are 840 at viewport.
+- **Cost.** One curve, 513 pages x 25 personas plus the page bootstrap, takes
   about 110 ms to build (19 ms on v1). It is built at most 8 times per process.

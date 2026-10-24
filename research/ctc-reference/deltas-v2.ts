@@ -30,6 +30,8 @@
  *     outermost-only count, measured on the same DOM;
  *   - the share of each page's prose words that sit in nav and composite
  *     groups (proseInNav), median and p90, by scope and page type;
+ *   - the share of each page's grouped links whose drawn text holds a letter
+ *     (groupedLinksWithText), median and p90, and the pages with none;
  *   - what counting each choice in one group did, on every v2 page, same
  *     DOM: format 1's group totals (choiceNested) against the deduplicated
  *     ones, how many pages have more groups than the stored list holds, and
@@ -153,7 +155,7 @@ const v1Costs: Partial<Record<MetricScope, Float64Array>> = {};
 // v1 stored normalised metrics, not raw measurements. Since Stage B the
 // demand also needs the four law times, which only a raw measurement gives,
 // so v1's pages cannot be scored by this chain; their earlier numbers stand
-// in deltas-v2-2026-10-23.txt's first edition (890e93f).
+// in research/ctc-reference/deltas-v2-2026-10-23.txt as of 890e93f (git history).
 let v1Scorable = true;
 try { costsOf(v1Pages("viewport").slice(0, 1)); } catch { v1Scorable = false; }
 if (!v1Scorable) console.log("  v1: not scorable by this chain (its stored metrics carry no law times); v2 only");
@@ -269,6 +271,16 @@ for (const scope of SCOPES) {
     return s2.length ? `${t} ${f3(median(s2))}` : "";
   }).filter(Boolean).join(", ");
   console.log(`  ${scope}: share of prose words in groups, median ${f3(q(0.5))}, p90 ${f3(q(0.9))}, mean ${f3(mean(shares))}, max ${f3(shares[shares.length - 1])}; pages with none ${shares.filter((x) => x === 0).length} of ${shares.length}; median by type: ${byType}`);
+}
+
+console.log(`\n## grouped links a sighted user can read (groupedLinksWithText), per page`);
+for (const scope of SCOPES) {
+  const raws = referenceRaw(scope);
+  const withLinks = raws.filter((r) => r.groupedLinks > 0);
+  const shares = withLinks.map((r) => r.groupedLinksWithText / r.groupedLinks).sort((a, b) => a - b);
+  const q = (p: number) => shares[Math.min(shares.length - 1, Math.floor(p * (shares.length - 1)))];
+  const total = raws.reduce((n, r) => n + r.groupedLinks, 0), withText = raws.reduce((n, r) => n + r.groupedLinksWithText, 0);
+  console.log(`  ${scope}: share of a page's grouped links with text, over the ${withLinks.length} pages with any, median ${f3(q(0.5))}, p90 ${f3(q(0.9))}, p10 ${f3(q(0.1))}; pages with grouped links but no label ${withLinks.filter((r) => r.groupedLinksWithText === 0).length}; pages with no grouped link ${raws.length - withLinks.length}; all pages pooled ${withText} of ${total} (${pct(withText, total)})`);
 }
 
 console.log(`\n## raw format 2's prose fix`);

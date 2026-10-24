@@ -1,6 +1,6 @@
 /**
  * Provenance entries for the reference set totalCTC is ranked against
- * (../ctc-reference.ts, src/data/ctc-reference-v2-2026-10-23.ts), for the
+ * (../ctc-reference.ts, src/data/ctc-reference-v2-2026-10-24.ts), for the
  * bootstrap interval reported beside it, and for the numbers defined on that
  * percentile: the verdict band cut points (ctcBands.*) and the ideal-profile
  * caps (idealProfiles.maxCTC.*), below.
@@ -29,10 +29,10 @@
 import type { ProvenanceEntry } from "../model-provenance.js";
 
 /** Graded pages in the shipped reference; both scopes measure the same pages. */
-const GRADED = 512;
+const GRADED = 513;
 
 const DATASET =
-  "src/data/ctc-reference-v2-2026-10-23.ts: raw measurements (measurePageRaw, raw format 2) of real pages crawled 2026-10-23 by research/ctc-reference/crawl-v2.ts " +
+  "src/data/ctc-reference-v2-2026-10-24.ts: raw measurements (measurePageRaw, raw format 2) of real pages crawled 2026-10-24 by research/ctc-reference/crawl-v2.ts " +
   "with cbrowser's own browser at 1920x1080, from three frames (the v1 brand list; a seeded random draw from Tranco list 746PX across four rank bands; " +
   "government and nonprofit sites from CISA's .gov registry, USAGov's state pages and Wikidata) and six page types (landing, form, search, article, help, cart), " +
   "direct first and through a residential proxy only where the direct attempt was blocked. Blocked, failed, excluded and robots-disallowed pages carry no " +
