@@ -7,6 +7,11 @@
  * scored 100 on every page. It is now measured only when the caller says a
  * skip-link check ran (skipLinksChecked) or the list holds a skip finding.
  *
+ * keyboardOperability is measured, since a check runs, but the audit's only
+ * keyboard findings are hover-only and drag-without-keyboard interactions.
+ * Its details said "No keyboard accessibility barriers detected"; they now
+ * name what was checked and what was not.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
@@ -53,5 +58,29 @@ describe("skipMechanisms needs a skip-link check", () => {
   test("with no audit at all it stays not measured, as before", () => {
     const { barriers: _none, ...unaudited } = AUDITED;
     expect(computeCIFScore(unaudited).navigation.components.skipMechanisms.measured).toBe(false);
+  });
+});
+
+describe("keyboardOperability names what was checked", () => {
+  const SCOPE = "keyboard reachability, traps or focus order";
+
+  test("a clean audit says which keyboard findings it looked for and which it did not", () => {
+    const kb = computeCIFScore(AUDITED).navigation.components.keyboardOperability;
+    expect(kb.measured).toBe(true);
+    expect(kb.details).toBe(`No hover-only or drag-without-keyboard barriers detected; empathy_audit does not check ${SCOPE}`);
+  });
+
+  test("findings are counted as keyboard barriers, with the audit's scope stated", () => {
+    const hoverOnly = { type: "motor_precision", severity: "major", description: "Hover-dependent interaction without click alternative may be inaccessible for users with tremors" };
+    const kb = computeCIFScore({ ...AUDITED, barriers: [hoverOnly] }).navigation.components.keyboardOperability;
+    expect(kb.measured).toBe(true);
+    expect(kb.score).toBeLessThan(100);
+    expect(kb.details).toBe(`1 keyboard barriers detected; empathy_audit looks for hover-only and drag-without-keyboard interactions, not ${SCOPE}`);
+  });
+
+  test("a caller's own trap finding is not described as hover-only or drag", () => {
+    const trap = { type: "keyboard_trap", severity: "critical", description: "Focus trapped inside a modal with no Escape handler" };
+    const kb = computeCIFScore({ ...AUDITED, barriers: [trap] }).navigation.components.keyboardOperability;
+    expect(kb.details).toMatch(/^1 keyboard barriers detected;/);
   });
 });
