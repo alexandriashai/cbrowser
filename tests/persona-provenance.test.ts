@@ -57,6 +57,15 @@ function anchorMismatches(entries: Array<{ id: string; value: number; source: st
   return out;
 }
 
+/** Cited values not on the side of neutral their citation states, sorted. */
+function wrongSide(directions: Record<string, "low" | "mid" | "high">, valueOf: (key: string) => number | undefined): string[] {
+  const on = { low: (v: number) => v < 0.5, mid: (v: number) => v >= 0.45 && v <= 0.55, high: (v: number) => v > 0.5 };
+  return Object.entries(directions)
+    .filter(([k, d]) => { const v = valueOf(k); return v === undefined || !on[d](v); })
+    .map(([k]) => k)
+    .sort();
+}
+
 /** Walk the runtime tables: id -> value for every numeric trait. */
 function runtimeTraits(): Map<string, number[]> {
   const out = new Map<string, number[]>();
@@ -201,6 +210,21 @@ describe("persona trait provenance", () => {
     }
     const withCitation = PERSONA_PROVENANCE.filter((e) => e.source.includes("Cited beside the value"));
     expect(withCitation.length).toBe(cited.length);
+  });
+
+  test("a value sits on the side of neutral its citation states", () => {
+    // The 2026-08-02 doc reconciliation moved four cited values off the side
+    // the finding beside them states; 21.0 restored them. This is the guard
+    // against the next one.
+    const directions = PERSONA_PROVENANCE_KEYS.citedDirections;
+    expect(Object.keys(directions).length).toBe(17);
+    expect(wrongSide(directions, (k) => byId.get(`persona.${k}`)?.value)).toEqual([]);
+  });
+
+  test("a cited value moved across neutral is caught (absence test)", () => {
+    const moved: Record<string, number> = { "low-vision-magnified.selfEfficacy": 0.6, "dyslexic-user.resilience": 0.6 };
+    expect(wrongSide(PERSONA_PROVENANCE_KEYS.citedDirections, (k) => moved[k] ?? byId.get(`persona.${k}`)?.value))
+      .toEqual(["dyslexic-user.resilience", "low-vision-magnified.selfEfficacy"]);
   });
 
   test("the hand-written tables carry no stale keys", () => {

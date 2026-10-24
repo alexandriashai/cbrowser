@@ -187,6 +187,13 @@ interface ValueCitation {
   claim: string;
   /** Anything about the value the citation does not square with. */
   note?: string;
+  /**
+   * The side of the scale's neutral middle (0.5) the cited finding puts this
+   * persona on, when the claim states one: "low" below 0.5, "high" above it,
+   * "mid" within 0.45-0.55. The test requires the value to sit on that side,
+   * because a value moved across it is moved against its own source.
+   */
+  direction?: "low" | "mid" | "high";
 }
 
 const READING_TRAITS = ["orthographicFluency", "phonologicalDecoding", "visualSpan", "vocabularyBreadth", "crowdingSensitivity"];
@@ -206,43 +213,56 @@ const VALUE_CITATIONS: Record<string, ValueCitation> = {
   "screen-reader-user.riskTolerance": {
     cite: "Information Wayfinding of Screen Reader Users (ASSETS 2024, 10.1145/3663548.3688539) and Context-Aware Guidance for Screen Reader Users (CHI 2026, 10.1145/3772318.3790661)",
     claim: "cautious exploration to avoid disorientation, the low end of this scale",
+    direction: "low",
   },
   "elderly-user.proceduralFluency": {
     cite: "Fisk et al. 2009, Designing for Older Adults",
     claim: "a speed-accuracy tradeoff that shifts toward accuracy with age; personas.ts calls 0.5 a reasoned midpoint",
   },
   "motor-impairment-tremor.selfEfficacy": { cite: "Lorig et al. 2001 (Chronic Disease Self-Management)", claim: "motor impairment and self-efficacy" },
-  "motor-impairment-tremor.satisficing": { cite: "Kool et al. 2010 (effort discounting)", claim: "physical effort increasing satisficing" },
-  "motor-impairment-tremor.interruptRecovery": { cite: "Mark's interruption research", claim: "motor issues making resumption harder, with adaptation helping" },
+  "motor-impairment-tremor.satisficing": { cite: "Kool et al. 2010 (effort discounting)", claim: "physical effort increasing satisficing", direction: "high" },
+  "motor-impairment-tremor.interruptRecovery": {
+    cite: "Mark's interruption research",
+    claim: "motor issues making resumption harder, with adaptation helping",
+    direction: "low",
+    note: "until 21.0 the value was 0.6, on the opposite side from the cited direction",
+  },
   ...readingProfile("low-vision-magnified", "Legge et al. 2007", "central scotoma and crowding"),
-  "low-vision-magnified.selfEfficacy": { cite: "Brody et al. 2002 (AMD and depression)", claim: "reduced vision correlating with lower confidence in task completion" },
+  "low-vision-magnified.selfEfficacy": {
+    cite: "Brody et al. 2002 (AMD and depression)",
+    claim: "reduced vision correlating with lower confidence in task completion",
+    direction: "low",
+    note: "until 21.0 the value was 0.6, on the opposite side from the cited direction",
+  },
   "low-vision-magnified.satisficing": {
     cite: "Pachur & Hertwig 2006 (J Exp Psychol Learn Mem Cogn 32(5):983-1002)",
     claim: "limited information access increasing satisficing",
+    direction: "high",
     note: "the paper studies recognition-based inference, which is faster and more prevalent under time pressure; it is not a study of low vision or of satisficing, so it supports the direction only by analogy. Until 21.0 the value was 0.4, on the opposite side from the cited direction",
   },
-  "low-vision-magnified.trustCalibration": { cite: "Brody 2002", claim: "vision impairment increasing caution" },
-  "low-vision-magnified.interruptRecovery": { cite: "Mark's interruption research", claim: "a limited visible area making context recovery harder" },
+  "low-vision-magnified.trustCalibration": { cite: "Brody 2002", claim: "vision impairment increasing caution", direction: "low" },
+  "low-vision-magnified.interruptRecovery": { cite: "Mark's interruption research", claim: "a limited visible area making context recovery harder", direction: "low" },
   ...readingProfile("cognitive-adhd", "Dhar et al. 2010", "intact decoding with reduced sustained attention"),
   ...readingProfile("dyslexic-user", "Perry, Zorzi & Ziegler 2019 (Psychological Science)", "the dyslexic reading profile"),
-  "dyslexic-user.workingMemory": { cite: "de Jong 2006 and an n-back fNIRS study (PMC3496727)", claim: "a working-memory deficit that persists into adulthood" },
-  "dyslexic-user.patience": { cite: "Annals of Dyslexia, 10.1007/s11881-020-00195-w", claim: "slower reading as a compensatory mechanism" },
-  "dyslexic-user.persistence": { cite: DYSLEXIA_COMPENSATION, claim: "compensatory strategies built and sustained across schooling" },
-  "dyslexic-user.informationForaging": { cite: DYSLEXIA_COMPENSATION, claim: "text-structure use as a compensator" },
+  "dyslexic-user.workingMemory": { cite: "de Jong 2006 and an n-back fNIRS study (PMC3496727)", claim: "a working-memory deficit that persists into adulthood", direction: "low" },
+  "dyslexic-user.patience": { cite: "Annals of Dyslexia, 10.1007/s11881-020-00195-w", claim: "slower reading as a compensatory mechanism", direction: "high" },
+  "dyslexic-user.persistence": { cite: DYSLEXIA_COMPENSATION, claim: "compensatory strategies built and sustained across schooling", direction: "high" },
+  "dyslexic-user.informationForaging": { cite: DYSLEXIA_COMPENSATION, claim: "text-structure use as a compensator", direction: "high" },
   "dyslexic-user.resilience": {
     cite: "Kapur & Agrawal 2026",
     claim: "secondary anxiety in dyslexia pulling the value down from 0.6, held at neutral by the compensation literature",
     note: "until 21.0 the value was 0.6, the value the comment says it was pulled down from",
+    direction: "mid",
   },
-  "dyslexic-user.selfEfficacy": { cite: "PMC11488781 (Nigerian undergraduate cohort)", claim: "dyslexia predicting lower academic self-efficacy" },
-  "dyslexic-user.attributionStyle": { cite: "Kapur & Agrawal 2026", claim: "psychoeducation reducing self-blame, which places the untreated baseline above neutral" },
+  "dyslexic-user.selfEfficacy": { cite: "PMC11488781 (Nigerian undergraduate cohort)", claim: "dyslexia predicting lower academic self-efficacy", direction: "low" },
+  "dyslexic-user.attributionStyle": { cite: "Kapur & Agrawal 2026", claim: "psychoeducation reducing self-blame, which places the untreated baseline above neutral", direction: "high" },
   "elderly-low-vision.vocabularyBreadth": {
     cite: "Rayner et al. 2006",
     claim: "vocabulary growing across the lifespan, so the elderly reading profile's value is kept over low vision's",
   },
-  "elderly-low-vision.workingMemory": { cite: "an unnamed PMC review (the persona note)", claim: "inhibitory-control decline limiting working memory" },
-  "color-blind-deuteranopia.changeBlindness": { cite: "MDPI 13/2/53 (a simulated-interface study)", claim: "a state change signalled by colour alone being invisible without a second cue" },
-  "dyscalculia.workingMemory": { cite: "PMC8946289 (numerical activities of daily living)", claim: "working memory underpinning number processing, with math anxiety reducing it further" },
+  "elderly-low-vision.workingMemory": { cite: "an unnamed PMC review (the persona note)", claim: "inhibitory-control decline limiting working memory", direction: "low" },
+  "color-blind-deuteranopia.changeBlindness": { cite: "MDPI 13/2/53 (a simulated-interface study)", claim: "a state change signalled by colour alone being invisible without a second cue", direction: "high" },
+  "dyscalculia.workingMemory": { cite: "PMC8946289 (numerical activities of daily living)", claim: "working memory underpinning number processing, with math anxiety reducing it further", direction: "low" },
 };
 
 /**
@@ -393,6 +413,9 @@ export const PERSONA_PROVENANCE_KEYS = {
   populations: Object.keys(POPULATIONS),
   notes: Object.keys(PERSONA_NOTES),
   valueCitations: Object.keys(VALUE_CITATIONS),
+  citedDirections: Object.fromEntries(
+    Object.entries(VALUE_CITATIONS).filter(([, c]) => c.direction).map(([k, c]) => [k, c.direction!]),
+  ) as Record<string, "low" | "mid" | "high">,
   normAnchors: Object.keys(NORM_ANCHORS),
   measures: Object.keys(MEASURES),
 };
