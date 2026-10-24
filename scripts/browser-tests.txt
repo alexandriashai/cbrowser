@@ -116,3 +116,11 @@ tests/journey-replies-browser.test.ts
 # Runs scripted cognitive journeys over the journey-*.html fixtures and compares every state number with its golden.
 tests/journey-golden-browser.test.ts
 tests/journey-fixes-browser.test.ts
+# Runs CBrowser.screenshot, captureVisualBaseline and crossBrowserDiff in a
+# spawned step (tests/fixtures/same-ms-step.ts), so the launch grep does not
+# see it. It ran in the gate's shared pass and timed out there once (120 s,
+# crossBrowserDiff) under a full gate run.
+tests/same-ms-captures.test.ts
+# Calls crossBrowserDiff in-process, which launches chromium inside the
+# product code, so the launch grep does not see it either.
+tests/hotfix-path-escape.test.ts
