@@ -31,7 +31,7 @@
  *   - the share of each page's prose words that sit in nav and composite
  *     groups (proseInNav), median and p90, by scope and page type;
  *   - the share of each page's grouped links whose drawn text holds a letter
- *     (groupedLinksWithText), median and p90, and the pages with none;
+ *     or digit (groupedLinksWithText), median and p90, and the pages with none;
  *   - what counting each choice in one group did, on every v2 page, same
  *     DOM: format 1's group totals (choiceNested) against the deduplicated
  *     ones, how many pages have more groups than the stored list holds, and
@@ -273,7 +273,7 @@ for (const scope of SCOPES) {
   console.log(`  ${scope}: share of prose words in groups, median ${f3(q(0.5))}, p90 ${f3(q(0.9))}, mean ${f3(mean(shares))}, max ${f3(shares[shares.length - 1])}; pages with none ${shares.filter((x) => x === 0).length} of ${shares.length}; median by type: ${byType}`);
 }
 
-console.log(`\n## grouped links a sighted user can read (groupedLinksWithText), per page`);
+console.log(`\n## grouped links that show visible text (groupedLinksWithText), per page`);
 for (const scope of SCOPES) {
   const raws = referenceRaw(scope);
   const withLinks = raws.filter((r) => r.groupedLinks > 0);

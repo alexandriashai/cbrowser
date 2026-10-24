@@ -1,27 +1,27 @@
 ## composition
 
 v1 ctc-reference-2026-10-22: attempted 199, graded 111, blocked 77, error 11; landing pages only; no proxy
-v2 ctc-reference-v2-2026-10-24: attempted 778, graded 513, blocked 99, error 30, excluded 27, robots-disallowed 109
-v2 bytes 3.27 GB; proxy 117 pages, 219 MB of 3.22 GB budget, exhausted false
-v2 pages loaded (not robots): 669; first attempt blocked and retried through the proxy: 117 (17%); of those graded: 27
-v2 blocked rate (blocked of loaded): 15%; v1: 39%
+v2 ctc-reference-v2-2026-10-24: attempted 771, graded 514, blocked 95, error 32, excluded 25, robots-disallowed 105
+v2 bytes 3.32 GB; proxy 114 pages, 230 MB of 3.22 GB budget, exhausted false
+v2 pages loaded (not robots): 666; first attempt blocked and retried through the proxy: 114 (17%); of those graded: 28
+v2 blocked rate (blocked of loaded): 14%; v1: 39%
 
 by frame (graded / attempted):
-  brand: 171 / 245  (blocked 41, error 9, excluded 0, robots 24, proxy-graded 14)
-  tranco: 171 / 321  (blocked 37, error 16, excluded 27, robots 70, proxy-graded 13)
-  public: 171 / 212  (blocked 21, error 5, excluded 0, robots 15, proxy-graded 0)
+  brand: 171 / 245  (blocked 36, error 14, excluded 0, robots 24, proxy-graded 17)
+  tranco: 170 / 311  (blocked 35, error 14, excluded 25, robots 67, proxy-graded 9)
+  public: 173 / 215  (blocked 24, error 4, excluded 0, robots 14, proxy-graded 2)
 
 by page type (graded / attempted), graded by frame brand / tranco / public:
-  landing: 162 / 342   by frame 56 / 59 / 47
-  form: 91 / 112   by frame 31 / 26 / 34
-  search: 56 / 79   by frame 12 / 23 / 21
-  article: 106 / 122   by frame 37 / 33 / 36
-  help: 90 / 107   by frame 32 / 26 / 32
-  cart: 8 / 16   by frame 3 / 4 / 1
+  landing: 161 / 337   by frame 56 / 56 / 49
+  form: 90 / 113   by frame 31 / 25 / 34
+  search: 57 / 77   by frame 13 / 23 / 21
+  article: 106 / 120   by frame 36 / 34 / 36
+  help: 92 / 109   by frame 32 / 28 / 32
+  cart: 8 / 15   by frame 3 / 4 / 1
 
-search pages by how they were found (graded / attempted): GET search form 50/66; schema.org SearchAction template 6/13
+search pages by how they were found (graded / attempted): GET search form 49/64; schema.org SearchAction template 8/13
 
-v2 graded by sector: commercial or other 153, government (city) 60, nonprofit 52, government (state) 37, government (federal) 22, organisation (.org) 18, Finance 15, Fintech 11, Cloud 9, Healthcare 9, Education 8, SaaS 8, Security 8, Social 8, Tech Giant 8, Fitness 7, Streaming 7, Fashion 6, Non-profit 6, Restaurant 6, Telecom 6, Electronics 5, Logistics 5, DevTools 4, Gaming 4, Media 4, Sports 4, ? 3, Events 3, Retail 3, Travel 3, Web Builder 3, AI 2, Beverages 2, Dating 2, Messaging 1, Outdoor 1
+v2 graded by sector: commercial or other 156, government (city) 60, nonprofit 51, government (state) 37, government (federal) 25, Finance 16, organisation (.org) 14, Fintech 11, Cloud 9, Healthcare 9, Security 8, Social 8, Tech Giant 8, DevTools 7, Fitness 7, SaaS 7, Streaming 7, Telecom 7, Fashion 6, Restaurant 6, Education 5, Electronics 5, Gaming 5, Logistics 5, Media 4, Sports 4, Travel 4, ? 3, Events 3, Non-profit 3, Web Builder 3, AI 2, Beverages 2, Dating 2, Retail 2, Marketplace 1, Messaging 1, Outdoor 1
 v2 brand-frame landing pages graded by industry (v2 of attempted | v1 graded of attempted):
   Fintech: 5/6 | v1 6/9
   Streaming: 3/6 | v1 5/7
@@ -29,7 +29,7 @@ v2 brand-frame landing pages graded by industry (v2 of attempted | v1 graded of 
   AI: 2/4 | v1 3/7
   Fashion: 2/4 | v1 1/8
   Finance: 4/4 | v1 5/5
-  Non-profit: 2/4 | v1 1/4
+  Non-profit: 1/4 | v1 1/4
   Travel: 1/4 | v1 2/8
   ?: 1/3 | v1 3/10
   Healthcare: 3/3 | v1 4/5
@@ -38,8 +38,9 @@ v2 brand-frame landing pages graded by industry (v2 of attempted | v1 graded of 
   Telecom: 2/3 | v1 2/4
   Beverages: 1/2 | v1 2/4
   Cloud: 2/2 | v1 3/4
+  DevTools: 2/2 | v1 6/8
   E-commerce: 0/2 | v1 1/3
-  Education: 2/2 | v1 3/5
+  Education: 1/2 | v1 3/5
   Electronics: 1/2 | v1 1/3
   Fitness: 2/2 | v1 4/4
   Gaming: 1/2 | v1 3/4
@@ -50,71 +51,70 @@ v2 brand-frame landing pages graded by industry (v2 of attempted | v1 graded of 
   Sports: 1/2 | v1 0/3
   Tech Giant: 2/2 | v1 3/4
   Dating: 1/1 | v1 3/4
-  DevTools: 1/1 | v1 6/8
   Enterprise: 0/1 | v1 4/5
   Events: 1/1 | v1 3/3
   Food: 0/1 | v1 2/4
   Jobs: 0/1 | v1 2/4
-  Marketplace: 0/1 | v1 1/3
+  Marketplace: 1/1 | v1 1/3
   Media: 1/1 | v1 2/8
   Messaging: 1/1 | v1 2/2
   Outdoor: 1/1 | v1 1/1
   Web Builder: 1/1 | v1 2/3
 
-excluded (tranco filters and duplicates): adult 1, below the web-page minimums 1, gambling 1, redirected off-site to cn.aliyun.com 1, redirected off-site to contentsquare.com 1, redirected off-site to desibfhd.com 1, redirected off-site to developer.adobe.com 1, redirected off-site to discord.com 1, redirected off-site to dlink.ca 1, redirected off-site to domains.google 1, redirected off-site to eltex.ru 1, redirected off-site to farmedvisie.eu 1, redirected off-site to languages.oup.com 1, redirected off-site to mail.ru 1, redirected off-site to teams.live.com 1, redirected off-site to www.5movierulz.green 1, redirected off-site to www.atlantiscollectiebeheer.nl 1, redirected off-site to www.emofid.com 1, redirected off-site to www.futureheritage.net 1, redirected off-site to www.gogoo.cn 1, redirected off-site to www.google.com 1, redirected off-site to www.infinityinternet.com 1, redirected off-site to www.kantar.com 1, redirected off-site to www.medallia.com 1, redirected off-site to www.noip.com 1, redirected off-site to www.primevideo.com 1, redirected off-site to www.whatsapp.com 1
+excluded (tranco filters and duplicates): gambling 1, redirected off-site to cn.aliyun.com 1, redirected off-site to contentsquare.com 1, redirected off-site to desibfhd.com 1, redirected off-site to developer.adobe.com 1, redirected off-site to discord.com 1, redirected off-site to dlink.ca 1, redirected off-site to domains.google 1, redirected off-site to eltex.ru 1, redirected off-site to farmedvisie.eu 1, redirected off-site to languages.oup.com 1, redirected off-site to m365.cloud.microsoft 1, redirected off-site to mail.ru 1, redirected off-site to www.5movierulz.green 1, redirected off-site to www.atlantiscollectiebeheer.nl 1, redirected off-site to www.emofid.com 1, redirected off-site to www.futureheritage.net 1, redirected off-site to www.gogoo.cn 1, redirected off-site to www.infinityinternet.com 1, redirected off-site to www.ipsos.com 1, redirected off-site to www.kantar.com 1, redirected off-site to www.medallia.com 1, redirected off-site to www.noip.com 1, redirected off-site to www.primevideo.com 1, redirected off-site to www.whatsapp.com 1
 
 ## bootstrap interval of the percentile (pages resampled, 1000 replicates, seed 20261022), asymmetric + interactions
   v1: not scorable by this chain (its stored metrics carry no law times); v2 only
-  viewport v2 (513 pages): p25: 25.0 [22.9, 27.3] width 4.4; p50: 50.0 [47.4, 52.7] width 5.3; p80: 80.0 [77.9, 82.0] width 4.1; p95: 95.0 [94.0, 95.9] width 1.8
-  full_page v2 (513 pages): p25: 25.0 [22.5, 27.8] width 5.2; p50: 50.0 [47.4, 52.6] width 5.2; p80: 80.0 [78.2, 81.7] width 3.5; p95: 95.0 [94.2, 95.7] width 1.6
+  viewport v2 (514 pages): p25: 25.0 [22.7, 27.4] width 4.7; p50: 50.0 [47.4, 52.6] width 5.2; p80: 80.0 [78.0, 81.8] width 3.8; p95: 95.0 [94.1, 95.8] width 1.7
+  full_page v2 (514 pages): p25: 25.0 [22.4, 27.6] width 5.2; p50: 50.0 [47.3, 52.6] width 5.3; p80: 80.0 [78.2, 81.7] width 3.5; p95: 95.0 [94.2, 95.8] width 1.6
 
 ## the v1 reference's own landing pages ranked against v1 and against v2 (totalCTC v2 minus v1, tool-default options)
   skipped: v1 is not scorable by this chain
 
 ## choice groups: each choice in one group, and the uncapped nav totals (same DOM)
-  viewport: pages with a group inside another group 70 of 513; choices counted per group / once (pages under the cap) median 1.000, mean 1.165, max 3.047; groups per group / once, all pages: 1117 / 840
+  viewport: pages with a group inside another group 71 of 514; choices counted per group / once (pages under the cap) median 1.000, mean 1.164, max 3.047; groups per group / once, all pages: 1122 / 843
     pages over the stored list's 64 groups: 0; there, stored nav sizes / navLinks: -; ungrouped links (links - groupedLinks) median 9.000, share of links median 0.600
-  full_page: pages with a group inside another group 76 of 513; choices counted per group / once (pages under the cap) median 1.000, mean 1.136, max 2.796; groups per group / once, all pages: 1779 / 1396
-    pages over the stored list's 64 groups: 1; there, stored nav sizes / navLinks: 21/21; ungrouped links (links - groupedLinks) median 43.000, share of links median 0.827
+  full_page: pages with a group inside another group 77 of 514; choices counted per group / once (pages under the cap) median 1.000, mean 1.135, max 2.796; groups per group / once, all pages: 1769 / 1384
+    pages over the stored list's 64 groups: 1; there, stored nav sizes / navLinks: 21/21; ungrouped links (links - groupedLinks) median 44.000, share of links median 0.833
 
 ## prose inside nav and composite groups (proseInNav), per page
-  viewport: share of prose words in groups, median 0.063, p90 0.400, mean 0.145, max 1.000; pages with none 184 of 513; median by type: landing 0.064, form 0.012, search 0.046, article 0.070, help 0.086, cart 0.241
-  full_page: share of prose words in groups, median 0.024, p90 0.249, mean 0.082, max 0.974; pages with none 164 of 513; median by type: landing 0.021, form 0.011, search 0.024, article 0.021, help 0.044, cart 0.068
+  viewport: share of prose words in groups, median 0.065, p90 0.407, mean 0.145, max 1.000; pages with none 182 of 514; median by type: landing 0.065, form 0.019, search 0.044, article 0.083, help 0.092, cart 0.241
+  full_page: share of prose words in groups, median 0.022, p90 0.231, mean 0.081, max 0.974; pages with none 163 of 514; median by type: landing 0.019, form 0.010, search 0.028, article 0.021, help 0.040, cart 0.068
 
-## grouped links a sighted user can read (groupedLinksWithText), per page
-  viewport: share of a page's grouped links with text, over the 374 pages with any, median 0.900, p90 1.000, p10 0.088; pages with grouped links but no label 10; pages with no grouped link 139; all pages pooled 5123 of 9503 (54%)
-  full_page: share of a page's grouped links with text, over the 394 pages with any, median 0.923, p90 1.000, p10 0.120; pages with grouped links but no label 6; pages with no grouped link 119; all pages pooled 8545 of 16376 (52%)
+## grouped links that show visible text (groupedLinksWithText), per page
+  viewport: share of a page's grouped links with text, over the 377 pages with any, median 0.943, p90 1.000, p10 0.083; pages with grouped links but no label 10; pages with no grouped link 137; all pages pooled 5121 of 9368 (55%)
+  full_page: share of a page's grouped links with text, over the 397 pages with any, median 0.944, p90 1.000, p10 0.120; pages with grouped links but no label 6; pages with no grouped link 117; all pages pooled 8398 of 15856 (53%)
 
 ## raw format 2's prose fix
-  viewport, all 513 v2 pages, same DOM: prose words counted per element / once: median 1.000, mean 1.074, max 2.642; pages double counting at all 110; blocks per element / outermost median 1.000
-  full_page, all 513 v2 pages, same DOM: prose words counted per element / once: median 1.000, mean 1.096, max 3.051; pages double counting at all 207; blocks per element / outermost median 1.000
+  viewport, all 514 v2 pages, same DOM: prose words counted per element / once: median 1.000, mean 1.074, max 2.642; pages double counting at all 109; blocks per element / outermost median 1.000
+  full_page, all 514 v2 pages, same DOM: prose words counted per element / once: median 1.000, mean 1.099, max 3.051; pages double counting at all 209; blocks per element / outermost median 1.000
 
-  viewport: 446 pages graded in both crawls (same frame, type and URL), by type landing 154, form 83, search 44, article 77, help 80, cart 8
-    avgWordLength: format 2 minus format 1 mean -0.0001, median 0.0000, mean abs 0.0084, max abs 0.3440; format 1 mean 0.3026
-    avgSentenceLength: format 2 minus format 1 mean -0.0091, median 0.0000, mean abs 0.0301, max abs 0.8000; format 1 mean 0.4897
-    lexicalDiversity: format 2 minus format 1 mean 0.0066, median 0.0000, mean abs 0.0184, max abs 0.9800; format 1 mean 0.8231
-    longWordRatio: format 2 minus format 1 mean 0.0002, median 0.0000, mean abs 0.0099, max abs 0.3866; format 1 mean 0.3266
-    technicalDensity: format 2 minus format 1 mean -0.0009, median 0.0000, mean abs 0.0047, max abs 0.1154; format 1 mean 0.0876
+  viewport: 445 pages graded in both crawls (same frame, type and URL), by type landing 153, form 82, search 43, article 78, help 81, cart 8
+    avgWordLength: format 2 minus format 1 mean -0.0010, median 0.0000, mean abs 0.0072, max abs 0.2369; format 1 mean 0.3068
+    avgSentenceLength: format 2 minus format 1 mean -0.0116, median 0.0000, mean abs 0.0265, max abs 0.8000; format 1 mean 0.4903
+    lexicalDiversity: format 2 minus format 1 mean 0.0072, median 0.0000, mean abs 0.0125, max abs 0.4706; format 1 mean 0.8227
+    longWordRatio: format 2 minus format 1 mean -0.0006, median 0.0000, mean abs 0.0089, max abs 0.2692; format 1 mean 0.3295
+    technicalDensity: format 2 minus format 1 mean -0.0009, median 0.0000, mean abs 0.0049, max abs 0.1154; format 1 mean 0.0904
     script family changed on 0 pages: none
-    prose words, format 1 / format 2: median 1.000, mean 1.080
-    drift baseline (fields the fix did not touch), median relative change: links 0.000, interactive elements 0.000, textChars 0.000; identical textChars on 296 pages
-    avgWordLength on the 293 pages with identical textChars and links: mean -0.0004, mean abs 0.0020, max abs 0.0390
-    avgSentenceLength on the 293 pages with identical textChars and links: mean -0.0047, mean abs 0.0083, max abs 0.2487
-    lexicalDiversity on the 293 pages with identical textChars and links: mean 0.0073, mean abs 0.0073, max abs 0.4706
-    longWordRatio on the 293 pages with identical textChars and links: mean -0.0003, mean abs 0.0023, max abs 0.0523
-    technicalDensity on the 293 pages with identical textChars and links: mean -0.0006, mean abs 0.0015, max abs 0.0417
+    prose words, format 1 / format 2: median 1.000, mean 1.091
+    drift baseline (fields the fix did not touch), median relative change: links 0.000, interactive elements 0.000, textChars 0.000; identical textChars on 293 pages
+    avgWordLength on the 289 pages with identical textChars and links: mean -0.0003, mean abs 0.0020, max abs 0.0753
+    avgSentenceLength on the 289 pages with identical textChars and links: mean -0.0049, mean abs 0.0087, max abs 0.3158
+    lexicalDiversity on the 289 pages with identical textChars and links: mean 0.0066, mean abs 0.0066, max abs 0.4706
+    longWordRatio on the 289 pages with identical textChars and links: mean -0.0001, mean abs 0.0022, max abs 0.0523
+    technicalDensity on the 289 pages with identical textChars and links: mean -0.0005, mean abs 0.0014, max abs 0.0290
 
-  full_page: 446 pages graded in both crawls (same frame, type and URL), by type landing 154, form 83, search 44, article 77, help 80, cart 8
-    avgWordLength: format 2 minus format 1 mean -0.0005, median 0.0000, mean abs 0.0076, max abs 0.3375; format 1 mean 0.3031
-    avgSentenceLength: format 2 minus format 1 mean -0.0109, median 0.0000, mean abs 0.0254, max abs 0.7167; format 1 mean 0.5459
-    lexicalDiversity: format 2 minus format 1 mean 0.0039, median 0.0000, mean abs 0.0086, max abs 1.0000; format 1 mean 0.9174
-    longWordRatio: format 2 minus format 1 mean -0.0002, median 0.0000, mean abs 0.0075, max abs 0.3931; format 1 mean 0.3242
-    technicalDensity: format 2 minus format 1 mean -0.0005, median 0.0000, mean abs 0.0031, max abs 0.1364; format 1 mean 0.0903
+  full_page: 445 pages graded in both crawls (same frame, type and URL), by type landing 153, form 82, search 43, article 78, help 81, cart 8
+    avgWordLength: format 2 minus format 1 mean -0.0012, median 0.0000, mean abs 0.0064, max abs 0.2206; format 1 mean 0.3055
+    avgSentenceLength: format 2 minus format 1 mean -0.0135, median 0.0000, mean abs 0.0245, max abs 0.7167; format 1 mean 0.5464
+    lexicalDiversity: format 2 minus format 1 mean 0.0038, median 0.0000, mean abs 0.0042, max abs 0.4706; format 1 mean 0.9159
+    longWordRatio: format 2 minus format 1 mean -0.0007, median 0.0000, mean abs 0.0062, max abs 0.1610; format 1 mean 0.3251
+    technicalDensity: format 2 minus format 1 mean -0.0006, median 0.0000, mean abs 0.0029, max abs 0.1364; format 1 mean 0.0925
     script family changed on 0 pages: none
-    prose words, format 1 / format 2: median 1.000, mean 1.125
-    drift baseline (fields the fix did not touch), median relative change: links 0.000, interactive elements 0.000, textChars 0.000; identical textChars on 302 pages
-    avgWordLength on the 295 pages with identical textChars and links: mean -0.0001, mean abs 0.0034, max abs 0.0558
-    avgSentenceLength on the 295 pages with identical textChars and links: mean -0.0075, mean abs 0.0139, max abs 0.2635
-    lexicalDiversity on the 295 pages with identical textChars and links: mean 0.0038, mean abs 0.0038, max abs 0.4706
-    longWordRatio on the 295 pages with identical textChars and links: mean -0.0002, mean abs 0.0036, max abs 0.0576
-    technicalDensity on the 295 pages with identical textChars and links: mean -0.0000, mean abs 0.0016, max abs 0.0179
+    prose words, format 1 / format 2: median 1.000, mean 1.129
+    drift baseline (fields the fix did not touch), median relative change: links 0.000, interactive elements 0.000, textChars 0.000; identical textChars on 294 pages
+    avgWordLength on the 286 pages with identical textChars and links: mean 0.0000, mean abs 0.0033, max abs 0.0558
+    avgSentenceLength on the 286 pages with identical textChars and links: mean -0.0072, mean abs 0.0131, max abs 0.2635
+    lexicalDiversity on the 286 pages with identical textChars and links: mean 0.0039, mean abs 0.0039, max abs 0.4706
+    longWordRatio on the 286 pages with identical textChars and links: mean -0.0001, mean abs 0.0035, max abs 0.0576
+    technicalDensity on the 286 pages with identical textChars and links: mean -0.0000, mean abs 0.0014, max abs 0.0179
