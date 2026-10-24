@@ -483,7 +483,7 @@ describe("the interval", () => {
 
 describe("what the percentile buys", () => {
   test("persona differences survive the pooling: on every reference page the raw order is the totalCTC order", () => {
-    let differ = 0, pages = 0;
+    let differ = 0, bothFree = 0, pages = 0;
     for (const metrics of referencePages("viewport")) {
       const demand = computeDemandDistribution(withLawSeconds(metrics));
       const elderly = computeSequentialCTC(toolProfile("elderly-user", ROSTER["elderly-user"]), demand);
@@ -492,10 +492,17 @@ describe("what the percentile buys", () => {
       if (elderly.rawCTC > power.rawCTC) expect(elderly.totalCTC).toBeGreaterThanOrEqual(power.totalCTC);
       if (elderly.rawCTC < power.rawCTC) expect(elderly.totalCTC).toBeLessThanOrEqual(power.totalCTC);
       if (elderly.totalCTC !== power.totalCTC) differ++;
+      else if (elderly.rawCTC === 0 && power.rawCTC === 0) bothFree++;
       pages++;
     }
-    // And they still differ, on (nearly) every page: one curve per persona would have erased this.
-    expect(differ).toBeGreaterThanOrEqual(pages - 1);
+    // And they still differ wherever either pays anything: one curve per persona
+    // would have erased this. They tie only where the page costs both nothing:
+    // since changeBlindness and patience became surplus-free (2026-10-24,
+    // research/surplus-billing-design.md), a page with no choice and a few
+    // seconds of reading or pointing asks nothing either persona lacks (6 of
+    // the 514 viewport pages; one, the empty page, tied before).
+    expect(differ + bothFree).toBe(pages);
+    expect(differ).toBeGreaterThan(0.98 * pages);
   });
 
   test("the reference uses the whole scale: about 5% of pooled (page, persona) pairs above 0.95, and 5% below 0.05", () => {
