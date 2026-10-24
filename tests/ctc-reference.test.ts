@@ -58,6 +58,7 @@ import {
   ctcReferenceCurve,
 } from "../src/visual/cognitive-transport-chain.js";
 import { RAW_PAGE_FORMAT } from "../src/visual/cognitive-transport.js";
+import { publicUrl } from "../research/ctc-reference/public-url.js";
 import { MODEL_PROVENANCE, param, readsOf, withParamOverrides, withProvenance } from "../src/visual/model-provenance.js";
 import { CTC_REFERENCE_PROVENANCE } from "../src/visual/provenance/ctc-reference.js";
 import { PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
@@ -228,6 +229,29 @@ describe("the crawl's rules, as the record shows them", () => {
       expect(r.detail).toMatch(/^(net::ERR_[A-Z_]+|timeout|navigation failed|no result|unparseable result)$/);
     }
     for (const r of rows) for (const s of [r.detail, r.robots, r.how]) if (s) expect(s).not.toMatch(/proxy:|<proxy>|iproyal|_country-/i);
+  });
+
+  test("the published outcome list is whole and carries nothing private", () => {
+    // Every attempted page: an outcome, a robots.txt decision, a reason when
+    // it was not graded, a route when it was fetched (a robots-disallowed page
+    // never was), bytes.
+    for (const r of rows) {
+      expect(typeof r.robots).toBe("string");
+      if (r.outcome !== "graded") expect(typeof r.detail).toBe("string");
+      if (r.outcome === "robots") expect(r.route).toBeUndefined();
+      else expect(["direct", "proxy"]).toContain(r.route);
+      expect(typeof r.bytes).toBe("number");
+    }
+    // No session-bound URL value (an OAuth state or nonce, a challenge token,
+    // a per-visit id): every URL is already its published form.
+    for (const r of rows) for (const u of [r.url, r.finalUrl]) if (u) expect(publicUrl(u)).toBe(u);
+    // No address, path or credential of the machine that crawled it: no IP
+    // address at all, no home or temp path, no account key, no proxy login.
+    const published = JSON.stringify({ meta: CTC_REFERENCE, pages: rows });
+    expect(published.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)).toBeNull();
+    for (const s of ["/root/", "/tmp/", "/home/wyld", "wyld-web", ".cbrowser", "cbk_", "_country-", "<proxy>", "iproyal"]) {
+      expect(published.includes(s)).toBe(false);
+    }
   });
 
   test("robots.txt: every graded page was allowed, every robots outcome was a disallow", () => {

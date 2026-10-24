@@ -16,7 +16,9 @@
  *                        measured with (read from the crawl's own tree).
  *   CTC_REFERENCE_PAGES  every attempted page with its outcome, reason, route
  *                        and robots.txt decision: the published outcome list,
- *                        in plain JSON so it reads in the repository.
+ *                        in plain JSON so it reads in the repository. Its
+ *                        url and finalUrl pass through publicUrl, which
+ *                        replaces session-bound query values with REDACTED.
  *   CTC_REFERENCE_RAW    the graded pages' raw measurements (viewport and
  *                        full_page), in outcome-list order, as brotli-compressed
  *                        JSON in base64. A TypeScript module rather than a
@@ -33,6 +35,7 @@ import { join } from "node:path";
 import { brotliCompressSync, constants as zc } from "node:zlib";
 import type { PageRow } from "./crawl-v2.js";
 import { RAW_PAGE_FORMAT } from "../../src/visual/cognitive-transport.js";
+import { publicUrl } from "./public-url.js";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const args = process.argv.slice(2);
@@ -100,14 +103,15 @@ function proxiedBecause(r: PageRow): string | undefined {
 const pages = rows.map((r) => {
   const why = proxiedBecause(r);
   return {
-    frame: r.frame, site: r.site, sector: r.sector, pageType: r.pageType, url: r.url,
+    // Published URLs carry no session-bound values (public-url.ts).
+    frame: r.frame, site: r.site, sector: r.sector, pageType: r.pageType, url: publicUrl(r.url),
     ...(r.how ? { how: r.how } : {}),
     outcome: r.outcome,
     ...(r.detail ? { detail: r.detail } : {}),
     ...(r.route ? { route: r.route } : {}),
     ...(why ? { proxiedBecause: why } : {}),
     robots: r.robots, bytes: r.bytes, proxyBytes: r.proxyBytes,
-    ...(r.finalUrl ? { finalUrl: r.finalUrl } : {}),
+    ...(r.finalUrl ? { finalUrl: publicUrl(r.finalUrl) } : {}),
     ...(r.rank !== undefined ? { rank: r.rank } : {}), ...(r.band ? { band: r.band } : {}), ...(r.source ? { source: r.source } : {}),
   };
 });
