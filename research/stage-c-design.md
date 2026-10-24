@@ -1041,11 +1041,17 @@ API (npm):
   `siteFamiliarity`, `familiarSeconds`, `familiarDemand`.
 
 Customer-visible:
-- every totalCTC, rawCTC and abandonmentRisk moves (10.4): the largest
-  viewport moves in mean totalCTC are power-user +0.169, confident-user
-  +0.166, impatient-user +0.152, mobile-user +0.126 (up) and elderly-user
-  -0.217, intellectual-disability -0.216, first-timer -0.198,
-  aphasia-receptive -0.136 (down);
+- every totalCTC, rawCTC and abandonmentRisk moves (10.4, 10.13): on the
+  shipped 514-page reference the largest viewport moves in mean totalCTC are
+  power-user +0.170, confident-user +0.166, impatient-user +0.154,
+  mobile-user +0.127 (up) and elderly-user -0.215, intellectual-disability
+  -0.212, first-timer -0.197, autism-spectrum -0.164 (down), then
+  aphasia-receptive -0.136. (The 513-page version of this line skipped
+  autism-spectrum, -0.160 there, and listed aphasia-receptive fourth.);
+- the readability audit for 20 built-in personas now uses the neurotypical
+  reading profile, because comprehension no longer drives reading (10.12);
+- cognitive_load_estimate's breakdown has no `information` dimension and
+  its totalLoad moves for every persona (10.12);
 - aphasia-receptive's reading speed in tool output and the CLI becomes 101 wpm
   (was 191);
 - siteFamiliarity now shortens the search the cognitiveLoad abilities are
@@ -1215,3 +1221,111 @@ because of an import cycle (provenance/personas.ts -> cognitive-models.ts ->
 model-provenance.ts -> provenance/personas.ts). The normal CDF moved to
 `visual/normal-cdf.ts`, which imports nothing; every provenance test file now
 passes alone.
+
+### 10.13 Merged with feat/cot-integration 9c5db8d (514-page reference) and re-pinned
+
+b92c8f5 merges 9c5db8d: ref-v2's 514-page reference,
+`ctc-reference-v2-2026-10-24`, with groupedLinksWithText and digits counted,
+and its re-pinned golden. The only conflict was the golden JSON, taken from
+9c5db8d and regenerated on the merged tree in its own commit, d019f07. tsc 0
+after the merge; each merged block (the groupedLinksWithText measurement,
+FORMAT_2_FIELDS, the decoder test, the derive test's destructuring) appears
+once. An earlier merge of 42ed67b (61e7cc7) and its re-pin on the 512-page
+reference (6159a01) stay in the history, superseded by these.
+
+Re-pin against 9c5db8d's pin (`stage-c-golden-repin.ts`): 158,259 of 227,745
+pinned numbers move; Spearman of totalCTC over all 2,052 runs 0.8952; per
+persona the mean change runs from -0.129 (dyslexic-user) to -0.012
+(emotional-user), and +0.040 for boundary-sparse; max abs change 0.437
+(power-user) to 0.881 (boundary-floor); per-persona Spearman 0.775
+(first-timer) to 0.975 (careful-reader). boundary-zero is new in Stage C and
+has no row in 9c5db8d's pin. The full list is in the d019f07 message.
+
+Face validity on the 514-page reference, before = an export of 9c5db8d,
+after = d019f07 (`stage-c-refset.ts` on each). first-timer minus X (mean
+totalCTC difference; share of pages where first-timer's rawCTC is the
+larger), and X minus the typical user:
+
+#### viewport, 514 pages
+
+| X | first-timer minus X | first-timer costlier on | X minus typical-user |
+|---|---|---|---|
+| typical-user | +0.337 -> +0.145 | 100% -> 99% |  |
+| cognitive-adhd | +0.148 -> -0.153 | 94% -> 12% | +0.189 -> +0.298 |
+| dyslexic-user | +0.201 -> +0.094 | 100% -> 96% | +0.136 -> +0.051 |
+| low-vision-magnified | +0.266 -> +0.040 | 99% -> 72% | +0.071 -> +0.104 |
+| motor-impairment-tremor | +0.234 -> +0.015 | 96% -> 62% | +0.102 -> +0.129 |
+| elderly-user | -0.082 -> -0.065 | 0% -> 4% | +0.419 -> +0.210 |
+| elderly-low-vision | -0.040 -> -0.134 | 14% -> 0% | +0.376 -> +0.279 |
+| intellectual-disability | -0.129 -> -0.114 | 0% -> 4% | +0.466 -> +0.259 |
+| aphasia-receptive | +0.075 -> +0.014 | 92% -> 45% | +0.262 -> +0.131 |
+| power-user | +0.413 -> +0.046 | 99% -> 53% | -0.077 -> +0.098 |
+| first-timer | | | +0.337 -> +0.145 |
+
+#### full_page, 514 pages
+
+| X | first-timer minus X | first-timer costlier on | X minus typical-user |
+|---|---|---|---|
+| typical-user | +0.340 -> +0.143 | 100% -> 100% |  |
+| cognitive-adhd | +0.158 -> -0.199 | 97% -> 11% | +0.182 -> +0.342 |
+| dyslexic-user | +0.185 -> +0.110 | 100% -> 98% | +0.155 -> +0.033 |
+| low-vision-magnified | +0.275 -> +0.091 | 99% -> 89% | +0.064 -> +0.053 |
+| motor-impairment-tremor | +0.214 -> +0.048 | 97% -> 82% | +0.126 -> +0.096 |
+| elderly-user | -0.100 -> -0.097 | 0% -> 2% | +0.440 -> +0.241 |
+| elderly-low-vision | -0.067 -> -0.120 | 4% -> 0% | +0.406 -> +0.264 |
+| intellectual-disability | -0.130 -> -0.158 | 0% -> 1% | +0.469 -> +0.302 |
+| aphasia-receptive | +0.077 -> -0.034 | 91% -> 22% | +0.263 -> +0.178 |
+| power-user | +0.369 -> -0.044 | 99% -> 24% | -0.029 -> +0.188 |
+| first-timer | | | +0.340 -> +0.143 |
+
+Every impaired persona in the table stays above the typical user at both scopes (the
+smallest gap is dyslexic-user, +0.051 at the viewport and +0.033 at
+full_page). first-timer's rawCTC is the larger on only 12% of viewport pages
+against cognitive-adhd. Every number in the two tables is within 0.006 of the
+512-page one in 10.11, and every share within 2 points.
+
+power-user vs the typical user on the 514-page reference: +0.098 at the
+viewport and +0.188 at full_page as built. Under design C alone, without the
+patience change (`stage-c-predict.ts` variant V2 on the 9c5db8d export), it is
++0.041 and +0.114. The same run's V0 gives 9c5db8d's built gap (-0.077,
+-0.029) and its V5 gives +0.098 and +0.187. The paper sentence of 10.4,
+restated on the shipped reference: "power-user scores above the typical user
+(+0.098 at the viewport, +0.188 at full page) because of its authored patience
+(0.3) and decision dispositions, both hypothesis persona values rather than
+measured rates; under the cognitive-load redesign alone the gap was +0.041 at
+the viewport."
+
+intellectual-disability's registered source quoted its move on the 513-page
+crawl; d582555 quotes the 514-page one, 0.855 -> 0.643 at the viewport and
+0.837 -> 0.661 at full_page (text only, the value is unchanged).
+
+Mean totalCTC per persona on the 514-page reference, 9c5db8d -> d019f07:
+
+| persona | viewport | full_page |
+|---|---|---|
+| typical-user | 0.389 -> 0.384 | 0.367 -> 0.359 |
+| power-user | 0.312 -> 0.482 | 0.338 -> 0.547 |
+| first-timer | 0.726 -> 0.529 | 0.707 -> 0.502 |
+| mobile-user | 0.487 -> 0.614 | 0.422 -> 0.590 |
+| screen-reader-user | 0.331 -> 0.339 | 0.387 -> 0.348 |
+| elderly-user | 0.808 -> 0.594 | 0.807 -> 0.600 |
+| impatient-user | 0.585 -> 0.739 | 0.515 -> 0.757 |
+| distracted-user | 0.667 -> 0.666 | 0.650 -> 0.664 |
+| careful-reader | 0.352 -> 0.337 | 0.485 -> 0.442 |
+| explorer | 0.336 -> 0.373 | 0.392 -> 0.404 |
+| task-focused | 0.227 -> 0.267 | 0.220 -> 0.253 |
+| motor-impairment-tremor | 0.492 -> 0.513 | 0.494 -> 0.455 |
+| low-vision-magnified | 0.460 -> 0.488 | 0.432 -> 0.412 |
+| cognitive-adhd | 0.578 -> 0.682 | 0.549 -> 0.701 |
+| dyslexic-user | 0.525 -> 0.435 | 0.522 -> 0.392 |
+| deaf-user | 0.337 -> 0.408 | 0.333 -> 0.382 |
+| elderly-low-vision | 0.766 -> 0.663 | 0.774 -> 0.623 |
+| color-blind-deuteranopia | 0.285 -> 0.350 | 0.217 -> 0.257 |
+| autism-spectrum | 0.487 -> 0.323 | 0.570 -> 0.434 |
+| intellectual-disability | 0.855 -> 0.643 | 0.837 -> 0.661 |
+| aphasia-receptive | 0.651 -> 0.515 | 0.630 -> 0.537 |
+| dyscalculia | 0.440 -> 0.458 | 0.400 -> 0.414 |
+| anxious-user | 0.588 -> 0.595 | 0.637 -> 0.589 |
+| confident-user | 0.336 -> 0.502 | 0.282 -> 0.494 |
+| emotional-user | 0.630 -> 0.738 | 0.599 -> 0.744 |
+| stoic-user | 0.238 -> 0.247 | 0.301 -> 0.300 |
