@@ -22,6 +22,7 @@
 import type { Persona } from "../types.js";
 import { registerAccountPersonas } from "../personas.js";
 import { scopedAccountId } from "../persona-scope.js";
+import { canonicalizeTraits } from "../trait-reference.js";
 
 /** Shape the CMS returns for a custom persona. */
 interface CmsPersona {
@@ -55,7 +56,8 @@ const DEFAULT_HUMAN_BEHAVIOR = {
 
 /** Convert a CMS row into the Persona shape the registry expects. */
 export function cmsPersonaToPersona(row: CmsPersona): Persona {
-  const traits = parseMaybeJson<Record<string, number>>(row.traits) ?? {};
+  // Deprecated keys to canonical ones, as on the file path (trait-reference.ts).
+  const traits = canonicalizeTraits(parseMaybeJson<Record<string, number>>(row.traits) ?? {}) ?? {};
   const values = parseMaybeJson<Record<string, number>>(row.schwartz_values);
   const access = parseMaybeJson<Record<string, number>>(row.accessibility_traits);
 
