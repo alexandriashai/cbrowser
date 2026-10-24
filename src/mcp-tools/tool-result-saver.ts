@@ -8,6 +8,18 @@
  * @license MIT
  */
 
+import { VERSION } from "../version.js";
+
+/**
+ * The version a saved result names as its scorer. The dashboard reads it to put
+ * each stored score on the scale it was computed on (21.0 changed the CIF,
+ * cognitive transport and empathy scales). "0.0.0" is version.ts saying it could
+ * not find the package, so nothing is sent rather than a version nobody made.
+ */
+export function scorerVersionFor(version: string): string | undefined {
+  return version === "0.0.0" ? undefined : version;
+}
+
 export interface ToolResultParams {
   apiKey: string | undefined;
   toolName: string;
@@ -39,6 +51,7 @@ export function saveToolResult(params: ToolResultParams): void {
       persona: params.persona,
       scope: params.scope,
       duration_ms: params.durationMs,
+      scorer_version: scorerVersionFor(VERSION),
     }),
   }).then(async (res) => {
     if (res.ok) {
