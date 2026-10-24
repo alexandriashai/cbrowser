@@ -151,6 +151,12 @@ export interface CIFInput {
      */
     weightKey?: string;
   }>;
+  /**
+   * True when the audit that produced `barriers` checked for skip links.
+   * empathy_audit has no skip-link detector, so its callers leave this unset
+   * and skipMechanisms reads "not measured" unless the list holds a skip finding.
+   */
+  skipLinksChecked?: boolean;
   touchTargets?: Array<{
     width: number;
     height: number;
@@ -899,17 +905,23 @@ function computeNavigationFitness(data: CIFInput): CIFScore["navigation"] {
   }
 
   // --- skipMechanisms (15%) ---
+  // Measured only when a skip-link check is known to have run: the caller says
+  // so (skipLinksChecked), or the list holds a skip finding. empathy_audit has
+  // no skip-link detector, so its empty list said nothing about skip links, and
+  // this read a clean 100 on every page (21.0).
   let skipMechanisms: CIFComponentScore;
-  if (data.barriers) {
-    const skipBarriers = countBarriersMatching(data.barriers, "skip");
+  const skipBarriers = data.barriers ? countBarriersMatching(data.barriers, "skip") : 0;
+  if (!data.barriers) {
+    skipMechanisms = notMeasured("audit barriers");
+  } else if (data.skipLinksChecked !== true && skipBarriers === 0) {
+    skipMechanisms = notMeasured("skip-link check");
+  } else {
     skipMechanisms = measured(
       clamp(P.scale - skipBarriers * P.skipBarrierPenalty),
       skipBarriers > 0
         ? `${skipBarriers} skip mechanism issues detected`
         : "No skip navigation issues detected",
     );
-  } else {
-    skipMechanisms = notMeasured("audit barriers");
   }
 
   // --- linkButtonClarity (15%) ---

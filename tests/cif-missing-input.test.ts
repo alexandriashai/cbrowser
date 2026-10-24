@@ -23,6 +23,8 @@ const NO_DATA = param("cif.noData.score");
 const FULL: CIFInput = {
   url: "https://example.test/full",
   barriers: [],
+  // empathy_audit has no skip-link detector; a fully measured page needs one that ran.
+  skipLinksChecked: true,
   touchTargets: [{ width: 48, height: 48 }, { width: 30, height: 30 }],
   contrastIssues: [{ ratio: 3.2, isLargeText: false }],
   agentReadyScore: 80,
@@ -130,10 +132,12 @@ describe("CIF missing-input rule", () => {
   test("an empty barrier list is an audit that found nothing; an undefined one is no audit", () => {
     const audited = computeCIFScore({ url: "https://example.test/", barriers: [] });
     const unaudited = computeCIFScore({ url: "https://example.test/" });
-    for (const key of ["motor.dragFreeAlternatives", "visual.colorIndependence", "sensory.sensoryIndependence", "navigation.keyboardOperability", "navigation.skipMechanisms"]) {
+    for (const key of ["motor.dragFreeAlternatives", "visual.colorIndependence", "sensory.sensoryIndependence", "navigation.keyboardOperability"]) {
       expect({ key, ...pick(component(audited, key)) }).toEqual({ key, measured: true, score: param("cif.scale.max") });
       expect({ key, ...pick(component(unaudited, key)) }).toEqual({ key, measured: false, score: NO_DATA });
     }
+    // An audit with no skip-link check says nothing about skip links (cif-no-detector.test.ts).
+    expect(pick(component(audited, "navigation.skipMechanisms"))).toEqual({ measured: false, score: NO_DATA });
   });
 
   test("animations with no reduced-motion flag are not measured; no animations need no flag", () => {
