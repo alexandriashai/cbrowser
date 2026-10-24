@@ -56,6 +56,9 @@ export const EXCEPTIONS: Record<string, Record<string, Record<number, number>>> 
     score: { 2: 1 },
     // English ordinal suffixes: 11th-13th, then by the last digit.
     ordinalSuffix: { 100: 1, 11: 1, 13: 1, 10: 1, 2: 1, 3: 1 },
+    // How many characters of an unreadable reply the problem message quotes
+    // (cut, then "..." when longer): a display width, no claim (20.1.2).
+    readReplyJson: { 80: 2 },
   },
   // Date.getDay() indices, and 2 pi in the circadian cosines.
   "src/cognitive/temporal.ts": {

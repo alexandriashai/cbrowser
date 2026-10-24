@@ -189,6 +189,7 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
 
   // ── What the model is shown ──
   d("llm.maxTokens", 2000, "Response-token ceiling of the live model call; a ceiling on the reply, not a claim about the persona."),
+  d("llm.retryMaxTokens", 8000, "Response-token ceiling of the one re-ask after a reply was cut off at llm.maxTokens: thinking counts against the ceiling, so the second ask gets room for the thinking and the JSON together (20.1.2). A ceiling on the reply, not a claim about the persona."),
   h("content.lookaheadShare", 0.4, SHOWN("share of a viewport height below the fold whose text is shown as coming up")),
   h("content.aboveViewportPx", 50, SHOWN("distance, px, above the viewport within which an element's text still counts as visible")),
   h("content.minWidthPx", 20, SHOWN("smallest width, px, of an element whose text is shown")),

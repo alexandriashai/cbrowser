@@ -20,7 +20,7 @@ const FIXTURE = JSON.parse(readFileSync(resolve(import.meta.dir, "fixtures", "as
   sources: string[];
 };
 
-async function ask(reply: { answer: string; sources: string[] }, extra: string[] = []) {
+async function ask(reply: { answer: string; sources: string[] }, extra: string[] = [], extraEnv: Record<string, string> = {}) {
   const server = Bun.serve({ port: 0, fetch: () => Response.json(reply) });
   try {
     const env: Record<string, string> = {
@@ -28,8 +28,10 @@ async function ask(reply: { answer: string; sources: string[] }, extra: string[]
       CBROWSER_HELP_URL: `http://127.0.0.1:${server.port}/cms/api/ai/question`,
       CBROWSER_DATA_DIR: mkdtempSync(join(tmpdir(), "cb-ask-")),
       NO_COLOR: "1",
+      ...extraEnv,
     };
     delete env.CMS_URL;
+    if (!("CBROWSER_HYPERLINKS" in extraEnv)) delete env.CBROWSER_HYPERLINKS;
     const proc = Bun.spawn(["bun", "run", CLI, "ask", "how do I take a full page screenshot", ...extra], {
       stdout: "pipe", stderr: "pipe", env,
     });
@@ -84,5 +86,30 @@ describe("cbrowser ask prints terminal text", () => {
     expect(data.answer).toBe(FIXTURE.answer);
     expect(data.sources).toEqual(FIXTURE.sources);
     expect(data.sourceUrls[0]).toBe("https://cbrowser.ai/docs/tool-screenshot/");
+  });
+});
+
+describe("cbrowser ask links are clickable (Alexa, 2026-10-23)", () => {
+  const ESC = String.fromCharCode(27);
+  const linked = (u: string) => `${ESC}]8;;${u}${ESC}\\${u}${ESC}]8;;${ESC}\\`;
+
+  test("on a terminal every printed URL, in the answer and the sources, is a hyperlink to itself", async () => {
+    const { stdout, code } = await ask(FIXTURE, [], { CBROWSER_HYPERLINKS: "1" });
+    expect(code).toBe(0);
+    expect(stdout).toContain(linked("https://cbrowser.ai/docs/tool-screenshot/"));
+    expect(stdout).toContain(`  - ${linked("https://cbrowser.ai/automated-testing/")}`);
+    // Outside the links nothing changes: removing them gives the plain output.
+    const plain = (await ask(FIXTURE)).stdout;
+    const shown = stdout.replace(new RegExp(`${ESC}\\]8;;[^${ESC}]*${ESC}\\\\`, "g"), "");
+    expect(shown).toBe(plain);
+  });
+
+  test("piped output, and --json even when forced, carry no escape", async () => {
+    expect((await ask(FIXTURE)).stdout).not.toContain(ESC);
+    expect((await ask(FIXTURE, ["--json"], { CBROWSER_HYPERLINKS: "1" })).stdout).not.toContain(ESC);
+  });
+
+  test("CBROWSER_HYPERLINKS=0 turns them off", async () => {
+    expect((await ask(FIXTURE, [], { CBROWSER_HYPERLINKS: "0" })).stdout).not.toContain(ESC);
   });
 });

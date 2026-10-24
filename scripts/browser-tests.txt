@@ -83,6 +83,9 @@ tests/mcp-tool-options-parity.test.ts
 tests/mcp-capture-start-options.test.ts
 tests/responsive-device-emulation.test.ts
 tests/cli-library-browser-flags.test.ts
+tests/effort-widget-layers-browser.test.ts
+tests/cli-journey-dialog-browser.test.ts
+tests/journey-session-scripts-browser.test.ts
 tests/webhooks-export.test.ts
 # Not a browser test: replaces the journey and audit engines with mock.module, which
 # reaches every file in the same process, so it runs alone.
@@ -107,11 +110,19 @@ tests/attention-traits-callers.test.ts
 tests/attention-overlay-config.test.ts
 # Runs journey_heatmap_gif (its own browser per call) with custom personas on disk.
 tests/journey-gif-traits.test.ts
-# Launches its own CBrowser and runs the effort widget against a real page.
-tests/effort-widget.test.ts
 # Runs attention_analysis and attention_compare in one launched CBrowser.
 tests/attention-answer-provenance.test.ts
 # Launches a CBrowser and reads what the MCP App views draw.
 tests/provenance-views.test.ts
+tests/journey-replies-browser.test.ts
 # Runs scripted cognitive journeys over the journey-*.html fixtures and compares every state number with its golden.
 tests/journey-golden-browser.test.ts
+tests/journey-fixes-browser.test.ts
+# Runs CBrowser.screenshot, captureVisualBaseline and crossBrowserDiff in a
+# spawned step (tests/fixtures/same-ms-step.ts), so the launch grep does not
+# see it. It ran in the gate's shared pass and timed out there once (120 s,
+# crossBrowserDiff) under a full gate run.
+tests/same-ms-captures.test.ts
+# Calls crossBrowserDiff in-process, which launches chromium inside the
+# product code, so the launch grep does not see it either.
+tests/hotfix-path-escape.test.ts

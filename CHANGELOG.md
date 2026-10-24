@@ -6,6 +6,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.2.2](https://github.com/alexandriashai/cbrowser/compare/v20.2.1...v20.2.2) (2026-10-24)
+
+### Fixed
+
+* **journey:** read a reply without stripping backticks inside its strings ([8ddd7d6](https://github.com/alexandriashai/cbrowser/commit/8ddd7d6278e1abd13c2ff4a0caba7349435fc989))
+
+## [20.2.1](https://github.com/alexandriashai/cbrowser/compare/v20.2.0...v20.2.1) (2026-10-24)
+
+### Fixed
+
+* **cli:** links print once under Node, and journey page URLs drop their query string ([e8063cd](https://github.com/alexandriashai/cbrowser/commit/e8063cdaba2d642221553ba00b2dc818273dd3a8))
+
+## [20.2.0](https://github.com/alexandriashai/cbrowser/compare/v20.1.3...v20.2.0) (2026-10-23)
+
+### Added
+
+* **cli:** clickable links: journey steps name their page, and printed URLs are hyperlinks ([dd57247](https://github.com/alexandriashai/cbrowser/commit/dd57247f30528d24e2ab1c0d53ea72cffcc01efa))
+
+## [20.1.3](https://github.com/alexandriashai/cbrowser/compare/v20.1.2...v20.1.3) (2026-10-23)
+
+### Fixed
+
+* **journey:** accessibility personas run on their own traits; three journey reports fixed ([7bb0edf](https://github.com/alexandriashai/cbrowser/commit/7bb0edf91107f9a96ccc73d6ef9de140e37b9703))
+
+## [20.1.2](https://github.com/alexandriashai/cbrowser/compare/v20.1.1...v20.1.2) (2026-10-23)
+
+### Fixed
+
+* **journey:** read every reply block, say why a step is unreadable, keep the run's name and goal ([c07bede](https://github.com/alexandriashai/cbrowser/commit/c07bede5b20e6686273612b6ae53b7784aae3cb8))
+* **journey:** say a run stopped at the step limit instead of "ABANDONED: undefined" ([87a9862](https://github.com/alexandriashai/cbrowser/commit/87a986265c5df4f7b41d7101cd0b49027722ecdc))
+
+## [20.1.1](https://github.com/alexandriashai/cbrowser/compare/v20.1.0...v20.1.1) (2026-10-23)
+
+### Fixed
+
+* **journey:** refuse evaluate_script on a session running a cognitive journey ([7d3becd](https://github.com/alexandriashai/cbrowser/commit/7d3becd5f9403e2bd9701cd43b38851ceb673b46))
+
+## [20.1.0](https://github.com/alexandriashai/cbrowser/compare/v20.0.3...v20.1.0) (2026-10-23)
+
+### Added
+
+* **cli:** cognitive-journey prints the persona's dialog at every step ([7771905](https://github.com/alexandriashai/cbrowser/commit/7771905963e2475f87fe0836515f341088ff4af0))
+
+## [20.0.3](https://github.com/alexandriashai/cbrowser/compare/v20.0.2...v20.0.3) (2026-10-23)
+
+### Fixed
+
+* **cli:** cbrowser ask links the home page source ([26df8c7](https://github.com/alexandriashai/cbrowser/commit/26df8c71415ca2758768d864a2920d702d1ed402))
+* **files:** per-call temp dirs for hosted temp images; crossBrowserDiff out of /tmp (20.0.3) ([5ee0913](https://github.com/alexandriashai/cbrowser/commit/5ee09138afb24a2f435aac0206f262bc80102306))
+
 ## [20.0.2](https://github.com/alexandriashai/cbrowser/compare/v20.0.1...v20.0.2) (2026-10-23)
 
 ### Fixed

@@ -31,6 +31,7 @@ const { journeyUnits, baseline, deadJourneyConstants } = await import("./fixture
 const EXEMPT: Record<string, string> = {
   "journeyMcp.update.marginEpsilon": "a division guard against a zero or negative threshold; only its sign matters",
   "journey.llm.maxTokens": "the live model call's response ceiling; no test calls a model",
+  "journey.llm.retryMaxTokens": "the live call's re-ask ceiling; no test calls a model",
 };
 
 describe("no constant in the journey registry is dead", () => {
