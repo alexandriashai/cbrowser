@@ -19,7 +19,10 @@
  * are reported and not required: no slope above them was found anywhere (on
  * the 21.0 chain, 508 pages with any subset of the generator's inputs at max,
  * mid, 0.1x or 0.03x plus 2000 random sparse pages, 4 option sets: best ratio
- * 0.9999, the same as the shipped bound), because the derivation's
+ * 0.9999, the same as the shipped bound; again on the Stage B chain,
+ * research/stage-b-dro-scan.ts, 7576 pages including the law-time grid and
+ * the 1024 real reference demand vectors: best ratio 0.999998, the shipped
+ * bound's), because the derivation's
  * depletion-coupling term over-counts by more than twice, so halving or
  * truncating it still leaves a valid bound.
  *

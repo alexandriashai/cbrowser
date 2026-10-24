@@ -18,6 +18,12 @@ part 1 against the laws on the 97c4888 data. It is this file at a5e2346; its
 commit ids predate a history rewrite (7bc9d5e is now 63b2412, 4aa544e is
 da8cda2).
 
+Integration has since taken ref-v2's 512-page re-crawl (42ed67b, which adds
+`proseInNav`). The tables below stay on the 513 pages they were measured on.
+On the re-crawl the viewport law-time medians are pointing 24.2 s, choosing
+2.4 s, reading 25.6 s and procedure 1.4 s (full_page: 68.7, 6.4, 96.0 and 1.4
+s), within 0.4 s of section 1's at the viewport.
+
 Scripts: `research/stage-b-capacity-deltas.ts` (golden matrix; `BEFORE=` names
 the pin to compare against), `research/stage-b-refset-scores.ts` and
 `research/stage-b-refset-layers.ts` (run on a worktree of each commit),
@@ -47,28 +53,30 @@ reference page the histogram's counts sum to `prose.words` exactly
 (`tests/stage-b-demand.test.ts` pins it). The reading law never reads
 `textChars`, which sums nested elements and relies on the 0.4 factor.
 
-Nav list items stay in reading for 21.0. A nav label is prose the persona
-reads and also a choice the persona inspects, so it is charged once to
-reading and once to choosing. Nav links per prose word, over the pages with
-prose:
+Nav list items stay in reading (Alexa, 2026-10-23). On a first visit a nav
+label is charged once to reading (Brysbaert) and once to choosing (novice
+search), and that is the split the search law was calibrated under, not the
+same seconds counted twice. Cockburn, Gutwin & Greenberg (2007) fitted their
+visual-search constants without block 1, "presumably because there is an
+additional cost in reading the menu labels for the first time. To avoid
+incorporating this one-off cost in the calibration of visual search we
+removed block 1 from the visual search analysis. Our model is therefore based
+on visual search for items that have been previously read."
 
-| scope | pages | median | p90 |
-|---|---|---|---|
-| viewport | 504 | 0.065 | 0.649 |
-| full_page | 507 | 0.025 | 0.226 |
+The raw record measures the labels' prose apart (`proseInNav`, from the
+512-page re-crawl) for reporting; the reading law does not read it. Its share
+of the reading time, over that reference:
 
-At 1 to 2 words per label, the double count is about 6 to 13% of the prose
-words on the median viewport page, and 2 to 5% at full page. The tail is
-larger. On the tenth of viewport pages with the most nav per word (53 pages),
-nav labels are most of the visible prose, and their median reading time is
-10.2 s (d 0.45) against 27.5 s (d 0.69) on the rest. Those are the pages whose
-reading demand is overstated.
+| scope | median | p90 |
+|---|---|---|
+| viewport | 7.1% | 44.8% |
+| full_page | 2.6% | 27.5% |
 
-I did not subtract an estimate. Raw format 2 does not measure the words inside
-nav, and an assumed label length would be one more hand-set number in a chain
-whose point is to remove them. A raw field for the prose words inside nav
-groups would let the reading law exclude them. That needs a re-crawl, so it
-is listed as open.
+A named limit, not a double count: Brysbaert's rate charges the median
+one-word label about 0.25 s, while the same paper's Figure 2 puts the
+first-read cost at about 0.13 s per label (random condition, block 1 minus
+block 2, read off the plot; an upper bound, since block 1 also carries task
+warm-up).
 
 ### Per-screen charging (cognitive_effort, scope sequential)
 
@@ -342,3 +350,79 @@ Runs per persona: 76. "max abs change" is the largest absolute change over those
 | confident-user | 0.500 | 0.500 |
 | emotional-user | 0.500 | 0.500 |
 | stoic-user | 0.500 | 0.500 |
+
+## 5. The DRO bound: the interaction re-scan on the Stage B chain
+
+The Wasserstein-DRO bound (`src/visual/dro-bound.ts`) bounds rawCTC as a
+function of capacity at a fixed demand vector. Stage B leaves the bound and the
+chain's layers unchanged, but it moves the demand vectors the bound is
+evaluated at, including those of the interaction pages that refute M2, M2b and
+M10. `research/stage-b-dro-scan.ts` reruns the scan that found those pages, on
+9de1cf3 (integration 42ed67b plus the scan itself), and adds two families the
+original did not have: the law-time generator's own grid and the real pages.
+
+**Demand vectors moved** (`--demands`, integration 45be7aa against this tree).
+440 of the 512 count-described pages (the 508 old-grid pages and the 4
+interaction pages) move: riskTolerance by up to 0.735, satisficing by up to
+0.784 and sustainedAttention by up to 0.085; no other coordinate moves. The
+fixture said fromCounts kept every demand vector and kill margin; that was
+false, and its comment now says so.
+
+**Kill table** (`tests/dro-bound-mutants.test.ts`, seeds 1-3): every must-kill
+mutant is killed on 3 of 3 seeds (M1, M2, M2b, M3, M5 to M10, M12, M13, P1 to
+P6); M11 and M14 survive on 3 of 3, as before (reported, not required); the
+unmutated control survives every check.
+
+**Interaction pages** (`--margins`, seeds 1-14): the smallest, over seeds, of
+the largest observed/bound. Every page kills M2 and M10 on 14 of 14 seeds on
+both trees, and the shipped bound is never exceeded (at most 0.9996).
+
+| page | M2, 45be7aa -> this tree | M10, 45be7aa -> this tree |
+|---|---|---|
+| trace-text+choices | 1.346 -> 1.246 | 1.147 -> 1.109 |
+| trace-text+depth | 1.463 -> 1.463 | 1.188 -> 1.188 |
+| info+trace-visual+depth | 1.347 -> 1.347 | 1.147 -> 1.147 |
+| light-text+choices | 1.338 -> 1.234 | 1.144 -> 1.104 |
+
+The two choice pages lost margin, because satisficing and riskTolerance now
+come from choosing alone; the other two did not move.
+
+**The re-scan.** For each page and option set, the steepest secant slope along
+each of the 30 capacity coordinates, against the per-coordinate bound of the
+shipped file and of each slope mutant (M12, M13 and P1 to P6 change the
+population bound or the preconditions, so they are not in it). Cell: the
+largest observed/bound over the family's pages (slopes above the 1e-9
+tolerance only), then the pages where some coordinate exceeds the bound.
+
+| bound | must kill | old-grid | old-sparse | law-grid | law-sparse | real | all |
+|---|---|---|---|---|---|---|---|
+| control | survive | 0.9999; 0 | 1.0000; 0 | 1.0000; 0 | 1.0000; 0 | 0.9998; 0 | 1.0000; 0 |
+| M1 | yes | 1.5260; 438 | 1.3751; 1763 | 1.4965; 1864 | 1.3183; 1830 | 1.4079; 1024 | 1.5260; 6919 |
+| M2 | yes | 1.4313; 160 | 1.6216; 658 | 1.3901; 852 | 1.6479; 915 | 1.1306; 43 | 1.6479; 2628 |
+| M2b | yes | 1.4313; 160 | 1.6216; 658 | 1.3901; 852 | 1.6479; 915 | 1.1306; 43 | 1.6479; 2628 |
+| M3 | yes | inf; 474 | inf; 1910 | inf; 1922 | inf; 1964 | inf; 1024 | inf; 7294 |
+| M5 | yes | 1.9999; 508 | 1.9999; 1971 | 1.9999; 2044 | 1.9999; 1992 | 1.9996; 1024 | 1.9999; 7539 |
+| M6 | yes | 20.2640; 192 | 1141760.9975; 669 | 1.0000; 0 | 29744423.7245; 202 | 101.0334; 70 | 29744423.7245; 1133 |
+| M7 | yes | 1.6632; 264 | 1.6658; 1085 | 1.0000; 0 | 1.6658; 291 | 1.6642; 217 | 1.6658; 1857 |
+| M8 | yes | inf; 384 | inf; 1472 | inf; 1024 | inf; 988 | inf; 1009 | inf; 4877 |
+| M9 | yes | 1.1111; 508 | 1.1111; 1971 | 1.1111; 2044 | 1.1111; 1992 | 1.1109; 1024 | 1.1111; 7539 |
+| M10 | yes | 1.1770; 115 | 1.2367; 429 | 1.1629; 456 | 1.2443; 503 | 1.0246; 3 | 1.2443; 1506 |
+| M11 | info | 0.9999; 0 | 1.0000; 0 | 1.0000; 0 | 1.0000; 0 | 0.9998; 0 | 1.0000; 0 |
+| M14 | info | 0.9999; 0 | 1.0000; 0 | 1.0000; 0 | 1.0000; 0 | 0.9998; 0 | 1.0000; 0 |
+
+- The shipped bound is exceeded on 0 of 7576 pages. Its largest
+  observed/bound is 0.999998 (law-sparse/754, readingTendency, symmetric).
+- Every must-kill slope mutant is exceeded in every family but two cells: M6
+  and M7 (both edit the readingTendency path's content gate) are never
+  exceeded on the law grid's 2044 pages. The sparse and real families exceed
+  both, so the grid alone would not have refuted them.
+- On real pages alone the interaction terms are rarely tight: M2 is exceeded
+  on 43 of 1024 real demand vectors (largest 1.13x) and M10 on 3 (1.025x). The
+  synthetic families keep those kills robust (M10 up to 1.24x on law-sparse).
+- M11 and M14: no slope above their bounds anywhere. Their largest ratios equal
+  the shipped bound's, so the depletion-coupling term still over-counts by more
+  than twice.
+- 42ed67b against 8707e49: the 6552 synthetic pages give identical violation
+  counts on both trees, as they must (neither the chain nor the bound
+  changed); only the real family moves with the re-crawl (513 to 512 pages per
+  scope).
