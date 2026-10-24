@@ -23,6 +23,7 @@ import { currentRequestIdentity } from "../../request-context.js";
 import { markJourneyBrowser, releaseJourneyBrowser } from "../journey-sessions.js";
 import { param } from "../../visual/model-provenance.js";
 import { defaultJourneyTraits } from "../../cognitive/default-traits.js";
+import { canonicalizeTraits } from "../../trait-reference.js";
 import type {
   CognitiveState,
   AbandonmentThresholds,
@@ -66,7 +67,8 @@ export async function fetchCustomPersonasFromCMS(apiKey?: string): Promise<Array
       name: p.name,
       slug: p.slug,
       description: p.description,
-      traits: typeof p.traits === "string" ? JSON.parse(p.traits) : p.traits,
+      // Deprecated keys to canonical ones, as on the file path (trait-reference.ts).
+      traits: canonicalizeTraits(typeof p.traits === "string" ? JSON.parse(p.traits) : p.traits) as Record<string, number>,
       values: p.schwartz_values ? (typeof p.schwartz_values === "string" ? JSON.parse(p.schwartz_values) : p.schwartz_values) : undefined,
       source: p.source,
     }));

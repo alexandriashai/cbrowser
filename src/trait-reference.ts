@@ -802,9 +802,9 @@ export const PERSONA_TRAIT_GUIDELINES: Record<string, Record<string, number>> = 
  * One writer did mean rigidity: the CMS persona generator in cbrowser-web
  * (cms/routes/personas.ts), whose prompt asked for "mentalModelRigidity
  * (resistance to new UI patterns)" and whose rows are saved with source "ai".
- * Those values are wrong for this scale wherever they are read. They need
- * fixing at that writer and in its stored rows, not here, where an inversion
- * would also hit the values that were right.
+ * That was fixed at the writer and in its one stored row (inverted there,
+ * 2026-10-24), not here, where an inversion would also hit the values that
+ * were right.
  */
 export const TRAIT_ALIASES: Record<string, string> = {
   mentalModelRigidity: "mentalModelFlexibility",
@@ -826,11 +826,9 @@ export function canonicalTraitName(traitName: string): string {
  * was in the persona vector and in no demand dimension.
  *
  * Applied where persona files are read (`normalizePersonaOnRead` in
- * personas.ts), so the old key keeps working there. (2026-08-02) It is not
- * applied to personas read straight from the CMS (`cmsPersonaToPersona`,
- * `fetchCustomPersonasFromCMS`), where an old key is therefore ignored, and
- * tool inputs never accept the old key. Adding it to the CMS path waits on the
- * generator rows above: carried over unchanged, they would read inverted.
+ * personas.ts, 2026-08-02) and where personas are read straight from the CMS
+ * (`cmsPersonaToPersona`, `fetchCustomPersonasFromCMS`, 2026-10-24), so the old
+ * key keeps working on both. Tool inputs never accept the old key.
  */
 export function canonicalizeTraits<T extends Record<string, unknown>>(traits: T | undefined): T | undefined {
   if (!traits) return traits;
