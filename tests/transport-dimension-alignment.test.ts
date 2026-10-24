@@ -369,6 +369,8 @@ describe("the mentalModelFlexibility rename is complete and back-compatible", ()
     // the persona vector and absent from the demand vector.
     const { canonicalizeTraits } = await import("../src/trait-reference.js");
     const out = canonicalizeTraits({ mentalModelRigidity: 0.2, patience: 0.5 }) as Record<string, number>;
+    // Carried over, not inverted: cbrowser wrote this key on the flexibility
+    // scale (TRAIT_ALIASES in trait-reference.ts says why).
     expect(out.mentalModelFlexibility).toBe(0.2);
     expect("mentalModelRigidity" in out).toBe(false);
     expect(out.patience).toBe(0.5);

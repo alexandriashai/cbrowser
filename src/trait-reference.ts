@@ -790,6 +790,21 @@ export const PERSONA_TRAIT_GUIDELINES: Record<string, Record<string, number>> = 
  * Stored personas and saved results still carry the old keys, so lookups
  * resolve through here rather than failing. Expand now, contract once nothing
  * on disk uses the old name.
+ *
+ * The value is carried over unchanged, NOT inverted, on purpose. Everything
+ * cbrowser itself wrote under `mentalModelRigidity` was already on the
+ * flexibility scale: the built-in personas (power-user 0.8 "adapts to new
+ * patterns", elderly-user 0.2 "rigid"), the questionnaire's levels (0 "Rigid
+ * Mental Models" to 1 flexible), the MCP schema ("the SCALE runs toward
+ * flexibility") and the persona files written from them. Reading r as 1 - r
+ * would invert every one of those. See the note on mentalModelFlexibility.
+ *
+ * One writer did mean rigidity: the CMS persona generator in cbrowser-web
+ * (cms/routes/personas.ts), whose prompt asked for "mentalModelRigidity
+ * (resistance to new UI patterns)" and whose rows are saved with source "ai".
+ * Those values are wrong for this scale wherever they are read. They need
+ * fixing at that writer and in its stored rows, not here, where an inversion
+ * would also hit the values that were right.
  */
 export const TRAIT_ALIASES: Record<string, string> = {
   mentalModelRigidity: "mentalModelFlexibility",
@@ -810,8 +825,12 @@ export function canonicalTraitName(traitName: string): string {
  * layer was written and never wired, which is the same shape as the trait that
  * was in the persona vector and in no demand dimension.
  *
- * Applied at every read boundary (file store, CMS, tool input) so the old key
- * keeps working while nothing downstream has to know it exists. (2026-08-02)
+ * Applied where persona files are read (`normalizePersonaOnRead` in
+ * personas.ts), so the old key keeps working there. (2026-08-02) It is not
+ * applied to personas read straight from the CMS (`cmsPersonaToPersona`,
+ * `fetchCustomPersonasFromCMS`), where an old key is therefore ignored, and
+ * tool inputs never accept the old key. Adding it to the CMS path waits on the
+ * generator rows above: carried over unchanged, they would read inverted.
  */
 export function canonicalizeTraits<T extends Record<string, unknown>>(traits: T | undefined): T | undefined {
   if (!traits) return traits;
