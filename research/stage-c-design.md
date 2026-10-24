@@ -892,9 +892,16 @@ Read plainly:
   grounded design of this layer reverses it, and the gap now sits in decision
   (+0.027) and readingAttention (+0.042).
 - **power-user is now costlier than the typical user** (+0.097 viewport,
-  +0.188 full_page; before -0.075 and -0.029): its authored patience 0.3 now
-  prices against the reading time, on top of Stage B's billed decision
-  surplus. Same for the other low-patience personas, viewport totalCTC:
+  +0.188 full_page; before -0.075 and -0.029). Kept as V5 and explained
+  (decided 2026-10-23): the gap comes from power-user's authored patience 0.3
+  and its decision dispositions, both hypothesis persona values, not from a
+  law. Under design C alone it was already +0.040 at the viewport (+0.113 at
+  full_page), from the dispositions' billed surplus; the patience change adds
+  the rest, because 0.3 tolerates 5.3 s of reference reading. Paper text, as
+  sent for the draft: "power-user scores above the typical user (+0.097 at the
+  viewport, +0.188 at full page) because of its authored patience (0.3) and
+  decision dispositions, both hypothesis persona values rather than measured
+  rates; under the cognitive-load redesign alone the gap was +0.040." Same for the other low-patience personas, viewport totalCTC:
   impatient-user 0.583 -> 0.735, confident-user 0.336 -> 0.502, mobile-user
   0.485 -> 0.611, emotional-user 0.629 -> 0.734.
 - **cognitiveLoad nearly vanishes on real pages** (first-timer 0.436 -> 0.024
@@ -1137,3 +1144,74 @@ cognitive-adhd 0.576 -> 0.683, dyslexic-user 0.524 -> 0.435, aphasia-receptive
 0.481, typical user 0.389 -> 0.386. When this branch is merged with the
 512-page reference, the golden matrix needs re-pinning on the merged tree
 (only reference-derived fields should move, as in ref-v2's 78057db).
+
+### 10.12 comprehension is not read as reading anywhere (decided 2026-10-23)
+
+Built in 7ba5484 (red tests) and c8de78b:
+
+- **getReadingProfile** interpolates a reading profile on `textProcessing`
+  alone. Through 21.0 `comprehension` weighed 0.4 beside it and stood in alone
+  when it was absent, which is every built-in persona: 20 of them (all but the
+  five whose names match dyslexia, low vision, ADHD or elderly) had a
+  readability-audit profile interpolated toward the dyslexic one on their
+  grasp of UI conventions. They now read with the neurotypical profile in the
+  readability audit. Their CTC reading shares are registered and do not move.
+- **intellectual-disability's reading share** came from that interpolation
+  (comprehension 0.2: phonological 0.44, visualSpan 5, 338 ms against 270 ms
+  per word). No adult reading rate was found, so it is frozen at its pre-21.0
+  value, 270 / 338 = 0.7988165680473372, as a hypothesis whose source begins
+  "No adult reading rate found; the value is the pre-21.0 one". No CTC number
+  moves.
+- **cognitive_load_estimate** drops its information dimension,
+  informationDensity^1.5 x (1 - 0.8 comprehension). `informationDensity` is
+  still accepted and is not read; the tool's description says so. The total is
+  the mean of the remaining seven dimensions.
+
+Tests (`tests/stage-c-comprehension.test.ts`): 4 fail on 7ba5484's src and pass
+after; varying comprehension leaves every built-in persona's reading profile,
+rate share and readability audit unchanged; a fast-check property for a
+persona with no name match.
+
+cognitive_load_estimate's totalLoad, on the 513-page reference
+(`stage-c-load-estimate.ts`, each persona built as the tool builds it), change
+per page, after minus before:
+
+| persona | viewport median change | viewport max abs change | full_page median change | full_page max abs change | bottleneck 'information' before (viewport pages) |
+|---|---|---|---|---|---|
+| power-user | +0.012 | 0.033 | +0.014 | 0.028 | 0 |
+| first-timer | -0.014 | 0.064 | -0.024 | 0.058 | 148 |
+| mobile-user | -0.002 | 0.036 | -0.006 | 0.030 | 10 |
+| screen-reader-user | +0.004 | 0.030 | +0.003 | 0.023 | 0 |
+| elderly-user | -0.017 | 0.073 | -0.029 | 0.067 | 161 |
+| impatient-user | -0.002 | 0.036 | -0.007 | 0.031 | 0 |
+| distracted-user | -0.005 | 0.044 | -0.010 | 0.038 | 97 |
+| careful-reader | +0.009 | 0.036 | +0.009 | 0.029 | 0 |
+| explorer | +0.007 | 0.035 | +0.006 | 0.029 | 0 |
+| task-focused | +0.002 | 0.029 | -0.000 | 0.024 | 0 |
+| motor-impairment-tremor | +0.001 | 0.029 | -0.001 | 0.023 | 0 |
+| low-vision-magnified | +0.001 | 0.029 | -0.001 | 0.022 | 0 |
+| cognitive-adhd | -0.000 | 0.035 | -0.004 | 0.028 | 0 |
+| dyslexic-user | -0.007 | 0.045 | -0.014 | 0.040 | 62 |
+| deaf-user | +0.006 | 0.030 | +0.005 | 0.025 | 0 |
+| elderly-low-vision | -0.014 | 0.063 | -0.025 | 0.058 | 153 |
+| color-blind-deuteranopia | +0.002 | 0.029 | -0.000 | 0.024 | 0 |
+| autism-spectrum | -0.000 | 0.037 | -0.005 | 0.030 | 18 |
+| intellectual-disability | -0.018 | 0.074 | -0.031 | 0.069 | 216 |
+| aphasia-receptive | -0.015 | 0.067 | -0.028 | 0.062 | 179 |
+| dyscalculia | -0.001 | 0.032 | -0.005 | 0.026 | 0 |
+| anxious-user | +0.001 | 0.035 | -0.003 | 0.027 | 10 |
+| confident-user | +0.002 | 0.029 | -0.001 | 0.023 | 0 |
+| emotional-user | -0.003 | 0.043 | -0.010 | 0.037 | 71 |
+| stoic-user | +0.003 | 0.031 | +0.001 | 0.025 | 0 |
+
+The personas that lose load are those whose low comprehension the information
+term charged (intellectual-disability, elderly-user, aphasia-receptive,
+first-timer, elderly-low-vision); the others gain a little because the mean now
+has one dimension fewer. The last column counts the viewport pages on which
+"information" was the bottleneck before; it can no longer be.
+
+Also fixed (57d552a): `tests/persona-provenance.test.ts` failed when run alone
+because of an import cycle (provenance/personas.ts -> cognitive-models.ts ->
+model-provenance.ts -> provenance/personas.ts). The normal CDF moved to
+`visual/normal-cdf.ts`, which imports nothing; every provenance test file now
+passes alone.
