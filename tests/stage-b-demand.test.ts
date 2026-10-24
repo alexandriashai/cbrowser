@@ -16,6 +16,7 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
+import fc from "fast-check";
 import { deriveMetrics, extractPerScreenMetrics, lawSecondsOf, type RawPageMeasurement, type RawPageMeasurementV1 } from "../src/visual/cognitive-transport.js";
 import { computeDemandDistribution } from "../src/visual/cognitive-transport-chain.js";
 import { LAW_PROVENANCE } from "../src/visual/provenance/laws.js";
@@ -23,6 +24,7 @@ import { MODEL_PROVENANCE, param, withParamOverrides } from "../src/visual/model
 import { RAW_LATIN } from "./fixtures/raw-page-measurements.js";
 import { referenceRaw } from "../src/visual/ctc-reference.js";
 import { lawTimesReport } from "../src/visual/law-times-report.js";
+import { lettersReadingSeconds } from "../src/visual/demand-laws.js";
 import { buildGoldenMatrix } from "./fixtures/ctc-golden-matrix.js";
 
 /** The golden matrix with the per-dimension state arrays dropped: scores only (as ctc-no-dead-constants.test.ts). */
@@ -160,7 +162,7 @@ describe("the law times, on raw measurements, and the demands they make", () => 
 });
 
 describe("the per-screen path charges only what a screen introduces", () => {
-  test("pointing, choosing and procedure scale by the screen's new share; reading does not", async () => {
+  test("pointing, choosing and procedure scale by the screen's new share; reading only in its labels' first read", async () => {
     const raw = variant((r) => { r.scope = "viewport"; });
     const fresh = { newInteractive: 30, newChoices: 27 };
     const stub = {
@@ -176,7 +178,12 @@ describe("the per-screen path charges only what a screen introduces", () => {
     expect(screen.pointingSeconds).toBeCloseTo(whole.pointingSeconds * (30 / whole.interactiveElementCount), 9);
     expect(screen.procedureSeconds).toBeCloseTo(whole.procedureSeconds * (30 / whole.interactiveElementCount), 9);
     expect(screen.choosingSeconds).toBeCloseTo(whole.choosingSeconds * (27 / whole.choiceCountRaw), 9);
-    expect(screen.readingSeconds).toBe(whole.readingSeconds);
+    // Prose is read per screen; the labels' first read is once per visit, so it
+    // takes the new-choices share, as choosing does.
+    const share = 27 / whole.choiceCountRaw;
+    expect(whole.lawDiagnostics.labelSeconds).toBeGreaterThan(0);
+    expect(screen.lawDiagnostics.labelSeconds).toBeCloseTo(whole.lawDiagnostics.labelSeconds * share, 9);
+    expect(screen.readingSeconds).toBeCloseTo(whole.readingSeconds - whole.lawDiagnostics.labelSeconds * (1 - share), 9);
   });
 });
 
@@ -190,7 +197,7 @@ describe("every law constant the score reads moves a score in the golden matrix"
   const SCORED = LAW_PROVENANCE.filter((e) => !e.id.startsWith("law.rate.") && !e.id.startsWith("law.hick."));
 
   test("each, scaled by 1.1 or 0.9, moves a score", () => {
-    expect(SCORED.length).toBe(12);
+    expect(SCORED.length).toBe(13);
     expect(deadConstants(SCORED)).toEqual([]);
   }, 240_000);
 
@@ -224,8 +231,9 @@ describe("the reading law reads the outermost prose, each character once", () =>
   // elements (measurePageRaw joins them into one visible text), while textChars
   // still sums nested elements. The reading law takes letters from
   // text.wordLengths, so it reads exactly what prose totals: checked on every
-  // real reference page. Nav list items are prose too, so a nav label is read
-  // here and also searched in choosing; the raw record does not separate it.
+  // real reference page. Nav list items are prose too; the law reads the prose
+  // outside every group and charges each grouped link one first read instead
+  // (ISC-76, the menu-label tests below).
   test("on every alphabetic reference page, the letter histogram's words are prose.words", () => {
     for (const scope of ["viewport", "full_page"] as const) {
       const pages = referenceRaw(scope).filter((r) => r.text.script === "alphabetic");
@@ -239,5 +247,80 @@ describe("the reading law reads the outermost prose, each character once", () =>
     for (const scope of ["viewport", "full_page"] as const) {
       expect(referenceRaw(scope).filter((r) => lawSecondsOf(r).lawDiagnostics.ungroupedLinksFrom !== "groupedLinks").length).toBe(0);
     }
+  });
+});
+
+describe("menu labels: one first read each, in place of their prose (ISC-76)", () => {
+  const LABEL = MODEL_PROVENANCE["law.reading.labelFirstRead"].value;
+  const PER_LETTER = lettersReadingSeconds(1);
+  const PAGE_LETTERS = RAW_LATIN.text.wordLengths.reduce((n, [len, c]) => n + len * c, 0);
+  type Label = { letters: number; abjadWords: number; cjkChars: number };
+  /** A page whose prose holds `inGroup` already in groups, over `links` grouped links, with abjad and CJK prose besides its letters. */
+  const pageWith = (inGroup: Label, links: number, abjad: number, cjk: number) => variant((r) => {
+    r.text.abjadWordLengths = abjad > 0 ? [[4, abjad]] : [];
+    r.text.cjkChars = cjk;
+    r.proseInNav = { chars: 0, words: 0, ...inGroup };
+    r.groupedLinks = links;
+    r.links = Math.max(r.links, links);
+  });
+  /** The same page with one more label moved from the prose outside every group into a group (its prose stays on the page). */
+  const movedIn = (r: RawPageMeasurement, label: Label) => {
+    const m = structuredClone(r);
+    m.proseInNav = { ...m.proseInNav, letters: m.proseInNav.letters + label.letters, abjadWords: m.proseInNav.abjadWords + label.abjadWords, cjkChars: m.proseInNav.cjkChars + label.cjkChars };
+    m.groupedLinks += 1;
+    m.links = Math.max(m.links, m.groupedLinks);
+    return m;
+  };
+  const reading = (r: RawPageMeasurement) => lawSecondsOf(r).readingSeconds;
+
+  test("the prose outside every group at the prose rate, plus the first-read time per grouped link", () => {
+    const r = pageWith({ letters: 40, abjadWords: 0, cjkChars: 0 }, 8, 0, 0);
+    expect(reading(r)).toBeCloseTo(lettersReadingSeconds(PAGE_LETTERS - 40) + 8 * LABEL, 12);
+    expect(lawSecondsOf(r).lawDiagnostics).toMatchObject({ labels: 8 });
+    expect(LAW_PROVENANCE.find((e) => e.id === "law.reading.labelFirstRead")).toMatchObject({ value: 0.13, status: "hypothesis" });
+  });
+
+  test("moving a label of at least 3 letters, or any abjad word or CJK character, into a group never raises reading", () => {
+    // The change is labelFirstRead minus the label's own prose time; it is <= 0
+    // exactly when that prose time is at least 0.13 s: 3 letters (0.16 s at
+    // 238 x 4.6 letters per minute), one abjad word (0.33 s) or one CJK
+    // character (0.15 s).
+    const label = fc.oneof(
+      fc.integer({ min: 3, max: 40 }).map((n) => ({ letters: n, abjadWords: 0, cjkChars: 0 })),
+      fc.integer({ min: 1, max: 6 }).map((n) => ({ letters: 0, abjadWords: n, cjkChars: 0 })),
+      fc.integer({ min: 1, max: 12 }).map((n) => ({ letters: 0, abjadWords: 0, cjkChars: n })),
+    );
+    fc.assert(fc.property(label, fc.integer({ min: 0, max: 1000 }), fc.integer({ min: 0, max: 500 }), fc.integer({ min: 6, max: 80 }), fc.integer({ min: 12, max: 120 }), (l, permille, links, abjad, cjk) => {
+      const room = { letters: PAGE_LETTERS - l.letters, abjadWords: abjad - l.abjadWords, cjkChars: cjk - l.cjkChars };
+      const inGroup = { letters: Math.floor((room.letters * permille) / 1000), abjadWords: Math.floor((room.abjadWords * permille) / 1000), cjkChars: Math.floor((room.cjkChars * permille) / 1000) };
+      const before = pageWith(inGroup, links, abjad, cjk);
+      const after = movedIn(before, l);
+      expect(reading(after)).toBeLessThanOrEqual(reading(before) + 1e-12);
+      expect(reading(after) - reading(before)).toBeCloseTo(LABEL - (reading(pageWith({ letters: 0, abjadWords: 0, cjkChars: 0 }, 0, abjad, cjk)) - reading(pageWith(l, 0, abjad, cjk))), 9);
+    }), { seed: 76, numRuns: 400 });
+  });
+
+  test("the property does not hold below 3 letters: a label of 0, 1 or 2 letters costs more as a label than as prose", () => {
+    // A grouped link whose text is not prose (an icon, or a link outside the
+    // prose selector) moves no prose and adds a first read: +0.13 s.
+    const page = pageWith({ letters: 0, abjadWords: 0, cjkChars: 0 }, 4, 0, 0);
+    for (const letters of [0, 1, 2]) {
+      const rise = reading(movedIn(page, { letters, abjadWords: 0, cjkChars: 0 })) - reading(page);
+      expect(rise).toBeCloseTo(LABEL - letters * PER_LETTER, 12);
+      expect(rise).toBeGreaterThan(0);
+    }
+    expect(LABEL - 3 * PER_LETTER).toBeLessThan(0);
+  });
+
+  test("format 1 has no in-group prose: it reads all of its prose and charges no label", () => {
+    const { prose: _p, proseNested: _pn, proseInNav: _in, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...v1 } = RAW_LATIN;
+    const d = lawSecondsOf({ ...v1, format: 1 } satisfies RawPageMeasurementV1);
+    expect(d.readingSeconds).toBeCloseTo(lettersReadingSeconds(PAGE_LETTERS), 12);
+    expect(d.lawDiagnostics).toMatchObject({ labels: 0, labelSeconds: 0 });
+  });
+
+  test("a format-2 record without proseInNav is refused, naming the field", () => {
+    const early = variant((r) => { delete (r as Partial<RawPageMeasurement>).proseInNav; });
+    expect(() => lawSecondsOf(early)).toThrow(/raw format 2 record without proseInNav/);
   });
 });

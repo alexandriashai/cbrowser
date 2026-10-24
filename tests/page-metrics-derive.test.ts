@@ -29,7 +29,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import { deriveMetrics, measurePageRaw, extractPageMetrics, RAW_PAGE_FORMAT, type RawPageMeasurement, type RawPageMeasurementV1 } from "../src/visual/cognitive-transport.js";
-import { readsOf, withParamOverrides } from "../src/visual/model-provenance.js";
+import { MODEL_PROVENANCE, readsOf, withParamOverrides } from "../src/visual/model-provenance.js";
 import { PAGE_METRICS_PROVENANCE, PAGE_METRICS_MEASURE_IDS } from "../src/visual/provenance/page-metrics.js";
 import { LAW_PROVENANCE } from "../src/visual/provenance/laws.js";
 import { RAW_FIXTURES, RAW_LATIN } from "./fixtures/raw-page-measurements.js";
@@ -138,15 +138,20 @@ describe("raw formats", () => {
       expect(r.format).toBe(2);
       const { prose: _prose, proseNested: _nested, proseInNav: _pin, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...rest } = r;
       const v1: RawPageMeasurementV1 = { ...rest, format: 1 };
-      // Everything derives the same except the choosing time: format 1 has no
-      // groupedLinks, so its ungrouped links are links minus the stored nav sizes.
-      const { choosingSeconds: c1, lawDiagnostics: d1, ...same1 } = deriveMetrics(v1);
-      const { choosingSeconds: c2, lawDiagnostics: d2, ...same2 } = deriveMetrics(r);
+      // Everything derives the same except the choosing and reading times:
+      // format 1 has no groupedLinks, so its ungrouped links are links minus the
+      // stored nav sizes, and no in-group prose, so it reads all of its prose and
+      // charges no menu label (format 2: one first read per grouped link).
+      const { choosingSeconds: c1, readingSeconds: read1, lawDiagnostics: d1, ...same1 } = deriveMetrics(v1);
+      const { choosingSeconds: c2, readingSeconds: read2, lawDiagnostics: d2, ...same2 } = deriveMetrics(r);
       expect(same1).toEqual(same2);
+      expect(r.proseInNav).toEqual({ chars: 0, words: 0, letters: 0, abjadWords: 0, cjkChars: 0 });
+      expect(read2 - read1).toBeCloseTo(r.groupedLinks * MODEL_PROVENANCE["law.reading.labelFirstRead"].value, 9);
+      expect([d1.labels, d2.labels]).toEqual([0, r.groupedLinks]);
       expect([d1.ungroupedLinksFrom, d2.ungroupedLinksFrom]).toEqual(["navGroupSizes", "groupedLinks"]);
       expect(Number.isFinite(c1) && Number.isFinite(c2)).toBe(true);
-      const { choosingSecondsExpert: _e1, ungroupedLinks: _u1, ungroupedLinksFrom: _f1, choiceGroups: _g1, ...rest1 } = d1;
-      const { choosingSecondsExpert: _e2, ungroupedLinks: _u2, ungroupedLinksFrom: _f2, choiceGroups: _g2, ...rest2 } = d2;
+      const { choosingSecondsExpert: _e1, ungroupedLinks: _u1, ungroupedLinksFrom: _f1, choiceGroups: _g1, labels: _n1, labelSeconds: _s1, ...rest1 } = d1;
+      const { choosingSecondsExpert: _e2, ungroupedLinks: _u2, ungroupedLinksFrom: _f2, choiceGroups: _g2, labels: _n2, labelSeconds: _s2, ...rest2 } = d2;
       expect(rest1).toEqual(rest2);
       for (const format of [0, 3, undefined, "2"]) {
         expect(() => deriveMetrics({ ...r, format } as never)).toThrow(/raw page format .* is not one this build reads \(1 or 2\)/);

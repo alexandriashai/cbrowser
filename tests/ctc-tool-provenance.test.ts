@@ -70,13 +70,15 @@ function expectHonestSummary(p: Summary) {
   expect(p.counts.fitted).toBe(0);
   // Stage B: the page measurement reads the published laws (law.*: Fitts, novice
   // search, Brysbaert, KLM), so the score's block counts them: the 10 published
-  // ones a score depends on (of 12 scored law ids, law.fitts.minWidth is a
-  // definition and law.timeBudget a hypothesis) and the Hick-Hyman pair the
+  // ones a score depends on (of 13 scored law ids, law.fitts.minWidth is a
+  // definition, and law.timeBudget and law.reading.labelFirstRead, the menu
+  // label's first read, are hypotheses) and the Hick-Hyman pair the
   // measurement reads for its expert diagnostic. The persona rates (law.rate.*)
   // are read as persona-model work and counted in personaRateProvenance instead.
   expect(p.counts.published).toBe(12);
   expect(p.hypotheses.length).toBe(p.counts.hypothesis);
   expect(p.hypotheses).toContain("law.timeBudget");
+  expect(p.hypotheses).toContain("law.reading.labelFirstRead");
   expect(p.hypotheses).toContain("chain.depletionRate");
   // The output logistic's constants are gone (totalCTC is a percentile since
   // 21.x); the percentile's reference is a definition, so it is counted there.
@@ -86,7 +88,7 @@ function expectHonestSummary(p: Summary) {
   // stores raw measurements, so its curve rests on them too), the chain, and
   // the one the persona profile reads. No attention.* id: an attention map
   // drawn as context carries its own block (expectAttentionBlock).
-  expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && !id.startsWith("pageMetrics.") && id !== "distance.missingTraitDefault" && id !== "law.timeBudget")).toEqual([]);
+  expect(p.hypotheses.filter((id) => !id.startsWith("chain.") && !id.startsWith("pageMetrics.") && id !== "distance.missingTraitDefault" && id !== "law.timeBudget" && id !== "law.reading.labelFirstRead")).toEqual([]);
   expect(p.hypotheses).toContain("pageMetrics.informationDensity.midpoint");
   expect(p.note).toContain("hypothesis");
   // The scope says what the score block covers, and where the attention
@@ -94,6 +96,7 @@ function expectHonestSummary(p: Summary) {
   expect(p.scope).toContain("demand");
   expect(p.scope).toContain("pageMetrics");
   expect(p.scope).toContain("law.timeBudget");
+  expect(p.scope).toContain("law.reading.labelFirstRead");
   expect(p.scope).toContain("does not count the attention model");
   expect(p.scope).toContain("carries its own block");
   expect(p.scope).toContain("0.7367");

@@ -20,7 +20,7 @@
       "pageScreens": 6,
       "pointingSeconds": 6.0076862902121855,
       "choosingSeconds": 1.24,
-      "readingSeconds": 22.6890756302521,
+      "readingSeconds": 23.0790756302521,
       "procedureSeconds": 2.7,
       "lawDiagnostics": {
         "choosingSecondsExpert": 0.7925512476486815,
@@ -29,7 +29,9 @@
         "entrySteps": 2,
         "choiceGroups": 2,
         "ungroupedLinks": 0,
-        "ungroupedLinksFrom": "groupedLinks"
+        "ungroupedLinksFrom": "groupedLinks",
+        "labels": 3,
+        "labelSeconds": 0.39
       }
     },
     "fullPage": {
@@ -52,7 +54,7 @@
       "pageScreens": 6,
       "pointingSeconds": 99.57022916031383,
       "choosingSeconds": 11.940000000000001,
-      "readingSeconds": 169.4008037997808,
+      "readingSeconds": 169.79080379978078,
       "procedureSeconds": 2.7,
       "lawDiagnostics": {
         "choosingSecondsExpert": 1.594340672690958,
@@ -61,7 +63,9 @@
         "entrySteps": 2,
         "choiceGroups": 3,
         "ungroupedLinks": 130,
-        "ungroupedLinksFrom": "groupedLinks"
+        "ungroupedLinksFrom": "groupedLinks",
+        "labels": 3,
+        "labelSeconds": 0.39
       }
     },
     "perScreen": [
@@ -85,7 +89,7 @@
         "pageScreens": 6,
         "pointingSeconds": 6.0076862902121855,
         "choosingSeconds": 1.24,
-        "readingSeconds": 22.6890756302521,
+        "readingSeconds": 23.0790756302521,
         "procedureSeconds": 2.7,
         "lawDiagnostics": {
           "choosingSecondsExpert": 0.7925512476486815,
@@ -94,7 +98,9 @@
           "entrySteps": 2,
           "choiceGroups": 2,
           "ungroupedLinks": 0,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 3,
+          "labelSeconds": 0.39
         }
       },
       {
@@ -126,7 +132,9 @@
           "entrySteps": 0,
           "choiceGroups": 0,
           "ungroupedLinks": 0,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       },
       {
@@ -158,7 +166,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 29,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       },
       {
@@ -190,7 +200,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 37,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       },
       {
@@ -222,7 +234,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 38,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       },
       {
@@ -254,7 +268,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 31,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       }
     ]
@@ -280,7 +296,7 @@
       "pageScreens": 1.7,
       "pointingSeconds": 3.1047390515626105,
       "choosingSeconds": 0.45999999999999996,
-      "readingSeconds": 36.28459009021669,
+      "readingSeconds": 36.54459009021669,
       "procedureSeconds": 0,
       "lawDiagnostics": {
         "choosingSecondsExpert": 0.32,
@@ -289,7 +305,9 @@
         "entrySteps": 0,
         "choiceGroups": 1,
         "ungroupedLinks": 0,
-        "ungroupedLinksFrom": "groupedLinks"
+        "ungroupedLinksFrom": "groupedLinks",
+        "labels": 2,
+        "labelSeconds": 0.26
       }
     },
     "fullPage": {
@@ -312,7 +330,7 @@
       "pageScreens": 1.7,
       "pointingSeconds": 9.59354818963864,
       "choosingSeconds": 1.72,
-      "readingSeconds": 60.876872488125684,
+      "readingSeconds": 61.13687248812568,
       "procedureSeconds": 0,
       "lawDiagnostics": {
         "choosingSecondsExpert": 0.8467970000576925,
@@ -321,7 +339,9 @@
         "entrySteps": 0,
         "choiceGroups": 2,
         "ungroupedLinks": 12,
-        "ungroupedLinksFrom": "groupedLinks"
+        "ungroupedLinksFrom": "groupedLinks",
+        "labels": 2,
+        "labelSeconds": 0.26
       }
     },
     "perScreen": [
@@ -345,7 +365,7 @@
         "pageScreens": 1.7,
         "pointingSeconds": 3.1047390515626105,
         "choosingSeconds": 0.45999999999999996,
-        "readingSeconds": 36.28459009021669,
+        "readingSeconds": 36.54459009021669,
         "procedureSeconds": 0,
         "lawDiagnostics": {
           "choosingSecondsExpert": 0.32,
@@ -354,7 +374,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 0,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 2,
+          "labelSeconds": 0.26
         }
       },
       {
@@ -386,7 +408,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 12,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       }
     ]
@@ -412,7 +436,7 @@
       "pageScreens": 1.6,
       "pointingSeconds": 5.10781722890763,
       "choosingSeconds": 0.62,
-      "readingSeconds": 37.61498353845502,
+      "readingSeconds": 38.134983538455025,
       "procedureSeconds": 0,
       "lawDiagnostics": {
         "choosingSecondsExpert": 0.4,
@@ -421,7 +445,9 @@
         "entrySteps": 0,
         "choiceGroups": 1,
         "ungroupedLinks": 0,
-        "ungroupedLinksFrom": "groupedLinks"
+        "ungroupedLinksFrom": "groupedLinks",
+        "labels": 4,
+        "labelSeconds": 0.52
       }
     },
     "fullPage": {
@@ -444,7 +470,7 @@
       "pageScreens": 1.6,
       "pointingSeconds": 8.877567401545589,
       "choosingSeconds": 1.56,
-      "readingSeconds": 56.66643116530782,
+      "readingSeconds": 57.18643116530782,
       "procedureSeconds": 0,
       "lawDiagnostics": {
         "choosingSecondsExpert": 0.88,
@@ -453,7 +479,9 @@
         "entrySteps": 0,
         "choiceGroups": 2,
         "ungroupedLinks": 8,
-        "ungroupedLinksFrom": "groupedLinks"
+        "ungroupedLinksFrom": "groupedLinks",
+        "labels": 4,
+        "labelSeconds": 0.52
       }
     },
     "perScreen": [
@@ -477,7 +505,7 @@
         "pageScreens": 1.6,
         "pointingSeconds": 5.10781722890763,
         "choosingSeconds": 0.62,
-        "readingSeconds": 37.61498353845502,
+        "readingSeconds": 38.134983538455025,
         "procedureSeconds": 0,
         "lawDiagnostics": {
           "choosingSecondsExpert": 0.4,
@@ -486,7 +514,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 0,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 4,
+          "labelSeconds": 0.52
         }
       },
       {
@@ -518,7 +548,9 @@
           "entrySteps": 0,
           "choiceGroups": 1,
           "ungroupedLinks": 8,
-          "ungroupedLinksFrom": "groupedLinks"
+          "ungroupedLinksFrom": "groupedLinks",
+          "labels": 0,
+          "labelSeconds": 0
         }
       }
     ]

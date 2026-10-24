@@ -26,7 +26,7 @@
 import { param } from "./model-provenance.js";
 import {
   choosingSeconds, distanceToScreenCentre, fittsIndexOfDifficulty, klmSeconds, noviceSearchSeconds, hickHymanSeconds,
-  pointingSeconds, readingSeconds, smallerOfWidth, type ChoiceGroup, type PointingTarget,
+  labelReadingSeconds, pointingSeconds, readingSeconds, smallerOfWidth, type ChoiceGroup, type PointingTarget,
 } from "./demand-laws.js";
 import { exactW1 } from "./exact-w1.js";
 
@@ -1151,7 +1151,10 @@ export async function extractPerScreenMetrics(
     // step once per visit, so a header search box seen on every screen is one
     // step, not one per screen. Scaling this screen's steps by the share of its
     // controls that are new assumes a field is as likely to be new as any other
-    // control.
+    // control. Menu labels are read once per visit too (the first read the
+    // search law leaves out), so a screen charges its labels' first read by the
+    // share of its choices that are new, like choosing; its other prose is read
+    // per screen as before.
     const share = (newOnes: number, all: number) => (all > 0 ? Math.min(1, newOnes / all) : 0);
     const pointShare = share(fresh.newInteractive, metrics.interactiveElementCount);
     const chooseShare = share(fresh.newChoices, metrics.choiceCountRaw);
@@ -1164,7 +1167,12 @@ export async function extractPerScreenMetrics(
       pointingSeconds: metrics.pointingSeconds * pointShare,
       choosingSeconds: metrics.choosingSeconds * chooseShare,
       procedureSeconds: metrics.procedureSeconds * pointShare,
-      lawDiagnostics: { ...metrics.lawDiagnostics, choosingSecondsExpert: metrics.lawDiagnostics.choosingSecondsExpert * chooseShare },
+      readingSeconds: metrics.readingSeconds - metrics.lawDiagnostics.labelSeconds * (1 - chooseShare),
+      lawDiagnostics: {
+        ...metrics.lawDiagnostics,
+        choosingSecondsExpert: metrics.lawDiagnostics.choosingSecondsExpert * chooseShare,
+        labelSeconds: metrics.lawDiagnostics.labelSeconds * chooseShare,
+      },
     });
   }
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -1230,6 +1238,10 @@ export interface LawDiagnostics {
    * stored nav groups' sizes, where a link in nested groups may count twice).
    */
   ungroupedLinksFrom: "groupedLinks" | "navGroupSizes";
+  /** Menu labels read once each: the grouped links (0 for format 1, which has no in-group prose). */
+  labels: number;
+  /** The part of readingSeconds that is the labels' first read (law.reading.labelFirstRead per label). */
+  labelSeconds: number;
 }
 
 /**
@@ -2042,9 +2054,14 @@ function isEntryKind(kind: string | undefined): boolean {
  *              (Cockburn et al. 2007); a checkbox group is one yes/no per box;
  *              links in no group form one more set. Groups beyond the stored
  *              ones are scaled to choiceGroupCount.
- *   reading    the prose read once at Brysbaert's rate: letters of the
- *              alphabetic words, abjad words, CJK characters. Format 2 counts
- *              each character once.
+ *   reading    the prose outside every group read once at Brysbaert's rate
+ *              (letters of the alphabetic words, abjad words, CJK
+ *              characters; format 2 counts each character once), plus a
+ *              first read per menu label: law.reading.labelFirstRead per
+ *              grouped link, which the novice search above leaves out
+ *              (Cockburn et al. fitted it without that one-off cost). Format
+ *              1 has no in-group prose, so it reads all of its prose and
+ *              charges no label.
  *   procedure  KLM's M per entry step: an entry field (ENTRY_INPUT_TYPES,
  *              textarea, select) or a radio or checkbox group.
  */
@@ -2076,9 +2093,11 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   const totalGroups = Math.max(raw.choiceGroupCount, groups.length);
   // Format 2 counts every grouped link once. Format 1 has no such count, so its
   // grouped links are the stored nav groups' sizes. A format-2 record without
-  // the count predates the nav totals and is refused rather than read as format 1.
-  if (raw.format !== 1 && typeof raw.groupedLinks !== "number") {
-    throw new Error("lawSecondsOf: raw format 2 record without groupedLinks (measured before the nav totals existed); re-measure the page");
+  // the count, or without the in-group prose, predates them and is refused
+  // rather than read as format 1.
+  if (raw.format !== 1) {
+    const missing = [typeof raw.groupedLinks !== "number" && "groupedLinks", !raw.proseInNav && "proseInNav"].filter(Boolean);
+    if (missing.length) throw new Error(`lawSecondsOf: raw format 2 record without ${missing.join(", ")} (measured before the nav totals and the in-group prose existed); re-measure the page`);
   }
   const ungroupedLinksFrom = raw.format === 1 ? "navGroupSizes" as const : "groupedLinks" as const;
   const ungroupedLinks = Math.max(0, raw.links - (raw.format === 1 ? storedNavLinks : raw.groupedLinks));
@@ -2089,6 +2108,11 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   for (const [len, c] of raw.text.wordLengths) letters += len * c;
   let abjadWords = 0;
   for (const [, c] of raw.text.abjadWordLengths) abjadWords += c;
+  // Menu labels (ISC-76): the prose inside a nav or composite group is read as
+  // labels, one first read per grouped link, not at the prose rate.
+  const inGroup = raw.format === 1 ? { letters: 0, abjadWords: 0, cjkChars: 0 } : raw.proseInNav;
+  const labels = raw.format === 1 ? 0 : raw.groupedLinks;
+  const labelSeconds = labelReadingSeconds(labels);
 
   // Entry boxes scale with the box cap like targets; toggle groups with the group cap.
   const entrySteps = (storedTargets > 0 ? entryBoxes * (totalTargets / storedTargets) : 0)
@@ -2097,7 +2121,11 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   return {
     pointingSeconds: pointingSeconds(targets, totalTargets),
     choosingSeconds: choose("novice"),
-    readingSeconds: readingSeconds({ letters, abjadWords, cjkChars: raw.text.cjkChars }),
+    readingSeconds: readingSeconds({
+      letters: Math.max(0, letters - inGroup.letters),
+      abjadWords: Math.max(0, abjadWords - inGroup.abjadWords),
+      cjkChars: Math.max(0, raw.text.cjkChars - inGroup.cjkChars),
+    }) + labelSeconds,
     procedureSeconds: klmSeconds(entrySteps),
     lawDiagnostics: {
       choosingSecondsExpert: choose("expert"),
@@ -2107,6 +2135,8 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
       choiceGroups: totalGroups + (ungroupedLinks > 0 ? 1 : 0),
       ungroupedLinks,
       ungroupedLinksFrom,
+      labels,
+      labelSeconds,
     },
   };
 }

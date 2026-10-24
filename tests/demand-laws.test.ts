@@ -27,7 +27,7 @@ import { PROFILE_PROVENANCE } from "../src/visual/provenance/profiles.js";
 import { MODEL_PROVENANCE, param, startProvenanceRecording, stopProvenanceRecording, withParamOverrides } from "../src/visual/model-provenance.js";
 import {
   fittsIndexOfDifficulty, fittsMovementTime, smallerOfWidth, pointingSeconds, distanceToScreenCentre,
-  noviceSearchSeconds, hickHymanSeconds, choosingSeconds, wordsReadingSeconds, lettersReadingSeconds, readingSeconds,
+  noviceSearchSeconds, hickHymanSeconds, choosingSeconds, wordsReadingSeconds, lettersReadingSeconds, readingSeconds, labelReadingSeconds,
   klmSeconds, timeDemand, rateCapacity, pointingCapacity, readingCapacity, measuredRate, type MeasuredPopulation,
 } from "../src/visual/demand-laws.js";
 import { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES, computeReadingDifficulty, getPointingProfile, type ReadingProfile } from "../src/visual/cognitive-models.js";
@@ -45,7 +45,7 @@ function exercise(): number[] {
     distanceToScreenCentre({ x: 10, y: 2500, width: 40, height: 20 }, { viewportWidth: 1920, viewportHeight: 1080, scrollY: 0 }, "full_page"),
     noviceSearchSeconds(9), hickHymanSeconds(9),
     choosingSeconds([{ size: 6 }, { size: 4, each: true }]), choosingSeconds([{ size: 6 }, { size: 4, each: true }], "expert", 5),
-    lettersReadingSeconds(5000), readingSeconds({ letters: 3000, abjadWords: 400, cjkChars: 900 }),
+    lettersReadingSeconds(5000), readingSeconds({ letters: 3000, abjadWords: 400, cjkChars: 900 }), labelReadingSeconds(12),
     klmSeconds(4), timeDemand(30), pointingCapacity(3.1), readingCapacity(150),
     ...POPULATIONS.flatMap((p) => { const m = measuredRate(p); return [m.rate, m.control, m.ratio]; }),
   ];
@@ -63,9 +63,9 @@ describe("law registry (provenance/laws.ts)", () => {
 
   test("pinned, unique, law-prefixed, merged into MODEL_PROVENANCE", () => {
     // 21 at registration (Stage B phase 2a): 13 law constants, the time budget,
-    // and 7 measured rates.
-    expect(LAW_PROVENANCE.length).toBe(21);
-    expect(ids.size).toBe(21);
+    // and 7 measured rates; 22 with the menu label's first read (ISC-76).
+    expect(LAW_PROVENANCE.length).toBe(22);
+    expect(ids.size).toBe(22);
     for (const e of LAW_PROVENANCE) {
       expect(e.id.startsWith("law.")).toBe(true);
       expect(Number.isFinite(e.value)).toBe(true);
@@ -79,6 +79,7 @@ describe("law registry (provenance/laws.ts)", () => {
       "fitts.intercept": 0.23, "fitts.slope": 0.166, "fitts.minWidth": 1,
       "search.intercept": 0.3, "search.slope": 0.08, "hick.intercept": 0.24, "hick.slope": 0.08,
       "reading.wpm": 238, "reading.lettersPerWord": 4.6, "reading.abjadWpm": 181, "reading.cjkWpm": 260, "reading.cjkCharsPerWord": 1.5,
+      "reading.labelFirstRead": 0.13,
       "klm.mentalPreparation": 1.35, timeBudget: 12.4,
       "rate.pointing.reference": 4.9, "rate.pointing.motionImpaired": 1.77, "rate.pointing.motionImpairedControls": 4.88,
       "rate.reading.dyslexiaAdults": 184.63, "rate.reading.dyslexiaControls": 243.64,
@@ -88,7 +89,7 @@ describe("law registry (provenance/laws.ts)", () => {
 
   test("published entries name a dated source and quote it; the rest say why they are not published", () => {
     expect(LAW_PROVENANCE.filter((e) => e.status !== "published").map((e) => `${e.id}:${e.status}`))
-      .toEqual(["law.fitts.minWidth:definition", "law.timeBudget:hypothesis"]);
+      .toEqual(["law.fitts.minWidth:definition", "law.reading.labelFirstRead:hypothesis", "law.timeBudget:hypothesis"]);
     for (const e of LAW_PROVENANCE) {
       expect(e.source.trim().length).toBeGreaterThan(80);
       if (e.status === "published") {

@@ -214,6 +214,16 @@ export function readingSeconds(counts: ReadingCounts): number {
     + wordsReadingSeconds(counts.cjkChars ?? 0, param("law.reading.cjkWpm") * param("law.reading.cjkCharsPerWord"));
 }
 
+/**
+ * Seconds to read `labels` menu labels for the first time: the one-off cost
+ * Cockburn et al. kept out of their visual-search fit, charged per label in
+ * place of reading the labels' prose (law.reading.labelFirstRead, a hypothesis
+ * read off their Figure 2).
+ */
+export function labelReadingSeconds(labels: number): number {
+  return param("law.reading.labelFirstRead") * itemCount("labels", labels);
+}
+
 // ── Procedure ──
 
 /**

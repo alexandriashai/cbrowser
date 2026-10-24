@@ -38,6 +38,6 @@ export function lawTimesReport(m: {
     choosing: { ...one(m.choosingSeconds), ...(typeof expert === "number" ? { expertSeconds: round(expert, 1) } : {}) },
     reading: one(m.readingSeconds),
     procedure: one(m.procedureSeconds),
-    note: "Seconds of work this page asks of a typical first-time visitor, from published laws: pointing (Fitts, every target once), choosing (novice visual search, every choice group once; expertSeconds is the Hick-Hyman expert limit), reading (Brysbaert's silent reading rate, all prose once) and procedure (the keystroke-level model's mental preparation per entry field). Each is a demand against one time budget, d = T / (T + budget); the budget is the median stay on a first-time page visit (Weinreich et al. 2008), a hypothesis.",
+    note: "Seconds of work this page asks of a typical first-time visitor, from published laws: pointing (Fitts, every target once), choosing (novice visual search, every choice group once; expertSeconds is the Hick-Hyman expert limit), reading (Brysbaert's silent reading rate for all prose outside menus once, plus a first read of each menu label, 0.13 s, a hypothesis read off Cockburn et al. 2007) and procedure (the keystroke-level model's mental preparation per entry field). Each is a demand against one time budget, d = T / (T + budget); the budget is the median stay on a first-time page visit (Weinreich et al. 2008), a hypothesis.",
   };
 }
