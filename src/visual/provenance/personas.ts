@@ -52,7 +52,9 @@
 import type { ProvenanceEntry } from "../model-provenance.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../../personas.js";
 import { TRAIT_DEFINITIONS } from "../../trait-reference.js";
-import { _normalCDF as Phi } from "../cognitive-models.js";
+// From normal-cdf.ts, not cognitive-models.ts: that file imports
+// model-provenance.ts, which imports this catalogue (an import cycle).
+import { normalCDF as Phi } from "../normal-cdf.js";
 import { LAW_PROVENANCE } from "./laws.js";
 
 /**
