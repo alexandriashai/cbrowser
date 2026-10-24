@@ -141,13 +141,13 @@ describe("raw formats", () => {
       // Everything derives the same except the choosing and reading times:
       // format 1 has no groupedLinks, so its ungrouped links are links minus the
       // stored nav sizes, and no in-group prose, so it reads all of its prose and
-      // charges no menu label (format 2: one first read per grouped link).
+      // charges no menu label (format 2: one first read per grouped link with text).
       const { choosingSeconds: c1, choosingSecondsExpert: x1, readingSeconds: read1, lawDiagnostics: d1, ...same1 } = deriveMetrics(v1);
       const { choosingSeconds: c2, choosingSecondsExpert: x2, readingSeconds: read2, lawDiagnostics: d2, ...same2 } = deriveMetrics(r);
       expect(same1).toEqual(same2);
       expect(r.proseInNav).toEqual({ chars: 0, words: 0, letters: 0, abjadWords: 0, cjkChars: 0 });
-      expect(read2 - read1).toBeCloseTo(r.groupedLinks * MODEL_PROVENANCE["law.reading.labelFirstRead"].value, 9);
-      expect([d1.labels, d2.labels]).toEqual([0, r.groupedLinks]);
+      expect(read2 - read1).toBeCloseTo(r.groupedLinksWithText * MODEL_PROVENANCE["law.reading.labelFirstRead"].value, 9);
+      expect([d1.labels, d2.labels]).toEqual([0, r.groupedLinksWithText]);
       expect([d1.ungroupedLinksFrom, d2.ungroupedLinksFrom]).toEqual(["navGroupSizes", "groupedLinks"]);
       expect(Number.isFinite(c1) && Number.isFinite(c2) && Number.isFinite(x1) && Number.isFinite(x2)).toBe(true);
       const { ungroupedLinks: _u1, ungroupedLinksFrom: _f1, choiceGroups: _g1, labels: _n1, labelSeconds: _s1, ...rest1 } = d1;

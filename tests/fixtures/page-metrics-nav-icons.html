@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page metrics fixture: nav links with and without visible text</title>
+<link rel="stylesheet" href="page-metrics-format2.css">
+</head>
+<body>
+<!-- A nav of 8 links beside one paragraph of 12 words: 4 two-word labels in
+     list items (prose), 1 one-word label in a span outside the prose selector,
+     and 3 icon-only links (two svgs named by aria-label, one img with alt).
+     groupedLinks is 8 and groupedLinksWithText 5; proseInNav is the 4 list
+     labels. -->
+<nav aria-label="Main">
+<ul>
+<li><a href="/t0">Our products</a></li>
+<li><a href="/t1">Pricing plans</a></li>
+<li><a href="/t2">Developer docs</a></li>
+<li><a href="/t3">Contact sales</a></li>
+</ul>
+<a href="/s0"><span>Blog</span></a>
+<a href="/i0" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor"/></svg></a>
+<a href="/i1"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Account" width="16" height="16"></a>
+<a href="/i2" aria-label="Cart"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="2" y="4" width="12" height="9" fill="none" stroke="currentColor"/></svg></a>
+</nav>
+<main>
+<p>One paragraph of ordinary reading text with exactly twelve words in it.</p>
+</main>
+</body>
+</html>

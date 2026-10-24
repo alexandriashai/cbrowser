@@ -166,7 +166,13 @@ const NAV = INPUTS.indexOf("navigationDepth");
  * now (cognitiveLoad reads the choosing time, patience the reading time), so
  * these vectors changed again. Re-run on the Stage C chain, the four pages and
  * the rest of the search still kill every must-kill mutant on every seed
- * (dro-bound-mutants.test.ts, 58 of 58 with dro-bound.test.ts).{{MARGINS}}
+ * (dro-bound-mutants.test.ts, 58 of 58 with dro-bound.test.ts). The pages
+ * themselves no longer all do: re-measured after Stage C (stage-b-dro-scan.ts
+ * --margins, seeds 1-14; the menu-label constant is read by none of them),
+ * only trace-text+choices kills both M2 and M10 (1.19x and 1.09x),
+ * light-text+choices kills M2 at 1.02x and not M10, and trace-text+depth and
+ * info+trace-visual+depth kill neither, informationDensity and navigationDepth
+ * making no demand now. The rest of the search carries those kills.
  */
 export const INTERACTION_COUNTS: Array<[string, Parameters<typeof fromCounts>]> = [
   ["trace-text+choices", [0, 0.009, 0, 0.038, 0, 13, 0]],

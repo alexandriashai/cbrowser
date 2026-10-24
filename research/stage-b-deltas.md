@@ -66,7 +66,7 @@ been previously read."
 
 So the reading law reads the prose outside every group (prose minus
 `proseInNav`, in letters, abjad words and CJK characters) at Brysbaert's
-rates, and charges each grouped link one first read,
+rates, and charges each grouped link with visible text one first read,
 `law.reading.labelFirstRead` = 0.13 s. That is a hypothesis read off the same
 paper's Figure 2: random condition, block 1 (about 0.97 s) minus block 2
 (about 0.84 s), by eye to +-0.02 s, eight participants; an upper bound, since
@@ -85,16 +85,21 @@ moves:
 | viewport | 25.6 s [3.8, 70.9], d 0.67 | 22.6 s [3.0, 69.0], d 0.65 |
 | full_page | 96.0 s [13.4, 381.2], d 0.89 | 91.5 s [12.3, 341.9], d 0.88 |
 
-Two limits, measured:
-- A label of 0, 1 or 2 letters costs more as a label than as prose: 0.13 s
-  against 0.055 s per letter (238 x 4.6 letters per minute). So moving a label
-  from the prose into a group lowers reading only when the label has at least
-  3 letters, one abjad word or one CJK character. `tests/stage-b-demand.test.ts`
-  pins the property where it holds and the counterexamples where it does not.
-- Every grouped link is charged, including links whose text is not prose (an
-  icon, or text outside the prose selector). On the reference at least 55.5%
-  of grouped links at the viewport (48.8% at full page) carry no in-group
-  word, so for them the first read is a new charge, not a replacement.
+Only links with something to read are charged (Alexa, 2026-10-23): the first
+read is 0.13 s per grouped link whose drawn text holds at least one letter
+or digit in any script (`groupedLinksWithText`, measured by
+ref-v2; aria-label and alt do not count, text in spans the prose selector skips
+does). An icon-only link costs no reading. On the 42ed67b reference, before
+that field, at least 55.5% of grouped links at the viewport (48.8% at full
+page) carried no in-group word; icon-only links among them now cost nothing,
+and a label whose visible text sits outside the prose selector costs its first
+read though its text was never in the prose.
+
+A 1 or 2 letter label costs more as a label than as prose: 0.13 s is more than
+0.055 s per letter (238 x 4.6 letters per minute). So moving a label from the
+prose into a group lowers reading only when the label has at least 3 letters,
+one abjad word or one CJK character; `tests/stage-b-demand.test.ts` pins the
+property where it holds and the counterexamples where it does not.
 
 ### Per-screen charging (cognitive_effort, scope sequential)
 

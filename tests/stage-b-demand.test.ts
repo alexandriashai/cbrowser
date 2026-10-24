@@ -151,7 +151,7 @@ describe("the law times, on raw measurements, and the demands they make", () => 
 
   test("zero work gives zero time and zero demand", () => {
     const empty = variant((r) => {
-      r.boxes = []; r.interactiveElements = 0; r.choiceGroups = []; r.choiceGroupCount = 0; r.links = 0; r.groupedLinks = 0;
+      r.boxes = []; r.interactiveElements = 0; r.choiceGroups = []; r.choiceGroupCount = 0; r.links = 0; r.groupedLinks = 0; r.groupedLinksWithText = 0;
       r.text = { ...r.text, wordLengths: [], abjadWordLengths: [], cjkChars: 0 };
     });
     const s = lawSecondsOf(empty);
@@ -268,25 +268,27 @@ describe("menu labels: one first read each, in place of their prose (ISC-76)", (
   const PER_LETTER = lettersReadingSeconds(1);
   const PAGE_LETTERS = RAW_LATIN.text.wordLengths.reduce((n, [len, c]) => n + len * c, 0);
   type Label = { letters: number; abjadWords: number; cjkChars: number };
-  /** A page whose prose holds `inGroup` already in groups, over `links` grouped links, with abjad and CJK prose besides its letters. */
-  const pageWith = (inGroup: Label, links: number, abjad: number, cjk: number) => variant((r) => {
+  /** A page whose prose holds `inGroup` already in groups, over `links` grouped links (`withText` of them with visible text), with abjad and CJK prose besides its letters. */
+  const pageWith = (inGroup: Label, links: number, abjad: number, cjk: number, withText = links) => variant((r) => {
     r.text.abjadWordLengths = abjad > 0 ? [[4, abjad]] : [];
     r.text.cjkChars = cjk;
     r.proseInNav = { chars: 0, words: 0, ...inGroup };
     r.groupedLinks = links;
+    r.groupedLinksWithText = withText;
     r.links = Math.max(r.links, links);
   });
-  /** The same page with one more label moved from the prose outside every group into a group (its prose stays on the page). */
+  /** The same page with one more link moved from outside every group into a group, its label's prose with it (the prose stays on the page). */
   const movedIn = (r: RawPageMeasurement, label: Label) => {
     const m = structuredClone(r);
     m.proseInNav = { ...m.proseInNav, letters: m.proseInNav.letters + label.letters, abjadWords: m.proseInNav.abjadWords + label.abjadWords, cjkChars: m.proseInNav.cjkChars + label.cjkChars };
     m.groupedLinks += 1;
+    if (label.letters + label.abjadWords + label.cjkChars > 0) m.groupedLinksWithText += 1;
     m.links = Math.max(m.links, m.groupedLinks);
     return m;
   };
   const reading = (r: RawPageMeasurement) => lawSecondsOf(r).readingSeconds;
 
-  test("the prose outside every group at the prose rate, plus the first-read time per grouped link", () => {
+  test("the prose outside every group at the prose rate, plus the first-read time per grouped link with visible text", () => {
     const r = pageWith({ letters: 40, abjadWords: 0, cjkChars: 0 }, 8, 0, 0);
     expect(reading(r)).toBeCloseTo(lettersReadingSeconds(PAGE_LETTERS - 40) + 8 * LABEL, 12);
     expect(lawSecondsOf(r).lawDiagnostics).toMatchObject({ labels: 8 });
@@ -313,16 +315,25 @@ describe("menu labels: one first read each, in place of their prose (ISC-76)", (
     }), { seed: 76, numRuns: 400 });
   });
 
-  test("the property does not hold below 3 letters: a label of 0, 1 or 2 letters costs more as a label than as prose", () => {
-    // A grouped link whose text is not prose (an icon, or a link outside the
-    // prose selector) moves no prose and adds a first read: +0.13 s.
+  test("the property does not hold for 1 or 2 letters: such a label costs more as a label than as prose", () => {
+    // 0.13 s against 0.055 s per letter (238 x 4.6 letters per minute).
     const page = pageWith({ letters: 0, abjadWords: 0, cjkChars: 0 }, 4, 0, 0);
-    for (const letters of [0, 1, 2]) {
+    for (const letters of [1, 2]) {
       const rise = reading(movedIn(page, { letters, abjadWords: 0, cjkChars: 0 })) - reading(page);
       expect(rise).toBeCloseTo(LABEL - letters * PER_LETTER, 12);
       expect(rise).toBeGreaterThan(0);
     }
     expect(LABEL - 3 * PER_LETTER).toBeLessThan(0);
+  });
+
+  test("an icon-only link has nothing to read: it costs no first read, grouped or not", () => {
+    // 10 grouped links, 4 with visible text: only the 4 are read.
+    const r = pageWith({ letters: 40, abjadWords: 0, cjkChars: 0 }, 10, 0, 0, 4);
+    expect(lawSecondsOf(r).lawDiagnostics).toMatchObject({ labels: 4 });
+    expect(lawSecondsOf(r).lawDiagnostics.labelSeconds).toBeCloseTo(4 * LABEL, 12);
+    expect(reading(r)).toBeCloseTo(lettersReadingSeconds(PAGE_LETTERS - 40) + 4 * LABEL, 12);
+    // Moving an icon-only link into a group moves no prose and adds no label.
+    expect(reading(movedIn(r, { letters: 0, abjadWords: 0, cjkChars: 0 }))).toBe(reading(r));
   });
 
   test("format 1 has no in-group prose: it reads all of its prose and charges no label", () => {
@@ -332,8 +343,10 @@ describe("menu labels: one first read each, in place of their prose (ISC-76)", (
     expect(d.lawDiagnostics).toMatchObject({ labels: 0, labelSeconds: 0 });
   });
 
-  test("a format-2 record without proseInNav is refused, naming the field", () => {
+  test("a format-2 record without proseInNav or groupedLinksWithText is refused, naming the field", () => {
     const early = variant((r) => { delete (r as Partial<RawPageMeasurement>).proseInNav; });
     expect(() => lawSecondsOf(early)).toThrow(/raw format 2 record without proseInNav/);
+    const noText = variant((r) => { delete (r as Partial<RawPageMeasurement>).groupedLinksWithText; });
+    expect(() => lawSecondsOf(noText)).toThrow(/raw format 2 record without groupedLinksWithText/);
   });
 });

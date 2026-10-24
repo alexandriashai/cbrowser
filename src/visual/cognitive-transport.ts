@@ -1242,7 +1242,11 @@ export interface LawDiagnostics {
    * stored nav groups' sizes, where a link in nested groups may count twice).
    */
   ungroupedLinksFrom: "groupedLinks" | "navGroupSizes";
-  /** Menu labels read once each: the grouped links (0 for format 1, which has no in-group prose). */
+  /**
+   * Menu labels read once each: the grouped links whose drawn text holds a
+   * letter or digit (groupedLinksWithText); an icon-only link has nothing to
+   * read. 0 for format 1, which has no in-group prose.
+   */
   labels: number;
   /** The part of readingSeconds that is the labels' first read (law.reading.labelFirstRead per label). */
   labelSeconds: number;
@@ -2115,7 +2119,8 @@ function isEntryKind(kind: string | undefined): boolean {
  *              (letters of the alphabetic words, abjad words, CJK
  *              characters; format 2 counts each character once), plus a
  *              first read per menu label: law.reading.labelFirstRead per
- *              grouped link, which the novice search above leaves out
+ *              grouped link with visible text (an icon-only link has nothing
+ *              to read), which the novice search above leaves out
  *              (Cockburn et al. fitted it without that one-off cost). Format
  *              1 has no in-group prose, so it reads all of its prose and
  *              charges no label.
@@ -2153,7 +2158,11 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   // the count, or without the in-group prose, predates them and is refused
   // rather than read as format 1.
   if (raw.format !== 1) {
-    const missing = [typeof raw.groupedLinks !== "number" && "groupedLinks", !raw.proseInNav && "proseInNav"].filter(Boolean);
+    const missing = [
+      typeof raw.groupedLinks !== "number" && "groupedLinks",
+      !raw.proseInNav && "proseInNav",
+      typeof raw.groupedLinksWithText !== "number" && "groupedLinksWithText",
+    ].filter(Boolean);
     if (missing.length) throw new Error(`lawSecondsOf: raw format 2 record without ${missing.join(", ")} (measured before the nav totals and the in-group prose existed); re-measure the page`);
   }
   const ungroupedLinksFrom = raw.format === 1 ? "navGroupSizes" as const : "groupedLinks" as const;
@@ -2168,7 +2177,7 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   // Menu labels (ISC-76): the prose inside a nav or composite group is read as
   // labels, one first read per grouped link, not at the prose rate.
   const inGroup = raw.format === 1 ? { letters: 0, abjadWords: 0, cjkChars: 0 } : raw.proseInNav;
-  const labels = raw.format === 1 ? 0 : raw.groupedLinks;
+  const labels = raw.format === 1 ? 0 : raw.groupedLinksWithText;
   const labelSeconds = labelReadingSeconds(labels);
 
   // Entry boxes scale with the box cap like targets; toggle groups with the group cap.

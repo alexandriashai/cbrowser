@@ -144,7 +144,7 @@ as the laws. Both are measured on ref-v2's final 513 reference pages
 | same | totalCTC: low-vision-magnified | 0.321 -> 0.459 |
 | same | abandonmentRisk | power-user 0.329 -> 0.154, careful-reader 0.340 -> 0.098, impatient-user 0.468 -> 0.582, mobile-user 0.141 -> 0.250 |
 | same | rawCTC, layer costs, bottleneck | all move; decision cost falls (power-user 0.377 -> 0.070), motor and readability rise (tremor motor 0.031 -> 0.184, low-vision-magnified readability 0.012 -> 0.117) |
-| same | reading: menu labels (ISC-76) | the prose inside a nav or composite group is no longer read at the prose rate; each grouped link costs one first read of 0.13 s (law.reading.labelFirstRead, a hypothesis). Reading median on the 512-page reference 25.6 -> 22.6 s at the viewport, 96.0 -> 91.5 s at full page; totalCTC moves through the reading demand and the reference curve (the ctc-golden re-pin's message has the delta) |
+| same | reading: menu labels (ISC-76) | the prose inside a nav or composite group is no longer read at the prose rate; each grouped link with visible text costs one first read of 0.13 s (law.reading.labelFirstRead, a hypothesis); an icon-only link costs none. Reading median on the 512-page reference 25.6 -> 22.6 s at the viewport, 96.0 -> 91.5 s at full page; totalCTC moves through the reading demand and the reference curve (the ctc-golden re-pin's message has the delta) |
 | cognitive_effort | lawTimes (new) | the four law times, each beside its demand, and the 12.4 s budget |
 | site_cognitive_assessment | pageMetrics.lawTimes (new) | the same |
 | cognitive_effort, site_cognitive_assessment, visual_cognitive_story | modelProvenance | published 0 -> 12 (the laws); law.timeBudget and law.reading.labelFirstRead among the hypotheses; scope names the laws |
@@ -181,6 +181,6 @@ breaking change.)
 - `extractPageMetrics` also returns `lawDiagnostics` (mean Fitts index,
   targets, entry steps, choice groups, ungrouped links, the expert choosing
   time, and the menu labels charged a first read with their seconds).
-- `deriveMetrics` refuses a raw format 2 record without `groupedLinks` or
-  `proseInNav`, naming the field. Raw format 2 is new in 21.0, so no 20.x
+- `deriveMetrics` refuses a raw format 2 record without `groupedLinks`,
+  `proseInNav` or `groupedLinksWithText`, naming the field. Raw format 2 is new in 21.0, so no 20.x
   caller holds one.
