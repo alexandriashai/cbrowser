@@ -701,10 +701,10 @@ Begin with the first persona: ${personas[0]}
 
   server.registerTool("cognitive_load_estimate", {
     title: "Cognitive Load Estimate",
-    description: "Estimate cognitive load for a specific persona on page metrics. Returns per-dimension breakdown (information, visual, attention, decision, motor, text, memory, patience) and identifies the bottleneck dimension. Attention, motor and text use the persona's modelled capacities (sustained attention, Fitts pointing, reading). Visual is persona-invariant: no trait has a researched mapping onto visual-complexity tolerance, so it measures the page only and is listed under personaInvariant.",
+    description: "Estimate cognitive load for a specific persona on page metrics. Returns per-dimension breakdown (visual, attention, decision, motor, text, memory, patience) and identifies the bottleneck dimension. informationDensity is accepted and not read: through 20.x it was charged against the persona's comprehension, which is grasp of UI conventions, not reading; text load is the text dimension. Attention, motor and text use the persona's modelled capacities (sustained attention, Fitts pointing, reading). Visual is persona-invariant: no trait has a researched mapping onto visual-complexity tolerance, so it measures the page only and is listed under personaInvariant.",
     inputSchema: {
       persona: z.string().describe("Persona name"),
-      informationDensity: z.number().min(0).max(1).describe("Content density (0=sparse, 1=dense)"),
+      informationDensity: z.number().min(0).max(1).describe("Content density (0=sparse, 1=dense). Accepted for compatibility and not read since 21.0"),
       visualComplexity: z.number().min(0).max(1).describe("Visual complexity (0=simple, 1=complex)"),
       interactiveElements: z.number().describe("Number of interactive elements"),
       textDensity: z.number().min(0).max(1).describe("Text heaviness (0=minimal, 1=wall of text)"),

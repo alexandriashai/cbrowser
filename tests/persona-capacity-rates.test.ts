@@ -194,9 +194,12 @@ describe("every built-in persona carries its rate (provenance/persona-rates.ts)"
     expect(Math.abs(share("mobile-user", "pointing") * 4.9 - (4.9 + (2.1 - 4.9) * (1 - precision)))).toBeLessThan(1e-12);
   });
 
-  test("the three kept reading rates are the fixation model's slowdown for the persona today", () => {
-    // aphasia-receptive left this list with Stage C: a measured rate replaced it.
-    for (const n of ["elderly-user", "cognitive-adhd", "intellectual-disability"]) {
+  test("the two kept reading rates are the fixation model's slowdown for the persona today", () => {
+    // aphasia-receptive left this list with Stage C (a measured rate replaced
+    // it), and intellectual-disability too: its profile was interpolated on
+    // comprehension, which getReadingProfile no longer reads, so its share is
+    // frozen at the pre-21.0 value (tests/stage-c-comprehension.test.ts).
+    for (const n of ["elderly-user", "cognitive-adhd"]) {
       const p = getReadingProfile({ name: n, traits: ROSTER[n].cognitiveTraits, accessibilityTraits: ROSTER[n].accessibilityTraits });
       expect({ n, d: Math.abs(share(n, "reading") - readingRateRatioOf(p)) < 1e-12 }).toEqual({ n, d: true });
     }

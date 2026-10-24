@@ -660,20 +660,20 @@ export function getReadingProfile(persona: {
     return { ...KNOWN_READING_PROFILES.elderly };
   }
 
-  // Trait-based interpolation
+  // Trait-based interpolation, on textProcessing alone.
+  //
+  // `comprehension` left this interpolation in 21.0 (Stage C, decided
+  // 2026-10-23): it is grasp of UI conventions, not reading
+  // (trait-reference.ts), and reading it as decoding gave 20 built-in personas
+  // a profile interpolated toward the dyslexic one on how well they know
+  // hamburger menus. It weighed 0.4 beside textProcessing's 0.6, and stood in
+  // alone when textProcessing was absent, which is every built-in persona.
   const textProcessing = traits.textProcessing;
-  const comprehension = traits.comprehension;
-
-  if (textProcessing === undefined && comprehension === undefined) {
+  if (textProcessing === undefined) {
     return { ...KNOWN_READING_PROFILES.neurotypical };
   }
 
-  // Use textProcessing as primary axis, comprehension as secondary
-  const readingAbility = textProcessing !== undefined && comprehension !== undefined
-    ? textProcessing * 0.6 + comprehension * 0.4
-    : (textProcessing ?? comprehension ?? 0.75);
-
-  const clamped = Math.max(0, Math.min(1, readingAbility));
+  const clamped = Math.max(0, Math.min(1, textProcessing));
 
   const neuro = KNOWN_READING_PROFILES.neurotypical;
   const impaired = KNOWN_READING_PROFILES.dyslexic;

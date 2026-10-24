@@ -827,7 +827,6 @@ export function generateAdversarialPersonas(
  *
  * The expectation distribution is derived from the persona's traits:
  * - High patience → expects slower information delivery (wider temporal spread)
- * - High comprehension → expects denser information
  * - attention / motor / text read the three BRIDGED capacities
  *   (sustainedAttention, motorCapacity, readingCapacity), so a caller must run
  *   bridgeCapacityTraits (visual/cognitive-models.ts) before building the
@@ -870,8 +869,11 @@ export function estimateCognitiveLoad(
   // Use power 1.5 on page metrics for sharper scaling at high demand
   const breakdown: Record<string, number> = {};
 
-  // Information processing load
-  breakdown.information = Math.pow(pageMetrics.informationDensity, 1.5) * (1 - p('comprehension') * 0.8);
+  // No information dimension since 21.0 (Stage C, decided 2026-10-23). It was
+  // informationDensity^1.5 x (1 - 0.8 x comprehension): text amount charged
+  // against grasp of UI conventions, which is not reading. Text is the `text`
+  // dimension below, against the bridged reading capacity. informationDensity
+  // stays in the signature as a reported page metric and is not read.
 
   // Visual processing load. PERSONA-INVARIANT, and reported as such.
   //
@@ -916,7 +918,7 @@ export function estimateCognitiveLoad(
   const total = Object.values(breakdown).reduce((a, b) => a + b, 0) / Object.keys(breakdown).length;
 
   // Find bottleneck
-  let maxLoad = 0, bottleneck = 'information';
+  let maxLoad = 0, bottleneck = Object.keys(breakdown)[0];
   for (const [key, val] of Object.entries(breakdown)) {
     if (val > maxLoad) { maxLoad = val; bottleneck = key; }
   }

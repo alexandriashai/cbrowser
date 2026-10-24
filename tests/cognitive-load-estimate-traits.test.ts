@@ -50,7 +50,9 @@ describe("every trait the estimator reads is a real trait (class guard)", () => 
     estimateCognitiveLoad(profile, PAGE);
 
     // Guards the guard: a proxy that saw nothing would pass forever.
-    expect(read.has("comprehension")).toBe(true);
+    expect(read.has("workingMemory")).toBe(true);
+    // comprehension left the estimator in 21.0 (Stage C): UI conventions, not reading.
+    expect(read.has("comprehension")).toBe(false);
     const known = new Set<string>(COGNITIVE_TRAITS);
     const phantom = [...read].filter((k) => !known.has(k));
     expect(phantom, `estimateCognitiveLoad reads names that are not traits: ${phantom.join(", ")}`).toEqual([]);

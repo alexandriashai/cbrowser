@@ -212,7 +212,12 @@ describe("Cognitive Load Estimation", () => {
     const powerLoad = estimateCognitiveLoad(powerUser, page);
     const adhdLoad = estimateCognitiveLoad(adhdUser, page);
 
-    expect(adhdLoad.totalLoad).toBeGreaterThan(powerLoad.totalLoad);
+    // Through 20.x this asserted ADHD's total above power-user's, which the
+    // comprehension x informationDensity term carried; that term is gone in 21.0
+    // (comprehension is UI conventions, not reading). What these fixtures still
+    // separate on their own traits: working memory (0.4 against 0.9).
+    expect(adhdLoad.totalLoad).not.toBe(powerLoad.totalLoad);
+    expect(adhdLoad.breakdown.memory).toBeGreaterThan(powerLoad.breakdown.memory);
   });
 });
 
