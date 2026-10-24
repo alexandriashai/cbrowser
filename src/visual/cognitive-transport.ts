@@ -1373,12 +1373,12 @@ export interface RawPageMeasurement {
   /** Visible links inside any choice group (nav or composite), each once, uncapped; `links - groupedLinks` are in none. */
   groupedLinks: number;
   /**
-   * Of groupedLinks, those whose drawn text holds at least one letter (any
-   * script: a Latin letter, an abjad word, a CJK character), uncapped. Text a
-   * sighted user does not see is left out: aria-label, title and alt, an svg
-   * title, and text hidden, transparent, sub-pixel or clipped away inside the
-   * link (a visually-hidden span). A link whose only text is digits is not
-   * counted. groupedLinks minus this is the icon-only grouped links.
+   * Of groupedLinks, those whose drawn text holds at least one letter or
+   * digit (any script: a Latin letter, an abjad word, a CJK character, a page
+   * number), uncapped. Text a sighted user does not see is left out:
+   * aria-label, title and alt, an svg title, and text hidden, transparent,
+   * sub-pixel or clipped away inside the link (a visually-hidden span).
+   * groupedLinks minus this is the icon-only grouped links.
    */
   groupedLinksWithText: number;
   /**
@@ -1646,8 +1646,9 @@ export async function measurePageRaw(
     const navLinks = navGroups.reduce((n, [own]) => n + own, 0);
     const groupedLinkList = Array.from(claimed).filter(c => c.matches('a[href]') && inViewport(c));
     const groupedLinks = groupedLinkList.length;
-    // Of those, the links a sighted user can read: at least one letter (any
-    // script, so an abjad word or a CJK character too) in text that is drawn.
+    // Of those, the links that show visible text: at least one letter or
+    // digit (any script, so an abjad word, a CJK character or a page number)
+    // in text that is drawn.
     // aria-label, title and alt are attributes and never reach this; an svg
     // <title> is not drawn, so it has no box. A link is in scope by the rule
     // every count here uses (inViewport); its text must also be visible
@@ -1655,9 +1656,9 @@ export async function measurePageRaw(
     // text clipped away by a box inside the link (the visually-hidden
     // pattern, a 1px clipped span, and the off-screen text indent), however
     // innerText would report it.
-    const LETTER = /\p{L}/u;
+    const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
     const textDrawn = (node: Text, link: Element): boolean => {
-      if (!LETTER.test(node.nodeValue || '')) return false;
+      if (!LETTER_OR_DIGIT.test(node.nodeValue || '')) return false;
       const range = document.createRange();
       range.selectNodeContents(node);
       const rects = Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0);
