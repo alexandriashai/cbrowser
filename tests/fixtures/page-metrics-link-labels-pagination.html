@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page metrics fixture: pagination links</title>
+<link rel="stylesheet" href="page-metrics-format2.css">
+</head>
+<body>
+<!-- A pagination nav: page numbers 1, 2 and 3 and "Next" show visible text;
+     the arrow is an icon with a visually-hidden word. groupedLinksWithText 4
+     of groupedLinks 5. -->
+<main><p>Search results for a query, with a pager below this paragraph.</p></main>
+<nav class="link-row" aria-label="Pagination">
+<a href="/results?page=1">1</a>
+<a href="/results?page=2">2</a>
+<a href="/results?page=3">3</a>
+<a href="/results?page=2&amp;dir=next">Next</a>
+<a href="/results?page=last"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M6 4l8 6-8 6z" fill="#369"/></svg><span class="sr-only">Last page</span></a>
+</nav>
+</body>
+</html>
