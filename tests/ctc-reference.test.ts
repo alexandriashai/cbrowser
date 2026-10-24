@@ -75,6 +75,26 @@ const OPTION_PAIRS = [
 const FRAMES = ["brand", "tranco", "public"];
 const TYPES = ["landing", "form", "search", "article", "help", "cart"];
 
+/**
+ * What in a published text could only have come from the machine that
+ * crawled it, found by shape so the check names no machine, account or
+ * vendor: an IPv4 address; a root, home or temp path outside a URL (a site's
+ * own link path, "link path /home/contact", is a URL path); a credential by
+ * its prefix; proxy credentials, as user:password@ in a URL or as the session,
+ * country or lifetime tags residential proxies take in a login. Returns what
+ * it found, so a failure shows the leak.
+ */
+function privateLeaks(text: string): string[] {
+  const outsideUrls = text.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, " ").replace(/\blink path \/[^\s"]*/g, " ");
+  return [
+    ...(text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) ?? []),
+    ...(outsideUrls.match(/(?:^|[\s"'=(:,])(?:\/root\/|\/tmp\/|\/home\/[^/\s"']+\/|~\/)[^\s"']*/g) ?? []),
+    ...(text.match(/\b(?:cbk_|sk-(?:ant-)?|sk_live_|sk_test_|ghp_|github_pat_|xox[abps]-)[A-Za-z0-9_-]{16,}|\bAKIA[0-9A-Z]{16}\b|-----BEGIN [A-Z ]*PRIVATE KEY-----/g) ?? []),
+    ...(text.match(/[a-z][a-z0-9+.-]*:\/\/[^/\s"'@:]+:[^/\s"'@]+@/gi) ?? []),
+    ...(outsideUrls.match(/[_-](?:session|sessid|country|lifetime)[_-][A-Za-z0-9]+/gi) ?? []),
+  ];
+}
+
 describe("the reference set", () => {
   test("every attempted page has one outcome; only graded pages carry measurements, at both scopes", () => {
     const o = CTC_REFERENCE.outcomes;
@@ -228,7 +248,10 @@ describe("the crawl's rules, as the record shows them", () => {
     for (const r of rows.filter((x) => x.route === "proxy" && x.outcome === "error")) {
       expect(r.detail).toMatch(/^(net::ERR_[A-Z_]+|timeout|navigation failed|no result|unparseable result)$/);
     }
-    for (const r of rows) for (const s of [r.detail, r.robots, r.how]) if (s) expect(s).not.toMatch(/proxy:|<proxy>|iproyal|_country-/i);
+    for (const r of rows) for (const s of [r.detail, r.robots, r.how]) if (s) {
+      expect(s).not.toMatch(/proxy:|<proxy>/i);
+      expect(privateLeaks(s)).toEqual([]);
+    }
   });
 
   test("the published outcome list is whole and carries nothing private", () => {
@@ -251,11 +274,27 @@ describe("the crawl's rules, as the record shows them", () => {
     expect(urls.length).toBeGreaterThan(1000);
     for (const u of urls) expect(publicUrl(u)).toBe(u);
     for (const text of [published, v1]) expect(text).not.toMatch(/[?&](?:_*cf_|x5secdata=|state=|nonce=|code_challenge=)/);
-    // No address, path or credential of the machine that crawled it: no IP
-    // address at all, no home or temp path, no account key, no proxy login.
-    expect(published.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)).toBeNull();
-    for (const s of ["/root/", "/tmp/", "/home/wyld", "wyld-web", ".cbrowser", "cbk_", "_country-", "<proxy>", "iproyal"]) {
-      expect(published.includes(s)).toBe(false);
+    // No address, path or credential of the machine that crawled it.
+    expect(privateLeaks(published)).toEqual([]);
+    expect(privateLeaks(v1)).toEqual([]);
+  });
+
+  test("the privacy check finds each kind of leak it names, seeded where a crawl would leave it", () => {
+    const published = JSON.stringify({ meta: CTC_REFERENCE, pages: rows });
+    const at = published.indexOf('"detail":"timeout"') + '"detail":"timeout'.length;
+    expect(at).toBeGreaterThan(20);
+    for (const seed of [
+      "from 10.20.30.40",
+      "at /home/someone/project/run.ts",
+      "wrote /root/.config/state.json",
+      "cache /tmp/run-123/page.png",
+      "read ~/.config/app/key.json",
+      "key cbk_0123456789abcdef0123",
+      "via http://someone:hunter2@proxy.example:12321",
+      "login customer-abc_session-x1y2z3",
+      "password secret_country-us",
+    ]) {
+      expect(privateLeaks(`${published.slice(0, at)} ${seed}${published.slice(at)}`).length).toBeGreaterThan(0);
     }
   });
 
