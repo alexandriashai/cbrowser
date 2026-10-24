@@ -48,6 +48,8 @@ export const MUTANTS: Mutant[] = [
     from: "mean += ((m.weight ?? 1) / total) * f(", to: "mean += (1 / population.length) * f(" },
   { id: "M14", what: "first-order depletion coupling only", mustKill: false,
     from: "if (l.gated) earlier += dk;", to: "if (l.gated) earlier += l.g[s] ?? 0;" },
+  { id: "M15", what: "drop the exposure term's slope (emotionalContagion)", mustKill: true,
+    from: "g[t] = gate * P.weightSurplus * defGap;", to: "g[t] = 0;" },
   { id: "P1", what: "ctcLipschitzBound ignores broken preconditions", mustKill: true,
     from: "if (broken.length) throw new Error(", to: "if (false) throw new Error(" },
   { id: "P2", what: "no disjointness check", mustKill: true,

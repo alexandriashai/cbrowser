@@ -49,6 +49,9 @@
  *    gate (a function of demand alone, except in readingAttention, see below);
  *    |d cost / d cap_t| <= c_k * 2 * max(w_def * d_t, w_sur(t) * (1 - d_t)),
  *    because a deficit gap is at most d_t and a surplus gap at most 1 - d_t;
+ *  - except for an exposure-priced trait (EXPOSURE_DIMENSIONS, asymmetric
+ *    mode), whose term is w_sur * cap_t * d_t: |d cost / d cap_t| = c_k *
+ *    w_sur * d_t, and the term is at most w_sur * d_t (capacities are <= 1);
  *  - the layers' trait sets are disjoint, so a coordinate reaches a later
  *    layer only through the indirect drawdown cap *= 1 - min(m, rho*sigma*L_j)
  *    of every gated earlier layer, whose derivative in L_j is at most
@@ -104,6 +107,7 @@ import {
   LAYER_DEFINITIONS,
   INTERACTION_PAIRS,
   SURPLUS_FREE_DIMENSIONS,
+  EXPOSURE_DIMENSIONS,
   type DemandDistribution,
 } from "./cognitive-transport-chain.js";
 import { buildOTCognitiveProfile, type MetricScope } from "./cognitive-transport.js";
@@ -298,6 +302,13 @@ export function ctcLipschitzBound(demand: DemandDistribution, options: DroOption
     for (const t of def.traits) {
       const defGap = dHi(t);
       const surGap = Math.max(0, 1 - dLo(t));
+      if (asym && EXPOSURE_DIMENSIONS.has(t)) {
+        // Exposure, w_sur * cap * d: linear in cap, slope w_sur * d, at most w_sur * d.
+        g[t] = gate * P.weightSurplus * defGap;
+        A += g[t];
+        maxCost += P.weightSurplus * defGap;
+        continue;
+      }
       g[t] = gate * 2 * Math.max(wDef * defGap, wSur(t) * surGap);
       A += g[t];
       maxCost += Math.max(wDef * defGap * defGap, wSur(t) * surGap * surGap);

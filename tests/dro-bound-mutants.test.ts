@@ -12,8 +12,9 @@
  *
  * Must be killed on 3 of 3 seeds: M1, M2, M6, M7, M9, M10 (the six unsound
  * variants a 2026-10-21 cross-vendor audit found passing the previous tests;
- * the edits here are reconstructions from its descriptions), and every
- * reconstructed mutant shown unsound. The interaction mutants (M2, M2b, M10)
+ * the edits here are reconstructions from its descriptions), every
+ * reconstructed mutant shown unsound, and M15 (2026-10-24: the exposure term's
+ * slope dropped, the case emotionalContagion's w c d cost added). The interaction mutants (M2, M2b, M10)
  * are refuted on the fixture's INTERACTION_PAGES, found by a scan after the
  * 21.0 chain changes emptied the page that refuted them before. M11 and M14
  * are reported and not required: no slope above them was found anywhere (on

@@ -117,16 +117,25 @@ describe("capacityConsumed is what the layer actually drew (ISC-43)", () => {
   test("a light page whose layers are all gated off reports 0, while its layers still cost something", () => {
     const light = demandFromLegacy(0.02, 0.02, 0, 0.02, 0, 0, 0);
     const gate = param("chain.depletionGate");
-    for (const name of ["first-timer", "elderly-user", "power-user"]) {
-      const prof = toolProfile(name, ROSTER[name]);
+    // The three built-ins cost nothing here since 2026-10-24: their only costs
+    // on this page were the billed surpluses of changeBlindness and patience,
+    // now surplus-free (research/surplus-billing-design.md). A persona with no
+    // patience still pays the page's reading demand as a deficit, which keeps
+    // the check below from being vacuous.
+    const noPatience = { ...ROSTER["first-timer"], cognitiveTraits: { ...ROSTER["first-timer"].cognitiveTraits, patience: 0 } };
+    const cases = [...["first-timer", "elderly-user", "power-user"].map((n) => ({ name: n, prof: toolProfile(n, ROSTER[n]) })),
+      { name: "first-timer without patience", prof: toolProfile("first-timer", noPatience as never) }];
+    let costing = 0;
+    for (const { name, prof } of cases) {
       const r = computeSequentialCTC(prof, light, { asymmetric: true, interactions: true });
       for (const [i, l] of r.layers.entries()) expect({ name, layer: l.name, gated: contentScale(LAYER_DEFINITIONS[i], light) <= gate }).toEqual({ name, layer: l.name, gated: true });
       expect({ name, consumed: r.layers.map((l) => l.capacityConsumed) }).toEqual({ name, consumed: r.layers.map(() => 0) });
-      // Not vacuous: the old figure, depletionRate x cost, was positive here.
-      expect(r.layers.some((l) => l.transportCost > 0)).toBe(true);
+      if (r.layers.some((l) => l.transportCost > 0)) costing++;
       // And nothing was drawn: the capacity leaving the page is the capacity it arrived with.
       expect(r.remainingCapacity).toEqual(capacityVector(prof.traits));
     }
+    // Not vacuous: the old figure, depletionRate x cost, is positive for a persona that pays here.
+    expect(costing).toBeGreaterThan(0);
   });
 
   test("a heavy layer reports the capped draw, not depletionRate x cost", () => {
