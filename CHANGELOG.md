@@ -6,6 +6,204 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.0.0](https://github.com/alexandriashai/cbrowser/compare/v20.2.2...v21.0.0) (2026-10-24)
+
+### ⚠ BREAKING CHANGES
+
+* **journey:** AbandonmentThresholds.loopDetectionThreshold is
+  optional and the autonomous journey no longer sets it; its "loop"
+  abandonment reason, which never occurred, is no longer produced.
+* **scoring:** built-in persona values corrected: ADHD working memory 0.37
+  (adult WAIS-IV norms), autism working memory 0.32 (an adult meta-analysis),
+  dyslexic resilience 0.5, low-vision satisficing 0.65, low-vision-magnified
+  self-efficacy 0.45 and motor tremor interrupt recovery 0.4 (the last four had
+  been moved against their own citations by a 2026-08-02 reconciliation).
+* **journey:** calculateGazeMouseLag ignores its argument and returns
+  700; journeys pause longer before text-path clicks and hovers.
+* **scoring:** cbrowser.ai's hosted CIF audits now run the full
+  accessibility audit. Every CIF stored before 21.0 came from a two-check
+  stand-in in use since 2026-04-22 (tiny touch targets and text the same colour
+  as its background), whose spacing, drag, colour, captions, keyboard and skip
+  components read 100 regardless of the page. Scores move in both directions on
+  re-run.
+* **scoring:** CIF scores an unmeasured component at 50 and names it "not
+  measured" instead of crediting it, and issues gold, silver or bronze only when
+  all 25 components were measured ("Not certified: N of 25 components not
+  measured"). A fully measured page scores as before; pages with missing inputs
+  score lower. A component with no check behind it reads "not measured": the
+  accessibility audit has no skip-link check yet, so no CIF audit can be
+  certified until one exists.
+* **scoring:** page demand comes from published laws, each converted from
+  seconds to demand through one time budget (12.4 s, Weinreich et al. 2008):
+  Fitts's law for pointing, novice visual search (Cockburn, Gutwin & Greenberg
+  2007) for choosing, Brysbaert's silent reading rate for prose (menu labels
+  cost 0.13 s each to read once, a labelled hypothesis), and the keystroke-level
+  model for procedure. cognitive_effort reports the four law times (lawTimes).
+* **scoring:** persona capacities are rate ratios against measured reference
+  rates. Measured rates are used where a study publishes them (motor tremor,
+  dyslexia, aphasia); every other persona takes the reference rate, labelled as
+  no measured difference. Reading speeds shown in tool output are 238 wpm times
+  the persona's registered share (for example power-user 400 -> 238, dyslexic
+  120 -> 180 wpm).
+* **scoring:** persona distance is an exact Wasserstein-1 distance over the
+  29 traits under a registered ground metric, with a registered creation and
+  destruction cost, so two personas that differ only in overall level are no
+  longer at distance 0. Distance values change. Visual-regression distances are
+  now deterministic (seeded projections).
+* **scoring:** the cognitive-load layer is rebuilt: site familiarity acts as
+  expertise on the predicted choosing time only, patience acts on reading time,
+  and aphasia's reading rate is measured. Adding motion can no longer make a
+  page cheaper: susceptibility to an interface's mood costs nothing on a calm
+  page and grows with the stimulus, and change blindness and patience are no
+  longer charged for unused capacity. The mood-exposure cost counts with the
+  deficit, so abandonmentRisk reads it and cognitive_effort's
+  deficitVsSurplus.deficit includes it. Four decision traits (fear of missing
+  out, social proof, anchoring, risk tolerance) still get cheaper as choosing
+  time grows; this is a named limit until their cues are measured.
+* **scoring:** the motor audit in cognitive_effort and visual_cognitive_story
+  reads each persona's registered pointing throughput. The 16 personas without
+  a measured motor impairment now take the reference throughput (4.9 bits/s)
+  and are held to the 0.85 hit-probability line instead of 0.70, so they report
+  about twice as many motor barriers (on 59 reference pages: 3,181 -> 6,172).
+  Hit probabilities themselves are unchanged. empathy_audit and CIF are not
+  affected by this change.
+* **scoring:** totalCTC is now a percentile. It is the share of a reference
+  set of 514 real pages (crawled 2026-10-24 at 1920x1080, three sampling frames)
+  that cost less than this page for the same persona, with a 95% interval
+  (totalCTCInterval). The raw chain cost is reported as rawCTC. Verdict bands
+  are fixed cut points on that percentile: upper half (0.5), high (0.8), top 5%
+  (0.95). A 20.x totalCTC and a 21.0 totalCTC are on different scales and must
+  not be compared or averaged.
+
+### Added
+
+* **chain:** cognitive load and patience read law times, familiarity is the visit ([e1f3a42](https://github.com/alexandriashai/cbrowser/commit/e1f3a424dd5c0045bfc20d9a199781be9f95a3e6))
+* **chain:** emotionalContagion priced by exposure, changeBlindness and patience surplus-free ([edea8d5](https://github.com/alexandriashai/cbrowser/commit/edea8d53ab3d1d183050a48dc34148b701f436e6))
+* **chain:** motor, decision, procedure and reading demand from the laws ([24aefba](https://github.com/alexandriashai/cbrowser/commit/24aefbaefae3266060b1832f5f413ce8a2e0b4ad))
+* **cif:** certify a page only when all 25 components were measured ([25f2dd4](https://github.com/alexandriashai/cbrowser/commit/25f2dd46681f583516e3bca6d5b9ffe7f80aa6fa))
+* **cif:** export computeGrade so the dashboard grades with the engine's bands ([9c6b1ff](https://github.com/alexandriashai/cbrowser/commit/9c6b1ff5de3d8551a348d772cd88696e376ea182))
+* **cif:** read every cif constant through the provenance registry ([381bbd0](https://github.com/alexandriashai/cbrowser/commit/381bbd04056d779bf5d2b34e994d02b1a06a879b))
+* **cognitive-models:** profile tables read the registry; tremor anchor from the measured rate ([1464a2e](https://github.com/alexandriashai/cbrowser/commit/1464a2eee3eec0d83abd4076b19b9e5d9e6efc7b))
+* **cot:** exact Wasserstein-1 persona distance with registered constants ([4ac613c](https://github.com/alexandriashai/cbrowser/commit/4ac613ccb5a815362ff9d7e90195d3dbaf0b8a80))
+* **cot:** provenance registry for model constants ([0e22f39](https://github.com/alexandriashai/cbrowser/commit/0e22f39ed80d4d5318bad6d228e3197484613d1c))
+* **cot:** say what the provenance block covers ([80763b5](https://github.com/alexandriashai/cbrowser/commit/80763b58a4cc70b0dca9b058ed7a9c791dea169d))
+* **cot:** wasserstein-dro bound on ctc with a derived lipschitz constant ([3568c21](https://github.com/alexandriashai/cbrowser/commit/3568c2135fc5060e1c5b3eb5e86eea0d60a95a85))
+* **ctc-bands:** the verdict states the percentile's 95% interval (isc-62) ([ab82804](https://github.com/alexandriashai/cbrowser/commit/ab82804c93a160f1a66177f3aa2d699b47d44023))
+* **ctc-reference:** find more search pages, from search-named forms and SearchAction templates ([22e2f72](https://github.com/alexandriashai/cbrowser/commit/22e2f7242f2186553a099a99b6edff1e08e33622))
+* **ctc-reference:** rank against raw measurements, with a page-bootstrap interval ([677e418](https://github.com/alexandriashai/cbrowser/commit/677e41888122e7f5493d1f64d8ab96a9e5c25712))
+* **ctc-reference:** re-crawl the v2 reference with digits counted as link text, 514 pages ([9fd346c](https://github.com/alexandriashai/cbrowser/commit/9fd346c3932fc734e2ac4a290288d95be86f49fc))
+* **ctc-reference:** re-crawl the v2 reference with groupedLinksWithText, 513 pages ([05937c9](https://github.com/alexandriashai/cbrowser/commit/05937c9301d841764d9a597161fb12bf2a103af0))
+* **ctc-reference:** re-crawl the v2 reference with proseInNav, 512 pages ([6a8c9e8](https://github.com/alexandriashai/cbrowser/commit/6a8c9e8701890910ece46a0e94a898419fe02783))
+* **ctc-reference:** re-crawl the v2 reference with the nav totals, 513 pages ([1073c26](https://github.com/alexandriashai/cbrowser/commit/1073c26ca72b04a5fad2f0fa0271bc8cef1844ac))
+* **ctc-reference:** ship the v2 reference, 513 real pages in raw format 2 ([e6a2b14](https://github.com/alexandriashai/cbrowser/commit/e6a2b142e7a68fc7e51fcee91585ebc8d4146b87))
+* **ctc-reference:** v2 crawler, three sampling frames, robots and discovery ([1e88f9c](https://github.com/alexandriashai/cbrowser/commit/1e88f9c076b1e423aa9bbbb3876e865347aa2ed0))
+* **ctc:** crawl the real pages totalCTC will be ranked against ([443e4e4](https://github.com/alexandriashai/cbrowser/commit/443e4e43438cf339352474613cc9c4f6e2381d73))
+* **ctc:** rank totalCTC against real pages and report the real drawdown ([d8f7328](https://github.com/alexandriashai/cbrowser/commit/d8f7328bb7aca6f7161853d67139a1eeecfb9a9f))
+* **ctc:** verdict bands as registered cut points on the reference percentile ([cbd6c55](https://github.com/alexandriashai/cbrowser/commit/cbd6c55417bb46ea98363fc23ad32c6b7a7b9d80))
+* **demand-laws:** published laws in seconds, with registered constants ([8985700](https://github.com/alexandriashai/cbrowser/commit/8985700fa18aba864c79bf750951d4bd4570fd39))
+* **distance:** generalized wasserstein keeps persona scale ([6e631b9](https://github.com/alexandriashai/cbrowser/commit/6e631b9fbedaf8105b9c4332491c6e0c9182d011))
+* **effort:** answers report the four law times against the budget ([96fa265](https://github.com/alexandriashai/cbrowser/commit/96fa265d201054bf662baa0d2a0c8be4f007d9a3))
+* **human-input:** set typing speed from the slowest and fastest deciles of 168,960 typists ([e68b860](https://github.com/alexandriashai/cbrowser/commit/e68b8600b76f1e5c1a92a4300c35e1ebb4dc496a))
+* **journey:** lag the cursor behind gaze by the measured 700 ms, not a hand-set 200-500 by age ([27bccd0](https://github.com/alexandriashai/cbrowser/commit/27bccd0c37502f2e8643cb3cd2237376d873d928))
+* **journey:** time pointing with stage b's fitts law on the element's box ([d1d2bdc](https://github.com/alexandriashai/cbrowser/commit/d1d2bdc08aaa7738df4261385f92fe02fe7ce584)), references [#N](https://github.com/alexandriashai/cbrowser/issues/N)
+* **mcp:** send the scorer version with every saved tool result ([1bef241](https://github.com/alexandriashai/cbrowser/commit/1bef241674081cc7713a669fba7c215c7f02aa70))
+* **page-metrics:** each choice in one group only, and uncapped nav totals, in raw format 2 ([21f1f91](https://github.com/alexandriashai/cbrowser/commit/21f1f91fa93eefbcd7273a4334f629e7f0ad8801))
+* **page-metrics:** groupedLinksWithText, the grouped links a sighted user can read ([2174961](https://github.com/alexandriashai/cbrowser/commit/21749617044df0d81b234b37cdf6697addc67baf))
+* **page-metrics:** proseInNav, the prose inside nav and composite groups, in raw format 2 ([379a856](https://github.com/alexandriashai/cbrowser/commit/379a8567a54fad985e4d128220902334e731d85d))
+* **page-metrics:** raw format 2, prose counted once, language pickers not read as the script ([17eabab](https://github.com/alexandriashai/cbrowser/commit/17eabab2899f772c77c61fc7102db8c132211d09)), references [#lang-nav](https://github.com/alexandriashai/cbrowser/issues/lang-nav)
+* **personas:** aphasia-receptive reads at a measured rate ([c83cdd9](https://github.com/alexandriashai/cbrowser/commit/c83cdd928644a4f662c62c16149350286d4769aa))
+* **personas:** catalogue built-in persona trait values as provenance ([0fdf5b5](https://github.com/alexandriashai/cbrowser/commit/0fdf5b596c6ea207feef792917148622c2851247))
+* **personas:** custom personas cued elderly read as the built-in elderly-user ([0bca880](https://github.com/alexandriashai/cbrowser/commit/0bca880d2b401d1fa5677b749467d513ea0038ce))
+* **personas:** custom personas take the built-ins' rate rule ([6a3320c](https://github.com/alexandriashai/cbrowser/commit/6a3320c0900376bd5b66687153ffa21b5a0d44cb))
+* **personas:** each built-in persona carries its pointing and reading rate ([e1b2f60](https://github.com/alexandriashai/cbrowser/commit/e1b2f6070acdfe346526e40ac68b2c7fda6abdd2))
+* **personas:** every reading rate shown is 238 wpm x the persona's share ([3d78a00](https://github.com/alexandriashai/cbrowser/commit/3d78a00209b797558593c526880bba9152c3f744))
+* **personas:** norm-anchor adhd and autism working memory from adult effect sizes (isc-71) ([b800b95](https://github.com/alexandriashai/cbrowser/commit/b800b95c08b5a52ea6837ed54df647aeaadbd3d2))
+* **provenance:** answers report the scored persona's rates on their own ([6f8e5b0](https://github.com/alexandriashai/cbrowser/commit/6f8e5b02288dcaab488916bf20bee2deb8daacbc))
+* **provenance:** ground the journey's keystroke-level times in Card, Moran & Newell (1980) ([af7cf95](https://github.com/alexandriashai/cbrowser/commit/af7cf956d00b36aacdccbb6c1cedcd319d4aa2eb))
+* **provenance:** record param reads across awaits, per async context ([b37cdcb](https://github.com/alexandriashai/cbrowser/commit/b37cdcbda89528b182478b688766e5892afc8ca1))
+* **provenance:** register the attention, perceptual-profile and page-metric constants ([239b8fc](https://github.com/alexandriashai/cbrowser/commit/239b8fca447ccf6031eb14be37a557c1c92391c1))
+* **provenance:** register the pointing dispersion the hit-probability audit reads ([89e7144](https://github.com/alexandriashai/cbrowser/commit/89e71449c63b50498fa157b088dd01f03752d44e))
+* **reading:** menu labels cost one first read each, not their prose ([4c79088](https://github.com/alexandriashai/cbrowser/commit/4c79088b770983879526732910da976f0bb0da7f))
+* **reading:** only menu links with visible text cost a first read ([5751959](https://github.com/alexandriashai/cbrowser/commit/575195926110b1f2dca35fb37c1acf16e7c2cca8))
+* **research:** --no-values flag for the study 1 harness ([c1fc76a](https://github.com/alexandriashai/cbrowser/commit/c1fc76a824bd86acb71091b2e13dc3a675e08a39))
+* **research:** paper calculations for the cot chi draft ([288d6b6](https://github.com/alexandriashai/cbrowser/commit/288d6b6ca071e22520680fef0e843ebaab00f2f5))
+* **scoring:** 21.0 grounds the cognitive transport model in published laws and real pages ([cfe5bc4](https://github.com/alexandriashai/cbrowser/commit/cfe5bc4554100bc631afa63799a8431f3ecd3743))
+* **tools:** cognitive_effort and site_cognitive_assessment report modelProvenance ([93b9e20](https://github.com/alexandriashai/cbrowser/commit/93b9e20c9bcd8d49c0e5d452f6b3d931ea104694))
+* **tools:** verdicts state the rank, and each block counts the whole answer ([a90b0dc](https://github.com/alexandriashai/cbrowser/commit/a90b0dc3e9f6aaefd0f0cb3194a6dddd6e8792e9))
+* **views:** caption the law block, and take the per-label reading time from the registry ([42a9ecd](https://github.com/alexandriashai/cbrowser/commit/42a9ecdde326aba7a4a7f7fb8b6c0c92b3532ed0))
+* **views:** name norm-anchored persona values instead of calling them hand-set ([8868fe1](https://github.com/alexandriashai/cbrowser/commit/8868fe158a9e74e4c12222ba2fbb0f8ed842d35c))
+* **views:** show what each answer rests on, and drop research claims on hand-set values ([f9d0869](https://github.com/alexandriashai/cbrowser/commit/f9d0869d54d5d63a63f6a95f9626bd59b32389a5))
+* **views:** the effort view shows the rank with its interval and the four law times ([d262f84](https://github.com/alexandriashai/cbrowser/commit/d262f842f4bb96b512c1aad6b0d6dbab859b8bc4))
+
+### Fixed
+
+* **attention:** every attention caller uses the persona's stored accessibility traits (isc-48.1) ([dd8e813](https://github.com/alexandriashai/cbrowser/commit/dd8e81318574fc6c7915d4f95e9d418d8c1cd53d))
+* **attention:** keep the gaze smoothing at its fitted width in pixels ([d6b3de7](https://github.com/alexandriashai/cbrowser/commit/d6b3de7cb6bc2b02dd259caa638803c6bca3ec9b))
+* **attention:** pass the persona's accessibility traits to the attention tools (isc-48) ([8d97c38](https://github.com/alexandriashai/cbrowser/commit/8d97c38365203b5e9267cf40c9379179a238447f))
+* **attention:** smooth the dom-only path at the fitted width in pixels (isc-47) ([9210138](https://github.com/alexandriashai/cbrowser/commit/9210138d58db7fd6129ffb570e04f8c11823d59d))
+* **attention:** state the shipped 20/80 blend and what useValues controls ([138837f](https://github.com/alexandriashai/cbrowser/commit/138837fd1a2724c781c51805c588adfb8f0c71f3))
+* **cif:** count each barrier once ([e481a02](https://github.com/alexandriashai/cbrowser/commit/e481a0244d6c3859d2094066b691a81f8638c857))
+* **cif:** cut totalCTC at the registered bands and state its rank ([580e1d4](https://github.com/alexandriashai/cbrowser/commit/580e1d44762e175b1a90db02a3ebcdb33617a1ae))
+* **cif:** derive knee scores so piecewise scores cannot step ([f860c04](https://github.com/alexandriashai/cbrowser/commit/f860c040f39aa3fbda11f29788cf790958bb876e))
+* **cif:** find a barrier's kind by whole words, not substrings ([0d8335c](https://github.com/alexandriashai/cbrowser/commit/0d8335c5dd3af9bd4384da39a040658fd9483db5))
+* **cif:** find a barrier's kind by whole words, not substrings ([2dde124](https://github.com/alexandriashai/cbrowser/commit/2dde124f36a21da323a0f2f7a8e18b197f403df6))
+* **cif:** fix text quotes the scorer's registered constants ([ca11f56](https://github.com/alexandriashai/cbrowser/commit/ca11f56a6fbc30c8152cdcb5500dda0b76f87a86))
+* **cif:** keyboardOperability's details name what the audit checks ([3673485](https://github.com/alexandriashai/cbrowser/commit/3673485f6f80d2e1dcf29bef8050665a31f45abf))
+* **cif:** one rule for missing inputs, reported as not measured ([39a764d](https://github.com/alexandriashai/cbrowser/commit/39a764dd37cc68db6ae4ac77e84851a8e4b289d1))
+* **cif:** skipMechanisms is measured only when a skip-link check ran ([f703095](https://github.com/alexandriashai/cbrowser/commit/f703095720c1ccc03dc8989aae158c52e4a27701))
+* **cognitive-models:** the capacity bridge passes accessibility traits to the pointing profile ([42c782a](https://github.com/alexandriashai/cbrowser/commit/42c782a8ec92d069a93f11ed4727784b9d0b5c8d))
+* **cognitive:** journey heatmap overlay paints with the attention model's own weights (isc-48.1) ([c350130](https://github.com/alexandriashai/cbrowser/commit/c350130f29e2f006194c23f15fa991dcf6bdba4e))
+* **cognitive:** sliced persona distance is exact, not sampled from the cube (isc-67) ([4232984](https://github.com/alexandriashai/cbrowser/commit/4232984a77cffd536981176ecea121401fe6827d))
+* **copy:** persona trait and tool counts in tool text and the skill ([0e754b5](https://github.com/alexandriashai/cbrowser/commit/0e754b5cdaedfd2ae1d9117d6f514299c064bec7))
+* **ctc:** a page with no motion makes no animation demand ([2760ccc](https://github.com/alexandriashai/cbrowser/commit/2760ccc0ea3232d91842caaa14df5fc764b9d01e))
+* **ctc:** abandonment no longer counts billed surplus as relief ([14b0a03](https://github.com/alexandriashai/cbrowser/commit/14b0a03ebb28e1687a404c195563f340869f4539))
+* **ctc:** drop attentionPattern from the visualComplexity layer ([6eee4ab](https://github.com/alexandriashai/cbrowser/commit/6eee4abd8c5edfc64b87db9f294c0b441428d10b))
+* **ctc:** frustration layer holds only traits that can carry demand ([6851e6c](https://github.com/alexandriashai/cbrowser/commit/6851e6c4a957e853b5eb7803bd86d877cd366668))
+* **ctc:** judge abandonment against the patience the page left ([44c3110](https://github.com/alexandriashai/cbrowser/commit/44c3110a91841155dc31618043368d3a900b355c))
+* **ctc:** publish reference urls without session-bound values ([f792112](https://github.com/alexandriashai/cbrowser/commit/f792112a7202dacb05eb5bfa8714074f15fe2eb4))
+* **ctc:** strip session parameters from stored reference urls ([958e0c6](https://github.com/alexandriashai/cbrowser/commit/958e0c69b897bbbf8315ef1df6e5dc912b07436e))
+* **ctc:** the provenance block counts the demand curves the score used ([7f799ac](https://github.com/alexandriashai/cbrowser/commit/7f799ac217b5138d2c635b30b139d6e685d607af))
+* **ctc:** useValues goes through the chain's registered value modulation ([bb54106](https://github.com/alexandriashai/cbrowser/commit/bb54106034f5f05ce4278f726e4c267112142e7b))
+* **distance:** report the level term apart from the traits ([0b82a5c](https://github.com/alexandriashai/cbrowser/commit/0b82a5cc59a4010f5a154657360356178af52ee3))
+* **files:** no file name from the clock alone; temp files in per-call dirs (isc-67) ([179ad39](https://github.com/alexandriashai/cbrowser/commit/179ad39c8aa8910393f8c78c32212d68e8cbc6be))
+* **journey-mcp:** state update_state's rules as it applies them, and call them hypotheses ([53ae43f](https://github.com/alexandriashai/cbrowser/commit/53ae43f1a6c388dd0ca1664af093b35ff47ed1b9))
+* **journey:** charge a coordinate click the same pointing time as a hover ([4f4bf70](https://github.com/alexandriashai/cbrowser/commit/4f4bf704b552d3c49c9b7a9a4f340d521b17aff4))
+* **journey:** measure an off-screen element on the screen it is seen on ([7467184](https://github.com/alexandriashai/cbrowser/commit/746718401f0cacc262376a482171bd9435943a24))
+* **journey:** pay pointing time for playwright-driven mouse actions under human input ([3f46d06](https://github.com/alexandriashai/cbrowser/commit/3f46d06aca14c2deefae2060352fb167fbc30157))
+* **laws:** register the aphasia reading time as a measured population ([bcc7b2a](https://github.com/alexandriashai/cbrowser/commit/bcc7b2a53f44a8283b6dcab2c34d4ad47b83171f))
+* **page-metrics:** a digit is visible text in groupedLinksWithText ([2cba89f](https://github.com/alexandriashai/cbrowser/commit/2cba89f96acd1807ae1aa9853c06cc3c03ab9198))
+* **persona:** infer specific perceptual profiles first; say how one was found ([7146f9f](https://github.com/alexandriashai/cbrowser/commit/7146f9f87539fadce5fc7faaf019ea249e1673a2))
+* **personas:** canonicalize trait names on the two CMS read paths ([e472583](https://github.com/alexandriashai/cbrowser/commit/e472583bfbb43e0303934dec43f96356c52b7d0a))
+* **personas:** comprehension is not read as reading anywhere ([f3b368f](https://github.com/alexandriashai/cbrowser/commit/f3b368fb4028e6c02538d3f7dc08d170951c0036))
+* **personas:** read CBROWSER_DATA_DIR per call, so test runs stop writing ~/.cbrowser/personas ([a93e91c](https://github.com/alexandriashai/cbrowser/commit/a93e91c5c89048d0eeb090769d95d251c0d7ac80))
+* **personas:** resolve trait values that contradict their comments or citations ([3ce47f0](https://github.com/alexandriashai/cbrowser/commit/3ce47f0e91a59676b0f8f7047d1544a135385eef))
+* **personas:** restore values the doc reconciliation moved against their citations ([31e3ae4](https://github.com/alexandriashai/cbrowser/commit/31e3ae45a6f10fa43d3f98322de70e2d1281c7e3))
+* **provenance:** attention maps carry their own block, apart from the score's ([fc3ee45](https://github.com/alexandriashai/cbrowser/commit/fc3ee45ae81536e3ef2355a2593a6b623f454509))
+* **provenance:** break the import cycle that failed persona-provenance alone ([591b436](https://github.com/alexandriashai/cbrowser/commit/591b4368a25e56985cbef47581d65e2ffe89c471))
+* **provenance:** quote intellectual-disability's move on the 514-page reference ([2e6ffcf](https://github.com/alexandriashai/cbrowser/commit/2e6ffcf8ce3b6b634dba19e66ef48007a4652ee6))
+* **research:** split the ueyes ceiling by person, not by log file ([ea75551](https://github.com/alexandriashai/cbrowser/commit/ea75551514661f2a032c9affb524ebe73a5ddf40))
+* **story:** bridge a copy of the persona's traits, not the registry's ([61fb9a8](https://github.com/alexandriashai/cbrowser/commit/61fb9a8ecb71fa7f54956fecda1f1258290f3567))
+* **story:** draw attention through the persona's accessibility traits (isc-48) ([b3078b3](https://github.com/alexandriashai/cbrowser/commit/b3078b3170406cb847223a1c3011210e8f995d6f))
+* **tools:** load the values modules lazily from chain-values ([318c6a0](https://github.com/alexandriashai/cbrowser/commit/318c6a02273d18e696b58d979113b20163061b9a))
+* **tools:** siteFamiliarity is the caller's value or a first visit ([1b86efd](https://github.com/alexandriashai/cbrowser/commit/1b86efd50a06fc4da4bc7d9a8a00a228be5c6551))
+* **views:** the attention-compare region table names its columns ([4e32cce](https://github.com/alexandriashai/cbrowser/commit/4e32cce97ae411008c1f27fc91fd2cbf51a1c5f4))
+* **visual:** each perceptual call writes its temp images in its own directory (isc-67) ([e42ce1c](https://github.com/alexandriashai/cbrowser/commit/e42ce1cf372557305d50292ef9a52d041f152121))
+* **visual:** seeded sliced-wasserstein projections, same distance every call (isc-67) ([0fd0757](https://github.com/alexandriashai/cbrowser/commit/0fd0757813a29dc7e9983420c7bb4041520449e4))
+* **widget:** draw the effort chain on the raw cost and label the rank as a rank ([6f91f86](https://github.com/alexandriashai/cbrowser/commit/6f91f8665ce79bf23da31d4a7fc1f01a1b07f1a4))
+
+### Changed
+
+* **attention:** one stored-traits helper for every attention caller ([344a346](https://github.com/alexandriashai/cbrowser/commit/344a346b7848ffdcad964548526e8ca12b14a28d))
+* **cot:** chain constants live in the provenance registry ([87f5bb9](https://github.com/alexandriashai/cbrowser/commit/87f5bb93edef788ab79c1aa767a700dd867aa501))
+* **cot:** remove the 41 demand-variance coefficients nothing read ([1cac251](https://github.com/alexandriashai/cbrowser/commit/1cac251a33a3f4cf2130a1db48c6eeeb4d6f1724))
+* **ctc:** name layer 1 visualComplexity, not saliency ([d73e7b9](https://github.com/alexandriashai/cbrowser/commit/d73e7b9184a5991908f3e2419f42597af8f21091))
+* **ctc:** stop writing demand to dimensions no layer reads ([cc8ab9c](https://github.com/alexandriashai/cbrowser/commit/cc8ab9c9c73ad82ea053392ef83ea579035ec1d9))
+* **effort:** declare the layer screenshot's temp dir apart from the overlay list ([75f48b8](https://github.com/alexandriashai/cbrowser/commit/75f48b8cca3bfc92005b077690d37850705691a0))
+* **journey:** read every journey constant from the provenance registry ([41481a2](https://github.com/alexandriashai/cbrowser/commit/41481a2468f2bc10dcbaa5b52040f1410d0d380e))
+* **journey:** remove sixteen journey constants that can change nothing ([d5fd5ae](https://github.com/alexandriashai/cbrowser/commit/d5fd5ae06dfe48580f42282da8233c277970d335))
+* **page-metrics:** a format-2 record without groupedLinks is refused ([a614479](https://github.com/alexandriashai/cbrowser/commit/a614479d877b9a124806033122d84d095a621c77))
+* **page-metrics:** split extractPageMetrics into measurePageRaw and deriveMetrics ([1313ca8](https://github.com/alexandriashai/cbrowser/commit/1313ca8496616c32fb7423647794eae48c22ac7a))
+
 ## [20.2.2](https://github.com/alexandriashai/cbrowser/compare/v20.2.1...v20.2.2) (2026-10-24)
 
 ### Fixed
