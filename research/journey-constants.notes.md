@@ -83,11 +83,12 @@ The journey registers no copy of a quantity Stage B publishes:
   scroll, measured from the centre of the screen. Until 21.0 it waited
   nothing, so most successful clicks cost nothing to point at. The retry by
   name after a coordinate click throws does not wait again.
-- With human input on, no pointing wait is slept. On a coordinate click,
-  humanClick's move and pre-click dwell pace the click and replace the
-  law + gaze wait rather than adding to it. Found, not changed: a hover or
-  a click by name under human input goes through Playwright, not
-  humanClick, so it waits for neither.
+- With human input on, a coordinate click's pointer is driven by
+  humanClick, whose move and pre-click dwell replace the law + gaze wait
+  rather than adding to it. A hover, hover-click or click by name is
+  driven by Playwright, which has no human pacing, so it waits the law +
+  gaze time once, with human input on or off. Until 21.0 those waited
+  nothing with human input on.
 - No journey constant is a reading rate, so law.reading.* has no overlap.
 
 ## Removed because they could change nothing
