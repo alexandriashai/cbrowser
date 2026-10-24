@@ -14,7 +14,23 @@ builds it) plus the 25 `referencePopulation()` personas, unless a table says
 otherwise.
 
 Decisions are marked: **(Alexa)** for hers, **(mine)** for what I propose and she
-has not yet decided.
+has not yet decided. **Section 9 is the build** (branch `feat/surplus-billing`,
+from 8736c2c) and its measurements.
+
+**Decision record.**
+- **(Alexa), 2026-10-24:** fix in 21.0, design first.
+- **(Alexa), 2026-10-24:** option f, as in section 5. emotionalContagion =
+  w x c x d, changeBlindness and patience surplus-free.
+- **(Alexa), 2026-10-24:** the four decision-layer susceptibilities
+  (fearOfMissingOut, socialProofSensitivity, anchoringBias, riskTolerance) are
+  deferred as a named limit and not changed (section 6).
+- **(mine):** w reuses `chain.weightSurplus` (0.3). Reusing it rather than adding
+  a constant keeps a trait's largest cost where its surplus bill could reach
+  (0.3 at full susceptibility and full stimulus). The reuse is registered as a
+  hypothesis in that entry's provenance, with the sources of section 1.
+- **(mine):** the exposure cost is counted with the deficit, which abandonment
+  reads. It is a cost the page imposes, not capacity left over, and the
+  section 4 predictions were measured that way.
 
 ---
 
@@ -300,19 +316,27 @@ Effects measured on 0686210 plus f, on the 514-page reference:
   - Pricing changeBlindness by exposure (c-motion) fixes its direction, but
     dyslexic-user then falls below the typical user at full_page. It needs its
     own design: what a static page's "change" is.
-- **The four decision-layer susceptibilities** (fearOfMissingOut,
-  socialProofSensitivity, anchoringBias, riskTolerance) keep billed surplus.
-  50% more choosing time lowers their cost on 83-94% of viewport pairs. The cue
-  each responds to (urgency, reviews, a first option, uncertain controls) is not
-  measured, and a share of choosing time stands in for it. Proposed for a later
-  stage that measures the cue. In 21.0 it is a named limit.
+- **The four decision-layer susceptibilities still get cheaper as choosing time
+  grows.** This is a named limit in 21.0, deferred by Alexa on 2026-10-24.
+  fearOfMissingOut, socialProofSensitivity, anchoringBias and riskTolerance keep
+  billed surplus, weightSurplus (c - d)^2.
+  - Their demand is a share of the page's choosing time, so a page with more
+    choosing makes a persona above that share cheaper on these four. Measured on
+    the built tree: 50% more choosing time lowers their cost on 86%, 94%, 93% and
+    83% of viewport pairs (63%, 82%, 78%, 61% at full_page).
+  - Why it is left: what each of them responds to is a cue, and the chain
+    measures none of those cues: urgency and scarcity, reviews and ratings, the
+    first option seen, uncertain controls. Choosing time stands in for all four.
+  - Pricing them by exposure without a measured cue (c-class in section 4)
+    dropped dyslexic-user below the typical user at full_page.
+  - The fix needs the cue measured on the page first.
 - **satisficing** keeps billed surplus. Section 2 notes its stated
   justification describes the deficit end.
 - **The exposure weight, the 0.7 motion-to-contagion share, and animation as
   the contagion stimulus** stay hypotheses. Burke et al. sign the effect; they
   do not size it.
 
-## 7. If approved: what the build touches
+## 7. What the build touches (planned before approval; section 9 has what was done)
 
 - `cognitive-transport-chain.ts`:
   - the exposure branch in the cost loop;
@@ -349,3 +373,171 @@ working directory it cannot read starts without the environment, so TREE is
 silently ignored. One run here measured the unchanged tree nine times for that
 reason. `predict.ts` now prints the tree it ran on, and `report.ts`'s inputs
 were checked for it.
+
+## 9. Build (2026-10-24)
+
+Branch `feat/surplus-billing`, from `feat/cot-integration` at 8736c2c (persona
+restores, effort view, scorer version and sensitivity landed after 0686210).
+Before = an export of 8736c2c, after = this branch; every number below is on
+`ctc-reference-v2-2026-10-24` (514 pages, raw format 2).
+
+Commits:
+- d452907 merges this note's branch (dc9cc55).
+- bd3bda4: red tests.
+- d479fe6: option f.
+- 7d3c980: two restated checks.
+- b6c792e: golden re-pin.
+- Then this section and the carousel-check.json re-run.
+
+**What changed (d479fe6).**
+- `cognitive-transport-chain.ts`:
+  - `EXPOSURE_DIMENSIONS` = {emotionalContagion}. In asymmetric mode its term
+    is `weightSurplus x c x d`, counted with the deficit.
+  - changeBlindness and patience joined `SURPLUS_FREE_DIMENSIONS`.
+  - The four decision susceptibilities stay billed, marked deferred.
+  - The rule's note records all of it.
+- `dro-bound.ts`: the exposure case, slope `gate x w x d` and cost at most
+  `w x d`.
+- `provenance/chain.ts`: weightSurplus records the reuse as a hypothesis, with
+  Hatfield et al. (2014) and Burke et al. (2005).
+
+**Red, then green.**
+- `tests/surplus-billing-motion.test.ts` (7 tests) on 8736c2c: 6 fail, 1
+  passes (the one that checks the reference has static pages). One carousel
+  lowers frustration or totalCTC on 12,510 viewport and 10,298 full_page roster
+  pairs.
+  - Fast-check finds an arbitrary persona it lowers: emotionalContagion 0.198,
+    the shrunk counterexample.
+  - emotionalContagion costs on all 14,638 static pairs.
+  - Its cost falls as motion rises (72,864 steps) and as the persona's value
+    rises (29,308 steps).
+  - After d479fe6, 7 of 7 pass.
+- The DRO mutant table gained M15 (drop the exposure term's slope). It is red
+  on bd3bda4 because its edit had nothing to match. After d479fe6 it is killed
+  on 3 of 3 seeds (coordinate check: 18, 16, 18 violations), and every
+  must-kill mutant still is.
+- Restated tests, each with its reason (7d3c980):
+  - `surplus-billing.test.ts`: three sets, with option f pinned.
+  - `ctc-reference.test.ts`: elderly-user and power-user now tie on 6 viewport
+    pages where both cost nothing.
+  - `capacity-depletion.test.ts`: the light page's non-vacuity check moves to
+    a first-timer with no patience. The built-ins' only costs there were the
+    two freed surpluses.
+
+**Golden re-pin (b6c792e)**, against 8736c2c's pin:
+- 99,595 of 231,418 numbers move; Spearman of totalCTC over 2,128 runs 0.9894.
+  This is the design's prediction for f, number for number.
+- Per persona, the mean change runs from -0.030 (elderly-low-vision) to +0.034
+  (mobile-user, dyscalculia).
+- The largest absolute change is 0.293 (cognitive-adhd).
+- Per-persona Spearman runs from 0.917 (low-vision-magnified) to 0.997
+  (careful-reader, explorer) among the 25 built-ins. The boundary-floor and
+  boundary-zero personas are at 1.000.
+- The full list is in the commit message.
+
+**The property on the built tree** (`predict.ts`): one carousel lowers
+frustration on 0 of 7,930 viewport and 0 of 6,708 full_page roster pairs, and
+totalCTC on 0 of each.
+
+**One carousel on each static page** (`research/sensitivity/carousel-check.ts`, re-run; 305 viewport and 258 full_page pages). Mean totalCTC change, with the share of pages made cheaper and the smallest change on any page:
+
+| persona | viewport, 8736c2c | viewport, built | full_page, 8736c2c | full_page, built |
+|---|---|---|---|---|
+| typical-user | -0.085 (92% cheaper) | +0.082 (0% cheaper, smallest +0.0203) | -0.031 (95% cheaper) | +0.050 (0% cheaper, smallest +0.0087) |
+| first-timer | -0.043 (78% cheaper) | +0.124 (0% cheaper, smallest +0.0068) | +0.007 (39% cheaper) | +0.105 (0% cheaper, smallest +0.0030) |
+| cognitive-adhd | -0.033 (96% cheaper) | +0.074 (0% cheaper, smallest +0.0051) | -0.012 (68% cheaper) | +0.061 (0% cheaper, smallest +0.0036) |
+| elderly-user | -0.017 (63% cheaper) | +0.119 (0% cheaper, smallest +0.0012) | +0.019 (25% cheaper) | +0.104 (0% cheaper, smallest +0.0003) |
+
+**Face validity on the 514 pages** (`stage-c-refset.ts`). X minus the typical user, mean totalCTC, 8736c2c -> built:
+
+| X | viewport | full_page |
+|---|---|---|
+| cognitive-adhd | +0.296 -> +0.275 | +0.334 -> +0.311 |
+| elderly-low-vision | +0.291 -> +0.202 | +0.264 -> +0.230 |
+| intellectual-disability | +0.267 -> +0.170 | +0.300 -> +0.251 |
+| elderly-user | +0.220 -> +0.156 | +0.241 -> +0.214 |
+| motor-impairment-tremor | +0.148 -> +0.146 | +0.100 -> +0.102 |
+| aphasia-receptive | +0.131 -> +0.128 | +0.176 -> +0.168 |
+| low-vision-magnified | +0.108 -> +0.045 | +0.052 -> +0.040 |
+| dyslexic-user | +0.060 -> +0.046 | +0.035 -> +0.032 |
+| power-user | +0.094 -> +0.125 | +0.185 -> +0.187 |
+| first-timer | +0.154 -> +0.100 | +0.144 -> +0.120 |
+| typical-user mean totalCTC | 0.379 -> 0.404 | 0.360 -> 0.374 |
+
+viewport order, highest above typical first: built cognitive-adhd, elderly-low-vision, intellectual-disability, elderly-user, motor-impairment-tremor, aphasia-receptive, dyslexic-user, low-vision-magnified; 8736c2c cognitive-adhd, elderly-low-vision, intellectual-disability, elderly-user, motor-impairment-tremor, aphasia-receptive, low-vision-magnified, dyslexic-user.
+full_page order, highest above typical first: built cognitive-adhd, intellectual-disability, elderly-low-vision, elderly-user, aphasia-receptive, motor-impairment-tremor, low-vision-magnified, dyslexic-user; 8736c2c cognitive-adhd, intellectual-disability, elderly-low-vision, elderly-user, aphasia-receptive, motor-impairment-tremor, low-vision-magnified, dyslexic-user.
+
+**Reference medians** (`reference-medians.ts`). The pooled raw cost at the reference curve's percentiles (25 personas x 514 pages, tool defaults), 8736c2c -> built:
+
+| scope | p25 | p50 | p80 | p95 |
+|---|---|---|---|---|
+| viewport | 0.1839 -> 0.1341 | 0.3085 -> 0.2543 | 0.5714 -> 0.5121 | 0.9501 -> 0.8859 |
+| full_page | 0.4639 -> 0.4194 | 0.7385 -> 0.6915 | 1.1634 -> 1.1286 | 1.6389 -> 1.6466 |
+
+Median totalCTC per persona over the 514 pages, 8736c2c -> built:
+
+| persona | viewport | full_page |
+|---|---|---|
+| power-user | 0.509 -> 0.571 | 0.579 -> 0.596 |
+| first-timer | 0.542 -> 0.503 | 0.504 -> 0.482 |
+| mobile-user | 0.659 -> 0.683 | 0.669 -> 0.664 |
+| screen-reader-user | 0.266 -> 0.296 | 0.303 -> 0.332 |
+| elderly-user | 0.628 -> 0.581 | 0.628 -> 0.606 |
+| impatient-user | 0.834 -> 0.841 | 0.873 -> 0.873 |
+| distracted-user | 0.716 -> 0.698 | 0.760 -> 0.733 |
+| careful-reader | 0.231 -> 0.268 | 0.391 -> 0.417 |
+| explorer | 0.318 -> 0.384 | 0.352 -> 0.382 |
+| task-focused | 0.207 -> 0.248 | 0.216 -> 0.245 |
+| motor-impairment-tremor | 0.535 -> 0.569 | 0.441 -> 0.465 |
+| low-vision-magnified | 0.466 -> 0.437 | 0.448 -> 0.434 |
+| cognitive-adhd | 0.751 -> 0.755 | 0.806 -> 0.790 |
+| dyslexic-user | 0.425 -> 0.434 | 0.369 -> 0.375 |
+| deaf-user | 0.378 -> 0.369 | 0.374 -> 0.362 |
+| elderly-low-vision | 0.710 -> 0.650 | 0.672 -> 0.641 |
+| color-blind-deuteranopia | 0.310 -> 0.305 | 0.257 -> 0.252 |
+| autism-spectrum | 0.219 -> 0.299 | 0.369 -> 0.386 |
+| intellectual-disability | 0.688 -> 0.598 | 0.722 -> 0.656 |
+| aphasia-receptive | 0.537 -> 0.559 | 0.544 -> 0.562 |
+| dyscalculia | 0.456 -> 0.489 | 0.428 -> 0.428 |
+| anxious-user | 0.631 -> 0.567 | 0.626 -> 0.586 |
+| confident-user | 0.506 -> 0.560 | 0.534 -> 0.567 |
+| emotional-user | 0.813 -> 0.741 | 0.850 -> 0.783 |
+| stoic-user | 0.145 -> 0.210 | 0.224 -> 0.245 |
+
+Every impaired persona stays above the typical user at both scopes. The
+smallest gap is low-vision-magnified at viewport (+0.045) and dyslexic-user at
+full_page (+0.032). The order among them is unchanged except at the bottom of
+the viewport list, where dyslexic-user and low-vision-magnified swap: +0.046 and
++0.045, now within 0.001 of each other. power-user moves to +0.125 / +0.187
+above the typical user, and first-timer to +0.100 / +0.120.
+
+**The deferred limit, measured on the built tree.** 50% more choosing time
+lowers the cost of fearOfMissingOut, socialProofSensitivity, anchoringBias and
+riskTolerance on 86%, 94%, 93% and 83% of viewport pairs. That is unchanged
+from 8736c2c (section 6).
+
+**Tests on the built tree.**
+- Gate (`bun run test:gate`): 2,438 pass, 0 fail, 212 files.
+- Each run alone, all pass:
+  - surplus-billing-motion 7, surplus-billing 11;
+  - journey-golden 43, journey-no-dead-constants 3, journey-provenance 5,
+    journey-no-literals 9;
+  - dro-bound 38, dro-bound-mutants 21;
+  - stage-c-load 12, stage-c-comprehension 4, ctc-golden 58,
+    persona-provenance 13, ctc-reference 31, capacity-depletion 11;
+  - and the scoring browser files: journey-golden-browser 3,
+    cognitive-effort-motor-preview 1, visual-story-inline 1,
+    effort-widget-render 4, story-attention-traits 4, ctc-tool-provenance 13,
+    visual-story-registry 1, page-metrics-golden 4, page-metrics-raw 6,
+    page-metrics-format2 29, effort-widget 22, journey-gif-traits 2.
+
+**For the release notes (21.0).**
+- Every totalCTC moves. One carousel or other motion now always costs more,
+  never less.
+- Personas with high emotionalContagion are cheaper on static pages and
+  costlier where the page moves (emotional-user median, viewport 0.813 ->
+  0.741).
+- Patient personas no longer pay for patience they did not use.
+- A page that asks almost nothing costs nothing.
+- cognitive_effort's `deficitVsSurplus.deficit` now includes the exposure cost,
+  and abandonment reads it.
