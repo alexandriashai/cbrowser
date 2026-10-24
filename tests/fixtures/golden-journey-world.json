@@ -419,7 +419,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 12.617,
+      "timeElapsed": 14.293,
       "stepCount": 4,
       "decisionFatigue": {
        "decisionsMade": 3,
@@ -536,7 +536,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812117,
+        "timestamp": 1792594813793,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -548,7 +548,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812617,
+        "timestamp": 1792594814293,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -610,7 +610,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 13.917,
+      "timeElapsed": 17.217,
       "stepCount": 5,
       "decisionFatigue": {
        "decisionsMade": 4,
@@ -727,7 +727,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812117,
+        "timestamp": 1792594813793,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -739,7 +739,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812617,
+        "timestamp": 1792594814293,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -752,7 +752,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813417,
+        "timestamp": 1792594816717,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -764,7 +764,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813917,
+        "timestamp": 1792594817217,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -830,7 +830,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 16.817,
+      "timeElapsed": 20.117,
       "stepCount": 6,
       "decisionFatigue": {
        "decisionsMade": 5,
@@ -947,7 +947,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812117,
+        "timestamp": 1792594813793,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -959,7 +959,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812617,
+        "timestamp": 1792594814293,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -972,7 +972,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813417,
+        "timestamp": 1792594816717,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -984,7 +984,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813917,
+        "timestamp": 1792594817217,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -997,7 +997,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816317,
+        "timestamp": 1792594819617,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1009,7 +1009,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816817,
+        "timestamp": 1792594820117,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1078,7 +1078,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 19.477,
+      "timeElapsed": 22.777,
       "stepCount": 7,
       "decisionFatigue": {
        "decisionsMade": 6,
@@ -1195,7 +1195,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812117,
+        "timestamp": 1792594813793,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1207,7 +1207,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812617,
+        "timestamp": 1792594814293,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1220,7 +1220,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813417,
+        "timestamp": 1792594816717,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1232,7 +1232,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813917,
+        "timestamp": 1792594817217,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1245,7 +1245,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816317,
+        "timestamp": 1792594819617,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1257,7 +1257,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816817,
+        "timestamp": 1792594820117,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1270,7 +1270,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594818977,
+        "timestamp": 1792594822277,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1282,7 +1282,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594819477,
+        "timestamp": 1792594822777,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1355,7 +1355,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 19.977,
+      "timeElapsed": 23.277,
       "stepCount": 8,
       "decisionFatigue": {
        "decisionsMade": 7,
@@ -1472,7 +1472,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812117,
+        "timestamp": 1792594813793,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1484,7 +1484,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812617,
+        "timestamp": 1792594814293,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1497,7 +1497,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813417,
+        "timestamp": 1792594816717,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1509,7 +1509,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813917,
+        "timestamp": 1792594817217,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1522,7 +1522,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816317,
+        "timestamp": 1792594819617,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1534,7 +1534,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816817,
+        "timestamp": 1792594820117,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1547,7 +1547,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594818977,
+        "timestamp": 1792594822277,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1559,7 +1559,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594819477,
+        "timestamp": 1792594822777,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1572,7 +1572,7 @@
         "stepNumber": 7
        },
        {
-        "timestamp": 1792594819477,
+        "timestamp": 1792594822777,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1584,7 +1584,7 @@
         "stepNumber": 7
        },
        {
-        "timestamp": 1792594819977,
+        "timestamp": 1792594823277,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1662,7 +1662,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 21.277,
+      "timeElapsed": 26.164,
       "stepCount": 9,
       "decisionFatigue": {
        "decisionsMade": 8,
@@ -1779,7 +1779,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812117,
+        "timestamp": 1792594813793,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1791,7 +1791,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812617,
+        "timestamp": 1792594814293,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1804,7 +1804,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813417,
+        "timestamp": 1792594816717,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1816,7 +1816,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813917,
+        "timestamp": 1792594817217,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1829,7 +1829,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816317,
+        "timestamp": 1792594819617,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1841,7 +1841,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594816817,
+        "timestamp": 1792594820117,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1854,7 +1854,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594818977,
+        "timestamp": 1792594822277,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1866,7 +1866,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594819477,
+        "timestamp": 1792594822777,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1879,7 +1879,7 @@
         "stepNumber": 7
        },
        {
-        "timestamp": 1792594819477,
+        "timestamp": 1792594822777,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1891,7 +1891,7 @@
         "stepNumber": 7
        },
        {
-        "timestamp": 1792594819977,
+        "timestamp": 1792594823277,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1904,7 +1904,7 @@
         "stepNumber": 8
        },
        {
-        "timestamp": 1792594820777,
+        "timestamp": 1792594825664,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -1916,7 +1916,7 @@
         "stepNumber": 8
        },
        {
-        "timestamp": 1792594821277,
+        "timestamp": 1792594826164,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -1948,9 +1948,11 @@
     9867.356772301719,
     5000,
     150,
+    1676.078460573524,
     800,
     500,
     5000,
+    1623.7131529401913,
     800,
     500,
     5000,
@@ -1962,11 +1964,12 @@
     5000,
     500,
     5000,
+    1587.1151238183054,
     800,
     500,
     5000
    ],
-   "elapsedMs": 21277.356689453125,
+   "elapsedMs": 26164.263427734375,
    "calls": [
     "navigate https://acme.example/",
     "dismissOverlay timeout=3000",
@@ -1991,7 +1994,7 @@
     "persona": "first-timer",
     "goal": "Create an account on the Starter plan",
     "goalAchieved": true,
-    "totalTime": 21.277,
+    "totalTime": 26.164,
     "stepCount": 9,
     "frictionPoints": [],
     "fullMonologue": [
@@ -2057,7 +2060,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 21.277,
+     "timeElapsed": 26.164,
      "stepCount": 9,
      "decisionFatigue": {
       "decisionsMade": 8,
@@ -2174,7 +2177,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594812117,
+       "timestamp": 1792594813793,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -2186,7 +2189,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594812617,
+       "timestamp": 1792594814293,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -2199,7 +2202,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594813417,
+       "timestamp": 1792594816717,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -2211,7 +2214,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594813917,
+       "timestamp": 1792594817217,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -2224,7 +2227,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594816317,
+       "timestamp": 1792594819617,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -2236,7 +2239,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594816817,
+       "timestamp": 1792594820117,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -2249,7 +2252,7 @@
        "stepNumber": 6
       },
       {
-       "timestamp": 1792594818977,
+       "timestamp": 1792594822277,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -2261,7 +2264,7 @@
        "stepNumber": 6
       },
       {
-       "timestamp": 1792594819477,
+       "timestamp": 1792594822777,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -2274,7 +2277,7 @@
        "stepNumber": 7
       },
       {
-       "timestamp": 1792594819477,
+       "timestamp": 1792594822777,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -2286,7 +2289,7 @@
        "stepNumber": 7
       },
       {
-       "timestamp": 1792594819977,
+       "timestamp": 1792594823277,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -2299,7 +2302,7 @@
        "stepNumber": 8
       },
       {
-       "timestamp": 1792594820777,
+       "timestamp": 1792594825664,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -2311,7 +2314,7 @@
        "stepNumber": 8
       },
       {
-       "timestamp": 1792594821277,
+       "timestamp": 1792594826164,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -2402,7 +2405,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594812117,
+      "timestamp": 1792594813793,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -2414,7 +2417,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594812617,
+      "timestamp": 1792594814293,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -2427,7 +2430,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594813417,
+      "timestamp": 1792594816717,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -2439,7 +2442,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594813917,
+      "timestamp": 1792594817217,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -2452,7 +2455,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594816317,
+      "timestamp": 1792594819617,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -2464,7 +2467,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594816817,
+      "timestamp": 1792594820117,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -2477,7 +2480,7 @@
       "stepNumber": 6
      },
      {
-      "timestamp": 1792594818977,
+      "timestamp": 1792594822277,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -2489,7 +2492,7 @@
       "stepNumber": 6
      },
      {
-      "timestamp": 1792594819477,
+      "timestamp": 1792594822777,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -2502,7 +2505,7 @@
       "stepNumber": 7
      },
      {
-      "timestamp": 1792594819477,
+      "timestamp": 1792594822777,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -2514,7 +2517,7 @@
       "stepNumber": 7
      },
      {
-      "timestamp": 1792594819977,
+      "timestamp": 1792594823277,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -2527,7 +2530,7 @@
       "stepNumber": 8
      },
      {
-      "timestamp": 1792594820777,
+      "timestamp": 1792594825664,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -2539,7 +2542,7 @@
       "stepNumber": 8
      },
      {
-      "timestamp": 1792594821277,
+      "timestamp": 1792594826164,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -2644,7 +2647,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594812617,
+      "timestamp": 1792594814293,
       "screenshotPath": "shot-3.png",
       "scrollY": 0,
       "viewport": {
@@ -2666,7 +2669,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594813917,
+      "timestamp": 1792594817217,
       "screenshotPath": "shot-4.png",
       "scrollY": 0,
       "viewport": {
@@ -2688,7 +2691,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594816817,
+      "timestamp": 1792594820117,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -2709,7 +2712,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594819477,
+      "timestamp": 1792594822777,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -2730,7 +2733,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594819977,
+      "timestamp": 1792594823277,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -2751,7 +2754,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594821277,
+      "timestamp": 1792594826164,
       "screenshotPath": "shot-5.png",
       "scrollY": 0,
       "viewport": {
@@ -2915,7 +2918,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.3,
+      "timeElapsed": 3.468,
       "stepCount": 2,
       "decisionFatigue": {
        "decisionsMade": 1,
@@ -2989,7 +2992,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802968,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -3001,7 +3004,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594803468,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3052,7 +3055,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 2.1,
+      "timeElapsed": 4.268,
       "stepCount": 3,
       "decisionFatigue": {
        "decisionsMade": 2,
@@ -3126,7 +3129,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802968,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -3138,7 +3141,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594803468,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3150,7 +3153,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801600,
+        "timestamp": 1792594803768,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3163,7 +3166,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.24438614749999998,
@@ -3175,7 +3178,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "setback",
         "changes": {
          "frustration": 0.132,
@@ -3230,7 +3233,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 12.767,
+      "timeElapsed": 14.935,
       "stepCount": 4,
       "decisionFatigue": {
        "decisionsMade": 3,
@@ -3304,7 +3307,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802968,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -3316,7 +3319,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594803468,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3328,7 +3331,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801600,
+        "timestamp": 1792594803768,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3341,7 +3344,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.24438614749999998,
@@ -3353,7 +3356,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "setback",
         "changes": {
          "frustration": 0.132,
@@ -3365,7 +3368,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812267,
+        "timestamp": 1792594814435,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3378,7 +3381,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3390,7 +3393,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "setback",
         "changes": {
          "frustration": 0.11000000000000001,
@@ -3449,7 +3452,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 13.567,
+      "timeElapsed": 15.735,
       "stepCount": 5,
       "decisionFatigue": {
        "decisionsMade": 4,
@@ -3523,7 +3526,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802968,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -3535,7 +3538,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594803468,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3547,7 +3550,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801600,
+        "timestamp": 1792594803768,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3560,7 +3563,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.24438614749999998,
@@ -3572,7 +3575,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "setback",
         "changes": {
          "frustration": 0.132,
@@ -3584,7 +3587,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812267,
+        "timestamp": 1792594814435,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3597,7 +3600,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3609,7 +3612,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "setback",
         "changes": {
          "frustration": 0.11000000000000001,
@@ -3621,7 +3624,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813067,
+        "timestamp": 1792594815235,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3634,7 +3637,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813567,
+        "timestamp": 1792594815735,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.3587577692151256,
@@ -3646,7 +3649,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594813567,
+        "timestamp": 1792594815735,
         "trigger": "setback",
         "changes": {
          "frustration": 0.18167293156238754,
@@ -3709,7 +3712,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 14.567,
+      "timeElapsed": 16.735,
       "stepCount": 6,
       "decisionFatigue": {
        "decisionsMade": 5,
@@ -3783,7 +3786,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802968,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -3795,7 +3798,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594803468,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3807,7 +3810,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801600,
+        "timestamp": 1792594803768,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3820,7 +3823,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.24438614749999998,
@@ -3832,7 +3835,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "setback",
         "changes": {
          "frustration": 0.132,
@@ -3844,7 +3847,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812267,
+        "timestamp": 1792594814435,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3857,7 +3860,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -3869,7 +3872,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "setback",
         "changes": {
          "frustration": 0.11000000000000001,
@@ -3881,7 +3884,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813067,
+        "timestamp": 1792594815235,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3894,7 +3897,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813567,
+        "timestamp": 1792594815735,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.3587577692151256,
@@ -3906,7 +3909,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594813567,
+        "timestamp": 1792594815735,
         "trigger": "setback",
         "changes": {
          "frustration": 0.18167293156238754,
@@ -3918,7 +3921,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594814067,
+        "timestamp": 1792594816235,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -3931,7 +3934,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594814567,
+        "timestamp": 1792594816735,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.2655035984473556,
@@ -3998,7 +4001,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 15.367,
+      "timeElapsed": 17.535,
       "stepCount": 7,
       "decisionFatigue": {
        "decisionsMade": 6,
@@ -4072,7 +4075,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802968,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -4084,7 +4087,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594803468,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -4096,7 +4099,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801600,
+        "timestamp": 1792594803768,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -4109,7 +4112,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.24438614749999998,
@@ -4121,7 +4124,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594811967,
+        "timestamp": 1792594814135,
         "trigger": "setback",
         "changes": {
          "frustration": 0.132,
@@ -4133,7 +4136,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812267,
+        "timestamp": 1792594814435,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -4146,7 +4149,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.1375,
@@ -4158,7 +4161,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594812767,
+        "timestamp": 1792594814935,
         "trigger": "setback",
         "changes": {
          "frustration": 0.11000000000000001,
@@ -4170,7 +4173,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813067,
+        "timestamp": 1792594815235,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -4183,7 +4186,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594813567,
+        "timestamp": 1792594815735,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.3587577692151256,
@@ -4195,7 +4198,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594813567,
+        "timestamp": 1792594815735,
         "trigger": "setback",
         "changes": {
          "frustration": 0.18167293156238754,
@@ -4207,7 +4210,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594814067,
+        "timestamp": 1792594816235,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -4220,7 +4223,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594814567,
+        "timestamp": 1792594816735,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.2655035984473556,
@@ -4232,7 +4235,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594814867,
+        "timestamp": 1792594817035,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -4245,7 +4248,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594815367,
+        "timestamp": 1792594817535,
         "trigger": "confusion_onset",
         "changes": {
          "confusion": 0.2014574429958079,
@@ -4257,7 +4260,7 @@
         "stepNumber": 7
        },
        {
-        "timestamp": 1792594815367,
+        "timestamp": 1792594817535,
         "trigger": "setback",
         "changes": {
          "frustration": 0.31502426872825445,
@@ -4281,6 +4284,7 @@
    ],
    "delays": [
     5000,
+    2168.273196437003,
     800,
     500,
     5000,
@@ -4301,7 +4305,7 @@
     500,
     5000
    ],
-   "elapsedMs": 15367.356689453125,
+   "elapsedMs": 17535.6298828125,
    "calls": [
     "navigate https://acme.example/",
     "mouse 830,35",
@@ -4325,7 +4329,7 @@
     "goalAchieved": false,
     "abandonmentReason": "confusion",
     "abandonmentMessage": "I have no idea what to do. This is too confusing.",
-    "totalTime": 15.367,
+    "totalTime": 17.535,
     "stepCount": 7,
     "frictionPoints": [
      {
@@ -4401,7 +4405,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 15.367,
+     "timeElapsed": 17.535,
      "stepCount": 7,
      "decisionFatigue": {
       "decisionsMade": 6,
@@ -4475,7 +4479,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594800800,
+       "timestamp": 1792594802968,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.198,
@@ -4487,7 +4491,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594801300,
+       "timestamp": 1792594803468,
        "trigger": "confusion_onset",
        "changes": {
         "confusion": 0.1375,
@@ -4499,7 +4503,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594801600,
+       "timestamp": 1792594803768,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -4512,7 +4516,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594811967,
+       "timestamp": 1792594814135,
        "trigger": "confusion_onset",
        "changes": {
         "confusion": 0.24438614749999998,
@@ -4524,7 +4528,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594811967,
+       "timestamp": 1792594814135,
        "trigger": "setback",
        "changes": {
         "frustration": 0.132,
@@ -4536,7 +4540,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594812267,
+       "timestamp": 1792594814435,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -4549,7 +4553,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594812767,
+       "timestamp": 1792594814935,
        "trigger": "confusion_onset",
        "changes": {
         "confusion": 0.1375,
@@ -4561,7 +4565,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594812767,
+       "timestamp": 1792594814935,
        "trigger": "setback",
        "changes": {
         "frustration": 0.11000000000000001,
@@ -4573,7 +4577,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594813067,
+       "timestamp": 1792594815235,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -4586,7 +4590,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594813567,
+       "timestamp": 1792594815735,
        "trigger": "confusion_onset",
        "changes": {
         "confusion": 0.3587577692151256,
@@ -4598,7 +4602,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594813567,
+       "timestamp": 1792594815735,
        "trigger": "setback",
        "changes": {
         "frustration": 0.18167293156238754,
@@ -4610,7 +4614,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594814067,
+       "timestamp": 1792594816235,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -4623,7 +4627,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594814567,
+       "timestamp": 1792594816735,
        "trigger": "confusion_onset",
        "changes": {
         "confusion": 0.2655035984473556,
@@ -4635,7 +4639,7 @@
        "stepNumber": 6
       },
       {
-       "timestamp": 1792594814867,
+       "timestamp": 1792594817035,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -4648,7 +4652,7 @@
        "stepNumber": 6
       },
       {
-       "timestamp": 1792594815367,
+       "timestamp": 1792594817535,
        "trigger": "confusion_onset",
        "changes": {
         "confusion": 0.2014574429958079,
@@ -4660,7 +4664,7 @@
        "stepNumber": 7
       },
       {
-       "timestamp": 1792594815367,
+       "timestamp": 1792594817535,
        "trigger": "setback",
        "changes": {
         "frustration": 0.31502426872825445,
@@ -4711,7 +4715,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594800800,
+      "timestamp": 1792594802968,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.198,
@@ -4723,7 +4727,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594801300,
+      "timestamp": 1792594803468,
       "trigger": "confusion_onset",
       "changes": {
        "confusion": 0.1375,
@@ -4735,7 +4739,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594801600,
+      "timestamp": 1792594803768,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -4748,7 +4752,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594811967,
+      "timestamp": 1792594814135,
       "trigger": "confusion_onset",
       "changes": {
        "confusion": 0.24438614749999998,
@@ -4760,7 +4764,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594811967,
+      "timestamp": 1792594814135,
       "trigger": "setback",
       "changes": {
        "frustration": 0.132,
@@ -4772,7 +4776,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594812267,
+      "timestamp": 1792594814435,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -4785,7 +4789,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594812767,
+      "timestamp": 1792594814935,
       "trigger": "confusion_onset",
       "changes": {
        "confusion": 0.1375,
@@ -4797,7 +4801,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594812767,
+      "timestamp": 1792594814935,
       "trigger": "setback",
       "changes": {
        "frustration": 0.11000000000000001,
@@ -4809,7 +4813,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594813067,
+      "timestamp": 1792594815235,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -4822,7 +4826,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594813567,
+      "timestamp": 1792594815735,
       "trigger": "confusion_onset",
       "changes": {
        "confusion": 0.3587577692151256,
@@ -4834,7 +4838,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594813567,
+      "timestamp": 1792594815735,
       "trigger": "setback",
       "changes": {
        "frustration": 0.18167293156238754,
@@ -4846,7 +4850,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594814067,
+      "timestamp": 1792594816235,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -4859,7 +4863,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594814567,
+      "timestamp": 1792594816735,
       "trigger": "confusion_onset",
       "changes": {
        "confusion": 0.2655035984473556,
@@ -4871,7 +4875,7 @@
       "stepNumber": 6
      },
      {
-      "timestamp": 1792594814867,
+      "timestamp": 1792594817035,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -4884,7 +4888,7 @@
       "stepNumber": 6
      },
      {
-      "timestamp": 1792594815367,
+      "timestamp": 1792594817535,
       "trigger": "confusion_onset",
       "changes": {
        "confusion": 0.2014574429958079,
@@ -4896,7 +4900,7 @@
       "stepNumber": 7
      },
      {
-      "timestamp": 1792594815367,
+      "timestamp": 1792594817535,
       "trigger": "setback",
       "changes": {
        "frustration": 0.31502426872825445,
@@ -4957,7 +4961,7 @@
       "patience": 0.9036033165480163,
       "confusion": 0.24366155000000003,
       "frustration": 0.125868224453125,
-      "timestamp": 1792594801300,
+      "timestamp": 1792594803468,
       "screenshotPath": "shot-2.png",
       "scrollY": 0,
       "viewport": {
@@ -4979,7 +4983,7 @@
       "patience": 0.8746185074473397,
       "confusion": 0.368843977095,
       "frustration": 0.20847345223512503,
-      "timestamp": 1792594811967,
+      "timestamp": 1792594814135,
       "screenshotPath": "shot-3.png",
       "scrollY": 400,
       "viewport": {
@@ -5001,7 +5005,7 @@
       "patience": 0.8837846681688223,
       "confusion": 0.38571314688159,
       "frustration": 0.21910697372184657,
-      "timestamp": 1792594812767,
+      "timestamp": 1792594814935,
       "screenshotPath": "shot-4.png",
       "scrollY": 800,
       "viewport": {
@@ -5023,7 +5027,7 @@
       "patience": 0.706154976068421,
       "confusion": 0.6052661846411717,
       "frustration": 0.3740952988939118,
-      "timestamp": 1792594813567,
+      "timestamp": 1792594815735,
       "screenshotPath": "shot-5.png",
       "scrollY": 400,
       "viewport": {
@@ -5045,7 +5049,7 @@
       "patience": 0.7967136184745519,
       "confusion": 0.7217137400076221,
       "frustration": 0.3160357528903309,
-      "timestamp": 1792594814567,
+      "timestamp": 1792594816735,
       "screenshotPath": "shot-6.png",
       "scrollY": 1600,
       "viewport": {
@@ -5067,7 +5071,7 @@
       "patience": 0.5478966622162139,
       "confusion": 0.7700278307291624,
       "frustration": 0.5259535660514923,
-      "timestamp": 1792594815367,
+      "timestamp": 1792594817535,
       "screenshotPath": "shot-7.png",
       "scrollY": 2000,
       "viewport": {
@@ -23165,7 +23169,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.3,
+      "timeElapsed": 2.864,
       "stepCount": 2,
       "decisionFatigue": {
        "decisionsMade": 1,
@@ -23228,7 +23232,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802364,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -23240,7 +23244,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802864,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -23292,7 +23296,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 2.2,
+      "timeElapsed": 3.764,
       "stepCount": 3,
       "decisionFatigue": {
        "decisionsMade": 2,
@@ -23355,7 +23359,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802364,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -23367,7 +23371,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802864,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -23380,7 +23384,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801700,
+        "timestamp": 1792594803264,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -23392,7 +23396,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594812067,
+        "timestamp": 1792594813631,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -23416,6 +23420,7 @@
    ],
    "delays": [
     5000,
+    1564.2703056592409,
     800,
     500,
     5000,
@@ -23426,7 +23431,7 @@
     800,
     500
    ],
-   "elapsedMs": 13367.356689453125,
+   "elapsedMs": 14931.626953125,
    "calls": [
     "navigate https://acme.example/",
     "mouse 640,35",
@@ -23450,7 +23455,7 @@
     "persona": "power-user",
     "goal": "See the Team price",
     "goalAchieved": true,
-    "totalTime": 13.367,
+    "totalTime": 14.931,
     "stepCount": 3,
     "frictionPoints": [],
     "fullMonologue": [
@@ -23487,7 +23492,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 2.2,
+     "timeElapsed": 3.764,
      "stepCount": 3,
      "decisionFatigue": {
       "decisionsMade": 3,
@@ -23550,7 +23555,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594800800,
+       "timestamp": 1792594802364,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -23562,7 +23567,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594801300,
+       "timestamp": 1792594802864,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -23575,7 +23580,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594801700,
+       "timestamp": 1792594803264,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -23587,7 +23592,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594812067,
+       "timestamp": 1792594813631,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -23600,7 +23605,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594812867,
+       "timestamp": 1792594814431,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -23640,7 +23645,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594800800,
+      "timestamp": 1792594802364,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -23652,7 +23657,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802864,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -23665,7 +23670,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594801700,
+      "timestamp": 1792594803264,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -23677,7 +23682,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594812067,
+      "timestamp": 1792594813631,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -23690,7 +23695,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594812867,
+      "timestamp": 1792594814431,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -23751,7 +23756,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802864,
       "screenshotPath": "shot-2.png",
       "scrollY": 0,
       "viewport": {
@@ -23773,7 +23778,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594812067,
+      "timestamp": 1792594813631,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -25050,7 +25055,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.3,
+      "timeElapsed": 3.436,
       "stepCount": 2,
       "decisionFatigue": {
        "decisionsMade": 1,
@@ -25113,7 +25118,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802936,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25125,7 +25130,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594811138,
+        "timestamp": 1792594813275,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25177,7 +25182,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 17.263,
+      "timeElapsed": 19.4,
       "stepCount": 3,
       "decisionFatigue": {
        "decisionsMade": 2,
@@ -25240,7 +25245,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802936,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25252,7 +25257,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594811138,
+        "timestamp": 1792594813275,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25265,7 +25270,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594816763,
+        "timestamp": 1792594818900,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25277,7 +25282,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594817263,
+        "timestamp": 1792594819400,
         "trigger": "setback",
         "changes": {
          "frustration": 0.22000000000000003,
@@ -25331,7 +25336,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 23.078,
+      "timeElapsed": 25.215,
       "stepCount": 4,
       "decisionFatigue": {
        "decisionsMade": 3,
@@ -25394,7 +25399,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802936,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25406,7 +25411,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594811138,
+        "timestamp": 1792594813275,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25419,7 +25424,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594816763,
+        "timestamp": 1792594818900,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25431,7 +25436,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594817263,
+        "timestamp": 1792594819400,
         "trigger": "setback",
         "changes": {
          "frustration": 0.22000000000000003,
@@ -25443,7 +25448,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594822578,
+        "timestamp": 1792594824715,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25455,7 +25460,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594823078,
+        "timestamp": 1792594825215,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25515,7 +25520,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 24.378,
+      "timeElapsed": 28.595,
       "stepCount": 5,
       "decisionFatigue": {
        "decisionsMade": 4,
@@ -25578,7 +25583,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802936,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25590,7 +25595,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594811138,
+        "timestamp": 1792594813275,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25603,7 +25608,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594816763,
+        "timestamp": 1792594818900,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25615,7 +25620,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594817263,
+        "timestamp": 1792594819400,
         "trigger": "setback",
         "changes": {
          "frustration": 0.22000000000000003,
@@ -25627,7 +25632,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594822578,
+        "timestamp": 1792594824715,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25639,7 +25644,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594823078,
+        "timestamp": 1792594825215,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25652,7 +25657,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594823878,
+        "timestamp": 1792594828095,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25664,7 +25669,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594824378,
+        "timestamp": 1792594828595,
         "trigger": "setback",
         "changes": {
          "frustration": 0.11000000000000001,
@@ -25728,7 +25733,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 25.178,
+      "timeElapsed": 29.395,
       "stepCount": 6,
       "decisionFatigue": {
        "decisionsMade": 5,
@@ -25791,7 +25796,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802936,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25803,7 +25808,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594811138,
+        "timestamp": 1792594813275,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25816,7 +25821,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594816763,
+        "timestamp": 1792594818900,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25828,7 +25833,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594817263,
+        "timestamp": 1792594819400,
         "trigger": "setback",
         "changes": {
          "frustration": 0.22000000000000003,
@@ -25840,7 +25845,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594822578,
+        "timestamp": 1792594824715,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25852,7 +25857,7 @@
         "stepNumber": 3
        },
        {
-        "timestamp": 1792594823078,
+        "timestamp": 1792594825215,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25865,7 +25870,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594823878,
+        "timestamp": 1792594828095,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.198,
@@ -25877,7 +25882,7 @@
         "stepNumber": 4
        },
        {
-        "timestamp": 1792594824378,
+        "timestamp": 1792594828595,
         "trigger": "setback",
         "changes": {
          "frustration": 0.11000000000000001,
@@ -25889,7 +25894,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594825178,
+        "timestamp": 1792594829395,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.17600000000000005,
@@ -25913,6 +25918,7 @@
    ],
    "delays": [
     5000,
+    2136.9766191403623,
     800,
     500,
     9838.35342945531,
@@ -25923,6 +25929,7 @@
     5315,
     500,
     5000,
+    2079.9568592729192,
     800,
     500,
     5000,
@@ -25932,7 +25939,7 @@
     300,
     500
    ],
-   "elapsedMs": 25978.353515625,
+   "elapsedMs": 30195.286865234375,
    "calls": [
     "navigate https://acme.example/",
     "mouse 740,35",
@@ -26006,7 +26013,7 @@
     "persona": "elderly-user",
     "goal": "Sign up again",
     "goalAchieved": false,
-    "totalTime": 25.978,
+    "totalTime": 30.195,
     "stepCount": 6,
     "frictionPoints": [],
     "fullMonologue": [
@@ -26059,7 +26066,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 25.178,
+     "timeElapsed": 29.395,
      "stepCount": 6,
      "decisionFatigue": {
       "decisionsMade": 6,
@@ -26122,7 +26129,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594800800,
+       "timestamp": 1792594802936,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.198,
@@ -26134,7 +26141,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594811138,
+       "timestamp": 1792594813275,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -26147,7 +26154,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594816763,
+       "timestamp": 1792594818900,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.198,
@@ -26159,7 +26166,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594817263,
+       "timestamp": 1792594819400,
        "trigger": "setback",
        "changes": {
         "frustration": 0.22000000000000003,
@@ -26171,7 +26178,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594822578,
+       "timestamp": 1792594824715,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.198,
@@ -26183,7 +26190,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594823078,
+       "timestamp": 1792594825215,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -26196,7 +26203,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594823878,
+       "timestamp": 1792594828095,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.198,
@@ -26208,7 +26215,7 @@
        "stepNumber": 4
       },
       {
-       "timestamp": 1792594824378,
+       "timestamp": 1792594828595,
        "trigger": "setback",
        "changes": {
         "frustration": 0.11000000000000001,
@@ -26220,7 +26227,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594825178,
+       "timestamp": 1792594829395,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.17600000000000005,
@@ -26261,7 +26268,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594800800,
+      "timestamp": 1792594802936,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.198,
@@ -26273,7 +26280,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594811138,
+      "timestamp": 1792594813275,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -26286,7 +26293,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594816763,
+      "timestamp": 1792594818900,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.198,
@@ -26298,7 +26305,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594817263,
+      "timestamp": 1792594819400,
       "trigger": "setback",
       "changes": {
        "frustration": 0.22000000000000003,
@@ -26310,7 +26317,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594822578,
+      "timestamp": 1792594824715,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.198,
@@ -26322,7 +26329,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594823078,
+      "timestamp": 1792594825215,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -26335,7 +26342,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594823878,
+      "timestamp": 1792594828095,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.198,
@@ -26347,7 +26354,7 @@
       "stepNumber": 4
      },
      {
-      "timestamp": 1792594824378,
+      "timestamp": 1792594828595,
       "trigger": "setback",
       "changes": {
        "frustration": 0.11000000000000001,
@@ -26359,7 +26366,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594825178,
+      "timestamp": 1792594829395,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.17600000000000005,
@@ -26421,7 +26428,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594811138,
+      "timestamp": 1792594813275,
       "screenshotPath": "shot-2.png",
       "scrollY": 0,
       "viewport": {
@@ -26443,7 +26450,7 @@
       "patience": 0.904488522810637,
       "confusion": 0,
       "frustration": 0.19962250000000004,
-      "timestamp": 1792594817263,
+      "timestamp": 1792594819400,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -26464,7 +26471,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0.0014722159375000243,
-      "timestamp": 1792594823078,
+      "timestamp": 1792594825215,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -26485,7 +26492,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0.09981125000000002,
-      "timestamp": 1792594824378,
+      "timestamp": 1792594828595,
       "screenshotPath": "shot-3.png",
       "scrollY": 0,
       "viewport": {
@@ -26507,7 +26514,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594825178,
+      "timestamp": 1792594829395,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -27398,7 +27405,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 4.2,
+      "timeElapsed": 5.826,
       "stepCount": 6,
       "decisionFatigue": {
        "decisionsMade": 5,
@@ -27574,7 +27581,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594803700,
+        "timestamp": 1792594805326,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -27586,7 +27593,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594804200,
+        "timestamp": 1792594805826,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -27654,7 +27661,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 4.7,
+      "timeElapsed": 6.326,
       "stepCount": 7,
       "decisionFatigue": {
        "decisionsMade": 6,
@@ -27830,7 +27837,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594803700,
+        "timestamp": 1792594805326,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.207,
@@ -27842,7 +27849,7 @@
         "stepNumber": 5
        },
        {
-        "timestamp": 1792594804200,
+        "timestamp": 1792594805826,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -27855,7 +27862,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594804200,
+        "timestamp": 1792594805826,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -27868,7 +27875,7 @@
         "stepNumber": 6
        },
        {
-        "timestamp": 1792594804700,
+        "timestamp": 1792594806326,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.184,
@@ -27903,6 +27910,7 @@
     300,
     500,
     5000,
+    1626.41046918049,
     800,
     500,
     5000,
@@ -27912,7 +27920,7 @@
     1000,
     500
    ],
-   "elapsedMs": 7539.34521484375,
+   "elapsedMs": 9165.755615234375,
    "calls": [
     "navigate https://acme.example/",
     "mouse 830,35",
@@ -27991,7 +27999,7 @@
     "persona": "explorer",
     "goal": "Look around",
     "goalAchieved": false,
-    "totalTime": 7.539,
+    "totalTime": 9.165,
     "stepCount": 7,
     "frictionPoints": [],
     "fullMonologue": [
@@ -28049,7 +28057,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 4.7,
+     "timeElapsed": 6.326,
      "stepCount": 7,
      "decisionFatigue": {
       "decisionsMade": 7,
@@ -28225,7 +28233,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594803700,
+       "timestamp": 1792594805326,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -28237,7 +28245,7 @@
        "stepNumber": 5
       },
       {
-       "timestamp": 1792594804200,
+       "timestamp": 1792594805826,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -28250,7 +28258,7 @@
        "stepNumber": 6
       },
       {
-       "timestamp": 1792594804200,
+       "timestamp": 1792594805826,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -28263,7 +28271,7 @@
        "stepNumber": 6
       },
       {
-       "timestamp": 1792594804700,
+       "timestamp": 1792594806326,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.184,
@@ -28276,7 +28284,7 @@
        "stepNumber": 7
       },
       {
-       "timestamp": 1792594807039,
+       "timestamp": 1792594808665,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.207,
@@ -28425,7 +28433,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594803700,
+      "timestamp": 1792594805326,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -28437,7 +28445,7 @@
       "stepNumber": 5
      },
      {
-      "timestamp": 1792594804200,
+      "timestamp": 1792594805826,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -28450,7 +28458,7 @@
       "stepNumber": 6
      },
      {
-      "timestamp": 1792594804200,
+      "timestamp": 1792594805826,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -28463,7 +28471,7 @@
       "stepNumber": 6
      },
      {
-      "timestamp": 1792594804700,
+      "timestamp": 1792594806326,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.184,
@@ -28476,7 +28484,7 @@
       "stepNumber": 7
      },
      {
-      "timestamp": 1792594807039,
+      "timestamp": 1792594808665,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.207,
@@ -28623,7 +28631,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0.045744198973079776,
-      "timestamp": 1792594804200,
+      "timestamp": 1792594805826,
       "screenshotPath": "shot-4.png",
       "scrollY": 0,
       "viewport": {
@@ -28645,7 +28653,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594804700,
+      "timestamp": 1792594806326,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -30449,7 +30457,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.3,
+      "timeElapsed": 2.891,
       "stepCount": 2,
       "decisionFatigue": {
        "decisionsMade": 1,
@@ -30512,7 +30520,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802391,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -30524,7 +30532,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802891,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -30578,7 +30586,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.8,
+      "timeElapsed": 3.391,
       "stepCount": 3,
       "decisionFatigue": {
        "decisionsMade": 2,
@@ -30641,7 +30649,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802391,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -30653,7 +30661,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802891,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -30666,7 +30674,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802891,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -30678,7 +30686,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811667,
+        "timestamp": 1792594813258,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -30702,6 +30710,7 @@
    ],
    "delays": [
     5000,
+    1591.4515835510376,
     800,
     500,
     5000,
@@ -30711,7 +30720,7 @@
     300,
     500
    ],
-   "elapsedMs": 12467.356689453125,
+   "elapsedMs": 14058.808349609375,
    "calls": [
     "navigate https://acme.example/",
     "banner click:Docs  →  the Docs link in the header",
@@ -30744,7 +30753,7 @@
     "persona": "power-user",
     "goal": "Open the docs",
     "goalAchieved": false,
-    "totalTime": 12.467,
+    "totalTime": 14.058,
     "stepCount": 3,
     "frictionPoints": [],
     "fullMonologue": [
@@ -30783,7 +30792,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 1.8,
+     "timeElapsed": 3.391,
      "stepCount": 3,
      "decisionFatigue": {
       "decisionsMade": 3,
@@ -30846,7 +30855,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594800800,
+       "timestamp": 1792594802391,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -30858,7 +30867,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594801300,
+       "timestamp": 1792594802891,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -30871,7 +30880,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594801300,
+       "timestamp": 1792594802891,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -30883,7 +30892,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594811667,
+       "timestamp": 1792594813258,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -30896,7 +30905,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594811967,
+       "timestamp": 1792594813558,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -30936,7 +30945,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594800800,
+      "timestamp": 1792594802391,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -30948,7 +30957,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802891,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -30961,7 +30970,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802891,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -30973,7 +30982,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594811667,
+      "timestamp": 1792594813258,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -30986,7 +30995,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594811967,
+      "timestamp": 1792594813558,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -31047,7 +31056,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802891,
       "screenshotPath": "shot-2.png",
       "scrollY": 0,
       "viewport": {
@@ -31069,7 +31078,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594811667,
+      "timestamp": 1792594813258,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -42380,7 +42389,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.3,
+      "timeElapsed": 3.009,
       "stepCount": 2,
       "decisionFatigue": {
        "decisionsMade": 1,
@@ -42439,7 +42448,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594815800,
+        "timestamp": 1792594817509,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -42451,7 +42460,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594816300,
+        "timestamp": 1792594818009,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -42479,13 +42488,14 @@
     5000,
     7500,
     5000,
+    1709.3232732718361,
     800,
     500,
     5000,
     300,
     500
    ],
-   "elapsedMs": 17100,
+   "elapsedMs": 18809.3232421875,
    "calls": [
     "navigate https://acme.example/flaky",
     "navigate https://acme.example/flaky",
@@ -42510,7 +42520,7 @@
     "persona": "power-user",
     "goal": "See pricing",
     "goalAchieved": false,
-    "totalTime": 2.1,
+    "totalTime": 3.809,
     "stepCount": 2,
     "frictionPoints": [],
     "fullMonologue": [
@@ -42542,7 +42552,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 1.3,
+     "timeElapsed": 3.009,
      "stepCount": 2,
      "decisionFatigue": {
       "decisionsMade": 2,
@@ -42601,7 +42611,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594815800,
+       "timestamp": 1792594817509,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -42613,7 +42623,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594816300,
+       "timestamp": 1792594818009,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -42626,7 +42636,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594816600,
+       "timestamp": 1792594818309,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -42666,7 +42676,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594815800,
+      "timestamp": 1792594817509,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -42678,7 +42688,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594816300,
+      "timestamp": 1792594818009,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -42691,7 +42701,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594816600,
+      "timestamp": 1792594818309,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -42752,7 +42762,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594816300,
+      "timestamp": 1792594818009,
       "screenshotPath": "shot-2.png",
       "scrollY": 0,
       "viewport": {
@@ -43910,7 +43920,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.3,
+      "timeElapsed": 2.841,
       "stepCount": 2,
       "decisionFatigue": {
        "decisionsMade": 1,
@@ -43969,7 +43979,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802341,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -43981,7 +43991,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802841,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -44033,7 +44043,7 @@
        "errorsEncountered": [],
        "backtrackCount": 0
       },
-      "timeElapsed": 1.8,
+      "timeElapsed": 3.341,
       "stepCount": 3,
       "decisionFatigue": {
        "decisionsMade": 2,
@@ -44092,7 +44102,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594800800,
+        "timestamp": 1792594802341,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -44104,7 +44114,7 @@
         "stepNumber": 1
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802841,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -44117,7 +44127,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594801300,
+        "timestamp": 1792594802841,
         "trigger": "progress",
         "changes": {
          "satisfaction": 0.243,
@@ -44129,7 +44139,7 @@
         "stepNumber": 2
        },
        {
-        "timestamp": 1792594811667,
+        "timestamp": 1792594813208,
         "trigger": "success",
         "changes": {
          "satisfaction": 0.21600000000000003,
@@ -44153,16 +44163,18 @@
    ],
    "delays": [
     5000,
+    1541.6058506221061,
     800,
     500,
     5000,
     500,
     9867.356772301719,
     5000,
+    1338.7222686619318,
     800,
     500
    ],
-   "elapsedMs": 12967.356689453125,
+   "elapsedMs": 15847.684814453125,
    "calls": [
     "navigate https://acme.example/choose",
     "mouse 200,400",
@@ -44187,7 +44199,7 @@
     "persona": "power-user",
     "goal": "Pick a plan",
     "goalAchieved": false,
-    "totalTime": 12.967,
+    "totalTime": 15.847,
     "stepCount": 3,
     "frictionPoints": [],
     "fullMonologue": [
@@ -44225,7 +44237,7 @@
       "errorsEncountered": [],
       "backtrackCount": 0
      },
-     "timeElapsed": 1.8,
+     "timeElapsed": 3.341,
      "stepCount": 3,
      "decisionFatigue": {
       "decisionsMade": 3,
@@ -44284,7 +44296,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594800800,
+       "timestamp": 1792594802341,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -44296,7 +44308,7 @@
        "stepNumber": 1
       },
       {
-       "timestamp": 1792594801300,
+       "timestamp": 1792594802841,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -44309,7 +44321,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594801300,
+       "timestamp": 1792594802841,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -44321,7 +44333,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594811667,
+       "timestamp": 1792594813208,
        "trigger": "success",
        "changes": {
         "satisfaction": 0.21600000000000003,
@@ -44334,7 +44346,7 @@
        "stepNumber": 3
       },
       {
-       "timestamp": 1792594812467,
+       "timestamp": 1792594815347,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.243,
@@ -44374,7 +44386,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594800800,
+      "timestamp": 1792594802341,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -44386,7 +44398,7 @@
       "stepNumber": 1
      },
      {
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802841,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -44399,7 +44411,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802841,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -44411,7 +44423,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594811667,
+      "timestamp": 1792594813208,
       "trigger": "success",
       "changes": {
        "satisfaction": 0.21600000000000003,
@@ -44424,7 +44436,7 @@
       "stepNumber": 3
      },
      {
-      "timestamp": 1792594812467,
+      "timestamp": 1792594815347,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.243,
@@ -44485,7 +44497,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594801300,
+      "timestamp": 1792594802841,
       "screenshotPath": "shot-2.png",
       "scrollY": 0,
       "viewport": {
@@ -44507,7 +44519,7 @@
       "patience": 1,
       "confusion": 0,
       "frustration": 0,
-      "timestamp": 1792594811667,
+      "timestamp": 1792594813208,
       "scrollY": 0,
       "viewport": {
        "width": 1280,
@@ -44755,10 +44767,11 @@
     500,
     5000,
     150,
+    1615.109735403902,
     800,
     500
    ],
-   "elapsedMs": 2250,
+   "elapsedMs": 3865.109619140625,
    "calls": [
     "navigate https://acme.example/",
     "mouse 640,35",
@@ -44774,7 +44787,7 @@
     "persona": "partial-traits",
     "goal": "Look around",
     "goalAchieved": false,
-    "totalTime": 2.25,
+    "totalTime": 3.865,
     "stepCount": 2,
     "frictionPoints": [],
     "fullMonologue": [
@@ -44895,7 +44908,7 @@
        "stepNumber": 2
       },
       {
-       "timestamp": 1792594801750,
+       "timestamp": 1792594803365,
        "trigger": "progress",
        "changes": {
         "satisfaction": 0.216,
@@ -44961,7 +44974,7 @@
       "stepNumber": 2
      },
      {
-      "timestamp": 1792594801750,
+      "timestamp": 1792594803365,
       "trigger": "progress",
       "changes": {
        "satisfaction": 0.216,
