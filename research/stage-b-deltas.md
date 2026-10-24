@@ -22,7 +22,9 @@ Integration has since taken ref-v2's 512-page re-crawl (42ed67b, which adds
 `proseInNav`). The tables below stay on the 513 pages they were measured on.
 On the re-crawl the viewport law-time medians are pointing 24.2 s, choosing
 2.4 s, reading 25.6 s and procedure 1.4 s (full_page: 68.7, 6.4, 96.0 and 1.4
-s), within 0.4 s of section 1's at the viewport.
+s), within 0.4 s of section 1's at the viewport. Reading then moved again with
+the menu labels' first reads (section 1, menu labels): 22.6 s at the viewport,
+91.5 s at full page.
 
 Scripts: `research/stage-b-capacity-deltas.ts` (golden matrix; `BEFORE=` names
 the pin to compare against), `research/stage-b-refset-scores.ts` and
@@ -45,7 +47,7 @@ choosing 2.5 s, reading 24.1 s and procedure 1.4 s, so the final data moves
 choosing and reading only slightly. Decision demand is the smallest layer
 driver, and full_page reading is near saturation, as the design predicted.
 
-### What the reading law reads, and nav items
+### What the reading law reads, and menu labels
 
 Reading takes the outermost-only `prose {chars, words}` and the letter
 histogram `text.wordLengths`, which covers the same prose: on every alphabetic
@@ -53,30 +55,46 @@ reference page the histogram's counts sum to `prose.words` exactly
 (`tests/stage-b-demand.test.ts` pins it). The reading law never reads
 `textChars`, which sums nested elements and relies on the 0.4 factor.
 
-Nav list items stay in reading (Alexa, 2026-10-23). On a first visit a nav
-label is charged once to reading (Brysbaert) and once to choosing (novice
-search), and that is the split the search law was calibrated under, not the
-same seconds counted twice. Cockburn, Gutwin & Greenberg (2007) fitted their
-visual-search constants without block 1, "presumably because there is an
-additional cost in reading the menu labels for the first time. To avoid
-incorporating this one-off cost in the calibration of visual search we
-removed block 1 from the visual search analysis. Our model is therefore based
-on visual search for items that have been previously read."
+Menu labels (ISC-76; Alexa, 2026-10-23). On a first visit a menu label is read
+once and then searched, and the search law was calibrated that way: Cockburn,
+Gutwin & Greenberg (2007) fitted their visual-search constants without block
+1, "presumably because there is an additional cost in reading the menu labels
+for the first time. To avoid incorporating this one-off cost in the
+calibration of visual search we removed block 1 from the visual search
+analysis. Our model is therefore based on visual search for items that have
+been previously read."
 
-The raw record measures the labels' prose apart (`proseInNav`, from the
-512-page re-crawl) for reporting; the reading law does not read it. Its share
-of the reading time, over that reference:
+So the reading law reads the prose outside every group (prose minus
+`proseInNav`, in letters, abjad words and CJK characters) at Brysbaert's
+rates, and charges each grouped link one first read,
+`law.reading.labelFirstRead` = 0.13 s. That is a hypothesis read off the same
+paper's Figure 2: random condition, block 1 (about 0.97 s) minus block 2
+(about 0.84 s), by eye to +-0.02 s, eight participants; an upper bound, since
+block 1 also carries warm-up. The static+familiar condition shows about
+0.07 s. The label seconds are part of the reading time, so the persona's
+reading capacity applies to them as to prose; search keeps Cockburn's
+constants. On the per-screen path (scope sequential) the label part takes the
+new-choices share, as choosing does.
 
-| scope | median | p90 |
+On the 512-page reference the in-group prose was 7.1% of the reading time at
+the viewport median (p90 44.8%) and 2.6% at full page (p90 27.5%). Reading
+moves:
+
+| scope | before (all prose at Brysbaert's rate) | after (labels at 0.13 s) |
 |---|---|---|
-| viewport | 7.1% | 44.8% |
-| full_page | 2.6% | 27.5% |
+| viewport | 25.6 s [3.8, 70.9], d 0.67 | 22.6 s [3.0, 69.0], d 0.65 |
+| full_page | 96.0 s [13.4, 381.2], d 0.89 | 91.5 s [12.3, 341.9], d 0.88 |
 
-A named limit, not a double count: Brysbaert's rate charges the median
-one-word label about 0.25 s, while the same paper's Figure 2 puts the
-first-read cost at about 0.13 s per label (random condition, block 1 minus
-block 2, read off the plot; an upper bound, since block 1 also carries task
-warm-up).
+Two limits, measured:
+- A label of 0, 1 or 2 letters costs more as a label than as prose: 0.13 s
+  against 0.055 s per letter (238 x 4.6 letters per minute). So moving a label
+  from the prose into a group lowers reading only when the label has at least
+  3 letters, one abjad word or one CJK character. `tests/stage-b-demand.test.ts`
+  pins the property where it holds and the counterexamples where it does not.
+- Every grouped link is charged, including links whose text is not prose (an
+  icon, or text outside the prose selector). On the reference at least 55.5%
+  of grouped links at the viewport (48.8% at full page) carry no in-group
+  word, so for them the first read is a new charge, not a replacement.
 
 ### Per-screen charging (cognitive_effort, scope sequential)
 
@@ -426,3 +444,7 @@ tolerance only), then the pages where some coordinate exceeds the bound.
   counts on both trees, as they must (neither the chain nor the bound
   changed); only the real family moves with the re-crawl (513 to 512 pages per
   scope).
+- With the menu labels' first reads (section 1), only the real family's
+  demand vectors move, and it was scanned again: the shipped bound is exceeded
+  on 0 of 1024 (largest 0.99979); M2 on 34, M10 on 3 (1.025x), M6 on 79, M7 on
+  239; M11 and M14 never.

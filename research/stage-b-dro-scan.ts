@@ -17,7 +17,7 @@
  * bound of the shipped file and of every mutant whose edit changes a slope
  * bound (tests/fixtures/dro-mutants.ts).
  *
- *   SHARD=0 SHARDS=8 bun research/stage-b-dro-scan.ts > scan-0.jsonl   one line per page
+ *   SHARD=0 SHARDS=8 bun research/stage-b-dro-scan.ts > scan-0.jsonl   one line per page (FAMILY=real: one family; ONLY=<id>: one page)
  *   bun research/stage-b-dro-scan.ts --report scan-*.jsonl
  *   bun research/stage-b-dro-scan.ts --margins                         INTERACTION_PAGES on seeds 1-14
  *   BEFORE=<worktree> bun research/stage-b-dro-scan.ts --demands       old-grid demand vectors: BEFORE's chain on the counts vs this one on fromCounts
@@ -183,9 +183,9 @@ if (arg === "--report") {
 } else {
   const shard = Number(process.env.SHARD ?? 0), shards = Number(process.env.SHARDS ?? 1);
   await withModules((mods) => {
-    const only = process.env.ONLY;
+    const only = process.env.ONLY, family = process.env.FAMILY;
     scanPages().forEach((p, i) => {
-      if (only ? p.id !== only : i % shards !== shard) return;
+      if (only ? p.id !== only : i % shards !== shard || (family !== undefined && p.family !== family)) return;
       console.log(JSON.stringify(scan(p, 1000 + i, mods)));
     });
   });
