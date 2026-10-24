@@ -962,7 +962,12 @@ const GRADE_IDS = {
   d: "cif.grade.d",
 } as const;
 
-function computeGrade(composite: number): string {
+/**
+ * The grade for a composite, from the registered cif.grade.* bands. Exported so
+ * a caller that grades an average of composites (the dashboard) uses these bands
+ * rather than a copy of their numbers.
+ */
+export function computeGrade(composite: number): string {
   const G = readParams(GRADE_IDS);
   if (composite >= G.aPlus) return "A+";
   if (composite >= G.a) return "A";
