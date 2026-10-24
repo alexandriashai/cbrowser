@@ -50,6 +50,36 @@ for (const metric of METRICS) {
   console.log("");
 }
 
+/** Spearman's rho with average ranks for ties. */
+function spearman(x: number[], y: number[]): number {
+  const rank = (v: number[]) => {
+    const idx = v.map((_, i) => i).sort((i, j) => v[i] - v[j]);
+    const r = new Array<number>(v.length);
+    for (let i = 0; i < idx.length;) {
+      let j = i;
+      while (j + 1 < idx.length && v[idx[j + 1]] === v[idx[i]]) j++;
+      for (let k = i; k <= j; k++) r[idx[k]] = (i + j) / 2 + 1;
+      i = j + 1;
+    }
+    return r;
+  };
+  const rx = rank(x), ry = rank(y), mx = mean(rx), my = mean(ry);
+  let num = 0, dx = 0, dy = 0;
+  for (let i = 0; i < rx.length; i++) { num += (rx[i] - mx) * (ry[i] - my); dx += (rx[i] - mx) ** 2; dy += (ry[i] - my) ** 2; }
+  return dx === 0 || dy === 0 ? (dx === dy ? 1 : 0) : num / Math.sqrt(dx * dy);
+}
+{
+  const all = after.personas.flatMap((p) => runs(before, p).map((r, i) => [r.totalCTC, runs(after, p)[i].totalCTC]));
+  const perPersona = after.personas.map((p) => spearman(runs(before, p).map((r) => r.totalCTC), runs(after, p).map((r) => r.totalCTC)));
+  // The personas' order on each page and option set: the comparison a customer reads.
+  const cells = runs(after, after.personas[0]).map((_, i) => spearman(after.personas.map((p) => runs(before, p)[i].totalCTC), after.personas.map((p) => runs(after, p)[i].totalCTC)));
+  const sorted = (v: number[]) => [...v].sort((p, q) => p - q);
+  console.log("### Rank agreement of totalCTC (Spearman, before against after)\n");
+  console.log(`- every run, all personas: ${spearman(all.map((r) => r[0]), all.map((r) => r[1])).toFixed(4)}`);
+  console.log(`- each persona's runs (the pages' order for that persona): min ${Math.min(...perPersona).toFixed(4)}, median ${sorted(perPersona)[Math.floor(perPersona.length / 2)].toFixed(4)}`);
+  console.log(`- each run's personas (the personas' order on that page): min ${Math.min(...cells).toFixed(4)}, median ${sorted(cells)[Math.floor(cells.length / 2)].toFixed(4)}\n`);
+}
+
 console.log("### Capacities after (as the golden matrix builds them)\n");
 console.log("| persona | motorCapacity | readingCapacity |");
 console.log("|---|---|---|");
