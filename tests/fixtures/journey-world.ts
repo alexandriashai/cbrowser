@@ -97,6 +97,10 @@ export async function withVirtualTime<T>(fn: () => Promise<T>): Promise<{ result
   let now = T0;
   let seq = 0;
   let pumping = false;
+  // Set when fn settles: a timer still queued then must never run, or each
+  // pump would call setSystemTime again and freeze Date.now() for every later
+  // test in the process (tests/virtual-time-restores.test.ts).
+  let done = false;
   const queue: Timer[] = [];
   const delays: number[] = [];
   setSystemTime(new Date(now));
@@ -105,13 +109,13 @@ export async function withVirtualTime<T>(fn: () => Promise<T>): Promise<{ result
   // microtask, and it is not clamped to a millisecond, so a journey with a
   // hundred timers costs no real time at all.
   const kick = () => {
-    if (pumping) return;
+    if (pumping || done) return;
     pumping = true;
     setImmediate(pump);
   };
   const pump = () => {
     pumping = false;
-    if (queue.length === 0) return;
+    if (done || queue.length === 0) return;
     queue.sort((a, b) => a.due - b.due || a.id - b.id);
     const t = queue.shift()!;
     now = Math.max(now, t.due);
@@ -140,6 +144,8 @@ export async function withVirtualTime<T>(fn: () => Promise<T>): Promise<{ result
     const result = await fn();
     return { result, delays, elapsedMs: now - T0 };
   } finally {
+    done = true;
+    queue.length = 0;
     globalThis.setTimeout = realSet;
     globalThis.clearTimeout = realClear;
     setSystemTime();
