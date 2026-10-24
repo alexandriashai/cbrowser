@@ -140,6 +140,15 @@ describe("the split runner and the release gate agree about the hanging files", 
     // rather than calling chromium.launch() directly, so a narrow pattern would
     // report a clean sweep while missing them -- the absent-mechanism failure
     // this repo keeps finding in its own probes.
+    //
+    // NAMED LIMIT, not fixed: the grep reads only the test file's own text. It
+    // cannot see a launch that happens inside product code the test calls
+    // (hotfix-path-escape calls crossBrowserDiff, which launches chromium) or
+    // inside a fixture the test spawns (same-ms-captures runs
+    // tests/fixtures/same-ms-step.ts). Both ran in the release gate's shared
+    // process until they were listed by hand. One of them timed out there at
+    // 120 s (2026-10-24). A file that launches that way passes this test
+    // unlisted, so listing it stays a reviewer's job.
     const listed = await browserList();
     const glob = new Bun.Glob("**/*.test.ts");
     const launchers: string[] = [];
