@@ -2030,6 +2030,9 @@ Right now it's ${temporalState.description}.`;
           const urlBefore = page.url();
           const cx = target.x! + target.width! / 2;
           const cy = target.y! + target.height! / 2;
+          // Set once the pointing wait below is paid, so the retry by name
+          // after a throw does not pay it again.
+          let pointingPaid = false;
           try {
             // Only scroll if the element is OFF-screen. Scrolling an already-
             // visible element causes pointless jitter that stacks with any
@@ -2050,11 +2053,18 @@ Right now it's ${temporalState.description}.`;
               const el = document.querySelector(sel);
               if (!el) return null;
               const r = el.getBoundingClientRect();
-              return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height, left: r.left, top: r.top, scrollY: window.scrollY };
             }, { sel: target.selector });
             const ctr = (fresh && fresh.x > 0 && fresh.y > 0)
               ? { x: fresh.x, y: fresh.y, w: fresh.w, h: fresh.h }
               : { x: cx, y: cy, w: target.width!, h: target.height! };
+            // The pointer's move to the box it is sent to, as a hover's: Stage
+            // B's law from the centre of the screen, plus the gaze lag.
+            const sentTo = (fresh && fresh.x > 0 && fresh.y > 0)
+              ? boxGeometry({ ...target, x: fresh.left, y: fresh.top, width: fresh.w, height: fresh.h }, viewportCtx.viewport, fresh.scrollY)
+              : boxGeometry(target, viewportCtx.viewport, viewportCtx.scroll.y);
+            await pointingWait(fittsParams, state.gazeMouseLag, options.humanInput, sentTo);
+            pointingPaid = true;
             if (options.humanInput) {
               const { humanClick } = await import("../visual/human-input.js");
               await humanClick(page, ctr.x, ctr.y, inputTraits, { width: ctr.w, height: ctr.h });
@@ -2067,7 +2077,7 @@ Right now it's ${temporalState.description}.`;
           } catch (clickErr) {
             console.warn(`[cognitive] coordinate click failed: ${(clickErr as Error).message}`);
             const fallback = target.text ? `click:${target.text}` : parsed.action;
-            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits, boxGeometry(target, viewportCtx.viewport, viewportCtx.scroll.y));
+            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits, boxGeometry(target, viewportCtx.viewport, viewportCtx.scroll.y), pointingPaid);
           }
         } else {
           // No bbox — let executeAction handle (non-click actions, or click
@@ -2861,6 +2871,39 @@ function pointingGeometry(action: string, elements: ClickableBox[], viewport: { 
   return boxGeometry(el, viewport, scrollY);
 }
 
+/**
+ * The wait before a mouse action reaches its target: Fitts' law (v9.9.0,
+ * Stage B's law) on the target's measured geometry, or the registered
+ * fallback move for one the journey has not found, plus the gaze-to-mouse
+ * lag. Returns the time, and sleeps it unless human input is on.
+ */
+async function pointingWait(
+  fittsParams: Partial<FittsLawParams>,
+  gazeMouseLag: number | undefined,
+  humanInput: boolean | undefined,
+  pointing: PointingGeometry | undefined,
+): Promise<number> {
+  const distance = pointing ? pointing.distance : param("journey.fitts.unlocatedDistancePx");
+  const width = pointing ? pointing.width : param("journey.fitts.unlocatedTargetWidthPx");
+
+  let movementTimeMs = calculateFittsMovementTime(distance, width, fittsParams);
+
+  // Add gaze-to-mouse lag (v10.1.0) - WebGazer.js research
+  // Eye movements precede mouse movements by 200-500ms
+  if (gazeMouseLag) {
+    movementTimeMs += gazeMouseLag;
+  }
+
+  // When humanInput is enabled, humanClick provides its own hover-and-dwell
+  // pacing — skip the pre-action sleep here so they don't compound (which
+  // would make live mode slower than non-live, defeating the purpose). Its
+  // move and pre-click dwell replace this wait.
+  if (!humanInput) {
+    await sleep(movementTimeMs);
+  }
+  return movementTimeMs;
+}
+
 async function executeAction(
   browser: CBrowser,
   action: string,
@@ -2869,31 +2912,15 @@ async function executeAction(
   humanInput?: boolean,
   inputTraits?: { proceduralFluency?: number; motorPrecision?: number; patience?: number; readingTendency?: number },
   pointing?: PointingGeometry,
+  pointingPaid = false,
 ): Promise<ActionResult> {
   const [type, ...args] = action.split(":");
 
-  // Apply Fitts' Law timing for mouse actions (v9.9.0): Stage B's law, on the
-  // measured geometry of the element the action names, or the registered
-  // fallback move for one the journey has not listed.
+  // Mouse actions wait their pointing time (pointingWait), unless the caller
+  // already paid it: the retry by name after a coordinate click throws.
   let movementTimeMs = 0;
-  if (["click", "hover", "hoverclick"].includes(type) && fittsParams) {
-    const distance = pointing ? pointing.distance : param("journey.fitts.unlocatedDistancePx");
-    const width = pointing ? pointing.width : param("journey.fitts.unlocatedTargetWidthPx");
-
-    movementTimeMs = calculateFittsMovementTime(distance, width, fittsParams);
-
-    // Add gaze-to-mouse lag (v10.1.0) - WebGazer.js research
-    // Eye movements precede mouse movements by 200-500ms
-    if (gazeMouseLag) {
-      movementTimeMs += gazeMouseLag;
-    }
-
-    // When humanInput is enabled, humanClick provides its own hover-and-dwell
-    // pacing — skip the pre-action sleep here so they don't compound (which
-    // would make live mode slower than non-live, defeating the purpose).
-    if (!humanInput) {
-      await sleep(movementTimeMs);
-    }
+  if (["click", "hover", "hoverclick"].includes(type) && fittsParams && !pointingPaid) {
+    movementTimeMs = await pointingWait(fittsParams, gazeMouseLag, humanInput, pointing);
   }
 
   switch (type) {
