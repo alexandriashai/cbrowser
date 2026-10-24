@@ -85,6 +85,11 @@ doc's 0.8. This is the inverted-digit pattern the reconciliation itself
 describes. Rewriting the comment to match 0.8 would describe a persona the page
 does not, so this one needs a decision on the value.
 
+**Decided (2026-10-24): kept at 0.8, comment unchanged.** No source supports
+either side, and "methodical" is not strictly the opposite of efficient
+scent-following, so moving the value would mean inventing a number. It stays
+open as a named question for the persona-norms work and does not block 21.0.
+
 ## CTC golden
 
 The two restores move only capacity fields of the two personas. 1,195 values
