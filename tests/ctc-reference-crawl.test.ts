@@ -13,6 +13,9 @@
  *      URL template the site itself publishes (schema.org SearchAction).
  *   3. The frame filters exclude what they name and not the innocent
  *      substrings around it.
+ *   4. A published URL carries no value a site minted for the crawler's own
+ *      session (OAuth state, challenge token, per-visit id), and keeps every
+ *      other part, including the query a search page was loaded with.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -23,6 +26,7 @@ import {
   discoverInner, searchUrl, searchFromTemplates, domainExclusion, contentFlags, contentExclusion, DENY,
   type AnchorInfo, type FormInfo,
 } from "../research/ctc-reference/discover.js";
+import { publicUrl, isSessionParam, REDACTED } from "../research/ctc-reference/public-url.js";
 
 const robots = (body: string, agent = "cbrowser"): Robots => ({ status: "parsed", detail: "HTTP 200", ...parseRobots(body, agent) });
 
@@ -169,6 +173,46 @@ describe("search discovery beyond the obvious field", () => {
     const viaTemplate = discoverInner(landing, [], [], [t("https://www.agency.test/s?q={search_term_string}")]);
     expect(viaTemplate.search?.url).toBe("https://www.agency.test/s?q=help");
     expect(viaTemplate.search?.how).toMatch(/^schema\.org SearchAction template/);
+  });
+});
+
+describe("published URLs carry no session-bound value", () => {
+  test("OAuth state, nonce and PKCE challenge: values redacted, names kept", () => {
+    const u = new URL(publicUrl("https://login.agency.test/authorize?client_id=0oa1public&state=abc123&nonce=n-9f&code_challenge=Zx8&response_type=code"));
+    for (const name of ["state", "nonce", "code_challenge"]) expect(u.searchParams.get(name)).toBe(REDACTED);
+    expect(u.searchParams.get("client_id")).toBe("0oa1public");
+    expect(u.searchParams.get("response_type")).toBe("code");
+  });
+
+  test("anti-bot challenge tokens and session blobs", () => {
+    expect(new URL(publicUrl("https://www.shop.test/?__cf_chl_rt_tk=Qm9.x-1")).searchParams.get("__cf_chl_rt_tk")).toBe(REDACTED);
+    const blob = new URL(publicUrl("https://www.store.test/item?x5secdata=eyJhbGci&x5step=1"));
+    expect(blob.searchParams.get("x5secdata")).toBe(REDACTED);
+    expect(blob.searchParams.get("x5step")).toBe("1");
+  });
+
+  test("a per-visit id under any name: a UUID or a long hex string", () => {
+    expect(new URL(publicUrl("https://forum.test/users/login?s=0b7f3c2e-4d1a-4b8e-9c6f-2a5d8e1f7b30")).searchParams.get("s")).toBe(REDACTED);
+    expect(new URL(publicUrl("https://wiki.test/page?tid=9f86d081884c7d659a2feaa0c55ad015")).searchParams.get("tid")).toBe(REDACTED);
+    expect(isSessionParam("access_token", "x")).toBe(true);
+    expect(isSessionParam("PHPSESSID", "x")).toBe(true);
+  });
+
+  test("everything else is kept byte for byte, including a search page's query", () => {
+    for (const url of [
+      "https://www.agency.test/?s=help",
+      "https://www.agency.test/search?q=help&lang=en",
+      "https://login.agency.test/authorize?client_id=0oa1public",
+      "https://www.shop.test/deals?icid=homepage_hero",
+      "https://www.agency.test/search?cx=0123abc:xyz",
+      "https://www.agency.test/cs?id=kb_article_view&sys_kb_id=d02519241be9ce5091ac8777624bcbfd",
+      "not a url",
+    ]) expect(publicUrl(url)).toBe(url);
+  });
+
+  test("idempotent: the published form is its own published form", () => {
+    const once = publicUrl("https://login.agency.test/authorize?state=abc&nonce=n&client_id=c&tid=9f86d081884c7d659a2feaa0c55ad015");
+    expect(publicUrl(once)).toBe(once);
   });
 });
 
