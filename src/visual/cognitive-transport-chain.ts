@@ -171,7 +171,11 @@ export interface SequentialTransportResult {
    * additiveCTC, and any bound on the chain itself (dro-bound.ts), uses this.
    */
   rawCTC: number;
-  /** Asymmetric deficit-surplus breakdown */
+  /**
+   * Asymmetric deficit-surplus breakdown. deficitCost also holds the exposure
+   * cost of EXPOSURE_DIMENSIONS (a cost the page imposes), and abandonment
+   * reads it; surplusCost is billed surplus only.
+   */
   deficitCost: number;
   surplusCost: number;
   /** Per-trait transport cost */
@@ -457,16 +461,42 @@ export const INTERACTION_PAIRS: Array<{ a: string; b: string; weight: string }> 
  * That is the same defect as every other one this campaign found: a number that
  * does not mean what its name says.
  *
- * Four dimensions are billed BECAUSE THEIR SCALE IS INVERTED -- changeBlindness,
- * trustCalibration, curiosity and attentionPattern name a deficit at their high
- * end ("misses most changes", "accepts claims at face value", "easily
- * distracted"). Surplus there is more of the deficit, and billing it is
- * correct.
+ * Three dimensions stay billed BECAUSE THEIR SCALE IS INVERTED -- trustCalibration,
+ * curiosity and attentionPattern name a deficit at their high end ("accepts
+ * claims at face value", "easily distracted"), and none is in a layer, so the
+ * billing moves no number. changeBlindness was the fourth until 2026-10-24
+ * (below).
  *
  * `selfEfficacy` is the weakest call in the free set: over-confidence is a real
  * hazard, but its cost surfaces through riskTolerance and trustCalibration
  * rather than as effort spent, so it is treated as the ability its high end
  * describes.
+ *
+ * A STIMULUS NEVER MAKES A PAGE CHEAPER (2026-10-24, option f of
+ * research/surplus-billing-design.md). A billed surplus costs
+ * weightSurplus (c - d)^2, which FALLS as the page's demand d rises toward the
+ * persona's value c. Measured on the 514 reference pages, one carousel on a
+ * static page lowered the typical user's viewport totalCTC by 0.085 and was
+ * cheaper on 92% of them, because emotionalContagion's only demand is motion
+ * (0 on a calm page) and its calm-page surplus was the largest bill on the
+ * page. So:
+ *  - emotionalContagion is priced by EXPOSURE (EXPOSURE_DIMENSIONS):
+ *    weightSurplus x c x d. Contagion is caught from an expression (Hatfield,
+ *    Bensman, Thornton & Rapson 2014), so with no stimulus nothing is caught
+ *    and with no susceptibility nothing is caught either. The product form,
+ *    the weight and animation as the stimulus are hypotheses.
+ *  - changeBlindness is surplus-free: missing more changes than a page makes
+ *    costs nothing on a page that makes none (Simons & Levin 1997: change
+ *    blindness is "the inability to detect changes"). Its deficit side still
+ *    prices a good noticer on a complex page, a named limit.
+ *  - patience is surplus-free: its value reads as tolerated reading time
+ *    (Stage C), and tolerance left unused is not time spent; the page's time
+ *    is priced by the reading and decision layers.
+ * The decision-layer susceptibilities (fearOfMissingOut,
+ * socialProofSensitivity, anchoringBias, riskTolerance) are DEFERRED, a named
+ * limit: they still get cheaper as choosing time grows, because the cue each
+ * responds to (urgency, reviews, a first option, uncertain controls) is not
+ * measured and a share of choosing time stands in for it.
  */
 export const SURPLUS_FREE_DIMENSIONS = new Set([
   // Derived capacity bridges -- pure abilities by construction.
@@ -482,6 +512,19 @@ export const SURPLUS_FREE_DIMENSIONS = new Set([
   'interruptRecovery',       // "Seamlessly resumes exactly where left off"
   'mentalModelFlexibility',  // "Highly adaptive - quickly forms new mental models"
   'informationForaging',     // "Follows information scent efficiently, abandons low-yield paths"
+  // Free since 2026-10-24 (see above): neither surplus is effort spent.
+  'changeBlindness',         // "Misses most changes outside focus area" -- nothing to miss where nothing changes
+  'patience',                // "Waits indefinitely" -- a tolerance; unused, it is not time spent
+]);
+
+/**
+ * Dimensions priced by exposure rather than by a gap: weightSurplus x c x d,
+ * the persona's susceptibility times the stimulus, in asymmetric mode (the
+ * symmetric ablation keeps the gap). 0 when the page presents nothing, never
+ * lower for more stimulus or more susceptibility. See the note above.
+ */
+export const EXPOSURE_DIMENSIONS = new Set([
+  'emotionalContagion',      // "Adopts UI's emotional tone completely" -- a susceptibility to the page's tone
 ]);
 
 /**
@@ -489,21 +532,18 @@ export const SURPLUS_FREE_DIMENSIONS = new Set([
  *
  * Stated explicitly rather than left as "everything else", so that a dimension
  * added to DEMAND_DIMENSIONS cannot acquire a billing treatment by default. A
- * test asserts every dimension appears in exactly one of the two sets.
+ * test asserts every dimension appears in exactly one of the three sets.
  */
 const SURPLUS_BILLED_DIMENSIONS = new Set([
-  'patience',                // "Waits indefinitely" -- waiting longer than needed is time spent
-  'riskTolerance',           // "Clicks anything that might work" -- a tendency, and a hazard
+  'riskTolerance',           // "Clicks anything that might work" -- a tendency, and a hazard (deferred, see above)
   'persistence',             // "Keeps trying same approach repeatedly" -- repeating unnecessary work
   'readingTendency',         // "Reads every word before acting" -- reading a page that did not need it
-  'emotionalContagion',      // susceptibility to the interface's tone
   'satisficing',             // a decision STRATEGY, not an ability
-  'anchoringBias',           // a bias, by name
-  'fearOfMissingOut',        // susceptibility to urgency and scarcity
-  'socialProofSensitivity',  // susceptibility to what others chose
+  'anchoringBias',           // a bias, by name (deferred, see above)
+  'fearOfMissingOut',        // susceptibility to urgency and scarcity (deferred, see above)
+  'socialProofSensitivity',  // susceptibility to what others chose (deferred, see above)
   'metacognitivePlanning',   // "Careful planning before any action" -- planning a trivial page is waste
   // Inverted scales: the HIGH end is the deficit, so surplus is more deficit.
-  'changeBlindness',         // "Misses most changes outside focus area"
   'trustCalibration',        // "Highly trusting, accepts claims at face value"
   'curiosity',               // "Easily distracted by interesting elements"
   'attentionPattern',        // scanning-vs-thorough disposition
@@ -789,11 +829,11 @@ export function computeDemandDistribution(pageMetrics: PageMetrics, options?: De
   // Sharing the base makes the two halves of reading agree about how much there is
   // to read; the 0.7 vs 0.9 coefficients still order them.
   //
-  // NOT applied to visualComplexity, whose fall has a different cause: its inputs
-  // (visualComplexity, animationLevel) are counts and RISE with page size. It falls
-  // because its traits are surplus-BILLED, so rising demand shrinks the surplus gap
-  // and the 0.3-weighted cost with it. Same symptom, unrelated mechanism, and it
-  // needs its own decision rather than this one applied twice.
+  // NOT applied to visualComplexity, whose fall had a different cause: its inputs
+  // (visualComplexity, animationLevel) are counts and RISE with page size. It fell
+  // because its trait was surplus-BILLED, so rising demand shrank the surplus gap
+  // and the 0.3-weighted cost with it. That got its own decision: changeBlindness
+  // is surplus-free since 2026-10-24 (see SURPLUS_FREE_DIMENSIONS).
   //
   // STAGE B: the base is the reading demand (reading seconds against the time
   // budget), which is absolute in the amount of prose, the property the
@@ -1124,7 +1164,14 @@ function transportChain(
       const gap = d - c;
 
       let cost: number;
-      if (gap > 0) {
+      if (useAsymmetric && EXPOSURE_DIMENSIONS.has(trait)) {
+        // Exposure: the stimulus acting on a susceptibility, w c d (see
+        // EXPOSURE_DIMENSIONS). A cost the page imposes, so it is counted with
+        // the deficit, which abandonment reads. Depletion can only lower c, so
+        // on a page with no stimulus it stays 0.
+        cost = P.weightSurplus * c * d;
+        layerDeficit += cost;
+      } else if (gap > 0) {
         // Deficit: demand exceeds capacity — expensive
         cost = (useAsymmetric ? P.weightDeficit : 1.0) * gap * gap;
         layerDeficit += cost;

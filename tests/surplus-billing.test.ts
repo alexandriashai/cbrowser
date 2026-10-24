@@ -18,6 +18,13 @@
  * from the trait reference rather than chosen, which is what makes it
  * defensible and what lets a future dimension be classified without a debate.
  *
+ * A third set since 2026-10-24 (research/surplus-billing-design.md, option f):
+ * emotionalContagion is priced by EXPOSURE, weightSurplus x c x d, because a
+ * billed surplus falls as its stimulus rises and a calm page charged every
+ * susceptible persona the most. changeBlindness and patience moved to the free
+ * set. tests/surplus-billing-motion.test.ts holds the property that motivated
+ * it.
+ *
  * @since 2026-08-03
  */
 import { test, expect, describe } from "bun:test";
@@ -36,6 +43,7 @@ const setNamed = (name: string): string[] => {
 };
 const FREE = setNamed("SURPLUS_FREE_DIMENSIONS");
 const BILLED = setNamed("SURPLUS_BILLED_DIMENSIONS");
+const EXPOSURE = setNamed("EXPOSURE_DIMENSIONS");
 
 const page = computeDemandDistribution(withLawSeconds({
   informationDensity: 0.5, visualComplexity: 0.5, interactiveElementCount: 40,
@@ -48,15 +56,14 @@ const uniform = (v: number) => Object.fromEntries((COGNITIVE_TRAITS as readonly 
 describe("every dimension is classified — none gets a default", () => {
   test("each appears in exactly one set", () => {
     for (const d of DEMAND_DIMENSIONS as readonly string[]) {
-      const inFree = FREE.includes(d), inBilled = BILLED.includes(d);
-      expect({ dim: d, classified: (inFree ? 1 : 0) + (inBilled ? 1 : 0) })
-        .toEqual({ dim: d, classified: 1 });
+      const sets = [FREE, BILLED, EXPOSURE].filter((set) => set.includes(d)).length;
+      expect({ dim: d, classified: sets }).toEqual({ dim: d, classified: 1 });
     }
   });
 
   test("neither set names a dimension that does not exist", () => {
     const dims = new Set(DEMAND_DIMENSIONS as readonly string[]);
-    for (const d of [...FREE, ...BILLED]) {
+    for (const d of [...FREE, ...BILLED, ...EXPOSURE]) {
       expect({ dim: d, real: dims.has(d) }).toEqual({ dim: d, real: true });
     }
   });
@@ -90,10 +97,20 @@ describe("the rule matches what each dimension says about itself", () => {
   });
 
   test("the inverted scales are billed, and the note says why", () => {
-    for (const d of ["changeBlindness", "trustCalibration", "curiosity"]) {
+    for (const d of ["trustCalibration", "curiosity"]) {
       expect({ dim: d, billed: BILLED.includes(d) }).toEqual({ dim: d, billed: true });
     }
     expect(CHAIN).toContain("THEIR SCALE IS INVERTED");
+  });
+
+  test("option f (2026-10-24): emotionalContagion by exposure, changeBlindness and patience free, the four decision susceptibilities deferred", () => {
+    expect(EXPOSURE).toEqual(["emotionalContagion"]);
+    for (const d of ["changeBlindness", "patience"]) expect({ dim: d, free: FREE.includes(d) }).toEqual({ dim: d, free: true });
+    for (const d of ["fearOfMissingOut", "socialProofSensitivity", "anchoringBias", "riskTolerance"]) {
+      expect({ dim: d, billed: BILLED.includes(d) }).toEqual({ dim: d, billed: true });
+    }
+    expect(CHAIN).toContain("A STIMULUS NEVER MAKES A PAGE CHEAPER");
+    expect(CHAIN).toMatch(/DEFERRED, a named\s+\* limit/);
   });
 });
 
