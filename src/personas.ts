@@ -1372,7 +1372,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       },
     },
     cognitiveTraits: {
-      patience: 0.7,          // Medium - willing to learn
+      patience: 0.7,          // High - willing to invest time learning; expects some initial friction
       riskTolerance: 0.3,     // Low - hesitates before clicking
       comprehension: 0.3,     // Low - doesn't know conventions
       persistence: 0.5,       // Medium - tries a few times
@@ -1530,14 +1530,14 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       // Sources: Information Wayfinding of Screen Reader Users, ASSETS 2024
       // (dl.acm.org/doi/fullHtml/10.1145/3663548.3688539); Context-Aware
       // Guidance for Screen Reader Users, CHI 2026 (10.1145/3772318.3790661).
-      riskTolerance: 0.2,     // Medium - careful but experienced
+      riskTolerance: 0.2,     // Low - unexpected behaviour disorients without visual context
       comprehension: 0.8,     // High - expert at a11y patterns
       persistence: 0.9,       // High - determination required
       curiosity: 0.2,         // Low - structured navigation
       workingMemory: 0.7,     // High - mental model essential
       readingTendency: 0.9,   // Full - ALL content is read aloud
       resilience: 0.8,        // High - experienced with setbacks (CD-RISC)
-      selfEfficacy: 0.7,      // Medium - high in accessible sites, low otherwise (Bandura)
+      selfEfficacy: 0.7,      // High - confident despite environmental barriers; lower on inaccessible sites (Bandura)
       satisficing: 0.6,       // Medium - relies on structured review content (Simon)
       trustCalibration: 0.6,  // Medium - cautious from past a11y failures (Fogg)
       interruptRecovery: 0.6, // High - strong mental model aids recovery (Mark)
@@ -1547,7 +1547,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       anchoringBias: 0.4,         // Medium - sequential exposure to info
       timeHorizon: 0.3,           // Long-term - patient, thorough
       attributionStyle: 0.4,      // Medium - blames inaccessible design
-      metacognitivePlanning: 0.7, // Very high - plans navigation carefully
+      metacognitivePlanning: 0.7, // High - plans navigation carefully
       proceduralFluency: 0.8,     // High - follows heading structure
       transferLearning: 0.7,     // High - knows a11y patterns across sites
       authoritySensitivity: 0.5,  // Medium - verifies with screen reader
@@ -1607,7 +1607,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       riskTolerance: 0.2,     // Very low - afraid of mistakes
       comprehension: 0.2,     // Low - unfamiliar with modern UI
       persistence: 0.6,       // High - determined but confused
-      curiosity: 0.4,         // Very low - just wants to finish
+      curiosity: 0.4,         // Low-medium - goal-focused, prefers familiar patterns
       workingMemory: 0.4,     // Low - may forget steps
       readingTendency: 0.8,   // High - reads everything carefully
       resilience: 0.3,        // Low - frustration lingers longer (BRS age-related)
@@ -1651,7 +1651,7 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       // procedural schema at all.
       proceduralFluency: 0.5,
       transferLearning: 0.2,      // Low - each new site is confusing
-      authoritySensitivity: 0.7, // Very high - trusts official-looking things
+      authoritySensitivity: 0.7, // High - trusts official-looking things
       emotionalContagion: 0.6,    // Medium-high - affected by stern warnings
       fearOfMissingOut: 0.3,      // Low - not driven by urgency, confused by it
       socialProofSensitivity: 0.7, // High - relies on grandchildren's recommendations
@@ -1714,21 +1714,21 @@ export const BUILTIN_PERSONAS: Record<string, Persona> = {
       riskTolerance: 0.6,     // High - clicks first thing
       comprehension: 0.6,     // Medium
       persistence: 0.2,       // Very low - one strike and out
-      curiosity: 0.3,         // Very low - no time to explore
+      curiosity: 0.3,         // Low - no time to explore
       workingMemory: 0.6,     // Medium
       readingTendency: 0.1,  // Almost none - scanning only
-      resilience: 0.3,        // Very low - no recovery, abandons (BRS)
+      resilience: 0.3,        // Low - frustration escalates quickly, abandons (BRS)
       selfEfficacy: 0.6,      // Medium - impatient doesn't mean incapable (Bandura)
       satisficing: 0.9,       // Very high - definition of satisficing (Simon)
       trustCalibration: 0.7,  // High - clicks through without reading (Fogg)
       interruptRecovery: 0.2,  // Very low - abandons rather than resumes (Mark)
       // New traits (v15.0.0)
       informationForaging: 0.9,   // Very high - follows first scent, moves on
-      changeBlindness: 0.7,       // Medium - focused on task
+      changeBlindness: 0.7,       // High - misses changes while hunting for the CTA
       anchoringBias: 0.6,         // Medium-high - goes with first option
       timeHorizon: 0.95,          // Maximum short-term - no time for later
       attributionStyle: 0.3,      // Low - blames slow site
-      metacognitivePlanning: 0.3, // Very low - no planning, just clicking
+      metacognitivePlanning: 0.3, // Low - minimal planning, just clicking
       proceduralFluency: 0.6,     // Medium - can follow if fast
       transferLearning: 0.7,      // High - recognizes patterns quickly
       authoritySensitivity: 0.4,  // Medium - only if it speeds things up
@@ -2000,7 +2000,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       // Research: Motor issues make resumption harder but adaptation helps (Mark)
       // Re-acquiring a small target after an interruption repeats the hardest
       // part of the interaction.
-      interruptRecovery: 0.6,
+      // (21.0: restored to the 0.4 this citation was written beside. The doc
+      // reconciliation of 2026-08-02 had set 0.6, above neutral, which
+      // contradicts the direction cited here.)
+      interruptRecovery: 0.4,
       // Every pointing action costs time and repeat attempts, so tolerance for
       // slow interaction is built in -- the persona's own research note records
       // 1-15Hz tremor and misclicks as the primary barrier.
@@ -2106,7 +2109,10 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
     cognitiveTraits: {
       // Research: Visual impairment + self-efficacy (Brody et al., 2002 - AMD and depression)
       // Reduced vision correlates with lower confidence in task completion
-      selfEfficacy: 0.6,
+      // (21.0: restored to the 0.45 this citation was written beside. The doc
+      // reconciliation of 2026-08-02 had set 0.6, above neutral, which
+      // contradicts the direction cited here.)
+      selfEfficacy: 0.45,
       // Research: Limited information access increases satisficing (Pachur & Hertwig, 2006)
       // Seeing only 1/9th of screen at a time → accept accessible options
       // (21.0: restored to the 0.65 this citation was written beside. The doc
@@ -2132,7 +2138,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       timeHorizon: 0.4,           // Patient, knows it takes time
       attributionStyle: 0.5,      // Balanced - knows about limitations
       metacognitivePlanning: 0.7, // Plans navigation with zoom
-      proceduralFluency: 0.6,     // Harder with limited view
+      proceduralFluency: 0.6,     // Medium-high - builds routines for familiar sites; new layouts are harder with a limited view
       transferLearning: 0.6,      // Standard
       authoritySensitivity: 0.5,
       emotionalContagion: 0.4,
@@ -2253,7 +2259,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       // claims at face value" -- which is what impulsive clicking without
       // reading looks like.
       trustCalibration: 0.65,
-      interruptRecovery: 0.3, // Very low - WM deficits make recovery difficult (Mark)
+      interruptRecovery: 0.3, // Low - WM deficits make recovery difficult (Mark)
       // New traits (v15.0.0)
       comprehension: 0.6,         // Capable when engaged; this is UI-convention grasp, not reading
       informationForaging: 0.4,   // Distractible; goes down tangential paths (doc; code had 0.6)
@@ -2267,7 +2273,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       // KEPT over the doc's 0.3. 1.0 is "Blames self (internal attribution)",
       // and the doc's own rationale for 0.3 was "may blame self".
       attributionStyle: 0.6,
-      metacognitivePlanning: 0.3, // Very low - impulsive, no planning
+      metacognitivePlanning: 0.3, // Low - impulsive, little planning
       proceduralFluency: 0.4,     // Inconsistent; routines help but are hard to establish
       transferLearning: 0.5,      // Variable; depends on engagement level
       authoritySensitivity: 0.4,  // Low - impulsive, ignores authority
@@ -2480,7 +2486,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.6,
       workingMemory: 0.6,
       informationForaging: 0.6, // Good visual navigation
-      changeBlindness: 0.3,     // Very low - visually attentive
+      changeBlindness: 0.3,     // Low - visually attentive
       anchoringBias: 0.5,
       timeHorizon: 0.5,
       attributionStyle: 0.4,    // Blames lack of captions
@@ -2577,21 +2583,21 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       riskTolerance: 0.1, // Very cautious with unfamiliar interfaces
       comprehension: 0.3, // Unfamiliar with modern UI conventions
       resilience: 0.6, // Medium-high - adapted over time; repeated barriers still discourage (BRS)
-      selfEfficacy: 0.3, // Very low - often blame selves for tech issues (Bandura)
+      selfEfficacy: 0.3, // Low - often blame selves for tech issues (Bandura)
       satisficing: 0.7, // High - avoids complex decision trees (Simon)
-      trustCalibration: 0.4, // Very low - very skeptical of online requests (Fogg)
-      interruptRecovery: 0.3, // Very low - WM + vision decline makes recovery hard (Mark)
+      trustCalibration: 0.4, // Low-medium - wary of online requests, though official-looking content can win trust (Fogg)
+      interruptRecovery: 0.3, // Low - WM + vision decline makes recovery hard (Mark)
       // New traits (v15.0.0)
       readingTendency: 0.9,
-      informationForaging: 0.4,   // Very low - exhaustive, uncertain
+      informationForaging: 0.4,   // Low-medium - systematic, exhaustive search
       changeBlindness: 0.7,      // High - vision issues
       anchoringBias: 0.8,         // High - sticks to first info
       timeHorizon: 0.4,           // Medium - patient but unsure
       attributionStyle: 0.9,      // Very high - blames self
       metacognitivePlanning: 0.2, // Low - doesn't know what to plan
       proceduralFluency: 0.4,    // Low - struggles with sequences
-      transferLearning: 0.4,     // Very low - each UI is confusing
-      authoritySensitivity: 0.7, // Very high - trusts official things
+      transferLearning: 0.4,     // Low-medium - each site needs new spatial and procedural learning
+      authoritySensitivity: 0.7, // High - trusts official things
       emotionalContagion: 0.6,    // Medium-high
       fearOfMissingOut: 0.2,     // Low - not driven by urgency
       socialProofSensitivity: 0.7, // High - relies on family advice
@@ -3228,8 +3234,8 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       curiosity: 0.3,         // Low - prefers safe known paths
       workingMemory: 0.5,     // Medium - anxiety can impair WM
       readingTendency: 0.9,   // High - reads everything for reassurance
-      resilience: 0.3,        // Very low - slow emotional recovery
-      selfEfficacy: 0.3,     // Very low - doubts own abilities
+      resilience: 0.3,        // Low - slow emotional recovery
+      selfEfficacy: 0.3,     // Low - doubts own abilities
       satisficing: 0.3,       // Low-medium - wants certainty
       trustCalibration: 0.2,  // Low - skeptical and worried
       interruptRecovery: 0.4, // Low - anxiety compounds on interruption
@@ -3238,12 +3244,12 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       changeBlindness: 0.3,       // Low - hypervigilant, notices changes
       anchoringBias: 0.7,         // High - sticks to first safe option
       timeHorizon: 0.3,           // Long-term - worries about consequences
-      attributionStyle: 0.7,      // Very high - blames self for everything
+      attributionStyle: 0.7,      // High - blames self, fears being at fault
       metacognitivePlanning: 0.6, // Medium-high - plans to avoid anxiety
       proceduralFluency: 0.5,     // Medium - follows carefully
       transferLearning: 0.4,      // Medium
       authoritySensitivity: 0.7,  // High - seeks reassurance from authority
-      emotionalContagion: 0.7,    // Very high - absorbs UI emotional tone
+      emotionalContagion: 0.7,    // High - absorbs UI emotional tone
       fearOfMissingOut: 0.6,      // Medium-high - anxiety about missing out
       socialProofSensitivity: 0.8, // High - seeks validation from others
       mentalModelFlexibility: 0.4,   // Low-medium - struggles with unexpected
@@ -3308,7 +3314,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       readingTendency: 0.2,   // Low - scans efficiently
       resilience: 0.8,        // Very high - bounces back immediately
       selfEfficacy: 0.9,      // Very high - trusts own abilities
-      satisficing: 0.7,       // Medium - balances speed and quality
+      satisficing: 0.7,       // High - accepts good-enough quickly, trusts first judgment
       trustCalibration: 0.7,  // High - appropriate trust
       interruptRecovery: 0.7, // High - resumes easily
       // New traits (v15.0.0)
@@ -3384,7 +3390,7 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       curiosity: 0.6,         // Medium-high - excitement drives exploration
       workingMemory: 0.5,    // Medium - emotions can interfere
       readingTendency: 0.6,   // Medium
-      resilience: 0.4,       // Very low - emotions linger long
+      resilience: 0.4,       // Low-medium - negative experiences linger
       selfEfficacy: 0.5,      // Medium - mood dependent
       satisficing: 0.6,       // Medium-high - wants quick resolution
       trustCalibration: 0.5,  // Medium - emotional judgment
@@ -3458,11 +3464,11 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       patience: 0.7,          // High - doesn't rush
       riskTolerance: 0.5,     // Medium - balanced judgment
       comprehension: 0.7,     // High - clear thinking
-      persistence: 0.7,       // Very high - never gives up
+      persistence: 0.7,       // High - persistent, not emotionally deterred
       curiosity: 0.4,         // Medium - methodical exploration
       workingMemory: 0.7,     // High - unaffected by emotion
       readingTendency: 0.7,   // Medium-high - thorough
-      resilience: 0.8,       // Maximum - emotions barely register
+      resilience: 0.8,       // Very high - errors are data points, not emotional events
       selfEfficacy: 0.6,      // High - quiet confidence
       satisficing: 0.4,       // Low - willing to be thorough
       trustCalibration: 0.7,  // Medium-high - rational evaluation
@@ -3477,8 +3483,8 @@ export const EMOTIONAL_PERSONAS: Record<string, Persona> = {
       proceduralFluency: 0.6,     // High - follows procedures precisely
       transferLearning: 0.7,      // High - applies experience
       authoritySensitivity: 0.4,  // Low-medium - independent judgment
-      emotionalContagion: 0.2,    // Minimum - emotionally unaffected
-      fearOfMissingOut: 0.2,      // Minimum - not driven by urgency
+      emotionalContagion: 0.2,    // Very low - emotionally unaffected
+      fearOfMissingOut: 0.2,      // Very low - not driven by urgency
       socialProofSensitivity: 0.4, // Low - evaluates independently
       mentalModelFlexibility: 0.7,   // High - adapts methodically
     },

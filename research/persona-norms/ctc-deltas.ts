@@ -87,6 +87,8 @@ for (const only of ["asym+inter", null] as const) {
 // should move only in fields read off the percentile.
 const byField = new Map<string, { personas: Set<string>; numbers: number; maxAbs: number; text?: boolean }>();
 const byPersona = new Map<string, Set<string>>();
+/** Per persona and field: values changed, sum of deltas, max abs delta (numbers only). */
+const perPersonaField = new Map<string, { n: number; sum: number; maxAbs: number }>();
 let total = 0;
 for (const p of a.personas) {
   const out: Array<[string, number]> = [];
@@ -103,6 +105,11 @@ for (const p of a.personas) {
     if (!Number.isNaN(d)) f.maxAbs = Math.max(f.maxAbs, Math.abs(d));
     else f.text = true;
     byField.set(field, f);
+    if (!Number.isNaN(d)) {
+      const k = `${p}\t${field}`, g = perPersonaField.get(k) ?? { n: 0, sum: 0, maxAbs: 0 };
+      g.n++; g.sum += d; g.maxAbs = Math.max(g.maxAbs, Math.abs(d));
+      perPersonaField.set(k, g);
+    }
   }
   total += out.length;
   byPersona.set(p, fields);
@@ -122,3 +129,11 @@ for (const [p, fields] of byPersona) {
   groups.set(key, [...(groups.get(key) ?? []), p]);
 }
 for (const [fields, personas] of groups) console.log(`- ${personas.length} persona(s) [${personas.join(", ")}]: ${fields}`);
+
+console.log("\n### Per persona and field: the values that moved\n");
+console.log("| persona | field | values changed | mean d | max abs d |");
+console.log("|---|---|---|---|---|");
+for (const [k, g] of [...perPersonaField].sort()) {
+  const [p, field] = k.split("\t");
+  console.log(`| ${p} | ${field} | ${g.n} | ${fmt(g.sum / g.n)} | ${fmt(g.maxAbs)} |`);
+}
