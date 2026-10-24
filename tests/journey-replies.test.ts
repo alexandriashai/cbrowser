@@ -54,7 +54,21 @@ describe("readReplyJson", () => {
     fc.assert(fc.property(fc.dictionary(fc.string(), fc.jsonValue()), prose, prose, (obj, before, after) => {
       const expected = JSON.parse(JSON.stringify(obj));
       expect(readReplyJson(`${before}${JSON.stringify(obj)}${after}`).value).toEqual(expected);
-    }), { numRuns: 300 });
+    }), { numRuns: 1000 });
+  });
+
+  test("backticks inside the JSON's strings survive (20.1.2 stripped every ```, found 1 run in 17)", () => {
+    expect(readReplyJson('{"":[[{"```":""}]]}').value).toEqual({ "": [[{ "```": "" }]] });
+    const note = { monologue: "The docs show a ```json fence here." };
+    expect(readReplyJson("```json\n" + JSON.stringify(note) + "\n```").value).toEqual(note);
+  });
+
+  test("for any object, in a code fence with prose around it, the object is what is read, strings untouched", () => {
+    const prose = fc.string().filter((t) => !/[{}`]/.test(t));
+    fc.assert(fc.property(fc.dictionary(fc.string(), fc.jsonValue()), prose, prose, fc.constantFrom("```json\n", "```\n", "```JSON "), (obj, before, after, open) => {
+      const expected = JSON.parse(JSON.stringify(obj));
+      expect(readReplyJson(`${before}${open}${JSON.stringify(obj)}\n\`\`\`${after}`).value).toEqual(expected);
+    }), { numRuns: 1000 });
   });
 });
 
