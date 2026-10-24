@@ -1373,6 +1373,15 @@ export interface RawPageMeasurement {
   /** Visible links inside any choice group (nav or composite), each once, uncapped; `links - groupedLinks` are in none. */
   groupedLinks: number;
   /**
+   * Of groupedLinks, those whose drawn text holds at least one letter (any
+   * script: a Latin letter, an abjad word, a CJK character), uncapped. Text a
+   * sighted user does not see is left out: aria-label, title and alt, an svg
+   * title, and text hidden, transparent, sub-pixel or clipped away inside the
+   * link (a visually-hidden span). A link whose only text is digits is not
+   * counted. groupedLinks minus this is the icon-only grouped links.
+   */
+  groupedLinksWithText: number;
+  /**
    * The group totals as format 1 counted them: every nav, select, toggle and
    * composite group with a choice, nested groups counting their choices again.
    * For comparison only; nothing derives from it.
@@ -1405,7 +1414,7 @@ export const RAW_PAGE_FORMAT = 2;
  * totals. deriveMetrics still derives it,
  * exactly as it did then, so format-1 data can be compared with format 2.
  */
-export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "proseInNav" | "navGroupCount" | "navLinks" | "groupedLinks" | "choiceNested"> & { format: 1 };
+export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "proseInNav" | "navGroupCount" | "navLinks" | "groupedLinks" | "groupedLinksWithText" | "choiceNested"> & { format: 1 };
 
 /** The visible prose of a RawPageMeasurement, as length histograms rather than threshold counts. */
 export interface RawText {
@@ -1635,7 +1644,46 @@ export async function measurePageRaw(
     // many groups the page has (choiceGroups stores the first maxChoiceGroups).
     const navGroupCount = navGroups.filter(([own]) => own > 0).length;
     const navLinks = navGroups.reduce((n, [own]) => n + own, 0);
-    const groupedLinks = Array.from(claimed).filter(c => c.matches('a[href]') && inViewport(c)).length;
+    const groupedLinkList = Array.from(claimed).filter(c => c.matches('a[href]') && inViewport(c));
+    const groupedLinks = groupedLinkList.length;
+    // Of those, the links a sighted user can read: at least one letter (any
+    // script, so an abjad word or a CJK character too) in text that is drawn.
+    // aria-label, title and alt are attributes and never reach this; an svg
+    // <title> is not drawn, so it has no box. A link is in scope by the rule
+    // every count here uses (inViewport); its text must also be visible
+    // inside it: hidden, transparent or sub-pixel text does not count, nor
+    // text clipped away by a box inside the link (the visually-hidden
+    // pattern, a 1px clipped span, and the off-screen text indent), however
+    // innerText would report it.
+    const LETTER = /\p{L}/u;
+    const textDrawn = (node: Text, link: Element): boolean => {
+      if (!LETTER.test(node.nodeValue || '')) return false;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rects = Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0);
+      if (!rects.length) return false;
+      let left = Math.min(...rects.map(r => r.left)), top = Math.min(...rects.map(r => r.top));
+      let right = Math.max(...rects.map(r => r.right)), bottom = Math.max(...rects.map(r => r.bottom));
+      for (let el = node.parentElement; el; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.visibility !== 'visible' || parseFloat(cs.opacity) === 0 || parseFloat(cs.fontSize) < 1) return false;
+        if (/inset\(\s*50%/.test(cs.clipPath) || /^rect\(0px,? 0px,? 0px,? 0px\)$/.test(cs.clip)) return false;
+        if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || cs.clip !== 'auto' || cs.clipPath !== 'none') {
+          const r = el.getBoundingClientRect();
+          left = Math.max(left, r.left); top = Math.max(top, r.top);
+          right = Math.min(right, r.right); bottom = Math.min(bottom, r.bottom);
+          if (right - left < 2 || bottom - top < 2) return false;
+        }
+        if (el === link) break;
+      }
+      return true;
+    };
+    const readable = (link: Element): boolean => {
+      const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) if (textDrawn(n as Text, link)) return true;
+      return false;
+    };
+    const groupedLinksWithText = groupedLinkList.filter(readable).length;
     navGroups.forEach(([own, offered]) => addGroup('nav', own, offered));
     selects.forEach(s => { if (inViewport(s)) addGroup('select', s.querySelectorAll('option').length); });
     const toggles = new Map<string, { kind: string; size: number }>();
@@ -1992,6 +2040,7 @@ export async function measurePageRaw(
       navGroupCount,
       navLinks,
       groupedLinks,
+      groupedLinksWithText,
       choiceNested: { groups: nestedGroups, items: nestedItems },
       textBlocks,
       textBlockCount: visibleTextParts.length,

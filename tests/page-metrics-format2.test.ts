@@ -32,6 +32,12 @@
  *      reading law can leave out what the choosing law already reads: a nav
  *      of 8 labels beside one paragraph gives the labels' 16 words, and prose
  *      minus proseInNav is the paragraph, in words, characters and letters.
+ *   6. Grouped links a sighted user can read. groupedLinksWithText counts
+ *      the grouped links whose drawn text holds a letter: not aria-label,
+ *      title or alt, not an svg title, not a visually-hidden span; yes to a
+ *      word in a span the prose selector skips, and to an icon with its word
+ *      beside it. A nav of 5 text links, 3 icon-only links and 1 span-label
+ *      link gives 6 of 9.
  *
  * All are browser measurements (measurePageRaw), at both scopes; the pages
  * fit the first screen, so both scopes count the same elements.
@@ -59,6 +65,9 @@ const PAGES = [
   "page-metrics-nav-prose.html",
   "page-metrics-nav-prose-nested.html",
   "page-metrics-nav-prose-abjad.html",
+  "page-metrics-link-labels.html",
+  "page-metrics-link-labels-none.html",
+  "page-metrics-link-labels-scripts.html",
 ];
 const SCOPES: MetricScope[] = ["viewport", "full_page"];
 
@@ -207,6 +216,37 @@ describe("menu labels apart from the prose: proseInNav", () => {
       // A page with no prose in any group reports none.
       const p = measured["page-metrics-nested-prose.html"][scope] as Raw & InNav;
       expect(p.proseInNav).toEqual({ chars: 0, words: 0, letters: 0, abjadWords: 0, cjkChars: 0 });
+    });
+  }
+});
+
+type WithText = { groupedLinksWithText: number };
+
+describe("grouped links a sighted user can read: groupedLinksWithText", () => {
+  for (const scope of SCOPES) {
+    test(`${scope}: 5 text links, 3 icon-only links and 1 span label give 6 of 9`, () => {
+      const r = measured["page-metrics-link-labels.html"][scope] as Raw & WithText;
+      expect(r.groupedLinks).toBe(9);
+      expect(r.groupedLinksWithText).toBe(6);
+      // No prose element holds the labels: the case a prose count misses.
+      expect((r as Raw & InNav).proseInNav.words).toBe(0);
+    });
+
+    test(`${scope}: a nav of icons only gives none; CJK and abjad labels count, a bare page number does not`, () => {
+      const none = measured["page-metrics-link-labels-none.html"][scope] as Raw & WithText;
+      expect(none.groupedLinks).toBe(3);
+      expect(none.groupedLinksWithText).toBe(0);
+      const scripts = measured["page-metrics-link-labels-scripts.html"][scope] as Raw & WithText;
+      expect(scripts.groupedLinks).toBe(6);
+      expect(scripts.groupedLinksWithText).toBe(4);
+    });
+
+    test(`${scope}: never more than the grouped links, on every fixture`, () => {
+      for (const name of PAGES) {
+        const r = measured[name][scope] as Raw & WithText;
+        expect(r.groupedLinksWithText).toBeGreaterThanOrEqual(0);
+        expect(r.groupedLinksWithText).toBeLessThanOrEqual(r.groupedLinks);
+      }
     });
   }
 });
