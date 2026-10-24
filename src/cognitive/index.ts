@@ -2821,22 +2821,25 @@ function parseCognitiveResponse(response: string): ParsedCognitiveResponse {
 
 /**
  * The JSON object in a model reply, or why there is none. Tried in order: the
- * reply with any code fences removed, each balanced {...} in it (string-aware,
- * so a reply with prose after its JSON still reads), then the old greedy
+ * whole reply, each balanced {...} in it (string-aware, so prose or a code
+ * fence around the JSON is skipped), then the old greedy
  * first-"{"-to-last-"}" match; the first that parses to an object wins.
+ *
+ * Nothing is stripped first. Removing every ``` (20.1.2) also removed it from
+ * inside the JSON's strings, so {"note": "a ``` fence"} read back changed; the
+ * property test below found it about 1 run in 17 (2026-10-23).
  */
 export function readReplyJson(reply: string): { value?: Record<string, unknown>; problem?: string } {
   const text = reply.trim();
   if (!text) return { problem: "the model returned no text" };
-  const unfenced = text.replace(/```(?:json)?/gi, "").trim();
-  const candidates: string[] = [unfenced];
-  for (let i = 0; i < unfenced.length; i++) {
-    if (unfenced[i] !== "{") continue;
+  const candidates: string[] = [text];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "{") continue;
     let depth = 0;
     let inString = false;
     let escaped = false;
-    for (let j = i; j < unfenced.length; j++) {
-      const c = unfenced[j];
+    for (let j = i; j < text.length; j++) {
+      const c = text[j];
       if (inString) {
         if (escaped) escaped = false;
         else if (c === "\\") escaped = true;
@@ -2846,13 +2849,13 @@ export function readReplyJson(reply: string): { value?: Record<string, unknown>;
       if (c === '"') inString = true;
       else if (c === "{") depth++;
       else if (c === "}" && --depth === 0) {
-        candidates.push(unfenced.slice(i, j + 1));
+        candidates.push(text.slice(i, j + 1));
         i = j;
         break;
       }
     }
   }
-  const greedy = unfenced.match(/\{[\s\S]*\}/);
+  const greedy = text.match(/\{[\s\S]*\}/);
   if (greedy) candidates.push(greedy[0]);
   let firstError = "";
   for (const candidate of candidates) {
