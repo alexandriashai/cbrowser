@@ -45,8 +45,10 @@ describe("chain provenance registry", () => {
     // motor, decision, procedure and reading demands (demand.interactive.*,
     // demand.choice.halfSaturation, demand.text.readingCapacity) gave way to law
     // times against law.timeBudget, and riskTolerance's share moved to
-    // demand.decision.riskTolerance.
-    expect(CHAIN_PROVENANCE.length).toBe(63);
+    // demand.decision.riskTolerance. 46 after Stage C (21.0): cognitiveLoad's
+    // 11 text and 4 navigation shares and frustration's 2 text-to-patience
+    // shares gave way to the decision and reading demands, taken whole.
+    expect(CHAIN_PROVENANCE.length).toBe(46);
     expect(registered.size).toBe(CHAIN_PROVENANCE.length);
     for (const e of CHAIN_PROVENANCE) expect(e.id.startsWith("chain.")).toBe(true);
   });

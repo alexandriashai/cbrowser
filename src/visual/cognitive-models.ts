@@ -12,6 +12,7 @@
  * @since v18.39.0
  */
 import { MODEL_PROVENANCE, param, personaScope } from "./model-provenance.js";
+import { normalCDF } from "./normal-cdf.js";
 import { measuredRate, pointingCapacity, readingCapacity } from "./demand-laws.js";
 import { customPointingRule, customReadingRateId, customReadingRule } from "./provenance/persona-rates.js";
 
@@ -25,25 +26,11 @@ const pp = (id: string): number => personaScope(() => param(id));
 
 // ── Mathematical Primitives ──
 
-/**
- * Standard normal CDF (cumulative distribution function).
- * Abramowitz and Stegun approximation (7.1.26), error < 7.5e-8.
- */
-function normalCDF(x: number): number {
-  const a1 = 0.254829592;
-  const a2 = -0.284496736;
-  const a3 = 1.421413741;
-  const a4 = -1.453152027;
-  const a5 = 1.061405429;
-  const p = 0.3275911;
-
-  const sign = x < 0 ? -1 : 1;
-  const absX = Math.abs(x) / Math.SQRT2;
-  const t = 1 / (1 + p * absX);
-  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX);
-
-  return 0.5 * (1 + sign * y);
-}
+// normalCDF lives in ./normal-cdf.ts, a module with no imports, so the
+// provenance catalogue (provenance/personas.ts) can use it without importing
+// this file, which imports model-provenance.ts, which imports the catalogue:
+// that cycle left PERSONA_PROVENANCE uninitialised when the catalogue loaded
+// first (tests/persona-provenance.test.ts run alone).
 
 /**
  * Standard normal PDF (probability density function).
@@ -660,20 +647,20 @@ export function getReadingProfile(persona: {
     return { ...KNOWN_READING_PROFILES.elderly };
   }
 
-  // Trait-based interpolation
+  // Trait-based interpolation, on textProcessing alone.
+  //
+  // `comprehension` left this interpolation in 21.0 (Stage C, decided
+  // 2026-10-23): it is grasp of UI conventions, not reading
+  // (trait-reference.ts), and reading it as decoding gave 20 built-in personas
+  // a profile interpolated toward the dyslexic one on how well they know
+  // hamburger menus. It weighed 0.4 beside textProcessing's 0.6, and stood in
+  // alone when textProcessing was absent, which is every built-in persona.
   const textProcessing = traits.textProcessing;
-  const comprehension = traits.comprehension;
-
-  if (textProcessing === undefined && comprehension === undefined) {
+  if (textProcessing === undefined) {
     return { ...KNOWN_READING_PROFILES.neurotypical };
   }
 
-  // Use textProcessing as primary axis, comprehension as secondary
-  const readingAbility = textProcessing !== undefined && comprehension !== undefined
-    ? textProcessing * 0.6 + comprehension * 0.4
-    : (textProcessing ?? comprehension ?? 0.75);
-
-  const clamped = Math.max(0, Math.min(1, readingAbility));
+  const clamped = Math.max(0, Math.min(1, textProcessing));
 
   const neuro = KNOWN_READING_PROFILES.neurotypical;
   const impaired = KNOWN_READING_PROFILES.dyslexic;

@@ -12,6 +12,10 @@
  * power-user and confident-user were "high-familiarity personas" that site
  * knowledge would upgrade.
  *
+ * Since 21.0 (Stage C) the value reaches the chain as the demand's e on the
+ * choosing time (Cockburn, Gutwin & Greenberg 2007), passed to
+ * computeDemandDistribution, never written into a persona's traits.
+ *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
  */
@@ -21,7 +25,7 @@ import { join } from "node:path";
 import { resolveSiteFamiliarity } from "../src/mcp-tools/base/site-familiarity.js";
 import { computeDemandFromRawMetrics, computeSequentialCTC } from "../src/visual/cognitive-transport-chain.js";
 import { ROSTER, toolProfile } from "./fixtures/ctc-golden-matrix.js";
-import { demandFromLegacy } from "./fixtures/law-seconds.js";
+import { demandFromLegacy, legacySeconds } from "./fixtures/law-seconds.js";
 
 const ROOT = join(import.meta.dir, "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -51,14 +55,25 @@ describe("the value a run scores against", () => {
     expect(resolveSiteFamiliarity(undefined, true).source).toMatch(/first visit/);
   });
 
-  test("the old back door was real: an unset familiarity scores differently from 0.0 on a deep page", () => {
-    // Why the value must always be SET: leaving it undefined reads 0.5.
+  test("the old back door is closed: a persona's trait, set, unset or 1, changes nothing; only the run's value does", () => {
+    // Through 20.x leaving the trait undefined read 0.5. The chain no longer
+    // reads a siteFamiliarity trait at all, so there is no back door to leave
+    // open: the run's value reaches it through the demand only.
     const [name, p] = ["power-user", ROSTER["power-user"]];
     const prof = toolProfile(name, p);
     const deep = demandFromLegacy(0.6, 0.6, 30, 0.6, 0.3, 10, 12);
     const unset = { ...prof, traits: { ...prof.traits } };
     delete (unset.traits as Record<string, number>).siteFamiliarity;
-    expect(computeSequentialCTC(unset, deep).totalCTC).not.toBe(computeSequentialCTC(prof, deep).totalCTC);
+    const daily = { ...prof, traits: { ...prof.traits, siteFamiliarity: 1 } };
+    const base = computeSequentialCTC(prof, deep).rawCTC;
+    expect(computeSequentialCTC(unset, deep).rawCTC).toBe(base);
+    expect(computeSequentialCTC(daily, deep).rawCTC).toBe(base);
+    const s = legacySeconds({ informationDensity: 0.6, interactiveElementCount: 30, textDensity: 0.6, choiceCount: 10 });
+    const familiar = computeDemandFromRawMetrics(0.6, 0.6, 0.6, 0.3, 12, s.pointingSeconds, s.choosingSeconds, s.readingSeconds, s.procedureSeconds, s.choosingSecondsExpert, { siteFamiliarity: 1 });
+    // power-user's abilities exceed this page's choosing demand at any e, so the
+    // run's familiarity is shown on a persona whose abilities fall short of it.
+    const novice = toolProfile("first-timer", ROSTER["first-timer"]);
+    expect(computeSequentialCTC(novice, familiar).rawCTC).toBeLessThan(computeSequentialCTC(novice, deep).rawCTC);
   });
 });
 
@@ -69,7 +84,9 @@ describe("both tools use the resolver and nothing else", () => {
   ] as const) {
     test(`${label}: sets siteFamiliarity from resolveSiteFamiliarity, with no site-knowledge branch`, () => {
       expect(block).toContain("resolveSiteFamiliarity(");
-      expect(block).toMatch(/traits\.siteFamiliarity = \w+\.value/);
+      // The run's value goes to the demand, not into the persona's traits.
+      expect(block).toMatch(/computeDemandDistribution\(pageMetrics, (\{ siteFamiliarity: familiarity\.value \}|demandOptions)\)/);
+      expect(block).not.toMatch(/traits\.siteFamiliarity =/);
       expect(block).not.toMatch(/traits\.siteFamiliarity = 1(\.0)?;/);
       expect(block).not.toMatch(/(reqFam|requestedFamiliarity) > 0\.5/);
       expect(block).not.toMatch(/familiarityWarning/);

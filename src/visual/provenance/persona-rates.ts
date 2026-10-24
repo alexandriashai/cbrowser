@@ -21,8 +21,11 @@
  *   reading   dyslexic-user: the dyslexia rate against its own controls;
  *             low-vision-magnified, elderly-low-vision: low vision with intact
  *             central fields against the reference rate;
- *             elderly-user, cognitive-adhd, intellectual-disability,
- *             aphasia-receptive: today's fixation-model slowdown, a hypothesis;
+ *             aphasia-receptive: aphasia with impaired reading comprehension
+ *             against age-matched controls (Webster et al. 2018, Stage C);
+ *             elderly-user, cognitive-adhd: today's fixation-model slowdown,
+ *             a hypothesis; intellectual-disability: its pre-21.0 share,
+ *             frozen as a number, a hypothesis;
  *             every other persona: the reference, "no measured difference".
  *
  * A measured ratio is `published` only when the population and its control
@@ -90,6 +93,17 @@ const ELDERLY_POINTING = "The elderly pointing profile, profile.pointing.elderly
 const FIXATION_KEPT = (who: string, inputs: string, ms: string, why: string) =>
   `Today's fixation-model slowdown for ${who}, kept as a hypothesis: the text-independent per-word time at ${inputs} is ${ms}, against 270 ms for the neurotypical profile, so the persona reads at that share of the reference rate (law.reading.wpm). ${why} A silent reading rate of the population against matched controls would set or replace it.`;
 
+// Stage C (21.0, research/stage-c-design.md 10.5): the cognitiveLoad text terms
+// that charged these two personas' comprehension against text are retired, so
+// their language deficit is priced here alone. The before and after are mean
+// totalCTC on the reference set named, viewport and full_page.
+const STAGE_C_SEARCH = " (also not by the one targeted PubMed search of 2026-10-23 for aphasia or intellectual disability with reading rate, reading speed or words per minute: 51 records; its one intellectual-disability record is of children, and an adult rate against controls appears in none)";
+const STAGE_C_ONLY = (who: string, comprehension: string, viewport: string, fullPage: string) =>
+  `Since Stage C (21.0) this share is the only place ${who}'s language-comprehension deficit is priced: the cognitiveLoad text terms that charged it through comprehension (${comprehension}, a UI-convention trait, not reading) are retired. On ctc-reference-v2-2026-10-24 (514 pages) its mean totalCTC moved ${viewport} at the viewport and ${fullPage} at full_page.`;
+
+/** intellectual-disability's reading share before 21.0 (270 / 338 ms per word), frozen: see its entry. */
+const ID_READING_BEFORE_21 = 0.7988165680473372;
+
 export const PERSONA_RATE_PROVENANCE: ProvenanceEntry[] = [
   // ── Pointing ──
   entry("motor-impairment-tremor", "pointing", ratio("law.rate.pointing.motionImpaired", "law.rate.pointing.motionImpairedControls"), "published",
@@ -111,10 +125,10 @@ export const PERSONA_RATE_PROVENANCE: ProvenanceEntry[] = [
     FIXATION_KEPT("elderly-user", "the elderly reading profile (phonological 0.65, visualSpan 5)", "317 ms", "No silent-reading norm for adults 65+ was found; Brysbaert (2019) reports that the drop \"is not expected to occur before the age of 60–65\", with no rate. Custom personas cued elderly or 65+ read at this same entry (decided 2026-10-23).")),
   entry("cognitive-adhd", "reading", fixationRatio(0.75, 6), "hypothesis",
     FIXATION_KEPT("cognitive-adhd", "its stated reading traits (phonologicalDecoding 0.75, visualSpan 6)", "288.3 ms", "No measured silent-reading rate for adults with ADHD was found.")),
-  entry("intellectual-disability", "reading", fixationRatio(0.44, 5), "hypothesis",
-    FIXATION_KEPT("intellectual-disability", "the profile interpolated from comprehension 0.2 (phonological 0.44, visualSpan 5)", "338 ms", "No reading rate for adults with intellectual disability was retrieved.")),
-  entry("aphasia-receptive", "reading", fixationRatio(0.4625, 5), "hypothesis",
-    FIXATION_KEPT("aphasia-receptive", "the profile interpolated from comprehension 0.25 (phonological 0.4625, visualSpan 5)", "335.75 ms", "No reading rate for adults with receptive aphasia was retrieved.")),
+  entry("intellectual-disability", "reading", ID_READING_BEFORE_21, "hypothesis",
+    `No adult reading rate found; the value is the pre-21.0 one, frozen as a number (decided 2026-10-23). Through 20.x it was the fixation model's slowdown at the profile getReadingProfile interpolated from comprehension 0.2 (phonological 0.44, visualSpan 5: 338 ms per word against the neurotypical profile's 270 ms, a share of 270 / 338). getReadingProfile no longer reads comprehension, a UI-convention trait, so the share is kept as it was rather than recomputed from a profile nothing now produces. No reading rate for adults with intellectual disability was retrieved${STAGE_C_SEARCH}. ${STAGE_C_ONLY("intellectual-disability", "0.2", "0.855 -> 0.643", "0.837 -> 0.661")} A silent reading rate of adults with mild intellectual disability against matched controls would set or replace it.`),
+  entry("aphasia-receptive", "reading", ratio("law.rate.reading.aphasiaControlsSeconds", "law.rate.reading.aphasiaReadingImpairedSeconds"), "published",
+    "People with aphasia whose reading comprehension is impaired, measured against age-matched controls in the same study by the same method: 30 / 71 seconds for the same paragraph (law.rate.reading.aphasiaControlsSeconds, law.rate.reading.aphasiaReadingImpairedSeconds), a reading-rate share of 0.423, c = 0.297. Webster, Morris, Howard & Garraffa (2018), AJSLP 27(1S), 423-437. Found by the one targeted PubMed search of 2026-10-23 (aphasia or intellectual disability with reading rate, reading speed or words per minute; 51 records). The group is post-stroke aphasia whose comprehension accuracy fell below the controls' 5th percentile, the closest measured group to receptive aphasia; the study does not classify aphasia type. Those without a measured reading impairment took 55 seconds (share 0.545). Until 21.0 the share was the fixation model's 0.804, interpolated from comprehension 0.25, a UI-convention trait. Since Stage C this share is the only place the persona's language-comprehension deficit is priced: the cognitiveLoad text terms that charged it through comprehension are retired."),
   ...READING_NO_DIFFERENCE.map((p) => entry(p, "reading", 1, "hypothesis", NO_DIFFERENCE_READING)),
 ];
 

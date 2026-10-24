@@ -9,6 +9,18 @@
  * demand.text.readingCapacity) are gone. What remains here are the shares of
  * those demands that land on each trait, and the rest of the chain.
  *
+ * Stage C (research/stage-c-design.md): cognitiveLoad's four abilities take the
+ * decision demand and frustration's patience the reading demand, each whole,
+ * so no share is registered for them: the claim is the persona value, read as
+ * a tolerated reference time and registered with it (provenance/personas.ts).
+ * The 17 hand-set shares they replaced are gone: 11 text and 4 navigation
+ * terms of cognitiveLoad (demand.info.*, demand.text.comprehension,
+ * demand.wordLength.*, demand.sentenceLength.workingMemory and .comprehension,
+ * demand.lexicalDiversity.*, demand.longWords.*, demand.technical.*,
+ * demand.nav.*) and frustration's two text terms (demand.text.patience,
+ * demand.sentenceLength.patience). Text is priced by the reading time, and
+ * navigation depth, 1 on 92% of the reference pages, is the path's.
+ *
  * Nothing in this chain is fitted or published today. Every curve constant,
  * weight, rate, cap and modulation coefficient was set by hand, so it is a
  * `hypothesis` whose `source` names the data that would test or fit it. The
@@ -40,24 +52,6 @@ const DECISION = (trait: string) =>
 
 export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   // ── Demand curves: page feature -> trait demand ──
-  h("demand.info.workingMemory", 0.9, DEMAND("informationDensity", "workingMemory")),
-  h("demand.info.informationForaging", 0.8, DEMAND("informationDensity", "informationForaging")),
-
-
-
-  h("demand.text.patience", 0.7, DEMAND("textDensity", "patience")),
-  h("demand.text.comprehension", 0.85, DEMAND("textDensity", "comprehension")),
-
-  h("demand.wordLength.comprehension", 0.9, DEMAND("avgWordLength", "comprehension")),
-  h("demand.sentenceLength.workingMemory", 0.85, DEMAND("avgSentenceLength", "workingMemory")),
-  h("demand.sentenceLength.patience", 0.7, DEMAND("avgSentenceLength", "patience")),
-  h("demand.sentenceLength.comprehension", 0.8, DEMAND("avgSentenceLength", "comprehension")),
-  h("demand.lexicalDiversity.comprehension", 0.75, DEMAND("lexicalDiversity", "comprehension")),
-  h("demand.lexicalDiversity.transferLearning", 0.65, DEMAND("lexicalDiversity", "transferLearning")),
-  h("demand.longWords.comprehension", 0.8, DEMAND("longWordRatio", "comprehension")),
-  h("demand.technical.comprehension", 0.95, DEMAND("technicalDensity", "comprehension")),
-  h("demand.technical.transferLearning", 0.8, DEMAND("technicalDensity", "transferLearning")),
-
   h("demand.animation.sigmoidThreshold", 0.3, "Hand-set animation level at which motion demand reaches 0.5; a fit of measured distraction cost against animation level would place the threshold."),
   h("demand.animation.sigmoidScale", 0.15, "Hand-set width of the motion-demand sigmoid; the same distraction-cost fit would set its slope."),
   h("demand.animation.changeBlindness", 0.9, DEMAND("animationLevel", "changeBlindness")),
@@ -72,11 +66,6 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("demand.choice.fearOfMissingOut", 0.75, DECISION("fearOfMissingOut")),
   h("demand.choice.socialProofSensitivity", 0.7, DECISION("socialProofSensitivity")),
   h("demand.decision.riskTolerance", 0.75, DECISION("riskTolerance") + " Moved from the interactive-count curve (demand.interactive.riskTolerance, the same 0.75) when that curve was retired."),
-
-  h("demand.nav.halfSaturation", 3, "Hand-set navigation depth at which wayfinding demand reaches 0.5 (d/(d+3)); task completion against click depth would fit it."),
-  h("demand.nav.workingMemory", 0.95, DEMAND("navigationDepth", "workingMemory")),
-  h("demand.nav.transferLearning", 0.65, DEMAND("navigationDepth", "transferLearning")),
-  h("demand.nav.siteFamiliarity", 0.85, DEMAND("navigationDepth", "siteFamiliarity")),
 
   // ── Trait resolution ──
   h("missingTraitCapacity", 0.5, "Capacity assumed for a trait the persona does not carry; measured trait distributions across the roster (or refusing to score an absent trait) would replace it."),
@@ -104,7 +93,7 @@ export const CHAIN_PROVENANCE: ProvenanceEntry[] = [
   h("depletionRate", 0.15, "Hand-set fraction of remaining capacity drawn per unit of layer cost; within-session effort or performance decline across a task sequence would fit it."),
   h("indirectDepletionShare", 0.5, "Hand-set share of the depletion rate applied to dimensions outside the current layer; cross-task fatigue transfer measurements would fit it."),
   h("maxDrawdownFraction", 0.5, "Hand-set cap on the fraction of remaining capacity one layer may draw; within-session effort measurements across a task sequence would fit it (same status as the Hill exponent)."),
-  d("capacityEpsilon", 1e-4, "Numerical floor applied to residual capacity after each depletion step, NOT a behavioural limit: an encoding choice with no empirical claim. It does bind, though: a dimension that starts at exactly 0 is lifted to 1e-4 by the first gated layer, and siteFamiliarity is 0 for every persona in the tool path unless a caller supplies one, so cognitiveLoad reads 1e-4 there. A floor of 0 would remove that shift; it was set to keep the drawdown away from denormals."),
+  d("capacityEpsilon", 1e-4, "Numerical floor applied to residual capacity after each depletion step, NOT a behavioural limit: an encoding choice with no empirical claim. It binds only when a residual falls below it. Through 20.x it bound on every tool-path run: siteFamiliarity was a dimension at 0 for every persona, so the first gated layer lifted it to 1e-4 and cognitiveLoad read that. siteFamiliarity left the vector in 21.0 (Stage C), and no built-in persona now starts below 0.1, so only a dimension drawn down by depletion, or a caller-built persona near 0, reaches it. A floor of 0 would remove that shift; it was set to keep the drawdown away from denormals."),
   h("interaction.cognitiveLoadXdecision", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.visualComplexityXcognitiveLoad", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),
   h("interaction.frustrationXreadability", 0.15, "Hand-set cross-layer coupling; a product-term fit of measured effort against the two layers' costs would fit it."),

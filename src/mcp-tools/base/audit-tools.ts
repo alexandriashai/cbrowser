@@ -12,6 +12,7 @@ import { writeArtifact } from "../../artifact-store.js";
 import { buildContentWithPreviews, type PreviewSource } from "../inline-image.js";
 import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
 import { lawTimesReport } from "../../visual/law-times-report.js";
+import { resolveSiteFamiliarity as resolveRunFamiliarity } from "./site-familiarity.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
@@ -597,12 +598,13 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             const personaObj = existingPersona || createCognitivePersona(personaName, personaName, {});
             const traits = { ...((personaObj as unknown as Record<string, unknown>).cognitiveTraits || {}) as Record<string, number> };
 
-            // Familiarity is a persona-SITE pair: the caller's value for THIS
-            // run, else 0.0. Through 20.x a site-knowledge branch left it unset,
-            // which the chain read as 0.5 (site-familiarity.ts).
+            // Familiarity is the visit's: the caller's value for THIS run, else
+            // 0.0, the same for every persona. Since 21.0 (Stage C) it is
+            // Cockburn et al.'s expertise e on the choosing time, handed to the
+            // demand, not a persona trait. Through 20.x a site-knowledge branch
+            // left the trait unset, which the chain read as 0.5 (site-familiarity.ts).
             const { resolveSiteFamiliarity } = await import("./site-familiarity.js");
             const familiarity = resolveSiteFamiliarity(siteFamiliarity, hasSiteKnowledge);
-            traits.siteFamiliarity = familiarity.value;
 
             // Bridge the derived capacities before building the profile. This was
             // MISSING here and present in cognitive_effort, so the motor layer --
@@ -627,7 +629,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             // scored against the same demand; this tool has no values option. The
             // whole handler is one provenance recording, so the demand curves and
             // the chain are counted with everything else the answer read.
-            const result = computeSequentialCTC(otProfile, computeDemandDistribution(pageMetrics), { asymmetric: true, interactions: true });
+            const result = computeSequentialCTC(otProfile, computeDemandDistribution(pageMetrics, { siteFamiliarity: familiarity.value }), { asymmetric: true, interactions: true });
             const rank = ctcRank(result);
             rankSentences[personaName] = rank.sentence;
 
@@ -671,8 +673,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           longWordRatio: Math.round(pageMetrics.longWordRatio * 1000) / 1000,
           technicalDensity: Math.round(pageMetrics.technicalDensity * 1000) / 1000,
           scriptFamily: pageMetrics.scriptFamily || "alphabetic",
-          // Stage B: the four law times behind the motor, decision, procedure and reading demands.
-          lawTimes: lawTimesReport(pageMetrics),
+          // Stage B: the four law times behind the motor, decision, procedure and reading
+          // demands; choosing at the run's siteFamiliarity (Stage C).
+          lawTimes: lawTimesReport(pageMetrics, resolveRunFamiliarity(siteFamiliarity, false).value),
           // Every ratio above is 0-1 NORMALIZED, not a raw measurement.
           // cognitive_effort's readability penalties report avg word length in
           // raw CHARACTERS (e.g. 11.4), so the same name carried two scales
@@ -1038,7 +1041,6 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // persona (first-timer, prose fixture: 0.669 against 0.700).
           const { resolveSiteFamiliarity } = await import("./site-familiarity.js");
           const familiarity = resolveSiteFamiliarity(undefined, false);
-          traits.siteFamiliarity = familiarity.value;
           // Same bridge as Gate 3 and cognitive_effort. Without it this tool has
           // the identical missing-capacity defect and would reproduce the motor
           // disagreement against cognitive_effort the moment anyone compared them.
@@ -1052,7 +1054,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // a scope WAS offered, echoed, and then not applied. If this tool ever gains
           // a scope, this marker must go and the scope must be threaded.
           const pageMetrics = await extractPageMetrics(page);
-          const demand = computeDemandDistribution(pageMetrics);
+          const demand = computeDemandDistribution(pageMetrics, { siteFamiliarity: familiarity.value });
           const ctcResult = computeSequentialCTC(otProfile, demand, {
             asymmetric: true, interactions: true, ...(chainValues ? { schwartzValues: chainValues } : {}),
           });

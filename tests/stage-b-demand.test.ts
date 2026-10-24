@@ -192,8 +192,10 @@ describe("every law constant the score reads moves a score in the golden matrix"
   // the persona and custom-persona rate entries when those are registered, so
   // changing one at run time moves nothing; tests/persona-capacity-rates.test.ts
   // holds each entry to the rates it is computed from. The Hick-Hyman pair is the
-  // menu model's expert limit, reported as lawDiagnostics.choosingSecondsExpert
-  // and read by no demand (the design keeps it as a diagnostic).
+  // menu model's expert limit, PageMetrics.choosingSecondsExpert: since Stage C
+  // the decision demand weights it by the run's siteFamiliarity e, and the
+  // golden matrix, like every first visit and the reference curve, runs at
+  // e = 0, where it moves nothing (tests/stage-c-load.test.ts covers e > 0).
   const SCORED = LAW_PROVENANCE.filter((e) => !e.id.startsWith("law.rate.") && !e.id.startsWith("law.hick."));
 
   test("each, scaled by 1.1 or 0.9, moves a score", () => {
@@ -221,8 +223,19 @@ describe("the law times as a tool reports them (lawTimesReport)", () => {
       expect(r[k].seconds).toBe(Math.round(s * 10) / 10);
       expect(r[k].demand).toBe(Math.round((s / (s + r.budgetSeconds)) * 1000) / 1000);
     }
-    expect(r.choosing.expertSeconds).toBe(Math.round(m.lawDiagnostics.choosingSecondsExpert * 10) / 10);
+    expect(r.choosing.expertSeconds).toBe(Math.round(m.choosingSecondsExpert * 10) / 10);
+    expect(r.choosing.familiarSeconds).toBeUndefined();
     expect(r.note).toContain("hypothesis");
+  });
+
+  test("a familiar run reports the time the abilities are asked at its siteFamiliarity e beside the first-visit time (Stage C)", () => {
+    const m = deriveMetrics(RAW_LATIN);
+    const r = lawTimesReport(m, 0.5);
+    const at = 0.5 * m.choosingSeconds + 0.5 * m.choosingSecondsExpert;
+    expect(r.choosing.seconds).toBe(Math.round(m.choosingSeconds * 10) / 10);
+    expect(r.choosing.familiarSeconds).toBe(Math.round(at * 10) / 10);
+    expect(r.choosing.familiarDemand).toBe(Math.round((at / (at + r.budgetSeconds)) * 1000) / 1000);
+    expect(r.choosing.siteFamiliarity).toBe(0.5);
   });
 });
 

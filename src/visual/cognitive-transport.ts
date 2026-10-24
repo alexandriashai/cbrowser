@@ -827,7 +827,6 @@ export function generateAdversarialPersonas(
  *
  * The expectation distribution is derived from the persona's traits:
  * - High patience → expects slower information delivery (wider temporal spread)
- * - High comprehension → expects denser information
  * - attention / motor / text read the three BRIDGED capacities
  *   (sustainedAttention, motorCapacity, readingCapacity), so a caller must run
  *   bridgeCapacityTraits (visual/cognitive-models.ts) before building the
@@ -870,8 +869,11 @@ export function estimateCognitiveLoad(
   // Use power 1.5 on page metrics for sharper scaling at high demand
   const breakdown: Record<string, number> = {};
 
-  // Information processing load
-  breakdown.information = Math.pow(pageMetrics.informationDensity, 1.5) * (1 - p('comprehension') * 0.8);
+  // No information dimension since 21.0 (Stage C, decided 2026-10-23). It was
+  // informationDensity^1.5 x (1 - 0.8 x comprehension): text amount charged
+  // against grasp of UI conventions, which is not reading. Text is the `text`
+  // dimension below, against the bridged reading capacity. informationDensity
+  // stays in the signature as a reported page metric and is not read.
 
   // Visual processing load. PERSONA-INVARIANT, and reported as such.
   //
@@ -916,7 +918,7 @@ export function estimateCognitiveLoad(
   const total = Object.values(breakdown).reduce((a, b) => a + b, 0) / Object.keys(breakdown).length;
 
   // Find bottleneck
-  let maxLoad = 0, bottleneck = 'information';
+  let maxLoad = 0, bottleneck = Object.keys(breakdown)[0];
   for (const [key, val] of Object.entries(breakdown)) {
     if (val > maxLoad) { maxLoad = val; bottleneck = key; }
   }
@@ -1166,13 +1168,10 @@ export async function extractPerScreenMetrics(
       choiceCountCapped: fresh.newChoices > choiceCap,
       pointingSeconds: metrics.pointingSeconds * pointShare,
       choosingSeconds: metrics.choosingSeconds * chooseShare,
+      choosingSecondsExpert: metrics.choosingSecondsExpert * chooseShare,
       procedureSeconds: metrics.procedureSeconds * pointShare,
       readingSeconds: metrics.readingSeconds - metrics.lawDiagnostics.labelSeconds * (1 - chooseShare),
-      lawDiagnostics: {
-        ...metrics.lawDiagnostics,
-        choosingSecondsExpert: metrics.lawDiagnostics.choosingSecondsExpert * chooseShare,
-        labelSeconds: metrics.lawDiagnostics.labelSeconds * chooseShare,
-      },
+      lawDiagnostics: { ...metrics.lawDiagnostics, labelSeconds: metrics.lawDiagnostics.labelSeconds * chooseShare },
     });
   }
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -1214,14 +1213,19 @@ export interface ExtractedPageMetrics {
   choosingSeconds: number;
   readingSeconds: number;
   procedureSeconds: number;
-  /** Diagnostics beside the four law times; no demand reads them. */
+  /**
+   * Stage C: the same choices by Hick-Hyman, the expert limit of the menu
+   * model (Cockburn, Gutwin & Greenberg 2007) whose novice limit is
+   * choosingSeconds. cognitiveLoad's demand reads (1 - e) choosingSeconds +
+   * e choosingSecondsExpert, e the run's siteFamiliarity.
+   */
+  choosingSecondsExpert: number;
+  /** Diagnostics beside the law times; no demand reads them. */
   lawDiagnostics: LawDiagnostics;
 }
 
-/** What lawSecondsOf measured besides the four times. */
+/** What lawSecondsOf measured besides the law times. */
 export interface LawDiagnostics {
-  /** Choosing time by Hick-Hyman, the expert limit of the menu model the demand uses the novice limit of. */
-  choosingSecondsExpert: number;
   /** Mean Fitts index of difficulty over the stored targets, bits. */
   meanFittsID: number;
   /** Targets acquired (interactiveElements, uncapped). */
@@ -1385,6 +1389,15 @@ export interface RawPageMeasurement {
   /** Visible links inside any choice group (nav or composite), each once, uncapped; `links - groupedLinks` are in none. */
   groupedLinks: number;
   /**
+   * Of groupedLinks, those whose drawn text holds at least one letter or
+   * digit (any script: a Latin letter, an abjad word, a CJK character, a page
+   * number), uncapped. Text a sighted user does not see is left out:
+   * aria-label, title and alt, an svg title, and text hidden, transparent,
+   * sub-pixel or clipped away inside the link (a visually-hidden span).
+   * groupedLinks minus this is the icon-only grouped links.
+   */
+  groupedLinksWithText: number;
+  /**
    * The group totals as format 1 counted them: every nav, select, toggle and
    * composite group with a choice, nested groups counting their choices again.
    * For comparison only; nothing derives from it.
@@ -1417,7 +1430,7 @@ export const RAW_PAGE_FORMAT = 2;
  * totals. deriveMetrics still derives it,
  * exactly as it did then, so format-1 data can be compared with format 2.
  */
-export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "proseInNav" | "navGroupCount" | "navLinks" | "groupedLinks" | "choiceNested"> & { format: 1 };
+export type RawPageMeasurementV1 = Omit<RawPageMeasurement, "format" | "prose" | "proseNested" | "proseInNav" | "navGroupCount" | "navLinks" | "groupedLinks" | "groupedLinksWithText" | "choiceNested"> & { format: 1 };
 
 /** The visible prose of a RawPageMeasurement, as length histograms rather than threshold counts. */
 export interface RawText {
@@ -1647,7 +1660,47 @@ export async function measurePageRaw(
     // many groups the page has (choiceGroups stores the first maxChoiceGroups).
     const navGroupCount = navGroups.filter(([own]) => own > 0).length;
     const navLinks = navGroups.reduce((n, [own]) => n + own, 0);
-    const groupedLinks = Array.from(claimed).filter(c => c.matches('a[href]') && inViewport(c)).length;
+    const groupedLinkList = Array.from(claimed).filter(c => c.matches('a[href]') && inViewport(c));
+    const groupedLinks = groupedLinkList.length;
+    // Of those, the links that show visible text: at least one letter or
+    // digit (any script, so an abjad word, a CJK character or a page number)
+    // in text that is drawn.
+    // aria-label, title and alt are attributes and never reach this; an svg
+    // <title> is not drawn, so it has no box. A link is in scope by the rule
+    // every count here uses (inViewport); its text must also be visible
+    // inside it: hidden, transparent or sub-pixel text does not count, nor
+    // text clipped away by a box inside the link (the visually-hidden
+    // pattern, a 1px clipped span, and the off-screen text indent), however
+    // innerText would report it.
+    const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+    const textDrawn = (node: Text, link: Element): boolean => {
+      if (!LETTER_OR_DIGIT.test(node.nodeValue || '')) return false;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rects = Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0);
+      if (!rects.length) return false;
+      let left = Math.min(...rects.map(r => r.left)), top = Math.min(...rects.map(r => r.top));
+      let right = Math.max(...rects.map(r => r.right)), bottom = Math.max(...rects.map(r => r.bottom));
+      for (let el = node.parentElement; el; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.visibility !== 'visible' || parseFloat(cs.opacity) === 0 || parseFloat(cs.fontSize) < 1) return false;
+        if (/inset\(\s*50%/.test(cs.clipPath) || /^rect\(0px,? 0px,? 0px,? 0px\)$/.test(cs.clip)) return false;
+        if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || cs.clip !== 'auto' || cs.clipPath !== 'none') {
+          const r = el.getBoundingClientRect();
+          left = Math.max(left, r.left); top = Math.max(top, r.top);
+          right = Math.min(right, r.right); bottom = Math.min(bottom, r.bottom);
+          if (right - left < 2 || bottom - top < 2) return false;
+        }
+        if (el === link) break;
+      }
+      return true;
+    };
+    const readable = (link: Element): boolean => {
+      const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) if (textDrawn(n as Text, link)) return true;
+      return false;
+    };
+    const groupedLinksWithText = groupedLinkList.filter(readable).length;
     navGroups.forEach(([own, offered]) => addGroup('nav', own, offered));
     selects.forEach(s => { if (inViewport(s)) addGroup('select', s.querySelectorAll('option').length); });
     const toggles = new Map<string, { kind: string; size: number }>();
@@ -2004,6 +2057,7 @@ export async function measurePageRaw(
       navGroupCount,
       navLinks,
       groupedLinks,
+      groupedLinksWithText,
       choiceNested: { groups: nestedGroups, items: nestedItems },
       textBlocks,
       textBlockCount: visibleTextParts.length,
@@ -2053,7 +2107,10 @@ function isEntryKind(kind: string | undefined): boolean {
  *   choosing   every choice group resolved once by novice linear search
  *              (Cockburn et al. 2007); a checkbox group is one yes/no per box;
  *              links in no group form one more set. Groups beyond the stored
- *              ones are scaled to choiceGroupCount.
+ *              ones are scaled to choiceGroupCount. choosingSecondsExpert is
+ *              the same groups by Hick-Hyman, the menu model's expert limit
+ *              (Stage C: cognitiveLoad's demand interpolates the two by the
+ *              run's siteFamiliarity, Cockburn et al.'s Eq. 4).
  *   reading    the prose outside every group read once at Brysbaert's rate
  *              (letters of the alphabetic words, abjad words, CJK
  *              characters; format 2 counts each character once), plus a
@@ -2065,7 +2122,7 @@ function isEntryKind(kind: string | undefined): boolean {
  *   procedure  KLM's M per entry step: an entry field (ENTRY_INPUT_TYPES,
  *              textarea, select) or a radio or checkbox group.
  */
-export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pick<ExtractedPageMetrics, "pointingSeconds" | "choosingSeconds" | "readingSeconds" | "procedureSeconds" | "lawDiagnostics"> {
+export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pick<ExtractedPageMetrics, "pointingSeconds" | "choosingSeconds" | "choosingSecondsExpert" | "readingSeconds" | "procedureSeconds" | "lawDiagnostics"> {
   const view = { viewportWidth: raw.viewportWidth, viewportHeight: raw.viewportHeight, scrollY: raw.scrollY };
   const targets: PointingTarget[] = [];
   let idSum = 0;
@@ -2121,6 +2178,7 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
   return {
     pointingSeconds: pointingSeconds(targets, totalTargets),
     choosingSeconds: choose("novice"),
+    choosingSecondsExpert: choose("expert"),
     readingSeconds: readingSeconds({
       letters: Math.max(0, letters - inGroup.letters),
       abjadWords: Math.max(0, abjadWords - inGroup.abjadWords),
@@ -2128,7 +2186,6 @@ export function lawSecondsOf(raw: RawPageMeasurement | RawPageMeasurementV1): Pi
     }) + labelSeconds,
     procedureSeconds: klmSeconds(entrySteps),
     lawDiagnostics: {
-      choosingSecondsExpert: choose("expert"),
       meanFittsID: storedTargets > 0 ? idSum / storedTargets : 0,
       targets: totalTargets,
       entrySteps,

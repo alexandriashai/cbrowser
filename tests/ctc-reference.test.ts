@@ -130,6 +130,9 @@ describe("the reference set", () => {
     expect(() => decodeReferenceRaw(pack([{ ...good[0], viewport: early }, good[1]]), 2, "t")).toThrow(/graded page 0 viewport is raw format 2 without navLinks, groupedLinks/);
     const { proseInNav: _p, ...noNavProse } = good[1].full_page;
     expect(() => decodeReferenceRaw(pack([good[0], { ...good[1], full_page: noNavProse }]), 2, "t")).toThrow(/graded page 1 full_page is raw format 2 without proseInNav/);
+    // ... and one from before groupedLinksWithText (the 711f0b4 crawl), named.
+    const { groupedLinksWithText: _t, ...noLinkText } = good[0].full_page;
+    expect(() => decodeReferenceRaw(pack([{ ...good[0], full_page: noLinkText }, good[1]]), 2, "t")).toThrow(/graded page 0 full_page is raw format 2 without groupedLinksWithText/);
   });
 
   test("blocked means did not load: no graded page has zero interactive elements on the whole document", () => {
@@ -171,7 +174,7 @@ describe("the reference set", () => {
     // The demand curves shape the reference pages, so the score depends on them
     // even though this demand was computed outside the recording; so do the
     // normalisers the reference pages' metrics are derived with.
-    expect(first.hypotheses).toContain("chain.demand.info.workingMemory");
+    expect(first.hypotheses).toContain("chain.demand.choice.anchoringBias");
     expect(first.hypotheses).toContain("pageMetrics.informationDensity.midpoint");
     const { ids } = readsOf(() => computeSequentialCTC(prof, demand));
     expect(ids.has("ctcReference.viewport")).toBe(true);
@@ -540,15 +543,20 @@ describe("the curve is derived through the live chain, from raw measurements", (
 
   test("a changed page-metric normaliser re-derives the curve: the reference stores raw measurements, not metrics", () => {
     const base = ctcReferenceCurve("viewport");
-    // A midpoint, a cap, and a sentence threshold applied to the stored length histograms.
+    // A midpoint and a saturation of the visual and motion metrics.
     // Stage B: the law constants re-derive the curve from the stored raw records too
     // (choiceCap no longer does: no demand reads choiceCount, so it only bounds
     // the reported count).
-    for (const [id, v] of [["pageMetrics.informationDensity.midpoint", 2500], ["pageMetrics.alphabetic.sentenceLengthAbove", 20],
+    for (const [id, v] of [["pageMetrics.visual.midpoint", 100], ["pageMetrics.animation.saturation", 2],
       ["law.fitts.slope", 0.2], ["law.search.slope", 0.1], ["law.reading.wpm", 300], ["law.klm.mentalPreparation", 2], ["law.timeBudget", 20]] as const) {
       const moved = withParamOverrides({ [id]: v }, () => ctcReferenceCurve("viewport"));
       expect([...moved.curve.xs]).not.toEqual([...base.curve.xs]);
       expect(moved.reads).toContain(id);
+    }
+    // Stage C: the text normalisers shape reported metrics only. No demand reads
+    // informationDensity or sentence length, so they no longer move the curve.
+    for (const [id, v] of [["pageMetrics.informationDensity.midpoint", 2500], ["pageMetrics.alphabetic.sentenceLengthAbove", 20]] as const) {
+      expect([...withParamOverrides({ [id]: v }, () => ctcReferenceCurve("viewport")).curve.xs]).toEqual([...base.curve.xs]);
     }
     // The pages it ranks against moved with it.
     const before = referencePages("viewport")[0].informationDensity;

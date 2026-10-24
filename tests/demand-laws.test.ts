@@ -34,7 +34,7 @@ import { KNOWN_POINTING_PROFILES, KNOWN_READING_PROFILES, computeReadingDifficul
 
 const SRC = join(import.meta.dir, "..", "src", "visual", "demand-laws.ts");
 const close = (a: number, b: number, eps = 1e-9) => expect(Math.abs(a - b)).toBeLessThan(eps);
-const POPULATIONS: MeasuredPopulation[] = ["motionImpaired", "dyslexiaAdults", "lowVisionCentralLoss", "lowVisionIntactFields"];
+const POPULATIONS: MeasuredPopulation[] = ["motionImpaired", "dyslexiaAdults", "lowVisionCentralLoss", "lowVisionIntactFields", "aphasiaReadingImpaired"];
 
 /** Every law function on inputs where every registered constant matters (a sub-pixel width reaches the floor). */
 function exercise(): number[] {
@@ -63,9 +63,11 @@ describe("law registry (provenance/laws.ts)", () => {
 
   test("pinned, unique, law-prefixed, merged into MODEL_PROVENANCE", () => {
     // 21 at registration (Stage B phase 2a): 13 law constants, the time budget,
-    // and 7 measured rates; 22 with the menu label's first read (ISC-76).
-    expect(LAW_PROVENANCE.length).toBe(22);
-    expect(ids.size).toBe(22);
+    // and 7 measured rates. 23 with Stage C's aphasia and control reading times
+    // (Webster, Morris, Howard & Garraffa 2018); 24 with the menu label's first
+    // read (ISC-76).
+    expect(LAW_PROVENANCE.length).toBe(24);
+    expect(ids.size).toBe(24);
     for (const e of LAW_PROVENANCE) {
       expect(e.id.startsWith("law.")).toBe(true);
       expect(Number.isFinite(e.value)).toBe(true);
@@ -84,6 +86,7 @@ describe("law registry (provenance/laws.ts)", () => {
       "rate.pointing.reference": 4.9, "rate.pointing.motionImpaired": 1.77, "rate.pointing.motionImpairedControls": 4.88,
       "rate.reading.dyslexiaAdults": 184.63, "rate.reading.dyslexiaControls": 243.64,
       "rate.reading.lowVisionCentralLoss": 25, "rate.reading.lowVisionIntactFields": 130,
+      "rate.reading.aphasiaReadingImpairedSeconds": 71, "rate.reading.aphasiaControlsSeconds": 30,
     });
   });
 
@@ -219,7 +222,9 @@ describe("the laws, on the sources' own numbers", () => {
 
   test("measured population rates come with their control and say whether it is the same study", () => {
     const mi = measuredRate("motionImpaired");
-    expect(mi).toEqual({ channel: "pointing", rate: 1.77, control: 4.88, sameStudyControl: true, ratio: 1.77 / 4.88 });
+    expect(mi).toEqual({ channel: "pointing", rate: 1.77, control: 4.88, sameStudyControl: true, timed: false, ratio: 1.77 / 4.88 });
+    // Stage C: a time on the same paragraph, so the share is control over population.
+    expect(measuredRate("aphasiaReadingImpaired")).toEqual({ channel: "reading", rate: 71, control: 30, sameStudyControl: true, timed: true, ratio: 30 / 71 });
     close(measuredRate("dyslexiaAdults").ratio, 184.63 / 243.64);
     expect(measuredRate("lowVisionCentralLoss")).toMatchObject({ control: 238, sameStudyControl: false });
     expect(measuredRate("lowVisionIntactFields").ratio).toBeCloseTo(130 / 238, 12);

@@ -107,6 +107,7 @@ describe("the geometry Stage B reads is well formed", () => {
         // group count can only be as large or larger.
         expect(r.navLinks).toBeLessThanOrEqual(r.groupedLinks);
         expect(r.groupedLinks).toBeLessThanOrEqual(r.links);
+        expect(r.groupedLinksWithText).toBeLessThanOrEqual(r.groupedLinks);
         expect(r.navGroupCount).toBeLessThanOrEqual(r.choiceGroupCount);
         expect(r.choiceNested.groups).toBeGreaterThanOrEqual(r.choiceGroupCount);
         // The in-group prose is part of the prose.

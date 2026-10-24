@@ -17,9 +17,10 @@
  *   - definitions: units, the live viewer's screen, display rounding.
  *
  * Where Stage B (src/visual/provenance/laws.ts) registers a published value
- * for the same quantity (Fitts' law, the keystroke-level model's mental
- * operator), the journey's current value is registered here as a
- * hypothesis that says so, until the journey reads the law's id.
+ * for the same quantity, the journey reads the law's id and registers no
+ * copy: Fitts' law (law.fitts.*) times the pointer moves the journey
+ * charges, on the measured geometry of the element the action names, and
+ * the keystroke-level model's mental operator is law.klm.mentalPreparation.
  *
  * Read through param() at the point of use; tests/journey-provenance.test.ts
  * fails on an id that is registered and never read, and
@@ -152,14 +153,12 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   p("gazeLag.mean", 700, "Gaze-to-cursor lag, ms, added before a pointer action: the time by which the cursor follows the eyes to where they look. Huang, J., White, R. W. & Buscher, G. (2012). User see, user point: gaze and cursor alignment in Web search. CHI '12, 1341-1350: \"they lag their cursor behind their gaze by at least 250 ms and on average by 700 ms\"; \"shifting the cursor positions 700 ms into the future minimizes the RMSE. This means mouse cursor lags behind eye gaze by about 700 ms\". 36 adults aged 26-60 (M = 45.5) on 32 web search tasks, Tobii x50 eye tracker; the per-person lag ran from 250 ms to over one second, and age had no significant relation to gaze-cursor distance (rho = 0.22, p = 0.18). One average for every persona is the journey's use; the study gives no age function."),
 
   // ── Motor timing (Fitts) ──
-  h("fitts.intercept", 50, `The journey's Fitts' law intercept a, ms. Its comment attributes 50 ms and 150 ms/bit to Card, Moran & Newell (1983); ${KLM_1980.replace(", Figure 1", "")} gives the mouse's law as "tP = .8 + .1 log2 (d/s + .5) sec" (section 3.1), a different form and different values, so the attribution does not hold for the 1980 paper. Stage B registers a published Fitts' law for the same quantity (law.fitts.intercept, MacKenzie & Buxton 1992: 230 ms); the journey should read that id, which would replace this value.`),
-  h("fitts.slope", 150, "The journey's Fitts' law slope b, ms per bit. Stage B registers the published slope for the same quantity (law.fitts.slope, MacKenzie & Buxton 1992: 166 ms/bit); the journey should read that id, which would replace this value."),
   h("fitts.tremorGain", 0.1, "Hand-set rise in movement time per unit of the tremor modifier. Movement times of users with tremor against their measured jitter would set it."),
   h("fitts.ageOnset", 40, "Hand-set age, in years, after which movement slows. Fitts-task movement times by age would set it, with the slope."),
   h("fitts.agePerSlowdown", 50, "Hand-set years of age per doubling of movement time after the onset (1 + (age - 40) / 50: 1.5x at 65). Fitts-task movement times by age would set it."),
   h("fitts.jitterScale", 10, "Hand-set divisor from a persona's mouse jitter (px) to the tremor modifier. Movement times against measured cursor jitter would set it."),
-  h("fitts.distancePx", 300, "Hand-set pointer travel, px, assumed for every click (the journey does not measure where the pointer is). The distribution of cursor travel between successive clicks on real pages would set it; the click's actual distance would replace it."),
-  h("fitts.targetWidthPx", 80, "Hand-set target width, px, assumed for every click. The distribution of clicked-target widths on real pages would set it; the clicked element's measured width would replace it."),
+  h("fitts.unlocatedDistancePx", 300, "Hand-set pointer travel, px, charged to a click or hover whose element the journey cannot find in its list of clickables (by #N, selector or text match) or finds without a box, so its distance cannot be measured; a found element is timed from the centre of the screen it is seen on to its own centre (Stage B's pointer start, with full-page tiling for an element off the current screen). Scrolls, typed URLs, back, tab, enter, wait and find move no pointer and are charged no pointing time. The distribution of cursor travel to clicked targets on real pages would set it, and finding the element (the page's own locator) would replace it."),
+  h("fitts.unlocatedTargetWidthPx", 80, "Hand-set target width, px, charged to a click or hover whose element the journey cannot find in its list of clickables or finds without a box; a found element enters Fitts' law with the smaller of its width and height (SMALLER-OF, as Stage B measures pointing). The distribution of clicked-target sizes on real pages would set it, and the element's measured box would replace it."),
 
   // ── Typing (keystroke-level model) ──
   p("klm.keystrokeExpert", 120, `Keystroke time, ms, at the journey's expert end of typing skill (expertise 1). ${KLM_1980}, row K: "Good typist (90 wpm) .12" sec. The same figure's fastest row is "Best typist (135 wpm) .08"; taking the good typist as the expert end is the journey's choice.`),
@@ -167,7 +166,6 @@ export const JOURNEY_PROVENANCE: ProvenanceEntry[] = [
   p("klm.keystrokeAverage", 280, `Keystroke time, ms, of an average typist, carried on KLM_OPERATORS; nothing in cbrowser reads it. ${KLM_1980}, row K: "Average non-secretary typist (40 wpm) .28" sec (footnote b: "the average typing rate of the nonsecretary subjects in the experiment described in Section 4.1").`),
   p("klm.pointing", 1100, `Pointing time, ms, carried on KLM_OPERATORS; nothing in cbrowser reads it (the journey times pointing with Fitts' law). ${KLM_1980}, row P: "Pointing to a target on a display with a mouse ... The time ranges from .8 to 1.5 sec, with 1.1 being an average time. This operator does not include the button press that often follows (.2 sec)." 1.10 sec.`),
   p("klm.homing", 400, `Homing time, ms, carried on KLM_OPERATORS; nothing in cbrowser reads it. ${KLM_1980}, row H: "Homing the hand(s) on the keyboard or other device. .40" sec.`),
-  h("klm.mentalPreparation", 1350, `The journey's mental-preparation time, ms, charged once before typing by a novice. The value is the keystroke-level model's M operator (${KLM_1980}, row M: "Mentally preparing for executing physical actions. 1.35" sec). Stage B registers that operator as published for the same quantity (law.klm.mentalPreparation); the journey should read that id, which would replace this entry, so it is held as a hypothesis here rather than registered twice as published.`),
   h("klm.mentalFamiliar", 600, "Hand-set mental-preparation time, ms, for an expert on a familiar task. The keystroke-level model gives one M operator; this lower value has no source. Pre-typing pauses of experts on a routine form would set it."),
   h("klm.button", 100, `Mouse-button time, ms, carried on KLM_OPERATORS; nothing in cbrowser reads it. No source read for this registry states 0.1 s: ${KLM_1980} gives the button press that follows pointing as ".2 sec" (row P). The 1983 book's button operator would set its status.`),
   h("typing.defaultExpertise", 0.5, "Hand-set typing expertise (0 hunt-and-peck, 1 expert) when no age is known, and calculateTypingTime's default. Measured typing speed of the general population, mapped onto the keystroke range, would set it."),

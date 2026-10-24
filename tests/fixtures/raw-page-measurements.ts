@@ -46,6 +46,7 @@ function raw(text: RawText, scope: "viewport" | "full_page" = "full_page"): RawP
     navGroupCount: 1,
     navLinks: 12,
     groupedLinks: 12,
+    groupedLinksWithText: 10,
     choiceNested: { groups: 2, items: 24 },
     textBlocks: [120, 20, 0, 2, 16, 24, 640, 48],
     textBlockCount: 1,

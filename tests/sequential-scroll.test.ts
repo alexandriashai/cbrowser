@@ -110,8 +110,11 @@ describe("the curve says something the scalar cannot", () => {
     // near the bottom that almost nobody survives to. The wall has the higher
     // HAZARD; the early screen loses more SESSIONS. Ranking by hazard alone
     // would name the wall, which is useless advice -- fixing a screen 4% of
-    // people reach changes nothing.
-    const r = run([0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.99]);
+    // people reach changes nothing. (Early screens at 0.8 since 21.0 Stage C:
+    // text features stopped driving cognitiveLoad, so at 0.75 the early screens
+    // were too cheap to lose more sessions than the wall, and the case no longer
+    // discriminated.)
+    const r = run([0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.99]);
     const wall = r.screens[r.screens.length - 1];
     const named = r.screens.find((x) => x.screen === r.dropOff!.screen)!;
     expect(r.dropOff).not.toBeNull();

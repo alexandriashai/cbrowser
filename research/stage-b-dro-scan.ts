@@ -37,6 +37,7 @@ import {
   type Args, type BoundModule, type Vec,
 } from "../tests/fixtures/dro-adversary.js";
 import { loadBoundModules, MUTANTS } from "../tests/fixtures/dro-mutants.js";
+import { expertFor } from "../tests/fixtures/law-seconds.js";
 
 /** The mutants whose edit changes ctcLipschitzBound's per-coordinate bound (M12, M13 and P1-P6 change the population bound or the preconditions). */
 const SLOPE_MUTANTS = MUTANTS.filter((m) => /^M/.test(m.id) && m.id !== "M12" && m.id !== "M13").map((m) => m.id);
@@ -76,7 +77,8 @@ function oldSparse(u: () => number): OldArgs {
 }
 
 const NAV = INPUTS.indexOf("navigationDepth");
-const page = (args: Args) => computeDemandFromRawMetrics(...args);
+// Stage C's tenth argument, the expert choosing time, derived as the fixture derives it (no demand at siteFamiliarity 0).
+const page = (args: Args) => computeDemandFromRawMetrics(...args, expertFor(args[6]));
 
 interface ScanPage { family: string; id: string; demand: DemandDistribution }
 

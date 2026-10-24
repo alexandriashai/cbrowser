@@ -76,6 +76,7 @@ import { loadConfigFile, getDataDir } from "../config.js";
 import type { CBrowserConfig } from "../config.js";
 import { param } from "../visual/model-provenance.js";
 import { defaultJourneyTraits } from "./default-traits.js";
+import { distanceToScreenCentre, smallerOfWidth } from "../visual/demand-laws.js";
 import { writeSecretFile } from "../secure-file.js";
 import { uniqueStamp } from "../temp-files.js";
 import { semanticWeightTable } from "../visual/attention-transport.js";
@@ -2018,34 +2019,8 @@ Right now it's ${temporalState.description}.`;
         if (indexMatch) {
           target = availableElements[parseInt(indexMatch[1], 10)] as Bbox;
         } else if (textMatch && !textMatch[1].startsWith("#")) {
-          // Find best element match by text. Prefer (1) exact match, then
-          // (2) starts-with, then (3) includes; among ties, pick the one
-          // closest to the current viewport center.
-          const wanted = textMatch[1].trim().toLowerCase();
-          const vc = viewportCtx.viewport.height / 2;
-          const candidates = (availableElements as Bbox[]).filter(e => e.text);
-          const score = (e: Bbox): number => {
-            const t = (e.text || "").toLowerCase().trim();
-            if (!t) return -Infinity;
-            let base = 0;
-            if (t === wanted) base = param("journey.clickMatch.exact");
-            else if (t.startsWith(wanted) || wanted.startsWith(t)) base = param("journey.clickMatch.prefix");
-            else if (t.includes(wanted) || wanted.includes(t)) base = param("journey.clickMatch.contains");
-            else return -Infinity;
-            // Penalize distance from viewport center (closer = preferred). A
-            // match further away than its own score is never chosen (the
-            // best score must be positive), so no cap on the distance is needed.
-            const ey = (e.y ?? 0) + (e.height ?? 0) / 2;
-            const dist = Math.abs(ey - vc);
-            return base - dist;
-          };
-          let best: Bbox | undefined;
-          let bestScore = -Infinity;
-          for (const e of candidates) {
-            const s = score(e);
-            if (s > bestScore) { bestScore = s; best = e; }
-          }
-          if (best && bestScore > 0) target = best;
+          // Find best element match by text (matchClickable).
+          target = matchClickable(availableElements as Bbox[], textMatch[1], viewportCtx.viewport.height);
         }
         let result: ActionResult;
         const hasBbox = target && typeof target.x === "number" && typeof target.y === "number"
@@ -2055,6 +2030,9 @@ Right now it's ${temporalState.description}.`;
           const urlBefore = page.url();
           const cx = target.x! + target.width! / 2;
           const cy = target.y! + target.height! / 2;
+          // Set once the pointing wait below is paid, so the retry by name
+          // after a throw does not pay it again.
+          let pointingPaid = false;
           try {
             // Only scroll if the element is OFF-screen. Scrolling an already-
             // visible element causes pointless jitter that stacks with any
@@ -2075,11 +2053,18 @@ Right now it's ${temporalState.description}.`;
               const el = document.querySelector(sel);
               if (!el) return null;
               const r = el.getBoundingClientRect();
-              return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height, left: r.left, top: r.top, scrollY: window.scrollY };
             }, { sel: target.selector });
             const ctr = (fresh && fresh.x > 0 && fresh.y > 0)
               ? { x: fresh.x, y: fresh.y, w: fresh.w, h: fresh.h }
               : { x: cx, y: cy, w: target.width!, h: target.height! };
+            // The pointer's move to the box it is sent to, as a hover's: Stage
+            // B's law from the centre of the screen, plus the gaze lag.
+            const sentTo = (fresh && fresh.x > 0 && fresh.y > 0)
+              ? boxGeometry({ ...target, x: fresh.left, y: fresh.top, width: fresh.w, height: fresh.h }, viewportCtx.viewport, fresh.scrollY)
+              : boxGeometry(target, viewportCtx.viewport, viewportCtx.scroll.y);
+            await pointingWait(fittsParams, state.gazeMouseLag, options.humanInput, sentTo);
+            pointingPaid = true;
             if (options.humanInput) {
               const { humanClick } = await import("../visual/human-input.js");
               await humanClick(page, ctr.x, ctr.y, inputTraits, { width: ctr.w, height: ctr.h });
@@ -2092,12 +2077,14 @@ Right now it's ${temporalState.description}.`;
           } catch (clickErr) {
             console.warn(`[cognitive] coordinate click failed: ${(clickErr as Error).message}`);
             const fallback = target.text ? `click:${target.text}` : parsed.action;
-            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits);
+            result = await executeAction(browser, fallback, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits, boxGeometry(target, viewportCtx.viewport, viewportCtx.scroll.y), pointingPaid);
           }
         } else {
           // No bbox — let executeAction handle (non-click actions, or click
-          // text not found in availableElements).
-          result = await executeAction(browser, parsed.action, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits);
+          // text not found in availableElements). A hover names its element
+          // the same way; its listed geometry, if any, times the pointing.
+          result = await executeAction(browser, parsed.action, fittsParams, state.gazeMouseLag, options.humanInput, inputTraits,
+            pointingGeometry(parsed.action, availableElements as Bbox[], viewportCtx.viewport, viewportCtx.scroll.y));
         }
 
         // Inter-action settle pause — humans don't fire actions back-to-back
@@ -2808,6 +2795,116 @@ function ordinalSuffix(n: number): string {
   }
 }
 
+/** A listed clickable, with its box in viewport coordinates when the page gave one. */
+type ClickableBox = PageElement & { x?: number; y?: number; width?: number; height?: number };
+
+/**
+ * The listed clickable a text names. Prefer (1) an exact match, then (2)
+ * starts-with, then (3) includes, each scored less its distance from the
+ * viewport's middle (journey.clickMatch.*); none unless the best score is
+ * positive, so a match further away than its own score is never chosen.
+ */
+function matchClickable(elements: ClickableBox[], text: string, viewportHeight: number): ClickableBox | undefined {
+  const wanted = text.trim().toLowerCase();
+  const vc = viewportHeight / 2;
+  const candidates = elements.filter(e => e.text);
+  const score = (e: ClickableBox): number => {
+    const t = (e.text || "").toLowerCase().trim();
+    if (!t) return -Infinity;
+    let base = 0;
+    if (t === wanted) base = param("journey.clickMatch.exact");
+    else if (t.startsWith(wanted) || wanted.startsWith(t)) base = param("journey.clickMatch.prefix");
+    else if (t.includes(wanted) || wanted.includes(t)) base = param("journey.clickMatch.contains");
+    else return -Infinity;
+    const ey = (e.y ?? 0) + (e.height ?? 0) / 2;
+    const dist = Math.abs(ey - vc);
+    return base - dist;
+  };
+  let best: ClickableBox | undefined;
+  let bestScore = -Infinity;
+  for (const e of candidates) {
+    const s = score(e);
+    if (s > bestScore) { bestScore = s; best = e; }
+  }
+  return best && bestScore > 0 ? best : undefined;
+}
+
+/** Where a pointer move goes, for Fitts' law: distance and width, CSS px. */
+interface PointingGeometry { distance: number; width: number }
+
+/**
+ * The Fitts geometry of a listed element, as Stage B measures pointing: the
+ * distance from the centre of the screen it is seen on (the pointer's assumed
+ * start) to the element's centre, and the smaller of its width and height.
+ * The box is in viewport coordinates, taken with the page scrolled to
+ * `scrollY`. An element whose centre is on the current screen is seen there;
+ * one above or below is seen once scrolled to, on the screen-sized band of
+ * the page that holds its centre (Stage B's full-page tiling). Undefined when
+ * the element has no usable box.
+ */
+function boxGeometry(el: ClickableBox | undefined, viewport: { width: number; height: number }, scrollY: number): PointingGeometry | undefined {
+  if (!el || typeof el.x !== "number" || typeof el.y !== "number" || typeof el.width !== "number" || typeof el.height !== "number") return undefined;
+  if (!(viewport.width > 0 && viewport.height > 0 && el.width >= 0 && el.height >= 0 && Number.isFinite(scrollY))) return undefined;
+  const centreY = el.y + el.height / 2;
+  const onScreen = centreY >= 0 && centreY <= viewport.height;
+  const box = { x: el.x, y: el.y + scrollY, width: el.width, height: el.height };
+  return {
+    distance: distanceToScreenCentre(box, { viewportWidth: viewport.width, viewportHeight: viewport.height, scrollY }, onScreen ? "viewport" : "full_page"),
+    width: smallerOfWidth(box.width, box.height),
+  };
+}
+
+/**
+ * The Fitts geometry of the element a click, hover or hover-click names: by
+ * index (#N), by selector, or by text (matchClickable). Undefined for an
+ * action that moves no pointer, or one whose element is not listed; executeAction
+ * then charges the registered fallback move (journey.fitts.unlocated*).
+ */
+function pointingGeometry(action: string, elements: ClickableBox[], viewport: { width: number; height: number }, scrollY: number): PointingGeometry | undefined {
+  const [type, ...args] = action.split(":");
+  if (!["click", "hover", "hoverclick"].includes(type)) return undefined;
+  const name = type === "hoverclick" ? (args[0] ?? "") : args.join(":");
+  const index = /^#(\d+)$/.exec(name);
+  const el = index
+    ? elements[parseInt(index[1], 10)]
+    : elements.find(e => e.selector === name) ?? matchClickable(elements, name, viewport.height);
+  return boxGeometry(el, viewport, scrollY);
+}
+
+/**
+ * The wait before a mouse action reaches its target: Fitts' law (v9.9.0,
+ * Stage B's law) on the target's measured geometry, or the registered
+ * fallback move for one the journey has not found, plus the gaze-to-mouse
+ * lag. Returns the time, and sleeps it unless human input is on.
+ */
+async function pointingWait(
+  fittsParams: Partial<FittsLawParams>,
+  gazeMouseLag: number | undefined,
+  humanInput: boolean | undefined,
+  pointing: PointingGeometry | undefined,
+): Promise<number> {
+  const distance = pointing ? pointing.distance : param("journey.fitts.unlocatedDistancePx");
+  const width = pointing ? pointing.width : param("journey.fitts.unlocatedTargetWidthPx");
+
+  let movementTimeMs = calculateFittsMovementTime(distance, width, fittsParams);
+
+  // Add gaze-to-mouse lag (v10.1.0) - WebGazer.js research
+  // Eye movements precede mouse movements by 200-500ms
+  if (gazeMouseLag) {
+    movementTimeMs += gazeMouseLag;
+  }
+
+  // When humanInput is enabled, humanClick provides its own hover-and-dwell
+  // pacing — skip the pre-action sleep here so they don't compound (which
+  // would make live mode slower than non-live, defeating the purpose). On a
+  // coordinate click its move and pre-click dwell replace this wait; a hover
+  // or a click by name goes through Playwright and waits for neither.
+  if (!humanInput) {
+    await sleep(movementTimeMs);
+  }
+  return movementTimeMs;
+}
+
 async function executeAction(
   browser: CBrowser,
   action: string,
@@ -2815,35 +2912,16 @@ async function executeAction(
   gazeMouseLag?: number,
   humanInput?: boolean,
   inputTraits?: { proceduralFluency?: number; motorPrecision?: number; patience?: number; readingTendency?: number },
+  pointing?: PointingGeometry,
+  pointingPaid = false,
 ): Promise<ActionResult> {
   const [type, ...args] = action.split(":");
 
-  // Apply Fitts' Law timing for mouse actions (v9.9.0)
+  // Mouse actions wait their pointing time (pointingWait), unless the caller
+  // already paid it: the retry by name after a coordinate click throws.
   let movementTimeMs = 0;
-  if (["click", "hover", "hoverclick"].includes(type) && fittsParams) {
-    // Estimate target size and distance
-    // Average button width ~80px, average screen movement distance ~300px
-    const estimatedDistance = param("journey.fitts.distancePx");
-    const estimatedTargetWidth = param("journey.fitts.targetWidthPx");
-
-    movementTimeMs = calculateFittsMovementTime(
-      estimatedDistance,
-      estimatedTargetWidth,
-      fittsParams
-    );
-
-    // Add gaze-to-mouse lag (v10.1.0) - WebGazer.js research
-    // Eye movements precede mouse movements by 200-500ms
-    if (gazeMouseLag) {
-      movementTimeMs += gazeMouseLag;
-    }
-
-    // When humanInput is enabled, humanClick provides its own hover-and-dwell
-    // pacing — skip the pre-action sleep here so they don't compound (which
-    // would make live mode slower than non-live, defeating the purpose).
-    if (!humanInput) {
-      await sleep(movementTimeMs);
-    }
+  if (["click", "hover", "hoverclick"].includes(type) && fittsParams && !pointingPaid) {
+    movementTimeMs = await pointingWait(fittsParams, gazeMouseLag, humanInput, pointing);
   }
 
   switch (type) {

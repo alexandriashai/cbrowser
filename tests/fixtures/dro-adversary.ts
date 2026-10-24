@@ -52,7 +52,7 @@ import {
 } from "../../src/visual/dro-bound.js";
 import { param } from "../../src/visual/model-provenance.js";
 import { RAW_DEMANDS, rawDemand } from "./ctc-golden-matrix.js";
-import { legacySeconds } from "./law-seconds.js";
+import { expertFor, legacySeconds } from "./law-seconds.js";
 
 export const DIMS = DEMAND_DIMENSIONS as readonly string[];
 export type Vec = Record<string, number>;
@@ -95,9 +95,14 @@ const golden = (id: string) => {
   return rawDemand(p.args, p.seconds);
 };
 
-/** The generator's nine inputs, in computeDemandFromRawMetrics order (Stage B: the four law times replace the two counts). */
-export type Args = Parameters<typeof computeDemandFromRawMetrics>;
-const page = (args: Args) => computeDemandFromRawMetrics(...args);
+/**
+ * The generator's nine inputs, in computeDemandFromRawMetrics order (Stage B:
+ * the four law times replace the two counts). The tenth argument, the expert
+ * choosing time, is derived from the choosing time (expertFor): it moves no
+ * demand at siteFamiliarity 0, which is where the bound is taken.
+ */
+export type Args = [number, number, number, number, number, number, number, number, number];
+const page = (args: Args) => computeDemandFromRawMetrics(...args, expertFor(args[6]));
 
 /** A page described by its pre-Stage-B counts, as generator inputs that ask the same demand (tests/fixtures/law-seconds.ts). */
 export function fromCounts(info: number, vis: number, interactive: number, text: number, anim: number, choices: number, nav: number): Args {
@@ -156,6 +161,12 @@ const NAV = INPUTS.indexOf("navigationDepth");
  * least 1.23x and 1.10x; the two choice pages lost margin (M2 1.35x to 1.25x
  * and 1.34x to 1.23x, M10 1.15x to 1.11x and 1.14x to 1.10x), the other two
  * kept theirs. research/stage-b-deltas.md section 5 has the re-scan.
+ *
+ * Stage C: informationDensity, textDensity and navigationDepth make no demand
+ * now (cognitiveLoad reads the choosing time, patience the reading time), so
+ * these vectors changed again. Re-run on the Stage C chain, the four pages and
+ * the rest of the search still kill every must-kill mutant on every seed
+ * (dro-bound-mutants.test.ts, 58 of 58 with dro-bound.test.ts).{{MARGINS}}
  */
 export const INTERACTION_COUNTS: Array<[string, Parameters<typeof fromCounts>]> = [
   ["trace-text+choices", [0, 0.009, 0, 0.038, 0, 13, 0]],

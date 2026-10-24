@@ -54,20 +54,40 @@ abandonment limits, the trigger table, decision fatigue (Baumeister's
 account gives no function), the circadian curve, banner blindness, tunnel
 vision or the distraction rates.
 
-## Overlaps with Stage B (to reconcile when feat/stage-b merges)
+## Overlaps with Stage B (reconciled: the journey reads the law)
 
-Registered here as hypotheses that point at Stage B's published entry for
-the same quantity:
+The journey registers no copy of a quantity Stage B publishes:
 
-- journey.fitts.intercept (50 ms) and journey.fitts.slope (150 ms/bit) should
-  read law.fitts.intercept (230 ms) and law.fitts.slope (166 ms/bit). The
-  comment attributed 50/150 to Card, Moran & Newell; their 1980 paper gives
+- Fitts' law is law.fitts.intercept (230 ms) and law.fitts.slope
+  (166 ms/bit), MacKenzie & Buxton 1992, with the Shannon index and
+  law.fitts.minWidth as the width floor (fittsIndexOfDifficulty). The
+  journey's own 50 ms and 150 ms/bit are gone; the comment had attributed
+  them to Card, Moran & Newell, whose 1980 paper gives
   tP = .8 + .1 log2(d/s + .5) s instead.
-- journey.klm.mentalPreparation (1,350 ms) should read law.klm.mentalPreparation
-  (1.35 s); same number, read here from the same figure.
-- journey.fitts.distancePx (300) and journey.fitts.targetWidthPx (80) are the
-  journey's assumed travel and target for every click; with Stage B's law
-  the clicked element's measured size and position would replace them.
+- KLM's mental operator is law.klm.mentalPreparation (1.35 s, the same
+  number the journey carried, from the same figure).
+- A click, hover or hover-click is timed on the element it names, found in
+  the journey's list of clickables (by #N, selector or text): the distance
+  from the centre of the screen it is seen on (Stage B's pointer start) to
+  the element's centre, and the smaller of its width and height
+  (SMALLER-OF). An element off the current screen is seen once scrolled to,
+  on the screen-sized band of the page that holds its centre (Stage B's
+  full-page tiling). An element the journey cannot find, or finds without
+  a box, falls back to journey.fitts.unlocatedDistancePx (300) and
+  journey.fitts.unlocatedTargetWidthPx (80), both hypotheses. Scrolls, typed
+  URLs, back, tab, enter, wait and find move no pointer and are charged no
+  pointing time.
+- A click the journey resolves to a box goes out as a coordinate click and
+  waits the same law time and gaze lag first (pointingWait), on the box the
+  pointer is sent to: the element's rect read after the journey's own
+  scroll, measured from the centre of the screen. Until 21.0 it waited
+  nothing, so most successful clicks cost nothing to point at. The retry by
+  name after a coordinate click throws does not wait again.
+- With human input on, no pointing wait is slept. On a coordinate click,
+  humanClick's move and pre-click dwell pace the click and replace the
+  law + gaze wait rather than adding to it. Found, not changed: a hover or
+  a click by name under human input goes through Playwright, not
+  humanClick, so it waits for neither.
 - No journey constant is a reading rate, so law.reading.* has no overlap.
 
 ## Removed because they could change nothing

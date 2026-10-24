@@ -52,7 +52,29 @@
 import type { ProvenanceEntry } from "../model-provenance.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS } from "../../personas.js";
 import { TRAIT_DEFINITIONS } from "../../trait-reference.js";
-import { _normalCDF as Phi } from "../cognitive-models.js";
+// From normal-cdf.ts, not cognitive-models.ts: that file imports
+// model-provenance.ts, which imports this catalogue (an import cycle).
+import { normalCDF as Phi } from "../normal-cdf.js";
+import { LAW_PROVENANCE } from "./laws.js";
+
+/**
+ * Stage C (21.0): traits the CTC chain asks a law time of whole, so their value
+ * reads as a tolerated reference time on Stage B's scale, tau c / (1 - c), or a
+ * slowdown k = (1 - c) / c against the reference user on that channel
+ * (research/stage-c-design.md, 4.3 and 4.5).
+ */
+const TOLERATED_TIME: Record<string, { channel: string; reference: string }> = {
+  comprehension: { channel: "choosing", reference: "Cockburn, Gutwin & Greenberg's (2007) novice searchers, competent computer users on unfamiliar menus" },
+  workingMemory: { channel: "choosing", reference: "Cockburn, Gutwin & Greenberg's (2007) novice searchers, competent computer users on unfamiliar menus" },
+  informationForaging: { channel: "choosing", reference: "Cockburn, Gutwin & Greenberg's (2007) novice searchers, competent computer users on unfamiliar menus" },
+  transferLearning: { channel: "choosing", reference: "Cockburn, Gutwin & Greenberg's (2007) novice searchers, competent computer users on unfamiliar menus" },
+  patience: { channel: "reading", reference: "Brysbaert's (2019) reference reader, 238 words per minute" },
+};
+const TAU = (() => {
+  const e = LAW_PROVENANCE.find((x) => x.id === "law.timeBudget");
+  if (!e) throw new Error("personas provenance: law.timeBudget is not registered");
+  return e.value;
+})();
 
 /** The persona tables this catalogue covers, by the name personas.ts exports them under. */
 export const PERSONA_TABLES = { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS };
@@ -296,6 +318,14 @@ function sourceFor(persona: string, trait: string, value: number): string {
     parts.push(`Until 21.0 the value was ${anchor.replaced}.`);
   } else {
     parts.push(`${persona}.${trait} = ${value}, set by hand${unit ? ` in ${unit}` : " on a 0-1 scale no instrument defines"}.`);
+  }
+
+  const timed = TOLERATED_TIME[trait];
+  if (timed) {
+    const f = (x: number) => x.toFixed(1);
+    const tolerated = value >= 1 ? "any amount of" : `${f((TAU * value) / (1 - value))} s of`;
+    const slowdown = value <= 0 ? "no bound on" : `${((1 - value) / value).toFixed(2)} times`;
+    parts.push(`In the CTC chain (21.0) the ${timed.channel} demand asks this value whole, so it reads as tolerated reference ${timed.channel} time: ${tolerated} reference work against the ${TAU} s budget (law.timeBudget), i.e. ${slowdown} the time of ${timed.reference}. That reading is a hypothesis; no rate was measured for this persona on this channel.${anchor ? " The value is a norm percentile, and a percentile and a rate ratio agree only at the median (0.5), so reading it as a time mixes the two scales." : ""}`);
   }
 
   const construct = (TRAIT_DEFINITIONS as Record<string, { research?: string }>)[trait]?.research;
