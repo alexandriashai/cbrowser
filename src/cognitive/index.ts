@@ -2896,8 +2896,9 @@ async function pointingWait(
 
   // When humanInput is enabled, humanClick provides its own hover-and-dwell
   // pacing — skip the pre-action sleep here so they don't compound (which
-  // would make live mode slower than non-live, defeating the purpose). Its
-  // move and pre-click dwell replace this wait.
+  // would make live mode slower than non-live, defeating the purpose). On a
+  // coordinate click its move and pre-click dwell replace this wait; a hover
+  // or a click by name goes through Playwright and waits for neither.
   if (!humanInput) {
     await sleep(movementTimeMs);
   }

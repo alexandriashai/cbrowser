@@ -77,12 +77,17 @@ The journey registers no copy of a quantity Stage B publishes:
   journey.fitts.unlocatedTargetWidthPx (80), both hypotheses. Scrolls, typed
   URLs, back, tab, enter, wait and find move no pointer and are charged no
   pointing time.
-- Found, not changed: a click the journey resolves to a box is sent as a
-  coordinate click and charged no Fitts time and no gaze lag (with human
-  input on, humanClick adds its pre-click dwell, not a movement time). Only
-  hovers, hover-clicks, clicks the journey cannot resolve to a box, and the
-  retry after a coordinate click throws are charged, so most successful
-  clicks cost nothing to point at.
+- A click the journey resolves to a box goes out as a coordinate click and
+  waits the same law time and gaze lag first (pointingWait), on the box the
+  pointer is sent to: the element's rect read after the journey's own
+  scroll, measured from the centre of the screen. Until 21.0 it waited
+  nothing, so most successful clicks cost nothing to point at. The retry by
+  name after a coordinate click throws does not wait again.
+- With human input on, no pointing wait is slept. On a coordinate click,
+  humanClick's move and pre-click dwell pace the click and replace the
+  law + gaze wait rather than adding to it. Found, not changed: a hover or
+  a click by name under human input goes through Playwright, not
+  humanClick, so it waits for neither.
 - No journey constant is a reading rate, so law.reading.* has no overlap.
 
 ## Removed because they could change nothing
