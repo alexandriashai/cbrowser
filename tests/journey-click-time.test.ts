@@ -9,9 +9,12 @@
  *   - the coordinate click waits law time + gaze lag before the click, on the
  *     box it actually clicks (after the journey's own scroll, if any);
  *   - with human input on, humanClick's move and pre-click dwell pace the click
- *     and replace that wait, as they already do for hovers;
+ *     and replace that wait;
  *   - if the coordinate click throws after the wait, the retry by name does not
- *     wait again.
+ *     wait again;
+ *   - with human input on, a hover, hover-click or click by name, which
+ *     Playwright drives rather than humanClick, still waits law time + gaze
+ *     lag once (before 21.0 it waited nothing).
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -97,5 +100,36 @@ describe("a coordinate click's pointing time", () => {
     const { delays, gaze, calls } = await clickDelays("click:Pricing", U("/"), true);
     expect(calls.some((c: string) => c.startsWith("mouse "))).toBe(true);
     expect(delays).not.toContain(motor(365, 30) + gaze);
+  });
+});
+
+describe("with human input on, a mouse action humanClick does not drive", () => {
+  // Hovers, hover-clicks and clicks by name go through Playwright (browser.hover,
+  // browser.hoverClick, locator clicks), not humanClick, so there is no human
+  // move or dwell to stand in for the law time. Each waits the law time and the
+  // gaze lag once, as it does with human input off: 1564.27 ms for the Pricing
+  // link (365 px, 30 px target).
+  const once = (delays: number[], wait: number) => delays.filter((d) => d === wait).length;
+
+  test("a hover waits the law's time for its box, plus the gaze lag, once", async () => {
+    const { delays, gaze, calls } = await clickDelays("hover:Pricing", U("/"), true);
+    expect(calls).toContain("hover Pricing");
+    expect(motor(365, 30) + gaze).toBeCloseTo(1564.27, 2);
+    expect(once(delays, motor(365, 30) + gaze)).toBe(1);
+  });
+
+  test("a click by selector waits the law's time for its box, plus the gaze lag, once", async () => {
+    // "#nav-pricing" names the element by selector, which the coordinate click
+    // does not take, so it is clicked by name.
+    const { delays, gaze, calls } = await clickDelays("click:#nav-pricing", U("/"), true);
+    expect(calls).toContain("hoverClick #nav-pricing -> #nav-pricing");
+    expect(calls.some((c: string) => c.startsWith("mouse "))).toBe(false);
+    expect(once(delays, motor(365, 30) + gaze)).toBe(1);
+  });
+
+  test("a hover-click waits the law's time for its target's box, plus the gaze lag, once", async () => {
+    const { delays, gaze, calls } = await clickDelays("hoverclick:Pricing:Home", U("/"), true);
+    expect(calls.some((c: string) => c.startsWith("hoverClick Pricing"))).toBe(true);
+    expect(once(delays, motor(365, 30) + gaze)).toBe(1);
   });
 });

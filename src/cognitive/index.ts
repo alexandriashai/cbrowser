@@ -3046,12 +3046,13 @@ function pointingGeometry(action: string, elements: ClickableBox[], viewport: { 
  * The wait before a mouse action reaches its target: Fitts' law (v9.9.0,
  * Stage B's law) on the target's measured geometry, or the registered
  * fallback move for one the journey has not found, plus the gaze-to-mouse
- * lag. Returns the time, and sleeps it unless human input is on.
+ * lag. Returns the time, and sleeps it unless humanClick will drive the
+ * pointer (`pacedByHumanClick`).
  */
 async function pointingWait(
   fittsParams: Partial<FittsLawParams>,
   gazeMouseLag: number | undefined,
-  humanInput: boolean | undefined,
+  pacedByHumanClick: boolean | undefined,
   pointing: PointingGeometry | undefined,
 ): Promise<number> {
   const distance = pointing ? pointing.distance : param("journey.fitts.unlocatedDistancePx");
@@ -3065,12 +3066,12 @@ async function pointingWait(
     movementTimeMs += gazeMouseLag;
   }
 
-  // When humanInput is enabled, humanClick provides its own hover-and-dwell
-  // pacing — skip the pre-action sleep here so they don't compound (which
-  // would make live mode slower than non-live, defeating the purpose). On a
-  // coordinate click its move and pre-click dwell replace this wait; a hover
-  // or a click by name goes through Playwright and waits for neither.
-  if (!humanInput) {
+  // With human input on, the coordinate click hands the pointer to
+  // humanClick, whose move and pre-click dwell replace this wait, so the two
+  // don't compound (which would make live mode slower than non-live). A
+  // hover, hover-click or click by name goes through Playwright, which has no
+  // human pacing, so it waits this time with human input on or off.
+  if (!pacedByHumanClick) {
     await sleep(movementTimeMs);
   }
   return movementTimeMs;
@@ -3090,9 +3091,11 @@ async function executeAction(
 
   // Mouse actions wait their pointing time (pointingWait), unless the caller
   // already paid it: the retry by name after a coordinate click throws.
+  // Playwright drives the pointer here, never humanClick, so the wait is
+  // slept with human input on too.
   let movementTimeMs = 0;
   if (["click", "hover", "hoverclick"].includes(type) && fittsParams && !pointingPaid) {
-    movementTimeMs = await pointingWait(fittsParams, gazeMouseLag, humanInput, pointing);
+    movementTimeMs = await pointingWait(fittsParams, gazeMouseLag, false, pointing);
   }
 
   switch (type) {
