@@ -1,10 +1,10 @@
 {
  "provenance": {
-  "git_head": "dc79667f616fe211fc01fde49d97f712dfa7f5c7",
-  "src_tree": "13aa5972ce4019f7b1ed84d77d77f2a4ea04b54a",
+  "git_head": "f2b892c6d6f29753704018e92d3c6bb8d7b635d3",
+  "src_tree": "afc915131a0a7f3f2be11835994aa08a0b1b9bcb",
   "src_dirty": false,
   "runtime": "bun 1.3.8",
-  "ran": "2026-10-24T15:18:55.825Z"
+  "ran": "2026-10-24T19:36:01.386Z"
  },
  "reference": "ctc-reference-v2-2026-10-24",
  "cells": 2632,
@@ -26,7 +26,8 @@
   }
  },
  "constants": 167,
- "seconds": 99,
+ "seconds": 100,
+ "mode": "golden",
  "baselineEqualsPin": {
   "file": "ctc-golden-21.0.0.json",
   "runCells": 2128,
@@ -291,6 +292,11 @@
   "noReaderByGroup": {},
   "directReads": [
    {
+    "file": "src/mcp-tools/ui-resources.ts",
+    "line": 34,
+    "text": "const CTC_INTERVAL_LEVEL = Math.round(MODEL_PROVENANCE[\"ctcReference.interval.level\"].value * 100);"
+   },
+   {
     "file": "tests/fixtures/journey-perturb.ts",
     "line": 55,
     "text": "const value = MODEL_PROVENANCE[id].value;"
@@ -309,7 +315,7 @@
   "moduleLevelCaptures": [
    {
     "file": "src/visual/cognitive-transport-chain.ts",
-    "line": 531,
+    "line": 571,
     "text": "export const ABANDONMENT_HILL_EXPONENT = param('chain.abandonmentHillExponent');"
    }
   ],
@@ -385,22 +391,22 @@
    "status": "hypothesis",
    "value": 1,
    "raw": {
-    "medianAbs": 0.005848287138744093,
-    "maxAbs": 1.8215254141491855,
-    "shareMoved": 0.46656534954407297,
-    "minSpearman": 0.9557522123893806,
+    "medianAbs": 0.0054713013570448395,
+    "maxAbs": 1.7152672765483157,
+    "shareMoved": 0.4582066869300912,
+    "minSpearman": 0.9716563330380869,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 1.3949033157195778,
-    "shareMovedHuman": 0.4523404255319149
+    "maxAbsHuman": 1.2883261750119015,
+    "shareMovedHuman": 0.44340425531914895
    },
    "total": {
-    "medianAbs": 0.002316312733754794,
-    "maxAbs": 0.07615131694495658,
-    "shareMoved": 0.24468085106382978,
-    "minSpearman": 0.9557522123893806,
+    "medianAbs": 0.0018650938446200145,
+    "maxAbs": 0.0646037070971145,
+    "shareMoved": 0.18731003039513677,
+    "minSpearman": 0.9716563330380869,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.07615131694495658,
-    "shareMovedHuman": 0.2578723404255319
+    "maxAbsHuman": 0.0646037070971145,
+    "shareMovedHuman": 0.20425531914893616
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -413,9 +419,9 @@
    "value": 0.5,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 1.3323669582232505,
-    "shareMoved": 0.03305471124620061,
-    "minSpearman": 0.9132743362831859,
+    "maxAbs": 1.2122800506671423,
+    "shareMoved": 0.03229483282674772,
+    "minSpearman": 0.8901682905225864,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0,
     "shareMovedHuman": 0
@@ -424,7 +430,7 @@
     "medianAbs": 0,
     "maxAbs": 0.4332098621024698,
     "shareMoved": 0.02925531914893617,
-    "minSpearman": 0.9132743362831859,
+    "minSpearman": 0.8901682905225864,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0,
     "shareMovedHuman": 0
@@ -439,22 +445,22 @@
    "status": "hypothesis",
    "value": 12.4,
    "raw": {
-    "medianAbs": 0.02537544917601675,
-    "maxAbs": 0.47437334118339347,
-    "shareMoved": 0.6523556231003039,
-    "minSpearman": 0.952212389380531,
+    "medianAbs": 0.025506153649329663,
+    "maxAbs": 0.47271122864444504,
+    "shareMoved": 0.6531155015197568,
+    "minSpearman": 0.9025686448184234,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.46436767238965615,
-    "shareMovedHuman": 0.6378723404255319
+    "maxAbsHuman": 0.47271122864444504,
+    "shareMovedHuman": 0.6387234042553191
    },
    "total": {
-    "medianAbs": 0.011056375733358825,
+    "medianAbs": 0.011555845839708132,
     "maxAbs": 0.1570364489170064,
-    "shareMoved": 0.5201367781155015,
-    "minSpearman": 0.952212389380531,
+    "shareMoved": 0.5372340425531915,
+    "minSpearman": 0.9025686448184234,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.1570364489170064,
-    "shareMovedHuman": 0.5425531914893617
+    "shareMovedHuman": 0.5608510638297872
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -466,22 +472,22 @@
    "status": "hypothesis",
    "value": 0.15,
    "raw": {
-    "medianAbs": 0.0005461896963464552,
-    "maxAbs": 0.46621197557598215,
-    "shareMoved": 0.18009118541033434,
-    "minSpearman": 0.9982300884955753,
+    "medianAbs": 0.0005891464201726246,
+    "maxAbs": 0.42204910208689395,
+    "shareMoved": 0.18123100303951367,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.46621197557598215,
-    "shareMovedHuman": 0.18808510638297873
+    "maxAbsHuman": 0.42204910208689395,
+    "shareMovedHuman": 0.18978723404255318
    },
    "total": {
-    "medianAbs": 0.00041888284363353345,
-    "maxAbs": 0.05502851466067904,
-    "shareMoved": 0.02735562310030395,
-    "minSpearman": 0.9982300884955753,
+    "medianAbs": 0.0003708685137635004,
+    "maxAbs": 0.046477862468147224,
+    "shareMoved": 0.02507598784194529,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.05502851466067904,
-    "shareMovedHuman": 0.02893617021276596
+    "maxAbsHuman": 0.046477862468147224,
+    "shareMovedHuman": 0.026382978723404255
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -493,22 +499,22 @@
    "status": "hypothesis",
    "value": 0.5,
    "raw": {
-    "medianAbs": 0.0005151395938208791,
-    "maxAbs": 0.3751982846218178,
+    "medianAbs": 0.0005820274579728113,
+    "maxAbs": 0.33300587425421746,
     "shareMoved": 0.1770516717325228,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.3751982846218178,
-    "shareMovedHuman": 0.18553191489361703
+    "maxAbsHuman": 0.33300587425421746,
+    "shareMovedHuman": 0.18595744680851065
    },
    "total": {
-    "medianAbs": 0.000409870056287176,
-    "maxAbs": 0.049567504639396465,
-    "shareMoved": 0.021656534954407294,
-    "minSpearman": 0.9982300884955753,
+    "medianAbs": 0.00036116258981263444,
+    "maxAbs": 0.04009912450798525,
+    "shareMoved": 0.020516717325227963,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.049567504639396465,
-    "shareMovedHuman": 0.0225531914893617
+    "maxAbsHuman": 0.04009912450798525,
+    "shareMovedHuman": 0.022127659574468085
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -520,22 +526,49 @@
    "status": "hypothesis",
    "value": 0.85,
    "raw": {
-    "medianAbs": 0.004024455270741134,
-    "maxAbs": 0.2343240532071107,
-    "shareMoved": 0.31990881458966564,
-    "minSpearman": 0.9716814159292035,
+    "medianAbs": 0.004061808805515436,
+    "maxAbs": 0.22563258528796837,
+    "shareMoved": 0.32142857142857145,
+    "minSpearman": 0.9557130203720107,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.21387679579422336,
-    "shareMovedHuman": 0.28595744680851065
+    "maxAbsHuman": 0.20145033050414174,
+    "shareMovedHuman": 0.2876595744680851
    },
    "total": {
-    "medianAbs": 0.002587768733859512,
+    "medianAbs": 0.002804052830639947,
     "maxAbs": 0.10038762391292372,
-    "shareMoved": 0.1561550151975684,
-    "minSpearman": 0.9716814159292035,
+    "shareMoved": 0.14551671732522797,
+    "minSpearman": 0.9557130203720107,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.10038762391292372,
-    "shareMovedHuman": 0.17063829787234042
+    "shareMovedHuman": 0.15914893617021278
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.engagement.atSkim",
+   "status": "hypothesis",
+   "value": 0.75,
+   "raw": {
+    "medianAbs": 4.2331461308497964e-7,
+    "maxAbs": 0.19914277970853522,
+    "shareMoved": 0.2572188449848024,
+    "minSpearman": 0.978742249778565,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.19914277970853522,
+    "shareMovedHuman": 0.2378723404255319
+   },
+   "total": {
+    "medianAbs": 0.00255787910541605,
+    "maxAbs": 0.06266495030795427,
+    "shareMoved": 0.13601823708206687,
+    "minSpearman": 0.978742249778565,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.06266495030795427,
+    "shareMovedHuman": 0.14893617021276595
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -548,75 +581,21 @@
    "value": 0.75,
    "raw": {
     "medianAbs": 0.0038839691220884376,
-    "maxAbs": 0.2061294704445018,
-    "shareMoved": 0.3411854103343465,
-    "minSpearman": 0.9734513274336283,
+    "maxAbs": 0.1963088376742057,
+    "shareMoved": 0.33966565349544076,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.2061294704445018,
-    "shareMovedHuman": 0.32
+    "maxAbsHuman": 0.1963088376742057,
+    "shareMovedHuman": 0.31829787234042556
    },
    "total": {
-    "medianAbs": 0.0022914768124988466,
+    "medianAbs": 0.0023316626931722713,
     "maxAbs": 0.07127917494708003,
-    "shareMoved": 0.1458966565349544,
-    "minSpearman": 0.9734513274336283,
+    "shareMoved": 0.15007598784194529,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.07127917494708003,
-    "shareMovedHuman": 0.16170212765957448
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.engagement.atSkim",
-   "status": "hypothesis",
-   "value": 0.75,
-   "raw": {
-    "medianAbs": 1.9555225319600744e-7,
-    "maxAbs": 0.20429834507311728,
-    "shareMoved": 0.2572188449848024,
-    "minSpearman": 0.9716814159292035,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.20429834507311728,
-    "shareMovedHuman": 0.2378723404255319
-   },
-   "total": {
-    "medianAbs": 0.002412639115884463,
-    "maxAbs": 0.06266495030795427,
-    "shareMoved": 0.1344984802431611,
-    "minSpearman": 0.9716814159292035,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.06266495030795427,
-    "shareMovedHuman": 0.14638297872340425
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.demand.choice.fearOfMissingOut",
-   "status": "hypothesis",
-   "value": 0.75,
-   "raw": {
-    "medianAbs": 0.0030802486200831453,
-    "maxAbs": 0.1917680155032544,
-    "shareMoved": 0.30015197568389057,
-    "minSpearman": 0.9716814159292035,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.1917680155032544,
-    "shareMovedHuman": 0.27361702127659576
-   },
-   "total": {
-    "medianAbs": 0.001951136362594058,
-    "maxAbs": 0.0705898853788351,
-    "shareMoved": 0.128419452887538,
-    "minSpearman": 0.9716814159292035,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0705898853788351,
-    "shareMovedHuman": 0.14212765957446807
+    "shareMovedHuman": 0.16595744680851063
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -630,20 +609,47 @@
    "raw": {
     "medianAbs": 0,
     "maxAbs": 0.1862477436816885,
-    "shareMoved": 0.11360182370820669,
-    "minSpearman": 0.9734513274336283,
+    "shareMoved": 0.11398176291793313,
+    "minSpearman": 0.9893711248892826,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.13404244919974584,
-    "shareMovedHuman": 0.11319148936170213
+    "maxAbsHuman": 0.13305852664584594,
+    "shareMovedHuman": 0.11361702127659574
    },
    "total": {
-    "medianAbs": 0.0024126391158845045,
-    "maxAbs": 0.14953614028999412,
-    "shareMoved": 0.08282674772036475,
-    "minSpearman": 0.9734513274336283,
+    "medianAbs": 0.002334812047630086,
+    "maxAbs": 0.12511349992389753,
+    "shareMoved": 0.07788753799392097,
+    "minSpearman": 0.9893711248892826,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.13978702242997176,
-    "shareMovedHuman": 0.08893617021276595
+    "maxAbsHuman": 0.12511349992389753,
+    "shareMovedHuman": 0.08340425531914894
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.choice.fearOfMissingOut",
+   "status": "hypothesis",
+   "value": 0.75,
+   "raw": {
+    "medianAbs": 0.003084507275859072,
+    "maxAbs": 0.18194555376113541,
+    "shareMoved": 0.2997720364741641,
+    "minSpearman": 0.9716563330380869,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.18194555376113541,
+    "shareMovedHuman": 0.2731914893617021
+   },
+   "total": {
+    "medianAbs": 0.002004992844588327,
+    "maxAbs": 0.0705898853788351,
+    "shareMoved": 0.1196808510638298,
+    "minSpearman": 0.9716563330380869,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0705898853788351,
+    "shareMovedHuman": 0.13234042553191488
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -655,22 +661,22 @@
    "status": "hypothesis",
    "value": 3,
    "raw": {
-    "medianAbs": 0.008030738171720342,
+    "medianAbs": 0.005595192452647037,
     "maxAbs": 0.17890515983002775,
-    "shareMoved": 0.43617021276595747,
-    "minSpearman": 0.9663716814159292,
+    "shareMoved": 0.3567629179331307,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.17890515983002775,
-    "shareMovedHuman": 0.4229787234042553
+    "shareMovedHuman": 0.3425531914893617
    },
    "total": {
-    "medianAbs": 0.007476129806182841,
+    "medianAbs": 0.005558638363614532,
     "maxAbs": 0.09052123274878049,
-    "shareMoved": 0.41413373860182373,
-    "minSpearman": 0.9663716814159292,
+    "shareMoved": 0.36854103343465044,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.09052123274878049,
-    "shareMovedHuman": 0.43957446808510636
+    "shareMovedHuman": 0.38893617021276594
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -682,22 +688,22 @@
    "status": "hypothesis",
    "value": 0.7,
    "raw": {
-    "medianAbs": 0.00129907664259718,
-    "maxAbs": 0.16354320246591492,
-    "shareMoved": 0.2188449848024316,
-    "minSpearman": 0.9628318584070796,
+    "medianAbs": 0.0012274887104182508,
+    "maxAbs": 0.15763308438131496,
+    "shareMoved": 0.128419452887538,
+    "minSpearman": 0.9698848538529672,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.16354320246591492,
-    "shareMovedHuman": 0.20893617021276595
+    "maxAbsHuman": 0.09613735757187225,
+    "shareMovedHuman": 0.13148936170212766
    },
    "total": {
-    "medianAbs": 0.001497245459771368,
-    "maxAbs": 0.11440793251183878,
-    "shareMoved": 0.11398176291793313,
-    "minSpearman": 0.9628318584070796,
+    "medianAbs": 0.0010895159417855932,
+    "maxAbs": 0.0861727236926293,
+    "shareMoved": 0.05357142857142857,
+    "minSpearman": 0.9698848538529672,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.11440793251183878,
-    "shareMovedHuman": 0.12297872340425532
+    "maxAbsHuman": 0.0861727236926293,
+    "shareMovedHuman": 0.0548936170212766
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -712,16 +718,16 @@
     "medianAbs": 0,
     "maxAbs": 0.15461532589644378,
     "shareMoved": 0.04293313069908815,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04418853660974342,
+    "maxAbsHuman": 0.04338119364388415,
     "shareMovedHuman": 0.023829787234042554
    },
    "total": {
     "medianAbs": 0,
     "maxAbs": 0.0022689985818432623,
     "shareMoved": 0,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.0021549814802203082,
     "shareMovedHuman": 0
@@ -736,22 +742,22 @@
    "status": "hypothesis",
    "value": 0.7,
    "raw": {
-    "medianAbs": 0.0031012578312407946,
-    "maxAbs": 0.15452485116770998,
-    "shareMoved": 0.24772036474164133,
-    "minSpearman": 0.9539823008849557,
+    "medianAbs": 0.003162043279415449,
+    "maxAbs": 0.14746742207998764,
+    "shareMoved": 0.24924012158054712,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.15452485116770998,
-    "shareMovedHuman": 0.2221276595744681
+    "maxAbsHuman": 0.14652832463282817,
+    "shareMovedHuman": 0.22382978723404257
    },
    "total": {
-    "medianAbs": 0.001910554583732127,
+    "medianAbs": 0.0020232017286209714,
     "maxAbs": 0.061807245801499267,
-    "shareMoved": 0.09612462006079027,
-    "minSpearman": 0.9539823008849557,
+    "shareMoved": 0.09080547112462006,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.061807245801499267,
-    "shareMovedHuman": 0.10638297872340426
+    "shareMovedHuman": 0.1
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -764,21 +770,21 @@
    "value": 0.7,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.11827105866016296,
-    "shareMoved": 0.26177811550151975,
-    "minSpearman": 0.9716814159292035,
+    "maxAbs": 0.11861688348781274,
+    "shareMoved": 0.2610182370820669,
+    "minSpearman": 0.978742249778565,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.11827105866016296,
-    "shareMovedHuman": 0.23957446808510638
+    "maxAbsHuman": 0.11861688348781274,
+    "shareMovedHuman": 0.23872340425531915
    },
    "total": {
-    "medianAbs": 0.003404284819166879,
-    "maxAbs": 0.09051051408506405,
-    "shareMoved": 0.25759878419452886,
-    "minSpearman": 0.9716814159292035,
+    "medianAbs": 0.003351258776408808,
+    "maxAbs": 0.08458923960102999,
+    "shareMoved": 0.23860182370820668,
+    "minSpearman": 0.978742249778565,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.09051051408506405,
-    "shareMovedHuman": 0.27106382978723403
+    "maxAbsHuman": 0.08458923960102999,
+    "shareMovedHuman": 0.25063829787234043
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -790,157 +796,22 @@
    "status": "hypothesis",
    "value": 0.15,
    "raw": {
-    "medianAbs": 0.000060180635726825304,
+    "medianAbs": 0.000024765048697861225,
     "maxAbs": 0.06113832823087684,
-    "shareMoved": 0.010258358662613981,
-    "minSpearman": 0.9982300884955753,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.018717993503134522,
-    "shareMovedHuman": 0.003829787234042553
+    "maxAbsHuman": 0.012093890326350998,
+    "shareMovedHuman": 0.001702127659574468
    },
    "total": {
-    "medianAbs": 0.000032916119609455174,
+    "medianAbs": 0.000014832896222616299,
     "maxAbs": 0.0033846960717409114,
     "shareMoved": 0,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.0033846960717409114,
     "shareMovedHuman": 0
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.demand.animation.sigmoidScale",
-   "status": "hypothesis",
-   "value": 0.15,
-   "raw": {
-    "medianAbs": 0.0003140887296099182,
-    "maxAbs": 0.056485728867458285,
-    "shareMoved": 0.044452887537993924,
-    "minSpearman": 0.9823008849557522,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.030500116048669645,
-    "shareMovedHuman": 0.04
-   },
-   "total": {
-    "medianAbs": 0.0010733443257956998,
-    "maxAbs": 0.03815865875428434,
-    "shareMoved": 0.012917933130699088,
-    "minSpearman": 0.9823008849557522,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03815865875428434,
-    "shareMovedHuman": 0.01276595744680851
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.demand.animation.sigmoidThreshold",
-   "status": "hypothesis",
-   "value": 0.3,
-   "raw": {
-    "medianAbs": 0.0011451597518412626,
-    "maxAbs": 0.052523700930382944,
-    "shareMoved": 0.06838905775075987,
-    "minSpearman": 0.9716814159292035,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.035361009169025626,
-    "shareMovedHuman": 0.0523404255319149
-   },
-   "total": {
-    "medianAbs": 0.001309939662288373,
-    "maxAbs": 0.03859239033017714,
-    "shareMoved": 0.03229483282674772,
-    "minSpearman": 0.9716814159292035,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03859239033017714,
-    "shareMovedHuman": 0.03531914893617021
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.mobile-user.pointing",
-   "status": "hypothesis",
-   "value": 0.7028571428571428,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.051519236241943656,
-    "shareMoved": 0.009498480243161094,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.051519236241943656,
-    "shareMovedHuman": 0.010638297872340425
-   },
-   "total": {
-    "medianAbs": 0.0002334812047630197,
-    "maxAbs": 0.02333881659838416,
-    "shareMoved": 0.007218844984802432,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.02333881659838416,
-    "shareMovedHuman": 0.008085106382978723
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.dyscalculia.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.05084436590590968,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.05084436590590968,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.00023348120476300582,
-    "maxAbs": 0.021002472455708743,
-    "shareMoved": 0.004179331306990881,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.021002472455708743,
-    "shareMovedHuman": 0.004680851063829788
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.weightSurplus",
-   "status": "hypothesis",
-   "value": 0.3,
-   "raw": {
-    "medianAbs": 0.005421034722427984,
-    "maxAbs": 0.05051217893581006,
-    "shareMoved": 0.3377659574468085,
-    "minSpearman": 0.9557522123893806,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.05051217893581006,
-    "shareMovedHuman": 0.36638297872340425
-   },
-   "total": {
-    "medianAbs": 0.0020154813682851658,
-    "maxAbs": 0.030598102109958725,
-    "shareMoved": 0.21998480243161095,
-    "minSpearman": 0.9557522123893806,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.030598102109958725,
-    "shareMovedHuman": 0.2323404255319149
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -955,9 +826,9 @@
     "medianAbs": 0,
     "maxAbs": 0.04999456883633435,
     "shareMoved": 0.010258358662613981,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.017074025072703947,
+    "maxAbsHuman": 0.016790506744146505,
     "shareMovedHuman": 0.002127659574468085
    },
    "total": {
@@ -975,98 +846,17 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "personaRate.dyslexic-user.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.049640359591977656,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.049640359591977656,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.00015565413650875382,
-    "maxAbs": 0.01602552672152624,
-    "shareMoved": 0.0022796352583586625,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01602552672152624,
-    "shareMovedHuman": 0.002553191489361702
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.low-vision-magnified.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.049637013204043345,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.049637013204043345,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.00015565413650867055,
-    "maxAbs": 0.021205504253984042,
-    "shareMoved": 0.0026595744680851063,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.021205504253984042,
-    "shareMovedHuman": 0.0029787234042553193
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.elderly-low-vision.pointing",
-   "status": "hypothesis",
-   "value": 0.6530612244897959,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.049552827353742224,
-    "shareMoved": 0.009498480243161094,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.049552827353742224,
-    "shareMovedHuman": 0.010638297872340425
-   },
-   "total": {
-    "medianAbs": 0.00007782706825434915,
-    "maxAbs": 0.01285435472437979,
-    "shareMoved": 0.00037993920972644377,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01285435472437979,
-    "shareMovedHuman": 0.000425531914893617
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
    "id": "chain.interaction.cognitiveLoadXmotor",
    "status": "hypothesis",
    "value": 0.15,
    "raw": {
     "medianAbs": 0,
     "maxAbs": 0.04916821326733967,
-    "shareMoved": 0.017477203647416412,
-    "minSpearman": 0.9982300884955753,
+    "shareMoved": 0.017857142857142856,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.022071828116164482,
-    "shareMovedHuman": 0.005957446808510639
+    "maxAbsHuman": 0.022240621314084663,
+    "shareMovedHuman": 0.006382978723404255
    },
    "total": {
     "medianAbs": 0,
@@ -1083,20 +873,182 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
+   "id": "personaRate.mobile-user.pointing",
+   "status": "hypothesis",
+   "value": 0.7028571428571428,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04896407254722668,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04896407254722668,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0002965847279366024,
+    "maxAbs": 0.024136575002272453,
+    "shareMoved": 0.006838905775075988,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.024136575002272453,
+    "shareMovedHuman": 0.007659574468085106
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyscalculia.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04839896744996652,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04839896744996652,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00015565413650875382,
+    "maxAbs": 0.021002472455708743,
+    "shareMoved": 0.004179331306990881,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.021002472455708743,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.low-vision-magnified.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04729440575691646,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04729440575691646,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "total": {
+    "medianAbs": 0.000311308273017355,
+    "maxAbs": 0.021205504253984042,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.021205504253984042,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyslexic-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.047231970167647574,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.047231970167647574,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0002334812047629642,
+    "maxAbs": 0.01602552672152624,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01602552672152624,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.elderly-low-vision.pointing",
+   "status": "hypothesis",
+   "value": 0.6530612244897959,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.046938874872343384,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.046938874872343384,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.01285435472437979,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01285435472437979,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.engagement.range",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04681385952018058,
+    "shareMoved": 0.07674772036474165,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04681385952018058,
+    "shareMovedHuman": 0.08595744680851064
+   },
+   "total": {
+    "medianAbs": 0.001042328258022444,
+    "maxAbs": 0.033457528860294294,
+    "shareMoved": 0.02621580547112462,
+    "minSpearman": 0.998212689901698,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.033457528860294294,
+    "shareMovedHuman": 0.029361702127659574
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
    "id": "personaRate.first-timer.pointing",
    "status": "hypothesis",
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.048673596729818414,
+    "maxAbs": 0.04626368055873176,
     "shareMoved": 0.007598784194528876,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.048673596729818414,
+    "maxAbsHuman": 0.04626368055873176,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.00014199864221869918,
+    "medianAbs": 0.00023348120476300582,
     "maxAbs": 0.009335911748424186,
     "shareMoved": 0,
     "minSpearman": 1,
@@ -1115,18 +1067,18 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.048475355489315586,
+    "maxAbs": 0.04607651059251916,
     "shareMoved": 0.007218844984802432,
-    "minSpearman": 1,
+    "minSpearman": 0.9982285208148804,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.048475355489315586,
+    "maxAbsHuman": 0.04607651059251916,
     "shareMovedHuman": 0.008085106382978723
    },
    "total": {
-    "medianAbs": 0.0002334812047630197,
+    "medianAbs": 0.0003113082730172856,
     "maxAbs": 0.02013634952486687,
     "shareMoved": 0.004179331306990881,
-    "minSpearman": 1,
+    "minSpearman": 0.9982285208148804,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.02013634952486687,
     "shareMovedHuman": 0.004680851063829788
@@ -1142,21 +1094,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04812956344589736,
+    "maxAbs": 0.045730038666975226,
     "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9823008849557522,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04812956344589736,
+    "maxAbsHuman": 0.045730038666975226,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.0003113082730172856,
+    "medianAbs": 0.0003113082730173966,
     "maxAbs": 0.020501408263609078,
-    "shareMoved": 0.0022796352583586625,
-    "minSpearman": 0.9823008849557522,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.020501408263609078,
-    "shareMovedHuman": 0.002553191489361702
+    "shareMovedHuman": 0.0029787234042553193
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1169,15 +1121,15 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.047858801937809226,
+    "maxAbs": 0.04557688540899907,
     "shareMoved": 0.007598784194528876,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.047858801937809226,
+    "maxAbsHuman": 0.04557688540899907,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.00015565413650867055,
+    "medianAbs": 0.0002334812047629642,
     "maxAbs": 0.014942811601373118,
     "shareMoved": 0.0011398176291793312,
     "minSpearman": 1,
@@ -1191,23 +1143,104 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
+   "id": "personaRate.emotional-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04542880835239149,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04542880835239149,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0001556541365086428,
+    "maxAbs": 0.014341977817149298,
+    "shareMoved": 0.001899696048632219,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.014341977817149298,
+    "shareMovedHuman": 0.002127659574468085
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.stoic-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04540087087799405,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04540087087799405,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0003113082730173966,
+    "maxAbs": 0.01988777445649087,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01988777445649087,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.task-focused.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04530505982315525,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04530505982315525,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "total": {
+    "medianAbs": 0.000389135341271607,
+    "maxAbs": 0.020436492431838094,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020436492431838094,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
    "id": "personaRate.cognitive-adhd.pointing",
    "status": "hypothesis",
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.047657007594512635,
+    "maxAbs": 0.04530098800220195,
     "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.047657007594512635,
+    "maxAbsHuman": 0.04530098800220195,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
     "medianAbs": 0.0001556541365086983,
     "maxAbs": 0.021872330711804056,
     "shareMoved": 0.001519756838905775,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.021872330711804056,
     "shareMovedHuman": 0.001702127659574468
@@ -1223,15 +1256,15 @@
    "value": 0.6530612244897959,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04759778903472078,
+    "maxAbs": 0.04512959034980213,
     "shareMoved": 0.009498480243161094,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04759778903472078,
+    "maxAbsHuman": 0.04512959034980213,
     "shareMovedHuman": 0.010638297872340425
    },
    "total": {
-    "medianAbs": 0.0001806896373955369,
+    "medianAbs": 0.00038913534127169025,
     "maxAbs": 0.012424116348685732,
     "shareMoved": 0.00037993920972644377,
     "minSpearman": 1,
@@ -1250,156 +1283,21 @@
    "value": 0.36270491803278687,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04728288339436304,
+    "maxAbs": 0.04504804580508459,
     "shareMoved": 0.013297872340425532,
-    "minSpearman": 0.9539823008849557,
+    "minSpearman": 0.9946855624446412,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04728288339436304,
+    "maxAbsHuman": 0.04504804580508459,
     "shareMovedHuman": 0.014893617021276596
    },
    "total": {
-    "medianAbs": 0.000311308273017355,
-    "maxAbs": 0.029214593787288023,
-    "shareMoved": 0.007218844984802432,
-    "minSpearman": 0.9539823008849557,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.029214593787288023,
-    "shareMovedHuman": 0.008085106382978723
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.emotional-user.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04725496624534298,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04725496624534298,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.00007782706825433527,
-    "maxAbs": 0.014341977817149298,
-    "shareMoved": 0.00037993920972644377,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.014341977817149298,
-    "shareMovedHuman": 0.000425531914893617
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.task-focused.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04719093336530289,
-    "shareMoved": 0.007218844984802432,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04719093336530289,
-    "shareMovedHuman": 0.008085106382978723
-   },
-   "total": {
     "medianAbs": 0.0003113082730173966,
-    "maxAbs": 0.020436492431838094,
-    "shareMoved": 0.001899696048632219,
-    "minSpearman": 0.9982300884955753,
+    "maxAbs": 0.02577367333813141,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9946855624446412,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.020436492431838094,
-    "shareMovedHuman": 0.002127659574468085
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.anxious-user.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.046940643463788234,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.046940643463788234,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.00007782706825437691,
-    "maxAbs": 0.011095208252134614,
-    "shareMoved": 0.001899696048632219,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.011095208252134614,
-    "shareMovedHuman": 0.002127659574468085
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.stoic-user.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.046863136520514104,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.046863136520514104,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.0003113082730173966,
-    "maxAbs": 0.01988777445649087,
-    "shareMoved": 0.0022796352583586625,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01988777445649087,
-    "shareMovedHuman": 0.002553191489361702
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.engagement.range",
-   "status": "hypothesis",
-   "value": 0.5,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.046684175209811496,
-    "shareMoved": 0.07712765957446809,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.046684175209811496,
-    "shareMovedHuman": 0.08638297872340425
-   },
-   "total": {
-    "medianAbs": 0.0010867922820926024,
-    "maxAbs": 0.033925975085070836,
-    "shareMoved": 0.023556231003039513,
-    "minSpearman": 0.9982285208148804,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.033925975085070836,
-    "shareMovedHuman": 0.026382978723404255
+    "maxAbsHuman": 0.02577367333813141,
+    "shareMovedHuman": 0.009361702127659575
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1412,21 +1310,102 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.046603772422111334,
+    "maxAbs": 0.04463391163900887,
     "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.046603772422111334,
+    "maxAbsHuman": 0.04463391163900887,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.0002334812047630752,
+    "medianAbs": 0.0003114324340166563,
     "maxAbs": 0.02007432543386173,
-    "shareMoved": 0.0026595744680851063,
-    "minSpearman": 0.9982300884955753,
+    "shareMoved": 0.00303951367781155,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.02007432543386173,
-    "shareMovedHuman": 0.0029787234042553193
+    "shareMovedHuman": 0.003404255319148936
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.sustained.distractorGain",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.044491789536285964,
+    "shareMoved": 0.05661094224924012,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.044491789536285964,
+    "shareMovedHuman": 0.05063829787234043
+   },
+   "total": {
+    "medianAbs": 0.0006226165460347377,
+    "maxAbs": 0.031820215755260284,
+    "shareMoved": 0.011018237082066869,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.031820215755260284,
+    "shareMovedHuman": 0.011914893617021277
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.anxious-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04448766535991222,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04448766535991222,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.011095208252134614,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.011095208252134614,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.low-vision-magnified.reading",
+   "status": "hypothesis",
+   "value": 0.5462184873949579,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04406081967232778,
+    "shareMoved": 0.009878419452887538,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04406081967232778,
+    "shareMovedHuman": 0.011063829787234043
+   },
+   "total": {
+    "medianAbs": 0.00038913534127169025,
+    "maxAbs": 0.03149336497694233,
+    "shareMoved": 0.012537993920972644,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03149336497694233,
+    "shareMovedHuman": 0.014042553191489362
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1439,11 +1418,11 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.046207920768723376,
+    "maxAbs": 0.04403901326455362,
     "shareMoved": 0.007598784194528876,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.046207920768723376,
+    "maxAbsHuman": 0.04403901326455362,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
@@ -1461,134 +1440,53 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "personaRate.low-vision-magnified.reading",
-   "status": "hypothesis",
-   "value": 0.5462184873949579,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.045465500489629385,
-    "shareMoved": 0.009498480243161094,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.045465500489629385,
-    "shareMovedHuman": 0.010638297872340425
-   },
-   "total": {
-    "medianAbs": 0.0002334812047629642,
-    "maxAbs": 0.029694771098176975,
-    "shareMoved": 0.010258358662613981,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.029694771098176975,
-    "shareMovedHuman": 0.01148936170212766
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
    "id": "personaRate.confident-user.pointing",
    "status": "hypothesis",
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04499108917815109,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9823008849557522,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04499108917815109,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.0003113082730173411,
-    "maxAbs": 0.019074005655232318,
-    "shareMoved": 0.004179331306990881,
-    "minSpearman": 0.9823008849557522,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.019074005655232318,
-    "shareMovedHuman": 0.004680851063829788
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.explorer.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04442760382422417,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04442760382422417,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.0002334812047629642,
-    "maxAbs": 0.01175233196792358,
-    "shareMoved": 0.0007598784194528875,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01175233196792358,
-    "shareMovedHuman": 0.000851063829787234
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.demand.sustained.distractorGain",
-   "status": "hypothesis",
-   "value": 0.7,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04436872566834582,
-    "shareMoved": 0.05661094224924012,
-    "minSpearman": 0.9734513274336283,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04436872566834582,
-    "shareMovedHuman": 0.05063829787234043
-   },
-   "total": {
-    "medianAbs": 0.0007074999950162641,
-    "maxAbs": 0.031820215755260284,
-    "shareMoved": 0.014437689969604863,
-    "minSpearman": 0.9734513274336283,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.031820215755260284,
-    "shareMovedHuman": 0.01574468085106383
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.intellectual-disability.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04394837492462411,
-    "shareMoved": 0.007978723404255319,
+    "maxAbs": 0.042969892671988585,
+    "shareMoved": 0.007218844984802432,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04394837492462411,
-    "shareMovedHuman": 0.008936170212765958
+    "maxAbsHuman": 0.042969892671988585,
+    "shareMovedHuman": 0.008085106382978723
    },
    "total": {
-    "medianAbs": 0.00007782706825437691,
-    "maxAbs": 0.010345241291300489,
-    "shareMoved": 0.00037993920972644377,
-    "minSpearman": 0.9973321428677399,
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.019074005655232318,
+    "shareMoved": 0.003419452887537994,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.010345241291300489,
-    "shareMovedHuman": 0.000425531914893617
+    "maxAbsHuman": 0.019074005655232318,
+    "shareMovedHuman": 0.003829787234042553
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.animation.sigmoidThreshold",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0.0010674623567857172,
+    "maxAbs": 0.04291309269842003,
+    "shareMoved": 0.05623100303951368,
+    "minSpearman": 0.9486271036315324,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.035361009169025626,
+    "shareMovedHuman": 0.05361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00169594064709494,
+    "maxAbs": 0.03859239033017714,
+    "shareMoved": 0.018617021276595744,
+    "minSpearman": 0.9486271036315324,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03859239033017714,
+    "shareMovedHuman": 0.02
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1601,20 +1499,20 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04372882387573007,
+    "maxAbs": 0.04251988918340288,
     "shareMoved": 0.007598784194528876,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04372882387573007,
+    "maxAbsHuman": 0.04251988918340288,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.00031130827301737666,
-    "maxAbs": 0.0086185556885231,
+    "medianAbs": 0.00031130827301735584,
+    "maxAbs": 0.008792121159524213,
     "shareMoved": 0,
-    "minSpearman": 0.9973321428677399,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0086185556885231,
+    "maxAbsHuman": 0.008792121159524213,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -1623,26 +1521,26 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "personaRate.impatient-user.pointing",
+   "id": "personaRate.explorer.pointing",
    "status": "hypothesis",
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04349432226321204,
+    "maxAbs": 0.04221402095286386,
     "shareMoved": 0.007598784194528876,
-    "minSpearman": 0.9716814159292035,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04349432226321204,
+    "maxAbsHuman": 0.04221402095286386,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.00007782706825434915,
-    "maxAbs": 0.019222478269518284,
-    "shareMoved": 0.0026595744680851063,
-    "minSpearman": 0.9716814159292035,
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.010669882293716904,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.019222478269518284,
-    "shareMovedHuman": 0.0029787234042553193
+    "maxAbsHuman": 0.010669882293716904,
+    "shareMovedHuman": 0.000425531914893617
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1655,48 +1553,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.043268399013317804,
+    "maxAbs": 0.04210018623657508,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
+    "minSpearman": 0.9574844995571302,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.043268399013317804,
+    "maxAbsHuman": 0.04210018623657508,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.00015565413650868096,
-    "maxAbs": 0.03875122363918371,
-    "shareMoved": 0.0056990881458966565,
-    "minSpearman": 1,
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.036150568216819445,
+    "shareMoved": 0.004939209726443769,
+    "minSpearman": 0.9574844995571302,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03875122363918371,
-    "shareMovedHuman": 0.006382978723404255
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.dyslexic-user.reading",
-   "status": "published",
-   "value": 0.75779839106879,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04322205572796367,
-    "shareMoved": 0.009498480243161094,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04322205572796367,
-    "shareMovedHuman": 0.010638297872340425
-   },
-   "total": {
-    "medianAbs": 0.0002334812047629642,
-    "maxAbs": 0.03501542012268133,
-    "shareMoved": 0.008358662613981762,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03501542012268133,
-    "shareMovedHuman": 0.009361702127659575
+    "maxAbsHuman": 0.036150568216819445,
+    "shareMovedHuman": 0.005531914893617021
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1709,21 +1580,156 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.043198721324966716,
+    "maxAbs": 0.041922585934190515,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.043198721324966716,
+    "maxAbsHuman": 0.041922585934190515,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.00015565413650867055,
-    "maxAbs": 0.025208035226543468,
-    "shareMoved": 0.0056990881458966565,
+    "medianAbs": 0.00015565413650868443,
+    "maxAbs": 0.022102294703147063,
+    "shareMoved": 0.0060790273556231,
+    "minSpearman": 0.9822852081488043,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.022102294703147063,
+    "shareMovedHuman": 0.006808510638297872
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyslexic-user.reading",
+   "status": "published",
+   "value": 0.75779839106879,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04182326246860235,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04182326246860235,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.031996396152521256,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.031996396152521256,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.animation.sigmoidScale",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0.00034637700867172494,
+    "maxAbs": 0.04170771485912539,
+    "shareMoved": 0.02621580547112462,
+    "minSpearman": 0.9805137289636847,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0230925887689426,
+    "shareMovedHuman": 0.02553191489361702
+   },
+   "total": {
+    "medianAbs": 0.0010589202708859435,
+    "maxAbs": 0.023118721653711205,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 0.9805137289636847,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.023118721653711205,
+    "shareMovedHuman": 0.00723404255319149
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.intellectual-disability.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04166097249116696,
+    "shareMoved": 0.007978723404255319,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.025208035226543468,
-    "shareMovedHuman": 0.006382978723404255
+    "maxAbsHuman": 0.04166097249116696,
+    "shareMovedHuman": 0.008936170212765958
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.010345241291300489,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.010345241291300489,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.impatient-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04144814367296945,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04144814367296945,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00007782706825434915,
+    "maxAbs": 0.019758520690223547,
+    "shareMoved": 0.00303951367781155,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.019758520690223547,
+    "shareMovedHuman": 0.003404255319148936
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.mobile-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04132886549981718,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04132886549981718,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.0000778270682543214,
+    "maxAbs": 0.016649094355197513,
+    "shareMoved": 0.003419452887537994,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.016649094355197513,
+    "shareMovedHuman": 0.003829787234042553
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1736,15 +1742,15 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04266328472677117,
+    "maxAbs": 0.04123433869231352,
     "shareMoved": 0.007598784194528876,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04266328472677117,
+    "maxAbsHuman": 0.04123433869231352,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0.0003113082730173966,
+    "medianAbs": 0.0003891353412716625,
     "maxAbs": 0.010918651961035142,
     "shareMoved": 0.0022796352583586625,
     "minSpearman": 1,
@@ -1758,53 +1764,26 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "personaRate.mobile-user.reading",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04253699416010326,
-    "shareMoved": 0.008358662613981762,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04253699416010326,
-    "shareMovedHuman": 0.009361702127659575
-   },
-   "total": {
-    "medianAbs": 0.0000778270682543214,
-    "maxAbs": 0.016649094355197513,
-    "shareMoved": 0.003419452887537994,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.016649094355197513,
-    "shareMovedHuman": 0.003829787234042553
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
    "id": "personaRate.task-focused.reading",
    "status": "hypothesis",
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04244841882767014,
+    "maxAbs": 0.04107495597307853,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
+    "minSpearman": 0.9716563330380869,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04244841882767014,
+    "maxAbsHuman": 0.04107495597307853,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.0002334812047630752,
-    "maxAbs": 0.03693865824280068,
-    "shareMoved": 0.004939209726443769,
-    "minSpearman": 1,
+    "medianAbs": 0.0003113082730172856,
+    "maxAbs": 0.03695774393449028,
+    "shareMoved": 0.005319148936170213,
+    "minSpearman": 0.9716563330380869,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03693865824280068,
-    "shareMovedHuman": 0.005531914893617021
+    "maxAbsHuman": 0.03695774393449028,
+    "shareMovedHuman": 0.005957446808510639
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1817,48 +1796,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04223158624376655,
+    "maxAbs": 0.04105801000770537,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 0.9964601769911504,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04223158624376655,
+    "maxAbsHuman": 0.04105801000770537,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.00023145025635240568,
-    "maxAbs": 0.03236473500923298,
+    "medianAbs": 0.0003113082730172856,
+    "maxAbs": 0.030582037188667366,
     "shareMoved": 0.0056990881458966565,
-    "minSpearman": 0.9964601769911504,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03236473500923298,
+    "maxAbsHuman": 0.030582037188667366,
     "shareMovedHuman": 0.006382978723404255
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.confident-user.reading",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.041741349881034395,
-    "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.041741349881034395,
-    "shareMovedHuman": 0.009361702127659575
-   },
-   "total": {
-    "medianAbs": 0.00007782706825437691,
-    "maxAbs": 0.02031732865540531,
-    "shareMoved": 0.004939209726443769,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.02031732865540531,
-    "shareMovedHuman": 0.005531914893617021
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1871,21 +1823,75 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04171677496708348,
+    "maxAbs": 0.04055274118968688,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04171677496708348,
+    "maxAbsHuman": 0.04055274118968688,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.0003113082730172856,
-    "maxAbs": 0.04350821222329915,
-    "shareMoved": 0.004939209726443769,
-    "minSpearman": 0.9982300884955753,
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.04056511523979578,
+    "shareMoved": 0.005319148936170213,
+    "minSpearman": 0.9734278122232064,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04350821222329915,
+    "maxAbsHuman": 0.04056511523979578,
+    "shareMovedHuman": 0.005957446808510639
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.confident-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04040584172842854,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04040584172842854,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00007782706825433874,
+    "maxAbs": 0.02031732865540531,
+    "shareMoved": 0.004939209726443769,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02031732865540531,
     "shareMovedHuman": 0.005531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.emotional-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.0399599076012338,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0399599076012338,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00005453235340985296,
+    "maxAbs": 0.01176664492953483,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01176664492953483,
+    "shareMovedHuman": 0.000425531914893617
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1898,21 +1904,21 @@
    "value": 0.9364161849710984,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04124059621753773,
+    "maxAbs": 0.03991904783542388,
     "shareMoved": 0.00911854103343465,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04124059621753773,
+    "maxAbsHuman": 0.03991904783542388,
     "shareMovedHuman": 0.010212765957446808
    },
    "total": {
-    "medianAbs": 0,
+    "medianAbs": 0.00007437847106250839,
     "maxAbs": 0.020543568555330682,
-    "shareMoved": 0.0007598784194528875,
-    "minSpearman": 0.9982300884955753,
+    "shareMoved": 0.0011398176291793312,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.020543568555330682,
-    "shareMovedHuman": 0.000851063829787234
+    "shareMovedHuman": 0.001276595744680851
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -1925,20 +1931,20 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04121149789088374,
+    "maxAbs": 0.03989011720381841,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04121149789088374,
+    "maxAbsHuman": 0.03989011720381841,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.00031130827301734804,
-    "maxAbs": 0.04290096391505166,
+    "medianAbs": 0.0003113082730172856,
+    "maxAbs": 0.03787400898479365,
     "shareMoved": 0.0056990881458966565,
-    "minSpearman": 1,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04290096391505166,
+    "maxAbsHuman": 0.03787400898479365,
     "shareMovedHuman": 0.006382978723404255
    },
    "rangeRaw": null,
@@ -1952,48 +1958,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.041084957283860746,
+    "maxAbs": 0.03979022714801683,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 0.9734513274336283,
+    "minSpearman": 0.9946855624446412,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.041084957283860746,
+    "maxAbsHuman": 0.03979022714801683,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.0001556541365086775,
-    "maxAbs": 0.038994334815053044,
-    "shareMoved": 0.006838905775075988,
-    "minSpearman": 0.9734513274336283,
+    "medianAbs": 0.0001556541365086983,
+    "maxAbs": 0.036457701335287696,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 0.9946855624446412,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.038994334815053044,
-    "shareMovedHuman": 0.007659574468085106
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.power-user.pointing",
-   "status": "hypothesis",
-   "value": 1,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.04105897758135946,
-    "shareMoved": 0.007598784194528876,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04105897758135946,
-    "shareMovedHuman": 0.00851063829787234
-   },
-   "total": {
-    "medianAbs": 0.00031130827301738273,
-    "maxAbs": 0.017955383138288483,
-    "shareMoved": 0.001519756838905775,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.017955383138288483,
-    "shareMovedHuman": 0.001702127659574468
+    "maxAbsHuman": 0.036457701335287696,
+    "shareMovedHuman": 0.008085106382978723
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2006,18 +1985,18 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04087951804019818,
+    "maxAbs": 0.03966085060529423,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
+    "minSpearman": 0.9982285208148804,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04087951804019818,
+    "maxAbsHuman": 0.03966085060529423,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
     "medianAbs": 0,
     "maxAbs": 0.01721659359396921,
     "shareMoved": 0.00037993920972644377,
-    "minSpearman": 1,
+    "minSpearman": 0.9982285208148804,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.01721659359396921,
     "shareMovedHuman": 0.000425531914893617
@@ -2028,26 +2007,53 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "personaRate.emotional-user.reading",
+   "id": "personaRate.power-user.pointing",
    "status": "hypothesis",
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.04086846227051666,
-    "shareMoved": 0.008358662613981762,
+    "maxAbs": 0.03920224698067276,
+    "shareMoved": 0.007598784194528876,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04086846227051666,
-    "shareMovedHuman": 0.009361702127659575
+    "maxAbsHuman": 0.03920224698067276,
+    "shareMovedHuman": 0.00851063829787234
    },
    "total": {
-    "medianAbs": 0,
-    "maxAbs": 0.008728862285660943,
-    "shareMoved": 0,
+    "medianAbs": 0.00023563399257647832,
+    "maxAbs": 0.017955383138288483,
+    "shareMoved": 0.0011398176291793312,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.008728862285660943,
-    "shareMovedHuman": 0
+    "maxAbsHuman": 0.017955383138288483,
+    "shareMovedHuman": 0.001276595744680851
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.weightSurplus",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0.005623475679444833,
+    "maxAbs": 0.03891517116939247,
+    "shareMoved": 0.2967325227963526,
+    "minSpearman": 0.9716563330380869,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03891517116939247,
+    "shareMovedHuman": 0.32680851063829786
+   },
+   "total": {
+    "medianAbs": 0.001465851521678812,
+    "maxAbs": 0.02357283118317649,
+    "shareMoved": 0.14019756838905775,
+    "minSpearman": 0.9716563330380869,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02357283118317649,
+    "shareMovedHuman": 0.15361702127659574
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2060,21 +2066,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.0399697665356209,
+    "maxAbs": 0.03871060492761558,
     "shareMoved": 0.008358662613981762,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0399697665356209,
+    "maxAbsHuman": 0.03871060492761558,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0,
+    "medianAbs": 0.0000778270682543214,
     "maxAbs": 0.020674461866786953,
-    "shareMoved": 0.0007598784194528875,
+    "shareMoved": 0.001519756838905775,
     "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.020674461866786953,
-    "shareMovedHuman": 0.000851063829787234
+    "shareMovedHuman": 0.001702127659574468
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2087,48 +2093,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.039341433504714196,
+    "maxAbs": 0.03803608970296324,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 0.9929203539823008,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.039341433504714196,
+    "maxAbsHuman": 0.03803608970296324,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.0002334812047629642,
-    "maxAbs": 0.03680193215436023,
+    "medianAbs": 0.0001618969334495346,
+    "maxAbs": 0.03181243400331185,
     "shareMoved": 0.005319148936170213,
-    "minSpearman": 0.9929203539823008,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03680193215436023,
+    "maxAbsHuman": 0.03181243400331185,
     "shareMovedHuman": 0.005957446808510639
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.valueModulation.achievement.satisficing",
-   "status": "hypothesis",
-   "value": -0.2,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.038746638331547345,
-    "shareMoved": 0.010638297872340425,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.017506920948272775,
-    "shareMovedHuman": 0.007659574468085106
-   },
-   "total": {
-    "medianAbs": 0,
-    "maxAbs": 0.005813055164801795,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.005813055164801795,
-    "shareMovedHuman": 0
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2141,21 +2120,48 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03864738095311715,
+    "maxAbs": 0.0373822379868165,
     "shareMoved": 0.008358662613981762,
-    "minSpearman": 1,
+    "minSpearman": 0.9982285208148804,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03864738095311715,
+    "maxAbsHuman": 0.0373822379868165,
     "shareMovedHuman": 0.009361702127659575
    },
    "total": {
-    "medianAbs": 0.000155620661849723,
-    "maxAbs": 0.020103184281586195,
+    "medianAbs": 0.00007782706825437691,
+    "maxAbs": 0.01715906555340907,
     "shareMoved": 0.004179331306990881,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01715906555340907,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.achievement.satisficing",
+   "status": "hypothesis",
+   "value": -0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03730946122819745,
+    "shareMoved": 0.010638297872340425,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.020103184281586195,
-    "shareMovedHuman": 0.004680851063829788
+    "maxAbsHuman": 0.01689462526408425,
+    "shareMovedHuman": 0.007659574468085106
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.005343380972039347,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.005343380972039347,
+    "shareMovedHuman": 0
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2168,48 +2174,21 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03818661016858904,
+    "maxAbs": 0.036866120635085764,
     "shareMoved": 0.008738601823708206,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03818661016858904,
+    "maxAbsHuman": 0.036866120635085764,
     "shareMovedHuman": 0.00978723404255319
    },
    "total": {
-    "medianAbs": 0.0000778270682543214,
-    "maxAbs": 0.021235298774555877,
-    "shareMoved": 0.006838905775075988,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.021235298774555877,
-    "shareMovedHuman": 0.007659574468085106
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.elderly-low-vision.reading",
-   "status": "hypothesis",
-   "value": 0.5462184873949579,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.03808580867508926,
-    "shareMoved": 0.011778115501519757,
+    "medianAbs": 0.00015565413650867055,
+    "maxAbs": 0.0217482092057677,
+    "shareMoved": 0.006458966565349544,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03808580867508926,
-    "shareMovedHuman": 0.013191489361702127
-   },
-   "total": {
-    "medianAbs": 0.00007782706825434915,
-    "maxAbs": 0.022493355425293626,
-    "shareMoved": 0.007218844984802432,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.022493355425293626,
-    "shareMovedHuman": 0.008085106382978723
+    "maxAbsHuman": 0.0217482092057677,
+    "shareMovedHuman": 0.00723404255319149
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2222,21 +2201,48 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.038049111690670934,
+    "maxAbs": 0.036718827151568156,
     "shareMoved": 0.008738601823708206,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.038049111690670934,
+    "maxAbsHuman": 0.036718827151568156,
     "shareMovedHuman": 0.00978723404255319
    },
    "total": {
-    "medianAbs": 0.00007782706825443242,
-    "maxAbs": 0.02039548889581322,
+    "medianAbs": 0.0001556541365086983,
+    "maxAbs": 0.023905715070531186,
     "shareMoved": 0.004559270516717325,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.023905715070531186,
+    "shareMovedHuman": 0.005106382978723404
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.elderly-low-vision.reading",
+   "status": "hypothesis",
+   "value": 0.5462184873949579,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.036613043192891936,
+    "shareMoved": 0.011778115501519757,
     "minSpearman": 0.9982285208148804,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.02039548889581322,
-    "shareMovedHuman": 0.005106382978723404
+    "maxAbsHuman": 0.036613043192891936,
+    "shareMovedHuman": 0.013191489361702127
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.023641116792891048,
+    "shareMoved": 0.006838905775075988,
+    "minSpearman": 0.998212689901698,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.023641116792891048,
+    "shareMovedHuman": 0.007659574468085106
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2249,20 +2255,20 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03579976761968062,
-    "shareMoved": 0.00911854103343465,
+    "maxAbs": 0.03486351574176538,
+    "shareMoved": 0.008738601823708206,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03579976761968062,
-    "shareMovedHuman": 0.010212765957446808
+    "maxAbsHuman": 0.03486351574176538,
+    "shareMovedHuman": 0.00978723404255319
    },
    "total": {
     "medianAbs": 0.0003113082730172856,
-    "maxAbs": 0.04279554196737101,
+    "maxAbs": 0.041849689099707266,
     "shareMoved": 0.0056990881458966565,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.04279554196737101,
+    "maxAbsHuman": 0.041849689099707266,
     "shareMovedHuman": 0.006382978723404255
    },
    "rangeRaw": null,
@@ -2276,48 +2282,21 @@
    "value": 0.8517350157728707,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03579237408649938,
+    "maxAbs": 0.034415562416045375,
     "shareMoved": 0.009498480243161094,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03579237408649938,
+    "maxAbsHuman": 0.034415562416045375,
     "shareMovedHuman": 0.010638297872340425
    },
    "total": {
-    "medianAbs": 0.00013024865952832032,
-    "maxAbs": 0.023748317224286997,
-    "shareMoved": 0.004559270516717325,
+    "medianAbs": 0.00020735170199664976,
+    "maxAbs": 0.02615033734616301,
+    "shareMoved": 0.005319148936170213,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.023748317224286997,
-    "shareMovedHuman": 0.005106382978723404
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "personaRate.aphasia-receptive.reading",
-   "status": "published",
-   "value": 0.4225352112676056,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.034965615242094295,
-    "shareMoved": 0.01405775075987842,
-    "minSpearman": 0.9982300884955753,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.034965615242094295,
-    "shareMovedHuman": 0.01574468085106383
-   },
-   "total": {
-    "medianAbs": 0.0003898966098461465,
-    "maxAbs": 0.027949679720420006,
-    "shareMoved": 0.00911854103343465,
-    "minSpearman": 0.9982238010657194,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.027949679720420006,
-    "shareMovedHuman": 0.010212765957446808
+    "maxAbsHuman": 0.02615033734616301,
+    "shareMovedHuman": 0.005957446808510639
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2330,20 +2309,20 @@
    "value": 1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03494128579603206,
+    "maxAbs": 0.034148397020731025,
     "shareMoved": 0.008738601823708206,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03494128579603206,
+    "maxAbsHuman": 0.034148397020731025,
     "shareMovedHuman": 0.00978723404255319
    },
    "total": {
     "medianAbs": 0.0002334812047630197,
-    "maxAbs": 0.037666862743347185,
+    "maxAbs": 0.03473795388032025,
     "shareMoved": 0.0056990881458966565,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.037666862743347185,
+    "maxAbsHuman": 0.03473795388032025,
     "shareMovedHuman": 0.006382978723404255
    },
    "rangeRaw": null,
@@ -2352,26 +2331,26 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "personaRate.intellectual-disability.reading",
-   "status": "hypothesis",
-   "value": 0.7988165680473372,
+   "id": "personaRate.aphasia-receptive.reading",
+   "status": "published",
+   "value": 0.4225352112676056,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03358361923181086,
-    "shareMoved": 0.009498480243161094,
+    "maxAbs": 0.03370222456630234,
+    "shareMoved": 0.01405775075987842,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03358361923181086,
-    "shareMovedHuman": 0.010638297872340425
+    "maxAbsHuman": 0.03370222456630234,
+    "shareMovedHuman": 0.01574468085106383
    },
    "total": {
-    "medianAbs": 0.00007782706825437691,
-    "maxAbs": 0.01707633730176772,
-    "shareMoved": 0.001519756838905775,
-    "minSpearman": 0.9973321428677399,
+    "medianAbs": 0.00038913534127169025,
+    "maxAbs": 0.026706407661826415,
+    "shareMoved": 0.007978723404255319,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01707633730176772,
-    "shareMovedHuman": 0.001702127659574468
+    "maxAbsHuman": 0.026706407661826415,
+    "shareMovedHuman": 0.008936170212765958
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2384,21 +2363,48 @@
    "value": -0.2,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.033209275873044675,
-    "shareMoved": 0.007598784194528876,
+    "maxAbs": 0.0332092758730429,
+    "shareMoved": 0.007218844984802432,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.023846571738941336,
-    "shareMovedHuman": 0.004680851063829788
+    "maxAbsHuman": 0.023311144240012016,
+    "shareMovedHuman": 0.00425531914893617
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.018111638820729525,
-    "shareMoved": 0.00303951367781155,
+    "maxAbs": 0.015478331214033192,
+    "shareMoved": 0.0022796352583586625,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.018111638820729525,
-    "shareMovedHuman": 0.002553191489361702
+    "maxAbsHuman": 0.015478331214033192,
+    "shareMovedHuman": 0.001702127659574468
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.intellectual-disability.reading",
+   "status": "hypothesis",
+   "value": 0.7988165680473372,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03219805663065234,
+    "shareMoved": 0.009878419452887538,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03219805663065234,
+    "shareMovedHuman": 0.011063829787234043
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.020028645030072623,
+    "shareMoved": 0.00303951367781155,
+    "minSpearman": 0.998212689901698,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020028645030072623,
+    "shareMovedHuman": 0.003404255319148936
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2411,21 +2417,21 @@
    "value": 0.7,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.03030850037713817,
+    "maxAbs": 0.030391801413770292,
     "shareMoved": 0.03267477203647416,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.03030850037713817,
+    "maxAbsHuman": 0.030391801413770292,
     "shareMovedHuman": 0.03148936170212766
    },
    "total": {
-    "medianAbs": 0.0004669624095260394,
+    "medianAbs": 0.000389135341271718,
     "maxAbs": 0.022768706771610858,
-    "shareMoved": 0.005319148936170213,
-    "minSpearman": 0.9982300884955753,
+    "shareMoved": 0.004559270516717325,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.022768706771610858,
-    "shareMovedHuman": 0.005531914893617021
+    "shareMovedHuman": 0.004680851063829788
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2438,48 +2444,21 @@
    "value": 0.2,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.02665129230885177,
+    "maxAbs": 0.0266312871694534,
     "shareMoved": 0.012537993920972644,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.02665129230885177,
+    "maxAbsHuman": 0.0266312871694534,
     "shareMovedHuman": 0.00851063829787234
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.012669618709356012,
-    "shareMoved": 0.00303951367781155,
+    "maxAbs": 0.011420200945063352,
+    "shareMoved": 0.001899696048632219,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.012309891054316235,
-    "shareMovedHuman": 0.0029787234042553193
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.valueModulation.selfDirection.socialProofSensitivity",
-   "status": "hypothesis",
-   "value": -0.2,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.02346020474792354,
-    "shareMoved": 0.003419452887537994,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01060764139958259,
-    "shareMovedHuman": 0.000425531914893617
-   },
-   "total": {
-    "medianAbs": 0,
-    "maxAbs": 0.004041585153794491,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.004041585153794491,
-    "shareMovedHuman": 0
+    "maxAbsHuman": 0.010681136551416504,
+    "shareMovedHuman": 0.001276595744680851
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2492,21 +2471,48 @@
    "value": -0.15,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.023434516151071172,
+    "maxAbs": 0.022984871447472077,
     "shareMoved": 0.007218844984802432,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.023434516151071172,
+    "maxAbsHuman": 0.022984871447472077,
     "shareMovedHuman": 0.008085106382978723
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.015754391761276854,
-    "shareMoved": 0.004939209726443769,
+    "maxAbs": 0.015376741120318171,
+    "shareMoved": 0.003799392097264438,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.015754391761276854,
-    "shareMovedHuman": 0.005531914893617021
+    "maxAbsHuman": 0.015376741120318171,
+    "shareMovedHuman": 0.00425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.selfDirection.socialProofSensitivity",
+   "status": "hypothesis",
+   "value": -0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.022590026829128362,
+    "shareMoved": 0.003419452887537994,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.010289855515116741,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.004864995230370706,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.004864995230370706,
+    "shareMovedHuman": 0
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2521,16 +2527,16 @@
     "medianAbs": 0,
     "maxAbs": 0.021681556838641924,
     "shareMoved": 0.004179331306990881,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.007395298480273205,
+    "maxAbsHuman": 0.006239114143760105,
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.000007918611896584604,
+    "medianAbs": 0.000001929114752946201,
     "maxAbs": 0.0017048832869480668,
     "shareMoved": 0,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.0017048832869480668,
     "shareMovedHuman": 0
@@ -2546,20 +2552,20 @@
    "value": -0.15,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.017078125272888656,
+    "maxAbs": 0.01644466927083954,
     "shareMoved": 0.00303951367781155,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.007940059531060584,
+    "maxAbsHuman": 0.007702221107448892,
     "shareMovedHuman": 0
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.0035507483590063726,
+    "maxAbs": 0.003157968245034809,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0035507483590063726,
+    "maxAbsHuman": 0.003157968245034809,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -2573,20 +2579,20 @@
    "value": 0.3,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.01664541461243374,
-    "shareMoved": 0.0026595744680851063,
+    "maxAbs": 0.016146598435143655,
+    "shareMoved": 0.0022796352583586625,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.01664541461243374,
-    "shareMovedHuman": 0.0029787234042553193
+    "maxAbsHuman": 0.016146598435143655,
+    "shareMovedHuman": 0.002553191489361702
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.004810400386726532,
+    "maxAbs": 0.005781223862851806,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.004810400386726532,
+    "maxAbsHuman": 0.005781223862851806,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -2600,18 +2606,18 @@
    "value": 0.3,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.014611491007618937,
+    "maxAbs": 0.014651253838927403,
     "shareMoved": 0.00911854103343465,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.014611491007618937,
+    "maxAbsHuman": 0.014651253838927403,
     "shareMovedHuman": 0.010212765957446808
    },
    "total": {
-    "medianAbs": 0.00025393725146405366,
+    "medianAbs": 0.00026112697804062113,
     "maxAbs": 0.010370041786157025,
     "shareMoved": 0.0007598784194528875,
-    "minSpearman": 0.9982300884955753,
+    "minSpearman": 0.9822852081488043,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.010370041786157025,
     "shareMovedHuman": 0.000851063829787234
@@ -2627,20 +2633,20 @@
    "value": -0.2,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.014537017371992533,
-    "shareMoved": 0.0022796352583586625,
+    "maxAbs": 0.013997815278139925,
+    "shareMoved": 0.001899696048632219,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.007367427333595078,
+    "maxAbsHuman": 0.007086279188673217,
     "shareMovedHuman": 0
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.0037610399493667734,
+    "maxAbs": 0.0036976643217689897,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0037610399493667734,
+    "maxAbsHuman": 0.0036976643217689897,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -2654,47 +2660,20 @@
    "value": 0.2,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.014446601235852619,
+    "maxAbs": 0.013941419378084241,
     "shareMoved": 0.001519756838905775,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.014446601235852619,
+    "maxAbsHuman": 0.013941419378084241,
     "shareMovedHuman": 0.001702127659574468
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.005344089008798902,
+    "maxAbs": 0.0043886110325156436,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.005344089008798902,
-    "shareMovedHuman": 0
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "chain.valueModulation.benevolence.emotionalContagion",
-   "status": "hypothesis",
-   "value": -0.15,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0.008094450455512714,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.005914885823004035,
-    "shareMovedHuman": 0
-   },
-   "total": {
-    "medianAbs": 0,
-    "maxAbs": 0.007536486113823737,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.007536486113823737,
+    "maxAbsHuman": 0.0043886110325156436,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -2708,7 +2687,7 @@
    "value": 0.5,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.003688039785080477,
+    "maxAbs": 0.003829057479402209,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
@@ -2730,25 +2709,52 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
+   "id": "chain.valueModulation.benevolence.emotionalContagion",
+   "status": "hypothesis",
+   "value": -0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.002347537091269114,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.002347537091269114,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.002743443862142314,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.002743443862142314,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
    "id": "chain.valueModulation.demandFloor",
    "status": "hypothesis",
    "value": 0.1,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.0011938841999850139,
+    "maxAbs": 0.0009639317015999998,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0011938841999850139,
+    "maxAbsHuman": 0.0009639317015999998,
     "shareMovedHuman": 0
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.0017607090145720372,
+    "maxAbs": 0.001742405267231295,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0017607090145720372,
+    "maxAbsHuman": 0.001742405267231295,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -2762,7 +2768,7 @@
    "value": 0.0001,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 0.0004150495118544484,
+    "maxAbs": 0.0003850554196045408,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
@@ -2816,21 +2822,21 @@
    "value": 238,
    "raw": {
     "medianAbs": 0,
-    "maxAbs": 8.881784197001252e-16,
+    "maxAbs": 1.7763568394002505e-15,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 8.881784197001252e-16,
+    "maxAbsHuman": 1.7763568394002505e-15,
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.008396980995231146,
-    "maxAbs": 0.02299555891576921,
-    "shareMoved": 0.4308510638297872,
+    "medianAbs": 0.008482316509202378,
+    "maxAbs": 0.02434747455876063,
+    "shareMoved": 0.4616261398176292,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.02299555891576921,
-    "shareMovedHuman": 0.46297872340425533
+    "maxAbsHuman": 0.02434747455876063,
+    "shareMovedHuman": 0.49617021276595746
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2852,11 +2858,11 @@
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 6.661338147750939e-16,
+    "maxAbs": 5.551115123125783e-16,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 6.661338147750939e-16,
+    "maxAbsHuman": 5.551115123125783e-16,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -2878,13 +2884,13 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.008396980995231132,
-    "maxAbs": 0.02299555891576921,
-    "shareMoved": 0.4308510638297872,
+    "medianAbs": 0.008482316509202378,
+    "maxAbs": 0.02434747455876063,
+    "shareMoved": 0.4616261398176292,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.02299555891576921,
-    "shareMovedHuman": 0.46297872340425533
+    "maxAbsHuman": 0.02434747455876063,
+    "shareMovedHuman": 0.49617021276595746
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2905,13 +2911,40 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.004251086757263434,
-    "maxAbs": 0.013519886174165996,
-    "shareMoved": 0.1356382978723404,
+    "medianAbs": 0.004091628148747424,
+    "maxAbs": 0.012612705592287499,
+    "shareMoved": 0.17211246200607902,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.013519886174165996,
-    "shareMovedHuman": 0.14893617021276595
+    "maxAbsHuman": 0.012612705592287499,
+    "shareMovedHuman": 0.18893617021276596
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.animation.saturation",
+   "status": "hypothesis",
+   "value": 10,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0026445098627054797,
+    "maxAbs": 0.011279240618538133,
+    "shareMoved": 0.018617021276595744,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.011279240618538133,
+    "shareMovedHuman": 0.01829787234042553
    },
    "rangeRaw": null,
    "rangeTotal": null,
@@ -2932,10 +2965,10 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.00300172500147014,
+    "medianAbs": 0.0030947738983364004,
     "maxAbs": 0.008502903694321523,
     "shareMoved": 0,
-    "minSpearman": 0.9973321428677399,
+    "minSpearman": 0.997329768264573,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.008502903694321523,
     "shareMovedHuman": 0
@@ -2959,66 +2992,12 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0014718323530464802,
+    "medianAbs": 0.001499278457066766,
     "maxAbs": 0.00783262599125159,
     "shareMoved": 0,
-    "minSpearman": 0.9973321428677399,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.00783262599125159,
-    "shareMovedHuman": 0
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "pageMetrics.animation.saturation",
-   "status": "hypothesis",
-   "value": 10,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0,
-    "shareMovedHuman": 0
-   },
-   "total": {
-    "medianAbs": 0.002056075202234081,
-    "maxAbs": 0.0066073659098057624,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0066073659098057624,
-    "shareMovedHuman": 0
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "law.fitts.intercept",
-   "status": "published",
-   "value": 0.23,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0,
-    "shareMovedHuman": 0
-   },
-   "total": {
-    "medianAbs": 0.0016052698137879462,
-    "maxAbs": 0.0052173731717862215,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0052173731717862215,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3040,12 +3019,39 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0013229834560444798,
-    "maxAbs": 0.004169991943310997,
+    "medianAbs": 0.002320564410547482,
+    "maxAbs": 0.007393571484162087,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.004169991943310997,
+    "maxAbsHuman": 0.007393571484162087,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.fitts.intercept",
+   "status": "published",
+   "value": 0.23,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.001568039550407574,
+    "maxAbs": 0.005384107074784206,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.005384107074784206,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3067,12 +3073,12 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0007621023307357172,
-    "maxAbs": 0.0034168792698269224,
+    "medianAbs": 0.0015625824955727147,
+    "maxAbs": 0.004897017174590568,
     "shareMoved": 0,
-    "minSpearman": 0.9994817309835874,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0034168792698269224,
+    "maxAbsHuman": 0.004897017174590568,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3094,12 +3100,12 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.000621915322500527,
-    "maxAbs": 0.0026925818693711023,
+    "medianAbs": 0.0010895789555607494,
+    "maxAbs": 0.00399357663307176,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0026925818693711023,
+    "maxAbsHuman": 0.00399357663307176,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3121,10 +3127,10 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0000778270682543214,
+    "medianAbs": 0.00007782706825437691,
     "maxAbs": 0.002592049834913679,
     "shareMoved": 0,
-    "minSpearman": 0.9973321428677399,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.002592049834913679,
     "shareMovedHuman": 0
@@ -3139,10 +3145,10 @@
     "shareMovedHuman": 0
    },
    "rangeTotal": {
-    "medianAbs": 0.00008459817239808709,
+    "medianAbs": 0.00015565413650867055,
     "maxAbs": 0.004002079195517927,
     "shareMoved": 0,
-    "minSpearman": 0.9973321428677399,
+    "minSpearman": 1,
     "spearmanUndefined": 0,
     "maxAbsHuman": 0.004002079195517927,
     "shareMovedHuman": 0
@@ -3164,39 +3170,12 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0003917838802426632,
-    "maxAbs": 0.0016252971098617008,
+    "medianAbs": 0.0003917334939970152,
+    "maxAbs": 0.0017757912854786673,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0016252971098617008,
-    "shareMovedHuman": 0
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "law.reading.abjadWpm",
-   "status": "published",
-   "value": 181,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0,
-    "shareMovedHuman": 0
-   },
-   "total": {
-    "medianAbs": 0.000153215767003001,
-    "maxAbs": 0.0014008872285781182,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0014008872285781182,
+    "maxAbsHuman": 0.0017757912854786673,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3218,7 +3197,7 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0001506632293825083,
+    "medianAbs": 0.00027442764683591886,
     "maxAbs": 0.001160409097084869,
     "shareMoved": 0,
     "minSpearman": 1,
@@ -3232,9 +3211,9 @@
    "perturbation": "x0.9 and x1.1"
   },
   {
-   "id": "law.reading.cjkCharsPerWord",
+   "id": "law.reading.abjadWpm",
    "status": "published",
-   "value": 1.5,
+   "value": 181,
    "raw": {
     "medianAbs": 0,
     "maxAbs": 0,
@@ -3245,39 +3224,12 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0001556541365086983,
-    "maxAbs": 0.000778270682543436,
+    "medianAbs": 0.0000778270682543214,
+    "maxAbs": 0.0009273537953035094,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.000778270682543436,
-    "shareMovedHuman": 0
-   },
-   "rangeRaw": null,
-   "rangeTotal": null,
-   "refused": [],
-   "perturbation": "x0.9 and x1.1"
-  },
-  {
-   "id": "law.reading.cjkWpm",
-   "status": "published",
-   "value": 260,
-   "raw": {
-    "medianAbs": 0,
-    "maxAbs": 0,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0,
-    "shareMovedHuman": 0
-   },
-   "total": {
-    "medianAbs": 0.0001556541365086983,
-    "maxAbs": 0.000778270682543436,
-    "shareMoved": 0,
-    "minSpearman": 1,
-    "spearmanUndefined": 0,
-    "maxAbsHuman": 0.000778270682543436,
+    "maxAbsHuman": 0.0009273537953035094,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3299,12 +3251,66 @@
     "shareMovedHuman": 0
    },
    "total": {
-    "medianAbs": 0.0001147293658747342,
-    "maxAbs": 0.0006882112795093542,
+    "medianAbs": 0.000156142665402495,
+    "maxAbs": 0.000849388717879318,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0006882112795093542,
+    "maxAbsHuman": 0.000849388717879318,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.cjkCharsPerWord",
+   "status": "published",
+   "value": 1.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.00015565413650875382,
+    "maxAbs": 0.0007004436142891146,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0007004436142891146,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.cjkWpm",
+   "status": "published",
+   "value": 260,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.00015565413650875382,
+    "maxAbs": 0.0007004436142891146,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0007004436142891146,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
@@ -3327,11 +3333,11 @@
    },
    "total": {
     "medianAbs": 0,
-    "maxAbs": 0.0002334812047630752,
+    "maxAbs": 0.00018586454320745904,
     "shareMoved": 0,
     "minSpearman": 1,
     "spearmanUndefined": 0,
-    "maxAbsHuman": 0.0002334812047630752,
+    "maxAbsHuman": 0.00018586454320745904,
     "shareMovedHuman": 0
    },
    "rangeRaw": null,
