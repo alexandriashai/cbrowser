@@ -18,13 +18,12 @@ part 1 against the laws on the 97c4888 data. It is this file at a5e2346; its
 commit ids predate a history rewrite (7bc9d5e is now 63b2412, 4aa544e is
 da8cda2).
 
-Integration has since taken ref-v2's 512-page re-crawl (42ed67b, which adds
-`proseInNav`). The tables below stay on the 513 pages they were measured on.
-On the re-crawl the viewport law-time medians are pointing 24.2 s, choosing
-2.4 s, reading 25.6 s and procedure 1.4 s (full_page: 68.7, 6.4, 96.0 and 1.4
-s), within 0.4 s of section 1's at the viewport. Reading then moved again with
-the menu labels' first reads (section 1, menu labels): 22.6 s at the viewport,
-91.5 s at full page.
+Integration has since taken ref-v2's re-crawls: 512 pages (42ed67b, which
+adds `proseInNav`), then 514 (f4e7bc2, which adds `groupedLinksWithText`),
+and stage-c. The tables below stay on the 513 pages they were measured on. On
+the 514 pages, with the menu labels' first reads (section 1, menu labels),
+the viewport law-time medians are pointing 24.2 s, choosing 2.5 s, reading
+21.8 s and procedure 1.4 s (full_page: 71.3, 6.6, 90.0 and 1.4 s).
 
 Scripts: `research/stage-b-capacity-deltas.ts` (golden matrix; `BEFORE=` names
 the pin to compare against), `research/stage-b-refset-scores.ts` and
@@ -76,24 +75,24 @@ reading capacity applies to them as to prose; search keeps Cockburn's
 constants. On the per-screen path (scope sequential) the label part takes the
 new-choices share, as choosing does.
 
-On the 512-page reference the in-group prose was 7.1% of the reading time at
-the viewport median (p90 44.8%) and 2.6% at full page (p90 27.5%). Reading
-moves:
+On the 514-page reference (f4e7bc2) the in-group prose is 7.1% of the
+reading time at the viewport median (p90 45.2%) and 2.5% at full page (p90
+25.7%). Reading, median [p10, p90]:
 
-| scope | before (all prose at Brysbaert's rate) | after (labels at 0.13 s) |
-|---|---|---|
-| viewport | 25.6 s [3.8, 70.9], d 0.67 | 22.6 s [3.0, 69.0], d 0.65 |
-| full_page | 96.0 s [13.4, 381.2], d 0.89 | 91.5 s [12.3, 341.9], d 0.88 |
+| scope | all prose at Brysbaert's rate | every grouped link at 0.13 s | links with visible text at 0.13 s (shipped) |
+|---|---|---|---|
+| viewport | 25.1 s [3.8, 71.6], d 0.67 | 22.4 s [3.0, 69.1], d 0.64 | 21.8 s [2.7, 67.5], d 0.64 |
+| full_page | 96.0 s [14.5, 381.2], d 0.89 | 90.9 s [12.3, 341.9], d 0.88 | 90.0 s [12.1, 340.4], d 0.88 |
 
 Only links with something to read are charged (Alexa, 2026-10-23): the first
 read is 0.13 s per grouped link whose drawn text holds at least one letter
-or digit in any script (`groupedLinksWithText`, measured by
-ref-v2; aria-label and alt do not count, text in spans the prose selector skips
-does). An icon-only link costs no reading. On the 42ed67b reference, before
-that field, at least 55.5% of grouped links at the viewport (48.8% at full
-page) carried no in-group word; icon-only links among them now cost nothing,
-and a label whose visible text sits outside the prose selector costs its first
-read though its text was never in the prose.
+or digit in any script (`groupedLinksWithText`, measured by ref-v2;
+aria-label, title, alt and text hidden, transparent, sub-pixel or clipped do
+not count, text in spans the prose selector skips does). An icon-only link
+costs no reading. On the 514 pages, 4247 of 9368 grouped links at the
+viewport (45.3%) and 7458 of 15856 at full page (47.0%) have no visible text
+and cost nothing; a label whose visible text sits outside the prose selector
+costs its first read though its text was never in the prose.
 
 A 1 or 2 letter label costs more as a label than as prose: 0.13 s is more than
 0.055 s per letter (238 x 4.6 letters per minute). So moving a label from the
@@ -453,3 +452,11 @@ tolerance only), then the pages where some coordinate exceeds the bound.
   demand vectors move, and it was scanned again: the shipped bound is exceeded
   on 0 of 1024 (largest 0.99979); M2 on 34, M10 on 3 (1.025x), M6 on 79, M7 on
   239; M11 and M14 never.
+- This scan predates Stage C (f4e7bc2), which stops informationDensity,
+  textDensity and navigationDepth from making demand. On the merged tree the
+  interaction pages' margins (`--margins`, seeds 1-14) are: trace-text+choices
+  M2 1.191x and M10 1.087x on 14 of 14 seeds; light-text+choices M2 1.025x on
+  14 of 14 and M10 never (0.983x); trace-text+depth and info+trace-visual+depth
+  exceed neither (0.9995x, the shipped bound's). The label constant is read by
+  none of these pages, so the loss is Stage C's. The kill table still holds,
+  carried by the rest of the search.
