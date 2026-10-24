@@ -1,0 +1,6 @@
+# Bun before 1.4.0 closes a dead node:child_process child's pipes 3 and up a
+# second time at GC, which can shut a live browser's CDP pipe or a Bun.spawn
+# child's pidfd. The preload keeps those children reachable. See
+# tests/fixtures/extra-stdio-guard.ts and tests/bun-extra-stdio-late-close.test.ts.
+[test]
+preload = ["./tests/fixtures/extra-stdio-guard.ts"]
