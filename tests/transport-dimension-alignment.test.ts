@@ -17,7 +17,8 @@
  *
  * The behavioural test below is the one that would have caught it, and it is
  * the check that was missing when the parameter shipped: not "was the input
- * accepted" but "did the output move".
+ * accepted" but "did the output move". Since 21.0 the parameter reaches the
+ * chain as the demand's e (Stage C), and the same checks are asked of that.
  *
  * @since 2026-08-02
  */
@@ -83,10 +84,15 @@ const KNOWN_UNLAYERED = [
   // frustration's content gate. resilience is read by abandonment (blended
   // tolerance); selfEfficacy currently reaches no score.
   "resilience", "selfEfficacy",
+  // By design since 21.0 (Stage C), and not inert: the visit's familiarity is
+  // the demand's e on the choosing time (DemandOptions), the same for every
+  // persona in a run, so it is no capacity and has no layer or demand slot.
+  // Its own describe block above checks that it moves the output.
+  "siteFamiliarity",
 ].sort();
 
-/** Traits with no demand term today. Same status: recorded, not blessed. */
-const KNOWN_UNDEMANDED = ["attributionStyle", "authoritySensitivity", "timeHorizon"].sort();
+/** Traits with no demand term today. Same status: recorded, not blessed (siteFamiliarity: by design, above). */
+const KNOWN_UNDEMANDED = ["attributionStyle", "authoritySensitivity", "siteFamiliarity", "timeHorizon"].sort();
 
 /**
  * The reverse gap: demand dimensions that are not persona traits. No persona in
@@ -97,19 +103,22 @@ const KNOWN_UNDEMANDED = ["attributionStyle", "authoritySensitivity", "timeHoriz
 const KNOWN_DEMAND_ONLY = ["attentionPattern", "motorPrecision", "processingSpeed", "textProcessing"].sort();
 
 describe("siteFamiliarity actually reaches the chain", () => {
+  // Since 21.0 (Stage C) familiarity is the run's, not the persona's: Cockburn,
+  // Gutwin & Greenberg's (2007) expertise e on the choosing time, handed to the
+  // demand (DemandOptions). The checks below are the 2026-08-02 ones, asked of
+  // the new mechanism: the output must move, in the right direction, and only
+  // on a page that asks for what familiarity buys.
   const baseTraits: Record<string, number> = Object.fromEntries(
     (COGNITIVE_TRAITS as readonly string[]).map((t) => [t, 0.5]),
   );
-  // Navigation depth is what makes a page demand site knowledge; a one-click
-  // page legitimately demands none, so the probe uses a page with real depth.
-  const deepPage = {
+  const page = (choiceCount: number) => withLawSeconds({
     informationDensity: 0.6, visualComplexity: 0.5, interactiveElementCount: 40,
-    textDensity: 0.5, animationLevel: 0.1, choiceCount: 12, navigationDepth: 4,
-  } as never;
+    textDensity: 0.5, animationLevel: 0.1, choiceCount, navigationDepth: 4,
+  } as never);
+  const profile = buildOTCognitiveProfile("probe", baseTraits);
 
-  function run(fam: number): { total: number; cognitiveLoad: number } {
-    const demand = computeDemandDistribution(withLawSeconds(deepPage));
-    const profile = buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: fam });
+  function run(fam: number, choiceCount = 12): { total: number; cognitiveLoad: number } {
+    const demand = computeDemandDistribution(page(choiceCount), { siteFamiliarity: fam });
     const r = computeSequentialCTC(profile, demand, { asymmetric: true, interactions: true });
     const cl = r.layers.find((l: { name: string }) => l.name === "cognitiveLoad");
     return { total: r.totalCTC, cognitiveLoad: (cl as { transportCost: number }).transportCost };
@@ -117,8 +126,7 @@ describe("siteFamiliarity actually reaches the chain", () => {
 
   test("familiarity 0 and 1 produce different totals", () => {
     // The report's regression check, verbatim: run(fam=0) !== run(fam=1).
-    const a = run(0), b = run(1);
-    expect(a.total).not.toBe(b.total);
+    expect(run(0).total).not.toBe(run(1).total);
   });
 
   test("a first-time visitor pays MORE, not less", () => {
@@ -128,54 +136,30 @@ describe("siteFamiliarity actually reaches the chain", () => {
     expect(run(0).cognitiveLoad).toBeGreaterThan(run(1).cognitiveLoad);
   });
 
-  test("direction holds at EVERY navigation depth, not just a deep page", () => {
-    // This test exists because the version above passed while the live tool was
-    // inverted. It ran one deep page; on a shallow real site (cbrowser.ai) the
-    // demand for site knowledge is near zero, a familiarity of 1.0 is then
-    // almost entirely surplus, and surplus was billed at 0.3 — so the daily
-    // user was charged MORE than the first-timer (0.268 vs 0.19). Knowing a
-    // site cannot make it harder, so familiarity surplus is now free, and the
-    // claim is checked across the range rather than at one convenient point.
-    for (const navigationDepth of [0, 1, 2, 4, 8]) {
-      const demand = computeDemandDistribution(withLawSeconds({
-        informationDensity: 0.6, visualComplexity: 0.5, interactiveElementCount: 40,
-        textDensity: 0.5, animationLevel: 0.1, choiceCount: 12, navigationDepth,
-      } as never));
-      const at = (fam: number) => computeSequentialCTC(
-        buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: fam }),
-        demand, { asymmetric: true, interactions: true }).totalCTC;
-      // Never worse for knowing the site. Equal is fine — a one-click page
-      // legitimately asks nothing of your site knowledge.
-      expect(at(0)).toBeGreaterThanOrEqual(at(1));
-    }
+  test("direction holds at every amount of choice, not just one convenient page", () => {
+    for (const choices of [0, 1, 4, 12, 50]) expect(run(0, choices).total).toBeGreaterThanOrEqual(run(1, choices).total);
   });
 
   test("more site knowledge is never a penalty, at any value", () => {
-    const demand = computeDemandDistribution(withLawSeconds({
-      informationDensity: 0.6, visualComplexity: 0.5, interactiveElementCount: 40,
-      textDensity: 0.5, animationLevel: 0.1, choiceCount: 12, navigationDepth: 3,
-    } as never));
-    const at = (fam: number) => computeSequentialCTC(
-      buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: fam }),
-      demand, { asymmetric: true, interactions: true }).totalCTC;
-    // Monotonic, not merely correct at the endpoints.
-    const costs = [0, 0.25, 0.5, 0.75, 1].map(at);
+    const costs = [0, 0.25, 0.5, 0.75, 1].map((f) => run(f).total);
     for (let i = 1; i < costs.length; i++) {
       expect(costs[i]).toBeLessThanOrEqual(costs[i - 1] + 1e-9);
     }
   });
 
-  test("the page must demand site knowledge for familiarity to matter", () => {
-    // A one-click page asks nothing of your site knowledge, so familiarity
-    // legitimately does not move the number there. If this ever stops holding,
-    // the demand term has become a constant rather than a function of depth.
-    const flat = computeDemandDistribution(withLawSeconds({ ...(deepPage as object), navigationDepth: 0 } as never));
-    expect(flat.demands.siteFamiliarity).toBe(0);
+  test("the page must offer choices for familiarity to matter", () => {
+    // Knowing where things are saves search time; a page with nothing to choose
+    // among asks nothing of it.
+    expect(computeDemandDistribution(page(0), { siteFamiliarity: 1 }).demands)
+      .toEqual(computeDemandDistribution(page(0), { siteFamiliarity: 0 }).demands);
   });
 
-  test("it has a demand term and a home layer", () => {
-    expect(DEMAND_DIMENSIONS as readonly string[]).toContain("siteFamiliarity");
-    expect(traitsUsedByLayers().has("siteFamiliarity")).toBe(true);
+  test("it is the run's: no demand dimension, no layer, and a persona's own value changes nothing", () => {
+    expect(DEMAND_DIMENSIONS as readonly string[]).not.toContain("siteFamiliarity");
+    expect(traitsUsedByLayers().has("siteFamiliarity")).toBe(false);
+    const demand = computeDemandDistribution(page(12), { siteFamiliarity: 0.5 });
+    const at = (own: number) => computeSequentialCTC(buildOTCognitiveProfile("probe", { ...baseTraits, siteFamiliarity: own }), demand).rawCTC;
+    expect(at(0)).toBe(at(1));
   });
 });
 

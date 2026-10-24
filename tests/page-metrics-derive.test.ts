@@ -140,13 +140,13 @@ describe("raw formats", () => {
       const v1: RawPageMeasurementV1 = { ...rest, format: 1 };
       // Everything derives the same except the choosing time: format 1 has no
       // groupedLinks, so its ungrouped links are links minus the stored nav sizes.
-      const { choosingSeconds: c1, lawDiagnostics: d1, ...same1 } = deriveMetrics(v1);
-      const { choosingSeconds: c2, lawDiagnostics: d2, ...same2 } = deriveMetrics(r);
+      const { choosingSeconds: c1, choosingSecondsExpert: x1, lawDiagnostics: d1, ...same1 } = deriveMetrics(v1);
+      const { choosingSeconds: c2, choosingSecondsExpert: x2, lawDiagnostics: d2, ...same2 } = deriveMetrics(r);
       expect(same1).toEqual(same2);
       expect([d1.ungroupedLinksFrom, d2.ungroupedLinksFrom]).toEqual(["navGroupSizes", "groupedLinks"]);
-      expect(Number.isFinite(c1) && Number.isFinite(c2)).toBe(true);
-      const { choosingSecondsExpert: _e1, ungroupedLinks: _u1, ungroupedLinksFrom: _f1, choiceGroups: _g1, ...rest1 } = d1;
-      const { choosingSecondsExpert: _e2, ungroupedLinks: _u2, ungroupedLinksFrom: _f2, choiceGroups: _g2, ...rest2 } = d2;
+      expect(Number.isFinite(c1) && Number.isFinite(c2) && Number.isFinite(x1) && Number.isFinite(x2)).toBe(true);
+      const { ungroupedLinks: _u1, ungroupedLinksFrom: _f1, choiceGroups: _g1, ...rest1 } = d1;
+      const { ungroupedLinks: _u2, ungroupedLinksFrom: _f2, choiceGroups: _g2, ...rest2 } = d2;
       expect(rest1).toEqual(rest2);
       for (const format of [0, 3, undefined, "2"]) {
         expect(() => deriveMetrics({ ...r, format } as never)).toThrow(/raw page format .* is not one this build reads \(1 or 2\)/);

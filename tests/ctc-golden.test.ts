@@ -1,7 +1,7 @@
 /**
  * The cognitive transport chain's numbers are pinned, bit for bit.
  *
- * Every human persona, built the way cognitive_effort builds it, plus two
+ * Every human persona, built the way cognitive_effort builds it, plus three
  * synthetic boundary personas, against nineteen demand vectors under four
  * option sets, plus four multi-screen scroll inputs, recorded on 21.0.0
  * (tests/fixtures/ctc-golden-21.0.0.json). Every number is compared with
@@ -18,6 +18,11 @@
  * every other number in the matrix, rawCTC included, was bit-identical to the
  * previous pin before it was regenerated.
  *
+ * Re-pinned in place for Stage C (cognitiveLoad and patience on law times,
+ * siteFamiliarity as the demand's e, and a third boundary persona at 0 so the
+ * numerical floor is pinned): research/stage-c-golden-deltas.md lists what
+ * moved, measured before the fixture was regenerated.
+ *
  * If the chain's behaviour is meant to change, regenerate the fixture with
  * tests/fixtures/generate-ctc-golden.ts and say so in the commit.
  *
@@ -33,11 +38,11 @@ const pinned = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "ctc-go
 const actual = buildGoldenMatrix();
 
 describe("CTC golden matrix (21.0.0)", () => {
-  test("covers the whole human roster plus the two boundary personas, 19 demands and 4 option sets", () => {
+  test("covers the whole human roster plus the three boundary personas, 19 demands and 4 option sets", () => {
     expect(pinned.pinnedOn).toBe("21.0.0");
     expect(Object.keys(ROSTER).length).toBe(25);
     expect(actual.personas).toEqual([...Object.keys(ROSTER), ...Object.keys(BOUNDARY_PERSONAS)]);
-    expect(actual.personas.length).toBe(27);
+    expect(actual.personas.length).toBe(28);
     expect(actual.personas).toEqual(pinned.personas);
     expect(actual.demands).toEqual(pinned.demands);
     expect(actual.demands.length).toBe(19);
@@ -46,7 +51,7 @@ describe("CTC golden matrix (21.0.0)", () => {
     expect(actual.optionSets.length).toBe(4);
     expect(actual.valuesSource).toEqual(pinned.valuesSource);
     expect(actual.dimensions).toEqual(pinned.dimensions);
-    expect(actual.dimensions.length).toBe(30);
+    expect(actual.dimensions.length).toBe(29); // 30 until Stage C took siteFamiliarity out of the demand vector
   });
 
   for (const persona of pinned.personas) {

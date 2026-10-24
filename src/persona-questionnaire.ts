@@ -1707,7 +1707,7 @@ export function buildTraitsFromAnswers(
     // Tier 1: Core traits (from attention/patience research)
     patience: 0.45,            // Research: average user abandons after 3-5 seconds (NNGroup)
     riskTolerance: 0.40,       // Research: loss aversion - people are risk-averse by default
-    comprehension: 0.55,       // Research: most adults read at 8th grade level
+    comprehension: 0.55,       // Grasp of UI conventions, not reading (trait-reference.ts); hand-set, no norm
     persistence: 0.50,         // Neutral - highly variable
     curiosity: 0.55,           // Research: novelty-seeking is common (dopamine system)
     workingMemory: 0.55,       // Research: 4±1 chunks (Miller's law, adjusted for digital)

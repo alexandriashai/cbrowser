@@ -22,8 +22,8 @@
       "choosingSeconds": 1.24,
       "readingSeconds": 22.6890756302521,
       "procedureSeconds": 2.7,
+      "choosingSecondsExpert": 0.7925512476486815,
       "lawDiagnostics": {
-        "choosingSecondsExpert": 0.7925512476486815,
         "meanFittsID": 4.646271375715045,
         "targets": 6,
         "entrySteps": 2,
@@ -54,8 +54,8 @@
       "choosingSeconds": 11.940000000000001,
       "readingSeconds": 169.4008037997808,
       "procedureSeconds": 2.7,
+      "choosingSecondsExpert": 1.594340672690958,
       "lawDiagnostics": {
-        "choosingSecondsExpert": 1.594340672690958,
         "meanFittsID": 3.024903843033036,
         "targets": 136,
         "entrySteps": 2,
@@ -87,8 +87,8 @@
         "choosingSeconds": 1.24,
         "readingSeconds": 22.6890756302521,
         "procedureSeconds": 2.7,
+        "choosingSecondsExpert": 0.7925512476486815,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.7925512476486815,
           "meanFittsID": 4.646271375715045,
           "targets": 6,
           "entrySteps": 2,
@@ -119,8 +119,8 @@
         "choosingSeconds": 0,
         "readingSeconds": 50.42016806722689,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0,
           "meanFittsID": 0,
           "targets": 0,
           "entrySteps": 0,
@@ -151,8 +151,8 @@
         "choosingSeconds": 2.6199999999999997,
         "readingSeconds": 28.55316039459262,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.6286384796102058,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.6286384796102058,
           "meanFittsID": 2.8424629460517603,
           "targets": 29,
           "entrySteps": 0,
@@ -183,8 +183,8 @@
         "choosingSeconds": 3.171891891891892,
         "readingSeconds": 25.86773839970771,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.6390060998111182,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.6390060998111182,
           "meanFittsID": 3.0724159313189916,
           "targets": 37,
           "entrySteps": 0,
@@ -215,8 +215,8 @@
         "choosingSeconds": 3.252105263157895,
         "readingSeconds": 26.525392765801975,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.6424701431524477,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.6424701431524477,
           "meanFittsID": 3.1095608370143317,
           "targets": 38,
           "entrySteps": 0,
@@ -247,8 +247,8 @@
         "choosingSeconds": 2.5109677419354837,
         "readingSeconds": 27.347460723419804,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.5747548301698903,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.5747548301698903,
           "meanFittsID": 2.8923805421333535,
           "targets": 31,
           "entrySteps": 0,
@@ -282,8 +282,8 @@
       "choosingSeconds": 0.45999999999999996,
       "readingSeconds": 36.28459009021669,
       "procedureSeconds": 0,
+      "choosingSecondsExpert": 0.32,
       "lawDiagnostics": {
-        "choosingSecondsExpert": 0.32,
         "meanFittsID": 4.84887359751528,
         "targets": 3,
         "entrySteps": 0,
@@ -314,8 +314,8 @@
       "choosingSeconds": 1.72,
       "readingSeconds": 60.876872488125684,
       "procedureSeconds": 0,
+      "choosingSecondsExpert": 0.8467970000576925,
       "lawDiagnostics": {
-        "choosingSecondsExpert": 0.8467970000576925,
         "meanFittsID": 2.46728842957375,
         "targets": 15,
         "entrySteps": 0,
@@ -347,8 +347,8 @@
         "choosingSeconds": 0.45999999999999996,
         "readingSeconds": 36.28459009021669,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.32,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.32,
           "meanFittsID": 4.84887359751528,
           "targets": 3,
           "entrySteps": 0,
@@ -379,8 +379,8 @@
         "choosingSeconds": 1.26,
         "readingSeconds": 39.36151316713977,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.5267970000576925,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.5267970000576925,
           "meanFittsID": 3.667651752759543,
           "targets": 12,
           "entrySteps": 0,
@@ -414,8 +414,8 @@
       "choosingSeconds": 0.62,
       "readingSeconds": 37.61498353845502,
       "procedureSeconds": 0,
+      "choosingSecondsExpert": 0.4,
       "lawDiagnostics": {
-        "choosingSecondsExpert": 0.4,
         "meanFittsID": 4.768454492659794,
         "targets": 5,
         "entrySteps": 0,
@@ -446,8 +446,8 @@
       "choosingSeconds": 1.56,
       "readingSeconds": 56.66643116530782,
       "procedureSeconds": 0,
+      "choosingSecondsExpert": 0.88,
       "lawDiagnostics": {
-        "choosingSecondsExpert": 0.88,
         "meanFittsID": 2.7282518079451283,
         "targets": 13,
         "entrySteps": 0,
@@ -479,8 +479,8 @@
         "choosingSeconds": 0.62,
         "readingSeconds": 37.61498353845502,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.4,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.4,
           "meanFittsID": 4.768454492659794,
           "targets": 5,
           "entrySteps": 0,
@@ -511,8 +511,8 @@
         "choosingSeconds": 0.94,
         "readingSeconds": 38.10289525370561,
         "procedureSeconds": 0,
+        "choosingSecondsExpert": 0.48,
         "lawDiagnostics": {
-          "choosingSecondsExpert": 0.48,
           "meanFittsID": 3.907501584569367,
           "targets": 8,
           "entrySteps": 0,

@@ -2870,7 +2870,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.3,           // Low - prefers familiar paths
       riskTolerance: 0.2,       // Very low - sticks to obvious elements
       readingTendency: 0.3,     // Low - relies on images and icons
-      comprehension: 0.2,       // Low - needs plain language
+      comprehension: 0.2,       // Low - needs explicit labels (UI conventions, not reading)
       resilience: 0.35,         // Low - errors are discouraging (BRS)
       selfEfficacy: 0.3,        // Low - often blames self for failures
       satisficing: 0.8,         // High - takes first option that seems right
@@ -2958,7 +2958,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.3,           // Low - new text-heavy pages are daunting
       riskTolerance: 0.25,      // Low - unsure what labels mean
       readingTendency: 0.15,    // Very low - avoids reading, seeks visual cues
-      comprehension: 0.25,      // Low for text, normal for visual/spatial layouts
+      comprehension: 0.25,      // Low - UI conventions, not reading; the language deficit is in the reading rate
       resilience: 0.45,         // Medium - accustomed to communication barriers
       selfEfficacy: 0.4,        // Low-medium - knows they can think, frustrated by language
       satisficing: 0.7,         // High - takes first visual match
@@ -3050,7 +3050,7 @@ export const ACCESSIBILITY_PERSONAS: Record<string, AccessibilityPersona> = {
       curiosity: 0.6,           // Normal - explores freely until numbers appear
       riskTolerance: 0.4,       // Low-medium - cautious with purchases/quantities
       readingTendency: 0.65,    // Medium-high - reads text normally, skips number-heavy sections
-      comprehension: 0.65,      // Normal for text, low for numerical content
+      comprehension: 0.65,      // Medium-high - UI conventions (not reading, not numeracy)
       // Math anxiety is documented as intense and self-reinforcing: errors raise
       // anxiety, which lowers WM, which produces more errors.
       resilience: 0.35,

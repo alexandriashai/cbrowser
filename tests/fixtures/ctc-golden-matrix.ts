@@ -44,7 +44,7 @@ export const ROSTER: Record<string, AnyPersona> = {
 export function rawDemand(args: [number, number, number, number, number, number, number], seconds?: LawSeconds): DemandDistribution {
   if (!seconds) return demandFromLegacy(...args);
   const [info, vis, , text, anim, , nav] = args;
-  return computeDemandFromRawMetrics(info, vis, text, anim, nav, seconds.pointingSeconds, seconds.choosingSeconds, seconds.readingSeconds, seconds.procedureSeconds);
+  return computeDemandFromRawMetrics(info, vis, text, anim, nav, seconds.pointingSeconds, seconds.choosingSeconds, seconds.readingSeconds, seconds.procedureSeconds, seconds.choosingSecondsExpert);
 }
 
 /**
@@ -116,7 +116,7 @@ export const PAGE_DEMANDS: Array<{ id: string; metrics: Omit<PageMetrics, keyof 
  * They are not people and are not in ROSTER (the DRO tests and the delta
  * report iterate ROSTER): they pin branches no human persona reaches.
  *
- *   boundary-floor   every dimension at 0.02 (siteFamiliarity 0): the only
+ *   boundary-floor   every dimension at 0.02: the only
  *                    persona deep enough in deficit for the drawdown cap
  *                    (chain.maxDrawdownFraction) and the tolerance floor
  *                    (chain.abandonment.toleranceFloor) to bind.
@@ -124,10 +124,16 @@ export const PAGE_DEMANDS: Array<{ id: string; metrics: Omit<PageMetrics, keyof 
  *                    chain.missingTraitCapacity, the path a caller takes with
  *                    a partial trait record (computeSequentialCTC and the DRO
  *                    population both accept one).
+ *   boundary-zero    every dimension at 0, a caller-built persona at the very
+ *                    bottom (added with Stage C): the only path on which the
+ *                    numerical floor (chain.capacityEpsilon) binds now that no
+ *                    built-in persona starts below 0.1. Through 20.x it bound on
+ *                    every tool-path run, through siteFamiliarity at 0.
  */
 export const BOUNDARY_PERSONAS: Record<string, Record<string, number>> = {
-  "boundary-floor": Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, d === "siteFamiliarity" ? 0 : 0.02])),
+  "boundary-floor": Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, 0.02])),
   "boundary-sparse": {},
+  "boundary-zero": Object.fromEntries(DEMAND_DIMENSIONS.map((d) => [d, 0])),
 };
 
 /** Multi-screen inputs for computeSequentialScrollCTC (3, 5, 8 and 2 screens). */
