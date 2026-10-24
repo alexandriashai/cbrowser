@@ -270,19 +270,26 @@ function countBarriersByType(
 
 type Barrier = NonNullable<CIFInput["barriers"]>[number];
 
-/** Does a barrier's type or description contain `pattern`? */
-function matchesBarrier(b: Barrier, pattern: string): boolean {
-  const p = pattern.toLowerCase();
-  return b.type.toLowerCase().includes(p) || (b.description || "").toLowerCase().includes(p);
+/**
+ * Does a barrier's type or description name `word`? As a whole word or its
+ * plural, with "_" and "-" as separators: "form_unlabeled", "long-form",
+ * "Form input" and "captions" match; "Information", "platform", "format",
+ * "performance", "conform" and "skipped" do not. A substring match counted
+ * empathy_audit's colour-only barrier ("Information conveyed by color alone")
+ * as a form barrier too (21.0).
+ */
+function matchesBarrier(b: Barrier, word: string): boolean {
+  const named = new RegExp(`(^|[^\\p{L}\\p{N}])${word.toLowerCase()}s?([^\\p{L}\\p{N}]|$)`, "u");
+  return named.test(b.type.toLowerCase()) || named.test((b.description || "").toLowerCase());
 }
 
-/** Count barriers matching a substring in type or description */
+/** Count barriers whose type or description names `word` (matchesBarrier). */
 function countBarriersMatching(
   barriers: CIFInput["barriers"],
-  pattern: string,
+  word: string,
 ): number {
   if (!barriers) return 0;
-  return barriers.filter((b) => matchesBarrier(b, pattern)).length;
+  return barriers.filter((b) => matchesBarrier(b, word)).length;
 }
 
 /** empathy_audit's close-spacing barrier, which it weights as target_spacing. */
