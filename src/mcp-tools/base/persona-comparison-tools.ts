@@ -1280,6 +1280,16 @@ Begin with the first persona: ${personas[0]}
           band: rank.band,
           referenceScope: result.referenceScope,
           rank: rank.sentence,
+          // The whole percents that sentence states, for a view to say the
+          // same numbers. total and totalCTCInterval are rounded to three
+          // places, and recomputed from them the rank can differ by a point
+          // (cbrowser.ai: 0.8098 is stated 80 and shipped as 0.81). end names
+          // the two ends, where the sentence states a place, not a percent.
+          rankFigures: {
+            percent: rank.percent,
+            interval: rank.interval,
+            end: result.totalCTC === 0 ? "cheapest" : result.totalCTC === 1 ? "costliest" : null,
+          },
           additive: Math.round(result.additiveCTC * 1000) / 1000,
           // The un-normalized cost. `total` is its percentile among real pages,
           // so the two are not interchangeable and any ratio must use `raw`.

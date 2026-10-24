@@ -51,6 +51,18 @@ export interface FactSpec {
    */
   by?: string;
   templates?: Record<string, string>;
+  /**
+   * "rank": the value is a percentile (0-1) among the real reference pages,
+   * shown as "costlier than N%" with "of real pages" and, when intervalField
+   * holds a [low, high] pair, its interval at `level`. Rounded as ctcRank
+   * rounds (N and low down, high up), so the chip and the verdict agree.
+   */
+  format?: "rank";
+  intervalField?: FieldPath;
+  /** Where the whole percents the verdict states live ({percent, interval, end}); preferred over rounding the decimals. */
+  figuresField?: FieldPath;
+  /** The interval's level in percent, for the words: 95. */
+  level?: number;
 }
 
 export interface HealthCheck {
@@ -232,7 +244,33 @@ export type BlockSpec =
        * carries it: the interval the score's own uncertainty spans. Absent
        * from the payload, nothing is drawn.
        */
-      intervalField?: FieldPath; intervalLabel?: string }
+      intervalField?: FieldPath; intervalLabel?: string;
+      /** "percent": the interval is of a percentile, written "55% to 70%" (rounded as ctcRank rounds). */
+      intervalFormat?: "percent" }
+  /**
+   * Where a percentile among the real reference pages sits, with its interval:
+   * a sentence ("Costlier than 62% of the real pages we measured"), a 0-100%
+   * scale with the point and the interval drawn on it, and the interval in
+   * words. Rounded as ctcRank rounds, so it says what the verdict says; at
+   * either end, as there, no interval is stated.
+   */
+  | { type: "rank"; title?: string; field: FieldPath; intervalField?: FieldPath;
+      /** As on FactSpec: the verdict's own whole percents, when the payload has them. */
+      figuresField?: FieldPath;
+      /** The interval's level in percent: 95. */
+      level?: number }
+  /**
+   * Seconds against a budget: one row per entry of an object, each
+   * {seconds, demand}, every bar and the budget mark on one ruler, and the
+   * largest named in text. Built for cognitive_effort's lawTimes, the four
+   * published laws' seconds for the page, each a demand against one budget.
+   */
+  | { type: "times"; title?: string; field: FieldPath;
+      /** Key of the budget, in seconds, on the object. */
+      budgetKey: string;
+      rows: Array<{ key: string; label: string; detail: string;
+        /** A second time on the same entry, e.g. a familiar visit's: keys on the entry, and how to name it. */
+        alt?: { secondsKey: string; demandKey: string; fractionKey: string; label: string; fractionLabel: string } }> }
   /**
    * Free prose. For an object value, `by` and `templates` pick the sentence
    * as FactSpec's do, so a {resolution, name} pair can read as a sentence.
@@ -465,7 +503,8 @@ const CSS = `
   .act:focus-visible{outline:2px solid #fff;outline-offset:2px}
   .hero.bare .act{background:var(--brand);color:#fff;border-color:transparent}
   .facts{display:flex;flex-wrap:wrap;gap:.34rem;margin:.7rem 0 0}
-  .fact{display:inline-flex;align-items:baseline;gap:.34rem;padding:.24rem .52rem;
+  .fact b.rk,.fact .nw{white-space:nowrap}
+  .fact{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .34rem;padding:.24rem .52rem;
     border:1px solid rgba(255,255,255,.32);border-radius:6px;background:rgba(255,255,255,.10)}
   .fact b{font:650 .82rem/1 var(--mono);font-variant-numeric:tabular-nums;color:#fff}
   .fact span{font-size:.74rem;color:#fff}
@@ -796,6 +835,37 @@ const CSS = `
   button.ptag{cursor:help;text-decoration:underline dotted currentColor;text-underline-offset:2px}
   button.ptag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   @media (max-width:30rem){ .pslot{flex-basis:4.1rem} }
+  /* Rank among the real pages: the sentence, then a 0-100% scale with the
+     interval shaded and the point marked. The words carry the numbers; the
+     scale is the picture of them (role=img, labelled with the same words). */
+  .rank{margin:.2rem 0 .3rem}
+  .rankh{font-size:1rem;font-weight:600;margin:0 0 .55rem;color:var(--ink)}
+  .rscale{position:relative;height:14px;border-radius:7px;background:var(--raise);
+    box-shadow:inset 0 0 0 1px var(--line);margin:0 0 .25rem}
+  .rband{position:absolute;top:0;bottom:0;border-radius:7px;background:color-mix(in srgb,var(--brand) 38%,transparent)}
+  .rpoint{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--ink)}
+  .rticks{display:flex;justify-content:space-between;font:.68rem/1.2 var(--mono);color:var(--sub);margin:0 0 .45rem}
+  .rint{font-size:.8rem;line-height:1.45;color:var(--sub);margin:0}
+  /* Seconds against a budget. One ruler for every bar and the budget mark;
+     the largest is named in text, never by colour alone (WCAG 1.4.1). */
+  .lcap{font-size:.8rem;line-height:1.45;color:var(--sub);margin:0 0 .5rem}
+  .lawlist{list-style:none;padding:0;margin:0}
+  .law{padding:.45rem 0;border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+  .law:last-child{border-bottom:0}
+  .lhead{display:flex;align-items:baseline;gap:.45rem}
+  .lname{font-size:.86rem;font-weight:600;color:var(--ink)}
+  .ltag{font:650 .6rem/1.2 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:.12rem .3rem;
+    border-radius:3px;border:1px solid var(--ink);color:var(--ink)}
+  .ldetail{display:block;font-size:.76rem;line-height:1.4;color:var(--sub);margin:.1rem 0 .3rem}
+  .lrow{display:flex;align-items:center;gap:.6rem}
+  .ltrack{flex:1;min-width:0;position:relative;height:12px;border-radius:6px;background:var(--raise)}
+  .lfill{display:block;height:100%;border-radius:6px;background:var(--brand)}
+  .lbudget{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink)}
+  .lsec{flex:0 0 3.8rem;text-align:right;font:600 .8rem/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+  .ldemand{flex:0 0 5.8rem;font:.74rem/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--sub)}
+  .lalt{font-size:.76rem;color:var(--sub);margin:.3rem 0 0}
+  .lkey{font-size:.74rem;color:var(--sub);margin:.45rem 0 0}
+  @media (max-width:30rem){ .lsec{flex-basis:3.4rem} .ldemand{flex-basis:5.2rem;font-size:.7rem} }
   .foot{padding:0 18px 14px;font-size:.77rem;color:var(--sub)}
   .msg{padding:16px 18px;font-size:.85rem;color:var(--sub)}
   @media (max-width:420px){
@@ -1511,6 +1581,127 @@ const RUNTIME = String.raw`
     });
   }
 
+  // A percentile among the real reference pages, in the verdict's words.
+  // The numbers come from the payload's figures when it has them: the whole
+  // percents the verdict sentence states (cognitive_effort's rankFigures).
+  // The decimals beside them are rounded to three places, and recomputed
+  // from those a rank can differ by a point (0.8098 is stated 80; its 0.81
+  // reads 81). Without figures, rounded exactly as ctcRank (ctc-bands.ts)
+  // rounds: N and the interval's low end down, its high end up; at either end
+  // the rank says what it is and no interval is stated. The decimals still
+  // place the point and the band on the scale.
+  // tests/effort-view-laws.test.ts checks these numbers against ctcRank's.
+  function isPct(x) { return typeof x === "number" && isFinite(x) && x >= 0 && x <= 1; }
+  function pctDown(x) { return Math.floor(x * 100 + 1e-9); }
+  function pctUp(x) { return Math.ceil(x * 100 - 1e-9); }
+  function rankWords(t, iv, figures) {
+    if (!isPct(t)) return null;
+    var whole = function (x) { return typeof x === "number" && isFinite(x) && x >= 0 && x <= 100; };
+    var have = figures && typeof figures === "object" && (figures.end === "cheapest" || figures.end === "costliest" || whole(figures.percent));
+    var end = have ? (figures.end === "cheapest" || figures.end === "costliest" ? figures.end : null)
+      : t === 0 ? "cheapest" : t === 1 ? "costliest" : null;
+    var n = have ? figures.percent : pctDown(t);
+    var nText = n === 0 ? "under 1" : String(n);
+    var head = end === "cheapest" ? "At or below the cheapest real page we measured"
+      : end === "costliest" ? "At least as costly as the costliest real page we measured"
+      : "Costlier than " + nText + "% of the real pages we measured";
+    var chip = end === "cheapest" ? "at or below the cheapest" : end === "costliest" ? "as costly as the costliest" : "costlier than " + nText + "%";
+    var interval = null;
+    if (!end) {
+      if (have) {
+        var fi = figures.interval;
+        interval = Array.isArray(fi) && fi.length === 2 && whole(fi[0]) && whole(fi[1]) ? [fi[0], fi[1]] : null;
+      } else if (Array.isArray(iv) && iv.length === 2 && isPct(iv[0]) && isPct(iv[1])) {
+        interval = [pctDown(iv[0]), pctUp(iv[1])];
+      }
+    }
+    var drawn = interval && Array.isArray(iv) && iv.length === 2 && isPct(iv[0]) && isPct(iv[1]) ? iv : null;
+    return { t: t, iv: drawn, head: head, chip: chip, interval: interval };
+  }
+  function pctStyle(x) { return (Math.max(0, Math.min(1, x)) * 100).toFixed(4) + "%"; }
+
+  function rankBlock(data, b) {
+    var w = rankWords(at(data, b.field), b.intervalField ? at(data, b.intervalField) : null,
+      b.figuresField ? at(data, b.figuresField) : null);
+    if (!w) return null;
+    var level = b.level || 95;
+    var wrap = el("div", "rank");
+    wrap.appendChild(el("p", "rankh", w.head));
+    var scale = el("div", "rscale");
+    scale.setAttribute("role", "img");
+    scale.setAttribute("aria-label", w.head + (w.interval
+      ? "; " + level + "% interval " + w.interval[0] + "% to " + w.interval[1] + "%" : ""));
+    if (w.interval && w.iv) {
+      var band = el("span", "rband");
+      band.style.left = pctStyle(w.iv[0]);
+      band.style.width = pctStyle(w.iv[1] - w.iv[0]);
+      scale.appendChild(band);
+    }
+    var point = el("span", "rpoint");
+    point.style.left = pctStyle(w.t);
+    scale.appendChild(point);
+    wrap.appendChild(scale);
+    var ticks = el("div", "rticks");
+    ticks.setAttribute("aria-hidden", "true");
+    ["0%", "50%", "100%"].forEach(function (x) { ticks.appendChild(el("span", null, x)); });
+    wrap.appendChild(ticks);
+    if (w.interval) {
+      wrap.appendChild(el("p", "rint", level + "% interval: " + w.interval[0] + "% to " + w.interval[1]
+        + "% of the real pages. That is how firmly the reference pages fix this rank, not whether the cost is right."));
+    }
+    return wrap;
+  }
+
+  // Seconds against one budget: every bar and the budget mark on one ruler,
+  // the largest named in text.
+  function timesBlock(data, b) {
+    var o = at(data, b.field);
+    if (!o || typeof o !== "object") return null;
+    var budget = Number(o[b.budgetKey]);
+    var rows = (b.rows || []).map(function (r) {
+      var x = o[r.key];
+      return x && typeof x === "object" && isFinite(Number(x.seconds)) ? { r: r, x: x, sec: Number(x.seconds) } : null;
+    }).filter(function (e) { return e; });
+    if (!rows.length || !(budget > 0)) return null;
+    var max = Math.max.apply(null, rows.map(function (e) { return e.sec; }).concat([budget]));
+    var top = rows.reduce(function (a, e) { return e.sec > a.sec ? e : a; }, rows[0]);
+    var wrap = el("div", "laws");
+    var bud = num(budget);
+    wrap.appendChild(el("p", "lcap", "Seconds of work this page asks of a typical first-time visitor, by law, against a "
+      + bud + " s time budget. Each is a demand d = T / (T + " + bud + " s): a law that takes the whole budget makes a demand of 0.5."));
+    var ul = el("ul", "lawlist");
+    rows.forEach(function (e) {
+      var li = el("li", "law");
+      var head = el("div", "lhead");
+      head.appendChild(el("span", "lname", e.r.label));
+      if (e === top) head.appendChild(el("span", "ltag", "largest"));
+      li.appendChild(head);
+      li.appendChild(el("span", "ldetail", e.r.detail));
+      var row = el("div", "lrow");
+      var track = el("div", "ltrack");
+      track.setAttribute("aria-hidden", "true");
+      var fill = el("i", "lfill");
+      fill.style.width = pctStyle(e.sec / max);
+      var mark = el("span", "lbudget");
+      mark.style.left = pctStyle(budget / max);
+      track.appendChild(fill);
+      track.appendChild(mark);
+      row.appendChild(track);
+      row.appendChild(el("span", "lsec", e.sec.toFixed(1) + " s"));
+      row.appendChild(el("span", "ldemand", "demand " + Number(e.x.demand).toFixed(2)));
+      li.appendChild(row);
+      var alt = e.r.alt;
+      if (alt && isFinite(Number(e.x[alt.secondsKey]))) {
+        li.appendChild(el("p", "lalt", alt.label + " (" + alt.fractionLabel + " " + num(Number(e.x[alt.fractionKey])) + "): "
+          + Number(e.x[alt.secondsKey]).toFixed(1) + " s, demand " + Number(e.x[alt.demandKey]).toFixed(2)));
+      }
+      ul.appendChild(li);
+    });
+    wrap.appendChild(ul);
+    wrap.appendChild(el("p", "lkey", "The mark across each bar is the " + bud + " s budget."));
+    return wrap;
+  }
+
   // What an answer's numbers rest on (model-provenance.ts). The statuses in
   // reading order, from what data or the literature backs to what is set by
   // hand, each with what the registry means by it. Through 21.0 the views
@@ -1560,7 +1751,9 @@ const RUNTIME = String.raw`
     if (Array.isArray(iv) && iv.length === 2 && isFinite(iv[0]) && isFinite(iv[1])) {
       var pi = el("p", "pint");
       pi.appendChild(el("b", null, (b.intervalLabel || "95% interval") + ": "));
-      pi.appendChild(document.createTextNode(num(Number(iv[0])) + " to " + num(Number(iv[1]))));
+      pi.appendChild(document.createTextNode(b.intervalFormat === "percent"
+        ? pctDown(Number(iv[0])) + "% to " + pctUp(Number(iv[1])) + "%"
+        : num(Number(iv[0])) + " to " + num(Number(iv[1]))));
       wrap.appendChild(pi);
     }
     wrap.appendChild(provenanceLine(p, b.subject, null));
@@ -2357,6 +2550,16 @@ const RUNTIME = String.raw`
       }
       return t ? { node: el("p", null, fmt(t)), count: null } : null;
     }
+    if (b.type === "rank") {
+      used[b.field.split(".")[0]] = true;
+      var rnode = rankBlock(data, b);
+      return rnode ? { node: rnode, count: null } : null;
+    }
+    if (b.type === "times") {
+      used[b.field.split(".")[0]] = true;
+      var tnode = timesBlock(data, b);
+      return tnode ? { node: tnode, count: null } : null;
+    }
     if (b.type === "provenance") {
       used[b.field.split(".")[0]] = true;
       var pv = at(data, b.field);
@@ -2476,7 +2679,15 @@ const RUNTIME = String.raw`
       hero.facts.forEach(function (f) {
         var v = at(data, f.field);
         var value = null, attn = false;
-        if (f.countFlag && isObjArray(v)) {
+        var label = f.label, range = null;
+        if (f.format === "rank") {
+          var w = rankWords(v, f.intervalField ? at(data, f.intervalField) : null, f.figuresField ? at(data, f.figuresField) : null);
+          if (w) {
+            value = w.chip;
+            label = "of real pages" + (w.interval ? ", " + (f.level || 95) + "% interval " : "");
+            if (w.interval) range = w.interval[0] + "-" + w.interval[1] + "%";
+          }
+        } else if (f.countFlag && isObjArray(v)) {
           var ok = v.filter(function (x) { return x[f.countFlag]; }).length;
           value = ok + "/" + v.length;
           attn = !!f.attnWhenShort && ok < v.length;
@@ -2495,8 +2706,12 @@ const RUNTIME = String.raw`
         if (value === null) return;
         used[f.field.split(".")[0]] = true;
         var chip = el("span", "fact" + (attn ? " attn" : ""));
-        chip.appendChild(el("b", null, value));
-        chip.appendChild(el("span", null, f.label));
+        // A rank is one phrase: its value never breaks, and its range is
+        // kept whole ("78-" / "84%" read as two numbers at 393 px).
+        chip.appendChild(el("b", f.format === "rank" ? "rk" : null, value));
+        var lab = el("span", null, label);
+        if (range) lab.appendChild(el("span", "nw", range));
+        chip.appendChild(lab);
         strip.appendChild(chip);
       });
       if (strip.childNodes.length) band.appendChild(strip);

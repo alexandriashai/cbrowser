@@ -23,6 +23,15 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { buildWidget, widgetUri, MCP_APP_MIME as KIT_MIME, type WidgetSpec } from "./widget-kit.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { scopedAccountId } from "../persona-scope.js";
+import { MODEL_PROVENANCE } from "../visual/model-provenance.js";
+
+/**
+ * The level of the percentile interval cognitive_effort reports, in percent,
+ * read from the registry (ctcReference.interval.level) so the view's words
+ * cannot name a different level than the verdict's. Read directly, not
+ * through param(): building a spec is not part of any answer's provenance.
+ */
+const CTC_INTERVAL_LEVEL = Math.round(MODEL_PROVENANCE["ctcReference.interval.level"].value * 100);
 
 export const UI_PROBE_URI = "ui://cbrowser/probe";
 export const CAPTURE_UI_PREFIX = "ui://cbrowser/capture/";
@@ -674,8 +683,11 @@ export const EFFORT_SPEC: WidgetSpec = {
     variant: "gradient",
     subtitle: { field: "interpretation" },
     facts: [
-      // A percentile since 21.x: labelled as the rank it is, with its band.
-      { field: "cognitiveTransportCost.total", label: "percentile vs real pages" },
+      // A percentile since 21.x, said as the rank it is ("costlier than 62%
+      // of real pages") with its interval, never as a bare decimal (ISC-70).
+      { field: "cognitiveTransportCost.total", label: "of real pages", format: "rank",
+        intervalField: "cognitiveTransportCost.totalCTCInterval", figuresField: "cognitiveTransportCost.rankFigures",
+        level: CTC_INTERVAL_LEVEL },
       { field: "cognitiveTransportCost.band", label: "band" },
       { field: "abandonmentRisk", label: "abandonment risk" },
       { field: "bottleneck", label: "bottleneck" },
@@ -683,7 +695,13 @@ export const EFFORT_SPEC: WidgetSpec = {
     ],
   },
   blocks: [
-    // Leads, because it is the finding. Everything below is detail behind it.
+    // Where the page ranks among the real reference pages, and how firmly the
+    // reference fixes that rank: the 95% interval in words and on a scale.
+    // Rounded as the verdict rounds (ctcRank). (ISC-70)
+    { type: "rank", title: "Where this page ranks", field: "cognitiveTransportCost.total",
+      intervalField: "cognitiveTransportCost.totalCTCInterval", figuresField: "cognitiveTransportCost.rankFigures",
+      level: CTC_INTERVAL_LEVEL },
+    // Leads the evidence, because it is the finding. Everything below is detail behind it.
     // Title carries no layer COUNT on purpose. It named a count and went stale
     // within the hour when readability was split into decoding and attention
     // (2026-08-02), so the widget captioned seven bars as six. The bars state
@@ -703,6 +721,19 @@ export const EFFORT_SPEC: WidgetSpec = {
     // of the constants it read are fitted, published, definitions or set by
     // hand. The full block is its own drawer below.
     { type: "provenance", field: "modelProvenance", variant: "line", subject: "score", seeAlso: "What this score rests on" },
+    // The four law times the motor, decision, reading and procedure demands
+    // come from (Stage B), each against the one time budget, so a reader sees
+    // which law dominates. Field names from the tool (lawTimesReport). (ISC-70)
+    { type: "times", title: "Time this page asks for", field: "lawTimes", budgetKey: "budgetSeconds", rows: [
+      { key: "pointing", label: "Pointing", detail: "Fitts's law: reaching every target once" },
+      { key: "choosing", label: "Choosing",
+        detail: "novice visual search over every choice group once (Cockburn, Gutwin & Greenberg 2007)",
+        alt: { secondsKey: "familiarSeconds", demandKey: "familiarDemand", fractionKey: "siteFamiliarity",
+          label: "familiar visit", fractionLabel: "siteFamiliarity" } },
+      { key: "reading", label: "Reading",
+        detail: "Brysbaert's silent reading rate over the prose outside menus, plus 0.13 s per visible menu label" },
+      { key: "procedure", label: "Procedure", detail: "keystroke-level model: mental preparation per entry field" },
+    ] },
     // familiarityWarning had a note here; 21.0 removed the site-knowledge
     // downgrade that produced it, so nothing emits the field any more.
     { type: "note", field: "languageWarning" },
@@ -736,15 +767,16 @@ export const EFFORT_SPEC: WidgetSpec = {
       { type: "note", field: "cognitiveTransportCost.chainNote" },
       { type: "note", field: "abandonmentBasis" },
       { type: "note", field: "siteFamiliarityEffect" },
+      { type: "note", title: "The law times", field: "lawTimes.note" },
     ] },
     // modelProvenance in full: counts with what each status means, the
-    // block's scope and note, and the hand-set ids behind a disclosure.
-    // intervalField is where the percentile's 95% interval will show once
-    // the payload carries it (ISC-70): absent, nothing is drawn.
+    // block's scope and note, and the hand-set ids behind a disclosure. The
+    // percentile's interval leads it, in percent, as the rank block says it.
     { type: "drawer", title: "What this score rests on", blocks: [
       { type: "provenance", title: "Where each number comes from", field: "modelProvenance", variant: "full",
         subject: "score", open: true,
-        intervalField: "cognitiveTransportCost.totalCTCInterval", intervalLabel: "95% interval of the percentile" },
+        intervalField: "cognitiveTransportCost.totalCTCInterval", intervalFormat: "percent",
+        intervalLabel: `${CTC_INTERVAL_LEVEL}% interval of the percentile` },
     ] },
     { type: "drawer", title: "Everything else", blocks: [
       { type: "rest", title: "Remaining fields" },

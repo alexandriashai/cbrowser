@@ -218,10 +218,10 @@ describe("effort view: modelProvenance in its own drawer", () => {
       expect(v.q[".ovpane .prov"][0]).toMatch(/^This map reads \d+ registered constants of the attention model, counted apart from the score/);
     }, 60000);
 
-  test("an interval in the payload is drawn first in the drawer (ISC-70 lands without a redesign)", async () => {
+  test("an interval in the payload is drawn first in the drawer, in percent as the rank block says it (ISC-70)", async () => {
     const v = await render(ui.buildEffortTemplate(), effort({ totalCTCInterval: [0.62, 0.81] }), "light", 900,
       { ready: ".chain .seg", open: ["What this score rests on"], query: [".pint"] });
-    expect(v.q[".pint"]).toEqual(["95% interval of the percentile: 0.62 to 0.81"]);
+    expect(v.q[".pint"]).toEqual(["95% interval of the percentile: 62% to 81%"]);
   }, 60000);
 });
 

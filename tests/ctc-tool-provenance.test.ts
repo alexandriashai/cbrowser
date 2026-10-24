@@ -231,6 +231,11 @@ describe("tool responses carry the provenance of the whole answer", () => {
     // ISC-62: the interval beside the percentile, and stated in the rank.
     expect(data.cognitiveTransportCost.totalCTCInterval).toEqual(direct.result.totalCTCInterval.map(r3));
     expect(data.cognitiveTransportCost.rank).toBe(ctcRank(direct.result).sentence);
+    // ISC-70: the whole percents that sentence states, so a view says the
+    // sentence's numbers; total and the interval are rounded to three places
+    // and recomputed from them a rank can differ by a point.
+    const figures = ctcRank(direct.result);
+    expect(data.cognitiveTransportCost.rankFigures).toEqual({ percent: figures.percent, interval: figures.interval, end: null });
 
     // The verdict is computed after the motor and readability awaits, so a
     // synchronous recording around the chain could not see its reads: the

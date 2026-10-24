@@ -124,7 +124,9 @@ describe("cognitive-effort view", () => {
         expect(v.bars["actual, in sequence"]).toBeCloseTo(100, 2);
         expect(v.bars["sum of layers"]).toBeCloseTo((0.5 / 0.52) * 100, 2);
         expect(v.bars["decision"]).toBeCloseTo((0.15 / 0.52) * 100, 2);
-        expect(v.facts).toContain("0.951percentile vs real pages");
+        // Said as the rank it is, never as a bare decimal (ISC-70).
+        expect(v.facts).toContain("costlier than 95%of real pages");
+        expect(v.facts.some((f) => /^0\.\d/.test(f))).toBe(false);
         expect(v.facts).toContain("top 5%band");
         expect(v.facts.some((f) => /transport cost$/.test(f))).toBe(false);
         expect(v.overflow).toBeLessThanOrEqual(0);
