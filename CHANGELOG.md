@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.2.1](https://github.com/alexandriashai/cbrowser/compare/v20.2.0...v20.2.1) (2026-10-24)
+
+### Fixed
+
+* **cli:** links print once under Node, and journey page URLs drop their query string ([e8063cd](https://github.com/alexandriashai/cbrowser/commit/e8063cdaba2d642221553ba00b2dc818273dd3a8))
+
+## [20.2.0](https://github.com/alexandriashai/cbrowser/compare/v20.1.3...v20.2.0) (2026-10-23)
+
+### Added
+
+* **cli:** clickable links: journey steps name their page, and printed URLs are hyperlinks ([dd57247](https://github.com/alexandriashai/cbrowser/commit/dd57247f30528d24e2ab1c0d53ea72cffcc01efa))
+
 ## [20.1.3](https://github.com/alexandriashai/cbrowser/compare/v20.1.2...v20.1.3) (2026-10-23)
 
 ### Fixed

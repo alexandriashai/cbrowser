@@ -9,8 +9,9 @@
  * phase) and took no action, so a run of unreadable replies looked like a
  * persona that only ever evaluated.
  *
- * Each step now prints its phase and mood, the persona's monologue, and the
- * action with its target; a step whose reply could not be read says so.
+ * Each step now prints its phase and mood, the page it is on, the persona's
+ * monologue, and the action with its target; a step whose reply could not be
+ * read says so.
  */
 
 import type { CognitiveStep } from "./index.js";
@@ -22,13 +23,35 @@ function actionVerb(action: string): string {
   return verb || action;
 }
 
+/**
+ * The page a step is on: the full URL alone at the end of its line, with
+ * nothing touching it, so a terminal can open it (Alexa, 2026-10-23: "i want
+ * the link clickable from cli"). The CLI's output guard also makes it an OSC 8
+ * hyperlink on a terminal. The query string is dropped and the anchor kept
+ * (Alexa, 2026-10-23: "make the url strip variables but not anchors"): a
+ * tracking parameter such as _gl made one line hundreds of characters long.
+ * Whitespace inside a URL is percent-encoded so the link is not cut; a string
+ * that does not parse as a URL prints as it is.
+ */
+function pageLine(url: string | undefined): string[] {
+  const raw = url?.trim();
+  if (!raw) return [];
+  let href = raw;
+  try {
+    const parsed = new URL(raw);
+    parsed.search = "";
+    href = parsed.href;
+  } catch { /* not a URL: shown as given */ }
+  return [`   🔗 ${href.replace(/\s/g, (c) => encodeURIComponent(c))}`];
+}
+
 /** The lines that describe one journey step, without trailing newlines. */
 export function formatJourneyStep(step: CognitiveStep): string[] {
   if (step.replyReadable === false) {
     const why = step.replyProblem ? ` (${step.replyProblem})` : "";
-    return [`   Step ${step.step}: the model's reply could not be read${why}, so this step took no action`];
+    return [`   Step ${step.step}: the model's reply could not be read${why}, so this step took no action`, ...pageLine(step.url)];
   }
-  const lines = [`   Step ${step.step} · ${step.phase} · ${step.state.currentMood}`];
+  const lines = [`   Step ${step.step} · ${step.phase} · ${step.state.currentMood}`, ...pageLine(step.url)];
   const monologue = step.monologue.trim();
   if (monologue) lines.push(`   💭 "${monologue}"`);
   if (step.action) {

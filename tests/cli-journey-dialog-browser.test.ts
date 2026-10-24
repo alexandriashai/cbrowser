@@ -72,9 +72,10 @@ afterAll(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-async function runCli(): Promise<{ stdout: string; code: number }> {
-  const env: Record<string, string> = { ...(process.env as Record<string, string>), CBROWSER_DATA_DIR: dataDir, NO_COLOR: "1" };
+async function runCli(extraEnv: Record<string, string> = {}): Promise<{ stdout: string; code: number }> {
+  const env: Record<string, string> = { ...(process.env as Record<string, string>), CBROWSER_DATA_DIR: dataDir, NO_COLOR: "1", ...extraEnv };
   delete env.ANTHROPIC_API_KEY;
+  if (!("CBROWSER_HYPERLINKS" in extraEnv)) delete env.CBROWSER_HYPERLINKS;
   const proc = Bun.spawn(
     ["bun", "run", CLI, "cognitive-journey", "--start", url, "--goal", GOAL, "--persona", "first-timer",
       "--max-steps", "3", "--no-vision", "--replay-trace", tracePath],
@@ -104,4 +105,23 @@ describe("cbrowser cognitive-journey prints the dialog", () => {
   test("no step is drawn over the previous one with a carriage return", () => {
     expect(out).not.toContain("\r   Step");
   });
+
+  test("each step names its page as a full URL alone at the end of a line", () => {
+    expect(out).toContain(`\n   🔗 ${url}\n`);
+    expect(out).toContain(`\n   🔗 ${url}pricing\n`);
+  });
+
+  test("piped output carries no hyperlink escapes", () => {
+    expect(out).not.toContain(String.fromCharCode(27));
+  });
+});
+
+describe("on a terminal (forced with CBROWSER_HYPERLINKS=1)", () => {
+  test("each page URL is an OSC 8 hyperlink to itself", async () => {
+    const ESC = String.fromCharCode(27);
+    const linked = (u: string) => `${ESC}]8;;${u}${ESC}\\${u}${ESC}]8;;${ESC}\\`;
+    const { stdout } = await runCli({ CBROWSER_HYPERLINKS: "1" });
+    expect(stdout).toContain(`   🔗 ${linked(url)}\n`);
+    expect(stdout).toContain(`   🔗 ${linked(`${url}pricing`)}\n`);
+  }, 240_000);
 });
