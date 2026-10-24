@@ -724,14 +724,24 @@ export const EFFORT_SPEC: WidgetSpec = {
     // The four law times the motor, decision, reading and procedure demands
     // come from (Stage B), each against the one time budget, so a reader sees
     // which law dominates. Field names from the tool (lawTimesReport). (ISC-70)
-    { type: "times", title: "Time this page asks for", field: "lawTimes", budgetKey: "budgetSeconds", rows: [
+    // The caption keeps the page's times apart from the score's bottleneck,
+    // named from the payload. It claims no law-to-layer map: every layer but
+    // visualComplexity draws on a law time (frustration on reading, through
+    // patience), and several also on page features no law covers.
+    { type: "times", title: "Time this page asks for", field: "lawTimes", budgetKey: "budgetSeconds",
+      caption: { field: "bottleneck", here: " (here, {value})",
+        text: "These times are the page's, the same for every persona; the score's bottleneck{here} is the chain layer that costs this persona most, so it need not follow the largest time." },
+      rows: [
       { key: "pointing", label: "Pointing", detail: "Fitts's law: reaching every target once" },
       { key: "choosing", label: "Choosing",
         detail: "novice visual search over every choice group once (Cockburn, Gutwin & Greenberg 2007)",
         alt: { secondsKey: "familiarSeconds", demandKey: "familiarDemand", fractionKey: "siteFamiliarity",
           label: "familiar visit", fractionLabel: "siteFamiliarity" } },
+      // The per-label time is the payload's (law.reading.labelFirstRead, as
+      // the run read it); without it the row says what is charged, no number.
       { key: "reading", label: "Reading",
-        detail: "Brysbaert's silent reading rate over the prose outside menus, plus 0.13 s per visible menu label" },
+        detail: "Brysbaert's silent reading rate over the prose outside menus, plus a first read of each visible menu label",
+        detailTemplate: "Brysbaert's silent reading rate over the prose outside menus, plus {perLabelSeconds} s per visible menu label" },
       { key: "procedure", label: "Procedure", detail: "keystroke-level model: mental preparation per entry field" },
     ] },
     // familiarityWarning had a note here; 21.0 removed the site-knowledge

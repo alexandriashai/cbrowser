@@ -37,7 +37,7 @@ process.env.CBROWSER_DATA_DIR = dataDir;
 const ui = await import("../src/mcp-tools/ui-resources.js");
 const { lawTimesReport } = await import("../src/visual/law-times-report.js");
 const { ctcRank } = await import("../src/visual/ctc-bands.js");
-const { param } = await import("../src/visual/model-provenance.js");
+const { param, withParamOverrides } = await import("../src/visual/model-provenance.js");
 
 const SHOTS = process.env.EFFORT_LAWS_SHOTS; // a directory, to look at the renders by eye
 const LEVEL = Math.round(param("ctcReference.interval.level") * 100);
@@ -51,18 +51,20 @@ const r3 = (x: number) => Math.round(x * 1000) / 1000;
  * (unrounded) percentile and interval. figures: false leaves out rankFigures,
  * as a payload from before 21.0 does.
  */
-function payload(total: number, interval: [number, number] | null, opts: { familiarity?: number; laws?: boolean; figures?: boolean } = {}) {
+function payload(total: number, interval: [number, number] | null,
+  opts: { familiarity?: number; laws?: boolean; figures?: boolean; lawTimes?: unknown; bottleneck?: string | null } = {}) {
   const rank = ctcRank({ totalCTC: total, rawCTC: 1.3, referenceScope: "viewport", ...(interval ? { totalCTCInterval: interval } : {}) });
   const end = total === 0 ? "cheapest" : total === 1 ? "costliest" : null;
   return {
     url: "https://example.test/", persona: "cognitive-adhd",
     interpretation: `For cognitive-adhd, the top of this page is ${rank.statement}. ${rank.bandSentence} Bottleneck: readingAttention.`,
-    ...(opts.laws === false ? {} : { lawTimes: lawTimesReport(METRICS, opts.familiarity ?? 0) }),
+    ...(opts.laws === false ? {} : { lawTimes: opts.lawTimes ?? lawTimesReport(METRICS, opts.familiarity ?? 0) }),
     cognitiveTransportCost: { total: r3(total), ...(interval ? { totalCTCInterval: interval.map(r3) } : {}), band: rank.band, referenceScope: "viewport",
       rank: rank.sentence,
       ...(opts.figures === false ? {} : { rankFigures: { percent: rank.percent, interval: rank.interval, end } }),
       raw: 1.3, additive: 1.29, chainCoefficient: 1.008 },
-    abandonmentRisk: "21%", bottleneck: "readingAttention",
+    abandonmentRisk: "21%",
+    ...(opts.bottleneck === null ? {} : { bottleneck: opts.bottleneck ?? "readingAttention" }),
     layers: LAYERS.map((name, i) => ({ name, cost: 0.02 * (i + 1), capacityConsumed: 0.02 })),
   };
 }
@@ -83,7 +85,7 @@ afterAll(async () => {
 });
 
 const RANK_Q = [".rank .rankh", ".rank .rint", ".rank .rscale", ".rank .rband", ".rank .rpoint", ".facts .fact", ".facts .fact b", ".facts .fact .nw"];
-const LAW_Q = [".laws li.law", ".laws .lname", ".laws .ldetail", ".laws .lsec", ".laws .ldemand", ".laws .ltag", ".laws .lfill", ".laws .lbudget", ".laws .lcap", ".laws .lalt"];
+const LAW_Q = [".laws li.law", ".laws .lname", ".laws .ldetail", ".laws .lsec", ".laws .ldemand", ".laws .ltag", ".laws .lfill", ".laws .lbudget", ".laws .lcap", ".laws .lalt", ".laws .lnote"];
 
 describe("the percentile and its 95% interval, in words and on a scale", () => {
   for (const { theme, width } of COMBOS)
@@ -213,5 +215,65 @@ describe("the four law times against the time budget", () => {
   test("a result without law times draws no law block", async () => {
     const v = await host.render(ui.buildEffortTemplate(), payload(0.6234, [0.5512, 0.6901], { laws: false }), "light", 900, { ready: ".rank", query: LAW_Q });
     expect(v.q[".laws li.law"]).toEqual([]);
+  }, 60000);
+});
+
+/**
+ * Under the law block, one sentence that keeps the page's times apart from the
+ * score's bottleneck: "Reading LARGEST" sat beside "frustration BOTTLENECK",
+ * and on f2b892c the rank rose ten points while every law time stayed put.
+ * The bottleneck is named from the payload. The sentence claims nothing about
+ * which laws feed which layer: every layer but visualComplexity draws on at
+ * least one law time (frustration on reading, through patience), and several
+ * also on page features no law covers (animation, through emotionalContagion).
+ */
+describe("the caption under the law block names the payload's bottleneck", () => {
+  const sentence = (here: string) => `These times are the page's, the same for every persona; the score's bottleneck${here} is the chain layer that costs this persona most, so it need not follow the largest time.`;
+
+  for (const { theme, width } of COMBOS)
+    test(`${theme} at ${width}px`, async () => {
+      const v = await host.render(ui.buildEffortTemplate(), payload(0.6234, [0.5512, 0.6901], { bottleneck: "frustration" }), theme, width,
+        { ready: ".laws", query: LAW_Q });
+      expectSound(v, theme);
+      expect(v.q[".laws .lnote"]).toEqual([sentence(" (here, frustration)")]);
+    }, 60000);
+
+  test("another bottleneck is named as the payload names it, and none is named when the payload has none", async () => {
+    const a = await host.render(ui.buildEffortTemplate(), payload(0.6234, [0.5512, 0.6901], { bottleneck: "readability" }), "light", 900, { ready: ".laws", query: LAW_Q });
+    expect(a.q[".laws .lnote"]).toEqual([sentence(" (here, readability)")]);
+    const b = await host.render(ui.buildEffortTemplate(), payload(0.6234, [0.5512, 0.6901], { bottleneck: null }), "light", 900, { ready: ".laws", query: LAW_Q });
+    expect(b.q[".laws .lnote"]).toEqual([sentence("")]);
+  }, 60000);
+});
+
+/**
+ * The reading row's per-label time is the registered constant
+ * (law.reading.labelFirstRead), carried by the payload, so the label cannot
+ * drift from the number the run computed with. It was typed into the view as
+ * "0.13 s", and into lawTimes.note the same way.
+ */
+describe("the per-label reading time comes from the registry, through the payload", () => {
+  const ID = "law.reading.labelFirstRead";
+
+  test("lawTimesReport carries it, and its note states it, following the constant the run used", () => {
+    const now = lawTimesReport(METRICS);
+    expect(now.reading.perLabelSeconds).toBe(param(ID));
+    const moved = withParamOverrides({ [ID]: 0.2 }, () => lawTimesReport(METRICS));
+    expect(moved.reading.perLabelSeconds).toBe(0.2);
+    expect(moved.note).toContain("each menu label with visible text, 0.2 s,");
+    expect(moved.note).not.toContain(`${param(ID)} s`);
+  });
+
+  test("the view states the payload's value", async () => {
+    const moved = withParamOverrides({ [ID]: 0.2 }, () => lawTimesReport(METRICS));
+    const v = await host.render(ui.buildEffortTemplate(), payload(0.6234, [0.5512, 0.6901], { lawTimes: moved }), "dark", 393, { ready: ".laws", query: LAW_Q });
+    expect(v.q[".laws .ldetail"][2]).toBe("Brysbaert's silent reading rate over the prose outside menus, plus 0.2 s per visible menu label");
+  }, 60000);
+
+  test("a payload without it says what is charged and states no number", async () => {
+    const old = lawTimesReport(METRICS) as unknown as { reading: Record<string, unknown> };
+    const { perLabelSeconds: _drop, ...reading } = old.reading;
+    const v = await host.render(ui.buildEffortTemplate(), payload(0.6234, [0.5512, 0.6901], { lawTimes: { ...old, reading } }), "light", 900, { ready: ".laws", query: LAW_Q });
+    expect(v.q[".laws .ldetail"][2]).toBe("Brysbaert's silent reading rate over the prose outside menus, plus a first read of each visible menu label");
   }, 60000);
 });

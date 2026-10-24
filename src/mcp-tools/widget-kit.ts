@@ -268,7 +268,18 @@ export type BlockSpec =
   | { type: "times"; title?: string; field: FieldPath;
       /** Key of the budget, in seconds, on the object. */
       budgetKey: string;
+      /**
+       * One sentence under the block. "{here}" in `text` becomes `here` with
+       * {value} filled from `field`, or nothing when the payload has no value
+       * there, so the sentence names the payload's own case.
+       */
+      caption?: { text: string; field: FieldPath; here: string };
       rows: Array<{ key: string; label: string; detail: string;
+        /**
+         * Used instead of `detail` when every {key} in it is a number on the
+         * row's entry: a constant the payload carries is stated, never copied.
+         */
+        detailTemplate?: string;
         /** A second time on the same entry, e.g. a familiar visit's: keys on the entry, and how to name it. */
         alt?: { secondsKey: string; demandKey: string; fractionKey: string; label: string; fractionLabel: string } }> }
   /**
@@ -865,6 +876,7 @@ const CSS = `
   .ldemand{flex:0 0 5.8rem;font:.74rem/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--sub)}
   .lalt{font-size:.76rem;color:var(--sub);margin:.3rem 0 0}
   .lkey{font-size:.74rem;color:var(--sub);margin:.45rem 0 0}
+  .lnote{font-size:.8rem;line-height:1.45;color:var(--sub);margin:.4rem 0 0}
   @media (max-width:30rem){ .lsec{flex-basis:3.4rem} .ldemand{flex-basis:5.2rem;font-size:.7rem} }
   .foot{padding:0 18px 14px;font-size:.77rem;color:var(--sub)}
   .msg{padding:16px 18px;font-size:.85rem;color:var(--sub)}
@@ -1676,7 +1688,7 @@ const RUNTIME = String.raw`
       head.appendChild(el("span", "lname", e.r.label));
       if (e === top) head.appendChild(el("span", "ltag", "largest"));
       li.appendChild(head);
-      li.appendChild(el("span", "ldetail", e.r.detail));
+      li.appendChild(el("span", "ldetail", rowDetail(e.r, e.x)));
       var row = el("div", "lrow");
       var track = el("div", "ltrack");
       track.setAttribute("aria-hidden", "true");
@@ -1699,7 +1711,23 @@ const RUNTIME = String.raw`
     });
     wrap.appendChild(ul);
     wrap.appendChild(el("p", "lkey", "The mark across each bar is the " + bud + " s budget."));
+    if (b.caption && typeof b.caption.text === "string") {
+      var hv = b.caption.field ? at(data, b.caption.field) : undefined;
+      var here = hv === undefined || hv === null || hv === "" ? "" : String(b.caption.here || "").split("{value}").join(String(hv));
+      wrap.appendChild(el("p", "lnote", b.caption.text.split("{here}").join(here)));
+    }
     return wrap;
+  }
+
+  // A row's detail: its template when every {key} in it is a number on the
+  // row's entry, else the plain detail, so a missing field never prints as a
+  // placeholder or falls back to a copied number.
+  function rowDetail(r, x) {
+    var t = r.detailTemplate;
+    if (typeof t !== "string") return r.detail;
+    var keys = (t.match(/\{(\w+)\}/g) || []).map(function (m) { return m.slice(1, -1); });
+    if (!keys.every(function (k) { return x && typeof x[k] === "number" && isFinite(x[k]); })) return r.detail;
+    return t.replace(/\{(\w+)\}/g, function (_m, k) { return num(x[k]); });
   }
 
   // What an answer's numbers rest on (model-provenance.ts). The statuses in
