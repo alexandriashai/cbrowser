@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [20.2.2](https://github.com/alexandriashai/cbrowser/compare/v20.2.1...v20.2.2) (2026-10-24)
+
+### Fixed
+
+* **journey:** read a reply without stripping backticks inside its strings ([8ddd7d6](https://github.com/alexandriashai/cbrowser/commit/8ddd7d6278e1abd13c2ff4a0caba7349435fc989))
+
 ## [20.2.1](https://github.com/alexandriashai/cbrowser/compare/v20.2.0...v20.2.1) (2026-10-24)
 
 ### Fixed
