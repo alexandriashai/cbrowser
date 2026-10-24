@@ -308,7 +308,7 @@ persona on every graded page of the reference set shipped when round 1 ran
 `cognitive_effort` builds them
 by default (traits, siteFamiliarity 0, capacities bridged, values off).
 Every "111" in round 1 below is that v1 set. The shipped reference is now v2
-(`ctc-reference-v2-2026-10-23`: raw measurements, three sampling frames, six
+(`ctc-reference-v2-2026-10-24`: raw measurements, three sampling frames, six
 page types), which `ctc-reference-scores.ts` now reads; round 1's numbers stay
 v1's until it is re-run. Viewport scope is primary (the tool's default); `power-*-full_page.*` repeats
 everything at full_page scope. First-timer viewport CTC over the 111 pages:

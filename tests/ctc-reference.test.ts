@@ -130,6 +130,9 @@ describe("the reference set", () => {
     expect(() => decodeReferenceRaw(pack([{ ...good[0], viewport: early }, good[1]]), 2, "t")).toThrow(/graded page 0 viewport is raw format 2 without navLinks, groupedLinks/);
     const { proseInNav: _p, ...noNavProse } = good[1].full_page;
     expect(() => decodeReferenceRaw(pack([good[0], { ...good[1], full_page: noNavProse }]), 2, "t")).toThrow(/graded page 1 full_page is raw format 2 without proseInNav/);
+    // ... and one from before groupedLinksWithText (the 711f0b4 crawl), named.
+    const { groupedLinksWithText: _t, ...noLinkText } = good[0].full_page;
+    expect(() => decodeReferenceRaw(pack([{ ...good[0], full_page: noLinkText }, good[1]]), 2, "t")).toThrow(/graded page 0 full_page is raw format 2 without groupedLinksWithText/);
   });
 
   test("blocked means did not load: no graded page has zero interactive elements on the whole document", () => {

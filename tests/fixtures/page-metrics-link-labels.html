@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page metrics fixture: grouped links with and without text</title>
+<link rel="stylesheet" href="page-metrics-format2.css">
+</head>
+<body>
+<!-- A nav of 9 links. Text a sighted user reads: 5 text links (one of them an
+     icon with its word beside it) and 1 whose word sits in a span the prose
+     selector skips, so groupedLinksWithText is 6 of groupedLinks 9. Three are
+     icon-only: an svg with aria-label, an svg with a title and a title
+     attribute, and an svg with a visually-hidden word. -->
+<nav class="link-row" aria-label="Main">
+<a href="/products">Products</a>
+<a href="/pricing">Pricing</a>
+<a href="/docs">Docs</a>
+<a href="/blog">Blog</a>
+<a href="/settings"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect width="20" height="20" fill="#369"/></svg> Settings</a>
+<a href="/search"><svg role="img" aria-label="Search" width="20" height="20" viewBox="0 0 20 20"><rect width="20" height="20" fill="#369"/></svg></a>
+<a href="/help" title="Help"><svg role="img" width="20" height="20" viewBox="0 0 20 20"><title>Help</title><rect width="20" height="20" fill="#369"/></svg></a>
+<a href="/cart"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect width="20" height="20" fill="#369"/></svg><span class="sr-only">Cart</span></a>
+<a href="/account"><span class="label">Account</span></a>
+</nav>
+<p>One paragraph outside the navigation, so the page has prose of its own.</p>
+</body>
+</html>
