@@ -162,49 +162,104 @@ async function score(): Promise<void> {
  * The CIF path, for the same pages: the CMS audit worker feeds empathy_audit's
  * barriers to CIF, with touchTargets parsed from the touch_target descriptions
  * (cbrowser-web cms/audit-worker-service.ts). runEmpathyAudit does live DOM
- * checks, so its input cannot be captured: each page is audited by TREE on its
- * own load, with the worker's options but no goal (so no journey and no model
- * call; barrier detection does not read the goal). Reports the motor barriers
- * (touch_target, motor_precision) and CIF's motor score from TREE's
- * computeCIFScore on those barriers alone.
- *   TREE=<worktree> IN=captures.json OUT=empathy.json [PAGES=10] bun research/stage-b-motor-barriers.ts empathy
+ * checks, so its input cannot be captured, and two loads of a live page differ
+ * (measured: one page gave 0 and then 11 motor barriers on two loads under the
+ * same version). So each page is loaded ONCE and every tree in TREES audits that
+ * loaded page in turn, with goto made a no-op (the audit navigates the page it is
+ * given; here it is already there). TREES lists the first tree again at the end,
+ * as a control for anything the audits themselves change on the page. Options
+ * are the worker's but no goal, so no journey and no model call (barrier
+ * detection does not read the goal). Stores, per run, the motor barriers
+ * (touch_target, motor_precision), the CIF input the worker would build, and
+ * CIF's motor score from that tree's computeCIFScore.
+ *   TREES=<a>,<b>,<a> IN=captures.json OUT=empathy.json [PAGES=10] [START=n] bun research/stage-b-motor-barriers.ts empathy
  */
 async function empathy(): Promise<void> {
-  const tree = need("TREE");
+  const trees = need("TREES").split(",");
+  const CEILING_S = Number(process.env.CEILING_S ?? 75);
   delete process.env.ANTHROPIC_API_KEY;
   const { pages } = JSON.parse(readFileSync(need("IN"), "utf8")) as { pages: Capture[] };
-  const { runEmpathyAudit } = await import(`${tree}/src/analysis/accessibility-empathy.ts`);
-  const { computeCIFScore } = await import(`${tree}/src/cif-score.ts`);
+  const audits = await Promise.all(trees.map(async (t) => ({
+    tree: t,
+    run: (await import(`${t}/src/analysis/accessibility-empathy.ts`)).runEmpathyAudit,
+    cif: (await import(`${t}/src/cif-score.ts`)).computeCIFScore,
+  })));
+  const { CBrowser } = await import("../src/browser.js");
+  const { CTC_REFERENCE_META } = await import("../src/data/ctc-reference-v2-2026-10-24.js");
   const ok = pages.filter((p) => p.status === "captured" && p.targets.length > 0);
   // Spread over page types: round-robin through the types in capture order.
   const types = [...new Set(ok.map((p) => p.pageType))];
-  const pick: Capture[] = [];
-  for (let k = 0; pick.length < Number(process.env.PAGES ?? 10) && k < ok.length; k++)
-    for (const t of types) { const p = ok.filter((q) => q.pageType === t)[k]; if (p && pick.length < Number(process.env.PAGES ?? 10)) pick.push(p); }
-  const out: Array<{ url: string; motor: Array<{ type: string; element: string; description: string; severity: string }>; cifMotor: number | null; error?: string }> = [];
+  const want = Number(process.env.PAGES ?? 10);
+  const order: Capture[] = [];
+  for (let k = 0; order.length < want && k < ok.length; k++)
+    for (const t of types) { const p = ok.filter((q) => q.pageType === t)[k]; if (p && order.length < want) order.push(p); }
+  // START: resume a run part-way through the same order (outputs append to OUT).
+  const start = Number(process.env.START ?? 0);
+  const pick = order.slice(start);
+  const prior = start > 0 ? (JSON.parse(readFileSync(need("OUT"), "utf8")) as { pages: unknown[] }).pages.slice(0, start) : [];
+  type WorkerBarrier = { type: string; severity: string; element: string; description: string; wcagCriteria?: string[] };
+  type Run = { tree: string; motor: Array<{ type: string; element: string; description: string; severity: string; weightKey?: string }>;
+    cifInput: { barriers: WorkerBarrier[]; touchTargets: Array<{ width: number; height: number; exempt: boolean }> } | null; cifMotor: number | null; error?: string };
+  const out = prior as Array<{ url: string; site: string; pageType: string; runs: Run[]; error?: string }>;
   for (const p of pick) {
     const dataDir = mkdtempSync(join(tmpdir(), "motor-empathy-"));
     process.env.CBROWSER_DATA_DIR = dataDir;
+    const b = new CBrowser({ headless: true, viewportWidth: CTC_REFERENCE_META.viewport.width, viewportHeight: CTC_REFERENCE_META.viewport.height, dataDir });
+    const row: { url: string; site: string; pageType: string; runs: Run[]; error?: string } = { url: p.finalUrl ?? p.url, site: p.site, pageType: p.pageType, runs: [] };
     try {
-      const r = await Promise.race([
-        runEmpathyAudit(p.finalUrl ?? p.url, { disabilities: ["first-timer"], wcagLevel: "AA", maxSteps: 3, maxTime: 20, headless: true, scope: "viewport" }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("audit ceiling 120 s")), 120_000)),
-      ]) as { allBarriers?: Array<Record<string, unknown>>; topBarriers?: Array<Record<string, unknown>> };
-      const all = (r.allBarriers || r.topBarriers || []) as Array<{ type: string; element: string; description: string; severity: string; wcagCriteria?: string[] }>;
-      const touchTargets = all.filter((b) => b.type === "touch_target").map((b) => {
-        const m = b.description?.match(/\((\d+)x(\d+)px\)/);
-        return { width: m ? parseInt(m[1]) : 30, height: m ? parseInt(m[2]) : 30, exempt: false };
-      });
-      const cif = computeCIFScore({ barriers: all.map((b) => ({ type: b.type, severity: b.severity, element: b.element, description: b.description, wcagCriteria: b.wcagCriteria })), touchTargets });
-      out.push({ url: p.url, motor: all.filter((b) => b.type === "touch_target" || b.type === "motor_precision").map((b) => ({ type: b.type, element: b.element, description: b.description, severity: b.severity })), cifMotor: cif.motor.score });
+      await b.navigate(p.finalUrl ?? p.url);
+      const page = await b.getPage();
+      // Already on the page: the audit's own goto would reload it.
+      (page as unknown as { goto: () => Promise<null> }).goto = async () => null;
+      for (const a of audits) {
+        const run: Run = { tree: a.tree, motor: [], cifInput: null, cifMotor: null };
+        try {
+          const r = await Promise.race([
+            a.run(row.url, { disabilities: ["first-timer"], wcagLevel: "AA", maxSteps: 3, maxTime: 20, headless: true, scope: "viewport", page }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`audit ceiling ${CEILING_S} s`)), CEILING_S * 1000)),
+          ]) as { allBarriers?: Array<Record<string, unknown>>; topBarriers?: Array<Record<string, unknown>> };
+          const all = (r.allBarriers || r.topBarriers || []) as Array<{ type: string; element: string; description: string; severity: string; wcagCriteria?: string[]; weightKey?: string }>;
+          const touchTargets = all.filter((x) => x.type === "touch_target").map((x) => {
+            const m = x.description?.match(/\((\d+)x(\d+)px\)/);
+            return { width: m ? parseInt(m[1]) : 30, height: m ? parseInt(m[2]) : 30, exempt: false };
+          });
+          // The fields the worker passes (it drops weightKey; kept with the motor barriers for the report).
+          run.cifInput = { barriers: all.map((x) => ({ type: x.type, severity: x.severity, element: x.element, description: x.description, wcagCriteria: x.wcagCriteria })), touchTargets };
+          run.cifMotor = a.cif(run.cifInput).motor.score;
+          run.motor = all.filter((x) => x.type === "touch_target" || x.type === "motor_precision").map((x) => ({ type: x.type, element: x.element, description: x.description, severity: x.severity, weightKey: x.weightKey }));
+        } catch (e) {
+          run.error = String((e as Error).message).split("\n")[0].slice(0, 160);
+        }
+        row.runs.push(run);
+      }
     } catch (e) {
-      out.push({ url: p.url, motor: [], cifMotor: null, error: String((e as Error).message).split("\n")[0].slice(0, 160) });
+      row.error = String((e as Error).message).split("\n")[0].slice(0, 160);
     } finally {
+      await Promise.race([b.close().catch(() => {}), new Promise((r) => setTimeout(r, 15_000))]);
       rmSync(dataDir, { recursive: true, force: true });
     }
-    console.error(`${out.length}/${pick.length} ${p.site}: ${out.at(-1)!.motor.length} motor barriers, CIF motor ${out.at(-1)!.cifMotor}${out.at(-1)!.error ? ` (${out.at(-1)!.error})` : ""}`);
+    out.push(row);
+    // Written after every page, so a run cut short keeps what it measured.
+    writeFileSync(need("OUT"), JSON.stringify({ trees, pages: out }, null, 1));
+    console.error(`${out.length}/${order.length} ${p.site}: ${row.error ?? row.runs.map((r) => r.error ? `error (${r.error})` : `${r.motor.length} motor, CIF motor ${r.cifMotor}`).join(" | ")}`);
   }
-  writeFileSync(need("OUT"), JSON.stringify({ tree, pages: out }, null, 1));
+}
+
+/**
+ * CIF's motor score from TREE's computeCIFScore on the inputs an empathy run
+ * stored (EMP), so two versions can score the identical input.
+ *   TREE=<worktree> EMP=empathy.json [RUN=i] bun research/stage-b-motor-barriers.ts cif   (RUN: which run's input)
+ */
+async function cif(): Promise<void> {
+  const { computeCIFScore } = await import(`${need("TREE")}/src/cif-score.ts`);
+  const run = Number(process.env.RUN ?? 0);
+  const { pages } = JSON.parse(readFileSync(need("EMP"), "utf8")) as { pages: Array<{ url: string; runs?: Array<{ cifInput: unknown }> }> };
+  console.log(JSON.stringify(pages.map((p) => {
+    const input = p.runs?.[run]?.cifInput;
+    if (!input) return { url: p.url, motor: null };
+    const m = computeCIFScore(input).motor;
+    return { url: p.url, motor: m.score, components: Object.fromEntries(Object.entries(m).filter(([, v]) => v && typeof v === "object" && "score" in (v as object)).map(([k, v]) => [k, (v as { score: number }).score])) };
+  })));
 }
 
 function compare(): void {
@@ -250,11 +305,15 @@ function compare(): void {
   // A page counts once if any persona's barrier count on it changes.
   const countChanged = new Set(ok.filter(([, i]) => Object.keys(b.personas).some((n) => a.personas[n] && a.personas[n].pages[i].barrierCount !== b.personas[n].pages[i].barrierCount)).map(([, i]) => i));
   console.log(`Pages whose motor barrier count changes for at least one persona: ${countChanged.size} of ${ok.length} (${(100 * countChanged.size / ok.length).toFixed(1)}%); with any element flipping: ${pagesChanged.size}.\n`);
-  console.log("Largest per-page changes (persona, page, barriers before -> after, added / removed, reason):\n");
-  const top = changes.sort((p, q) => (q.added + q.removed) - (p.added + p.removed) || p.persona.localeCompare(q.persona)).slice(0, 5);
-  for (const c of top) {
-    const p = pages[c.page];
-    console.log(`- ${c.persona} on ${p.site} ${p.pageType} (${p.finalUrl ?? p.url}): ${a.personas[c.persona].pages[c.page].barrierCount} -> ${b.personas[c.persona].pages[c.page].barrierCount}, +${c.added} / -${c.removed}, ${c.reason}`);
+  console.log("The 5 pages with the largest change (the persona it is largest for, barriers before -> after of that page's targets, added / removed, reason, and how many personas change there):\n");
+  const byPage = new Map<number, Change[]>();
+  for (const c of changes) byPage.set(c.page, [...(byPage.get(c.page) ?? []), c]);
+  const size = (c: Change) => c.added + c.removed;
+  const top = [...byPage.values()].map((cs) => [...cs].sort((p, q) => size(q) - size(p) || p.persona.localeCompare(q.persona))).sort((p, q) => size(q[0]) - size(p[0])).slice(0, 5);
+  for (const cs of top) {
+    const c = cs[0], p = pages[c.page];
+    const reasons = [...new Set(cs.map((x) => x.reason))].join(", ");
+    console.log(`- ${p.site} ${p.pageType} (${p.finalUrl ?? p.url}), ${p.targets.length} targets: ${c.persona} ${a.personas[c.persona].pages[c.page].barrierCount} -> ${b.personas[c.persona].pages[c.page].barrierCount}, +${c.added} / -${c.removed}; ${cs.length} personas change here; reason: ${reasons}`);
   }
 }
 
@@ -262,5 +321,6 @@ function compare(): void {
 if (mode === "capture") { await capture(); process.exit(0); }
 else if (mode === "score") await score();
 else if (mode === "empathy") { await empathy(); process.exit(0); }
+else if (mode === "cif") await cif();
 else if (mode === "compare") compare();
-else throw new Error("mode: capture | score | empathy | compare");
+else throw new Error("mode: capture | score | empathy | cif | compare");
