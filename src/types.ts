@@ -13,6 +13,7 @@
 // habituation, fatigue) read their constants from the registry. Nothing the
 // registry loads imports this file at runtime, so the import closes no cycle.
 import { param } from "./visual/model-provenance.js";
+import { fittsIndexOfDifficulty } from "./visual/demand-laws.js";
 
 // ============================================================================
 // Persona Types
@@ -909,12 +910,12 @@ export interface FittsLawParams {
 }
 
 /**
- * Default Fitts' Law parameters. The intercept and slope are registered
- * (journey.fitts.*, src/visual/provenance/journey.ts) and read when used.
+ * Default Fitts' Law parameters, in ms: Stage B's published law (law.fitts.*,
+ * MacKenzie & Buxton 1992, src/visual/provenance/laws.ts), read when used.
  */
 export const DEFAULT_FITTS_PARAMS: FittsLawParams = {
-  get a() { return param("journey.fitts.intercept"); },      // Base time in ms
-  get b() { return param("journey.fitts.slope"); },          // Movement coefficient
+  get a() { return param("law.fitts.intercept") * param("journey.msPerSecond"); },      // Base time in ms
+  get b() { return param("law.fitts.slope") * param("journey.msPerSecond"); },          // ms per bit
   ageModifier: 1.0,
   tremorModifier: 0,
 };
@@ -933,8 +934,8 @@ export function calculateFittsMovementTime(
 ): number {
   const { a, b, ageModifier, tremorModifier } = { ...DEFAULT_FITTS_PARAMS, ...params };
 
-  // Fitts' Law: MT = a + b × log₂(D/W + 1)
-  const indexOfDifficulty = Math.log2(distance / Math.max(targetWidth, 1) + 1);
+  // Fitts' Law: MT = a + b × log₂(D/W + 1), W floored at law.fitts.minWidth
+  const indexOfDifficulty = fittsIndexOfDifficulty(distance, targetWidth);
   const baseMT = a + b * indexOfDifficulty;
 
   // Apply persona modifiers
@@ -1010,8 +1011,8 @@ export const KLM_OPERATORS = {
   get P_pointing() { return param("journey.klm.pointing"); },
   /** Hand movement between keyboard and mouse (ms) */
   get H_homing() { return param("journey.klm.homing"); },
-  /** Mental preparation before action (ms) */
-  get M_mental() { return param("journey.klm.mentalPreparation"); },
+  /** Mental preparation before action (ms): KLM's M, law.klm.mentalPreparation */
+  get M_mental() { return param("law.klm.mentalPreparation") * param("journey.msPerSecond"); },
   /** Mental prep for familiar task (ms) */
   get M_familiar() { return param("journey.klm.mentalFamiliar"); },
   /** Button click time (ms) */
