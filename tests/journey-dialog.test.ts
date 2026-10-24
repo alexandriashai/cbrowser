@@ -69,11 +69,21 @@ describe("journeyEndLine", () => {
 });
 
 describe("each step names the page it is on, as a URL a terminal can open", () => {
-  test("the full URL sits alone at the end of its own line, after the header", () => {
+  test("the URL sits alone at the end of its own line, after the header, without its query string but with its anchor", () => {
     const lines = formatJourneyStep(step({ url: "https://www.ucdenver.edu/tuition/undergraduate?term=fall#rates", monologue: "Tuition is here." }));
     expect(lines[0]).toBe("   Step 2 · decide · hopeful");
-    expect(lines[1]).toBe("   🔗 https://www.ucdenver.edu/tuition/undergraduate?term=fall#rates");
+    expect(lines[1]).toBe("   🔗 https://www.ucdenver.edu/tuition/undergraduate#rates");
     expect(lines[2]).toBe('   💭 "Tuition is here."');
+  });
+
+  test("a tracking parameter is dropped (the 2026-10-23 run's _gl links)", () => {
+    const url = "https://business.ucdenver.edu/?_gl=1*lvoksd*_gcl_au*MTkzNzM1NTE1MC4xNzkyNzk5ODM5";
+    expect(formatJourneyStep(step({ url }))[1]).toBe("   🔗 https://business.ucdenver.edu/");
+  });
+
+  test("a string that is not a URL prints as given", () => {
+    expect(formatJourneyStep(step({ url: "about:blank" }))[1]).toBe("   🔗 about:blank");
+    expect(formatJourneyStep(step({ url: "not a url" }))[1]).toBe("   🔗 not%20a%20url");
   });
 
   test("an unreadable step still says where it was", () => {
@@ -91,9 +101,16 @@ describe("each step names the page it is on, as a URL a terminal can open", () =
     expect(formatJourneyStep(step({ url: undefined }))).toEqual(["   Step 2 · decide · hopeful", "   → no action"]);
   });
 
-  test("for any web URL, its line is the marker, one space, and exactly that URL", () => {
+  test("for any web URL, the line is the marker and the same page and anchor with no query string", () => {
     fc.assert(fc.property(fc.webUrl({ withQueryParameters: true, withFragments: true }), (url) => {
-      expect(formatJourneyStep(step({ url }))[1]).toBe(`   🔗 ${url}`);
+      const line = formatJourneyStep(step({ url }))[1];
+      expect(line.startsWith("   🔗 ")).toBe(true);
+      const printed = new URL(line.slice("   🔗 ".length));
+      const given = new URL(url);
+      expect(printed.search).toBe("");
+      expect(printed.hash).toBe(given.hash);
+      expect(printed.origin + printed.pathname).toBe(given.origin + given.pathname);
+      expect(/\s/.test(line.slice("   🔗 ".length))).toBe(false);
     }), { numRuns: 300 });
   });
 });

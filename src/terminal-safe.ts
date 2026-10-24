@@ -33,16 +33,60 @@ const visible = (c: string): string =>
       : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`;
 
 export function terminalSafe(text: string, links = false): string {
-  const safe = text.startsWith("\r")
-    ? "\r" + text.slice(1).replace(UNSAFE, visible)
-    : text.replace(UNSAFE, visible);
-  return links ? linkUrls(safe) : safe;
+  const lead = text.startsWith("\r") ? "\r" : "";
+  return lead + splitOwnLinks(lead ? text.slice(1) : text).map((part) => {
+    if (part.link !== undefined) return links ? `${OSC8(part.link)}${part.link}${OSC8("")}` : part.link;
+    const safe = part.text.replace(UNSAFE, visible);
+    return links ? linkUrls(safe) : safe;
+  }).join("");
 }
 
 // A URL runs until whitespace, a quote, an angle or square bracket, a brace, a
 // backslash (which starts an escape written above) or an invisible format character.
 const URL_TOKEN = /https?:\/\/[^\s"'<>`{}|\\^[\]\u200b-\u200f\u2028\u2029\ufeff]+/g;
 const OSC8 = (target: string) => `\u001b]8;;${target}\u001b\\`;
+
+const ESC = String.fromCharCode(27);
+const ST = `${ESC}\\`;
+const LINK_OPEN = `${ESC}]8;;`;
+const LINK_TARGET = new RegExp(`^(?:${URL_TOKEN.source})$`);
+
+type Part = { link: string } | { link?: undefined; text: string };
+
+/**
+ * Text split into plain runs and the links linkUrls writes: an OSC 8 link whose
+ * target is a URL with no control character or space and whose text is that
+ * same URL. Under Node, console.log reaches process.stdout.write, so one line
+ * passes guardConsole and then guardTerminalOutput, and in 20.2.0 the second
+ * pass escaped the first one's links: a journey printed "\x1b]8;;" before every
+ * URL (2026-10-23). Kept whole, a link passes any number of guards unchanged.
+ * Any other escape, a link that reads one way and goes another included, is
+ * still escaped.
+ */
+function splitOwnLinks(text: string): Part[] {
+  const parts: Part[] = [];
+  const close = OSC8("");
+  let plainFrom = 0;
+  let at = text.indexOf(LINK_OPEN);
+  while (at !== -1) {
+    const targetEnd = text.indexOf(ST, at + LINK_OPEN.length);
+    if (targetEnd === -1) break;
+    const target = text.slice(at + LINK_OPEN.length, targetEnd);
+    const textEnd = targetEnd + ST.length + target.length;
+    const ours = LINK_TARGET.test(target) && target.search(UNSAFE) === -1
+      && text.slice(targetEnd + ST.length, textEnd) === target && text.startsWith(close, textEnd);
+    if (ours) {
+      if (at > plainFrom) parts.push({ text: text.slice(plainFrom, at) });
+      parts.push({ link: target });
+      plainFrom = textEnd + close.length;
+      at = text.indexOf(LINK_OPEN, plainFrom);
+    } else {
+      at = text.indexOf(LINK_OPEN, at + LINK_OPEN.length);
+    }
+  }
+  if (plainFrom < text.length || parts.length === 0) parts.push({ text: text.slice(plainFrom) });
+  return parts;
+}
 
 const count = (s: string, c: string) => s.split(c).length - 1;
 

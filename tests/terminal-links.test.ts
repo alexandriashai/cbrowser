@@ -80,6 +80,76 @@ describe("terminalSafe with links", () => {
   });
 });
 
+describe("a second guard (20.2.0 printed \\x1b]8;; before every URL under Node)", () => {
+  // Under Node, console.log reaches process.stdout.write, so a line passes
+  // guardConsole and then guardTerminalOutput. Bun's console.log skips the
+  // stream, which is why the CLI tests, run under Bun, never saw it.
+  test("keeps the first guard's links whole", () => {
+    const once = terminalSafe("URL: https://ucdenver.edu", true);
+    expect(once).toBe(`URL: ${link("https://ucdenver.edu")}`);
+    expect(terminalSafe(once, true)).toBe(once);
+    expect(terminalSafe(once, false)).toBe("URL: https://ucdenver.edu");
+  });
+
+  test("still escapes a link whose text is not its target", () => {
+    const forged = `${open("https://evil.example/")}https://bank.example/${CLOSE}`;
+    const out = terminalSafe(forged, true);
+    expect(out).toContain("\\x1b]8;;");
+    for (const m of out.matchAll(PAIR)) expect(m[1]).toBe(m[2]);
+  });
+
+  test("through the stream guard the CLI installs, a guarded line arrives exactly once-guarded", async () => {
+    const { guardTerminalOutput, setTerminalHyperlinks } = await import("../src/terminal-safe.js");
+    const written: string[] = [];
+    const stream = { fd: 1, write: (chunk: string) => { written.push(chunk); return true; } } as unknown as NodeJS.WriteStream;
+    guardTerminalOutput(stream);
+    setTerminalHyperlinks({ stdout: true, stderr: false });
+    try {
+      const line = terminalSafe("   🔗 https://www.ucdenver.edu/international-admissions", true);
+      stream.write(line);
+      expect(written).toEqual([line]);
+      expect(line).toContain(link("https://www.ucdenver.edu/international-admissions"));
+    } finally {
+      setTerminalHyperlinks({ stdout: false, stderr: false });
+    }
+  });
+
+  test("Node's path: console.log through both guards prints the link once", async () => {
+    const { guardConsole, guardTerminalOutput, setTerminalHyperlinks } = await import("../src/terminal-safe.js");
+    const { format } = await import("node:util");
+    const written: string[] = [];
+    const stream = { fd: 1, write: (chunk: string) => { written.push(chunk); return true; } } as unknown as NodeJS.WriteStream;
+    const methods = ["log", "info", "warn", "error", "debug"] as const;
+    const saved = methods.map((m) => console[m]);
+    try {
+      guardTerminalOutput(stream);
+      // Node's console.log writes to process.stdout.write; this one writes to the guarded stream.
+      for (const m of methods) console[m] = (...args: unknown[]) => { stream.write(`${format(...args)}\n`); };
+      guardConsole();
+      setTerminalHyperlinks({ stdout: true, stderr: true });
+      console.log("   URL: https://ucdenver.edu");
+      expect(written).toEqual([`   URL: ${link("https://ucdenver.edu")}\n`]);
+    } finally {
+      setTerminalHyperlinks({ stdout: false, stderr: false });
+      methods.forEach((m, i) => { console[m] = saved[i]; });
+    }
+  });
+
+  test("property: guarding twice is guarding once, with links on or off", () => {
+    const piece = fc.oneof(
+      fc.string({ unit: "binary", maxLength: 30 }),
+      fc.webUrl({ withQueryParameters: true, withFragments: true }),
+      fc.webUrl().map((u) => link(u)),
+      fc.tuple(fc.webUrl(), fc.webUrl()).map(([a, b]) => `${open(a)}${b}${CLOSE}`),
+      fc.constantFrom(" ", ".", ")", "\n", ESC, BEL, "\\", "\r"),
+    );
+    fc.assert(fc.property(fc.array(piece, { maxLength: 10 }), fc.boolean(), (parts, on) => {
+      const once = terminalSafe(parts.join(""), on);
+      return terminalSafe(once, on) === once;
+    }), { numRuns: 1000 });
+  });
+});
+
 describe("cbrowser ask answers", () => {
   test("a markdown link prints as a clickable full URL with its bracket outside", () => {
     const text = formatAnswerForTerminal("See [the screenshot docs](/docs/tool-screenshot).");

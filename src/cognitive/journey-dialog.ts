@@ -27,12 +27,22 @@ function actionVerb(action: string): string {
  * The page a step is on: the full URL alone at the end of its line, with
  * nothing touching it, so a terminal can open it (Alexa, 2026-10-23: "i want
  * the link clickable from cli"). The CLI's output guard also makes it an OSC 8
- * hyperlink on a terminal. Whitespace inside a URL is percent-encoded so the
- * link is not cut.
+ * hyperlink on a terminal. The query string is dropped and the anchor kept
+ * (Alexa, 2026-10-23: "make the url strip variables but not anchors"): a
+ * tracking parameter such as _gl made one line hundreds of characters long.
+ * Whitespace inside a URL is percent-encoded so the link is not cut; a string
+ * that does not parse as a URL prints as it is.
  */
 function pageLine(url: string | undefined): string[] {
-  const href = url?.trim().replace(/\s/g, (c) => encodeURIComponent(c));
-  return href ? [`   🔗 ${href}`] : [];
+  const raw = url?.trim();
+  if (!raw) return [];
+  let href = raw;
+  try {
+    const parsed = new URL(raw);
+    parsed.search = "";
+    href = parsed.href;
+  } catch { /* not a URL: shown as given */ }
+  return [`   🔗 ${href.replace(/\s/g, (c) => encodeURIComponent(c))}`];
 }
 
 /** The lines that describe one journey step, without trailing newlines. */
