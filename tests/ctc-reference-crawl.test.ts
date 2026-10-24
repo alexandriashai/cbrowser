@@ -13,9 +13,10 @@
  *      URL template the site itself publishes (schema.org SearchAction).
  *   3. The frame filters exclude what they name and not the innocent
  *      substrings around it.
- *   4. A published URL carries no value a site minted for the crawler's own
- *      session (OAuth state, challenge token, per-visit id), and keeps every
- *      other part, including the query a search page was loaded with.
+ *   4. A published URL carries no parameter a site minted for the crawler's
+ *      own session (OAuth state, challenge token, per-visit id), and keeps
+ *      every other part as it was, including the query a search page was
+ *      loaded with.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -26,7 +27,7 @@ import {
   discoverInner, searchUrl, searchFromTemplates, domainExclusion, contentFlags, contentExclusion, DENY,
   type AnchorInfo, type FormInfo,
 } from "../research/ctc-reference/discover.js";
-import { publicUrl, isSessionParam, REDACTED } from "../research/ctc-reference/public-url.js";
+import { publicUrl, isSessionParam } from "../research/ctc-reference/public-url.js";
 
 const robots = (body: string, agent = "cbrowser"): Robots => ({ status: "parsed", detail: "HTTP 200", ...parseRobots(body, agent) });
 
@@ -177,25 +178,24 @@ describe("search discovery beyond the obvious field", () => {
 });
 
 describe("published URLs carry no session-bound value", () => {
-  test("OAuth state, nonce and PKCE challenge: values redacted, names kept", () => {
-    const u = new URL(publicUrl("https://login.agency.test/authorize?client_id=0oa1public&state=abc123&nonce=n-9f&code_challenge=Zx8&response_type=code"));
-    for (const name of ["state", "nonce", "code_challenge"]) expect(u.searchParams.get(name)).toBe(REDACTED);
-    expect(u.searchParams.get("client_id")).toBe("0oa1public");
-    expect(u.searchParams.get("response_type")).toBe("code");
+  test("OAuth state, nonce and PKCE challenge are removed; the rest of the query stays as it was", () => {
+    expect(publicUrl("https://login.agency.test/authorize?client_id=0oa1public&state=abc123&nonce=n-9f&code_challenge=Zx8&response_type=code&redirect_uri=https%3A%2F%2Fagency.test%2Fcb"))
+      .toBe("https://login.agency.test/authorize?client_id=0oa1public&response_type=code&redirect_uri=https%3A%2F%2Fagency.test%2Fcb");
   });
 
-  test("anti-bot challenge tokens and session blobs", () => {
-    expect(new URL(publicUrl("https://www.shop.test/?__cf_chl_rt_tk=Qm9.x-1")).searchParams.get("__cf_chl_rt_tk")).toBe(REDACTED);
-    const blob = new URL(publicUrl("https://www.store.test/item?x5secdata=eyJhbGci&x5step=1"));
-    expect(blob.searchParams.get("x5secdata")).toBe(REDACTED);
-    expect(blob.searchParams.get("x5step")).toBe("1");
+  test("Cloudflare parameters and anti-bot blobs are removed; a query left empty goes with its ?", () => {
+    expect(publicUrl("https://www.shop.test/?__cf_chl_rt_tk=Qm9.x-1")).toBe("https://www.shop.test/");
+    expect(publicUrl("https://www.shop.test/about/?__cf_chl_tk=a&__cf_chl_f_tk=b#story")).toBe("https://www.shop.test/about/#story");
+    expect(publicUrl("https://www.shop.test/?cf_clearance=x&page=2")).toBe("https://www.shop.test/?page=2");
+    expect(publicUrl("https://www.store.test/item?x5secdata=eyJhbGci&x5step=1")).toBe("https://www.store.test/item?x5step=1");
   });
 
-  test("a per-visit id under any name: a UUID or a long hex string", () => {
-    expect(new URL(publicUrl("https://forum.test/users/login?s=0b7f3c2e-4d1a-4b8e-9c6f-2a5d8e1f7b30")).searchParams.get("s")).toBe(REDACTED);
-    expect(new URL(publicUrl("https://wiki.test/page?tid=9f86d081884c7d659a2feaa0c55ad015")).searchParams.get("tid")).toBe(REDACTED);
-    expect(isSessionParam("access_token", "x")).toBe(true);
-    expect(isSessionParam("PHPSESSID", "x")).toBe(true);
+  test("a per-visit id under any name (a UUID or a long hex string), and visit, session, token and signature names", () => {
+    expect(publicUrl("https://forum.test/users/login?s=0b7f3c2e-4d1a-4b8e-9c6f-2a5d8e1f7b30&returnurl=%2Fquestions")).toBe("https://forum.test/users/login?returnurl=%2Fquestions");
+    expect(publicUrl("https://wiki.test/page?tid=9f86d081884c7d659a2feaa0c55ad015")).toBe("https://wiki.test/page");
+    for (const name of ["access_token", "PHPSESSID", "jsessionid", "sid", "signature", "auth", "visit_id", "visitorId", "pageToken", "cf_ref"]) {
+      expect(isSessionParam(name, "x")).toBe(true);
+    }
   });
 
   test("everything else is kept byte for byte, including a search page's query", () => {

@@ -242,12 +242,17 @@ describe("the crawl's rules, as the record shows them", () => {
       else expect(["direct", "proxy"]).toContain(r.route);
       expect(typeof r.bytes).toBe("number");
     }
-    // No session-bound URL value (an OAuth state or nonce, a challenge token,
-    // a per-visit id): every URL is already its published form.
-    for (const r of rows) for (const u of [r.url, r.finalUrl]) if (u) expect(publicUrl(u)).toBe(u);
+    // No session-bound URL parameter (an OAuth state or nonce, a Cloudflare
+    // challenge token, a per-visit id) in any URL the reference stores, here or
+    // in the v1 record: every URL is already its published form.
+    const published = JSON.stringify({ meta: CTC_REFERENCE, pages: rows });
+    const v1 = readFileSync(join(ROOT, "research", "ctc-reference", "v1", "ctc-reference-2026-10-22.ts"), "utf8");
+    const urls = [published, v1].flatMap((text) => text.match(/https?:\/\/[^"\s]+/g) ?? []);
+    expect(urls.length).toBeGreaterThan(1000);
+    for (const u of urls) expect(publicUrl(u)).toBe(u);
+    for (const text of [published, v1]) expect(text).not.toMatch(/[?&](?:_*cf_|x5secdata=|state=|nonce=|code_challenge=)/);
     // No address, path or credential of the machine that crawled it: no IP
     // address at all, no home or temp path, no account key, no proxy login.
-    const published = JSON.stringify({ meta: CTC_REFERENCE, pages: rows });
     expect(published.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)).toBeNull();
     for (const s of ["/root/", "/tmp/", "/home/wyld", "wyld-web", ".cbrowser", "cbk_", "_country-", "<proxy>", "iproyal"]) {
       expect(published.includes(s)).toBe(false);

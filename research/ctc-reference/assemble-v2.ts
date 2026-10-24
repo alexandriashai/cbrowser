@@ -18,7 +18,7 @@
  *                        and robots.txt decision: the published outcome list,
  *                        in plain JSON so it reads in the repository. Its
  *                        url and finalUrl pass through publicUrl, which
- *                        replaces session-bound query values with REDACTED.
+ *                        removes session-bound query parameters.
  *   CTC_REFERENCE_RAW    the graded pages' raw measurements (viewport and
  *                        full_page), in outcome-list order, as brotli-compressed
  *                        JSON in base64. A TypeScript module rather than a
