@@ -666,3 +666,39 @@ insensitive, normalised to `kh` + three digits), refuses a log name without
 one, splits 31/31 by person, takes `--data` for the corpus (no symlink into the
 tree needed) and writes `per_image.csv`. Its per-image AUC and NSS equal round
 1's `legacy32_personsplit` arm on all 489 images (difference exactly 0).
+
+---
+
+## Round 3 (`r3/`): Study 3 redesign power (D0-D4)
+
+Rerun, as the tree's owner (after `r2/run.sh` whenever the chain or reference
+set changes): `bash research/paper-calcs/r3/run.sh`. Every assumption is in
+`redesign.py`'s header; outputs record their git head and src tree.
+
+| step | script | outputs |
+|---|---|---|
+| raw-measurement perturbation tool and its self-test | `raw-perturb.ts` | (console) |
+| one-factor variants of every reference page, scored by the shipped chain | `pairs.ts` | `candidates-viewport.{csv,json}` |
+| power for D0-D4, size checks, session lengths | `redesign.py` (fits with `lmmk.py` and `../r2/lmm.py`) | `redesign-viewport.{json,csv}` |
+
+**The tool.** The reference set stores the 0-1 page metrics, not the raw counts
+behind them, so `raw-perturb.ts` inverts the registered normalisers
+(`src/visual/provenance/page-metrics.ts`, read through `param()`), changes one
+raw quantity (visible characters, running animations, links, word and sentence
+length, the visual-complexity weight) and re-derives every metric with
+extractPageMetrics' formulas. Its self-test round-trips every stored metric on
+all graded pages at both scopes, and recovers the measured 1920 x 1080 viewport
+area from informationDensity and textDensity on every page; a 0.1% error in one
+midpoint fails it. Target size and contrast are not measured metrics, so the
+chain cannot see them: their variants are identities, kept to show it.
+
+**The common slope.** D1-D3 subtract groups, so every group's page means respond
+to its own CTC with one slope (beta = r sS / SD of the typical user's CTC). Round
+2 scaled each subgroup by its own persona's SD; D0 is reported both ways.
+Difference designs are exposed to a subgroup that uses the rating scale with a
+different slope on the generic CTC; the attenuated and amplified size checks
+measure that, and the "+ generic covariate" analyses are the protected versions.
+
+**`lmmk.py`** generalises `../r2/lmm.py` to any number of random-intercept
+factors; its self-test reproduces CrossedLMM's t and df on incomplete crossed
+data.
