@@ -11,3 +11,6 @@ p, blockquote, h1, h2, table, figure { margin: 0 0 8px; }
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
 }
 .tiny-nav { display: inline-block; width: 120px; height: 18px; overflow: hidden; font-size: 10px; line-height: 18px; }
+.link-row { display: flex; gap: 12px; align-items: center; }
+.link-row a { display: inline-flex; align-items: center; gap: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
