@@ -126,3 +126,6 @@ tests/same-ms-captures.test.ts
 # Calls crossBrowserDiff in-process, which launches chromium inside the
 # product code, so the launch grep does not see it either.
 tests/hotfix-path-escape.test.ts
+# Launches two chromiums in a row with a forced GC between them (Bun's second
+# close of a dead child's extra stdio, tests/fixtures/extra-stdio-guard.ts).
+tests/bun-extra-stdio-late-close-browser.test.ts
