@@ -894,11 +894,16 @@ function computeNavigationFitness(data: CIFInput): CIFScore["navigation"] {
     const kbBarriers = data.barriers.filter(
       (b) => matchesBarrier(b, "keyboard") || (b.type === "motor_precision" && !isCloseSpacing(b)),
     ).length;
+    // empathy_audit's keyboard findings are hover-only and drag-without-keyboard
+    // interactions; the details say what it looks for and what it does not. The
+    // scope is the audit's, stated as such: a caller's list may hold other
+    // keyboard findings (a trap, an unreachable control), counted as found.
+    const auditScope = "keyboard reachability, traps or focus order";
     keyboardOperability = measured(
       clamp(P.scale - kbBarriers * P.keyboardBarrierPenalty),
       kbBarriers > 0
-        ? `${kbBarriers} keyboard/motor barriers detected`
-        : "No keyboard accessibility barriers detected",
+        ? `${kbBarriers} keyboard barriers detected; empathy_audit looks for hover-only and drag-without-keyboard interactions, not ${auditScope}`
+        : `No hover-only or drag-without-keyboard barriers detected; empathy_audit does not check ${auditScope}`,
     );
   } else {
     keyboardOperability = notMeasured("audit barriers");

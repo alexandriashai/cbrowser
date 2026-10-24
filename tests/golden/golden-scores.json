@@ -533,7 +533,7 @@
         },
         "keyboardOperability": {
           "score": 100,
-          "details": "No keyboard accessibility barriers detected",
+          "details": "No hover-only or drag-without-keyboard barriers detected; empathy_audit does not check keyboard reachability, traps or focus order",
           "measured": true
         },
         "skipMechanisms": {
@@ -724,7 +724,7 @@
         },
         "keyboardOperability": {
           "score": 40,
-          "details": "4 keyboard/motor barriers detected",
+          "details": "4 keyboard barriers detected; empathy_audit looks for hover-only and drag-without-keyboard interactions, not keyboard reachability, traps or focus order",
           "measured": true
         },
         "skipMechanisms": {
@@ -920,7 +920,7 @@
         },
         "keyboardOperability": {
           "score": 100,
-          "details": "No keyboard accessibility barriers detected",
+          "details": "No hover-only or drag-without-keyboard barriers detected; empathy_audit does not check keyboard reachability, traps or focus order",
           "measured": true
         },
         "skipMechanisms": {
@@ -1303,7 +1303,7 @@
         },
         "keyboardOperability": {
           "score": 100,
-          "details": "No keyboard accessibility barriers detected",
+          "details": "No hover-only or drag-without-keyboard barriers detected; empathy_audit does not check keyboard reachability, traps or focus order",
           "measured": true
         },
         "skipMechanisms": {
@@ -1698,7 +1698,7 @@
         },
         "keyboardOperability": {
           "score": 100,
-          "details": "No keyboard accessibility barriers detected",
+          "details": "No hover-only or drag-without-keyboard barriers detected; empathy_audit does not check keyboard reachability, traps or focus order",
           "measured": true
         },
         "skipMechanisms": {
