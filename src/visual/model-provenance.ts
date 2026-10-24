@@ -46,6 +46,7 @@ import { VISUAL_DISTANCE_PROVENANCE } from "./provenance/visual-distance.js";
 import { LAW_PROVENANCE } from "./provenance/laws.js";
 import { PROFILE_PROVENANCE } from "./provenance/profiles.js";
 import { PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE } from "./provenance/persona-rates.js";
+import { JOURNEY_GROUP_PROVENANCE } from "./provenance/journey-group.js";
 
 function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> {
   const out: Record<string, ProvenanceEntry> = {};
@@ -58,7 +59,7 @@ function index(...groups: ProvenanceEntry[][]): Record<string, ProvenanceEntry> 
 }
 
 export const MODEL_PROVENANCE: Readonly<Record<string, ProvenanceEntry>> = Object.freeze(
-  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE),
+  index(CHAIN_PROVENANCE, DISTANCE_PROVENANCE, DRO_PROVENANCE, PERSONA_PROVENANCE, CIF_PROVENANCE, CTC_REFERENCE_PROVENANCE, ATTENTION_PROVENANCE, PERCEPTUAL_PROVENANCE, PAGE_METRICS_PROVENANCE, VISUAL_DISTANCE_PROVENANCE, LAW_PROVENANCE, PROFILE_PROVENANCE, PERSONA_RATE_PROVENANCE, CUSTOM_RATE_PROVENANCE, JOURNEY_GROUP_PROVENANCE),
 );
 
 /**
@@ -105,6 +106,26 @@ export function withParamOverrides<T>(values: Record<string, number>, fn: () => 
   overrides = { ...(outer ?? {}), ...values };
   try {
     return fn();
+  } finally {
+    overrides = outer;
+  }
+}
+
+/**
+ * TEST ONLY: withParamOverrides for an async `fn`, the overrides holding
+ * until it settles. The override set is process-wide, not scoped to the async
+ * context, so anything else running meanwhile sees it too: a test awaits one
+ * override at a time (tests/journey-no-dead-constants.test.ts, which perturbs
+ * the constants a journey reads across its awaits).
+ */
+export async function withParamOverridesAsync<T>(values: Record<string, number>, fn: () => Promise<T>): Promise<T> {
+  for (const id of Object.keys(values)) {
+    if (!MODEL_PROVENANCE[id]) throw new Error(`unregistered model constant "${id}"`);
+  }
+  const outer = overrides;
+  overrides = { ...(outer ?? {}), ...values };
+  try {
+    return await fn();
   } finally {
     overrides = outer;
   }

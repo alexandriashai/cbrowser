@@ -35,7 +35,7 @@ const LAYERS: Array<[string, number]> = [
 const PAYLOAD = {
   url: "https://example.test/",
   persona: "cognitive-adhd",
-  interpretation: "For cognitive-adhd, the top of this page is costlier than 95% of the real pages we measured (513 pages x 25 personas, viewport scope; 95% interval 94-97%). Band: top 5% (95th percentile and above). Bottleneck: decision.",
+  interpretation: "For cognitive-adhd, the top of this page is costlier than 95% of the real pages we measured (512 pages x 25 personas, viewport scope; 95% interval 94-97%). Band: top 5% (95th percentile and above). Bottleneck: decision.",
   cognitiveTransportCost: { total: 0.951, band: "top 5%", raw: 0.52, additive: 0.5, chainCoefficient: 1.04, chainNote: "fixture" },
   abandonmentRisk: "12%",
   bottleneck: "decision",

@@ -111,3 +111,5 @@ tests/effort-widget.test.ts
 tests/attention-answer-provenance.test.ts
 # Launches a CBrowser and reads what the MCP App views draw.
 tests/provenance-views.test.ts
+# Runs scripted cognitive journeys over the journey-*.html fixtures and compares every state number with its golden.
+tests/journey-golden-browser.test.ts

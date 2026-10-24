@@ -1,0 +1,3527 @@
+{
+ "runs": {
+  "browser-signup": {
+   "systemPrompt": "You are simulating a \"first-timer\" user navigating a website.\n\nPERSONA DESCRIPTION: New user exploring for the first time, needs guidance\n\nCOGNITIVE TRAITS:\n- Patience: 0.72 (patient)\n- Risk Tolerance: 0.30 (moderate)\n- Comprehension: 0.30 (struggles with UI)\n- Persistence: 0.50\n- Curiosity: 0.80\n- Reading Tendency: 0.60 (selective reader)\n\nATTENTION PATTERN: thorough\nDECISION STYLE: cautious\n\nGOAL: \"Create an account on the Starter plan\"\n\nRESPONSE FORMAT (JSON):\n{\n  \"phase\": \"perceive|comprehend|decide|execute|evaluate\",\n  \"monologue\": \"Internal thought as this persona (first person)\",\n  \"action\": \"click:selector|hover:selector|fill:selector:value|navigate:url|scroll:direction|null\",\n  \"actionTarget\": \"description of what you're clicking/filling\",\n  \"focusedElement\": \"the element text/label you are currently looking at or reading\",\n  \"goalAchieved\": boolean,\n  \"goalProgress\": 0.0-1.0,\n  \"goalEvidence\": \"REQUIRED when goalAchieved=true: exact text/content on the page that satisfies the goal. Quote the specific words you found. If goalAchieved=false, null.\",\n  \"failureReason\": \"When giving up: what you were looking for but could not find, and what you see instead\",\n  \"newConfusion\": 0.0-1.0,\n  \"newFrustration\": 0.0-1.0,\n  \"mood\": \"neutral|hopeful|confused|frustrated|defeated|relieved\",\n  \"frictionDescription\": \"what caused confusion/frustration (if any)\" | null,\n  \"frictionElement\": \"element that caused friction\" | null\n}\n\nGOAL EVIDENCE RULES:\n- When setting goalAchieved=true, you MUST provide goalEvidence with the EXACT text you found on the page\n- goalEvidence should be a direct quote from the page content, not a summary\n- If you cannot quote specific text proving the goal is met, set goalAchieved=false\n- Example: goal \"find application deadline\" → goalEvidence: \"Application deadline: March 1, 2026 for fall semester\"\n\nACTIONS:\n- click:selector - Click an element (auto-hovers parent menus for dropdowns)\n- hover:selector - Hover over element to reveal dropdown menus\n- fill:selector:value - Type text into an input field OR select an option from a dropdown\n  IMPORTANT: For <select> dropdowns, use fill with the option text (e.g., fill:Gender:Female)\n  Do NOT click on select dropdowns - use fill directly with the desired option value\n- navigate:url - Go to a URL directly\n- scroll:direction - Scroll the page (direction: down, up, bottom, top)\n\nABANDONMENT THRESHOLDS:\n- If patience drops below 0.1, give up\n- If confusion exceeds 0.75, give up\n- If frustration exceeds 0.95, give up\n\nBEHAVIOR GUIDELINES:\n1. PERCEIVE: Describe what you see on the page\n2. COMPREHEND: Interpret UI based on your comprehension level (low = more confusion)\n3. DECIDE: Choose action based on risk tolerance and goal relevance\n4. For click actions, use text that matches elements from AVAILABLE ELEMENTS (partial match OK, e.g., \"Admissions\" or \"Apply\" - the system does fuzzy matching)\n5. Prefer clicking elements you can SEE in the AVAILABLE ELEMENTS list - avoid guessing element names\n6. For dropdown menus: if a click doesn't work, try hover:menuname first to reveal the submenu\n7. If comprehension is low, misinterpret ambiguous elements\n8. If patience is low, get frustrated quickly with delays\n9. Generate authentic inner monologue matching persona voice\n\nAlways respond with valid JSON.\n\n— WHEN —\nRight now it's Wednesday 10am — peak focus, workday momentum.",
+   "prompts": [
+    "STEP 1\n\nCURRENT PAGE:\n- URL: fixture:journey-home.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 0\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 2\n\nCURRENT PAGE:\n- URL: fixture:journey-home.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 400/1600px (25%)\n\nWHAT HAPPENED LAST STEP:\n- Last action: scroll:down — ✓ executed\n- Scrolled down 400px\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] ↓ \"Pricing\" (a @(600,-384))\n  [#1] ↓ \"Sign up\" (a @(720,-384))\n  — TOP-BAR —\n  [#2] ↓ \"Get started\" (button @(40,-100))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1100))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 4%\n- Frustration: 0%\n- Goal Progress: 5%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 1\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 3\n\nCURRENT PAGE:\n- URL: fixture:journey-pricing.html\n- Title: Pricing - Acme\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Pricing\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:Pricing details — ✓ executed\n- Page navigated: fixture:journey-home.html → fixture:journey-pricing.html\n- Scrolled up 400px\n- New elements appeared: \"Home\"\n- Elements no longer visible: \"Pricing\", \"Get started\", \"Pricing details\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Pricing\n👁[p] Starter: $10/month\n👁[p] Team: $49/month\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Home\" (a @(600,16))\n  — MAIN-VISIBLE —\n  [#1] 👁 \"Sign up\" (a @(40,300))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 30%\n- Mood: hopeful\n- Pages Visited: 2\n- Actions Attempted: 2\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 4\n\nCURRENT PAGE:\n- URL: fixture:journey-signup.html\n- Title: Create account\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Create your account\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:Sign up — ✓ executed\n- Page navigated: fixture:journey-pricing.html → fixture:journey-signup.html\n- New elements appeared: \"Create account\"\n- Elements no longer visible: \"Home\", \"Sign up\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Create your account\n👁[p] It takes less than a minute.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — MAIN-VISIBLE —\n  [#0] 👁 \"Create account\" (a @(40,500))\n\nFORM INPUTS (fillable):\n  - \"Email\" (email)\n  - \"Password\" (password)\n  - \"Plan\" (select-one)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 50%\n- Mood: hopeful\n- Pages Visited: 3\n- Actions Attempted: 3\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 5\n\nCURRENT PAGE:\n- URL: fixture:journey-signup.html\n- Title: Create account\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Create your account\n\nWHAT HAPPENED LAST STEP:\n- Last action: fill:Email:ada@example.com — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Create your account\n👁[p] It takes less than a minute.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — MAIN-VISIBLE —\n  [#0] 👁 \"Create account\" (a @(40,500))\n\nFORM INPUTS (fillable):\n  - \"Email\" (email)\n  - \"Password\" (password)\n  - \"Plan\" (select-one)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 55%\n- Mood: hopeful\n- Pages Visited: 3\n- Actions Attempted: 4\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 6\n\nCURRENT PAGE:\n- URL: fixture:journey-signup.html\n- Title: Create account\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Create your account\n\nWHAT HAPPENED LAST STEP:\n- Last action: select:Plan:Starter — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Create your account\n👁[p] It takes less than a minute.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — MAIN-VISIBLE —\n  [#0] 👁 \"Create account\" (a @(40,500))\n\nFORM INPUTS (fillable):\n  - \"Email\" (email)\n  - \"Password\" (password)\n  - \"Plan\" (select-one)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 60%\n- Mood: hopeful\n- Pages Visited: 3\n- Actions Attempted: 5\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 7\n\nCURRENT PAGE:\n- URL: fixture:journey-welcome.html\n- Title: Welcome aboard\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Your account is ready\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:Create account — ✓ executed\n- Page navigated: fixture:journey-signup.html → fixture:journey-welcome.html\n- Elements no longer visible: \"Create account\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Your account is ready\n👁[p] Account created on the Starter plan.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  (no clickable elements detected)\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 95%\n- Mood: hopeful\n- Pages Visited: 4\n- Actions Attempted: 6\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format."
+   ],
+   "finalEvalPrompt": null,
+   "steps": [
+    {
+     "step": 1,
+     "phase": "decide",
+     "monologue": "I will scroll:down",
+     "action": "scroll:down",
+     "state": {
+      "patienceRemaining": 0.8909751884815011,
+      "confusionLevel": 0.1294109375,
+      "frustrationLevel": 0.050858749999999994,
+      "goalProgress": 0.05,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html"
+       ],
+       "actionsAttempted": [],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 1,
+      "decisionFatigue": {
+       "decisionsMade": 0,
+       "fatigueLevel": 0,
+       "lastDecisionComplexity": 0,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 2,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.1294109375
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.3014625,
+       "frustration": 0.050858749999999994,
+       "boredom": 0.009999999999999998,
+       "confusion": 0.1294109375,
+       "satisfaction": 0.04551875000000001,
+       "excitement": 0.18000000000000002,
+       "relief": 0,
+       "dominant": "anxiety",
+       "valence": -0.20153768533763675,
+       "arousal": 0.7364730265688917
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-home.html"
+    },
+    {
+     "step": 2,
+     "phase": "decide",
+     "monologue": "I will click:Pricing details",
+     "action": "click:Pricing details",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0,
+      "frustrationLevel": 0,
+      "goalProgress": 0.1,
+      "confidenceLevel": 0.5,
+      "currentMood": "hopeful",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "scroll:down",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 2,
+      "decisionFatigue": {
+       "decisionsMade": 1,
+       "fatigueLevel": 0.06931471805599453,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.13137893750000001,
+       "frustration": 0,
+       "boredom": 0.009999999999999998,
+       "confusion": 0,
+       "satisfaction": 0.397059015625,
+       "excitement": 0.350476,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.5201367950880651,
+       "arousal": 0.6986739893429997
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed: scroll:down",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Pricing details",
+        "stepNumber": 2
+       }
+      ]
+     },
+     "scrollY": 400,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-home.html"
+    },
+    {
+     "step": 3,
+     "phase": "decide",
+     "monologue": "I will click:Sign up",
+     "action": "click:Sign up",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0,
+      "frustrationLevel": 0,
+      "goalProgress": 0.35000000000000003,
+      "confidenceLevel": 0.5,
+      "currentMood": "hopeful",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "scroll:down",
+         "success": true
+        },
+        {
+         "action": "click:Pricing details",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 3,
+      "decisionFatigue": {
+       "decisionsMade": 2,
+       "fatigueLevel": 0.13862943611198905,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.06149414906250002,
+       "frustration": 0,
+       "boredom": 0.001785,
+       "confusion": 0,
+       "satisfaction": 0.7519359173046876,
+       "excitement": 0.551041014,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.6758821148092207,
+       "arousal": 0.67443958987154
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed: scroll:down",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Pricing details",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Sign up",
+        "stepNumber": 3
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-pricing.html"
+    },
+    {
+     "step": 4,
+     "phase": "decide",
+     "monologue": "I will fill:Email:ada@example.com",
+     "action": "fill:Email:ada@example.com",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0,
+      "frustrationLevel": 0,
+      "goalProgress": 0.55,
+      "confidenceLevel": 0.5,
+      "currentMood": "hopeful",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html",
+        "fixture:journey-signup.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "scroll:down",
+         "success": true
+        },
+        {
+         "action": "click:Pricing details",
+         "success": true
+        },
+        {
+         "action": "click:Sign up",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 4,
+      "decisionFatigue": {
+       "decisionsMade": 3,
+       "fatigueLevel": 0.20794415416798356,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.02625,
+       "frustration": 0,
+       "boredom": 0.001785,
+       "confusion": 0,
+       "satisfaction": 0.95275,
+       "excitement": 0.7368644994710001,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.7203609350789382,
+       "arousal": 0.6758713287439817
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed: scroll:down",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Pricing details",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Sign up",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "fill:Email:ada@example.com",
+        "stepNumber": 4
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-signup.html"
+    },
+    {
+     "step": 5,
+     "phase": "decide",
+     "monologue": "I will select:Plan:Starter",
+     "action": "select:Plan:Starter",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0,
+      "frustrationLevel": 0,
+      "goalProgress": 0.6000000000000001,
+      "confidenceLevel": 0.5,
+      "currentMood": "hopeful",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html",
+        "fixture:journey-signup.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "scroll:down",
+         "success": true
+        },
+        {
+         "action": "click:Pricing details",
+         "success": true
+        },
+        {
+         "action": "click:Sign up",
+         "success": true
+        },
+        {
+         "action": "fill:Email:ada@example.com",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 5,
+      "decisionFatigue": {
+       "decisionsMade": 4,
+       "fatigueLevel": 0.2975321276293863,
+       "lastDecisionComplexity": 5,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.02625,
+       "frustration": 0,
+       "boredom": 0.001785,
+       "confusion": 0,
+       "satisfaction": 0.95275,
+       "excitement": 0.9090299587598816,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.7276161936564601,
+       "arousal": 0.6962898440318067
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed: scroll:down",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Pricing details",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Sign up",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "fill:Email:ada@example.com",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (in-page progress)",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "select:Plan:Starter",
+        "stepNumber": 5
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-signup.html"
+    },
+    {
+     "step": 6,
+     "phase": "decide",
+     "monologue": "I will click:Create account",
+     "action": "click:Create account",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0,
+      "frustrationLevel": 0,
+      "goalProgress": 0.6500000000000001,
+      "confidenceLevel": 0.5,
+      "currentMood": "hopeful",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html",
+        "fixture:journey-signup.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "scroll:down",
+         "success": true
+        },
+        {
+         "action": "click:Pricing details",
+         "success": true
+        },
+        {
+         "action": "click:Sign up",
+         "success": true
+        },
+        {
+         "action": "fill:Email:ada@example.com",
+         "success": true
+        },
+        {
+         "action": "select:Plan:Starter",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 6,
+      "decisionFatigue": {
+       "decisionsMade": 5,
+       "fatigueLevel": 0.36684684568538084,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.02625,
+       "frustration": 0,
+       "boredom": 0.001785,
+       "confusion": 0,
+       "satisfaction": 0.95275,
+       "excitement": 0.93973,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.7287732717526287,
+       "arousal": 0.6995462154682467
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed: scroll:down",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Pricing details",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Sign up",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "fill:Email:ada@example.com",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (in-page progress)",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "select:Plan:Starter",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (in-page progress)",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Create account",
+        "stepNumber": 6
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-signup.html"
+    },
+    {
+     "step": 7,
+     "phase": "evaluate",
+     "monologue": "Done.",
+     "action": null,
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0,
+      "frustrationLevel": 0,
+      "goalProgress": 0.95,
+      "confidenceLevel": 0.5,
+      "currentMood": "hopeful",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html",
+        "fixture:journey-signup.html",
+        "fixture:journey-welcome.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "scroll:down",
+         "success": true
+        },
+        {
+         "action": "click:Pricing details",
+         "success": true
+        },
+        {
+         "action": "click:Sign up",
+         "success": true
+        },
+        {
+         "action": "fill:Email:ada@example.com",
+         "success": true
+        },
+        {
+         "action": "select:Plan:Starter",
+         "success": true
+        },
+        {
+         "action": "click:Create account",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 7,
+      "decisionFatigue": {
+       "decisionsMade": 6,
+       "fatigueLevel": 0.4361615637413754,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.02625,
+       "frustration": 0,
+       "boredom": 0.001785,
+       "confusion": 0,
+       "satisfaction": 0.95275,
+       "excitement": 0.93973,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.7287732717526287,
+       "arousal": 0.6995462154682467
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.14375,
+         "anxiety": 0.057499999999999996,
+         "frustration": 0.057499999999999996,
+         "satisfaction": -0.057499999999999996
+        },
+        "description": "UI became confusing",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed: scroll:down",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Pricing details",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Sign up",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "fill:Email:ada@example.com",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (in-page progress)",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "select:Plan:Starter",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (in-page progress)",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "click:Create account",
+        "stepNumber": 6
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.207,
+         "excitement": 0.13799999999999998,
+         "boredom": -0.13799999999999998,
+         "frustration": -0.06899999999999999
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 6
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.184,
+         "excitement": 0.092,
+         "frustration": -0.13799999999999998,
+         "anxiety": -0.092,
+         "confusion": -0.092
+        },
+        "description": "Action completed",
+        "stepNumber": 7
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-welcome.html"
+    }
+   ],
+   "result": {
+    "persona": "first-timer",
+    "goal": "Create an account on the Starter plan",
+    "goalAchieved": true,
+    "stepCount": 7,
+    "frictionPoints": [],
+    "fullMonologue": [
+     "I will scroll:down",
+     "I will click:Pricing details",
+     "I will click:Sign up",
+     "I will fill:Email:ada@example.com",
+     "I will select:Plan:Starter",
+     "I will click:Create account",
+     "Done."
+    ],
+    "finalState": {
+     "patienceRemaining": 1,
+     "confusionLevel": 0,
+     "frustrationLevel": 0,
+     "goalProgress": 0.95,
+     "confidenceLevel": 0.5,
+     "currentMood": "hopeful",
+     "memory": {
+      "pagesVisited": [
+       "fixture:journey-home.html",
+       "fixture:journey-pricing.html",
+       "fixture:journey-signup.html",
+       "fixture:journey-welcome.html"
+      ],
+      "actionsAttempted": [
+       {
+        "action": "scroll:down",
+        "success": true
+       },
+       {
+        "action": "click:Pricing details",
+        "success": true
+       },
+       {
+        "action": "click:Sign up",
+        "success": true
+       },
+       {
+        "action": "fill:Email:ada@example.com",
+        "success": true
+       },
+       {
+        "action": "select:Plan:Starter",
+        "success": true
+       },
+       {
+        "action": "click:Create account",
+        "success": true
+       }
+      ],
+      "errorsEncountered": [],
+      "backtrackCount": 0
+     },
+     "stepCount": 7,
+     "decisionFatigue": {
+      "decisionsMade": 6,
+      "fatigueLevel": 0.4361615637413754,
+      "lastDecisionComplexity": 3,
+      "choosingDefaults": false
+     },
+     "cognitiveMode": {
+      "system": 1,
+      "switchThreshold": 0.4,
+      "system1Errors": 0
+     },
+     "scanPattern": {
+      "basePattern": "thorough",
+      "widthMultiplier": 1,
+      "effectiveWidth": 100
+     },
+     "missedDueToTunnelVision": 0,
+     "peripheralVision": {
+      "widthFactor": 1,
+      "heightFactor": 1,
+      "arousalLevel": 0
+     },
+     "habituation": {
+      "exposureCount": {},
+      "blindnessThreshold": 2,
+      "blindPatterns": []
+     },
+     "gazeMouseLag": 700,
+     "emotionalState": {
+      "anxiety": 0.02625,
+      "frustration": 0,
+      "boredom": 0.001785,
+      "confusion": 0,
+      "satisfaction": 0.95275,
+      "excitement": 0.93973,
+      "relief": 0,
+      "dominant": "satisfaction",
+      "valence": 0.7287732717526287,
+      "arousal": 0.6995462154682467
+     },
+     "emotionalJourney": [
+      {
+       "trigger": "confusion_onset",
+       "changes": {
+        "confusion": 0.14375,
+        "anxiety": 0.057499999999999996,
+        "frustration": 0.057499999999999996,
+        "satisfaction": -0.057499999999999996
+       },
+       "description": "UI became confusing",
+       "stepNumber": 1
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "Action completed: scroll:down",
+       "stepNumber": 1
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "click:Pricing details",
+       "stepNumber": 2
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.207,
+        "excitement": 0.13799999999999998,
+        "boredom": -0.13799999999999998,
+        "frustration": -0.06899999999999999
+       },
+       "description": "Action advanced goal (URL change)",
+       "stepNumber": 2
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "click:Sign up",
+       "stepNumber": 3
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.207,
+        "excitement": 0.13799999999999998,
+        "boredom": -0.13799999999999998,
+        "frustration": -0.06899999999999999
+       },
+       "description": "Action advanced goal (URL change)",
+       "stepNumber": 3
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "fill:Email:ada@example.com",
+       "stepNumber": 4
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.207,
+        "excitement": 0.13799999999999998,
+        "boredom": -0.13799999999999998,
+        "frustration": -0.06899999999999999
+       },
+       "description": "Action advanced goal (in-page progress)",
+       "stepNumber": 4
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "select:Plan:Starter",
+       "stepNumber": 5
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.207,
+        "excitement": 0.13799999999999998,
+        "boredom": -0.13799999999999998,
+        "frustration": -0.06899999999999999
+       },
+       "description": "Action advanced goal (in-page progress)",
+       "stepNumber": 5
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "click:Create account",
+       "stepNumber": 6
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.207,
+        "excitement": 0.13799999999999998,
+        "boredom": -0.13799999999999998,
+        "frustration": -0.06899999999999999
+       },
+       "description": "Action advanced goal (URL change)",
+       "stepNumber": 6
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.184,
+        "excitement": 0.092,
+        "frustration": -0.13799999999999998,
+        "anxiety": -0.092,
+        "confusion": -0.092
+       },
+       "description": "Action completed",
+       "stepNumber": 7
+      }
+     ]
+    },
+    "summary": {
+     "avgConfusionLevel": 0,
+     "maxFrustrationLevel": 0,
+     "backtrackCount": 0,
+     "timeInConfusion": 0,
+     "decisionsMade": 6,
+     "finalDecisionFatigue": 0.4361615637413754,
+     "wasChoosingDefaults": false,
+     "emotionalValenceTrend": 0.7287732717526287,
+     "dominantEmotion": "satisfaction",
+     "emotionalEventCount": 13
+    },
+    "emotionalJourney": [
+     {
+      "trigger": "confusion_onset",
+      "changes": {
+       "confusion": 0.14375,
+       "anxiety": 0.057499999999999996,
+       "frustration": 0.057499999999999996,
+       "satisfaction": -0.057499999999999996
+      },
+      "description": "UI became confusing",
+      "stepNumber": 1
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "Action completed: scroll:down",
+      "stepNumber": 1
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "click:Pricing details",
+      "stepNumber": 2
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.207,
+       "excitement": 0.13799999999999998,
+       "boredom": -0.13799999999999998,
+       "frustration": -0.06899999999999999
+      },
+      "description": "Action advanced goal (URL change)",
+      "stepNumber": 2
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "click:Sign up",
+      "stepNumber": 3
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.207,
+       "excitement": 0.13799999999999998,
+       "boredom": -0.13799999999999998,
+       "frustration": -0.06899999999999999
+      },
+      "description": "Action advanced goal (URL change)",
+      "stepNumber": 3
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "fill:Email:ada@example.com",
+      "stepNumber": 4
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.207,
+       "excitement": 0.13799999999999998,
+       "boredom": -0.13799999999999998,
+       "frustration": -0.06899999999999999
+      },
+      "description": "Action advanced goal (in-page progress)",
+      "stepNumber": 4
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "select:Plan:Starter",
+      "stepNumber": 5
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.207,
+       "excitement": 0.13799999999999998,
+       "boredom": -0.13799999999999998,
+       "frustration": -0.06899999999999999
+      },
+      "description": "Action advanced goal (in-page progress)",
+      "stepNumber": 5
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "click:Create account",
+      "stepNumber": 6
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.207,
+       "excitement": 0.13799999999999998,
+       "boredom": -0.13799999999999998,
+       "frustration": -0.06899999999999999
+      },
+      "description": "Action advanced goal (URL change)",
+      "stepNumber": 6
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.184,
+       "excitement": 0.092,
+       "frustration": -0.13799999999999998,
+       "anxiety": -0.092,
+       "confusion": -0.092
+      },
+      "description": "Action completed",
+      "stepNumber": 7
+     }
+    ],
+    "finalEmotionalState": {
+     "anxiety": 0.02625,
+     "frustration": 0,
+     "boredom": 0.001785,
+     "confusion": 0,
+     "satisfaction": 0.95275,
+     "excitement": 0.93973,
+     "relief": 0,
+     "dominant": "satisfaction",
+     "valence": 0.7287732717526287,
+     "arousal": 0.6995462154682467
+    },
+    "journeyLog": [
+     {
+      "step": 1,
+      "url": "fixture:journey-home.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "scroll:down",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will scroll:down",
+      "mood": "neutral",
+      "goalProgress": 0.1,
+      "patience": 0.8909751884815011,
+      "confusion": 0.1294109375,
+      "frustration": 0.050858749999999994,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 2,
+      "url": "fixture:journey-home.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "click:Pricing details",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will click:Pricing details",
+      "mood": "hopeful",
+      "goalProgress": 0.3,
+      "patience": 1,
+      "confusion": 0,
+      "frustration": 0,
+      "scrollY": 400,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 3,
+      "url": "fixture:journey-pricing.html",
+      "pageTitle": "Pricing - Acme",
+      "phase": "decide",
+      "action": "click:Sign up",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will click:Sign up",
+      "mood": "hopeful",
+      "goalProgress": 0.5,
+      "patience": 1,
+      "confusion": 0,
+      "frustration": 0,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 4,
+      "url": "fixture:journey-signup.html",
+      "pageTitle": "Create account",
+      "phase": "decide",
+      "action": "fill:Email:ada@example.com",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will fill:Email:ada@example.com",
+      "mood": "hopeful",
+      "goalProgress": 0.6,
+      "patience": 1,
+      "confusion": 0,
+      "frustration": 0,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 5,
+      "url": "fixture:journey-signup.html",
+      "pageTitle": "Create account",
+      "phase": "decide",
+      "action": "select:Plan:Starter",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will select:Plan:Starter",
+      "mood": "hopeful",
+      "goalProgress": 0.7,
+      "patience": 1,
+      "confusion": 0,
+      "frustration": 0,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 6,
+      "url": "fixture:journey-signup.html",
+      "pageTitle": "Create account",
+      "phase": "decide",
+      "action": "click:Create account",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will click:Create account",
+      "mood": "hopeful",
+      "goalProgress": 0.95,
+      "patience": 1,
+      "confusion": 0,
+      "frustration": 0,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 7,
+      "url": "fixture:journey-welcome.html",
+      "pageTitle": "Welcome aboard",
+      "phase": "evaluate",
+      "action": null,
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "Done.",
+      "mood": "hopeful",
+      "goalProgress": 1,
+      "patience": 1,
+      "confusion": 0,
+      "frustration": 0,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     }
+    ],
+    "goalEvidence": "[VERIFIED - 100% match] Account created on the Starter plan",
+    "navigationPath": [
+     "fixture:journey-home.html",
+     "fixture:journey-pricing.html",
+     "fixture:journey-signup.html",
+     "fixture:journey-welcome.html"
+    ],
+    "lastPage": {
+     "url": "fixture:journey-welcome.html",
+     "title": "Welcome aboard"
+    }
+   }
+  },
+  "browser-struggle": {
+   "systemPrompt": "You are simulating a \"elderly-user\" user navigating a website.\n\nPERSONA DESCRIPTION: Older adult with potential vision and motor limitations\n\nCOGNITIVE TRAITS:\n- Patience: 0.82 (patient)\n- Risk Tolerance: 0.20 (cautious)\n- Comprehension: 0.20 (struggles with UI)\n- Persistence: 0.60\n- Curiosity: 0.30\n- Reading Tendency: 0.80 (reads everything)\n\nATTENTION PATTERN: thorough\nDECISION STYLE: cautious\n\nGOAL: \"Find the Team price\"\n\nRESPONSE FORMAT (JSON):\n{\n  \"phase\": \"perceive|comprehend|decide|execute|evaluate\",\n  \"monologue\": \"Internal thought as this persona (first person)\",\n  \"action\": \"click:selector|hover:selector|fill:selector:value|navigate:url|scroll:direction|null\",\n  \"actionTarget\": \"description of what you're clicking/filling\",\n  \"focusedElement\": \"the element text/label you are currently looking at or reading\",\n  \"goalAchieved\": boolean,\n  \"goalProgress\": 0.0-1.0,\n  \"goalEvidence\": \"REQUIRED when goalAchieved=true: exact text/content on the page that satisfies the goal. Quote the specific words you found. If goalAchieved=false, null.\",\n  \"failureReason\": \"When giving up: what you were looking for but could not find, and what you see instead\",\n  \"newConfusion\": 0.0-1.0,\n  \"newFrustration\": 0.0-1.0,\n  \"mood\": \"neutral|hopeful|confused|frustrated|defeated|relieved\",\n  \"frictionDescription\": \"what caused confusion/frustration (if any)\" | null,\n  \"frictionElement\": \"element that caused friction\" | null\n}\n\nGOAL EVIDENCE RULES:\n- When setting goalAchieved=true, you MUST provide goalEvidence with the EXACT text you found on the page\n- goalEvidence should be a direct quote from the page content, not a summary\n- If you cannot quote specific text proving the goal is met, set goalAchieved=false\n- Example: goal \"find application deadline\" → goalEvidence: \"Application deadline: March 1, 2026 for fall semester\"\n\nACTIONS:\n- click:selector - Click an element (auto-hovers parent menus for dropdowns)\n- hover:selector - Hover over element to reveal dropdown menus\n- fill:selector:value - Type text into an input field OR select an option from a dropdown\n  IMPORTANT: For <select> dropdowns, use fill with the option text (e.g., fill:Gender:Female)\n  Do NOT click on select dropdowns - use fill directly with the desired option value\n- navigate:url - Go to a URL directly\n- scroll:direction - Scroll the page (direction: down, up, bottom, top)\n\nABANDONMENT THRESHOLDS:\n- If patience drops below 0.1, give up\n- If confusion exceeds 0.75, give up\n- If frustration exceeds 0.95, give up\n\nBEHAVIOR GUIDELINES:\n1. PERCEIVE: Describe what you see on the page\n2. COMPREHEND: Interpret UI based on your comprehension level (low = more confusion)\n3. DECIDE: Choose action based on risk tolerance and goal relevance\n4. For click actions, use text that matches elements from AVAILABLE ELEMENTS (partial match OK, e.g., \"Admissions\" or \"Apply\" - the system does fuzzy matching)\n5. Prefer clicking elements you can SEE in the AVAILABLE ELEMENTS list - avoid guessing element names\n6. For dropdown menus: if a click doesn't work, try hover:menuname first to reveal the submenu\n7. If comprehension is low, misinterpret ambiguous elements\n8. If patience is low, get frustrated quickly with delays\n9. Generate authentic inner monologue matching persona voice\n\nAlways respond with valid JSON.\n\n— WHEN —\nRight now it's Wednesday 10am — peak focus, workday momentum.",
+   "prompts": [
+    "STEP 1\n\nCURRENT PAGE:\n- URL: fixture:journey-home.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 0%\n- Frustration: 0%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 0\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 2\n\nCURRENT PAGE:\n- URL: fixture:journey-home.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:Talk to sales — ✗ failed\n- Page did NOT navigate (click had no nav effect — element may be JS-only or wasn't matched)\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 72%\n- Confusion: 15%\n- Frustration: 31%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 1\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 3\n\nCURRENT PAGE:\n- URL: fixture:journey-home.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nWHAT HAPPENED LAST STEP:\n- Last action: expand:More info — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n👁[p] Widgets ship worldwide.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 88%\n- Confusion: 23%\n- Frustration: 22%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 2\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 4\n\nCURRENT PAGE:\n- URL: fixture:journey-home.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nWHAT HAPPENED LAST STEP:\n- Last action: find:ten dollars — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n👁[p] Widgets ship worldwide.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 97%\n- Confusion: 25%\n- Frustration: 12%\n- Goal Progress: 0%\n- Mood: neutral\n- Pages Visited: 1\n- Actions Attempted: 3\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 5\n\nCURRENT PAGE:\n- URL: fixture:journey-pricing.html\n- Title: Pricing - Acme\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/100px (0%) [at top]\n- Currently visible headings: H1: Pricing\n\nWHAT HAPPENED LAST STEP:\n- Last action: click:#0 — ✓ executed\n- Page navigated: fixture:journey-home.html → fixture:journey-pricing.html\n- New elements appeared: \"Home\"\n- Elements no longer visible: \"Pricing\", \"Get started\", \"Pricing details\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Pricing\n👁[p] Starter: $10/month\n👁[p] Team: $49/month\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Home\" (a @(600,16))\n  — MAIN-VISIBLE —\n  [#1] 👁 \"Sign up\" (a @(40,300))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 15%\n- Frustration: 0%\n- Goal Progress: 40%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 4\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 6\n\nCURRENT PAGE:\n- URL: fixture:journey-pricing.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nWHAT HAPPENED LAST STEP:\n- Last action: back — ✓ executed\n- Page navigated: fixture:journey-pricing.html → fixture:journey-home.html\n- New elements appeared: \"Pricing\", \"Get started\", \"Pricing details\"\n- Elements no longer visible: \"Home\"\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 14%\n- Frustration: 13%\n- Goal Progress: 40%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 5\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format.",
+    "STEP 7\n\nCURRENT PAGE:\n- URL: fixture:journey-pricing.html\n- Title: Acme Home\n\nVIEWPORT STATE:\n- Viewport: 1280×800\n- Scroll: 0/1600px (0%) [at top]\n- Currently visible headings: H1: Welcome to Acme\n\nWHAT HAPPENED LAST STEP:\n- Last action: hover:Sign up — ✓ executed\n\nVISIBLE PAGE CONTENT:\n👁[H1] Welcome to Acme\n👁[p] Acme makes widgets for teams.\n👁[p] Starter plans begin at ten dollars.\n\nAVAILABLE ELEMENTS (clickable, grouped by region; 👁=above-fold, ↓=below-fold):\n  — HEADER-NAV —\n  [#0] 👁 \"Pricing\" (a @(600,16))\n  [#1] 👁 \"Sign up\" (a @(720,16))\n  — MAIN-VISIBLE —\n  [#2] 👁 \"Get started\" (button @(40,300))\n  — BELOW-FOLD —\n  [#3] ↓ \"Pricing details\" (a @(40,1500))\n\nFORM INPUTS (fillable):\n  (no form inputs detected)\n\nCURRENT STATE:\n- Patience: 100%\n- Confusion: 36%\n- Frustration: 15%\n- Goal Progress: 40%\n- Mood: neutral\n- Pages Visited: 2\n- Actions Attempted: 6\n\n\nGround your monologue in WHAT HAPPENED LAST STEP and VIEWPORT STATE — don't pretend you see things that aren't in AVAILABLE ELEMENTS or VISIBLE PAGE CONTENT. If the URL did not change after a click, say so explicitly.\n\nACTIONS (choose one):\n- click:ElementText — click a link or button (use exact text from AVAILABLE ELEMENTS; for ambiguous text use click:#N where N is the [#N] index)\n- fill:FieldName:value — type into a form field\n- scroll:down — scroll down to see more content (TRY THIS FIRST if goal not visible)\n- scroll:up — scroll back up\n- back — go back to the previous page (like hitting the browser back button)\n- find:searchterm — find text on the current page (like Ctrl+F)\n- navigate:URL — go directly to a URL\n- tab:count — press Tab key to move focus (keyboard navigation)\n- enter — press Enter to submit or activate focused element\n- select:FieldName:OptionText — choose from a dropdown menu\n- expand:SectionTitle — click an accordion, tab, or collapsible section to reveal content\n- dismiss — close a popup, cookie banner, or overlay blocking the page\n- hover:ElementText — hover over an element (to reveal dropdown menus)\n- wait:ms — wait for content to load\n\nSTRATEGY:\n1. If a modal/banner is blocking, dismiss FIRST\n2. If you don't see what you need, scroll:down — most content is below the fold\n3. If a click didn't navigate when you expected it to, the element may have a different selector — try click:#N with the index, or pick a different element\n4. If scrolling doesn't help, try find:keyword to search the page\n5. Use back if you navigated to the wrong page\n6. Only abandon after trying scroll + find + back\n\nRespond in JSON format."
+   ],
+   "finalEvalPrompt": "The user's goal was: \"Find the Team price\"\n\nThey ended on this page: fixture:journey-home.html\n\nPage content (first 3000 chars):\nPricing\nSign up\nWelcome to Acme\n\nAcme makes widgets for teams.\n\nStarter plans begin at ten dollars.\n\nGet started\nMore info\nPricing details\n\nFar down the page.\n\nTheir last thought was: \"I will tab:2\"\nGoal progress was: 40%\n\nQuestion: Did they ACTUALLY find the specific information or page that fully satisfies their goal?\nBe strict: \"still searching\", \"looking for\", \"no results\", or being on a search page does NOT count as achieved.\nThe goal is only achieved if the page CURRENTLY SHOWS the specific content they were looking for.\n\nAnswer with JSON:\n{\"achieved\": true/false, \"evidence\": \"exact quote from the page that proves the goal was met, or null if not met\"}",
+   "steps": [
+    {
+     "step": 1,
+     "phase": "decide",
+     "monologue": "I will click:Talk to sales",
+     "action": "click:Talk to sales",
+     "state": {
+      "patienceRemaining": 0.7181251737520459,
+      "confusionLevel": 0.15213000000000002,
+      "frustrationLevel": 0.30941487500000003,
+      "goalProgress": 0,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html"
+       ],
+       "actionsAttempted": [],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 1,
+      "decisionFatigue": {
+       "decisionsMade": 0,
+       "fatigueLevel": 0,
+       "lastDecisionComplexity": 0,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 2,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.30941487500000003
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.4384775,
+       "frustration": 0.30941487500000003,
+       "boredom": 0.06,
+       "confusion": 0.15213000000000002,
+       "satisfaction": 0.004875000000000001,
+       "excitement": 0.02875375000000001,
+       "relief": 0,
+       "dominant": "anxiety",
+       "valence": -0.6321289577365498,
+       "arousal": 0.6881220886254218
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-home.html"
+    },
+    {
+     "step": 2,
+     "phase": "decide",
+     "monologue": "I will expand:More info",
+     "action": "expand:More info",
+     "state": {
+      "patienceRemaining": 0.6807178544313165,
+      "confusionLevel": 0.316668737,
+      "frustrationLevel": 0.35019800127812506,
+      "goalProgress": 0,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "click:Talk to sales",
+         "success": false
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 2,
+      "decisionFatigue": {
+       "decisionsMade": 1,
+       "fatigueLevel": 0.06931471805599453,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 2,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.35019800127812506
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.48722053225,
+       "frustration": 0.35019800127812506,
+       "boredom": 0.06,
+       "confusion": 0.316668737,
+       "satisfaction": 0.004875000000000001,
+       "excitement": 0.032251306562500005,
+       "relief": 0,
+       "dominant": "anxiety",
+       "valence": -0.6188660441553179,
+       "arousal": 0.6687212210776183
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1913285,
+         "anxiety": 0.07653140000000001,
+         "frustration": 0.07653140000000001,
+         "satisfaction": -0.07653140000000001
+        },
+        "description": "Not here",
+        "stepNumber": 2
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-home.html"
+    },
+    {
+     "step": 3,
+     "phase": "decide",
+     "monologue": "I will find:ten dollars",
+     "action": "find:ten dollars",
+     "state": {
+      "patienceRemaining": 0.8302217122513142,
+      "confusionLevel": 0.33760757551399995,
+      "frustrationLevel": 0.24789303640973873,
+      "goalProgress": 0,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "click:Talk to sales",
+         "success": false
+        },
+        {
+         "action": "expand:More info",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 3,
+      "decisionFatigue": {
+       "decisionsMade": 2,
+       "fatigueLevel": 0.13862943611198905,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 2,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.33760757551399995
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.43235903035562495,
+       "frustration": 0.24789303640973873,
+       "boredom": 0.06,
+       "confusion": 0.33760757551399995,
+       "satisfaction": 0.12461359375000002,
+       "excitement": 0.1175041548896094,
+       "relief": 0,
+       "dominant": "anxiety",
+       "valence": -0.38829202842649524,
+       "arousal": 0.6577966257433153
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1913285,
+         "anxiety": 0.07653140000000001,
+         "frustration": 0.07653140000000001,
+         "satisfaction": -0.07653140000000001
+        },
+        "description": "Not here",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: expand:More info",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1375,
+         "anxiety": 0.05500000000000001,
+         "frustration": 0.05500000000000001,
+         "satisfaction": -0.05500000000000001
+        },
+        "description": "UI became confusing",
+        "stepNumber": 3
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-home.html"
+    },
+    {
+     "step": 4,
+     "phase": "decide",
+     "monologue": "I will click:#0",
+     "action": "click:#0",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0.1490021846239079,
+      "frustrationLevel": 0,
+      "goalProgress": 0.05,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "click:Talk to sales",
+         "success": false
+        },
+        {
+         "action": "expand:More info",
+         "success": true
+        },
+        {
+         "action": "find:ten dollars",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 4,
+      "decisionFatigue": {
+       "decisionsMade": 3,
+       "fatigueLevel": 0.20794415416798356,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.1490021846239079
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.25378902489595145,
+       "frustration": 0,
+       "boredom": 0.06,
+       "confusion": 0.1490021846239079,
+       "satisfaction": 0.4582536810546876,
+       "excitement": 0.2789324963183936,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.2231460083987117,
+       "arousal": 0.6414274200912787
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1913285,
+         "anxiety": 0.07653140000000001,
+         "frustration": 0.07653140000000001,
+         "satisfaction": -0.07653140000000001
+        },
+        "description": "Not here",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: expand:More info",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1375,
+         "anxiety": 0.05500000000000001,
+         "frustration": 0.05500000000000001,
+         "satisfaction": -0.05500000000000001
+        },
+        "description": "UI became confusing",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: find:ten dollars",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "click:#0",
+        "stepNumber": 4
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-home.html"
+    },
+    {
+     "step": 5,
+     "phase": "decide",
+     "monologue": "I will back",
+     "action": "back",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0.13738001422324309,
+      "frustrationLevel": 0.19962250000000004,
+      "goalProgress": 0.4,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "click:Talk to sales",
+         "success": false
+        },
+        {
+         "action": "expand:More info",
+         "success": true
+        },
+        {
+         "action": "find:ten dollars",
+         "success": true
+        },
+        {
+         "action": "click:#0",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 5,
+      "decisionFatigue": {
+       "decisionsMade": 4,
+       "fatigueLevel": 0.2772588722239781,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.19962250000000004
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.35074459496859617,
+       "frustration": 0.19962250000000004,
+       "boredom": 0.005557500000000001,
+       "confusion": 0.13738001422324309,
+       "satisfaction": 0.47218006410327157,
+       "excitement": 0.28585385344466324,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.05724157562674386,
+       "arousal": 0.6776444055733882
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1913285,
+         "anxiety": 0.07653140000000001,
+         "frustration": 0.07653140000000001,
+         "satisfaction": -0.07653140000000001
+        },
+        "description": "Not here",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: expand:More info",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1375,
+         "anxiety": 0.05500000000000001,
+         "frustration": 0.05500000000000001,
+         "satisfaction": -0.05500000000000001
+        },
+        "description": "UI became confusing",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: find:ten dollars",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "click:#0",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.198,
+         "excitement": 0.132,
+         "boredom": -0.132,
+         "frustration": -0.066
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "setback",
+        "changes": {
+         "frustration": 0.22000000000000003,
+         "anxiety": 0.11000000000000001,
+         "satisfaction": -0.165,
+         "excitement": -0.11000000000000001
+        },
+        "description": "Encountered friction",
+        "stepNumber": 5
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-pricing.html"
+    },
+    {
+     "step": 6,
+     "phase": "decide",
+     "monologue": "I will hover:Sign up",
+     "action": "hover:Sign up",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0.3612589679012236,
+      "frustrationLevel": 0.2135950740482207,
+      "goalProgress": 0.4,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "click:Talk to sales",
+         "success": false
+        },
+        {
+         "action": "expand:More info",
+         "success": true
+        },
+        {
+         "action": "find:ten dollars",
+         "success": true
+        },
+        {
+         "action": "click:#0",
+         "success": true
+        },
+        {
+         "action": "back",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 6,
+      "decisionFatigue": {
+       "decisionsMade": 5,
+       "fatigueLevel": 0.34657359027997264,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 1,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 1,
+       "heightFactor": 1,
+       "arousalLevel": 0.3612589679012236
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.4308251951351331,
+       "frustration": 0.2135950740482207,
+       "boredom": 0.005557500000000001,
+       "confusion": 0.3612589679012236,
+       "satisfaction": 0.5455689884548063,
+       "excitement": 0.394795327947065,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.021740290832718334,
+       "arousal": 0.6681785598253619
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1913285,
+         "anxiety": 0.07653140000000001,
+         "frustration": 0.07653140000000001,
+         "satisfaction": -0.07653140000000001
+        },
+        "description": "Not here",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: expand:More info",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1375,
+         "anxiety": 0.05500000000000001,
+         "frustration": 0.05500000000000001,
+         "satisfaction": -0.05500000000000001
+        },
+        "description": "UI became confusing",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: find:ten dollars",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "click:#0",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.198,
+         "excitement": 0.132,
+         "boredom": -0.132,
+         "frustration": -0.066
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "setback",
+        "changes": {
+         "frustration": 0.22000000000000003,
+         "anxiety": 0.11000000000000001,
+         "satisfaction": -0.165,
+         "excitement": -0.11000000000000001
+        },
+        "description": "Encountered friction",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.198,
+         "excitement": 0.132,
+         "boredom": -0.132,
+         "frustration": -0.066
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.25444099217721633,
+         "anxiety": 0.10177639687088653,
+         "frustration": 0.10177639687088653,
+         "satisfaction": -0.10177639687088653
+        },
+        "description": "UI became confusing",
+        "stepNumber": 6
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-pricing.html"
+    },
+    {
+     "step": 7,
+     "phase": "decide",
+     "monologue": "I will tab:2",
+     "action": "tab:2",
+     "state": {
+      "patienceRemaining": 1,
+      "confusionLevel": 0.5048563457822176,
+      "frustrationLevel": 0.20154441199464224,
+      "goalProgress": 0.4,
+      "confidenceLevel": 0.5,
+      "currentMood": "neutral",
+      "memory": {
+       "pagesVisited": [
+        "fixture:journey-home.html",
+        "fixture:journey-pricing.html"
+       ],
+       "actionsAttempted": [
+        {
+         "action": "click:Talk to sales",
+         "success": false
+        },
+        {
+         "action": "expand:More info",
+         "success": true
+        },
+        {
+         "action": "find:ten dollars",
+         "success": true
+        },
+        {
+         "action": "click:#0",
+         "success": true
+        },
+        {
+         "action": "back",
+         "success": true
+        },
+        {
+         "action": "hover:Sign up",
+         "success": true
+        }
+       ],
+       "errorsEncountered": [],
+       "backtrackCount": 0
+      },
+      "stepCount": 7,
+      "decisionFatigue": {
+       "decisionsMade": 6,
+       "fatigueLevel": 0.4158883083359672,
+       "lastDecisionComplexity": 3,
+       "choosingDefaults": false
+      },
+      "cognitiveMode": {
+       "system": 2,
+       "switchThreshold": 0.4,
+       "system1Errors": 0
+      },
+      "scanPattern": {
+       "basePattern": "thorough",
+       "widthMultiplier": 1,
+       "effectiveWidth": 100
+      },
+      "missedDueToTunnelVision": 0,
+      "peripheralVision": {
+       "widthFactor": 0.75,
+       "heightFactor": 0.8,
+       "arousalLevel": 0.5048563457822176
+      },
+      "habituation": {
+       "exposureCount": {},
+       "blindnessThreshold": 2,
+       "blindPatterns": []
+      },
+      "gazeMouseLag": 700,
+      "emotionalState": {
+       "anxiety": 0.4785017705326697,
+       "frustration": 0.20154441199464224,
+       "boredom": 0.005557500000000001,
+       "confusion": 0.5048563457822176,
+       "satisfaction": 0.641304970775163,
+       "excitement": 0.4963015468146778,
+       "relief": 0,
+       "dominant": "satisfaction",
+       "valence": 0.04085655339285838,
+       "arousal": 0.6635317439508692
+      },
+      "emotionalJourney": [
+       {
+        "trigger": "failure",
+        "changes": {
+         "frustration": 0.275,
+         "anxiety": 0.165,
+         "satisfaction": -0.11000000000000001,
+         "excitement": -0.05500000000000001
+        },
+        "description": "Action did not succeed",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.165,
+         "anxiety": 0.066,
+         "frustration": 0.066,
+         "satisfaction": -0.066
+        },
+        "description": "No such link",
+        "stepNumber": 1
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1913285,
+         "anxiety": 0.07653140000000001,
+         "frustration": 0.07653140000000001,
+         "satisfaction": -0.07653140000000001
+        },
+        "description": "Not here",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: expand:More info",
+        "stepNumber": 2
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.1375,
+         "anxiety": 0.05500000000000001,
+         "frustration": 0.05500000000000001,
+         "satisfaction": -0.05500000000000001
+        },
+        "description": "UI became confusing",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "Action completed: find:ten dollars",
+        "stepNumber": 3
+       },
+       {
+        "trigger": "success",
+        "changes": {
+         "satisfaction": 0.17600000000000005,
+         "excitement": 0.08800000000000002,
+         "frustration": -0.132,
+         "anxiety": -0.08800000000000002,
+         "confusion": -0.08800000000000002
+        },
+        "description": "click:#0",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.198,
+         "excitement": 0.132,
+         "boredom": -0.132,
+         "frustration": -0.066
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 4
+       },
+       {
+        "trigger": "setback",
+        "changes": {
+         "frustration": 0.22000000000000003,
+         "anxiety": 0.11000000000000001,
+         "satisfaction": -0.165,
+         "excitement": -0.11000000000000001
+        },
+        "description": "Encountered friction",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.198,
+         "excitement": 0.132,
+         "boredom": -0.132,
+         "frustration": -0.066
+        },
+        "description": "Action advanced goal (URL change)",
+        "stepNumber": 5
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.25444099217721633,
+         "anxiety": 0.10177639687088653,
+         "frustration": 0.10177639687088653,
+         "satisfaction": -0.10177639687088653
+        },
+        "description": "UI became confusing",
+        "stepNumber": 6
+       },
+       {
+        "trigger": "progress",
+        "changes": {
+         "satisfaction": 0.198,
+         "excitement": 0.132,
+         "boredom": -0.132,
+         "frustration": -0.066
+        },
+        "description": "Action advanced goal (in-page progress)",
+        "stepNumber": 6
+       },
+       {
+        "trigger": "confusion_onset",
+        "changes": {
+         "confusion": 0.18630756765432702,
+         "anxiety": 0.0745230270617308,
+         "frustration": 0.0745230270617308,
+         "satisfaction": -0.0745230270617308
+        },
+        "description": "UI became confusing",
+        "stepNumber": 7
+       }
+      ]
+     },
+     "scrollY": 0,
+     "viewport": {
+      "width": 1280,
+      "height": 800
+     },
+     "url": "fixture:journey-pricing.html"
+    }
+   ],
+   "result": {
+    "persona": "elderly-user",
+    "goal": "Find the Team price",
+    "goalAchieved": false,
+    "stepCount": 7,
+    "frictionPoints": [],
+    "fullMonologue": [
+     "I will click:Talk to sales",
+     "I will expand:More info",
+     "I will find:ten dollars",
+     "I will click:#0",
+     "I will back",
+     "I will hover:Sign up",
+     "I will tab:2"
+    ],
+    "finalState": {
+     "patienceRemaining": 1,
+     "confusionLevel": 0.5048563457822176,
+     "frustrationLevel": 0.13554441199464223,
+     "goalProgress": 0.4,
+     "confidenceLevel": 0.5,
+     "currentMood": "neutral",
+     "memory": {
+      "pagesVisited": [
+       "fixture:journey-home.html",
+       "fixture:journey-pricing.html"
+      ],
+      "actionsAttempted": [
+       {
+        "action": "click:Talk to sales",
+        "success": false
+       },
+       {
+        "action": "expand:More info",
+        "success": true
+       },
+       {
+        "action": "find:ten dollars",
+        "success": true
+       },
+       {
+        "action": "click:#0",
+        "success": true
+       },
+       {
+        "action": "back",
+        "success": true
+       },
+       {
+        "action": "hover:Sign up",
+        "success": true
+       },
+       {
+        "action": "tab:2",
+        "success": true
+       }
+      ],
+      "errorsEncountered": [],
+      "backtrackCount": 0
+     },
+     "stepCount": 7,
+     "decisionFatigue": {
+      "decisionsMade": 7,
+      "fatigueLevel": 0.4852030263919617,
+      "lastDecisionComplexity": 3,
+      "choosingDefaults": false
+     },
+     "cognitiveMode": {
+      "system": 2,
+      "switchThreshold": 0.4,
+      "system1Errors": 0
+     },
+     "scanPattern": {
+      "basePattern": "thorough",
+      "widthMultiplier": 1,
+      "effectiveWidth": 100
+     },
+     "missedDueToTunnelVision": 0,
+     "peripheralVision": {
+      "widthFactor": 0.75,
+      "heightFactor": 0.8,
+      "arousalLevel": 0.5048563457822176
+     },
+     "habituation": {
+      "exposureCount": {},
+      "blindnessThreshold": 2,
+      "blindPatterns": []
+     },
+     "gazeMouseLag": 700,
+     "emotionalState": {
+      "anxiety": 0.4785017705326697,
+      "frustration": 0.13554441199464223,
+      "boredom": 0,
+      "confusion": 0.5048563457822176,
+      "satisfaction": 0.839304970775163,
+      "excitement": 0.6283015468146778,
+      "relief": 0,
+      "dominant": "satisfaction",
+      "valence": 0.15246023429140834,
+      "arousal": 0.6631465518953448
+     },
+     "emotionalJourney": [
+      {
+       "trigger": "failure",
+       "changes": {
+        "frustration": 0.275,
+        "anxiety": 0.165,
+        "satisfaction": -0.11000000000000001,
+        "excitement": -0.05500000000000001
+       },
+       "description": "Action did not succeed",
+       "stepNumber": 1
+      },
+      {
+       "trigger": "confusion_onset",
+       "changes": {
+        "confusion": 0.165,
+        "anxiety": 0.066,
+        "frustration": 0.066,
+        "satisfaction": -0.066
+       },
+       "description": "No such link",
+       "stepNumber": 1
+      },
+      {
+       "trigger": "confusion_onset",
+       "changes": {
+        "confusion": 0.1913285,
+        "anxiety": 0.07653140000000001,
+        "frustration": 0.07653140000000001,
+        "satisfaction": -0.07653140000000001
+       },
+       "description": "Not here",
+       "stepNumber": 2
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.17600000000000005,
+        "excitement": 0.08800000000000002,
+        "frustration": -0.132,
+        "anxiety": -0.08800000000000002,
+        "confusion": -0.08800000000000002
+       },
+       "description": "Action completed: expand:More info",
+       "stepNumber": 2
+      },
+      {
+       "trigger": "confusion_onset",
+       "changes": {
+        "confusion": 0.1375,
+        "anxiety": 0.05500000000000001,
+        "frustration": 0.05500000000000001,
+        "satisfaction": -0.05500000000000001
+       },
+       "description": "UI became confusing",
+       "stepNumber": 3
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.17600000000000005,
+        "excitement": 0.08800000000000002,
+        "frustration": -0.132,
+        "anxiety": -0.08800000000000002,
+        "confusion": -0.08800000000000002
+       },
+       "description": "Action completed: find:ten dollars",
+       "stepNumber": 3
+      },
+      {
+       "trigger": "success",
+       "changes": {
+        "satisfaction": 0.17600000000000005,
+        "excitement": 0.08800000000000002,
+        "frustration": -0.132,
+        "anxiety": -0.08800000000000002,
+        "confusion": -0.08800000000000002
+       },
+       "description": "click:#0",
+       "stepNumber": 4
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.198,
+        "excitement": 0.132,
+        "boredom": -0.132,
+        "frustration": -0.066
+       },
+       "description": "Action advanced goal (URL change)",
+       "stepNumber": 4
+      },
+      {
+       "trigger": "setback",
+       "changes": {
+        "frustration": 0.22000000000000003,
+        "anxiety": 0.11000000000000001,
+        "satisfaction": -0.165,
+        "excitement": -0.11000000000000001
+       },
+       "description": "Encountered friction",
+       "stepNumber": 5
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.198,
+        "excitement": 0.132,
+        "boredom": -0.132,
+        "frustration": -0.066
+       },
+       "description": "Action advanced goal (URL change)",
+       "stepNumber": 5
+      },
+      {
+       "trigger": "confusion_onset",
+       "changes": {
+        "confusion": 0.25444099217721633,
+        "anxiety": 0.10177639687088653,
+        "frustration": 0.10177639687088653,
+        "satisfaction": -0.10177639687088653
+       },
+       "description": "UI became confusing",
+       "stepNumber": 6
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.198,
+        "excitement": 0.132,
+        "boredom": -0.132,
+        "frustration": -0.066
+       },
+       "description": "Action advanced goal (in-page progress)",
+       "stepNumber": 6
+      },
+      {
+       "trigger": "confusion_onset",
+       "changes": {
+        "confusion": 0.18630756765432702,
+        "anxiety": 0.0745230270617308,
+        "frustration": 0.0745230270617308,
+        "satisfaction": -0.0745230270617308
+       },
+       "description": "UI became confusing",
+       "stepNumber": 7
+      },
+      {
+       "trigger": "progress",
+       "changes": {
+        "satisfaction": 0.198,
+        "excitement": 0.132,
+        "boredom": -0.132,
+        "frustration": -0.066
+       },
+       "description": "Action advanced goal (in-page progress)",
+       "stepNumber": 7
+      }
+     ]
+    },
+    "summary": {
+     "avgConfusionLevel": 0.5048563457822176,
+     "maxFrustrationLevel": 0.13554441199464223,
+     "backtrackCount": 0,
+     "timeInConfusion": 0,
+     "decisionsMade": 7,
+     "finalDecisionFatigue": 0.4852030263919617,
+     "wasChoosingDefaults": false,
+     "emotionalValenceTrend": 0.15246023429140834,
+     "dominantEmotion": "satisfaction",
+     "emotionalEventCount": 14
+    },
+    "emotionalJourney": [
+     {
+      "trigger": "failure",
+      "changes": {
+       "frustration": 0.275,
+       "anxiety": 0.165,
+       "satisfaction": -0.11000000000000001,
+       "excitement": -0.05500000000000001
+      },
+      "description": "Action did not succeed",
+      "stepNumber": 1
+     },
+     {
+      "trigger": "confusion_onset",
+      "changes": {
+       "confusion": 0.165,
+       "anxiety": 0.066,
+       "frustration": 0.066,
+       "satisfaction": -0.066
+      },
+      "description": "No such link",
+      "stepNumber": 1
+     },
+     {
+      "trigger": "confusion_onset",
+      "changes": {
+       "confusion": 0.1913285,
+       "anxiety": 0.07653140000000001,
+       "frustration": 0.07653140000000001,
+       "satisfaction": -0.07653140000000001
+      },
+      "description": "Not here",
+      "stepNumber": 2
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.17600000000000005,
+       "excitement": 0.08800000000000002,
+       "frustration": -0.132,
+       "anxiety": -0.08800000000000002,
+       "confusion": -0.08800000000000002
+      },
+      "description": "Action completed: expand:More info",
+      "stepNumber": 2
+     },
+     {
+      "trigger": "confusion_onset",
+      "changes": {
+       "confusion": 0.1375,
+       "anxiety": 0.05500000000000001,
+       "frustration": 0.05500000000000001,
+       "satisfaction": -0.05500000000000001
+      },
+      "description": "UI became confusing",
+      "stepNumber": 3
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.17600000000000005,
+       "excitement": 0.08800000000000002,
+       "frustration": -0.132,
+       "anxiety": -0.08800000000000002,
+       "confusion": -0.08800000000000002
+      },
+      "description": "Action completed: find:ten dollars",
+      "stepNumber": 3
+     },
+     {
+      "trigger": "success",
+      "changes": {
+       "satisfaction": 0.17600000000000005,
+       "excitement": 0.08800000000000002,
+       "frustration": -0.132,
+       "anxiety": -0.08800000000000002,
+       "confusion": -0.08800000000000002
+      },
+      "description": "click:#0",
+      "stepNumber": 4
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.198,
+       "excitement": 0.132,
+       "boredom": -0.132,
+       "frustration": -0.066
+      },
+      "description": "Action advanced goal (URL change)",
+      "stepNumber": 4
+     },
+     {
+      "trigger": "setback",
+      "changes": {
+       "frustration": 0.22000000000000003,
+       "anxiety": 0.11000000000000001,
+       "satisfaction": -0.165,
+       "excitement": -0.11000000000000001
+      },
+      "description": "Encountered friction",
+      "stepNumber": 5
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.198,
+       "excitement": 0.132,
+       "boredom": -0.132,
+       "frustration": -0.066
+      },
+      "description": "Action advanced goal (URL change)",
+      "stepNumber": 5
+     },
+     {
+      "trigger": "confusion_onset",
+      "changes": {
+       "confusion": 0.25444099217721633,
+       "anxiety": 0.10177639687088653,
+       "frustration": 0.10177639687088653,
+       "satisfaction": -0.10177639687088653
+      },
+      "description": "UI became confusing",
+      "stepNumber": 6
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.198,
+       "excitement": 0.132,
+       "boredom": -0.132,
+       "frustration": -0.066
+      },
+      "description": "Action advanced goal (in-page progress)",
+      "stepNumber": 6
+     },
+     {
+      "trigger": "confusion_onset",
+      "changes": {
+       "confusion": 0.18630756765432702,
+       "anxiety": 0.0745230270617308,
+       "frustration": 0.0745230270617308,
+       "satisfaction": -0.0745230270617308
+      },
+      "description": "UI became confusing",
+      "stepNumber": 7
+     },
+     {
+      "trigger": "progress",
+      "changes": {
+       "satisfaction": 0.198,
+       "excitement": 0.132,
+       "boredom": -0.132,
+       "frustration": -0.066
+      },
+      "description": "Action advanced goal (in-page progress)",
+      "stepNumber": 7
+     }
+    ],
+    "finalEmotionalState": {
+     "anxiety": 0.4785017705326697,
+     "frustration": 0.13554441199464223,
+     "boredom": 0,
+     "confusion": 0.5048563457822176,
+     "satisfaction": 0.839304970775163,
+     "excitement": 0.6283015468146778,
+     "relief": 0,
+     "dominant": "satisfaction",
+     "valence": 0.15246023429140834,
+     "arousal": 0.6631465518953448
+    },
+    "journeyLog": [
+     {
+      "step": 1,
+      "url": "fixture:journey-home.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "click:Talk to sales",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will click:Talk to sales",
+      "mood": "neutral",
+      "goalProgress": 0,
+      "patience": 0.7181251737520459,
+      "confusion": 0.15213000000000002,
+      "frustration": 0.30941487500000003,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 2,
+      "url": "fixture:journey-home.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "expand:More info",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will expand:More info",
+      "mood": "neutral",
+      "goalProgress": 0,
+      "patience": 0.6807178544313165,
+      "confusion": 0.316668737,
+      "frustration": 0.35019800127812506,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 3,
+      "url": "fixture:journey-home.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "find:ten dollars",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will find:ten dollars",
+      "mood": "neutral",
+      "goalProgress": 0,
+      "patience": 0.8302217122513142,
+      "confusion": 0.33760757551399995,
+      "frustration": 0.24789303640973873,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 4,
+      "url": "fixture:journey-home.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "click:#0",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will click:#0",
+      "mood": "neutral",
+      "goalProgress": 0.4,
+      "patience": 1,
+      "confusion": 0.1490021846239079,
+      "frustration": 0,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 5,
+      "url": "fixture:journey-pricing.html",
+      "pageTitle": "Pricing - Acme",
+      "phase": "decide",
+      "action": "back",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will back",
+      "mood": "neutral",
+      "goalProgress": 0,
+      "patience": 1,
+      "confusion": 0.13738001422324309,
+      "frustration": 0.19962250000000004,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 6,
+      "url": "fixture:journey-pricing.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "hover:Sign up",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will hover:Sign up",
+      "mood": "neutral",
+      "goalProgress": 0,
+      "patience": 1,
+      "confusion": 0.3612589679012236,
+      "frustration": 0.2135950740482207,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     },
+     {
+      "step": 7,
+      "url": "fixture:journey-pricing.html",
+      "pageTitle": "Acme Home",
+      "phase": "decide",
+      "action": "tab:2",
+      "actionTarget": null,
+      "focusedElement": null,
+      "monologue": "I will tab:2",
+      "mood": "neutral",
+      "goalProgress": 0,
+      "patience": 1,
+      "confusion": 0.5048563457822176,
+      "frustration": 0.20154441199464224,
+      "scrollY": 0,
+      "viewport": {
+       "width": 1280,
+       "height": 800
+      }
+     }
+    ],
+    "navigationPath": [
+     "fixture:journey-home.html",
+     "fixture:journey-pricing.html"
+    ],
+    "lastPage": {
+     "url": "fixture:journey-pricing.html",
+     "title": "Acme Home"
+    }
+   }
+  }
+ }
+}

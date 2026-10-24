@@ -136,7 +136,7 @@ describe("raw formats", () => {
     expect(RAW_PAGE_FORMAT).toBe(2);
     for (const r of Object.values(RAW_FIXTURES)) {
       expect(r.format).toBe(2);
-      const { prose: _prose, proseNested: _nested, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...rest } = r;
+      const { prose: _prose, proseNested: _nested, proseInNav: _pin, navGroupCount: _g, navLinks: _l, groupedLinks: _gl, choiceNested: _cn, ...rest } = r;
       const v1: RawPageMeasurementV1 = { ...rest, format: 1 };
       // Everything derives the same except the choosing time: format 1 has no
       // groupedLinks, so its ungrouped links are links minus the stored nav sizes.
