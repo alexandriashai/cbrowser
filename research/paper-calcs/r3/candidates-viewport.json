@@ -1,0 +1,29 @@
+{
+  "provenance": {
+    "git_head": "14b069b4e2d1ef514a97073f3e2dea64e5dbbb9d",
+    "git_branch": "feat/paper-calcs-2",
+    "src_tree": "48c830420a45b3642f780a1980be6796fa68f0d0",
+    "src_dirty": false,
+    "ran": "2026-10-23T20:43:03.965Z",
+    "runtime": "bun 1.3.8"
+  },
+  "reference": "ctc-reference-2026-10-22",
+  "scope": "viewport",
+  "pages": 111,
+  "candidates": 1222,
+  "personas": [
+    "typical-user",
+    "cognitive-adhd",
+    "dyslexic-user",
+    "low-vision-magnified",
+    "elderly-user"
+  ],
+  "raw_perturb_selftest": {
+    "pages": 111,
+    "checks": 3108,
+    "maxRelErr": 2.7672723151104647e-16,
+    "viewportAreaMaxRelErr": 6.579099405186113e-16,
+    "viewportAreaPages": 111
+  },
+  "originals_vs_round2_max_abs_total": 0
+}

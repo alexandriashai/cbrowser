@@ -1,0 +1,1993 @@
+design,variant,who,P,r,share,rho,power,mc_se,reps
+D0-B,"16 divergent, common slope",cognitive-adhd,5,0.3000,,,0.0983,0.0021,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,5,0.3000,,,0.1046,0.0022,20000
+D4,"32 divergent, all rated",cognitive-adhd,5,0.3000,,,0.1248,0.0023,20000
+D0-B,"16 divergent, common slope",dyslexic-user,5,0.3000,,,0.0871,0.0020,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,5,0.3000,,,0.0855,0.0020,20000
+D4,"32 divergent, all rated",dyslexic-user,5,0.3000,,,0.0995,0.0021,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,5,0.3000,,,0.0819,0.0019,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,5,0.3000,,,0.0874,0.0020,20000
+D4,"32 divergent, all rated",low-vision-magnified,5,0.3000,,,0.0846,0.0020,20000
+D0-B,"16 divergent, common slope",elderly-user,5,0.3000,,,0.0722,0.0018,20000
+D0-B,"16 divergent, round2 slope",elderly-user,5,0.3000,,,0.0891,0.0020,20000
+D4,"32 divergent, all rated",elderly-user,5,0.3000,,,0.0938,0.0021,20000
+D1,divergent16,cognitive-adhd,5,0.3000,0.2500,,0.1587,0.0026,20000
+D1,divergent16,dyslexic-user,5,0.3000,0.2500,,0.1222,0.0023,20000
+D1,divergent16,low-vision-magnified,5,0.3000,0.2500,,0.1114,0.0022,20000
+D1,divergent16,elderly-user,5,0.3000,0.2500,,0.1207,0.0023,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.3000,0.2500,,0.1476,0.0025,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.3000,0.2500,,0.1129,0.0022,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.3000,0.2500,,0.0915,0.0020,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.3000,0.2500,,0.0795,0.0019,20000
+D1,delta16,cognitive-adhd,5,0.3000,0.2500,,0.1394,0.0024,20000
+D1,delta16,dyslexic-user,5,0.3000,0.2500,,0.1213,0.0023,20000
+D1,delta16,low-vision-magnified,5,0.3000,0.2500,,0.1135,0.0022,20000
+D1,delta16,elderly-user,5,0.3000,0.2500,,0.1336,0.0024,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.3000,0.2500,,0.1302,0.0024,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.3000,0.2500,,0.1080,0.0022,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.3000,0.2500,,0.0878,0.0020,20000
+D1,delta16 + generic covariate,elderly-user,5,0.3000,0.2500,,0.0874,0.0020,20000
+D0-B,"16 divergent, common slope",pooled,5,0.3000,0.2500,,0.1714,0.0053,5000
+D4,"32 divergent, all rated",pooled,5,0.3000,0.2500,,0.2482,0.0061,5000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.2500,0.5000,0.0923,0.0020,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.2500,0.5000,0.0790,0.0019,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.2500,0.5000,0.0762,0.0019,20000
+D3,maxdelta,elderly-user,5,0.3000,0.2500,0.5000,0.0782,0.0019,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.2500,0.5000,0.0882,0.0020,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.2500,0.5000,0.0760,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.2500,0.5000,0.0639,0.0017,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.2500,0.5000,0.0645,0.0017,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.2500,0.5000,0.0876,0.0020,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.2500,0.5000,0.0754,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.2500,0.5000,0.0749,0.0019,20000
+D3,orthogonal,elderly-user,5,0.3000,0.2500,0.5000,0.0741,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.2500,0.5000,0.0847,0.0020,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.2500,0.5000,0.0735,0.0018,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.2500,0.5000,0.0717,0.0018,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.2500,0.5000,0.0722,0.0018,20000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.2500,0.8000,0.1003,0.0021,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.2500,0.8000,0.0847,0.0020,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.2500,0.8000,0.0872,0.0020,20000
+D3,maxdelta,elderly-user,5,0.3000,0.2500,0.8000,0.0848,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.2500,0.8000,0.0983,0.0021,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.2500,0.8000,0.0812,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.2500,0.8000,0.0645,0.0017,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.2500,0.8000,0.0711,0.0018,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.2500,0.8000,0.0921,0.0020,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.2500,0.8000,0.0765,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.2500,0.8000,0.0828,0.0019,20000
+D3,orthogonal,elderly-user,5,0.3000,0.2500,0.8000,0.0769,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.2500,0.8000,0.0929,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.2500,0.8000,0.0774,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.2500,0.8000,0.0772,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.2500,0.8000,0.0742,0.0019,20000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.2500,0.9500,0.1073,0.0022,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.2500,0.9500,0.0882,0.0020,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.2500,0.9500,0.0908,0.0020,20000
+D3,maxdelta,elderly-user,5,0.3000,0.2500,0.9500,0.0925,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.2500,0.9500,0.1067,0.0022,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.2500,0.9500,0.0846,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.2500,0.9500,0.0674,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.2500,0.9500,0.0758,0.0019,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.2500,0.9500,0.0980,0.0021,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.2500,0.9500,0.0788,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.2500,0.9500,0.0828,0.0019,20000
+D3,orthogonal,elderly-user,5,0.3000,0.2500,0.9500,0.0808,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.2500,0.9500,0.0930,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.2500,0.9500,0.0776,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.2500,0.9500,0.0788,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.2500,0.9500,0.0787,0.0019,20000
+D1,divergent16,cognitive-adhd,5,0.3000,0.5000,,0.1774,0.0027,20000
+D1,divergent16,dyslexic-user,5,0.3000,0.5000,,0.1374,0.0024,20000
+D1,divergent16,low-vision-magnified,5,0.3000,0.5000,,0.1223,0.0023,20000
+D1,divergent16,elderly-user,5,0.3000,0.5000,,0.1331,0.0024,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.3000,0.5000,,0.1656,0.0026,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.3000,0.5000,,0.1296,0.0024,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.3000,0.5000,,0.0999,0.0021,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.3000,0.5000,,0.0826,0.0019,20000
+D1,delta16,cognitive-adhd,5,0.3000,0.5000,,0.1596,0.0026,20000
+D1,delta16,dyslexic-user,5,0.3000,0.5000,,0.1316,0.0024,20000
+D1,delta16,low-vision-magnified,5,0.3000,0.5000,,0.1285,0.0024,20000
+D1,delta16,elderly-user,5,0.3000,0.5000,,0.1477,0.0025,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.3000,0.5000,,0.1385,0.0024,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.3000,0.5000,,0.1158,0.0023,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.3000,0.5000,,0.0959,0.0021,20000
+D1,delta16 + generic covariate,elderly-user,5,0.3000,0.5000,,0.0910,0.0020,20000
+D0-B,"16 divergent, common slope",pooled,5,0.3000,0.5000,,0.1714,0.0053,5000
+D4,"32 divergent, all rated",pooled,5,0.3000,0.5000,,0.2770,0.0063,5000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.5000,0.5000,0.0986,0.0021,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.5000,0.5000,0.0804,0.0019,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.5000,0.5000,0.0822,0.0019,20000
+D3,maxdelta,elderly-user,5,0.3000,0.5000,0.5000,0.0809,0.0019,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.5000,0.5000,0.0965,0.0021,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.5000,0.5000,0.0774,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.5000,0.5000,0.0650,0.0017,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.5000,0.5000,0.0721,0.0018,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.5000,0.5000,0.0892,0.0020,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.5000,0.5000,0.0762,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.5000,0.5000,0.0793,0.0019,20000
+D3,orthogonal,elderly-user,5,0.3000,0.5000,0.5000,0.0759,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.5000,0.5000,0.0856,0.0020,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.5000,0.5000,0.0752,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.5000,0.5000,0.0708,0.0018,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.5000,0.5000,0.0720,0.0018,20000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.5000,0.8000,0.1040,0.0022,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.5000,0.8000,0.0844,0.0020,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.5000,0.8000,0.0878,0.0020,20000
+D3,maxdelta,elderly-user,5,0.3000,0.5000,0.8000,0.0848,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.5000,0.8000,0.1017,0.0021,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.5000,0.8000,0.0827,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.5000,0.8000,0.0653,0.0017,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.5000,0.8000,0.0724,0.0018,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.5000,0.8000,0.0966,0.0021,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.5000,0.8000,0.0756,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.5000,0.8000,0.0806,0.0019,20000
+D3,orthogonal,elderly-user,5,0.3000,0.5000,0.8000,0.0795,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.5000,0.8000,0.0904,0.0020,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.5000,0.8000,0.0772,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.5000,0.8000,0.0795,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.5000,0.8000,0.0735,0.0018,20000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.5000,0.9500,0.1095,0.0022,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.5000,0.9500,0.0849,0.0020,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.5000,0.9500,0.0871,0.0020,20000
+D3,maxdelta,elderly-user,5,0.3000,0.5000,0.9500,0.0915,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.5000,0.9500,0.1025,0.0021,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.5000,0.9500,0.0827,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.5000,0.9500,0.0696,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.5000,0.9500,0.0755,0.0019,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.5000,0.9500,0.0988,0.0021,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.5000,0.9500,0.0811,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.5000,0.9500,0.0867,0.0020,20000
+D3,orthogonal,elderly-user,5,0.3000,0.5000,0.9500,0.0813,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.5000,0.9500,0.0991,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.5000,0.9500,0.0809,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.5000,0.9500,0.0758,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.5000,0.9500,0.0794,0.0019,20000
+D1,divergent16,cognitive-adhd,5,0.3000,0.7500,,0.1996,0.0028,20000
+D1,divergent16,dyslexic-user,5,0.3000,0.7500,,0.1511,0.0025,20000
+D1,divergent16,low-vision-magnified,5,0.3000,0.7500,,0.1396,0.0025,20000
+D1,divergent16,elderly-user,5,0.3000,0.7500,,0.1550,0.0026,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.3000,0.7500,,0.1905,0.0028,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.3000,0.7500,,0.1414,0.0025,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.3000,0.7500,,0.1056,0.0022,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.3000,0.7500,,0.0864,0.0020,20000
+D1,delta16,cognitive-adhd,5,0.3000,0.7500,,0.1853,0.0027,20000
+D1,delta16,dyslexic-user,5,0.3000,0.7500,,0.1444,0.0025,20000
+D1,delta16,low-vision-magnified,5,0.3000,0.7500,,0.1479,0.0025,20000
+D1,delta16,elderly-user,5,0.3000,0.7500,,0.1739,0.0027,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.3000,0.7500,,0.1636,0.0026,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.3000,0.7500,,0.1338,0.0024,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.3000,0.7500,,0.1069,0.0022,20000
+D1,delta16 + generic covariate,elderly-user,5,0.3000,0.7500,,0.1035,0.0022,20000
+D0-B,"16 divergent, common slope",pooled,5,0.3000,0.7500,,0.1954,0.0056,5000
+D4,"32 divergent, all rated",pooled,5,0.3000,0.7500,,0.3130,0.0066,5000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.7500,0.5000,0.1052,0.0022,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.7500,0.5000,0.0829,0.0019,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.7500,0.5000,0.0824,0.0019,20000
+D3,maxdelta,elderly-user,5,0.3000,0.7500,0.5000,0.0866,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.7500,0.5000,0.0962,0.0021,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.7500,0.5000,0.0835,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.7500,0.5000,0.0634,0.0017,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.7500,0.5000,0.0780,0.0019,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.7500,0.5000,0.0956,0.0021,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.7500,0.5000,0.0811,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.7500,0.5000,0.0821,0.0019,20000
+D3,orthogonal,elderly-user,5,0.3000,0.7500,0.5000,0.0765,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.7500,0.5000,0.0931,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.7500,0.5000,0.0780,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.7500,0.5000,0.0755,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.7500,0.5000,0.0751,0.0019,20000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.7500,0.8000,0.1022,0.0021,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.7500,0.8000,0.0907,0.0020,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.7500,0.8000,0.0872,0.0020,20000
+D3,maxdelta,elderly-user,5,0.3000,0.7500,0.8000,0.0902,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.7500,0.8000,0.1081,0.0022,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.7500,0.8000,0.0839,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.7500,0.8000,0.0677,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.7500,0.8000,0.0764,0.0019,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.7500,0.8000,0.0944,0.0021,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.7500,0.8000,0.0806,0.0019,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.7500,0.8000,0.0842,0.0020,20000
+D3,orthogonal,elderly-user,5,0.3000,0.7500,0.8000,0.0800,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.7500,0.8000,0.0938,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.7500,0.8000,0.0804,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.7500,0.8000,0.0769,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.7500,0.8000,0.0771,0.0019,20000
+D3,maxdelta,cognitive-adhd,5,0.3000,0.7500,0.9500,0.1139,0.0022,20000
+D3,maxdelta,dyslexic-user,5,0.3000,0.7500,0.9500,0.0897,0.0020,20000
+D3,maxdelta,low-vision-magnified,5,0.3000,0.7500,0.9500,0.0919,0.0020,20000
+D3,maxdelta,elderly-user,5,0.3000,0.7500,0.9500,0.0897,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.3000,0.7500,0.9500,0.1084,0.0022,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.3000,0.7500,0.9500,0.0881,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.3000,0.7500,0.9500,0.0674,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.3000,0.7500,0.9500,0.0790,0.0019,20000
+D3,orthogonal,cognitive-adhd,5,0.3000,0.7500,0.9500,0.0995,0.0021,20000
+D3,orthogonal,dyslexic-user,5,0.3000,0.7500,0.9500,0.0839,0.0020,20000
+D3,orthogonal,low-vision-magnified,5,0.3000,0.7500,0.9500,0.0857,0.0020,20000
+D3,orthogonal,elderly-user,5,0.3000,0.7500,0.9500,0.0798,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.3000,0.7500,0.9500,0.0988,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.3000,0.7500,0.9500,0.0786,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.3000,0.7500,0.9500,0.0790,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.3000,0.7500,0.9500,0.0785,0.0019,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,5,0.5000,,,0.1513,0.0025,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,5,0.5000,,,0.1687,0.0026,20000
+D4,"32 divergent, all rated",cognitive-adhd,5,0.5000,,,0.2273,0.0030,20000
+D0-B,"16 divergent, common slope",dyslexic-user,5,0.5000,,,0.1234,0.0023,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,5,0.5000,,,0.1196,0.0023,20000
+D4,"32 divergent, all rated",dyslexic-user,5,0.5000,,,0.1509,0.0025,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,5,0.5000,,,0.1052,0.0022,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,5,0.5000,,,0.1174,0.0023,20000
+D4,"32 divergent, all rated",low-vision-magnified,5,0.5000,,,0.1252,0.0023,20000
+D0-B,"16 divergent, common slope",elderly-user,5,0.5000,,,0.0956,0.0021,20000
+D0-B,"16 divergent, round2 slope",elderly-user,5,0.5000,,,0.1308,0.0024,20000
+D4,"32 divergent, all rated",elderly-user,5,0.5000,,,0.1359,0.0024,20000
+D1,divergent16,cognitive-adhd,5,0.5000,0.2500,,0.2918,0.0032,20000
+D1,divergent16,dyslexic-user,5,0.5000,0.2500,,0.2069,0.0029,20000
+D1,divergent16,low-vision-magnified,5,0.5000,0.2500,,0.1829,0.0027,20000
+D1,divergent16,elderly-user,5,0.5000,0.2500,,0.2130,0.0029,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.5000,0.2500,,0.2769,0.0032,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.5000,0.2500,,0.1945,0.0028,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.5000,0.2500,,0.1353,0.0024,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.5000,0.2500,,0.1071,0.0022,20000
+D1,delta16,cognitive-adhd,5,0.5000,0.2500,,0.2581,0.0031,20000
+D1,delta16,dyslexic-user,5,0.5000,0.2500,,0.1984,0.0028,20000
+D1,delta16,low-vision-magnified,5,0.5000,0.2500,,0.2011,0.0028,20000
+D1,delta16,elderly-user,5,0.5000,0.2500,,0.2361,0.0030,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.5000,0.2500,,0.2349,0.0030,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.5000,0.2500,,0.1847,0.0027,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.5000,0.2500,,0.1288,0.0024,20000
+D1,delta16 + generic covariate,elderly-user,5,0.5000,0.2500,,0.1245,0.0023,20000
+D0-B,"16 divergent, common slope",pooled,5,0.5000,0.2500,,0.3190,0.0066,5000
+D4,"32 divergent, all rated",pooled,5,0.5000,0.2500,,0.5100,0.0071,5000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.2500,0.5000,0.1385,0.0024,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.2500,0.5000,0.1087,0.0022,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.2500,0.5000,0.1059,0.0022,20000
+D3,maxdelta,elderly-user,5,0.5000,0.2500,0.5000,0.1040,0.0022,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.2500,0.5000,0.1337,0.0024,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.2500,0.5000,0.0984,0.0021,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.2500,0.5000,0.0741,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.2500,0.5000,0.0901,0.0020,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.2500,0.5000,0.1231,0.0023,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.2500,0.5000,0.0953,0.0021,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.2500,0.5000,0.0973,0.0021,20000
+D3,orthogonal,elderly-user,5,0.5000,0.2500,0.5000,0.0920,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.2500,0.5000,0.1161,0.0023,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.2500,0.5000,0.0934,0.0021,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.2500,0.5000,0.0927,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.2500,0.5000,0.0905,0.0020,20000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.2500,0.8000,0.1582,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.2500,0.8000,0.1208,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.2500,0.8000,0.1124,0.0022,20000
+D3,maxdelta,elderly-user,5,0.5000,0.2500,0.8000,0.1187,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.2500,0.8000,0.1496,0.0025,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.2500,0.8000,0.1082,0.0022,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.2500,0.8000,0.0796,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.2500,0.8000,0.0940,0.0021,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.2500,0.8000,0.1333,0.0024,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.2500,0.8000,0.1041,0.0022,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.2500,0.8000,0.1084,0.0022,20000
+D3,orthogonal,elderly-user,5,0.5000,0.2500,0.8000,0.1017,0.0021,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.2500,0.8000,0.1301,0.0024,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.2500,0.8000,0.1008,0.0021,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.2500,0.8000,0.0997,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.2500,0.8000,0.0988,0.0021,20000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.2500,0.9500,0.1685,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.2500,0.9500,0.1212,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.2500,0.9500,0.1265,0.0024,20000
+D3,maxdelta,elderly-user,5,0.5000,0.2500,0.9500,0.1263,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.2500,0.9500,0.1650,0.0026,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.2500,0.9500,0.1163,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.2500,0.9500,0.0820,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.2500,0.9500,0.0998,0.0021,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.2500,0.9500,0.1421,0.0025,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.2500,0.9500,0.1142,0.0022,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.2500,0.9500,0.1139,0.0022,20000
+D3,orthogonal,elderly-user,5,0.5000,0.2500,0.9500,0.1078,0.0022,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.2500,0.9500,0.1378,0.0024,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.2500,0.9500,0.1080,0.0022,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.2500,0.9500,0.1065,0.0022,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.2500,0.9500,0.1026,0.0021,20000
+D1,divergent16,cognitive-adhd,5,0.5000,0.5000,,0.3352,0.0033,20000
+D1,divergent16,dyslexic-user,5,0.5000,0.5000,,0.2334,0.0030,20000
+D1,divergent16,low-vision-magnified,5,0.5000,0.5000,,0.2040,0.0028,20000
+D1,divergent16,elderly-user,5,0.5000,0.5000,,0.2403,0.0030,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.5000,0.5000,,0.3091,0.0033,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.5000,0.5000,,0.2160,0.0029,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.5000,0.5000,,0.1462,0.0025,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.5000,0.5000,,0.1143,0.0023,20000
+D1,delta16,cognitive-adhd,5,0.5000,0.5000,,0.2922,0.0032,20000
+D1,delta16,dyslexic-user,5,0.5000,0.5000,,0.2250,0.0030,20000
+D1,delta16,low-vision-magnified,5,0.5000,0.5000,,0.2263,0.0030,20000
+D1,delta16,elderly-user,5,0.5000,0.5000,,0.2749,0.0032,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.5000,0.5000,,0.2676,0.0031,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.5000,0.5000,,0.2014,0.0028,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.5000,0.5000,,0.1449,0.0025,20000
+D1,delta16 + generic covariate,elderly-user,5,0.5000,0.5000,,0.1330,0.0024,20000
+D0-B,"16 divergent, common slope",pooled,5,0.5000,0.5000,,0.3494,0.0067,5000
+D4,"32 divergent, all rated",pooled,5,0.5000,0.5000,,0.5556,0.0070,5000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.5000,0.5000,0.1447,0.0025,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.5000,0.5000,0.1149,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.5000,0.5000,0.1085,0.0022,20000
+D3,maxdelta,elderly-user,5,0.5000,0.5000,0.5000,0.1114,0.0022,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.5000,0.5000,0.1415,0.0025,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.5000,0.5000,0.1069,0.0022,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.5000,0.5000,0.0743,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.5000,0.5000,0.0895,0.0020,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.5000,0.5000,0.1304,0.0024,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.5000,0.5000,0.0977,0.0021,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.5000,0.5000,0.1031,0.0022,20000
+D3,orthogonal,elderly-user,5,0.5000,0.5000,0.5000,0.0908,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.5000,0.5000,0.1226,0.0023,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.5000,0.5000,0.0950,0.0021,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.5000,0.5000,0.0950,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.5000,0.5000,0.0998,0.0021,20000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.5000,0.8000,0.1628,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.5000,0.8000,0.1243,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.5000,0.8000,0.1191,0.0023,20000
+D3,maxdelta,elderly-user,5,0.5000,0.5000,0.8000,0.1203,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.5000,0.8000,0.1530,0.0025,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.5000,0.8000,0.1133,0.0022,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.5000,0.8000,0.0801,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.5000,0.8000,0.0930,0.0021,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.5000,0.8000,0.1417,0.0025,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.5000,0.8000,0.1085,0.0022,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.5000,0.8000,0.1108,0.0022,20000
+D3,orthogonal,elderly-user,5,0.5000,0.5000,0.8000,0.1018,0.0021,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.5000,0.8000,0.1328,0.0024,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.5000,0.8000,0.1015,0.0021,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.5000,0.8000,0.1029,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.5000,0.8000,0.1020,0.0021,20000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.5000,0.9500,0.1668,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.5000,0.9500,0.1258,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.5000,0.9500,0.1231,0.0023,20000
+D3,maxdelta,elderly-user,5,0.5000,0.5000,0.9500,0.1242,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.5000,0.9500,0.1673,0.0026,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.5000,0.9500,0.1160,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.5000,0.9500,0.0821,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.5000,0.9500,0.0977,0.0021,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.5000,0.9500,0.1469,0.0025,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.5000,0.9500,0.1115,0.0022,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.5000,0.9500,0.1173,0.0023,20000
+D3,orthogonal,elderly-user,5,0.5000,0.5000,0.9500,0.1075,0.0022,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.5000,0.9500,0.1407,0.0025,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.5000,0.9500,0.1075,0.0022,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.5000,0.9500,0.1047,0.0022,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.5000,0.9500,0.1043,0.0022,20000
+D1,divergent16,cognitive-adhd,5,0.5000,0.7500,,0.4009,0.0035,20000
+D1,divergent16,dyslexic-user,5,0.5000,0.7500,,0.2777,0.0032,20000
+D1,divergent16,low-vision-magnified,5,0.5000,0.7500,,0.2372,0.0030,20000
+D1,divergent16,elderly-user,5,0.5000,0.7500,,0.2828,0.0032,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.5000,0.7500,,0.3795,0.0034,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.5000,0.7500,,0.2507,0.0031,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.5000,0.7500,,0.1668,0.0026,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.5000,0.7500,,0.1264,0.0023,20000
+D1,delta16,cognitive-adhd,5,0.5000,0.7500,,0.3555,0.0034,20000
+D1,delta16,dyslexic-user,5,0.5000,0.7500,,0.2594,0.0031,20000
+D1,delta16,low-vision-magnified,5,0.5000,0.7500,,0.2622,0.0031,20000
+D1,delta16,elderly-user,5,0.5000,0.7500,,0.3235,0.0033,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.5000,0.7500,,0.3043,0.0033,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.5000,0.7500,,0.2364,0.0030,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.5000,0.7500,,0.1600,0.0026,20000
+D1,delta16 + generic covariate,elderly-user,5,0.5000,0.7500,,0.1547,0.0026,20000
+D0-B,"16 divergent, common slope",pooled,5,0.5000,0.7500,,0.3948,0.0069,5000
+D4,"32 divergent, all rated",pooled,5,0.5000,0.7500,,0.6204,0.0069,5000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.7500,0.5000,0.1605,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.7500,0.5000,0.1226,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.7500,0.5000,0.1230,0.0023,20000
+D3,maxdelta,elderly-user,5,0.5000,0.7500,0.5000,0.1153,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.7500,0.5000,0.1527,0.0025,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.7500,0.5000,0.1171,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.7500,0.5000,0.0805,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.7500,0.5000,0.0923,0.0020,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.7500,0.5000,0.1361,0.0024,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.7500,0.5000,0.1066,0.0022,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.7500,0.5000,0.1118,0.0022,20000
+D3,orthogonal,elderly-user,5,0.5000,0.7500,0.5000,0.1001,0.0021,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.7500,0.5000,0.1305,0.0024,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.7500,0.5000,0.0992,0.0021,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.7500,0.5000,0.0994,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.7500,0.5000,0.1026,0.0021,20000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.7500,0.8000,0.1658,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.7500,0.8000,0.1218,0.0023,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.7500,0.8000,0.1250,0.0023,20000
+D3,maxdelta,elderly-user,5,0.5000,0.7500,0.8000,0.1247,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.7500,0.8000,0.1579,0.0026,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.7500,0.8000,0.1171,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.7500,0.8000,0.0835,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.7500,0.8000,0.0943,0.0021,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.7500,0.8000,0.1426,0.0025,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.7500,0.8000,0.1091,0.0022,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.7500,0.8000,0.1155,0.0023,20000
+D3,orthogonal,elderly-user,5,0.5000,0.7500,0.8000,0.1058,0.0022,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.7500,0.8000,0.1393,0.0024,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.7500,0.8000,0.1073,0.0022,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.7500,0.8000,0.1021,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.7500,0.8000,0.1037,0.0022,20000
+D3,maxdelta,cognitive-adhd,5,0.5000,0.7500,0.9500,0.1689,0.0026,20000
+D3,maxdelta,dyslexic-user,5,0.5000,0.7500,0.9500,0.1269,0.0024,20000
+D3,maxdelta,low-vision-magnified,5,0.5000,0.7500,0.9500,0.1283,0.0024,20000
+D3,maxdelta,elderly-user,5,0.5000,0.7500,0.9500,0.1258,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.5000,0.7500,0.9500,0.1659,0.0026,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.5000,0.7500,0.9500,0.1175,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.5000,0.7500,0.9500,0.0801,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.5000,0.7500,0.9500,0.0978,0.0021,20000
+D3,orthogonal,cognitive-adhd,5,0.5000,0.7500,0.9500,0.1459,0.0025,20000
+D3,orthogonal,dyslexic-user,5,0.5000,0.7500,0.9500,0.1172,0.0023,20000
+D3,orthogonal,low-vision-magnified,5,0.5000,0.7500,0.9500,0.1184,0.0023,20000
+D3,orthogonal,elderly-user,5,0.5000,0.7500,0.9500,0.1069,0.0022,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.5000,0.7500,0.9500,0.1457,0.0025,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.5000,0.7500,0.9500,0.1055,0.0022,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.5000,0.7500,0.9500,0.1045,0.0022,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.5000,0.7500,0.9500,0.1036,0.0022,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,5,0.7000,,,0.2425,0.0030,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,5,0.7000,,,0.2703,0.0031,20000
+D4,"32 divergent, all rated",cognitive-adhd,5,0.7000,,,0.3883,0.0034,20000
+D0-B,"16 divergent, common slope",dyslexic-user,5,0.7000,,,0.1836,0.0027,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,5,0.7000,,,0.1828,0.0027,20000
+D4,"32 divergent, all rated",dyslexic-user,5,0.7000,,,0.2417,0.0030,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,5,0.7000,,,0.1481,0.0025,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,5,0.7000,,,0.1833,0.0027,20000
+D4,"32 divergent, all rated",low-vision-magnified,5,0.7000,,,0.1882,0.0028,20000
+D0-B,"16 divergent, common slope",elderly-user,5,0.7000,,,0.1326,0.0024,20000
+D0-B,"16 divergent, round2 slope",elderly-user,5,0.7000,,,0.1932,0.0028,20000
+D4,"32 divergent, all rated",elderly-user,5,0.7000,,,0.2044,0.0029,20000
+D1,divergent16,cognitive-adhd,5,0.7000,0.2500,,0.5205,0.0035,20000
+D1,divergent16,dyslexic-user,5,0.7000,0.2500,,0.3578,0.0034,20000
+D1,divergent16,low-vision-magnified,5,0.7000,0.2500,,0.3135,0.0033,20000
+D1,divergent16,elderly-user,5,0.7000,0.2500,,0.3699,0.0034,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.7000,0.2500,,0.4830,0.0035,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.7000,0.2500,,0.3264,0.0033,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.7000,0.2500,,0.2168,0.0029,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.7000,0.2500,,0.1502,0.0025,20000
+D1,delta16,cognitive-adhd,5,0.7000,0.2500,,0.4632,0.0035,20000
+D1,delta16,dyslexic-user,5,0.7000,0.2500,,0.3427,0.0034,20000
+D1,delta16,low-vision-magnified,5,0.7000,0.2500,,0.3426,0.0034,20000
+D1,delta16,elderly-user,5,0.7000,0.2500,,0.4217,0.0035,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.7000,0.2500,,0.4022,0.0035,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.7000,0.2500,,0.3065,0.0033,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.7000,0.2500,,0.1981,0.0028,20000
+D1,delta16 + generic covariate,elderly-user,5,0.7000,0.2500,,0.1873,0.0028,20000
+D0-B,"16 divergent, common slope",pooled,5,0.7000,0.2500,,0.5318,0.0071,5000
+D4,"32 divergent, all rated",pooled,5,0.7000,0.2500,,0.8002,0.0057,5000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.2500,0.5000,0.2116,0.0029,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.2500,0.5000,0.1492,0.0025,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.2500,0.5000,0.1469,0.0025,20000
+D3,maxdelta,elderly-user,5,0.7000,0.2500,0.5000,0.1481,0.0025,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.2500,0.5000,0.1973,0.0028,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.2500,0.5000,0.1421,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.2500,0.5000,0.0872,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.2500,0.5000,0.1089,0.0022,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.2500,0.5000,0.1713,0.0027,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.2500,0.5000,0.1282,0.0024,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.2500,0.5000,0.1332,0.0024,20000
+D3,orthogonal,elderly-user,5,0.7000,0.2500,0.5000,0.1217,0.0023,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.2500,0.5000,0.1684,0.0026,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.2500,0.5000,0.1206,0.0023,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.2500,0.5000,0.1176,0.0023,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.2500,0.5000,0.1164,0.0023,20000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.2500,0.8000,0.2236,0.0029,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.2500,0.8000,0.1611,0.0026,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.2500,0.8000,0.1660,0.0026,20000
+D3,maxdelta,elderly-user,5,0.7000,0.2500,0.8000,0.1673,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.2500,0.8000,0.2178,0.0029,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.2500,0.8000,0.1497,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.2500,0.8000,0.0975,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.2500,0.8000,0.1201,0.0023,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.2500,0.8000,0.1966,0.0028,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.2500,0.8000,0.1421,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.2500,0.8000,0.1429,0.0025,20000
+D3,orthogonal,elderly-user,5,0.7000,0.2500,0.8000,0.1354,0.0024,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.2500,0.8000,0.1838,0.0027,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.2500,0.8000,0.1377,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.2500,0.8000,0.1278,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.2500,0.8000,0.1305,0.0024,20000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.2500,0.9500,0.2443,0.0030,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.2500,0.9500,0.1744,0.0027,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.2500,0.9500,0.1735,0.0027,20000
+D3,maxdelta,elderly-user,5,0.7000,0.2500,0.9500,0.1689,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.2500,0.9500,0.2384,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.2500,0.9500,0.1601,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.2500,0.9500,0.0973,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.2500,0.9500,0.1293,0.0024,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.2500,0.9500,0.2064,0.0029,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.2500,0.9500,0.1517,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.2500,0.9500,0.1511,0.0025,20000
+D3,orthogonal,elderly-user,5,0.7000,0.2500,0.9500,0.1404,0.0025,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.2500,0.9500,0.1958,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.2500,0.9500,0.1371,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.2500,0.9500,0.1335,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.2500,0.9500,0.1323,0.0024,20000
+D1,divergent16,cognitive-adhd,5,0.7000,0.5000,,0.5726,0.0035,20000
+D1,divergent16,dyslexic-user,5,0.7000,0.5000,,0.4032,0.0035,20000
+D1,divergent16,low-vision-magnified,5,0.7000,0.5000,,0.3452,0.0034,20000
+D1,divergent16,elderly-user,5,0.7000,0.5000,,0.3998,0.0035,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.7000,0.5000,,0.5418,0.0035,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.7000,0.5000,,0.3696,0.0034,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.7000,0.5000,,0.2323,0.0030,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.7000,0.5000,,0.1708,0.0027,20000
+D1,delta16,cognitive-adhd,5,0.7000,0.5000,,0.5140,0.0035,20000
+D1,delta16,dyslexic-user,5,0.7000,0.5000,,0.3752,0.0034,20000
+D1,delta16,low-vision-magnified,5,0.7000,0.5000,,0.3816,0.0034,20000
+D1,delta16,elderly-user,5,0.7000,0.5000,,0.4688,0.0035,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.7000,0.5000,,0.4472,0.0035,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.7000,0.5000,,0.3438,0.0034,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.7000,0.5000,,0.2175,0.0029,20000
+D1,delta16 + generic covariate,elderly-user,5,0.7000,0.5000,,0.2039,0.0028,20000
+D0-B,"16 divergent, common slope",pooled,5,0.7000,0.5000,,0.5676,0.0070,5000
+D4,"32 divergent, all rated",pooled,5,0.7000,0.5000,,0.8374,0.0052,5000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.5000,0.5000,0.2142,0.0029,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.5000,0.5000,0.1558,0.0026,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.5000,0.5000,0.1535,0.0025,20000
+D3,maxdelta,elderly-user,5,0.7000,0.5000,0.5000,0.1548,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.5000,0.5000,0.2094,0.0029,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.5000,0.5000,0.1447,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.5000,0.5000,0.0912,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.5000,0.5000,0.1172,0.0023,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.5000,0.5000,0.1845,0.0027,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.5000,0.5000,0.1329,0.0024,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.5000,0.5000,0.1366,0.0024,20000
+D3,orthogonal,elderly-user,5,0.7000,0.5000,0.5000,0.1254,0.0023,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.5000,0.5000,0.1772,0.0027,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.5000,0.5000,0.1311,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.5000,0.5000,0.1262,0.0023,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.5000,0.5000,0.1247,0.0023,20000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.5000,0.8000,0.2349,0.0030,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.5000,0.8000,0.1668,0.0026,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.5000,0.8000,0.1681,0.0026,20000
+D3,maxdelta,elderly-user,5,0.7000,0.5000,0.8000,0.1696,0.0027,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.5000,0.8000,0.2272,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.5000,0.8000,0.1539,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.5000,0.8000,0.0987,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.5000,0.8000,0.1219,0.0023,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.5000,0.8000,0.1990,0.0028,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.5000,0.8000,0.1399,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.5000,0.8000,0.1499,0.0025,20000
+D3,orthogonal,elderly-user,5,0.7000,0.5000,0.8000,0.1378,0.0024,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.5000,0.8000,0.1915,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.5000,0.8000,0.1317,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.5000,0.8000,0.1315,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.5000,0.8000,0.1297,0.0024,20000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.5000,0.9500,0.2499,0.0031,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.5000,0.9500,0.1701,0.0027,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.5000,0.9500,0.1739,0.0027,20000
+D3,maxdelta,elderly-user,5,0.7000,0.5000,0.9500,0.1754,0.0027,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.5000,0.9500,0.2377,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.5000,0.9500,0.1570,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.5000,0.9500,0.0978,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.5000,0.9500,0.1278,0.0024,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.5000,0.9500,0.2086,0.0029,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.5000,0.9500,0.1501,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.5000,0.9500,0.1516,0.0025,20000
+D3,orthogonal,elderly-user,5,0.7000,0.5000,0.9500,0.1423,0.0025,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.5000,0.9500,0.1987,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.5000,0.9500,0.1402,0.0025,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.5000,0.9500,0.1338,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.5000,0.9500,0.1351,0.0024,20000
+D1,divergent16,cognitive-adhd,5,0.7000,0.7500,,0.6476,0.0034,20000
+D1,divergent16,dyslexic-user,5,0.7000,0.7500,,0.4553,0.0035,20000
+D1,divergent16,low-vision-magnified,5,0.7000,0.7500,,0.3855,0.0034,20000
+D1,divergent16,elderly-user,5,0.7000,0.7500,,0.4672,0.0035,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.7000,0.7500,,0.6089,0.0035,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.7000,0.7500,,0.4135,0.0035,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.7000,0.7500,,0.2576,0.0031,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.7000,0.7500,,0.1860,0.0028,20000
+D1,delta16,cognitive-adhd,5,0.7000,0.7500,,0.5821,0.0035,20000
+D1,delta16,dyslexic-user,5,0.7000,0.7500,,0.4355,0.0035,20000
+D1,delta16,low-vision-magnified,5,0.7000,0.7500,,0.4314,0.0035,20000
+D1,delta16,elderly-user,5,0.7000,0.7500,,0.5319,0.0035,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.7000,0.7500,,0.5093,0.0035,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.7000,0.7500,,0.3928,0.0035,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.7000,0.7500,,0.2462,0.0030,20000
+D1,delta16 + generic covariate,elderly-user,5,0.7000,0.7500,,0.2286,0.0030,20000
+D0-B,"16 divergent, common slope",pooled,5,0.7000,0.7500,,0.6116,0.0069,5000
+D4,"32 divergent, all rated",pooled,5,0.7000,0.7500,,0.8802,0.0046,5000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.7500,0.5000,0.2315,0.0030,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.7500,0.5000,0.1664,0.0026,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.7500,0.5000,0.1609,0.0026,20000
+D3,maxdelta,elderly-user,5,0.7000,0.7500,0.5000,0.1620,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.7500,0.5000,0.2249,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.7500,0.5000,0.1567,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.7500,0.5000,0.0941,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.7500,0.5000,0.1232,0.0023,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.7500,0.5000,0.1973,0.0028,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.7500,0.5000,0.1409,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.7500,0.5000,0.1486,0.0025,20000
+D3,orthogonal,elderly-user,5,0.7000,0.7500,0.5000,0.1328,0.0024,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.7500,0.5000,0.1923,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.7500,0.5000,0.1325,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.7500,0.5000,0.1356,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.7500,0.5000,0.1283,0.0024,20000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.7500,0.8000,0.2441,0.0030,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.7500,0.8000,0.1700,0.0027,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.7500,0.8000,0.1736,0.0027,20000
+D3,maxdelta,elderly-user,5,0.7000,0.7500,0.8000,0.1782,0.0027,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.7500,0.8000,0.2320,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.7500,0.8000,0.1568,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.7500,0.8000,0.0945,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.7500,0.8000,0.1245,0.0023,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.7500,0.8000,0.2054,0.0029,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.7500,0.8000,0.1437,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.7500,0.8000,0.1540,0.0026,20000
+D3,orthogonal,elderly-user,5,0.7000,0.7500,0.8000,0.1397,0.0025,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.7500,0.8000,0.1895,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.7500,0.8000,0.1408,0.0025,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.7500,0.8000,0.1310,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.7500,0.8000,0.1334,0.0024,20000
+D3,maxdelta,cognitive-adhd,5,0.7000,0.7500,0.9500,0.2492,0.0031,20000
+D3,maxdelta,dyslexic-user,5,0.7000,0.7500,0.9500,0.1735,0.0027,20000
+D3,maxdelta,low-vision-magnified,5,0.7000,0.7500,0.9500,0.1782,0.0027,20000
+D3,maxdelta,elderly-user,5,0.7000,0.7500,0.9500,0.1686,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.7000,0.7500,0.9500,0.2381,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.7000,0.7500,0.9500,0.1639,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.7000,0.7500,0.9500,0.0977,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.7000,0.7500,0.9500,0.1260,0.0023,20000
+D3,orthogonal,cognitive-adhd,5,0.7000,0.7500,0.9500,0.2074,0.0029,20000
+D3,orthogonal,dyslexic-user,5,0.7000,0.7500,0.9500,0.1462,0.0025,20000
+D3,orthogonal,low-vision-magnified,5,0.7000,0.7500,0.9500,0.1540,0.0026,20000
+D3,orthogonal,elderly-user,5,0.7000,0.7500,0.9500,0.1418,0.0025,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.7000,0.7500,0.9500,0.1976,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.7000,0.7500,0.9500,0.1424,0.0025,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.7000,0.7500,0.9500,0.1394,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.7000,0.7500,0.9500,0.1320,0.0024,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,5,0.9000,,,0.4103,0.0035,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,5,0.9000,,,0.4591,0.0035,20000
+D4,"32 divergent, all rated",cognitive-adhd,5,0.9000,,,0.6448,0.0034,20000
+D0-B,"16 divergent, common slope",dyslexic-user,5,0.9000,,,0.2952,0.0032,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,5,0.9000,,,0.2954,0.0032,20000
+D4,"32 divergent, all rated",dyslexic-user,5,0.9000,,,0.3999,0.0035,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,5,0.9000,,,0.2187,0.0029,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,5,0.9000,,,0.2937,0.0032,20000
+D4,"32 divergent, all rated",low-vision-magnified,5,0.9000,,,0.3076,0.0033,20000
+D0-B,"16 divergent, common slope",elderly-user,5,0.9000,,,0.1901,0.0028,20000
+D0-B,"16 divergent, round2 slope",elderly-user,5,0.9000,,,0.3172,0.0033,20000
+D4,"32 divergent, all rated",elderly-user,5,0.9000,,,0.3362,0.0033,20000
+D1,divergent16,cognitive-adhd,5,0.9000,0.2500,,0.8275,0.0027,20000
+D1,divergent16,dyslexic-user,5,0.9000,0.2500,,0.6167,0.0034,20000
+D1,divergent16,low-vision-magnified,5,0.9000,0.2500,,0.5357,0.0035,20000
+D1,divergent16,elderly-user,5,0.9000,0.2500,,0.6352,0.0034,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.9000,0.2500,,0.7872,0.0029,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.9000,0.2500,,0.5628,0.0035,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.9000,0.2500,,0.3548,0.0034,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.9000,0.2500,,0.2452,0.0030,20000
+D1,delta16,cognitive-adhd,5,0.9000,0.2500,,0.7565,0.0030,20000
+D1,delta16,dyslexic-user,5,0.9000,0.2500,,0.5881,0.0035,20000
+D1,delta16,low-vision-magnified,5,0.9000,0.2500,,0.5906,0.0035,20000
+D1,delta16,elderly-user,5,0.9000,0.2500,,0.7085,0.0032,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.9000,0.2500,,0.6842,0.0033,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.9000,0.2500,,0.5272,0.0035,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.9000,0.2500,,0.3277,0.0033,20000
+D1,delta16 + generic covariate,elderly-user,5,0.9000,0.2500,,0.3119,0.0033,20000
+D0-B,"16 divergent, common slope",pooled,5,0.9000,0.2500,,0.8016,0.0056,5000
+D4,"32 divergent, all rated",pooled,5,0.9000,0.2500,,0.9686,0.0025,5000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.2500,0.5000,0.3157,0.0033,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.2500,0.5000,0.2188,0.0029,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.2500,0.5000,0.2164,0.0029,20000
+D3,maxdelta,elderly-user,5,0.9000,0.2500,0.5000,0.2144,0.0029,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.2500,0.5000,0.3065,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.2500,0.5000,0.2004,0.0028,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.2500,0.5000,0.1100,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.2500,0.5000,0.1522,0.0025,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.2500,0.5000,0.2685,0.0031,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.2500,0.5000,0.1839,0.0027,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.2500,0.5000,0.1888,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.2500,0.5000,0.1708,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.2500,0.5000,0.2452,0.0030,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.2500,0.5000,0.1689,0.0026,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.2500,0.5000,0.1648,0.0026,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.2500,0.5000,0.1635,0.0026,20000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.2500,0.8000,0.3257,0.0033,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.2500,0.8000,0.2235,0.0029,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.2500,0.8000,0.2202,0.0029,20000
+D3,maxdelta,elderly-user,5,0.9000,0.2500,0.8000,0.2269,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.2500,0.8000,0.3220,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.2500,0.8000,0.1973,0.0028,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.2500,0.8000,0.1139,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.2500,0.8000,0.1546,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.2500,0.8000,0.2737,0.0032,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.2500,0.8000,0.1899,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.2500,0.8000,0.1995,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.2500,0.8000,0.1717,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.2500,0.8000,0.2581,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.2500,0.8000,0.1750,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.2500,0.8000,0.1684,0.0026,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.2500,0.8000,0.1669,0.0026,20000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.2500,0.9500,0.3407,0.0034,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.2500,0.9500,0.2351,0.0030,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.2500,0.9500,0.2253,0.0030,20000
+D3,maxdelta,elderly-user,5,0.9000,0.2500,0.9500,0.2248,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.2500,0.9500,0.3311,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.2500,0.9500,0.2104,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.2500,0.9500,0.1143,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.2500,0.9500,0.1580,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.2500,0.9500,0.2852,0.0032,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.2500,0.9500,0.1973,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.2500,0.9500,0.2030,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.2500,0.9500,0.1768,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.2500,0.9500,0.2704,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.2500,0.9500,0.1805,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.2500,0.9500,0.1753,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.2500,0.9500,0.1764,0.0027,20000
+D1,divergent16,cognitive-adhd,5,0.9000,0.5000,,0.8495,0.0025,20000
+D1,divergent16,dyslexic-user,5,0.9000,0.5000,,0.6504,0.0034,20000
+D1,divergent16,low-vision-magnified,5,0.9000,0.5000,,0.5606,0.0035,20000
+D1,divergent16,elderly-user,5,0.9000,0.5000,,0.6613,0.0033,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.9000,0.5000,,0.8134,0.0028,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.9000,0.5000,,0.5915,0.0035,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.9000,0.5000,,0.3689,0.0034,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.9000,0.5000,,0.2540,0.0031,20000
+D1,delta16,cognitive-adhd,5,0.9000,0.5000,,0.7824,0.0029,20000
+D1,delta16,dyslexic-user,5,0.9000,0.5000,,0.6134,0.0034,20000
+D1,delta16,low-vision-magnified,5,0.9000,0.5000,,0.6189,0.0034,20000
+D1,delta16,elderly-user,5,0.9000,0.5000,,0.7376,0.0031,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.9000,0.5000,,0.7124,0.0032,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.9000,0.5000,,0.5592,0.0035,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.9000,0.5000,,0.3438,0.0034,20000
+D1,delta16 + generic covariate,elderly-user,5,0.9000,0.5000,,0.3232,0.0033,20000
+D0-B,"16 divergent, common slope",pooled,5,0.9000,0.5000,,0.8104,0.0055,5000
+D4,"32 divergent, all rated",pooled,5,0.9000,0.5000,,0.9798,0.0020,5000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.5000,0.5000,0.3268,0.0033,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.5000,0.5000,0.2189,0.0029,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.5000,0.5000,0.2177,0.0029,20000
+D3,maxdelta,elderly-user,5,0.9000,0.5000,0.5000,0.2193,0.0029,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.5000,0.5000,0.3154,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.5000,0.5000,0.2014,0.0028,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.5000,0.5000,0.1134,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.5000,0.5000,0.1547,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.5000,0.5000,0.2655,0.0031,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.5000,0.5000,0.1809,0.0027,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.5000,0.5000,0.1947,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.5000,0.5000,0.1719,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.5000,0.5000,0.2526,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.5000,0.5000,0.1745,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.5000,0.5000,0.1673,0.0026,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.5000,0.5000,0.1644,0.0026,20000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.5000,0.8000,0.3396,0.0033,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.5000,0.8000,0.2327,0.0030,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.5000,0.8000,0.2317,0.0030,20000
+D3,maxdelta,elderly-user,5,0.9000,0.5000,0.8000,0.2279,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.5000,0.8000,0.3223,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.5000,0.8000,0.2091,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.5000,0.8000,0.1197,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.5000,0.8000,0.1560,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.5000,0.8000,0.2761,0.0032,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.5000,0.8000,0.1943,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.5000,0.8000,0.1981,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.5000,0.8000,0.1789,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.5000,0.8000,0.2711,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.5000,0.8000,0.1813,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.5000,0.8000,0.1714,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.5000,0.8000,0.1667,0.0026,20000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.5000,0.9500,0.3462,0.0034,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.5000,0.9500,0.2304,0.0030,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.5000,0.9500,0.2357,0.0030,20000
+D3,maxdelta,elderly-user,5,0.9000,0.5000,0.9500,0.2359,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.5000,0.9500,0.3317,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.5000,0.9500,0.2152,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.5000,0.9500,0.1187,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.5000,0.9500,0.1626,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.5000,0.9500,0.2858,0.0032,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.5000,0.9500,0.1907,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.5000,0.9500,0.2051,0.0029,20000
+D3,orthogonal,elderly-user,5,0.9000,0.5000,0.9500,0.1817,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.5000,0.9500,0.2741,0.0032,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.5000,0.9500,0.1809,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.5000,0.9500,0.1748,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.5000,0.9500,0.1707,0.0027,20000
+D1,divergent16,cognitive-adhd,5,0.9000,0.7500,,0.8784,0.0023,20000
+D1,divergent16,dyslexic-user,5,0.9000,0.7500,,0.6746,0.0033,20000
+D1,divergent16,low-vision-magnified,5,0.9000,0.7500,,0.5931,0.0035,20000
+D1,divergent16,elderly-user,5,0.9000,0.7500,,0.6873,0.0033,20000
+D1,divergent16 + generic covariate,cognitive-adhd,5,0.9000,0.7500,,0.8437,0.0026,20000
+D1,divergent16 + generic covariate,dyslexic-user,5,0.9000,0.7500,,0.6307,0.0034,20000
+D1,divergent16 + generic covariate,low-vision-magnified,5,0.9000,0.7500,,0.3958,0.0035,20000
+D1,divergent16 + generic covariate,elderly-user,5,0.9000,0.7500,,0.2741,0.0032,20000
+D1,delta16,cognitive-adhd,5,0.9000,0.7500,,0.8141,0.0028,20000
+D1,delta16,dyslexic-user,5,0.9000,0.7500,,0.6482,0.0034,20000
+D1,delta16,low-vision-magnified,5,0.9000,0.7500,,0.6530,0.0034,20000
+D1,delta16,elderly-user,5,0.9000,0.7500,,0.7708,0.0030,20000
+D1,delta16 + generic covariate,cognitive-adhd,5,0.9000,0.7500,,0.7467,0.0031,20000
+D1,delta16 + generic covariate,dyslexic-user,5,0.9000,0.7500,,0.5947,0.0035,20000
+D1,delta16 + generic covariate,low-vision-magnified,5,0.9000,0.7500,,0.3668,0.0034,20000
+D1,delta16 + generic covariate,elderly-user,5,0.9000,0.7500,,0.3402,0.0034,20000
+D0-B,"16 divergent, common slope",pooled,5,0.9000,0.7500,,0.8362,0.0052,5000
+D4,"32 divergent, all rated",pooled,5,0.9000,0.7500,,0.9814,0.0019,5000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.7500,0.5000,0.3341,0.0033,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.7500,0.5000,0.2283,0.0030,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.7500,0.5000,0.2264,0.0030,20000
+D3,maxdelta,elderly-user,5,0.9000,0.7500,0.5000,0.2339,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.7500,0.5000,0.3242,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.7500,0.5000,0.2084,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.7500,0.5000,0.1127,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.7500,0.5000,0.1593,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.7500,0.5000,0.2727,0.0031,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.7500,0.5000,0.1927,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.7500,0.5000,0.2026,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.7500,0.5000,0.1779,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.7500,0.5000,0.2660,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.7500,0.5000,0.1756,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.7500,0.5000,0.1729,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.7500,0.5000,0.1713,0.0027,20000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.7500,0.8000,0.3407,0.0034,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.7500,0.8000,0.2340,0.0030,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.7500,0.8000,0.2312,0.0030,20000
+D3,maxdelta,elderly-user,5,0.9000,0.7500,0.8000,0.2352,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.7500,0.8000,0.3281,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.7500,0.8000,0.2112,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.7500,0.8000,0.1137,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.7500,0.8000,0.1613,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.7500,0.8000,0.2834,0.0032,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.7500,0.8000,0.1945,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.7500,0.8000,0.2029,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.7500,0.8000,0.1825,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.7500,0.8000,0.2631,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.7500,0.8000,0.1811,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.7500,0.8000,0.1706,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.7500,0.8000,0.1749,0.0027,20000
+D3,maxdelta,cognitive-adhd,5,0.9000,0.7500,0.9500,0.3450,0.0034,20000
+D3,maxdelta,dyslexic-user,5,0.9000,0.7500,0.9500,0.2382,0.0030,20000
+D3,maxdelta,low-vision-magnified,5,0.9000,0.7500,0.9500,0.2319,0.0030,20000
+D3,maxdelta,elderly-user,5,0.9000,0.7500,0.9500,0.2317,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,5,0.9000,0.7500,0.9500,0.3334,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,5,0.9000,0.7500,0.9500,0.2107,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,5,0.9000,0.7500,0.9500,0.1192,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,5,0.9000,0.7500,0.9500,0.1628,0.0026,20000
+D3,orthogonal,cognitive-adhd,5,0.9000,0.7500,0.9500,0.2807,0.0032,20000
+D3,orthogonal,dyslexic-user,5,0.9000,0.7500,0.9500,0.1921,0.0028,20000
+D3,orthogonal,low-vision-magnified,5,0.9000,0.7500,0.9500,0.2041,0.0028,20000
+D3,orthogonal,elderly-user,5,0.9000,0.7500,0.9500,0.1756,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,5,0.9000,0.7500,0.9500,0.2702,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,5,0.9000,0.7500,0.9500,0.1852,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,5,0.9000,0.7500,0.9500,0.1749,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,5,0.9000,0.7500,0.9500,0.1750,0.0027,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,10,0.3000,,,0.1080,0.0022,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,10,0.3000,,,0.1149,0.0023,20000
+D4,"32 divergent, all rated",cognitive-adhd,10,0.3000,,,0.1452,0.0025,20000
+D0-B,"16 divergent, common slope",dyslexic-user,10,0.3000,,,0.0929,0.0021,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,10,0.3000,,,0.0944,0.0021,20000
+D4,"32 divergent, all rated",dyslexic-user,10,0.3000,,,0.1062,0.0022,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,10,0.3000,,,0.0803,0.0019,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,10,0.3000,,,0.0922,0.0020,20000
+D4,"32 divergent, all rated",low-vision-magnified,10,0.3000,,,0.0945,0.0021,20000
+D0-B,"16 divergent, common slope",elderly-user,10,0.3000,,,0.0782,0.0019,20000
+D0-B,"16 divergent, round2 slope",elderly-user,10,0.3000,,,0.0953,0.0021,20000
+D4,"32 divergent, all rated",elderly-user,10,0.3000,,,0.0978,0.0021,20000
+D1,divergent16,cognitive-adhd,10,0.3000,0.2500,,0.1659,0.0026,20000
+D1,divergent16,dyslexic-user,10,0.3000,0.2500,,0.1330,0.0024,20000
+D1,divergent16,low-vision-magnified,10,0.3000,0.2500,,0.1216,0.0023,20000
+D1,divergent16,elderly-user,10,0.3000,0.2500,,0.1293,0.0024,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.3000,0.2500,,0.1600,0.0026,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.3000,0.2500,,0.1264,0.0023,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.3000,0.2500,,0.0969,0.0021,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.3000,0.2500,,0.0803,0.0019,20000
+D1,delta16,cognitive-adhd,10,0.3000,0.2500,,0.1532,0.0025,20000
+D1,delta16,dyslexic-user,10,0.3000,0.2500,,0.1272,0.0024,20000
+D1,delta16,low-vision-magnified,10,0.3000,0.2500,,0.1280,0.0024,20000
+D1,delta16,elderly-user,10,0.3000,0.2500,,0.1434,0.0025,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.3000,0.2500,,0.1388,0.0024,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.3000,0.2500,,0.1166,0.0023,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.3000,0.2500,,0.0901,0.0020,20000
+D1,delta16 + generic covariate,elderly-user,10,0.3000,0.2500,,0.0877,0.0020,20000
+D0-B,"16 divergent, common slope",pooled,10,0.3000,0.2500,,0.1958,0.0056,5000
+D4,"32 divergent, all rated",pooled,10,0.3000,0.2500,,0.3026,0.0065,5000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.2500,0.5000,0.1022,0.0021,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.2500,0.5000,0.0867,0.0020,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.2500,0.5000,0.0820,0.0019,20000
+D3,maxdelta,elderly-user,10,0.3000,0.2500,0.5000,0.0824,0.0019,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.2500,0.5000,0.0985,0.0021,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.2500,0.5000,0.0805,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.2500,0.5000,0.0673,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.2500,0.5000,0.0682,0.0018,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.2500,0.5000,0.0921,0.0020,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.2500,0.5000,0.0791,0.0019,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.2500,0.5000,0.0817,0.0019,20000
+D3,orthogonal,elderly-user,10,0.3000,0.2500,0.5000,0.0709,0.0018,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.2500,0.5000,0.0913,0.0020,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.2500,0.5000,0.0745,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.2500,0.5000,0.0767,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.2500,0.5000,0.0774,0.0019,20000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.2500,0.8000,0.1190,0.0023,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.2500,0.8000,0.0961,0.0021,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.2500,0.8000,0.0973,0.0021,20000
+D3,maxdelta,elderly-user,10,0.3000,0.2500,0.8000,0.0953,0.0021,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.2500,0.8000,0.1126,0.0022,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.2500,0.8000,0.0907,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.2500,0.8000,0.0703,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.2500,0.8000,0.0783,0.0019,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.2500,0.8000,0.1043,0.0022,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.2500,0.8000,0.0872,0.0020,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.2500,0.8000,0.0901,0.0020,20000
+D3,orthogonal,elderly-user,10,0.3000,0.2500,0.8000,0.0841,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.2500,0.8000,0.1023,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.2500,0.8000,0.0819,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.2500,0.8000,0.0833,0.0020,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.2500,0.8000,0.0811,0.0019,20000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.2500,0.9500,0.1341,0.0024,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.2500,0.9500,0.1047,0.0022,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.2500,0.9500,0.1068,0.0022,20000
+D3,maxdelta,elderly-user,10,0.3000,0.2500,0.9500,0.1020,0.0021,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.2500,0.9500,0.1278,0.0024,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.2500,0.9500,0.0991,0.0021,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.2500,0.9500,0.0690,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.2500,0.9500,0.0876,0.0020,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.2500,0.9500,0.1157,0.0023,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.2500,0.9500,0.0902,0.0020,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.2500,0.9500,0.0970,0.0021,20000
+D3,orthogonal,elderly-user,10,0.3000,0.2500,0.9500,0.0921,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.2500,0.9500,0.1077,0.0022,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.2500,0.9500,0.0921,0.0020,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.2500,0.9500,0.0893,0.0020,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.2500,0.9500,0.0892,0.0020,20000
+D1,divergent16,cognitive-adhd,10,0.3000,0.5000,,0.2006,0.0028,20000
+D1,divergent16,dyslexic-user,10,0.3000,0.5000,,0.1496,0.0025,20000
+D1,divergent16,low-vision-magnified,10,0.3000,0.5000,,0.1336,0.0024,20000
+D1,divergent16,elderly-user,10,0.3000,0.5000,,0.1474,0.0025,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.3000,0.5000,,0.1871,0.0028,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.3000,0.5000,,0.1359,0.0024,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.3000,0.5000,,0.1033,0.0022,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.3000,0.5000,,0.0893,0.0020,20000
+D1,delta16,cognitive-adhd,10,0.3000,0.5000,,0.1744,0.0027,20000
+D1,delta16,dyslexic-user,10,0.3000,0.5000,,0.1407,0.0025,20000
+D1,delta16,low-vision-magnified,10,0.3000,0.5000,,0.1398,0.0025,20000
+D1,delta16,elderly-user,10,0.3000,0.5000,,0.1664,0.0026,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.3000,0.5000,,0.1562,0.0026,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.3000,0.5000,,0.1345,0.0024,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.3000,0.5000,,0.1014,0.0021,20000
+D1,delta16 + generic covariate,elderly-user,10,0.3000,0.5000,,0.0987,0.0021,20000
+D0-B,"16 divergent, common slope",pooled,10,0.3000,0.5000,,0.2278,0.0059,5000
+D4,"32 divergent, all rated",pooled,10,0.3000,0.5000,,0.3392,0.0067,5000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.5000,0.5000,0.1098,0.0022,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.5000,0.5000,0.0914,0.0020,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.5000,0.5000,0.0878,0.0020,20000
+D3,maxdelta,elderly-user,10,0.3000,0.5000,0.5000,0.0913,0.0020,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.5000,0.5000,0.1098,0.0022,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.5000,0.5000,0.0828,0.0019,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.5000,0.5000,0.0665,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.5000,0.5000,0.0776,0.0019,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.5000,0.5000,0.0982,0.0021,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.5000,0.5000,0.0845,0.0020,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.5000,0.5000,0.0869,0.0020,20000
+D3,orthogonal,elderly-user,10,0.3000,0.5000,0.5000,0.0805,0.0019,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.5000,0.5000,0.0942,0.0021,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.5000,0.5000,0.0750,0.0019,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.5000,0.5000,0.0808,0.0019,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.5000,0.5000,0.0782,0.0019,20000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.5000,0.8000,0.1227,0.0023,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.5000,0.8000,0.0959,0.0021,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.5000,0.8000,0.0984,0.0021,20000
+D3,maxdelta,elderly-user,10,0.3000,0.5000,0.8000,0.1020,0.0021,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.5000,0.8000,0.1187,0.0023,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.5000,0.8000,0.0926,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.5000,0.8000,0.0687,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.5000,0.8000,0.0804,0.0019,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.5000,0.8000,0.1056,0.0022,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.5000,0.8000,0.0858,0.0020,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.5000,0.8000,0.0895,0.0020,20000
+D3,orthogonal,elderly-user,10,0.3000,0.5000,0.8000,0.0858,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.5000,0.8000,0.1052,0.0022,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.5000,0.8000,0.0830,0.0020,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.5000,0.8000,0.0879,0.0020,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.5000,0.8000,0.0809,0.0019,20000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.5000,0.9500,0.1361,0.0024,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.5000,0.9500,0.1099,0.0022,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.5000,0.9500,0.1028,0.0021,20000
+D3,maxdelta,elderly-user,10,0.3000,0.5000,0.9500,0.1051,0.0022,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.5000,0.9500,0.1316,0.0024,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.5000,0.9500,0.1035,0.0022,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.5000,0.9500,0.0717,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.5000,0.9500,0.0849,0.0020,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.5000,0.9500,0.1200,0.0023,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.5000,0.9500,0.0957,0.0021,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.5000,0.9500,0.0945,0.0021,20000
+D3,orthogonal,elderly-user,10,0.3000,0.5000,0.9500,0.0931,0.0021,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.5000,0.9500,0.1184,0.0023,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.5000,0.9500,0.0896,0.0020,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.5000,0.9500,0.0868,0.0020,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.5000,0.9500,0.0903,0.0020,20000
+D1,divergent16,cognitive-adhd,10,0.3000,0.7500,,0.2461,0.0030,20000
+D1,divergent16,dyslexic-user,10,0.3000,0.7500,,0.1789,0.0027,20000
+D1,divergent16,low-vision-magnified,10,0.3000,0.7500,,0.1588,0.0026,20000
+D1,divergent16,elderly-user,10,0.3000,0.7500,,0.1763,0.0027,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.3000,0.7500,,0.2273,0.0030,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.3000,0.7500,,0.1670,0.0026,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.3000,0.7500,,0.1194,0.0023,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.3000,0.7500,,0.0948,0.0021,20000
+D1,delta16,cognitive-adhd,10,0.3000,0.7500,,0.2157,0.0029,20000
+D1,delta16,dyslexic-user,10,0.3000,0.7500,,0.1649,0.0026,20000
+D1,delta16,low-vision-magnified,10,0.3000,0.7500,,0.1736,0.0027,20000
+D1,delta16,elderly-user,10,0.3000,0.7500,,0.2057,0.0029,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.3000,0.7500,,0.1972,0.0028,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.3000,0.7500,,0.1628,0.0026,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.3000,0.7500,,0.1173,0.0023,20000
+D1,delta16 + generic covariate,elderly-user,10,0.3000,0.7500,,0.1133,0.0022,20000
+D0-B,"16 divergent, common slope",pooled,10,0.3000,0.7500,,0.2606,0.0062,5000
+D4,"32 divergent, all rated",pooled,10,0.3000,0.7500,,0.4292,0.0070,5000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.7500,0.5000,0.1191,0.0023,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.7500,0.5000,0.0964,0.0021,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.7500,0.5000,0.0950,0.0021,20000
+D3,maxdelta,elderly-user,10,0.3000,0.7500,0.5000,0.0984,0.0021,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.7500,0.5000,0.1173,0.0023,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.7500,0.5000,0.0915,0.0020,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.7500,0.5000,0.0683,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.7500,0.5000,0.0810,0.0019,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.7500,0.5000,0.1040,0.0022,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.7500,0.5000,0.0856,0.0020,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.7500,0.5000,0.0866,0.0020,20000
+D3,orthogonal,elderly-user,10,0.3000,0.7500,0.5000,0.0850,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.7500,0.5000,0.1035,0.0022,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.7500,0.5000,0.0842,0.0020,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.7500,0.5000,0.0835,0.0020,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.7500,0.5000,0.0843,0.0020,20000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.7500,0.8000,0.1305,0.0024,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.7500,0.8000,0.1036,0.0022,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.7500,0.8000,0.1059,0.0022,20000
+D3,maxdelta,elderly-user,10,0.3000,0.7500,0.8000,0.1000,0.0021,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.7500,0.8000,0.1276,0.0024,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.7500,0.8000,0.0969,0.0021,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.7500,0.8000,0.0720,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.7500,0.8000,0.0828,0.0019,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.7500,0.8000,0.1154,0.0023,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.7500,0.8000,0.0931,0.0021,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.7500,0.8000,0.0919,0.0020,20000
+D3,orthogonal,elderly-user,10,0.3000,0.7500,0.8000,0.0879,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.7500,0.8000,0.1121,0.0022,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.7500,0.8000,0.0895,0.0020,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.7500,0.8000,0.0886,0.0020,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.7500,0.8000,0.0876,0.0020,20000
+D3,maxdelta,cognitive-adhd,10,0.3000,0.7500,0.9500,0.1398,0.0025,20000
+D3,maxdelta,dyslexic-user,10,0.3000,0.7500,0.9500,0.1061,0.0022,20000
+D3,maxdelta,low-vision-magnified,10,0.3000,0.7500,0.9500,0.1078,0.0022,20000
+D3,maxdelta,elderly-user,10,0.3000,0.7500,0.9500,0.1089,0.0022,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.3000,0.7500,0.9500,0.1331,0.0024,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.3000,0.7500,0.9500,0.1008,0.0021,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.3000,0.7500,0.9500,0.0716,0.0018,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.3000,0.7500,0.9500,0.0850,0.0020,20000
+D3,orthogonal,cognitive-adhd,10,0.3000,0.7500,0.9500,0.1171,0.0023,20000
+D3,orthogonal,dyslexic-user,10,0.3000,0.7500,0.9500,0.0945,0.0021,20000
+D3,orthogonal,low-vision-magnified,10,0.3000,0.7500,0.9500,0.1003,0.0021,20000
+D3,orthogonal,elderly-user,10,0.3000,0.7500,0.9500,0.0903,0.0020,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.3000,0.7500,0.9500,0.1144,0.0023,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.3000,0.7500,0.9500,0.0909,0.0020,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.3000,0.7500,0.9500,0.0940,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.3000,0.7500,0.9500,0.0925,0.0020,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,10,0.5000,,,0.1779,0.0027,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,10,0.5000,,,0.1907,0.0028,20000
+D4,"32 divergent, all rated",cognitive-adhd,10,0.5000,,,0.2735,0.0032,20000
+D0-B,"16 divergent, common slope",dyslexic-user,10,0.5000,,,0.1419,0.0025,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,10,0.5000,,,0.1422,0.0025,20000
+D4,"32 divergent, all rated",dyslexic-user,10,0.5000,,,0.1747,0.0027,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,10,0.5000,,,0.1153,0.0023,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,10,0.5000,,,0.1384,0.0024,20000
+D4,"32 divergent, all rated",low-vision-magnified,10,0.5000,,,0.1402,0.0025,20000
+D0-B,"16 divergent, common slope",elderly-user,10,0.5000,,,0.1101,0.0022,20000
+D0-B,"16 divergent, round2 slope",elderly-user,10,0.5000,,,0.1510,0.0025,20000
+D4,"32 divergent, all rated",elderly-user,10,0.5000,,,0.1567,0.0026,20000
+D1,divergent16,cognitive-adhd,10,0.5000,0.2500,,0.3346,0.0033,20000
+D1,divergent16,dyslexic-user,10,0.5000,0.2500,,0.2376,0.0030,20000
+D1,divergent16,low-vision-magnified,10,0.5000,0.2500,,0.2051,0.0029,20000
+D1,divergent16,elderly-user,10,0.5000,0.2500,,0.2415,0.0030,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.5000,0.2500,,0.3167,0.0033,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.5000,0.2500,,0.2196,0.0029,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.5000,0.2500,,0.1469,0.0025,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.5000,0.2500,,0.1176,0.0023,20000
+D1,delta16,cognitive-adhd,10,0.5000,0.2500,,0.3085,0.0033,20000
+D1,delta16,dyslexic-user,10,0.5000,0.2500,,0.2298,0.0030,20000
+D1,delta16,low-vision-magnified,10,0.5000,0.2500,,0.2336,0.0030,20000
+D1,delta16,elderly-user,10,0.5000,0.2500,,0.2807,0.0032,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.5000,0.2500,,0.2666,0.0031,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.5000,0.2500,,0.2079,0.0029,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.5000,0.2500,,0.1429,0.0025,20000
+D1,delta16 + generic covariate,elderly-user,10,0.5000,0.2500,,0.1351,0.0024,20000
+D0-B,"16 divergent, common slope",pooled,10,0.5000,0.2500,,0.4038,0.0069,5000
+D4,"32 divergent, all rated",pooled,10,0.5000,0.2500,,0.6262,0.0068,5000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.2500,0.5000,0.1579,0.0026,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.2500,0.5000,0.1231,0.0023,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.2500,0.5000,0.1191,0.0023,20000
+D3,maxdelta,elderly-user,10,0.5000,0.2500,0.5000,0.1207,0.0023,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.2500,0.5000,0.1545,0.0026,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.2500,0.5000,0.1153,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.2500,0.5000,0.0787,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.2500,0.5000,0.0944,0.0021,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.2500,0.5000,0.1394,0.0024,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.2500,0.5000,0.1033,0.0022,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.2500,0.5000,0.1085,0.0022,20000
+D3,orthogonal,elderly-user,10,0.5000,0.2500,0.5000,0.0992,0.0021,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.2500,0.5000,0.1361,0.0024,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.2500,0.5000,0.1044,0.0022,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.2500,0.5000,0.0988,0.0021,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.2500,0.5000,0.1036,0.0022,20000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.2500,0.8000,0.1890,0.0028,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.2500,0.8000,0.1410,0.0025,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.2500,0.8000,0.1368,0.0024,20000
+D3,maxdelta,elderly-user,10,0.5000,0.2500,0.8000,0.1422,0.0025,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.2500,0.8000,0.1921,0.0028,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.2500,0.8000,0.1321,0.0024,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.2500,0.8000,0.0851,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.2500,0.8000,0.1053,0.0022,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.2500,0.8000,0.1643,0.0026,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.2500,0.8000,0.1274,0.0024,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.2500,0.8000,0.1240,0.0023,20000
+D3,orthogonal,elderly-user,10,0.5000,0.2500,0.8000,0.1176,0.0023,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.2500,0.8000,0.1602,0.0026,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.2500,0.8000,0.1188,0.0023,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.2500,0.8000,0.1114,0.0022,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.2500,0.8000,0.1128,0.0022,20000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.2500,0.9500,0.2175,0.0029,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.2500,0.9500,0.1585,0.0026,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.2500,0.9500,0.1615,0.0026,20000
+D3,maxdelta,elderly-user,10,0.5000,0.2500,0.9500,0.1568,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.2500,0.9500,0.2157,0.0029,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.2500,0.9500,0.1484,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.2500,0.9500,0.0911,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.2500,0.9500,0.1203,0.0023,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.2500,0.9500,0.1913,0.0028,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.2500,0.9500,0.1379,0.0024,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.2500,0.9500,0.1431,0.0025,20000
+D3,orthogonal,elderly-user,10,0.5000,0.2500,0.9500,0.1284,0.0024,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.2500,0.9500,0.1787,0.0027,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.2500,0.9500,0.1319,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.2500,0.9500,0.1232,0.0023,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.2500,0.9500,0.1220,0.0023,20000
+D1,divergent16,cognitive-adhd,10,0.5000,0.5000,,0.4063,0.0035,20000
+D1,divergent16,dyslexic-user,10,0.5000,0.5000,,0.2809,0.0032,20000
+D1,divergent16,low-vision-magnified,10,0.5000,0.5000,,0.2432,0.0030,20000
+D1,divergent16,elderly-user,10,0.5000,0.5000,,0.2893,0.0032,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.5000,0.5000,,0.3790,0.0034,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.5000,0.5000,,0.2509,0.0031,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.5000,0.5000,,0.1745,0.0027,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.5000,0.5000,,0.1324,0.0024,20000
+D1,delta16,cognitive-adhd,10,0.5000,0.5000,,0.3545,0.0034,20000
+D1,delta16,dyslexic-user,10,0.5000,0.5000,,0.2621,0.0031,20000
+D1,delta16,low-vision-magnified,10,0.5000,0.5000,,0.2621,0.0031,20000
+D1,delta16,elderly-user,10,0.5000,0.5000,,0.3261,0.0033,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.5000,0.5000,,0.3109,0.0033,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.5000,0.5000,,0.2349,0.0030,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.5000,0.5000,,0.1599,0.0026,20000
+D1,delta16 + generic covariate,elderly-user,10,0.5000,0.5000,,0.1543,0.0026,20000
+D0-B,"16 divergent, common slope",pooled,10,0.5000,0.5000,,0.4604,0.0070,5000
+D4,"32 divergent, all rated",pooled,10,0.5000,0.5000,,0.7080,0.0064,5000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.5000,0.5000,0.1774,0.0027,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.5000,0.5000,0.1278,0.0024,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.5000,0.5000,0.1300,0.0024,20000
+D3,maxdelta,elderly-user,10,0.5000,0.5000,0.5000,0.1273,0.0024,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.5000,0.5000,0.1645,0.0026,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.5000,0.5000,0.1202,0.0023,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.5000,0.5000,0.0817,0.0019,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.5000,0.5000,0.1033,0.0022,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.5000,0.5000,0.1499,0.0025,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.5000,0.5000,0.1162,0.0023,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.5000,0.5000,0.1158,0.0023,20000
+D3,orthogonal,elderly-user,10,0.5000,0.5000,0.5000,0.1083,0.0022,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.5000,0.5000,0.1470,0.0025,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.5000,0.5000,0.1079,0.0022,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.5000,0.5000,0.1113,0.0022,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.5000,0.5000,0.1100,0.0022,20000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.5000,0.8000,0.2099,0.0029,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.5000,0.8000,0.1486,0.0025,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.5000,0.8000,0.1428,0.0025,20000
+D3,maxdelta,elderly-user,10,0.5000,0.5000,0.8000,0.1482,0.0025,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.5000,0.8000,0.1937,0.0028,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.5000,0.8000,0.1373,0.0024,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.5000,0.8000,0.0896,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.5000,0.8000,0.1130,0.0022,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.5000,0.8000,0.1737,0.0027,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.5000,0.8000,0.1273,0.0024,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.5000,0.8000,0.1321,0.0024,20000
+D3,orthogonal,elderly-user,10,0.5000,0.5000,0.8000,0.1179,0.0023,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.5000,0.8000,0.1630,0.0026,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.5000,0.8000,0.1211,0.0023,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.5000,0.8000,0.1197,0.0023,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.5000,0.8000,0.1162,0.0023,20000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.5000,0.9500,0.2296,0.0030,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.5000,0.9500,0.1603,0.0026,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.5000,0.9500,0.1580,0.0026,20000
+D3,maxdelta,elderly-user,10,0.5000,0.5000,0.9500,0.1616,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.5000,0.9500,0.2188,0.0029,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.5000,0.9500,0.1486,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.5000,0.9500,0.0889,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.5000,0.9500,0.1211,0.0023,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.5000,0.9500,0.1933,0.0028,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.5000,0.9500,0.1412,0.0025,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.5000,0.9500,0.1487,0.0025,20000
+D3,orthogonal,elderly-user,10,0.5000,0.5000,0.9500,0.1311,0.0024,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.5000,0.9500,0.1849,0.0027,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.5000,0.9500,0.1298,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.5000,0.9500,0.1270,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.5000,0.9500,0.1250,0.0023,20000
+D1,divergent16,cognitive-adhd,10,0.5000,0.7500,,0.5002,0.0035,20000
+D1,divergent16,dyslexic-user,10,0.5000,0.7500,,0.3408,0.0034,20000
+D1,divergent16,low-vision-magnified,10,0.5000,0.7500,,0.2980,0.0032,20000
+D1,divergent16,elderly-user,10,0.5000,0.7500,,0.3577,0.0034,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.5000,0.7500,,0.4733,0.0035,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.5000,0.7500,,0.3173,0.0033,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.5000,0.7500,,0.2041,0.0028,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.5000,0.7500,,0.1517,0.0025,20000
+D1,delta16,cognitive-adhd,10,0.5000,0.7500,,0.4494,0.0035,20000
+D1,delta16,dyslexic-user,10,0.5000,0.7500,,0.3321,0.0033,20000
+D1,delta16,low-vision-magnified,10,0.5000,0.7500,,0.3329,0.0033,20000
+D1,delta16,elderly-user,10,0.5000,0.7500,,0.4143,0.0035,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.5000,0.7500,,0.3902,0.0034,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.5000,0.7500,,0.2939,0.0032,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.5000,0.7500,,0.1921,0.0028,20000
+D1,delta16 + generic covariate,elderly-user,10,0.5000,0.7500,,0.1777,0.0027,20000
+D0-B,"16 divergent, common slope",pooled,10,0.5000,0.7500,,0.5406,0.0070,5000
+D4,"32 divergent, all rated",pooled,10,0.5000,0.7500,,0.8166,0.0055,5000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.7500,0.5000,0.1965,0.0028,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.7500,0.5000,0.1451,0.0025,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.7500,0.5000,0.1389,0.0024,20000
+D3,maxdelta,elderly-user,10,0.5000,0.7500,0.5000,0.1409,0.0025,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.7500,0.5000,0.1965,0.0028,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.7500,0.5000,0.1396,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.7500,0.5000,0.0834,0.0020,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.7500,0.5000,0.1080,0.0022,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.7500,0.5000,0.1709,0.0027,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.7500,0.5000,0.1231,0.0023,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.7500,0.5000,0.1290,0.0024,20000
+D3,orthogonal,elderly-user,10,0.5000,0.7500,0.5000,0.1192,0.0023,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.7500,0.5000,0.1593,0.0026,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.7500,0.5000,0.1171,0.0023,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.7500,0.5000,0.1217,0.0023,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.7500,0.5000,0.1137,0.0022,20000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.7500,0.8000,0.2129,0.0029,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.7500,0.8000,0.1556,0.0026,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.7500,0.8000,0.1578,0.0026,20000
+D3,maxdelta,elderly-user,10,0.5000,0.7500,0.8000,0.1600,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.7500,0.8000,0.2117,0.0029,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.7500,0.8000,0.1441,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.7500,0.8000,0.0928,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.7500,0.8000,0.1169,0.0023,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.7500,0.8000,0.1855,0.0027,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.7500,0.8000,0.1335,0.0024,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.7500,0.8000,0.1404,0.0025,20000
+D3,orthogonal,elderly-user,10,0.5000,0.7500,0.8000,0.1223,0.0023,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.7500,0.8000,0.1769,0.0027,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.7500,0.8000,0.1253,0.0023,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.7500,0.8000,0.1239,0.0023,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.7500,0.8000,0.1240,0.0023,20000
+D3,maxdelta,cognitive-adhd,10,0.5000,0.7500,0.9500,0.2341,0.0030,20000
+D3,maxdelta,dyslexic-user,10,0.5000,0.7500,0.9500,0.1656,0.0026,20000
+D3,maxdelta,low-vision-magnified,10,0.5000,0.7500,0.9500,0.1641,0.0026,20000
+D3,maxdelta,elderly-user,10,0.5000,0.7500,0.9500,0.1650,0.0026,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.5000,0.7500,0.9500,0.2213,0.0029,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.5000,0.7500,0.9500,0.1484,0.0025,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.5000,0.7500,0.9500,0.0949,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.5000,0.7500,0.9500,0.1182,0.0023,20000
+D3,orthogonal,cognitive-adhd,10,0.5000,0.7500,0.9500,0.1973,0.0028,20000
+D3,orthogonal,dyslexic-user,10,0.5000,0.7500,0.9500,0.1421,0.0025,20000
+D3,orthogonal,low-vision-magnified,10,0.5000,0.7500,0.9500,0.1456,0.0025,20000
+D3,orthogonal,elderly-user,10,0.5000,0.7500,0.9500,0.1306,0.0024,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.5000,0.7500,0.9500,0.1880,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.5000,0.7500,0.9500,0.1364,0.0024,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.5000,0.7500,0.9500,0.1279,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.5000,0.7500,0.9500,0.1319,0.0024,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,10,0.7000,,,0.3120,0.0033,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,10,0.7000,,,0.3392,0.0033,20000
+D4,"32 divergent, all rated",cognitive-adhd,10,0.7000,,,0.4966,0.0035,20000
+D0-B,"16 divergent, common slope",dyslexic-user,10,0.7000,,,0.2201,0.0029,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,10,0.7000,,,0.2222,0.0029,20000
+D4,"32 divergent, all rated",dyslexic-user,10,0.7000,,,0.3016,0.0032,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,10,0.7000,,,0.1769,0.0027,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,10,0.7000,,,0.2297,0.0030,20000
+D4,"32 divergent, all rated",low-vision-magnified,10,0.7000,,,0.2339,0.0030,20000
+D0-B,"16 divergent, common slope",elderly-user,10,0.7000,,,0.1582,0.0026,20000
+D0-B,"16 divergent, round2 slope",elderly-user,10,0.7000,,,0.2385,0.0030,20000
+D4,"32 divergent, all rated",elderly-user,10,0.7000,,,0.2565,0.0031,20000
+D1,divergent16,cognitive-adhd,10,0.7000,0.2500,,0.6120,0.0034,20000
+D1,divergent16,dyslexic-user,10,0.7000,0.2500,,0.4266,0.0035,20000
+D1,divergent16,low-vision-magnified,10,0.7000,0.2500,,0.3671,0.0034,20000
+D1,divergent16,elderly-user,10,0.7000,0.2500,,0.4345,0.0035,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.7000,0.2500,,0.5826,0.0035,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.7000,0.2500,,0.3856,0.0034,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.7000,0.2500,,0.2486,0.0031,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.7000,0.2500,,0.1783,0.0027,20000
+D1,delta16,cognitive-adhd,10,0.7000,0.2500,,0.5550,0.0035,20000
+D1,delta16,dyslexic-user,10,0.7000,0.2500,,0.4040,0.0035,20000
+D1,delta16,low-vision-magnified,10,0.7000,0.2500,,0.4096,0.0035,20000
+D1,delta16,elderly-user,10,0.7000,0.2500,,0.5047,0.0035,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.7000,0.2500,,0.4819,0.0035,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.7000,0.2500,,0.3679,0.0034,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.7000,0.2500,,0.2319,0.0030,20000
+D1,delta16 + generic covariate,elderly-user,10,0.7000,0.2500,,0.2236,0.0029,20000
+D0-B,"16 divergent, common slope",pooled,10,0.7000,0.2500,,0.6840,0.0066,5000
+D4,"32 divergent, all rated",pooled,10,0.7000,0.2500,,0.9246,0.0037,5000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.2500,0.5000,0.2576,0.0031,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.2500,0.5000,0.1749,0.0027,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.2500,0.5000,0.1754,0.0027,20000
+D3,maxdelta,elderly-user,10,0.7000,0.2500,0.5000,0.1716,0.0027,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.2500,0.5000,0.2462,0.0030,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.2500,0.5000,0.1584,0.0026,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.2500,0.5000,0.0990,0.0021,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.2500,0.5000,0.1281,0.0024,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.2500,0.5000,0.2150,0.0029,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.2500,0.5000,0.1535,0.0025,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.2500,0.5000,0.1570,0.0026,20000
+D3,orthogonal,elderly-user,10,0.7000,0.2500,0.5000,0.1434,0.0025,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.2500,0.5000,0.1996,0.0028,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.2500,0.5000,0.1451,0.0025,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.2500,0.5000,0.1357,0.0024,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.2500,0.5000,0.1389,0.0024,20000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.2500,0.8000,0.3057,0.0033,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.2500,0.8000,0.2079,0.0029,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.2500,0.8000,0.2058,0.0029,20000
+D3,maxdelta,elderly-user,10,0.7000,0.2500,0.8000,0.2145,0.0029,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.2500,0.8000,0.2964,0.0032,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.2500,0.8000,0.1967,0.0028,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.2500,0.8000,0.1121,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.2500,0.8000,0.1436,0.0025,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.2500,0.8000,0.2516,0.0031,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.2500,0.8000,0.1737,0.0027,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.2500,0.8000,0.1835,0.0027,20000
+D3,orthogonal,elderly-user,10,0.7000,0.2500,0.8000,0.1653,0.0026,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.2500,0.8000,0.2413,0.0030,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.2500,0.8000,0.1638,0.0026,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.2500,0.8000,0.1615,0.0026,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.2500,0.8000,0.1599,0.0026,20000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.2500,0.9500,0.3403,0.0034,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.2500,0.9500,0.2329,0.0030,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.2500,0.9500,0.2359,0.0030,20000
+D3,maxdelta,elderly-user,10,0.7000,0.2500,0.9500,0.2326,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.2500,0.9500,0.3348,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.2500,0.9500,0.2109,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.2500,0.9500,0.1158,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.2500,0.9500,0.1610,0.0026,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.2500,0.9500,0.2842,0.0032,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.2500,0.9500,0.1908,0.0028,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.2500,0.9500,0.1978,0.0028,20000
+D3,orthogonal,elderly-user,10,0.7000,0.2500,0.9500,0.1815,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.2500,0.9500,0.2688,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.2500,0.9500,0.1858,0.0028,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.2500,0.9500,0.1745,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.2500,0.9500,0.1714,0.0027,20000
+D1,divergent16,cognitive-adhd,10,0.7000,0.5000,,0.7009,0.0032,20000
+D1,divergent16,dyslexic-user,10,0.7000,0.5000,,0.4847,0.0035,20000
+D1,divergent16,low-vision-magnified,10,0.7000,0.5000,,0.4244,0.0035,20000
+D1,divergent16,elderly-user,10,0.7000,0.5000,,0.5051,0.0035,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.7000,0.5000,,0.6506,0.0034,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.7000,0.5000,,0.4450,0.0035,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.7000,0.5000,,0.2812,0.0032,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.7000,0.5000,,0.1926,0.0028,20000
+D1,delta16,cognitive-adhd,10,0.7000,0.5000,,0.6237,0.0034,20000
+D1,delta16,dyslexic-user,10,0.7000,0.5000,,0.4658,0.0035,20000
+D1,delta16,low-vision-magnified,10,0.7000,0.5000,,0.4725,0.0035,20000
+D1,delta16,elderly-user,10,0.7000,0.5000,,0.5714,0.0035,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.7000,0.5000,,0.5575,0.0035,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.7000,0.5000,,0.4209,0.0035,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.7000,0.5000,,0.2665,0.0031,20000
+D1,delta16 + generic covariate,elderly-user,10,0.7000,0.5000,,0.2448,0.0030,20000
+D0-B,"16 divergent, common slope",pooled,10,0.7000,0.5000,,0.7518,0.0061,5000
+D4,"32 divergent, all rated",pooled,10,0.7000,0.5000,,0.9576,0.0028,5000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.5000,0.5000,0.2832,0.0032,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.5000,0.5000,0.1903,0.0028,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.5000,0.5000,0.1968,0.0028,20000
+D3,maxdelta,elderly-user,10,0.7000,0.5000,0.5000,0.1918,0.0028,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.5000,0.5000,0.2701,0.0031,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.5000,0.5000,0.1774,0.0027,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.5000,0.5000,0.1053,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.5000,0.5000,0.1388,0.0024,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.5000,0.5000,0.2359,0.0030,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.5000,0.5000,0.1641,0.0026,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.5000,0.5000,0.1686,0.0026,20000
+D3,orthogonal,elderly-user,10,0.7000,0.5000,0.5000,0.1558,0.0026,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.5000,0.5000,0.2291,0.0030,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.5000,0.5000,0.1505,0.0025,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.5000,0.5000,0.1494,0.0025,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.5000,0.5000,0.1497,0.0025,20000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.5000,0.8000,0.3209,0.0033,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.5000,0.8000,0.2200,0.0029,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.5000,0.8000,0.2250,0.0030,20000
+D3,maxdelta,elderly-user,10,0.7000,0.5000,0.8000,0.2188,0.0029,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.5000,0.8000,0.3083,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.5000,0.8000,0.1953,0.0028,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.5000,0.8000,0.1161,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.5000,0.8000,0.1505,0.0025,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.5000,0.8000,0.2703,0.0031,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.5000,0.8000,0.1794,0.0027,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.5000,0.8000,0.1959,0.0028,20000
+D3,orthogonal,elderly-user,10,0.7000,0.5000,0.8000,0.1710,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.5000,0.8000,0.2581,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.5000,0.8000,0.1756,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.5000,0.8000,0.1633,0.0026,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.5000,0.8000,0.1669,0.0026,20000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.5000,0.9500,0.3524,0.0034,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.5000,0.9500,0.2391,0.0030,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.5000,0.9500,0.2357,0.0030,20000
+D3,maxdelta,elderly-user,10,0.7000,0.5000,0.9500,0.2369,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.5000,0.9500,0.3357,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.5000,0.9500,0.2138,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.5000,0.9500,0.1226,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.5000,0.9500,0.1590,0.0026,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.5000,0.9500,0.2863,0.0032,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.5000,0.9500,0.2042,0.0029,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.5000,0.9500,0.2042,0.0029,20000
+D3,orthogonal,elderly-user,10,0.7000,0.5000,0.9500,0.1868,0.0028,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.5000,0.9500,0.2789,0.0032,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.5000,0.9500,0.1842,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.5000,0.9500,0.1770,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.5000,0.9500,0.1794,0.0027,20000
+D1,divergent16,cognitive-adhd,10,0.7000,0.7500,,0.7975,0.0028,20000
+D1,divergent16,dyslexic-user,10,0.7000,0.7500,,0.5901,0.0035,20000
+D1,divergent16,low-vision-magnified,10,0.7000,0.7500,,0.5159,0.0035,20000
+D1,divergent16,elderly-user,10,0.7000,0.7500,,0.5983,0.0035,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.7000,0.7500,,0.7614,0.0030,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.7000,0.7500,,0.5334,0.0035,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.7000,0.7500,,0.3322,0.0033,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.7000,0.7500,,0.2314,0.0030,20000
+D1,delta16,cognitive-adhd,10,0.7000,0.7500,,0.7236,0.0032,20000
+D1,delta16,dyslexic-user,10,0.7000,0.7500,,0.5578,0.0035,20000
+D1,delta16,low-vision-magnified,10,0.7000,0.7500,,0.5600,0.0035,20000
+D1,delta16,elderly-user,10,0.7000,0.7500,,0.6777,0.0033,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.7000,0.7500,,0.6518,0.0034,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.7000,0.7500,,0.5066,0.0035,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.7000,0.7500,,0.3108,0.0033,20000
+D1,delta16 + generic covariate,elderly-user,10,0.7000,0.7500,,0.2992,0.0032,20000
+D0-B,"16 divergent, common slope",pooled,10,0.7000,0.7500,,0.8314,0.0053,5000
+D4,"32 divergent, all rated",pooled,10,0.7000,0.7500,,0.9818,0.0019,5000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.7500,0.5000,0.3125,0.0033,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.7500,0.5000,0.2125,0.0029,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.7500,0.5000,0.2178,0.0029,20000
+D3,maxdelta,elderly-user,10,0.7000,0.7500,0.5000,0.2141,0.0029,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.7500,0.5000,0.3059,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.7500,0.5000,0.1921,0.0028,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.7500,0.5000,0.1094,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.7500,0.5000,0.1494,0.0025,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.7500,0.5000,0.2576,0.0031,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.7500,0.5000,0.1797,0.0027,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.7500,0.5000,0.1892,0.0028,20000
+D3,orthogonal,elderly-user,10,0.7000,0.7500,0.5000,0.1714,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.7500,0.5000,0.2488,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.7500,0.5000,0.1694,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.7500,0.5000,0.1631,0.0026,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.7500,0.5000,0.1610,0.0026,20000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.7500,0.8000,0.3385,0.0033,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.7500,0.8000,0.2282,0.0030,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.7500,0.8000,0.2329,0.0030,20000
+D3,maxdelta,elderly-user,10,0.7000,0.7500,0.8000,0.2285,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.7500,0.8000,0.3263,0.0033,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.7500,0.8000,0.2072,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.7500,0.8000,0.1123,0.0022,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.7500,0.8000,0.1609,0.0026,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.7500,0.8000,0.2832,0.0032,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.7500,0.8000,0.1911,0.0028,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.7500,0.8000,0.2069,0.0029,20000
+D3,orthogonal,elderly-user,10,0.7000,0.7500,0.8000,0.1785,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.7500,0.8000,0.2670,0.0031,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.7500,0.8000,0.1805,0.0027,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.7500,0.8000,0.1717,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.7500,0.8000,0.1757,0.0027,20000
+D3,maxdelta,cognitive-adhd,10,0.7000,0.7500,0.9500,0.3528,0.0034,20000
+D3,maxdelta,dyslexic-user,10,0.7000,0.7500,0.9500,0.2334,0.0030,20000
+D3,maxdelta,low-vision-magnified,10,0.7000,0.7500,0.9500,0.2427,0.0030,20000
+D3,maxdelta,elderly-user,10,0.7000,0.7500,0.9500,0.2430,0.0030,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.7000,0.7500,0.9500,0.3508,0.0034,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.7000,0.7500,0.9500,0.2195,0.0029,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.7000,0.7500,0.9500,0.1216,0.0023,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.7000,0.7500,0.9500,0.1648,0.0026,20000
+D3,orthogonal,cognitive-adhd,10,0.7000,0.7500,0.9500,0.2962,0.0032,20000
+D3,orthogonal,dyslexic-user,10,0.7000,0.7500,0.9500,0.2038,0.0028,20000
+D3,orthogonal,low-vision-magnified,10,0.7000,0.7500,0.9500,0.2131,0.0029,20000
+D3,orthogonal,elderly-user,10,0.7000,0.7500,0.9500,0.1830,0.0027,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.7000,0.7500,0.9500,0.2758,0.0032,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.7000,0.7500,0.9500,0.1891,0.0028,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.7000,0.7500,0.9500,0.1744,0.0027,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.7000,0.7500,0.9500,0.1777,0.0027,20000
+D0-B,"16 divergent, common slope",cognitive-adhd,10,0.9000,,,0.5694,0.0035,20000
+D0-B,"16 divergent, round2 slope",cognitive-adhd,10,0.9000,,,0.6242,0.0034,20000
+D4,"32 divergent, all rated",cognitive-adhd,10,0.9000,,,0.8333,0.0026,20000
+D0-B,"16 divergent, common slope",dyslexic-user,10,0.9000,,,0.4047,0.0035,20000
+D0-B,"16 divergent, round2 slope",dyslexic-user,10,0.9000,,,0.4136,0.0035,20000
+D4,"32 divergent, all rated",dyslexic-user,10,0.9000,,,0.5675,0.0035,20000
+D0-B,"16 divergent, common slope",low-vision-magnified,10,0.9000,,,0.3094,0.0033,20000
+D0-B,"16 divergent, round2 slope",low-vision-magnified,10,0.9000,,,0.4150,0.0035,20000
+D4,"32 divergent, all rated",low-vision-magnified,10,0.9000,,,0.4274,0.0035,20000
+D0-B,"16 divergent, common slope",elderly-user,10,0.9000,,,0.2611,0.0031,20000
+D0-B,"16 divergent, round2 slope",elderly-user,10,0.9000,,,0.4481,0.0035,20000
+D4,"32 divergent, all rated",elderly-user,10,0.9000,,,0.4804,0.0035,20000
+D1,divergent16,cognitive-adhd,10,0.9000,0.2500,,0.9308,0.0018,20000
+D1,divergent16,dyslexic-user,10,0.9000,0.2500,,0.7591,0.0030,20000
+D1,divergent16,low-vision-magnified,10,0.9000,0.2500,,0.6787,0.0033,20000
+D1,divergent16,elderly-user,10,0.9000,0.2500,,0.7759,0.0029,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.9000,0.2500,,0.9038,0.0021,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.9000,0.2500,,0.7096,0.0032,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.9000,0.2500,,0.4589,0.0035,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.9000,0.2500,,0.3096,0.0033,20000
+D1,delta16,cognitive-adhd,10,0.9000,0.2500,,0.8821,0.0023,20000
+D1,delta16,dyslexic-user,10,0.9000,0.2500,,0.7254,0.0032,20000
+D1,delta16,low-vision-magnified,10,0.9000,0.2500,,0.7359,0.0031,20000
+D1,delta16,elderly-user,10,0.9000,0.2500,,0.8423,0.0026,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.9000,0.2500,,0.8268,0.0027,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.9000,0.2500,,0.6689,0.0033,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.9000,0.2500,,0.4287,0.0035,20000
+D1,delta16 + generic covariate,elderly-user,10,0.9000,0.2500,,0.3962,0.0035,20000
+D0-B,"16 divergent, common slope",pooled,10,0.9000,0.2500,,0.9510,0.0031,5000
+D4,"32 divergent, all rated",pooled,10,0.9000,0.2500,,0.9996,0.0003,5000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.2500,0.5000,0.4296,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.2500,0.5000,0.2910,0.0032,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.2500,0.5000,0.2893,0.0032,20000
+D3,maxdelta,elderly-user,10,0.9000,0.2500,0.5000,0.2875,0.0032,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.2500,0.5000,0.4144,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.2500,0.5000,0.2616,0.0031,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.2500,0.5000,0.1338,0.0024,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.2500,0.5000,0.1966,0.0028,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.2500,0.5000,0.3557,0.0034,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.2500,0.5000,0.2371,0.0030,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.2500,0.5000,0.2501,0.0031,20000
+D3,orthogonal,elderly-user,10,0.9000,0.2500,0.5000,0.2151,0.0029,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.2500,0.5000,0.3323,0.0033,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.2500,0.5000,0.2182,0.0029,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.2500,0.5000,0.2129,0.0029,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.2500,0.5000,0.2122,0.0029,20000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.2500,0.8000,0.4682,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.2500,0.8000,0.3199,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.2500,0.8000,0.3120,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.2500,0.8000,0.3096,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.2500,0.8000,0.4572,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.2500,0.8000,0.2875,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.2500,0.8000,0.1440,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.2500,0.8000,0.2023,0.0028,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.2500,0.8000,0.3921,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.2500,0.8000,0.2541,0.0031,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.2500,0.8000,0.2707,0.0031,20000
+D3,orthogonal,elderly-user,10,0.9000,0.2500,0.8000,0.2338,0.0030,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.2500,0.8000,0.3711,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.2500,0.8000,0.2400,0.0030,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.2500,0.8000,0.2296,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.2500,0.8000,0.2282,0.0030,20000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.2500,0.9500,0.4995,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.2500,0.9500,0.3350,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.2500,0.9500,0.3343,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.2500,0.9500,0.3358,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.2500,0.9500,0.4822,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.2500,0.9500,0.2933,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.2500,0.9500,0.1458,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.2500,0.9500,0.2122,0.0029,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.2500,0.9500,0.4118,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.2500,0.9500,0.2663,0.0031,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.2500,0.9500,0.2878,0.0032,20000
+D3,orthogonal,elderly-user,10,0.9000,0.2500,0.9500,0.2488,0.0031,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.2500,0.9500,0.3890,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.2500,0.9500,0.2447,0.0030,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.2500,0.9500,0.2394,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.2500,0.9500,0.2355,0.0030,20000
+D1,divergent16,cognitive-adhd,10,0.9000,0.5000,,0.9550,0.0015,20000
+D1,divergent16,dyslexic-user,10,0.9000,0.5000,,0.7988,0.0028,20000
+D1,divergent16,low-vision-magnified,10,0.9000,0.5000,,0.7207,0.0032,20000
+D1,divergent16,elderly-user,10,0.9000,0.5000,,0.8169,0.0027,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.9000,0.5000,,0.9313,0.0018,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.9000,0.5000,,0.7517,0.0031,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.9000,0.5000,,0.5000,0.0035,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.9000,0.5000,,0.3336,0.0033,20000
+D1,delta16,cognitive-adhd,10,0.9000,0.5000,,0.9157,0.0020,20000
+D1,delta16,dyslexic-user,10,0.9000,0.5000,,0.7702,0.0030,20000
+D1,delta16,low-vision-magnified,10,0.9000,0.5000,,0.7728,0.0030,20000
+D1,delta16,elderly-user,10,0.9000,0.5000,,0.8786,0.0023,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.9000,0.5000,,0.8543,0.0025,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.9000,0.5000,,0.7147,0.0032,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.9000,0.5000,,0.4653,0.0035,20000
+D1,delta16 + generic covariate,elderly-user,10,0.9000,0.5000,,0.4286,0.0035,20000
+D0-B,"16 divergent, common slope",pooled,10,0.9000,0.5000,,0.9586,0.0028,5000
+D4,"32 divergent, all rated",pooled,10,0.9000,0.5000,,0.9990,0.0004,5000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.5000,0.5000,0.4542,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.5000,0.5000,0.2984,0.0032,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.5000,0.5000,0.3050,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.5000,0.5000,0.3101,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.5000,0.5000,0.4380,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.5000,0.5000,0.2693,0.0031,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.5000,0.5000,0.1391,0.0024,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.5000,0.5000,0.1978,0.0028,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.5000,0.5000,0.3789,0.0034,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.5000,0.5000,0.2447,0.0030,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.5000,0.5000,0.2616,0.0031,20000
+D3,orthogonal,elderly-user,10,0.9000,0.5000,0.5000,0.2288,0.0030,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.5000,0.5000,0.3505,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.5000,0.5000,0.2245,0.0030,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.5000,0.5000,0.2183,0.0029,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.5000,0.5000,0.2180,0.0029,20000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.5000,0.8000,0.4810,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.5000,0.8000,0.3195,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.5000,0.8000,0.3191,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.5000,0.8000,0.3221,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.5000,0.8000,0.4672,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.5000,0.8000,0.2873,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.5000,0.8000,0.1464,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.5000,0.8000,0.2135,0.0029,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.5000,0.8000,0.3976,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.5000,0.8000,0.2632,0.0031,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.5000,0.8000,0.2733,0.0032,20000
+D3,orthogonal,elderly-user,10,0.9000,0.5000,0.8000,0.2387,0.0030,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.5000,0.8000,0.3757,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.5000,0.8000,0.2434,0.0030,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.5000,0.8000,0.2339,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.5000,0.8000,0.2333,0.0030,20000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.5000,0.9500,0.5073,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.5000,0.9500,0.3356,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.5000,0.9500,0.3311,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.5000,0.9500,0.3324,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.5000,0.9500,0.4847,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.5000,0.9500,0.2995,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.5000,0.9500,0.1496,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.5000,0.9500,0.2159,0.0029,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.5000,0.9500,0.4142,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.5000,0.9500,0.2687,0.0031,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.5000,0.9500,0.2873,0.0032,20000
+D3,orthogonal,elderly-user,10,0.9000,0.5000,0.9500,0.2469,0.0030,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.5000,0.9500,0.3881,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.5000,0.9500,0.2500,0.0031,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.5000,0.9500,0.2396,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.5000,0.9500,0.2379,0.0030,20000
+D1,divergent16,cognitive-adhd,10,0.9000,0.7500,,0.9721,0.0012,20000
+D1,divergent16,dyslexic-user,10,0.9000,0.7500,,0.8504,0.0025,20000
+D1,divergent16,low-vision-magnified,10,0.9000,0.7500,,0.7658,0.0030,20000
+D1,divergent16,elderly-user,10,0.9000,0.7500,,0.8585,0.0025,20000
+D1,divergent16 + generic covariate,cognitive-adhd,10,0.9000,0.7500,,0.9574,0.0014,20000
+D1,divergent16 + generic covariate,dyslexic-user,10,0.9000,0.7500,,0.8030,0.0028,20000
+D1,divergent16 + generic covariate,low-vision-magnified,10,0.9000,0.7500,,0.5446,0.0035,20000
+D1,divergent16 + generic covariate,elderly-user,10,0.9000,0.7500,,0.3633,0.0034,20000
+D1,delta16,cognitive-adhd,10,0.9000,0.7500,,0.9448,0.0016,20000
+D1,delta16,dyslexic-user,10,0.9000,0.7500,,0.8217,0.0027,20000
+D1,delta16,low-vision-magnified,10,0.9000,0.7500,,0.8297,0.0027,20000
+D1,delta16,elderly-user,10,0.9000,0.7500,,0.9106,0.0020,20000
+D1,delta16 + generic covariate,cognitive-adhd,10,0.9000,0.7500,,0.9005,0.0021,20000
+D1,delta16 + generic covariate,dyslexic-user,10,0.9000,0.7500,,0.7695,0.0030,20000
+D1,delta16 + generic covariate,low-vision-magnified,10,0.9000,0.7500,,0.5009,0.0035,20000
+D1,delta16 + generic covariate,elderly-user,10,0.9000,0.7500,,0.4728,0.0035,20000
+D0-B,"16 divergent, common slope",pooled,10,0.9000,0.7500,,0.9770,0.0021,5000
+D4,"32 divergent, all rated",pooled,10,0.9000,0.7500,,1.0000,0.0000,5000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.7500,0.5000,0.4812,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.7500,0.5000,0.3201,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.7500,0.5000,0.3167,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.7500,0.5000,0.3143,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.7500,0.5000,0.4628,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.7500,0.5000,0.2861,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.7500,0.5000,0.1421,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.7500,0.5000,0.2124,0.0029,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.7500,0.5000,0.3977,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.7500,0.5000,0.2605,0.0031,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.7500,0.5000,0.2773,0.0032,20000
+D3,orthogonal,elderly-user,10,0.9000,0.7500,0.5000,0.2344,0.0030,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.7500,0.5000,0.3719,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.7500,0.5000,0.2365,0.0030,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.7500,0.5000,0.2326,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.7500,0.5000,0.2299,0.0030,20000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.7500,0.8000,0.4967,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.7500,0.8000,0.3309,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.7500,0.8000,0.3292,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.7500,0.8000,0.3236,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.7500,0.8000,0.4834,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.7500,0.8000,0.2956,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.7500,0.8000,0.1490,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.7500,0.8000,0.2170,0.0029,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.7500,0.8000,0.4098,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.7500,0.8000,0.2679,0.0031,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.7500,0.8000,0.2828,0.0032,20000
+D3,orthogonal,elderly-user,10,0.9000,0.7500,0.8000,0.2457,0.0030,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.7500,0.8000,0.3781,0.0034,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.7500,0.8000,0.2462,0.0030,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.7500,0.8000,0.2384,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.7500,0.8000,0.2343,0.0030,20000
+D3,maxdelta,cognitive-adhd,10,0.9000,0.7500,0.9500,0.5077,0.0035,20000
+D3,maxdelta,dyslexic-user,10,0.9000,0.7500,0.9500,0.3316,0.0033,20000
+D3,maxdelta,low-vision-magnified,10,0.9000,0.7500,0.9500,0.3383,0.0033,20000
+D3,maxdelta,elderly-user,10,0.9000,0.7500,0.9500,0.3285,0.0033,20000
+D3,maxdelta + generic covariate,cognitive-adhd,10,0.9000,0.7500,0.9500,0.4845,0.0035,20000
+D3,maxdelta + generic covariate,dyslexic-user,10,0.9000,0.7500,0.9500,0.3030,0.0032,20000
+D3,maxdelta + generic covariate,low-vision-magnified,10,0.9000,0.7500,0.9500,0.1447,0.0025,20000
+D3,maxdelta + generic covariate,elderly-user,10,0.9000,0.7500,0.9500,0.2207,0.0029,20000
+D3,orthogonal,cognitive-adhd,10,0.9000,0.7500,0.9500,0.4152,0.0035,20000
+D3,orthogonal,dyslexic-user,10,0.9000,0.7500,0.9500,0.2749,0.0032,20000
+D3,orthogonal,low-vision-magnified,10,0.9000,0.7500,0.9500,0.2901,0.0032,20000
+D3,orthogonal,elderly-user,10,0.9000,0.7500,0.9500,0.2514,0.0031,20000
+D3,orthogonal + generic covariate,cognitive-adhd,10,0.9000,0.7500,0.9500,0.3929,0.0035,20000
+D3,orthogonal + generic covariate,dyslexic-user,10,0.9000,0.7500,0.9500,0.2486,0.0031,20000
+D3,orthogonal + generic covariate,low-vision-magnified,10,0.9000,0.7500,0.9500,0.2367,0.0030,20000
+D3,orthogonal + generic covariate,elderly-user,10,0.9000,0.7500,0.9500,0.2390,0.0030,20000
+D0-A,"as written, common slope",cognitive-adhd,5,0.3000,,,0.0975,0.0066,2000
+D4,"48 divergent, 32 each",cognitive-adhd,5,0.3000,,,0.1430,0.0078,2000
+D0-A,"as written, common slope",dyslexic-user,5,0.3000,,,0.0795,0.0060,2000
+D4,"48 divergent, 32 each",dyslexic-user,5,0.3000,,,0.1000,0.0067,2000
+D0-A,"as written, common slope",low-vision-magnified,5,0.3000,,,0.0695,0.0057,2000
+D4,"48 divergent, 32 each",low-vision-magnified,5,0.3000,,,0.0850,0.0062,2000
+D0-A,"as written, common slope",elderly-user,5,0.3000,,,0.0790,0.0060,2000
+D4,"48 divergent, 32 each",elderly-user,5,0.3000,,,0.1210,0.0073,2000
+D2,divergent16,pooled,5,0.3000,0.2500,,0.2500,0.0097,2000
+D2,divergent16 + generic covariate,pooled,5,0.3000,0.2500,,0.2090,0.0091,2000
+D2,delta16,pooled,5,0.3000,0.2500,,0.2425,0.0096,2000
+D2,delta16 + generic covariate,pooled,5,0.3000,0.2500,,0.2010,0.0090,2000
+D3,maxdelta,pooled,5,0.3000,0.2500,0.5000,0.1550,0.0081,2000
+D3,orthogonal,pooled,5,0.3000,0.2500,0.5000,0.1535,0.0081,2000
+D3,maxdelta,pooled,5,0.3000,0.2500,0.8000,0.1505,0.0080,2000
+D3,orthogonal,pooled,5,0.3000,0.2500,0.8000,0.1535,0.0081,2000
+D3,maxdelta,pooled,5,0.3000,0.2500,0.9500,0.1930,0.0088,2000
+D3,orthogonal,pooled,5,0.3000,0.2500,0.9500,0.1495,0.0080,2000
+D2,divergent16,pooled,5,0.3000,0.5000,,0.3015,0.0103,2000
+D2,divergent16 + generic covariate,pooled,5,0.3000,0.5000,,0.2370,0.0095,2000
+D2,delta16,pooled,5,0.3000,0.5000,,0.2755,0.0100,2000
+D2,delta16 + generic covariate,pooled,5,0.3000,0.5000,,0.2125,0.0091,2000
+D3,maxdelta,pooled,5,0.3000,0.5000,0.5000,0.1635,0.0083,2000
+D3,orthogonal,pooled,5,0.3000,0.5000,0.5000,0.1570,0.0081,2000
+D3,maxdelta,pooled,5,0.3000,0.5000,0.8000,0.1685,0.0084,2000
+D3,orthogonal,pooled,5,0.3000,0.5000,0.8000,0.1410,0.0078,2000
+D3,maxdelta,pooled,5,0.3000,0.5000,0.9500,0.1955,0.0089,2000
+D3,orthogonal,pooled,5,0.3000,0.5000,0.9500,0.1670,0.0083,2000
+D2,divergent16,pooled,5,0.3000,0.7500,,0.3355,0.0106,2000
+D2,divergent16 + generic covariate,pooled,5,0.3000,0.7500,,0.2615,0.0098,2000
+D2,delta16,pooled,5,0.3000,0.7500,,0.3190,0.0104,2000
+D2,delta16 + generic covariate,pooled,5,0.3000,0.7500,,0.2520,0.0097,2000
+D3,maxdelta,pooled,5,0.3000,0.7500,0.5000,0.1825,0.0086,2000
+D3,orthogonal,pooled,5,0.3000,0.7500,0.5000,0.1535,0.0081,2000
+D3,maxdelta,pooled,5,0.3000,0.7500,0.8000,0.1930,0.0088,2000
+D3,orthogonal,pooled,5,0.3000,0.7500,0.8000,0.1520,0.0080,2000
+D3,maxdelta,pooled,5,0.3000,0.7500,0.9500,0.1735,0.0085,2000
+D3,orthogonal,pooled,5,0.3000,0.7500,0.9500,0.1470,0.0079,2000
+D4,"48 divergent, 32 each",pooled,5,0.3000,0.5000,,0.3160,0.0147,1000
+D0-A,"as written, common slope",cognitive-adhd,5,0.5000,,,0.1465,0.0079,2000
+D4,"48 divergent, 32 each",cognitive-adhd,5,0.5000,,,0.2245,0.0093,2000
+D0-A,"as written, common slope",dyslexic-user,5,0.5000,,,0.0935,0.0065,2000
+D4,"48 divergent, 32 each",dyslexic-user,5,0.5000,,,0.1575,0.0081,2000
+D0-A,"as written, common slope",low-vision-magnified,5,0.5000,,,0.0915,0.0064,2000
+D4,"48 divergent, 32 each",low-vision-magnified,5,0.5000,,,0.1145,0.0071,2000
+D0-A,"as written, common slope",elderly-user,5,0.5000,,,0.1520,0.0080,2000
+D4,"48 divergent, 32 each",elderly-user,5,0.5000,,,0.1880,0.0087,2000
+D2,divergent16,pooled,5,0.5000,0.2500,,0.4875,0.0112,2000
+D2,divergent16 + generic covariate,pooled,5,0.5000,0.2500,,0.4050,0.0110,2000
+D2,delta16,pooled,5,0.5000,0.2500,,0.5030,0.0112,2000
+D2,delta16 + generic covariate,pooled,5,0.5000,0.2500,,0.3625,0.0107,2000
+D3,maxdelta,pooled,5,0.5000,0.2500,0.5000,0.2680,0.0099,2000
+D3,orthogonal,pooled,5,0.5000,0.2500,0.5000,0.2205,0.0093,2000
+D3,maxdelta,pooled,5,0.5000,0.2500,0.8000,0.2860,0.0101,2000
+D3,orthogonal,pooled,5,0.5000,0.2500,0.8000,0.2425,0.0096,2000
+D3,maxdelta,pooled,5,0.5000,0.2500,0.9500,0.3235,0.0105,2000
+D3,orthogonal,pooled,5,0.5000,0.2500,0.9500,0.2640,0.0099,2000
+D2,divergent16,pooled,5,0.5000,0.5000,,0.5555,0.0111,2000
+D2,divergent16 + generic covariate,pooled,5,0.5000,0.5000,,0.4760,0.0112,2000
+D2,delta16,pooled,5,0.5000,0.5000,,0.5705,0.0111,2000
+D2,delta16 + generic covariate,pooled,5,0.5000,0.5000,,0.4330,0.0111,2000
+D3,maxdelta,pooled,5,0.5000,0.5000,0.5000,0.2915,0.0102,2000
+D3,orthogonal,pooled,5,0.5000,0.5000,0.5000,0.2145,0.0092,2000
+D3,maxdelta,pooled,5,0.5000,0.5000,0.8000,0.3420,0.0106,2000
+D3,orthogonal,pooled,5,0.5000,0.5000,0.8000,0.2385,0.0095,2000
+D3,maxdelta,pooled,5,0.5000,0.5000,0.9500,0.3255,0.0105,2000
+D3,orthogonal,pooled,5,0.5000,0.5000,0.9500,0.2710,0.0099,2000
+D2,divergent16,pooled,5,0.5000,0.7500,,0.6485,0.0107,2000
+D2,divergent16 + generic covariate,pooled,5,0.5000,0.7500,,0.5350,0.0112,2000
+D2,delta16,pooled,5,0.5000,0.7500,,0.6410,0.0107,2000
+D2,delta16 + generic covariate,pooled,5,0.5000,0.7500,,0.4870,0.0112,2000
+D3,maxdelta,pooled,5,0.5000,0.7500,0.5000,0.2925,0.0102,2000
+D3,orthogonal,pooled,5,0.5000,0.7500,0.5000,0.2470,0.0096,2000
+D3,maxdelta,pooled,5,0.5000,0.7500,0.8000,0.3070,0.0103,2000
+D3,orthogonal,pooled,5,0.5000,0.7500,0.8000,0.2740,0.0100,2000
+D3,maxdelta,pooled,5,0.5000,0.7500,0.9500,0.3380,0.0106,2000
+D3,orthogonal,pooled,5,0.5000,0.7500,0.9500,0.2685,0.0099,2000
+D4,"48 divergent, 32 each",pooled,5,0.5000,0.5000,,0.6360,0.0152,1000
+D0-A,"as written, common slope",cognitive-adhd,5,0.7000,,,0.2270,0.0094,2000
+D4,"48 divergent, 32 each",cognitive-adhd,5,0.7000,,,0.4055,0.0110,2000
+D0-A,"as written, common slope",dyslexic-user,5,0.7000,,,0.1430,0.0078,2000
+D4,"48 divergent, 32 each",dyslexic-user,5,0.7000,,,0.2275,0.0094,2000
+D0-A,"as written, common slope",low-vision-magnified,5,0.7000,,,0.1110,0.0070,2000
+D4,"48 divergent, 32 each",low-vision-magnified,5,0.7000,,,0.1735,0.0085,2000
+D0-A,"as written, common slope",elderly-user,5,0.7000,,,0.2155,0.0092,2000
+D4,"48 divergent, 32 each",elderly-user,5,0.7000,,,0.3035,0.0103,2000
+D2,divergent16,pooled,5,0.7000,0.2500,,0.7900,0.0091,2000
+D2,divergent16 + generic covariate,pooled,5,0.7000,0.2500,,0.7030,0.0102,2000
+D2,delta16,pooled,5,0.7000,0.2500,,0.7785,0.0093,2000
+D2,delta16 + generic covariate,pooled,5,0.7000,0.2500,,0.6340,0.0108,2000
+D3,maxdelta,pooled,5,0.7000,0.2500,0.5000,0.4275,0.0111,2000
+D3,orthogonal,pooled,5,0.7000,0.2500,0.5000,0.3430,0.0106,2000
+D3,maxdelta,pooled,5,0.7000,0.2500,0.8000,0.4695,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.2500,0.8000,0.3695,0.0108,2000
+D3,maxdelta,pooled,5,0.7000,0.2500,0.9500,0.4850,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.2500,0.9500,0.4160,0.0110,2000
+D2,divergent16,pooled,5,0.7000,0.5000,,0.8445,0.0081,2000
+D2,divergent16 + generic covariate,pooled,5,0.7000,0.5000,,0.7690,0.0094,2000
+D2,delta16,pooled,5,0.7000,0.5000,,0.8485,0.0080,2000
+D2,delta16 + generic covariate,pooled,5,0.7000,0.5000,,0.6920,0.0103,2000
+D3,maxdelta,pooled,5,0.7000,0.5000,0.5000,0.4500,0.0111,2000
+D3,orthogonal,pooled,5,0.7000,0.5000,0.5000,0.3545,0.0107,2000
+D3,maxdelta,pooled,5,0.7000,0.5000,0.8000,0.4995,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.5000,0.8000,0.3870,0.0109,2000
+D3,maxdelta,pooled,5,0.7000,0.5000,0.9500,0.5060,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.5000,0.9500,0.3915,0.0109,2000
+D2,divergent16,pooled,5,0.7000,0.7500,,0.9170,0.0062,2000
+D2,divergent16 + generic covariate,pooled,5,0.7000,0.7500,,0.8290,0.0084,2000
+D2,delta16,pooled,5,0.7000,0.7500,,0.8975,0.0068,2000
+D2,delta16 + generic covariate,pooled,5,0.7000,0.7500,,0.7550,0.0096,2000
+D3,maxdelta,pooled,5,0.7000,0.7500,0.5000,0.4875,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.7500,0.5000,0.3665,0.0108,2000
+D3,maxdelta,pooled,5,0.7000,0.7500,0.8000,0.5085,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.7500,0.8000,0.3685,0.0108,2000
+D3,maxdelta,pooled,5,0.7000,0.7500,0.9500,0.5175,0.0112,2000
+D3,orthogonal,pooled,5,0.7000,0.7500,0.9500,0.4205,0.0110,2000
+D4,"48 divergent, 32 each",pooled,5,0.7000,0.5000,,0.8850,0.0101,1000
+D0-A,"as written, common slope",cognitive-adhd,5,0.9000,,,0.3315,0.0105,2000
+D4,"48 divergent, 32 each",cognitive-adhd,5,0.9000,,,0.6220,0.0108,2000
+D0-A,"as written, common slope",dyslexic-user,5,0.9000,,,0.1820,0.0086,2000
+D4,"48 divergent, 32 each",dyslexic-user,5,0.9000,,,0.3570,0.0107,2000
+D0-A,"as written, common slope",low-vision-magnified,5,0.9000,,,0.1685,0.0084,2000
+D4,"48 divergent, 32 each",low-vision-magnified,5,0.9000,,,0.2795,0.0100,2000
+D0-A,"as written, common slope",elderly-user,5,0.9000,,,0.3165,0.0104,2000
+D4,"48 divergent, 32 each",elderly-user,5,0.9000,,,0.4600,0.0111,2000
+D2,divergent16,pooled,5,0.9000,0.2500,,0.9800,0.0031,2000
+D2,divergent16 + generic covariate,pooled,5,0.9000,0.2500,,0.9445,0.0051,2000
+D2,delta16,pooled,5,0.9000,0.2500,,0.9765,0.0034,2000
+D2,delta16 + generic covariate,pooled,5,0.9000,0.2500,,0.9010,0.0067,2000
+D3,maxdelta,pooled,5,0.9000,0.2500,0.5000,0.6345,0.0108,2000
+D3,orthogonal,pooled,5,0.9000,0.2500,0.5000,0.5235,0.0112,2000
+D3,maxdelta,pooled,5,0.9000,0.2500,0.8000,0.6825,0.0104,2000
+D3,orthogonal,pooled,5,0.9000,0.2500,0.8000,0.5480,0.0111,2000
+D3,maxdelta,pooled,5,0.9000,0.2500,0.9500,0.6990,0.0103,2000
+D3,orthogonal,pooled,5,0.9000,0.2500,0.9500,0.5710,0.0111,2000
+D2,divergent16,pooled,5,0.9000,0.5000,,0.9900,0.0022,2000
+D2,divergent16 + generic covariate,pooled,5,0.9000,0.5000,,0.9605,0.0044,2000
+D2,delta16,pooled,5,0.9000,0.5000,,0.9855,0.0027,2000
+D2,delta16 + generic covariate,pooled,5,0.9000,0.5000,,0.9345,0.0055,2000
+D3,maxdelta,pooled,5,0.9000,0.5000,0.5000,0.6555,0.0106,2000
+D3,orthogonal,pooled,5,0.9000,0.5000,0.5000,0.5380,0.0111,2000
+D3,maxdelta,pooled,5,0.9000,0.5000,0.8000,0.6845,0.0104,2000
+D3,orthogonal,pooled,5,0.9000,0.5000,0.8000,0.5510,0.0111,2000
+D3,maxdelta,pooled,5,0.9000,0.5000,0.9500,0.7000,0.0102,2000
+D3,orthogonal,pooled,5,0.9000,0.5000,0.9500,0.5655,0.0111,2000
+D2,divergent16,pooled,5,0.9000,0.7500,,0.9915,0.0021,2000
+D2,divergent16 + generic covariate,pooled,5,0.9000,0.7500,,0.9625,0.0042,2000
+D2,delta16,pooled,5,0.9000,0.7500,,0.9885,0.0024,2000
+D2,delta16 + generic covariate,pooled,5,0.9000,0.7500,,0.9490,0.0049,2000
+D3,maxdelta,pooled,5,0.9000,0.7500,0.5000,0.6635,0.0106,2000
+D3,orthogonal,pooled,5,0.9000,0.7500,0.5000,0.5350,0.0112,2000
+D3,maxdelta,pooled,5,0.9000,0.7500,0.8000,0.6900,0.0103,2000
+D3,orthogonal,pooled,5,0.9000,0.7500,0.8000,0.5325,0.0112,2000
+D3,maxdelta,pooled,5,0.9000,0.7500,0.9500,0.6895,0.0103,2000
+D3,orthogonal,pooled,5,0.9000,0.7500,0.9500,0.5695,0.0111,2000
+D4,"48 divergent, 32 each",pooled,5,0.9000,0.5000,,0.9900,0.0031,1000
+D0-A,"as written, common slope",cognitive-adhd,10,0.3000,,,0.1140,0.0071,2000
+D4,"48 divergent, 32 each",cognitive-adhd,10,0.3000,,,0.1550,0.0081,2000
+D0-A,"as written, common slope",dyslexic-user,10,0.3000,,,0.0810,0.0061,2000
+D4,"48 divergent, 32 each",dyslexic-user,10,0.3000,,,0.1125,0.0071,2000
+D0-A,"as written, common slope",low-vision-magnified,10,0.3000,,,0.0740,0.0059,2000
+D4,"48 divergent, 32 each",low-vision-magnified,10,0.3000,,,0.0990,0.0067,2000
+D0-A,"as written, common slope",elderly-user,10,0.3000,,,0.0920,0.0065,2000
+D4,"48 divergent, 32 each",elderly-user,10,0.3000,,,0.1325,0.0076,2000
+D2,divergent16,pooled,10,0.3000,0.2500,,0.2905,0.0102,2000
+D2,divergent16 + generic covariate,pooled,10,0.3000,0.2500,,0.2380,0.0095,2000
+D2,delta16,pooled,10,0.3000,0.2500,,0.2780,0.0100,2000
+D2,delta16 + generic covariate,pooled,10,0.3000,0.2500,,0.2085,0.0091,2000
+D3,maxdelta,pooled,10,0.3000,0.2500,0.5000,0.1710,0.0084,2000
+D3,orthogonal,pooled,10,0.3000,0.2500,0.5000,0.1535,0.0081,2000
+D3,maxdelta,pooled,10,0.3000,0.2500,0.8000,0.1980,0.0089,2000
+D3,orthogonal,pooled,10,0.3000,0.2500,0.8000,0.1950,0.0089,2000
+D3,maxdelta,pooled,10,0.3000,0.2500,0.9500,0.2435,0.0096,2000
+D3,orthogonal,pooled,10,0.3000,0.2500,0.9500,0.1835,0.0087,2000
+D2,divergent16,pooled,10,0.3000,0.5000,,0.3215,0.0104,2000
+D2,divergent16 + generic covariate,pooled,10,0.3000,0.5000,,0.2985,0.0102,2000
+D2,delta16,pooled,10,0.3000,0.5000,,0.3240,0.0105,2000
+D2,delta16 + generic covariate,pooled,10,0.3000,0.5000,,0.2520,0.0097,2000
+D3,maxdelta,pooled,10,0.3000,0.5000,0.5000,0.1955,0.0089,2000
+D3,orthogonal,pooled,10,0.3000,0.5000,0.5000,0.1550,0.0081,2000
+D3,maxdelta,pooled,10,0.3000,0.5000,0.8000,0.2270,0.0094,2000
+D3,orthogonal,pooled,10,0.3000,0.5000,0.8000,0.1970,0.0089,2000
+D3,maxdelta,pooled,10,0.3000,0.5000,0.9500,0.2740,0.0100,2000
+D3,orthogonal,pooled,10,0.3000,0.5000,0.9500,0.1855,0.0087,2000
+D2,divergent16,pooled,10,0.3000,0.7500,,0.4295,0.0111,2000
+D2,divergent16 + generic covariate,pooled,10,0.3000,0.7500,,0.3400,0.0106,2000
+D2,delta16,pooled,10,0.3000,0.7500,,0.3845,0.0109,2000
+D2,delta16 + generic covariate,pooled,10,0.3000,0.7500,,0.2825,0.0101,2000
+D3,maxdelta,pooled,10,0.3000,0.7500,0.5000,0.2165,0.0092,2000
+D3,orthogonal,pooled,10,0.3000,0.7500,0.5000,0.1890,0.0088,2000
+D3,maxdelta,pooled,10,0.3000,0.7500,0.8000,0.2365,0.0095,2000
+D3,orthogonal,pooled,10,0.3000,0.7500,0.8000,0.2165,0.0092,2000
+D3,maxdelta,pooled,10,0.3000,0.7500,0.9500,0.2625,0.0098,2000
+D3,orthogonal,pooled,10,0.3000,0.7500,0.9500,0.1870,0.0087,2000
+D4,"48 divergent, 32 each",pooled,10,0.3000,0.5000,,0.4630,0.0158,1000
+D0-A,"as written, common slope",cognitive-adhd,10,0.5000,,,0.1785,0.0086,2000
+D4,"48 divergent, 32 each",cognitive-adhd,10,0.5000,,,0.3025,0.0103,2000
+D0-A,"as written, common slope",dyslexic-user,10,0.5000,,,0.1135,0.0071,2000
+D4,"48 divergent, 32 each",dyslexic-user,10,0.5000,,,0.1790,0.0086,2000
+D0-A,"as written, common slope",low-vision-magnified,10,0.5000,,,0.1115,0.0070,2000
+D4,"48 divergent, 32 each",low-vision-magnified,10,0.5000,,,0.1490,0.0080,2000
+D0-A,"as written, common slope",elderly-user,10,0.5000,,,0.1805,0.0086,2000
+D4,"48 divergent, 32 each",elderly-user,10,0.5000,,,0.2135,0.0092,2000
+D2,divergent16,pooled,10,0.5000,0.2500,,0.5865,0.0110,2000
+D2,divergent16 + generic covariate,pooled,10,0.5000,0.2500,,0.4680,0.0112,2000
+D2,delta16,pooled,10,0.5000,0.2500,,0.5495,0.0111,2000
+D2,delta16 + generic covariate,pooled,10,0.5000,0.2500,,0.4265,0.0111,2000
+D3,maxdelta,pooled,10,0.5000,0.2500,0.5000,0.3300,0.0105,2000
+D3,orthogonal,pooled,10,0.5000,0.2500,0.5000,0.2860,0.0101,2000
+D3,maxdelta,pooled,10,0.5000,0.2500,0.8000,0.3885,0.0109,2000
+D3,orthogonal,pooled,10,0.5000,0.2500,0.8000,0.3175,0.0104,2000
+D3,maxdelta,pooled,10,0.5000,0.2500,0.9500,0.4645,0.0112,2000
+D3,orthogonal,pooled,10,0.5000,0.2500,0.9500,0.3815,0.0109,2000
+D2,divergent16,pooled,10,0.5000,0.5000,,0.6665,0.0105,2000
+D2,divergent16 + generic covariate,pooled,10,0.5000,0.5000,,0.5745,0.0111,2000
+D2,delta16,pooled,10,0.5000,0.5000,,0.6375,0.0107,2000
+D2,delta16 + generic covariate,pooled,10,0.5000,0.5000,,0.4905,0.0112,2000
+D3,maxdelta,pooled,10,0.5000,0.5000,0.5000,0.3650,0.0108,2000
+D3,orthogonal,pooled,10,0.5000,0.5000,0.5000,0.3100,0.0103,2000
+D3,maxdelta,pooled,10,0.5000,0.5000,0.8000,0.4540,0.0111,2000
+D3,orthogonal,pooled,10,0.5000,0.5000,0.8000,0.3280,0.0105,2000
+D3,maxdelta,pooled,10,0.5000,0.5000,0.9500,0.4775,0.0112,2000
+D3,orthogonal,pooled,10,0.5000,0.5000,0.9500,0.3590,0.0107,2000
+D2,divergent16,pooled,10,0.5000,0.7500,,0.7765,0.0093,2000
+D2,divergent16 + generic covariate,pooled,10,0.5000,0.7500,,0.6790,0.0104,2000
+D2,delta16,pooled,10,0.5000,0.7500,,0.7580,0.0096,2000
+D2,delta16 + generic covariate,pooled,10,0.5000,0.7500,,0.6160,0.0109,2000
+D3,maxdelta,pooled,10,0.5000,0.7500,0.5000,0.4230,0.0110,2000
+D3,orthogonal,pooled,10,0.5000,0.7500,0.5000,0.3140,0.0104,2000
+D3,maxdelta,pooled,10,0.5000,0.7500,0.8000,0.4495,0.0111,2000
+D3,orthogonal,pooled,10,0.5000,0.7500,0.8000,0.3690,0.0108,2000
+D3,maxdelta,pooled,10,0.5000,0.7500,0.9500,0.4940,0.0112,2000
+D3,orthogonal,pooled,10,0.5000,0.7500,0.9500,0.3770,0.0108,2000
+D4,"48 divergent, 32 each",pooled,10,0.5000,0.5000,,0.8260,0.0120,1000
+D0-A,"as written, common slope",cognitive-adhd,10,0.7000,,,0.3010,0.0103,2000
+D4,"48 divergent, 32 each",cognitive-adhd,10,0.7000,,,0.5570,0.0111,2000
+D0-A,"as written, common slope",dyslexic-user,10,0.7000,,,0.1645,0.0083,2000
+D4,"48 divergent, 32 each",dyslexic-user,10,0.7000,,,0.3000,0.0102,2000
+D0-A,"as written, common slope",low-vision-magnified,10,0.7000,,,0.1490,0.0080,2000
+D4,"48 divergent, 32 each",low-vision-magnified,10,0.7000,,,0.2395,0.0095,2000
+D0-A,"as written, common slope",elderly-user,10,0.7000,,,0.2810,0.0101,2000
+D4,"48 divergent, 32 each",elderly-user,10,0.7000,,,0.3860,0.0109,2000
+D2,divergent16,pooled,10,0.7000,0.2500,,0.8905,0.0070,2000
+D2,divergent16 + generic covariate,pooled,10,0.7000,0.2500,,0.7960,0.0090,2000
+D2,delta16,pooled,10,0.7000,0.2500,,0.8810,0.0072,2000
+D2,delta16 + generic covariate,pooled,10,0.7000,0.2500,,0.7380,0.0098,2000
+D3,maxdelta,pooled,10,0.7000,0.2500,0.5000,0.5530,0.0111,2000
+D3,orthogonal,pooled,10,0.7000,0.2500,0.5000,0.4330,0.0111,2000
+D3,maxdelta,pooled,10,0.7000,0.2500,0.8000,0.6565,0.0106,2000
+D3,orthogonal,pooled,10,0.7000,0.2500,0.8000,0.5240,0.0112,2000
+D3,maxdelta,pooled,10,0.7000,0.2500,0.9500,0.7250,0.0100,2000
+D3,orthogonal,pooled,10,0.7000,0.2500,0.9500,0.5450,0.0111,2000
+D2,divergent16,pooled,10,0.7000,0.5000,,0.9250,0.0059,2000
+D2,divergent16 + generic covariate,pooled,10,0.7000,0.5000,,0.8645,0.0077,2000
+D2,delta16,pooled,10,0.7000,0.5000,,0.9275,0.0058,2000
+D2,delta16 + generic covariate,pooled,10,0.7000,0.5000,,0.8140,0.0087,2000
+D3,maxdelta,pooled,10,0.7000,0.5000,0.5000,0.6080,0.0109,2000
+D3,orthogonal,pooled,10,0.7000,0.5000,0.5000,0.4375,0.0111,2000
+D3,maxdelta,pooled,10,0.7000,0.5000,0.8000,0.6635,0.0106,2000
+D3,orthogonal,pooled,10,0.7000,0.5000,0.8000,0.5215,0.0112,2000
+D3,maxdelta,pooled,10,0.7000,0.5000,0.9500,0.7155,0.0101,2000
+D3,orthogonal,pooled,10,0.7000,0.5000,0.9500,0.5495,0.0111,2000
+D2,divergent16,pooled,10,0.7000,0.7500,,0.9775,0.0033,2000
+D2,divergent16 + generic covariate,pooled,10,0.7000,0.7500,,0.9315,0.0056,2000
+D2,delta16,pooled,10,0.7000,0.7500,,0.9705,0.0038,2000
+D2,delta16 + generic covariate,pooled,10,0.7000,0.7500,,0.8850,0.0071,2000
+D3,maxdelta,pooled,10,0.7000,0.7500,0.5000,0.6795,0.0104,2000
+D3,orthogonal,pooled,10,0.7000,0.7500,0.5000,0.5175,0.0112,2000
+D3,maxdelta,pooled,10,0.7000,0.7500,0.8000,0.7030,0.0102,2000
+D3,orthogonal,pooled,10,0.7000,0.7500,0.8000,0.5710,0.0111,2000
+D3,maxdelta,pooled,10,0.7000,0.7500,0.9500,0.7185,0.0101,2000
+D3,orthogonal,pooled,10,0.7000,0.7500,0.9500,0.5855,0.0110,2000
+D4,"48 divergent, 32 each",pooled,10,0.7000,0.5000,,0.9870,0.0036,1000
+D0-A,"as written, common slope",cognitive-adhd,10,0.9000,,,0.4980,0.0112,2000
+D4,"48 divergent, 32 each",cognitive-adhd,10,0.9000,,,0.8300,0.0084,2000
+D0-A,"as written, common slope",dyslexic-user,10,0.9000,,,0.2740,0.0100,2000
+D4,"48 divergent, 32 each",dyslexic-user,10,0.9000,,,0.5415,0.0111,2000
+D0-A,"as written, common slope",low-vision-magnified,10,0.9000,,,0.2395,0.0095,2000
+D4,"48 divergent, 32 each",low-vision-magnified,10,0.9000,,,0.4010,0.0110,2000
+D0-A,"as written, common slope",elderly-user,10,0.9000,,,0.4820,0.0112,2000
+D4,"48 divergent, 32 each",elderly-user,10,0.9000,,,0.6835,0.0104,2000
+D2,divergent16,pooled,10,0.9000,0.2500,,0.9980,0.0010,2000
+D2,divergent16 + generic covariate,pooled,10,0.9000,0.2500,,0.9885,0.0024,2000
+D2,delta16,pooled,10,0.9000,0.2500,,0.9960,0.0014,2000
+D2,delta16 + generic covariate,pooled,10,0.9000,0.2500,,0.9685,0.0039,2000
+D3,maxdelta,pooled,10,0.9000,0.2500,0.5000,0.8270,0.0085,2000
+D3,orthogonal,pooled,10,0.9000,0.2500,0.5000,0.6945,0.0103,2000
+D3,maxdelta,pooled,10,0.9000,0.2500,0.8000,0.8630,0.0077,2000
+D3,orthogonal,pooled,10,0.9000,0.2500,0.8000,0.7265,0.0100,2000
+D3,maxdelta,pooled,10,0.9000,0.2500,0.9500,0.8845,0.0071,2000
+D3,orthogonal,pooled,10,0.9000,0.2500,0.9500,0.7700,0.0094,2000
+D2,divergent16,pooled,10,0.9000,0.5000,,0.9990,0.0007,2000
+D2,divergent16 + generic covariate,pooled,10,0.9000,0.5000,,0.9935,0.0018,2000
+D2,delta16,pooled,10,0.9000,0.5000,,1.0000,0.0000,2000
+D2,delta16 + generic covariate,pooled,10,0.9000,0.5000,,0.9825,0.0029,2000
+D3,maxdelta,pooled,10,0.9000,0.5000,0.5000,0.8450,0.0081,2000
+D3,orthogonal,pooled,10,0.9000,0.5000,0.5000,0.7160,0.0101,2000
+D3,maxdelta,pooled,10,0.9000,0.5000,0.8000,0.8720,0.0075,2000
+D3,orthogonal,pooled,10,0.9000,0.5000,0.8000,0.7475,0.0097,2000
+D3,maxdelta,pooled,10,0.9000,0.5000,0.9500,0.8865,0.0071,2000
+D3,orthogonal,pooled,10,0.9000,0.5000,0.9500,0.7630,0.0095,2000
+D2,divergent16,pooled,10,0.9000,0.7500,,1.0000,0.0000,2000
+D2,divergent16 + generic covariate,pooled,10,0.9000,0.7500,,0.9975,0.0011,2000
+D2,delta16,pooled,10,0.9000,0.7500,,1.0000,0.0000,2000
+D2,delta16 + generic covariate,pooled,10,0.9000,0.7500,,0.9895,0.0023,2000
+D3,maxdelta,pooled,10,0.9000,0.7500,0.5000,0.8665,0.0076,2000
+D3,orthogonal,pooled,10,0.9000,0.7500,0.5000,0.7325,0.0099,2000
+D3,maxdelta,pooled,10,0.9000,0.7500,0.8000,0.8815,0.0072,2000
+D3,orthogonal,pooled,10,0.9000,0.7500,0.8000,0.7565,0.0096,2000
+D3,maxdelta,pooled,10,0.9000,0.7500,0.9500,0.8855,0.0071,2000
+D3,orthogonal,pooled,10,0.9000,0.7500,0.9500,0.7630,0.0095,2000
+D4,"48 divergent, 32 each",pooled,10,0.9000,0.5000,,0.9990,0.0010,1000
