@@ -5,7 +5,9 @@
  * record: shipped as src/data/ctc-reference-2026-10-22.ts until the v2
  * reference (raw measurements) replaced it; read now only by
  * research/ctc-reference/deltas-v2.ts. Its type import was dropped when it
- * moved here (the type no longer exists).
+ * moved here (the type no longer exists). On 2026-10-24 its URLs were passed
+ * through research/ctc-reference/public-url.ts, which removed one session
+ * parameter (an anti-bot token on a finalUrl); no metric changed.
  *
  * A TypeScript module rather than a .json file so it ships in dist/ with no
  * build step and loads on every Node the package supports: importing JSON
@@ -5972,7 +5974,7 @@ export const CTC_REFERENCE_DATA = {
    "url": "aliexpress.com",
    "industry": "Marketplace",
    "outcome": "blocked",
-   "finalUrl": "https://aliexpress.com///_____tmd_____/punish?x5secdata=REDACTED&x5step=1",
+   "finalUrl": "https://aliexpress.com///_____tmd_____/punish?x5step=1",
    "detail": "signature \"captcha\""
   },
   {
