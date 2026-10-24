@@ -1,0 +1,423 @@
+{
+ "reference": "ctc-reference-v2-2026-10-24",
+ "typicalCapacities": {
+  "readingCapacity": 0.5,
+  "motorCapacity": 0.5,
+  "sustainedAttention": 0.7
+ },
+ "viewport": {
+  "staticPages": 305,
+  "pages": 514,
+  "typical-user": {
+   "capacity": {
+    "changeBlindness": 0.5,
+    "emotionalContagion": 0.5,
+    "sustainedAttention": 0.7
+   },
+   "rawCTC": {
+    "mean": -0.04925331277058465,
+    "min": -0.07823260440481689,
+    "max": 0.03640021586500603,
+    "shareNegative": 0.9245901639344263,
+    "sharePositive": 0.07540983606557378
+   },
+   "totalCTC": {
+    "mean": -0.08458356970180902,
+    "min": -0.1700092132959824,
+    "max": 0.05860079313606778,
+    "shareNegative": 0.9245901639344263,
+    "sharePositive": 0.07540983606557378
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0051359838665970305,
+    "cognitiveLoad": -9.559054646242319e-7,
+    "decision": 0.00006444110063361658,
+    "motor": -0.00003212634177680301,
+    "motorProcedure": -6.851470326194998e-9,
+    "frustration": -0.04489580485007876,
+    "readability": -0.0007675775083127934,
+    "readingAttention": 0.002407340984188733
+   },
+   "traitMeanDelta": {
+    "patience": -0.00004122988519034737,
+    "riskTolerance": 0.00004647686895483868,
+    "comprehension": -2.3897636615605797e-7,
+    "workingMemory": -2.3897636615605797e-7,
+    "emotionalContagion": -0.0625040936642496,
+    "satisficing": 0.0000425425278088996,
+    "anchoringBias": 0.000044924448664735476,
+    "fearOfMissingOut": 0.00004647686895483868,
+    "socialProofSensitivity": 0.00004722861910054227,
+    "changeBlindness": -0.007642187906347403,
+    "proceduralFluency": -6.851470326194998e-9,
+    "informationForaging": -2.3897636615605797e-7,
+    "transferLearning": -2.3897636615605797e-7,
+    "readingCapacity": -0.0007675775083127934,
+    "motorCapacity": -0.00003212634177680301,
+    "sustainedAttention": 0.002407340984188733
+   },
+   "interactionMeanDelta": -0.00089263953170664
+  },
+  "first-timer": {
+   "capacity": {
+    "changeBlindness": 0.6,
+    "emotionalContagion": 0.6,
+    "sustainedAttention": 0.4
+   },
+   "rawCTC": {
+    "mean": -0.022861526727318227,
+    "min": -0.06634036634413315,
+    "max": 0.08217832933338587,
+    "shareNegative": 0.7836065573770492,
+    "sharePositive": 0.21639344262295082
+   },
+   "totalCTC": {
+    "mean": -0.04252554325033565,
+    "min": -0.13975960821824288,
+    "max": 0.14583415002031408,
+    "shareNegative": 0.7836065573770492,
+    "sharePositive": 0.21639344262295082
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0073707119626456085,
+    "cognitiveLoad": -0.000005748415188699503,
+    "decision": 0.00014622696592453437,
+    "motor": -0.00004965038783681434,
+    "motorProcedure": -0.0000019317506696630133,
+    "frustration": -0.051337089330392625,
+    "readability": -0.0009895855161460448,
+    "readingAttention": 0.038240076761259185
+   },
+   "traitMeanDelta": {
+    "patience": 0.000011667795250969193,
+    "riskTolerance": 0.00001926939962891276,
+    "comprehension": -0.0000015754508554462882,
+    "workingMemory": -0.0000010690825064221537,
+    "emotionalContagion": -0.07982350400509652,
+    "satisficing": 0.00009221684499712763,
+    "anchoringBias": 0.0001356231680958789,
+    "fearOfMissingOut": 0.00009906483912338997,
+    "socialProofSensitivity": 0.0001403326571635185,
+    "changeBlindness": -0.011933417472791768,
+    "proceduralFluency": -0.0000020903557360380723,
+    "informationForaging": -0.0000010690825064221537,
+    "transferLearning": -0.0000021748164214637565,
+    "readingCapacity": -0.0009895855161460448,
+    "motorCapacity": -0.00004965038783681434,
+    "sustainedAttention": 0.038240076761259185
+   },
+   "interactionMeanDelta": -0.0014931130916225478
+  },
+  "cognitive-adhd": {
+   "capacity": {
+    "changeBlindness": 0.6,
+    "emotionalContagion": 0.6,
+    "sustainedAttention": 0.3
+   },
+   "rawCTC": {
+    "mean": -0.034026663248983485,
+    "min": -0.07136499562595272,
+    "max": 0.021017818169381513,
+    "shareNegative": 0.9573770491803278,
+    "sharePositive": 0.04262295081967213
+   },
+   "totalCTC": {
+    "mean": -0.032915304283812834,
+    "min": -0.09210990002509312,
+    "max": 0.02443703718742818,
+    "shareNegative": 0.9573770491803278,
+    "sharePositive": 0.04262295081967213
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0073707119626456085,
+    "cognitiveLoad": -0.0000028209216228844246,
+    "decision": 0.000173202246719264,
+    "motor": -0.00004957781514446423,
+    "motorProcedure": -3.7827720625635563e-7,
+    "frustration": -0.052799801598610245,
+    "readability": -0.0010354706014094382,
+    "readingAttention": 0.02887131925368334
+   },
+   "traitMeanDelta": {
+    "patience": -0.00007941621932112432,
+    "riskTolerance": 0.0001387880666074076,
+    "comprehension": -1.1437916633858354e-7,
+    "workingMemory": -0.00000124430805769732,
+    "emotionalContagion": -0.07980527892468084,
+    "satisficing": 0.00013094214816941548,
+    "anchoringBias": 0.00009639453951479151,
+    "fearOfMissingOut": 0.0001387880666074076,
+    "socialProofSensitivity": 0.00006712746002267654,
+    "changeBlindness": -0.011933417472791768,
+    "proceduralFluency": -3.7827720625635563e-7,
+    "informationForaging": -0.0000010690825064221537,
+    "transferLearning": -3.9315189242636926e-7,
+    "readingCapacity": -0.0010354706014094382,
+    "motorCapacity": -0.00004957781514446423,
+    "sustainedAttention": 0.02887114305056343
+   },
+   "interactionMeanDelta": -0.0018124235727471694
+  },
+  "elderly-user": {
+   "capacity": {
+    "changeBlindness": 0.6,
+    "emotionalContagion": 0.6,
+    "sustainedAttention": 0.4
+   },
+   "rawCTC": {
+    "mean": -0.00483876736255787,
+    "min": -0.054325358492673254,
+    "max": 0.102565166388054,
+    "shareNegative": 0.6262295081967213,
+    "sharePositive": 0.3737704918032787
+   },
+   "totalCTC": {
+    "mean": -0.016849026599528298,
+    "min": -0.1171422729045063,
+    "max": 0.1903638906483988,
+    "shareNegative": 0.6262295081967213,
+    "sharePositive": 0.3737704918032787
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0073707119626456085,
+    "cognitiveLoad": -0.00000689955580261003,
+    "decision": 0.00011690011007862897,
+    "motor": -0.00007528969698873333,
+    "motorProcedure": -1.3658996421531077e-8,
+    "frustration": -0.04715365098610682,
+    "readability": -0.0010583583536223956,
+    "readingAttention": 0.05216204435155183
+   },
+   "traitMeanDelta": {
+    "patience": 0.000054726896776163356,
+    "riskTolerance": 0.0000058334897303264015,
+    "comprehension": -0.0000021748164214637565,
+    "workingMemory": -0.0000010690825064221537,
+    "emotionalContagion": -0.07957276513700827,
+    "satisficing": 0.00009218541435211338,
+    "anchoringBias": 0.00013559530343046944,
+    "fearOfMissingOut": 0.000019258784640507364,
+    "socialProofSensitivity": 0.0001403031978797639,
+    "changeBlindness": -0.011933417472791768,
+    "proceduralFluency": -1.3658996421531077e-8,
+    "informationForaging": -0.0000017847263716942637,
+    "transferLearning": -0.0000021748164214637565,
+    "readingCapacity": -0.0010583583536223956,
+    "motorCapacity": -0.00007528969698873333,
+    "sustainedAttention": 0.05216204435155183
+   },
+   "interactionMeanDelta": -0.0014527876100256744
+  },
+  "typicalDemandMeanDelta": {
+   "emotionalContagion": 0.30263265086718527,
+   "changeBlindness": 0.07152049277407267,
+   "sustainedAttention": 0.08655377122424283
+  }
+ },
+ "full_page": {
+  "staticPages": 258,
+  "pages": 514,
+  "typical-user": {
+   "capacity": {
+    "changeBlindness": 0.5,
+    "emotionalContagion": 0.5,
+    "sustainedAttention": 0.7
+   },
+   "rawCTC": {
+    "mean": -0.04144217238699056,
+    "min": -0.0786640208727005,
+    "max": 0.03318831413454712,
+    "shareNegative": 0.9496124031007752,
+    "sharePositive": 0.050387596899224806
+   },
+   "totalCTC": {
+    "mean": -0.031139078280163716,
+    "min": -0.05789479204091752,
+    "max": 0.014977624265724927,
+    "shareNegative": 0.9496124031007752,
+    "sharePositive": 0.050387596899224806
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0017230695285260094,
+    "cognitiveLoad": -4.483971095253809e-9,
+    "decision": 0.000018840523115479573,
+    "motor": -0.000010246789563328204,
+    "motorProcedure": 0,
+    "frustration": -0.054384340765605714,
+    "readability": -0.0014125585631417942,
+    "readingAttention": 0.01771302037423231
+   },
+   "traitMeanDelta": {
+    "patience": -0.000008181058889211351,
+    "riskTolerance": 0.000015882415772461444,
+    "comprehension": -1.1209927738134524e-9,
+    "workingMemory": -1.1209927738134524e-9,
+    "emotionalContagion": -0.062028677958784466,
+    "satisficing": 0.000014718419816012678,
+    "anchoringBias": 0.000015417132729641898,
+    "fearOfMissingOut": 0.000015882415772461444,
+    "socialProofSensitivity": 0.00001611505729387035,
+    "changeBlindness": -0.0030460833834338673,
+    "informationForaging": -1.1209927738134524e-9,
+    "transferLearning": -1.1209927738134524e-9,
+    "readingCapacity": -0.0014125585631417942,
+    "motorCapacity": -0.000010246789563328204,
+    "sustainedAttention": 0.01771302037423231
+   },
+   "interactionMeanDelta": -0.00164381315353047
+  },
+  "first-timer": {
+   "capacity": {
+    "changeBlindness": 0.6,
+    "emotionalContagion": 0.6,
+    "sustainedAttention": 0.4
+   },
+   "rawCTC": {
+    "mean": 0.012231758067695287,
+    "min": -0.06610503805484289,
+    "max": 0.08948410213985891,
+    "shareNegative": 0.3875968992248062,
+    "sharePositive": 0.6124031007751938
+   },
+   "totalCTC": {
+    "mean": 0.007454617522627888,
+    "min": -0.043506394138125404,
+    "max": 0.051296716967600076,
+    "shareNegative": 0.3875968992248062,
+    "sharePositive": 0.6124031007751938
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0023157752839705987,
+    "cognitiveLoad": -0.0000021868872371631508,
+    "decision": 0.00004180684993056269,
+    "motor": -0.000015614751625617723,
+    "motorProcedure": -9.590395285464674e-7,
+    "frustration": -0.06674883433209676,
+    "readability": -0.001789414743528466,
+    "readingAttention": 0.08577882223190945
+   },
+   "traitMeanDelta": {
+    "patience": 0.000009891513260658119,
+    "riskTolerance": 0.000006277599054689435,
+    "comprehension": -6.276370219187196e-7,
+    "workingMemory": -1.7105888716549646e-7,
+    "emotionalContagion": -0.07890877551783895,
+    "satisficing": 0.000029422713301621078,
+    "anchoringBias": 0.00004302204352970452,
+    "fearOfMissingOut": 0.0000314355068221105,
+    "socialProofSensitivity": 0.000044430998994047845,
+    "changeBlindness": -0.004611931649419969,
+    "proceduralFluency": -0.0000010343814854232019,
+    "informationForaging": -1.7105888716549646e-7,
+    "transferLearning": -0.0000013016281962533822,
+    "readingCapacity": -0.001789414743528466,
+    "motorCapacity": -0.000015614751625617723,
+    "sustainedAttention": 0.08577882223190945
+   },
+   "interactionMeanDelta": -0.0027160859761575003
+  },
+  "cognitive-adhd": {
+   "capacity": {
+    "changeBlindness": 0.6,
+    "emotionalContagion": 0.6,
+    "sustainedAttention": 0.3
+   },
+   "rawCTC": {
+    "mean": -0.01352082838947708,
+    "min": -0.07136499562595272,
+    "max": 0.04069150814776945,
+    "shareNegative": 0.6821705426356589,
+    "sharePositive": 0.3178294573643411
+   },
+   "totalCTC": {
+    "mean": -0.012343957912035,
+    "min": -0.06386058433492964,
+    "max": 0.007048872874518719,
+    "shareNegative": 0.6821705426356589,
+    "sharePositive": 0.3178294573643411
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0023157752839705987,
+    "cognitiveLoad": -4.282022459299277e-7,
+    "decision": 0.00004955925033285199,
+    "motor": -0.000015543232661381446,
+    "motorProcedure": -3.3795058816376333e-7,
+    "frustration": -0.06816828359034684,
+    "readability": -0.0018720827189504892,
+    "readingAttention": 0.0620610342258553
+   },
+   "traitMeanDelta": {
+    "patience": -0.000020628571625640586,
+    "riskTolerance": 0.00004396000727644473,
+    "workingMemory": -2.549612164391763e-7,
+    "emotionalContagion": -0.07921835549184064,
+    "satisficing": 0.00004161501837576146,
+    "anchoringBias": 0.000030631727514455205,
+    "fearOfMissingOut": 0.00004396000727644473,
+    "socialProofSensitivity": 0.0000213278660652103,
+    "changeBlindness": -0.004611931649419969,
+    "proceduralFluency": -3.3795058816376333e-7,
+    "informationForaging": -1.7105888716549646e-7,
+    "transferLearning": -2.18214232523515e-9,
+    "readingCapacity": -0.0018720827189504892,
+    "motorCapacity": -0.000015543232661381446,
+    "sustainedAttention": 0.06206092936598939
+   },
+   "interactionMeanDelta": -0.0032589708869018436
+  },
+  "elderly-user": {
+   "capacity": {
+    "changeBlindness": 0.6,
+    "emotionalContagion": 0.6,
+    "sustainedAttention": 0.4
+   },
+   "rawCTC": {
+    "mean": 0.03044618038201914,
+    "min": -0.053125942326495534,
+    "max": 0.0950954464469489,
+    "shareNegative": 0.25193798449612403,
+    "sharePositive": 0.748062015503876
+   },
+   "totalCTC": {
+    "mean": 0.018529380626838347,
+    "min": -0.039953667921780234,
+    "max": 0.06835067006643519,
+    "shareNegative": 0.25193798449612403,
+    "sharePositive": 0.748062015503876
+   },
+   "layerMeanDelta": {
+    "visualComplexity": -0.0023157752839705987,
+    "cognitiveLoad": -0.00000354392941741987,
+    "decision": 0.00003317484547706615,
+    "motor": -0.00002039433909879315,
+    "motorProcedure": 0,
+    "frustration": -0.06438583229462187,
+    "readability": -0.0018038956017576305,
+    "readingAttention": 0.10181583239584886
+   },
+   "traitMeanDelta": {
+    "patience": 0.000023411110603702822,
+    "riskTolerance": 0.0000018126648004041046,
+    "comprehension": -0.0000013016281962533822,
+    "workingMemory": -1.7105888716549646e-7,
+    "emotionalContagion": -0.07816172496294423,
+    "satisficing": 0.000029418401444051746,
+    "anchoringBias": 0.00004301828215017695,
+    "fearOfMissingOut": 0.000006273956616730289,
+    "socialProofSensitivity": 0.00004442823592186137,
+    "changeBlindness": -0.004611931649419969,
+    "informationForaging": -9.56754857437269e-7,
+    "transferLearning": -0.0000013016281962533822,
+    "readingCapacity": -0.0018038956017576305,
+    "motorCapacity": -0.00002039433909879315,
+    "sustainedAttention": 0.10181583239584886
+   },
+   "interactionMeanDelta": -0.0028733854104404273
+  },
+  "typicalDemandMeanDelta": {
+   "emotionalContagion": 0.30263265086718594,
+   "changeBlindness": 0.026097471099768326,
+   "sustainedAttention": 0.11338811754101753
+  }
+ }
+}

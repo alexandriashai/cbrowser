@@ -1,0 +1,4849 @@
+{
+ "provenance": {
+  "git_head": "dc79667f616fe211fc01fde49d97f712dfa7f5c7",
+  "src_tree": "13aa5972ce4019f7b1ed84d77d77f2a4ea04b54a",
+  "src_dirty": false,
+  "runtime": "bun 1.3.8",
+  "ran": "2026-10-24T15:18:55.825Z"
+ },
+ "reference": "ctc-reference-v2-2026-10-24",
+ "cells": 2632,
+ "runCells": 2128,
+ "scrollCells": 504,
+ "personas": 28,
+ "factors": [
+  0.9,
+  1.1
+ ],
+ "moveThreshold": 0.01,
+ "spearmanOptions": "asym+inter",
+ "ranges": {
+  "law.klm.mentalPreparation": {
+   "lo": 1.1300000000000001,
+   "hi": 1.57,
+   "quote": "standard error of estimate = .11 sec",
+   "note": "+-2 x the quoted standard error of estimate (0.11 s); not a registered range"
+  }
+ },
+ "constants": 167,
+ "seconds": 99,
+ "baselineEqualsPin": {
+  "file": "ctc-golden-21.0.0.json",
+  "runCells": 2128,
+  "scrollScreens": 504
+ },
+ "registry": {
+  "registered": 1853,
+  "readByMatrix": 167,
+  "catalogued": {
+   "count": 930,
+   "byGroup": {
+    "perceptual": 244,
+    "persona": 686
+   },
+   "files": [
+    "src/visual/provenance/perceptual.ts",
+    "src/visual/provenance/personas.ts"
+   ]
+  },
+  "elsewhere": {
+   "count": 756,
+   "byGroup": {
+    "attention": 198,
+    "chain": 1,
+    "cif": 87,
+    "ctcBands": 3,
+    "ctcReference": 1,
+    "customRate": 6,
+    "distance": 5,
+    "emotion": 123,
+    "humanInput": 67,
+    "idealProfiles": 8,
+    "journey": 149,
+    "journeyMcp": 38,
+    "law": 8,
+    "profile": 15,
+    "temporal": 44,
+    "visualDistance": 3
+   }
+  },
+  "chainPathNotInMatrix": [
+   {
+    "id": "chain.depthRoundingScale",
+    "status": "definition",
+    "readers": [
+     "src/visual/cognitive-transport-chain.ts"
+    ]
+   },
+   {
+    "id": "ctcReference.full_page",
+    "status": "definition",
+    "readers": [
+     "src/visual/cognitive-transport-chain.ts",
+     "src/visual/ctc-bands.ts"
+    ]
+   },
+   {
+    "id": "customRate.dyslexia.reading",
+    "status": "published",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "customRate.elderly.pointing",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "customRate.lowVision.reading",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "customRate.noMeasuredDifference.pointing",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "customRate.noMeasuredDifference.reading",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "customRate.tremor.pointing",
+    "status": "published",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "law.rate.pointing.motionImpaired",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.pointing.motionImpairedControls",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.reading.aphasiaControlsSeconds",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.reading.aphasiaReadingImpairedSeconds",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.reading.dyslexiaAdults",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.reading.dyslexiaControls",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.reading.lowVisionCentralLoss",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "law.rate.reading.lowVisionIntactFields",
+    "status": "published",
+    "readers": [
+     "src/visual/demand-laws.ts"
+    ]
+   },
+   {
+    "id": "profile.fixation.baseMs",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.fixation.normalSpan",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.fixation.phonologicalMs",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.fixation.spanMs",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.pointing.elderly.throughput",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.adhd.phonological",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.adhd.visualSpan",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.dyslexic.phonological",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.dyslexic.visualSpan",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.elderly.phonological",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.elderly.visualSpan",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.lowVision.phonological",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.lowVision.visualSpan",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.neurotypical.phonological",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   },
+   {
+    "id": "profile.reading.neurotypical.visualSpan",
+    "status": "hypothesis",
+    "readers": [
+     "src/visual/cognitive-models.ts"
+    ]
+   }
+  ],
+  "noReader": [],
+  "noReaderByGroup": {},
+  "directReads": [
+   {
+    "file": "tests/fixtures/journey-perturb.ts",
+    "line": 55,
+    "text": "const value = MODEL_PROVENANCE[id].value;"
+   },
+   {
+    "file": "tests/fixtures/law-seconds.ts",
+    "line": 39,
+    "text": "const TAU = MODEL_PROVENANCE[\"law.timeBudget\"].value;"
+   },
+   {
+    "file": "tests/fixtures/law-seconds.ts",
+    "line": 40,
+    "text": "const LAW = (id: string) => MODEL_PROVENANCE[`law.${id}`].value;"
+   }
+  ],
+  "moduleLevelCaptures": [
+   {
+    "file": "src/visual/cognitive-transport-chain.ts",
+    "line": 531,
+    "text": "export const ABANDONMENT_HILL_EXPONENT = param('chain.abandonmentHillExponent');"
+   }
+  ],
+  "derivedAtLoad": [
+   {
+    "id": "personaRate.motor-impairment-tremor.pointing",
+    "from": [
+     "law.rate.pointing.motionImpaired",
+     "law.rate.pointing.motionImpairedControls"
+    ]
+   },
+   {
+    "id": "personaRate.elderly-user.pointing",
+    "from": [
+     "profile.pointing.elderly.throughput",
+     "law.rate.pointing.reference"
+    ]
+   },
+   {
+    "id": "personaRate.elderly-low-vision.pointing",
+    "from": [
+     "profile.pointing.elderly.throughput",
+     "law.rate.pointing.reference"
+    ]
+   },
+   {
+    "id": "personaRate.dyslexic-user.reading",
+    "from": [
+     "law.rate.reading.dyslexiaAdults",
+     "law.rate.reading.dyslexiaControls"
+    ]
+   },
+   {
+    "id": "personaRate.aphasia-receptive.reading",
+    "from": [
+     "law.rate.reading.aphasiaControlsSeconds",
+     "law.rate.reading.aphasiaReadingImpairedSeconds"
+    ]
+   },
+   {
+    "id": "customRate.tremor.pointing",
+    "from": [
+     "law.rate.pointing.motionImpaired",
+     "law.rate.pointing.motionImpairedControls"
+    ]
+   },
+   {
+    "id": "customRate.elderly.pointing",
+    "from": [
+     "profile.pointing.elderly.throughput",
+     "law.rate.pointing.reference"
+    ]
+   },
+   {
+    "id": "customRate.dyslexia.reading",
+    "from": [
+     "law.rate.reading.dyslexiaAdults",
+     "law.rate.reading.dyslexiaControls"
+    ]
+   },
+   {
+    "id": "customRate.lowVision.reading",
+    "from": [
+     "law.rate.reading.lowVisionIntactFields",
+     "law.reading.wpm"
+    ]
+   }
+  ]
+ },
+ "rows": [
+  {
+   "id": "chain.weightDeficit",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0.005848287138744093,
+    "maxAbs": 1.8215254141491855,
+    "shareMoved": 0.46656534954407297,
+    "minSpearman": 0.9557522123893806,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 1.3949033157195778,
+    "shareMovedHuman": 0.4523404255319149
+   },
+   "total": {
+    "medianAbs": 0.002316312733754794,
+    "maxAbs": 0.07615131694495658,
+    "shareMoved": 0.24468085106382978,
+    "minSpearman": 0.9557522123893806,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.07615131694495658,
+    "shareMovedHuman": 0.2578723404255319
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.missingTraitCapacity",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 1.3323669582232505,
+    "shareMoved": 0.03305471124620061,
+    "minSpearman": 0.9132743362831859,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.4332098621024698,
+    "shareMoved": 0.02925531914893617,
+    "minSpearman": 0.9132743362831859,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.timeBudget",
+   "status": "hypothesis",
+   "value": 12.4,
+   "raw": {
+    "medianAbs": 0.02537544917601675,
+    "maxAbs": 0.47437334118339347,
+    "shareMoved": 0.6523556231003039,
+    "minSpearman": 0.952212389380531,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.46436767238965615,
+    "shareMovedHuman": 0.6378723404255319
+   },
+   "total": {
+    "medianAbs": 0.011056375733358825,
+    "maxAbs": 0.1570364489170064,
+    "shareMoved": 0.5201367781155015,
+    "minSpearman": 0.952212389380531,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.1570364489170064,
+    "shareMovedHuman": 0.5425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.depletionRate",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0.0005461896963464552,
+    "maxAbs": 0.46621197557598215,
+    "shareMoved": 0.18009118541033434,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.46621197557598215,
+    "shareMovedHuman": 0.18808510638297873
+   },
+   "total": {
+    "medianAbs": 0.00041888284363353345,
+    "maxAbs": 0.05502851466067904,
+    "shareMoved": 0.02735562310030395,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.05502851466067904,
+    "shareMovedHuman": 0.02893617021276596
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.indirectDepletionShare",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0.0005151395938208791,
+    "maxAbs": 0.3751982846218178,
+    "shareMoved": 0.1770516717325228,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.3751982846218178,
+    "shareMovedHuman": 0.18553191489361703
+   },
+   "total": {
+    "medianAbs": 0.000409870056287176,
+    "maxAbs": 0.049567504639396465,
+    "shareMoved": 0.021656534954407294,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.049567504639396465,
+    "shareMovedHuman": 0.0225531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.choice.anchoringBias",
+   "status": "hypothesis",
+   "value": 0.85,
+   "raw": {
+    "medianAbs": 0.004024455270741134,
+    "maxAbs": 0.2343240532071107,
+    "shareMoved": 0.31990881458966564,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.21387679579422336,
+    "shareMovedHuman": 0.28595744680851065
+   },
+   "total": {
+    "medianAbs": 0.002587768733859512,
+    "maxAbs": 0.10038762391292372,
+    "shareMoved": 0.1561550151975684,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.10038762391292372,
+    "shareMovedHuman": 0.17063829787234042
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.decision.riskTolerance",
+   "status": "hypothesis",
+   "value": 0.75,
+   "raw": {
+    "medianAbs": 0.0038839691220884376,
+    "maxAbs": 0.2061294704445018,
+    "shareMoved": 0.3411854103343465,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.2061294704445018,
+    "shareMovedHuman": 0.32
+   },
+   "total": {
+    "medianAbs": 0.0022914768124988466,
+    "maxAbs": 0.07127917494708003,
+    "shareMoved": 0.1458966565349544,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.07127917494708003,
+    "shareMovedHuman": 0.16170212765957448
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.engagement.atSkim",
+   "status": "hypothesis",
+   "value": 0.75,
+   "raw": {
+    "medianAbs": 1.9555225319600744e-7,
+    "maxAbs": 0.20429834507311728,
+    "shareMoved": 0.2572188449848024,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.20429834507311728,
+    "shareMovedHuman": 0.2378723404255319
+   },
+   "total": {
+    "medianAbs": 0.002412639115884463,
+    "maxAbs": 0.06266495030795427,
+    "shareMoved": 0.1344984802431611,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.06266495030795427,
+    "shareMovedHuman": 0.14638297872340425
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.choice.fearOfMissingOut",
+   "status": "hypothesis",
+   "value": 0.75,
+   "raw": {
+    "medianAbs": 0.0030802486200831453,
+    "maxAbs": 0.1917680155032544,
+    "shareMoved": 0.30015197568389057,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.1917680155032544,
+    "shareMovedHuman": 0.27361702127659576
+   },
+   "total": {
+    "medianAbs": 0.001951136362594058,
+    "maxAbs": 0.0705898853788351,
+    "shareMoved": 0.128419452887538,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0705898853788351,
+    "shareMovedHuman": 0.14212765957446807
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.animation.changeBlindness",
+   "status": "hypothesis",
+   "value": 0.9,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.1862477436816885,
+    "shareMoved": 0.11360182370820669,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.13404244919974584,
+    "shareMovedHuman": 0.11319148936170213
+   },
+   "total": {
+    "medianAbs": 0.0024126391158845045,
+    "maxAbs": 0.14953614028999412,
+    "shareMoved": 0.08282674772036475,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.13978702242997176,
+    "shareMovedHuman": 0.08893617021276595
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.contentScaleGain",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0.008030738171720342,
+    "maxAbs": 0.17890515983002775,
+    "shareMoved": 0.43617021276595747,
+    "minSpearman": 0.9663716814159292,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.17890515983002775,
+    "shareMovedHuman": 0.4229787234042553
+   },
+   "total": {
+    "medianAbs": 0.007476129806182841,
+    "maxAbs": 0.09052123274878049,
+    "shareMoved": 0.41413373860182373,
+    "minSpearman": 0.9663716814159292,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.09052123274878049,
+    "shareMovedHuman": 0.43957446808510636
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.animation.emotionalContagion",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0.00129907664259718,
+    "maxAbs": 0.16354320246591492,
+    "shareMoved": 0.2188449848024316,
+    "minSpearman": 0.9628318584070796,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.16354320246591492,
+    "shareMovedHuman": 0.20893617021276595
+   },
+   "total": {
+    "medianAbs": 0.001497245459771368,
+    "maxAbs": 0.11440793251183878,
+    "shareMoved": 0.11398176291793313,
+    "minSpearman": 0.9628318584070796,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.11440793251183878,
+    "shareMovedHuman": 0.12297872340425532
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.interaction.cognitiveLoadXdecision",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.15461532589644378,
+    "shareMoved": 0.04293313069908815,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04418853660974342,
+    "shareMovedHuman": 0.023829787234042554
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0022689985818432623,
+    "shareMoved": 0,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0021549814802203082,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.choice.socialProofSensitivity",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0.0031012578312407946,
+    "maxAbs": 0.15452485116770998,
+    "shareMoved": 0.24772036474164133,
+    "minSpearman": 0.9539823008849557,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.15452485116770998,
+    "shareMovedHuman": 0.2221276595744681
+   },
+   "total": {
+    "medianAbs": 0.001910554583732127,
+    "maxAbs": 0.061807245801499267,
+    "shareMoved": 0.09612462006079027,
+    "minSpearman": 0.9539823008849557,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.061807245801499267,
+    "shareMovedHuman": 0.10638297872340426
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.sustained.base",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.11827105866016296,
+    "shareMoved": 0.26177811550151975,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.11827105866016296,
+    "shareMovedHuman": 0.23957446808510638
+   },
+   "total": {
+    "medianAbs": 0.003404284819166879,
+    "maxAbs": 0.09051051408506405,
+    "shareMoved": 0.25759878419452886,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.09051051408506405,
+    "shareMovedHuman": 0.27106382978723403
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.interaction.frustrationXdecision",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0.000060180635726825304,
+    "maxAbs": 0.06113832823087684,
+    "shareMoved": 0.010258358662613981,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.018717993503134522,
+    "shareMovedHuman": 0.003829787234042553
+   },
+   "total": {
+    "medianAbs": 0.000032916119609455174,
+    "maxAbs": 0.0033846960717409114,
+    "shareMoved": 0,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0033846960717409114,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.animation.sigmoidScale",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0.0003140887296099182,
+    "maxAbs": 0.056485728867458285,
+    "shareMoved": 0.044452887537993924,
+    "minSpearman": 0.9823008849557522,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.030500116048669645,
+    "shareMovedHuman": 0.04
+   },
+   "total": {
+    "medianAbs": 0.0010733443257956998,
+    "maxAbs": 0.03815865875428434,
+    "shareMoved": 0.012917933130699088,
+    "minSpearman": 0.9823008849557522,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03815865875428434,
+    "shareMovedHuman": 0.01276595744680851
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.animation.sigmoidThreshold",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0.0011451597518412626,
+    "maxAbs": 0.052523700930382944,
+    "shareMoved": 0.06838905775075987,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.035361009169025626,
+    "shareMovedHuman": 0.0523404255319149
+   },
+   "total": {
+    "medianAbs": 0.001309939662288373,
+    "maxAbs": 0.03859239033017714,
+    "shareMoved": 0.03229483282674772,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03859239033017714,
+    "shareMovedHuman": 0.03531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.mobile-user.pointing",
+   "status": "hypothesis",
+   "value": 0.7028571428571428,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.051519236241943656,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.051519236241943656,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.02333881659838416,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02333881659838416,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyscalculia.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.05084436590590968,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.05084436590590968,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00023348120476300582,
+    "maxAbs": 0.021002472455708743,
+    "shareMoved": 0.004179331306990881,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.021002472455708743,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.weightSurplus",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0.005421034722427984,
+    "maxAbs": 0.05051217893581006,
+    "shareMoved": 0.3377659574468085,
+    "minSpearman": 0.9557522123893806,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.05051217893581006,
+    "shareMovedHuman": 0.36638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0020154813682851658,
+    "maxAbs": 0.030598102109958725,
+    "shareMoved": 0.21998480243161095,
+    "minSpearman": 0.9557522123893806,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.030598102109958725,
+    "shareMovedHuman": 0.2323404255319149
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.interaction.visualComplexityXcognitiveLoad",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04999456883633435,
+    "shareMoved": 0.010258358662613981,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.017074025072703947,
+    "shareMovedHuman": 0.002127659574468085
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.002124770701737888,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.002124770701737888,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyslexic-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.049640359591977656,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.049640359591977656,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00015565413650875382,
+    "maxAbs": 0.01602552672152624,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01602552672152624,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.low-vision-magnified.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.049637013204043345,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.049637013204043345,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00015565413650867055,
+    "maxAbs": 0.021205504253984042,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.021205504253984042,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.elderly-low-vision.pointing",
+   "status": "hypothesis",
+   "value": 0.6530612244897959,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.049552827353742224,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.049552827353742224,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.00007782706825434915,
+    "maxAbs": 0.01285435472437979,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01285435472437979,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.interaction.cognitiveLoadXmotor",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04916821326733967,
+    "shareMoved": 0.017477203647416412,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.022071828116164482,
+    "shareMovedHuman": 0.005957446808510639
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0011179312415028342,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0011179312415028342,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.first-timer.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.048673596729818414,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.048673596729818414,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00014199864221869918,
+    "maxAbs": 0.009335911748424186,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.009335911748424186,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.color-blind-deuteranopia.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.048475355489315586,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.048475355489315586,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.02013634952486687,
+    "shareMoved": 0.004179331306990881,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02013634952486687,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.deaf-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04812956344589736,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9823008849557522,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04812956344589736,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0003113082730172856,
+    "maxAbs": 0.020501408263609078,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 0.9823008849557522,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020501408263609078,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.distracted-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.047858801937809226,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.047858801937809226,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00015565413650867055,
+    "maxAbs": 0.014942811601373118,
+    "shareMoved": 0.0011398176291793312,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.014942811601373118,
+    "shareMovedHuman": 0.001276595744680851
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.cognitive-adhd.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.047657007594512635,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.047657007594512635,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0001556541365086983,
+    "maxAbs": 0.021872330711804056,
+    "shareMoved": 0.001519756838905775,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.021872330711804056,
+    "shareMovedHuman": 0.001702127659574468
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.elderly-user.pointing",
+   "status": "hypothesis",
+   "value": 0.6530612244897959,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04759778903472078,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04759778903472078,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0001806896373955369,
+    "maxAbs": 0.012424116348685732,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.012424116348685732,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.motor-impairment-tremor.pointing",
+   "status": "published",
+   "value": 0.36270491803278687,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04728288339436304,
+    "shareMoved": 0.013297872340425532,
+    "minSpearman": 0.9539823008849557,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04728288339436304,
+    "shareMovedHuman": 0.014893617021276596
+   },
+   "total": {
+    "medianAbs": 0.000311308273017355,
+    "maxAbs": 0.029214593787288023,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 0.9539823008849557,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.029214593787288023,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.emotional-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04725496624534298,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04725496624534298,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00007782706825433527,
+    "maxAbs": 0.014341977817149298,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.014341977817149298,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.task-focused.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04719093336530289,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04719093336530289,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "total": {
+    "medianAbs": 0.0003113082730173966,
+    "maxAbs": 0.020436492431838094,
+    "shareMoved": 0.001899696048632219,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020436492431838094,
+    "shareMovedHuman": 0.002127659574468085
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.anxious-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.046940643463788234,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.046940643463788234,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00007782706825437691,
+    "maxAbs": 0.011095208252134614,
+    "shareMoved": 0.001899696048632219,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.011095208252134614,
+    "shareMovedHuman": 0.002127659574468085
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.stoic-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.046863136520514104,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.046863136520514104,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0003113082730173966,
+    "maxAbs": 0.01988777445649087,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01988777445649087,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.engagement.range",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.046684175209811496,
+    "shareMoved": 0.07712765957446809,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.046684175209811496,
+    "shareMovedHuman": 0.08638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0010867922820926024,
+    "maxAbs": 0.033925975085070836,
+    "shareMoved": 0.023556231003039513,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.033925975085070836,
+    "shareMovedHuman": 0.026382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.screen-reader-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.046603772422111334,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.046603772422111334,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.02007432543386173,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02007432543386173,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.aphasia-receptive.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.046207920768723376,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.046207920768723376,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0003113082730173966,
+    "maxAbs": 0.010305213547148306,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.010305213547148306,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.low-vision-magnified.reading",
+   "status": "hypothesis",
+   "value": 0.5462184873949579,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.045465500489629385,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.045465500489629385,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0002334812047629642,
+    "maxAbs": 0.029694771098176975,
+    "shareMoved": 0.010258358662613981,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.029694771098176975,
+    "shareMovedHuman": 0.01148936170212766
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.confident-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04499108917815109,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9823008849557522,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04499108917815109,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0003113082730173411,
+    "maxAbs": 0.019074005655232318,
+    "shareMoved": 0.004179331306990881,
+    "minSpearman": 0.9823008849557522,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.019074005655232318,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.explorer.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04442760382422417,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04442760382422417,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0002334812047629642,
+    "maxAbs": 0.01175233196792358,
+    "shareMoved": 0.0007598784194528875,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01175233196792358,
+    "shareMovedHuman": 0.000851063829787234
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.sustained.distractorGain",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04436872566834582,
+    "shareMoved": 0.05661094224924012,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04436872566834582,
+    "shareMovedHuman": 0.05063829787234043
+   },
+   "total": {
+    "medianAbs": 0.0007074999950162641,
+    "maxAbs": 0.031820215755260284,
+    "shareMoved": 0.014437689969604863,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.031820215755260284,
+    "shareMovedHuman": 0.01574468085106383
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.intellectual-disability.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04394837492462411,
+    "shareMoved": 0.007978723404255319,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04394837492462411,
+    "shareMovedHuman": 0.008936170212765958
+   },
+   "total": {
+    "medianAbs": 0.00007782706825437691,
+    "maxAbs": 0.010345241291300489,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.010345241291300489,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.autism-spectrum.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04372882387573007,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04372882387573007,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00031130827301737666,
+    "maxAbs": 0.0086185556885231,
+    "shareMoved": 0,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0086185556885231,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.impatient-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04349432226321204,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04349432226321204,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00007782706825434915,
+    "maxAbs": 0.019222478269518284,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 0.9716814159292035,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.019222478269518284,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.color-blind-deuteranopia.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.043268399013317804,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.043268399013317804,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00015565413650868096,
+    "maxAbs": 0.03875122363918371,
+    "shareMoved": 0.0056990881458966565,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03875122363918371,
+    "shareMovedHuman": 0.006382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyslexic-user.reading",
+   "status": "published",
+   "value": 0.75779839106879,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04322205572796367,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04322205572796367,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.0002334812047629642,
+    "maxAbs": 0.03501542012268133,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03501542012268133,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.dyscalculia.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.043198721324966716,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.043198721324966716,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00015565413650867055,
+    "maxAbs": 0.025208035226543468,
+    "shareMoved": 0.0056990881458966565,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.025208035226543468,
+    "shareMovedHuman": 0.006382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.careful-reader.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04266328472677117,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04266328472677117,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.0003113082730173966,
+    "maxAbs": 0.010918651961035142,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.010918651961035142,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.mobile-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04253699416010326,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04253699416010326,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.0000778270682543214,
+    "maxAbs": 0.016649094355197513,
+    "shareMoved": 0.003419452887537994,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.016649094355197513,
+    "shareMovedHuman": 0.003829787234042553
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.task-focused.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04244841882767014,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04244841882767014,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630752,
+    "maxAbs": 0.03693865824280068,
+    "shareMoved": 0.004939209726443769,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03693865824280068,
+    "shareMovedHuman": 0.005531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.deaf-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04223158624376655,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9964601769911504,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04223158624376655,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00023145025635240568,
+    "maxAbs": 0.03236473500923298,
+    "shareMoved": 0.0056990881458966565,
+    "minSpearman": 0.9964601769911504,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03236473500923298,
+    "shareMovedHuman": 0.006382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.confident-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.041741349881034395,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.041741349881034395,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00007782706825437691,
+    "maxAbs": 0.02031732865540531,
+    "shareMoved": 0.004939209726443769,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02031732865540531,
+    "shareMovedHuman": 0.005531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.stoic-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04171677496708348,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04171677496708348,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.0003113082730172856,
+    "maxAbs": 0.04350821222329915,
+    "shareMoved": 0.004939209726443769,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04350821222329915,
+    "shareMovedHuman": 0.005531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.cognitive-adhd.reading",
+   "status": "hypothesis",
+   "value": 0.9364161849710984,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04124059621753773,
+    "shareMoved": 0.00911854103343465,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04124059621753773,
+    "shareMovedHuman": 0.010212765957446808
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.020543568555330682,
+    "shareMoved": 0.0007598784194528875,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020543568555330682,
+    "shareMovedHuman": 0.000851063829787234
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.screen-reader-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04121149789088374,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04121149789088374,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.00031130827301734804,
+    "maxAbs": 0.04290096391505166,
+    "shareMoved": 0.0056990881458966565,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04290096391505166,
+    "shareMovedHuman": 0.006382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.motor-impairment-tremor.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.041084957283860746,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.041084957283860746,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.0001556541365086775,
+    "maxAbs": 0.038994334815053044,
+    "shareMoved": 0.006838905775075988,
+    "minSpearman": 0.9734513274336283,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.038994334815053044,
+    "shareMovedHuman": 0.007659574468085106
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.power-user.pointing",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04105897758135946,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04105897758135946,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0.00031130827301738273,
+    "maxAbs": 0.017955383138288483,
+    "shareMoved": 0.001519756838905775,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.017955383138288483,
+    "shareMovedHuman": 0.001702127659574468
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.impatient-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04087951804019818,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04087951804019818,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.01721659359396921,
+    "shareMoved": 0.00037993920972644377,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01721659359396921,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.emotional-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.04086846227051666,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04086846227051666,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.008728862285660943,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.008728862285660943,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.distracted-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.0399697665356209,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0399697665356209,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.020674461866786953,
+    "shareMoved": 0.0007598784194528875,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020674461866786953,
+    "shareMovedHuman": 0.000851063829787234
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.explorer.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.039341433504714196,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 0.9929203539823008,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.039341433504714196,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.0002334812047629642,
+    "maxAbs": 0.03680193215436023,
+    "shareMoved": 0.005319148936170213,
+    "minSpearman": 0.9929203539823008,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03680193215436023,
+    "shareMovedHuman": 0.005957446808510639
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.achievement.satisficing",
+   "status": "hypothesis",
+   "value": -0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.038746638331547345,
+    "shareMoved": 0.010638297872340425,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.017506920948272775,
+    "shareMovedHuman": 0.007659574468085106
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.005813055164801795,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.005813055164801795,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.power-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03864738095311715,
+    "shareMoved": 0.008358662613981762,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03864738095311715,
+    "shareMovedHuman": 0.009361702127659575
+   },
+   "total": {
+    "medianAbs": 0.000155620661849723,
+    "maxAbs": 0.020103184281586195,
+    "shareMoved": 0.004179331306990881,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.020103184281586195,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.anxious-user.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03818661016858904,
+    "shareMoved": 0.008738601823708206,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03818661016858904,
+    "shareMovedHuman": 0.00978723404255319
+   },
+   "total": {
+    "medianAbs": 0.0000778270682543214,
+    "maxAbs": 0.021235298774555877,
+    "shareMoved": 0.006838905775075988,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.021235298774555877,
+    "shareMovedHuman": 0.007659574468085106
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.elderly-low-vision.reading",
+   "status": "hypothesis",
+   "value": 0.5462184873949579,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03808580867508926,
+    "shareMoved": 0.011778115501519757,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03808580867508926,
+    "shareMovedHuman": 0.013191489361702127
+   },
+   "total": {
+    "medianAbs": 0.00007782706825434915,
+    "maxAbs": 0.022493355425293626,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.022493355425293626,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.first-timer.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.038049111690670934,
+    "shareMoved": 0.008738601823708206,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.038049111690670934,
+    "shareMovedHuman": 0.00978723404255319
+   },
+   "total": {
+    "medianAbs": 0.00007782706825443242,
+    "maxAbs": 0.02039548889581322,
+    "shareMoved": 0.004559270516717325,
+    "minSpearman": 0.9982285208148804,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02039548889581322,
+    "shareMovedHuman": 0.005106382978723404
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.careful-reader.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03579976761968062,
+    "shareMoved": 0.00911854103343465,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03579976761968062,
+    "shareMovedHuman": 0.010212765957446808
+   },
+   "total": {
+    "medianAbs": 0.0003113082730172856,
+    "maxAbs": 0.04279554196737101,
+    "shareMoved": 0.0056990881458966565,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.04279554196737101,
+    "shareMovedHuman": 0.006382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.elderly-user.reading",
+   "status": "hypothesis",
+   "value": 0.8517350157728707,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03579237408649938,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03579237408649938,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.00013024865952832032,
+    "maxAbs": 0.023748317224286997,
+    "shareMoved": 0.004559270516717325,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.023748317224286997,
+    "shareMovedHuman": 0.005106382978723404
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.aphasia-receptive.reading",
+   "status": "published",
+   "value": 0.4225352112676056,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.034965615242094295,
+    "shareMoved": 0.01405775075987842,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.034965615242094295,
+    "shareMovedHuman": 0.01574468085106383
+   },
+   "total": {
+    "medianAbs": 0.0003898966098461465,
+    "maxAbs": 0.027949679720420006,
+    "shareMoved": 0.00911854103343465,
+    "minSpearman": 0.9982238010657194,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.027949679720420006,
+    "shareMovedHuman": 0.010212765957446808
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.autism-spectrum.reading",
+   "status": "hypothesis",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03494128579603206,
+    "shareMoved": 0.008738601823708206,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03494128579603206,
+    "shareMovedHuman": 0.00978723404255319
+   },
+   "total": {
+    "medianAbs": 0.0002334812047630197,
+    "maxAbs": 0.037666862743347185,
+    "shareMoved": 0.0056990881458966565,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.037666862743347185,
+    "shareMovedHuman": 0.006382978723404255
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "personaRate.intellectual-disability.reading",
+   "status": "hypothesis",
+   "value": 0.7988165680473372,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03358361923181086,
+    "shareMoved": 0.009498480243161094,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03358361923181086,
+    "shareMovedHuman": 0.010638297872340425
+   },
+   "total": {
+    "medianAbs": 0.00007782706825437691,
+    "maxAbs": 0.01707633730176772,
+    "shareMoved": 0.001519756838905775,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01707633730176772,
+    "shareMovedHuman": 0.001702127659574468
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.stimulation.changeBlindness",
+   "status": "hypothesis",
+   "value": -0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.033209275873044675,
+    "shareMoved": 0.007598784194528876,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.023846571738941336,
+    "shareMovedHuman": 0.004680851063829788
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.018111638820729525,
+    "shareMoved": 0.00303951367781155,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.018111638820729525,
+    "shareMovedHuman": 0.002553191489361702
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.distractor.animationShare",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.03030850037713817,
+    "shareMoved": 0.03267477203647416,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.03030850037713817,
+    "shareMovedHuman": 0.03148936170212766
+   },
+   "total": {
+    "medianAbs": 0.0004669624095260394,
+    "maxAbs": 0.022768706771610858,
+    "shareMoved": 0.005319148936170213,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.022768706771610858,
+    "shareMovedHuman": 0.005531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.stimulation.patience",
+   "status": "hypothesis",
+   "value": 0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.02665129230885177,
+    "shareMoved": 0.012537993920972644,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02665129230885177,
+    "shareMovedHuman": 0.00851063829787234
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.012669618709356012,
+    "shareMoved": 0.00303951367781155,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.012309891054316235,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.selfDirection.socialProofSensitivity",
+   "status": "hypothesis",
+   "value": -0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.02346020474792354,
+    "shareMoved": 0.003419452887537994,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01060764139958259,
+    "shareMovedHuman": 0.000425531914893617
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.004041585153794491,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.004041585153794491,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.security.changeBlindness",
+   "status": "hypothesis",
+   "value": -0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.023434516151071172,
+    "shareMoved": 0.007218844984802432,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.023434516151071172,
+    "shareMovedHuman": 0.008085106382978723
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.015754391761276854,
+    "shareMoved": 0.004939209726443769,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.015754391761276854,
+    "shareMovedHuman": 0.005531914893617021
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.interaction.frustrationXreadability",
+   "status": "hypothesis",
+   "value": 0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.021681556838641924,
+    "shareMoved": 0.004179331306990881,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.007395298480273205,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.000007918611896584604,
+    "maxAbs": 0.0017048832869480668,
+    "shareMoved": 0,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0017048832869480668,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.achievement.riskTolerance",
+   "status": "hypothesis",
+   "value": -0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.017078125272888656,
+    "shareMoved": 0.00303951367781155,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.007940059531060584,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0035507483590063726,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0035507483590063726,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.conformity.socialProofSensitivity",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.01664541461243374,
+    "shareMoved": 0.0026595744680851063,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.01664541461243374,
+    "shareMovedHuman": 0.0029787234042553193
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.004810400386726532,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.004810400386726532,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.demand.distractor.visualShare",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.014611491007618937,
+    "shareMoved": 0.00911854103343465,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.014611491007618937,
+    "shareMovedHuman": 0.010212765957446808
+   },
+   "total": {
+    "medianAbs": 0.00025393725146405366,
+    "maxAbs": 0.010370041786157025,
+    "shareMoved": 0.0007598784194528875,
+    "minSpearman": 0.9982300884955753,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.010370041786157025,
+    "shareMovedHuman": 0.000851063829787234
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.power.fearOfMissingOut",
+   "status": "hypothesis",
+   "value": -0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.014537017371992533,
+    "shareMoved": 0.0022796352583586625,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.007367427333595078,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0037610399493667734,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0037610399493667734,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.conformity.anchoringBias",
+   "status": "hypothesis",
+   "value": 0.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.014446601235852619,
+    "shareMoved": 0.001519756838905775,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.014446601235852619,
+    "shareMovedHuman": 0.001702127659574468
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.005344089008798902,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.005344089008798902,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.benevolence.emotionalContagion",
+   "status": "hypothesis",
+   "value": -0.15,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.008094450455512714,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.005914885823004035,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.007536486113823737,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.007536486113823737,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.maxDrawdownFraction",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.003688039785080477,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.valueModulation.demandFloor",
+   "status": "hypothesis",
+   "value": 0.1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.0011938841999850139,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0011938841999850139,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0017607090145720372,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0017607090145720372,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.capacityEpsilon",
+   "status": "definition",
+   "value": 0.0001,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.0004150495118544484,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0001540337317555429,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.depletionGate",
+   "status": "hypothesis",
+   "value": 0.1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0.00000186665281673719,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0011674060238150846,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0011674060238150846,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.wpm",
+   "status": "published",
+   "value": 238,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 8.881784197001252e-16,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 8.881784197001252e-16,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.008396980995231146,
+    "maxAbs": 0.02299555891576921,
+    "shareMoved": 0.4308510638297872,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02299555891576921,
+    "shareMovedHuman": 0.46297872340425533
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.rate.pointing.reference",
+   "status": "published",
+   "value": 4.9,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 4.440892098500626e-16,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 4.440892098500626e-16,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 6.661338147750939e-16,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 6.661338147750939e-16,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.lettersPerWord",
+   "status": "published",
+   "value": 4.6,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.008396980995231132,
+    "maxAbs": 0.02299555891576921,
+    "shareMoved": 0.4308510638297872,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.02299555891576921,
+    "shareMovedHuman": 0.46297872340425533
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.fitts.slope",
+   "status": "published",
+   "value": 0.166,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.004251086757263434,
+    "maxAbs": 0.013519886174165996,
+    "shareMoved": 0.1356382978723404,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.013519886174165996,
+    "shareMovedHuman": 0.14893617021276595
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.search.slope",
+   "status": "published",
+   "value": 0.08,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.00300172500147014,
+    "maxAbs": 0.008502903694321523,
+    "shareMoved": 0,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.008502903694321523,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.search.intercept",
+   "status": "published",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0014718323530464802,
+    "maxAbs": 0.00783262599125159,
+    "shareMoved": 0,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.00783262599125159,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.animation.saturation",
+   "status": "hypothesis",
+   "value": 10,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.002056075202234081,
+    "maxAbs": 0.0066073659098057624,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0066073659098057624,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.fitts.intercept",
+   "status": "published",
+   "value": 0.23,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0016052698137879462,
+    "maxAbs": 0.0052173731717862215,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0052173731717862215,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.animation.carouselCount",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0013229834560444798,
+    "maxAbs": 0.004169991943310997,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.004169991943310997,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.visual.midpoint",
+   "status": "hypothesis",
+   "value": 200,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0007621023307357172,
+    "maxAbs": 0.0034168792698269224,
+    "shareMoved": 0,
+    "minSpearman": 0.9994817309835874,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0034168792698269224,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.visual.elementWeight",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.000621915322500527,
+    "maxAbs": 0.0026925818693711023,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0026925818693711023,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.klm.mentalPreparation",
+   "status": "published",
+   "value": 1.35,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0000778270682543214,
+    "maxAbs": 0.002592049834913679,
+    "shareMoved": 0,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.002592049834913679,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeTotal": {
+    "medianAbs": 0.00008459817239808709,
+    "maxAbs": 0.004002079195517927,
+    "shareMoved": 0,
+    "minSpearman": 0.9973321428677399,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.004002079195517927,
+    "shareMovedHuman": 0
+   },
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.labelFirstRead",
+   "status": "hypothesis",
+   "value": 0.13,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0003917838802426632,
+    "maxAbs": 0.0016252971098617008,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0016252971098617008,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.abjadWpm",
+   "status": "published",
+   "value": 181,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.000153215767003001,
+    "maxAbs": 0.0014008872285781182,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0014008872285781182,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.visual.colourWeight",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0001506632293825083,
+    "maxAbs": 0.001160409097084869,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.001160409097084869,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.cjkCharsPerWord",
+   "status": "published",
+   "value": 1.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0001556541365086983,
+    "maxAbs": 0.000778270682543436,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.000778270682543436,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.reading.cjkWpm",
+   "status": "published",
+   "value": 260,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0001556541365086983,
+    "maxAbs": 0.000778270682543436,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.000778270682543436,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.visual.imageWeight",
+   "status": "hypothesis",
+   "value": 2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0.0001147293658747342,
+    "maxAbs": 0.0006882112795093542,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0006882112795093542,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.fitts.minWidth",
+   "status": "definition",
+   "value": 1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0.0002334812047630752,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0.0002334812047630752,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.abandonment.patienceShare",
+   "status": "hypothesis",
+   "value": 0.7,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.abandonment.resilienceShare",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.abandonment.toleranceFloor",
+   "status": "hypothesis",
+   "value": 0.05,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.abandonment.toleranceGain",
+   "status": "hypothesis",
+   "value": 1.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.abandonmentHillExponent",
+   "status": "hypothesis",
+   "value": 2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "chain.roundingScale",
+   "status": "definition",
+   "value": 1000,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "ctcReference.interval.grid",
+   "status": "definition",
+   "value": 101,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "ctcReference.interval.level",
+   "status": "definition",
+   "value": 0.95,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "ctcReference.interval.replicates",
+   "status": "definition",
+   "value": 1000,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "ctcReference.interval.seed",
+   "status": "definition",
+   "value": 20261022,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "distance.missingTraitDefault",
+   "status": "hypothesis",
+   "value": 0.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "distance.simplexFloor",
+   "status": "definition",
+   "value": 0.01,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.hick.intercept",
+   "status": "published",
+   "value": 0.24,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "law.hick.slope",
+   "status": "published",
+   "value": 0.08,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.abjad.lengthScale",
+   "status": "hypothesis",
+   "value": 1.6,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.abjad.longWordMin",
+   "status": "hypothesis",
+   "value": 5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.abjad.sentenceLengthAbove",
+   "status": "hypothesis",
+   "value": 5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.abjad.techWordMin",
+   "status": "hypothesis",
+   "value": 6,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.alphabetic.sentenceLengthAbove",
+   "status": "hypothesis",
+   "value": 10,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.choiceCap",
+   "status": "hypothesis",
+   "value": 100,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.cjk.charsPerWord",
+   "status": "hypothesis",
+   "value": 1.8,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.cjk.latinEquivalentLength",
+   "status": "hypothesis",
+   "value": 6,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.cjk.latinTechWordMin",
+   "status": "hypothesis",
+   "value": 8,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.cjk.longRunMin",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.cjk.sentenceLengthAbove",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.cjk.techRunMin",
+   "status": "hypothesis",
+   "value": 4,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.informationDensity.midpoint",
+   "status": "hypothesis",
+   "value": 5000,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.latin.longWordMin",
+   "status": "hypothesis",
+   "value": 7,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.latin.techWordMin",
+   "status": "hypothesis",
+   "value": 10,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.lexicalDiversity.window",
+   "status": "hypothesis",
+   "value": 100,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.sentenceLength.saturation",
+   "status": "hypothesis",
+   "value": 40,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.text.nestedShare",
+   "status": "hypothesis",
+   "value": 0.4,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.textDensity.areaUnit",
+   "status": "definition",
+   "value": 0.001,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.textDensity.midpoint",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.wordLength.offset",
+   "status": "hypothesis",
+   "value": 3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.wordLength.span",
+   "status": "hypothesis",
+   "value": 7.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.adhd.rho",
+   "status": "hypothesis",
+   "value": 0,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "value 0: moved to -0.1 and +0.1 absolutely"
+  },
+  {
+   "id": "profile.pointing.adhd.sigma",
+   "status": "hypothesis",
+   "value": 5.5,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.elderly.rho",
+   "status": "hypothesis",
+   "value": 0.1,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.elderly.sigma",
+   "status": "hypothesis",
+   "value": 7.2,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.neurotypical.rho",
+   "status": "hypothesis",
+   "value": 0,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "value 0: moved to -0.1 and +0.1 absolutely"
+  },
+  {
+   "id": "profile.pointing.neurotypical.sigma",
+   "status": "hypothesis",
+   "value": 4,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.precision.patienceWeight",
+   "status": "hypothesis",
+   "value": 0.4,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.precision.proceduralFluencyWeight",
+   "status": "hypothesis",
+   "value": 0.6,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.tremor.rho",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "profile.pointing.tremor.sigma",
+   "status": "hypothesis",
+   "value": 12,
+   "raw": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "total": {
+    "medianAbs": 0,
+    "maxAbs": 0,
+    "shareMoved": 0,
+    "minSpearman": 1,
+    "spearmanUndefined": 0,
+    "maxAbsHuman": 0,
+    "shareMovedHuman": 0
+   },
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "ctcReference.viewport",
+   "status": "definition",
+   "value": 514,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 462.6,
+     "error": "ctcReference.viewport registers 462.6 pages; the shipped reference has 514"
+    },
+    {
+     "label": "x1.1",
+     "value": 565.4000000000001,
+     "error": "ctcReference.viewport registers 565.4000000000001 pages; the shipped reference has 514"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.prose.lengthAbove",
+   "status": "hypothesis",
+   "value": 5,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 4.5,
+     "error": "pageMetrics.prose.lengthAbove is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 5, not 4.5. A stored measurement "
+    },
+    {
+     "label": "x1.1",
+     "value": 5.5,
+     "error": "pageMetrics.prose.lengthAbove is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 5, not 5.5. A stored measurement "
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.raw.lengthBins",
+   "status": "definition",
+   "value": 32,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 28.8,
+     "error": "pageMetrics.raw.lengthBins is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 32, not 28.8. A stored measurement c"
+    },
+    {
+     "label": "x1.1",
+     "value": 35.2,
+     "error": "pageMetrics.raw.lengthBins is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 32, not 35.2. A stored measurement c"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.raw.maxBoxes",
+   "status": "definition",
+   "value": 300,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 270,
+     "error": "pageMetrics.raw.maxBoxes is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 300, not 270. A stored measurement can"
+    },
+    {
+     "label": "x1.1",
+     "value": 330,
+     "error": "pageMetrics.raw.maxBoxes is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 300, not 330. A stored measurement can"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.raw.maxChoiceGroups",
+   "status": "definition",
+   "value": 64,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 57.6,
+     "error": "pageMetrics.raw.maxChoiceGroups is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 64, not 57.6. A stored measurem"
+    },
+    {
+     "label": "x1.1",
+     "value": 70.4,
+     "error": "pageMetrics.raw.maxChoiceGroups is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 64, not 70.4. A stored measurem"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.raw.maxTextBlocks",
+   "status": "definition",
+   "value": 128,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 115.2,
+     "error": "pageMetrics.raw.maxTextBlocks is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 128, not 115.2. A stored measurem"
+    },
+    {
+     "label": "x1.1",
+     "value": 140.8,
+     "error": "pageMetrics.raw.maxTextBlocks is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 128, not 140.8. A stored measurem"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.script.keyShare",
+   "status": "hypothesis",
+   "value": 0.2,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 0.18000000000000002,
+     "error": "pageMetrics.script.keyShare is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 0.2, not 0.18000000000000002. A sto"
+    },
+    {
+     "label": "x1.1",
+     "value": 0.22000000000000003,
+     "error": "pageMetrics.script.keyShare is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 0.2, not 0.22000000000000003. A sto"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.script.minChars",
+   "status": "hypothesis",
+   "value": 5,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 4.5,
+     "error": "pageMetrics.script.minChars is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 5, not 4.5. A stored measurement ca"
+    },
+    {
+     "label": "x1.1",
+     "value": 5.5,
+     "error": "pageMetrics.script.minChars is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 5, not 5.5. A stored measurement ca"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.script.textShare",
+   "status": "hypothesis",
+   "value": 0.3,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 0.27,
+     "error": "pageMetrics.script.textShare is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 0.3, not 0.27. A stored measuremen"
+    },
+    {
+     "label": "x1.1",
+     "value": 0.33,
+     "error": "pageMetrics.script.textShare is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 0.3, not 0.33. A stored measuremen"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.visual.colourSample",
+   "status": "hypothesis",
+   "value": 50,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 45,
+     "error": "pageMetrics.visual.colourSample is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 50, not 45. A stored measuremen"
+    },
+    {
+     "label": "x1.1",
+     "value": 55.00000000000001,
+     "error": "pageMetrics.visual.colourSample is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 50, not 55.00000000000001. A st"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.walk.maxSteps",
+   "status": "hypothesis",
+   "value": 5,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 4.5,
+     "error": "pageMetrics.walk.maxSteps is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 5, not 4.5. A stored measurement cann"
+    },
+    {
+     "label": "x1.1",
+     "value": 5.5,
+     "error": "pageMetrics.walk.maxSteps is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 5, not 5.5. A stored measurement cann"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  },
+  {
+   "id": "pageMetrics.walk.settleMs",
+   "status": "hypothesis",
+   "value": 300,
+   "raw": null,
+   "total": null,
+   "rangeRaw": null,
+   "rangeTotal": null,
+   "refused": [
+    {
+     "label": "x0.9",
+     "value": 270,
+     "error": "pageMetrics.walk.settleMs is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 300, not 270. A stored measurement ca"
+    },
+    {
+     "label": "x1.1",
+     "value": 330,
+     "error": "pageMetrics.walk.settleMs is applied while a page is measured; the reference ctc-reference-v2-2026-10-24 was measured with 300, not 330. A stored measurement ca"
+    }
+   ],
+   "perturbation": "x0.9 and x1.1"
+  }
+ ]
+}
