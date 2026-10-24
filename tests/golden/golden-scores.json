@@ -785,11 +785,11 @@
     "url": "https://app.example.com/checkout"
   },
   "low-contrast": {
-    "composite": 79,
+    "composite": 78,
     "grade": "B",
     "certification": "none",
-    "notMeasuredCount": 4,
-    "certificationNote": "Not certified: 4 of 25 components not measured.",
+    "notMeasuredCount": 5,
+    "certificationNote": "Not certified: 5 of 25 components not measured.",
     "motor": {
       "score": 87,
       "components": {
@@ -911,7 +911,7 @@
       }
     },
     "navigation": {
-      "score": 86,
+      "score": 79,
       "components": {
         "semanticStructure": {
           "score": 78,
@@ -924,9 +924,9 @@
           "measured": true
         },
         "skipMechanisms": {
-          "score": 100,
-          "details": "No skip navigation issues detected",
-          "measured": true
+          "score": 50,
+          "details": "Not measured: no skip-link check supplied",
+          "measured": false
         },
         "linkButtonClarity": {
           "score": 70,
@@ -976,7 +976,8 @@
       "motor.hitProbability",
       "cognitive.decisionComplexity",
       "sensory.animationControl",
-      "sensory.overloadThreshold"
+      "sensory.overloadThreshold",
+      "navigation.skipMechanisms"
     ],
     "url": "https://example.com/pricing"
   },
@@ -1167,11 +1168,11 @@
     "url": "https://example.com/blank"
   },
   "missing-alt-barriers": {
-    "composite": 75,
+    "composite": 74,
     "grade": "B",
     "certification": "none",
-    "notMeasuredCount": 4,
-    "certificationNote": "Not certified: 4 of 25 components not measured.",
+    "notMeasuredCount": 5,
+    "certificationNote": "Not certified: 5 of 25 components not measured.",
     "motor": {
       "score": 84,
       "components": {
@@ -1293,7 +1294,7 @@
       }
     },
     "navigation": {
-      "score": 73,
+      "score": 66,
       "components": {
         "semanticStructure": {
           "score": 62,
@@ -1306,9 +1307,9 @@
           "measured": true
         },
         "skipMechanisms": {
-          "score": 100,
-          "details": "No skip navigation issues detected",
-          "measured": true
+          "score": 50,
+          "details": "Not measured: no skip-link check supplied",
+          "measured": false
         },
         "linkButtonClarity": {
           "score": 38,
@@ -1358,7 +1359,8 @@
       "motor.hitProbability",
       "cognitive.decisionComplexity",
       "cognitive.attentionClarity",
-      "sensory.overloadThreshold"
+      "sensory.overloadThreshold",
+      "navigation.skipMechanisms"
     ],
     "url": "https://example.com/gallery"
   },
@@ -1561,11 +1563,11 @@
     "url": "https://example.com/perfect"
   },
   "tiny-touch-targets": {
-    "composite": 69,
+    "composite": 67,
     "grade": "C",
     "certification": "none",
-    "notMeasuredCount": 4,
-    "certificationNote": "Not certified: 4 of 25 components not measured.",
+    "notMeasuredCount": 5,
+    "certificationNote": "Not certified: 5 of 25 components not measured.",
     "motor": {
       "score": 54,
       "components": {
@@ -1687,7 +1689,7 @@
       }
     },
     "navigation": {
-      "score": 80,
+      "score": 72,
       "components": {
         "semanticStructure": {
           "score": 70,
@@ -1700,9 +1702,9 @@
           "measured": true
         },
         "skipMechanisms": {
-          "score": 100,
-          "details": "No skip navigation issues detected",
-          "measured": true
+          "score": 50,
+          "details": "Not measured: no skip-link check supplied",
+          "measured": false
         },
         "linkButtonClarity": {
           "score": 62,
@@ -1752,7 +1754,8 @@
       "cognitive.decisionComplexity",
       "cognitive.attentionClarity",
       "sensory.animationControl",
-      "sensory.overloadThreshold"
+      "sensory.overloadThreshold",
+      "navigation.skipMechanisms"
     ],
     "url": "https://m.example.com/news"
   }

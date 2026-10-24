@@ -21,6 +21,8 @@ import { computeCIFScore, type CIFInput } from "../src/cif-score.js";
 const FULL: CIFInput = {
   url: "https://example.test/full",
   barriers: [],
+  // empathy_audit has no skip-link detector; a fully measured page needs one that ran.
+  skipLinksChecked: true,
   touchTargets: [{ width: 48, height: 48 }, { width: 30, height: 30 }],
   contrastIssues: [{ ratio: 3.2, isLargeText: false }],
   agentReadyScore: 80,

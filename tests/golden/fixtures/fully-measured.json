@@ -1,6 +1,7 @@
 {
   "url": "https://example.com/fully-measured",
   "barriers": [],
+  "skipLinksChecked": true,
   "touchTargets": [{ "width": 48, "height": 48 }, { "width": 30, "height": 30 }],
   "contrastIssues": [{ "ratio": 3.2, "isLargeText": false }],
   "agentReadyScore": 80,
