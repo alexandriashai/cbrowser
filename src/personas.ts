@@ -22,6 +22,8 @@ import { scopedDataDir, scopedAccountId } from "./persona-scope.js";
 import { currentRequestIdentity } from "./request-context.js";
 import { TRAIT_DEFINITIONS, canonicalizeTraits } from "./trait-reference.js";
 import { customReadingRateId, customReadingRule, displayReadingWpm } from "./visual/provenance/persona-rates.js";
+import { readPersonaAge, isOlderAdult } from "./persona-age.js";
+import { ageValue } from "./visual/provenance/age.js";
 
 // ============================================================================
 // Custom Personas Storage
@@ -383,7 +385,9 @@ export function listInvalidPersonas(): Array<{ name: string; reason: string }> {
  */
 export function generatePersonaFromDescription(
   name: string,
-  description: string
+  description: string,
+  /** An age range the author set (e.g. "65-74", "30"); wins over the description. */
+  statedAgeRange?: string
 ): Persona {
   // Analyze description for key traits
   const descLower = description.toLowerCase();
@@ -392,7 +396,7 @@ export function generatePersonaFromDescription(
   let techLevel: "beginner" | "intermediate" | "expert" = "intermediate";
   if (descLower.match(/expert|developer|engineer|tech.?savvy|power user|advanced/)) {
     techLevel = "expert";
-  } else if (descLower.match(/beginner|new|first.?time|elderly|senior|novice|learning/)) {
+  } else if (descLower.match(/beginner|new|first.?time|novice|learning/)) {
     techLevel = "beginner";
   }
 
@@ -404,19 +408,14 @@ export function generatePersonaFromDescription(
     device = "tablet";
   }
 
-  // Determine age range
-  let ageRange = "25-45";
-  if (descLower.match(/elderly|senior|older|65\+|retired/)) {
-    ageRange = "65+";
-  } else if (descLower.match(/teen|young|student|gen.?z|18-24/)) {
-    ageRange = "18-24";
-  } else if (descLower.match(/middle.?age|40s|50s/)) {
-    ageRange = "45-65";
-  }
+  // Age: only what the author stated (src/persona-age.ts). "Senior",
+  // "older" and "retired" alone state no age.
+  const ageRange = readPersonaAge({ name, description, ageRange: statedAgeRange }).label;
+  const olderAdult = isOlderAdult({ name, description, ageRange: statedAgeRange });
 
   // Determine speed/patience traits
   const isImpatient = descLower.match(/impatient|rush|fast|quick|busy|frustrated|annoyed/);
-  const isSlow = descLower.match(/slow|careful|cautious|elderly|senior|deliberate|thorough/);
+  const isSlow = descLower.match(/slow|careful|cautious|deliberate|thorough/);
   const isDistracted = descLower.match(/distract|adhd|multitask|busy|interrupt/);
 
   // Determine disability/accessibility needs
@@ -431,7 +430,7 @@ export function generatePersonaFromDescription(
   // reference unless the description names dyslexia, low vision or old age
   // (provenance/persona-rates.ts). Replaced keyword guesses of 400 / 250 / 150 /
   // 100 wpm that no source gave.
-  const readingSpeed = displayReadingWpm(customReadingRateId(customReadingRule({ name, description, ageRange })));
+  const readingSpeed = displayReadingWpm(customReadingRateId(customReadingRule({ name, description })));
   let scrollPauseMin = 200, scrollPauseMax = 500;
 
   if (techLevel === "expert" || isImpatient) {
@@ -446,7 +445,7 @@ export function generatePersonaFromDescription(
     scrollPauseMin = 500; scrollPauseMax = 1500;
   }
 
-  if (hasMotorIssues || ageRange === "65+") {
+  if (hasMotorIssues || olderAdult) {
     reactionMin = Math.max(reactionMin, 800);
     reactionMax = Math.max(reactionMax, 2000);
     clickDelayMin = Math.max(clickDelayMin, 500);
@@ -581,7 +580,7 @@ export function generatePersonaFromDescription(
   }
 
   // Generate cognitive traits based on analysis
-  const cognitiveTraits: CognitiveTraits = generateCognitiveTraitsFromDescription(descLower, techLevel, isImpatient, isSlow, hasVisionIssues, ageRange);
+  const cognitiveTraits: CognitiveTraits = generateCognitiveTraitsFromDescription(descLower, techLevel, isImpatient, isSlow, hasVisionIssues, olderAdult);
 
   return {
     name,
@@ -639,7 +638,7 @@ function generateCognitiveTraitsFromDescription(
   isImpatient: RegExpMatchArray | null,
   isSlow: RegExpMatchArray | null,
   hasVisionIssues: RegExpMatchArray | null,
-  ageRange: string
+  olderAdult: boolean
 ): CognitiveTraits {
   // Base traits by tech level
   let patience = 0.5;
@@ -689,14 +688,12 @@ function generateCognitiveTraitsFromDescription(
     // Careful users often have moderate resilience - methodical recovery
   }
 
-  // Adjust for elderly
-  if (ageRange === "65+") {
-    patience = Math.max(patience, 0.9);
-    riskTolerance = Math.min(riskTolerance, 0.15);
-    comprehension = Math.min(comprehension, 0.25);
-    workingMemory = Math.min(workingMemory, 0.35);
-    readingTendency = Math.max(readingTendency, 0.85);
-    resilience = Math.min(resilience, 0.3); // Low - frustration lingers with age
+  // Older age: working memory only, the one trait with a published age
+  // direction (provenance/age.ts). Pointing and reading slow through the
+  // elderly rate profiles instead. The 13 other caps this block and the one
+  // below set for anyone guessed 65+ had no source and are gone (21.0.1).
+  if (olderAdult) {
+    workingMemory = Math.min(workingMemory, ageValue("age.olderAdult.workingMemory"));
   }
 
   // Adjust for vision issues (screen reader users)
@@ -788,17 +785,6 @@ function generateCognitiveTraitsFromDescription(
     fearOfMissingOut = Math.min(fearOfMissingOut, 0.2);       // Not swayed by urgency
   }
 
-  // Adjust for elderly
-  if (ageRange === "65+") {
-    informationForaging = Math.min(informationForaging, 0.3); // Exhaustive search
-    changeBlindness = Math.max(changeBlindness, 0.7);         // Miss changes
-    anchoringBias = Math.max(anchoringBias, 0.7);             // Anchored to first info
-    attributionStyle = Math.max(attributionStyle, 0.8);       // Blame self
-    proceduralFluency = Math.min(proceduralFluency, 0.35);    // Struggle with sequences
-    transferLearning = Math.min(transferLearning, 0.25);      // Each UI novel
-    authoritySensitivity = Math.max(authoritySensitivity, 0.7); // Trust authority
-    mentalModelFlexibility = Math.min(mentalModelFlexibility, 0.2); // Rigid mental models
-  }
 
   // Adjust for vision issues (screen reader users)
   if (hasVisionIssues) {
@@ -853,7 +839,7 @@ export function createCognitivePersona(
   } = {}
 ): Persona {
   // Start with a base persona from description
-  const basePersona = generatePersonaFromDescription(name, description);
+  const basePersona = generatePersonaFromDescription(name, description, options.ageRange);
 
   // Merge provided traits with defaults
   const cognitiveTraits: CognitiveTraits = {

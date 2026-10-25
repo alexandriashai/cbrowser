@@ -276,7 +276,7 @@ describe("custom personas take the built-ins' rule (customRate.*)", () => {
     expect(bridged("my-user", { tremor: true }).motor).toBeCloseTo(cOf(1.77 / 4.88), 12);
     expect(bridged("my-user", {}, { description: "Has essential tremor" }).motor).toBeCloseTo(cOf(1.77 / 4.88), 12);
     expect(bridged("grandad", {}, { ageRange: "65+" }).motor).toBeCloseTo(cOf(3.2 / 4.9), 12);
-    expect(bridged("my-user", {}, { description: "A senior shopper" }).motor).toBeCloseTo(cOf(3.2 / 4.9), 12);
+    expect(bridged("my-user", {}, { description: "A senior citizen shopper" }).motor).toBeCloseTo(cOf(3.2 / 4.9), 12);
     expect(bridged("my-user", {}, { ageRange: "45-75" }).motor).toBe(0.5);
     expect(bridged("my-user", { tremor: false }).motor).toBe(0.5);
     expect(bridged("custom-adhd-person").motor).toBe(0.5);
@@ -293,7 +293,7 @@ describe("custom personas take the built-ins' rule (customRate.*)", () => {
     expect(bridged("my-reader").reading).toBe(0.5);
     // An elderly cue or a 65+ age range reads at the built-in elderly-user's own entry.
     expect(bridged("grandad", {}, { ageRange: "65+" }).reading).toBeCloseTo(cOf(rate("personaRate.elderly-user.reading")), 12);
-    expect(bridged("my-reader", {}, { description: "a senior reader" }).reading).toBeCloseTo(cOf(rate("personaRate.elderly-user.reading")), 12);
+    expect(bridged("my-reader", {}, { description: "a senior citizen who reads slowly" }).reading).toBeCloseTo(cOf(rate("personaRate.elderly-user.reading")), 12);
   });
 
   test("dispositions no longer set a custom persona's rates", () => {

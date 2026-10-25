@@ -53,6 +53,7 @@
 import type { ProvenanceEntry, ProvenanceStatus } from "../model-provenance.js";
 import { LAW_PROVENANCE } from "./laws.js";
 import { PROFILE_PROVENANCE } from "./profiles.js";
+import { isOlderAdult } from "../../persona-age.js";
 
 type Channel = "pointing" | "reading";
 
@@ -141,7 +142,7 @@ export const CUSTOM_RATE_PROVENANCE: ProvenanceEntry[] = [
   custom("tremor", "pointing", ratio("law.rate.pointing.motionImpaired", "law.rate.pointing.motionImpairedControls"), "published",
     "A custom persona with the tremor flag (accessibilityTraits.tremor, which the creation tool also sets for motor, arthritis, dexterity and mobility words) or tremor or Parkinson in its name or description: the motion-impaired rate against its same-study controls, 1.77 / 4.88 bits/s (Keates et al. 2002, in Soukoreff & MacKenzie 2004, Table 4), as for motor-impairment-tremor."),
   custom("elderly", "pointing", ratio("profile.pointing.elderly.throughput", "law.rate.pointing.reference"), "hypothesis",
-    `A custom persona whose name or description says elderly, senior, aging or older adult, or whose age range starts at 65 or above: the elderly profile, as for the built-in elderly personas. ${ELDERLY_POINTING}`),
+    `A custom persona whose stated age is 65 or above (an age range, a stated age such as "70-year-old", or a phrase that states age such as elderly, older adult or senior citizen; src/persona-age.ts): the elderly profile, as for the built-in elderly personas. ${ELDERLY_POINTING}`),
   custom("noMeasuredDifference", "pointing", 1, "hypothesis", `A custom persona with no tremor flag and no elderly cue. ${NO_DIFFERENCE_POINTING}`),
   custom("dyslexia", "reading", ratio("law.rate.reading.dyslexiaAdults", "law.rate.reading.dyslexiaControls"), "published",
     "A custom persona with dyslexia in its name or description and no stated reading-profile values: students with dyslexia against same-study controls, 184.63 / 243.64 wpm (Callens, Tops & Brysbaert 2012, PLoS ONE 7(6), e38081, Table 5), as for dyslexic-user."),
@@ -151,18 +152,11 @@ export const CUSTOM_RATE_PROVENANCE: ProvenanceEntry[] = [
 ];
 
 const LOW_VISION_WORDS = /low.?vision|magnif|visual(ly)?.?impair|partial(ly)?.?sight|vision.?loss|macular|glaucoma/;
-const ELDERLY_WORDS = /elderly|senior|aging|older.?adult/;
-
-/** An elderly cue: the words in name or description, or an age range starting at 65 or above. */
-function isElderly(text: string, ageRange: string | undefined): boolean {
-  return ELDERLY_WORDS.test(text) || /^\s*(6[5-9]|[7-9]\d|1\d\d)/.test(ageRange ?? "");
-}
-
 /** Which customRate.* pointing rule a custom persona falls under. */
 export function customPointingRule(p: { name?: string; description?: string; tremor?: unknown; ageRange?: string }): "tremor" | "elderly" | "noMeasuredDifference" {
   const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (p.tremor === true || /tremor|parkinson/.test(text)) return "tremor";
-  if (isElderly(text, p.ageRange)) return "elderly";
+  if (isOlderAdult(p)) return "elderly";
   return "noMeasuredDifference";
 }
 
@@ -171,7 +165,7 @@ export function customReadingRule(p: { name?: string; description?: string; ageR
   const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (/dyslexi/.test(text)) return "dyslexia";
   if (LOW_VISION_WORDS.test(text)) return "lowVision";
-  if (isElderly(text, p.ageRange)) return "elderly";
+  if (isOlderAdult(p)) return "elderly";
   return "noMeasuredDifference";
 }
 
