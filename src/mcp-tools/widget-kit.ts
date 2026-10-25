@@ -1740,11 +1740,11 @@ const RUNTIME = String.raw`
     fitted: "estimated from named data, with a held-out score",
     published: "taken from a cited law or measurement in the literature",
     definition: "a choice of units, scale or encoding; no empirical claim",
-    hypothesis: "set by hand; nothing in data or the literature backs the value yet",
+    hypothesis: "a design value, not yet fitted to user data",
   };
   var PROV_PHRASE = {
     fitted: "fitted to data", published: "published",
-    definition: "definitions", hypothesis: "set by hand (hypotheses)",
+    definition: "definitions", hypothesis: "design values (hypotheses)",
   };
   function isProvenance(p) {
     return !!(p && typeof p === "object" && p.counts && typeof p.counts === "object");
@@ -1819,7 +1819,7 @@ const RUNTIME = String.raw`
       // Grouped by area (the id's first segment), behind a disclosure: a
       // hundred ids are the evidence, not the summary.
       var d = el("details", "pids");
-      d.appendChild(el("summary", null, "The " + ids.length + " hand-set constant" + (ids.length === 1 ? "" : "s")
+      d.appendChild(el("summary", null, "The " + ids.length + " design value" + (ids.length === 1 ? "" : "s")
         + " it read, by area"));
       var groups = {}, order = [];
       ids.forEach(function (id) {

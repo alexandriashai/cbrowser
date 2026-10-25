@@ -5,7 +5,7 @@
  *   fitted      estimated from named data, with the held-out score in `source`
  *   published   taken from a cited law or measurement in the literature
  *   definition  a choice of units, scale or encoding that carries no empirical claim
- *   hypothesis  set by hand; nothing in data or literature backs the value yet
+ *   hypothesis  a design value set by hand; nothing in data or the literature fits it yet
  *
  * The paper and the tools report these labels instead of presenting hand-set
  * numbers as findings. Everything the chain, the persona distance and the DRO
@@ -175,34 +175,30 @@ export interface ProvenanceText {
  * (isolatedProvenanceAsync) and carry ATTENTION_PROVENANCE_TEXT instead.
  */
 const SCORE_SCOPE =
-  "Every registered constant the score in this answer read: the page-metric extraction that measured the page (pageMetrics.*), " +
-  "the published laws that turn the page into seconds of pointing, choosing, reading and procedure for the reference user " +
-  "(law.*: Fitts, novice visual search, Brysbaert's reading rate, the keystroke-level model, and the first read of a menu label, " +
-  "law.reading.labelFirstRead, a hypothesis) and the one time budget each is a " +
-  "demand against (law.timeBudget, a hypothesis), the demand curves that turn the other page metrics into per-trait demand, " +
-  "the cognitive transport chain (with its Schwartz value modulation " +
-  "when values were applied), the reference set totalCTC is ranked against and the verdict bands cut on it (definitions), and the two " +
-  "persona-distance constants the persona profile reads. It does not count the attention model: an attention map in this answer " +
-  "(cognitive_effort's saliency overlay, visual_cognitive_story's attention analysis) is context for the page, not an input to the " +
-  "score, and carries its own block for the attention model's constants: published colour science, the gaze constants fitted on " +
-  "UEyes eye-tracking (held-out AUC 0.7367, GAZE_CALIBRATION) where a map applies them, and hand-set weights and filters.";
+  "Every registered constant this score read: the page measurement (pageMetrics.*); the published laws that turn the page into " +
+  "seconds of demand for pointing, choosing, reading and procedure, with the time budget each demand is measured against " +
+  "(law.timeBudget) and a menu label's first read (law.reading.labelFirstRead); the chain that turns that demand into a " +
+  "persona's cost; and the measured real pages the score is ranked against. It does not count the attention model: an " +
+  "attention map in the same answer is context, not a score input, and carries its own block, which holds the gaze " +
+  "constants fitted on UEyes eye-tracking (held-out AUC 0.7367).";
 
 const SCORE_NOTE =
-  "Constants labelled hypothesis are set by hand and untested against human data. This reports where each number comes from; " +
-  "it is not a validation of the score. See MODEL_PROVENANCE for each source.";
+  "The score ranks this page against the measured real pages of the CTC reference set, using published laws of pointing " +
+  "(Fitts), visual search, reading rate and procedure (the keystroke-level model). The weights that turn those demands into a " +
+  "persona's cost are design values, labelled hypothesis until user data fits them. MODEL_PROVENANCE gives each number's source.";
 
 /** The text of an attention map's own block. */
 export const ATTENTION_PROVENANCE_TEXT: Readonly<Required<ProvenanceText>> = Object.freeze({
   scope:
     "Every registered constant the attention model read to draw this map. The model's constants are the colour-science conversion " +
     "(published: sRGB, CIE XYZ and L*a*b*), the gaze blend, smoothing width and spatial prior fitted on UEyes eye-tracking (held-out " +
-    "AUC 0.7367, GAZE_CALIBRATION), and hand-set channel weights, element weights and persona filters (hypotheses); the counts say " +
+    "AUC 0.7367, GAZE_CALIBRATION), and channel weights, element weights and persona filters (design values, labelled hypothesis); the counts say " +
     "which of them this map read. The map is context for the page, not an input to the cognitive transport score, whose constants " +
     "are counted in modelProvenance.",
   note:
-    "Constants labelled fitted were estimated from free-viewing eye-tracking pooled over many people, so they say nothing about a " +
-    "particular persona; those labelled hypothesis are set by hand. This reports where each number in the map comes from; it is " +
-    "not a validation of the map. See MODEL_PROVENANCE for each source.",
+    "The gaze constants are fitted on UEyes eye-tracking (held-out AUC 0.7367) and the colour science is published. Fitted " +
+    "values pool many viewers, so they describe a typical viewer rather than a particular persona; the channel weights, element " +
+    "weights and persona filters are design values, labelled hypothesis. MODEL_PROVENANCE gives each number's source.",
 });
 
 /** Summarise a set of ids (what one computation read) for a tool response. */

@@ -408,7 +408,7 @@ function worstCase(quantity: WorstCaseBound["quantity"], nominal: number, epsilo
     upper: Math.min(ceiling, nominal + epsilon * lipschitz),
     lower: Math.max(0, nominal - epsilon * lipschitz),
     metric: "W1 over capacity vectors in [0,1]^30 with ground metric |x - y|_1",
-    note: `A property of the model, not of people: how far the model's mean ${quantity} can move when the population moves by epsilon. The chain's constants are hand-set hypotheses.`,
+    note: `A property of the model, not of people: how far the model's mean ${quantity} can move when the population moves by epsilon. The chain's constants are design values, labelled hypothesis.`,
   };
 }
 

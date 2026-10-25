@@ -193,7 +193,7 @@ function expectSound(v: Seen, theme: "light" | "dark") {
 }
 
 const COMBOS = (["light", "dark"] as const).flatMap((theme) => [900, 393].map((width) => ({ theme, width })));
-const LINE = (subject: string) => new RegExp(`This ${subject} reads \\d+ registered constants?: \\d+ fitted to data, \\d+ published, \\d+ definitions, and \\d+ set by hand \\(hypotheses\\)`);
+const LINE = (subject: string) => new RegExp(`This ${subject} reads \\d+ registered constants?: \\d+ fitted to data, \\d+ published, \\d+ definitions, and \\d+ design values \\(hypotheses\\)`);
 
 describe("effort view: modelProvenance in its own drawer", () => {
   for (const { theme, width } of COMBOS)
@@ -205,7 +205,7 @@ describe("effort view: modelProvenance in its own drawer", () => {
       // The line beside the finding, naming the drawer.
       expect(v.q[".body > .prov"].length).toBe(1);
       expect(v.q[".body > .prov"][0]).toMatch(LINE("score"));
-      expect(v.q[".body > .prov"][0]).toContain(`${SCORE.counts.hypothesis} set by hand`);
+      expect(v.q[".body > .prov"][0]).toContain(`${SCORE.counts.hypothesis} design values`);
       expect(v.q[".body > .prov"][0]).toContain('What each means is under "What this score rests on"');
       expect(v.q["details.drawer > summary"].some((s) => s.startsWith("What this score rests on"))).toBe(true);
       // The drawer: four statuses with their meaning, and every hand-set id.
