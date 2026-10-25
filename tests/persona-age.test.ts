@@ -9,7 +9,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { readPersonaAge, isOlderAdult } from "../src/persona-age.js";
+import { readPersonaAge, isOlderAdult, AGE_TEXT_LIMIT } from "../src/persona-age.js";
 import { generatePersonaFromDescription, createCognitivePersona } from "../src/personas.js";
 import { customPointingRule, customReadingRule } from "../src/visual/provenance/persona-rates.js";
 import { MODEL_PROVENANCE } from "../src/visual/model-provenance.js";
@@ -119,6 +119,32 @@ describe("what older age changes", () => {
     expect(shopper.demographics.tech_level).toBe("intermediate");
     const plain = generatePersonaFromDescription("age-test", "A shopper");
     expect(shopper.humanBehavior.timing).toEqual(plain.humanBehavior.timing);
+  });
+
+  test("a long adversarial description is read in linear time", () => {
+    // 21.0.1's "\\s*-?\\s*" backtracked quadratically: 50,000 spaces after a digit took over a second.
+    const shapes = [
+      "1" + " ".repeat(200_000) + "x",
+      "1" + " -".repeat(100_000) + "x",
+      "in " + " ".repeat(200_000) + "his",
+      "older" + " ".repeat(200_000) + "x",
+      "65" + " ".repeat(200_000) + "x",
+      "1 ".repeat(100_000),
+    ];
+    for (const s of shapes) {
+      // Description and ageRange separately: an ageRange starting with a digit returns before any pattern runs.
+      for (const input of [{ description: s }, { name: s }, { ageRange: s }]) {
+        const t0 = performance.now();
+        readPersonaAge(input);
+        expect({ shape: s.slice(0, 8), field: Object.keys(input)[0], fast: performance.now() - t0 < 50 })
+          .toEqual({ shape: s.slice(0, 8), field: Object.keys(input)[0], fast: true });
+      }
+    }
+  });
+
+  test("only the first AGE_TEXT_LIMIT characters are read", () => {
+    expect(readPersonaAge({ description: "x".repeat(AGE_TEXT_LIMIT) + " a 70-year-old" }).source).toBe("none");
+    expect(readPersonaAge({ description: "a 70-year-old " + "x".repeat(10_000) }).low).toBe(70);
   });
 
   test("readPersonaAge reports where the age came from", () => {

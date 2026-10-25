@@ -40,14 +40,23 @@ export interface PersonaAge {
 }
 
 const STATED: RegExp[] = [
-  /\b(\d{1,3})\s*-?\s*(?:years?|yrs?)\s*-?\s*old\b/,
-  /\b(\d{1,3})\s*y\/o\b/,
-  /\baged?\s+(\d{1,3})\b/,
+  /\b(\d{1,3})[\s-]{0,3}(?:years?|yrs?)[\s-]{0,3}old\b/,
+  /\b(\d{1,3})\s{0,3}y\/o\b/,
+  /\baged?\s{1,3}(\d{1,3})\b/,
 ];
-const DECADE = /\bin\s+(?:his|her|their|my|your|the)\s+(?:early\s+|mid\s+|late\s+)?([1-9])0s\b/;
-const OLDER_PHRASE = /\b(?:elderly|older\s+adults?|senior\s+citizens?|pensioners?)\b|(?:^|[^\d])65\s*\+/;
+const DECADE = /\bin\s{1,3}(?:his|her|their|my|your|the)\s{1,3}(?:(?:early|mid|late)\s{1,3})?([1-9])0s\b/;
+const OLDER_PHRASE = /\b(?:elderly|older\s{1,3}adults?|senior\s{1,3}citizens?|pensioners?)\b|(?:^|[^\d])65\s{0,3}\+/;
 const YOUNG_BAND = /\b(?:teens?|teenagers?|teenage|students?|gen\s?z)\b/;
 const MIDDLE_BAND = /\bmiddle[\s-]aged?\b/;
+
+/**
+ * How much of a name + description, and of an ageRange, is read. A persona's
+ * age is stated in its first lines; the cap keeps every match linear in a
+ * bounded input, so a megabyte description sent to a hosted server costs
+ * nothing here. (21.0.1 read the whole text with an unbounded
+ * "\s*-?\s*" pattern: 32,000 characters of spaces after a digit took 479 ms.)
+ */
+export const AGE_TEXT_LIMIT = 2000;
 
 /** The default band a persona with no stated age shows. */
 export const UNKNOWN_AGE_LABEL = "25-45";
@@ -59,12 +68,12 @@ function firstNumber(s: string): number | null {
 
 /** Read a persona's age from its ageRange field, then its name and description. */
 export function readPersonaAge(p: { name?: string; description?: string; ageRange?: string }): PersonaAge {
-  const range = (p.ageRange ?? "").trim();
+  const range = (p.ageRange ?? "").slice(0, 64).trim();
   if (range) {
     const low = firstNumber(range);
     if (low !== null) return { low, label: range, source: "ageRange" };
   }
-  const text = `${p.name ?? ""} ${p.description ?? ""}`.toLowerCase();
+  const text = `${p.name ?? ""} ${p.description ?? ""}`.slice(0, AGE_TEXT_LIMIT).toLowerCase();
   for (const re of STATED) {
     const m = text.match(re);
     if (m && Number(m[1]) <= 120) return { low: Number(m[1]), label: m[1], source: "stated" };
