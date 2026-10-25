@@ -60,7 +60,9 @@ describe("no constant in the chain registry is dead", () => {
     const live = CHAIN_PROVENANCE.find((e) => e.id === "chain.weightDeficit")!;
     const pinned = () => withParamOverrides({ [w.id]: w.value }, buildGoldenMatrix);
     expect(deadConstants([w, live], pinned)).toEqual(["chain.weightSurplus"]);
-  });
+    // Four golden-matrix builds: 1.6 s here, 3.1 s and 5.7 s on two CI runs of
+    // the same code (the second failed 21.0.1's release gate at the 5 s default).
+  }, 120_000);
 
   test("withParamOverrides is test-only: nothing under src calls it", () => {
     const callers: string[] = [];
