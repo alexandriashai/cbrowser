@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.0.1](https://github.com/alexandriashai/cbrowser/compare/v21.0.0...v21.0.1) (2026-10-25)
+
+### Fixed
+
+* **personas:** read a persona's age in linear time ([53065c1](https://github.com/alexandriashai/cbrowser/commit/53065c1024684c99fc86851aa6a67c1c29ff75e4))
+* **personas:** read a persona's age only from what was stated ([1277948](https://github.com/alexandriashai/cbrowser/commit/1277948fd9e71c5d0c6cc63016a90d2da59abaf4))
+
 ## [21.0.0](https://github.com/alexandriashai/cbrowser/compare/v20.2.2...v21.0.0) (2026-10-24)
 
 ### ⚠ BREAKING CHANGES
