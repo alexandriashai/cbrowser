@@ -379,9 +379,9 @@ const PERCEPTUAL_FACT: Record<string, string> = {
   "*": "{resolution}: {name}",
 };
 const PERCEPTUAL_SENTENCE: Record<string, string> = {
-  builtin: "Drawn through the built-in perceptual filter for {name}. Its settings are set by hand and registered as hypotheses (perceptual.{name}.*); the count above covers how a filter is applied, not these settings.",
+  builtin: "Drawn through the built-in perceptual filter for {name}. Its settings are design values, registered as hypotheses (perceptual.{name}.*); the count above covers how a filter is applied, not these settings.",
   synthesized: "Drawn through a filter synthesized from {name}'s own accessibility traits. The rules that turn traits into filter settings are not registered yet, so nothing here says where those numbers come from.",
-  inferred: "This persona has no perceptual filter of its own. Its name matched the built-in {name}, so the map was drawn through that persona's filter, whose settings are set by hand (hypotheses, perceptual.{name}.*).",
+  inferred: "This persona has no perceptual filter of its own. Its name matched the built-in {name}, so the map was drawn through that persona's filter, whose settings are design values (hypotheses, perceptual.{name}.*).",
   default: "No perceptual filter matched this persona, so the map used the neutral default: it filters nothing and models no one (its settings are registered as definitions).",
   "*": "Perceptual filter: {name} ({resolution}).",
 };

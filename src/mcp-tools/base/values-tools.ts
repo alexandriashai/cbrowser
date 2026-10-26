@@ -1121,7 +1121,7 @@ export function registerValuesTools(server: McpServer): void {
 
   server.registerTool("list_influence_patterns", {
     title: "List Influence Patterns",
-    description: "List behavioral persuasion patterns from the persuasion literature (Cialdini, Kahneman), each with the source it is named from, and the persona values linked to susceptibility to it. The value links are set by hand, not measured correlations.",
+    description: "List behavioral persuasion patterns from the persuasion literature (Cialdini, Kahneman), each with the source it is named from, and the persona values linked to susceptibility to it. The value links are design values, not measured correlations.",
     inputSchema: {},
     annotations: {
       title: "List Influence Patterns",
