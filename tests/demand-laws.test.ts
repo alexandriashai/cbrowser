@@ -293,17 +293,44 @@ describe("the laws, as properties", () => {
     fc.assert(fc.property(count, count, (a, b) => Math.abs(klmSeconds(a + b) - klmSeconds(a) - klmSeconds(b)) < 1e-9 * Math.max(1, klmSeconds(a + b))));
   });
 
+  // Both laws rise in exact arithmetic. The engine computes them as the plain
+  // quotient x / (x + k) so every pinned score stays bit-identical (the CTC
+  // golden matrix is Object.is-exact), and in floating point that quotient can
+  // come out a rounding step lower for a slightly larger x: measured on
+  // 3,000,000 near-adjacent pairs, 0.2% dipped, by at most 1.28 x EPSILON x the
+  // value. The rise is checked up to 4 x EPSILON x the value, which any real
+  // decrease of the law exceeds by orders of magnitude. Through 21.0.2 the check
+  // was exact, and the release gate failed on CI's seed -1022153638.
+  const roundingSlack = (v: number) => 4 * Number.EPSILON * v;
+
   test("d = T / (T + tau) is in [0, 1) and rises with T; c = r_p / (r_p + r_ref) is in (0, 1) and rises with r_p", () => {
     fc.assert(fc.property(secs, secs, (a, b) => {
       const [t1, t2] = a <= b ? [a, b] : [b, a];
       const d1 = timeDemand(t1);
-      return d1 >= 0 && d1 < 1 && d1 <= timeDemand(t2);
+      return d1 >= 0 && d1 < 1 && d1 <= timeDemand(t2) + roundingSlack(d1);
     }));
     fc.assert(fc.property(rate, rate, rate, (a, b, ref) => {
       const [r1, r2] = a <= b ? [a, b] : [b, a];
       const c = rateCapacity(r1, ref);
-      return c > 0 && c < 1 && c <= rateCapacity(r2, ref);
+      return c > 0 && c < 1 && c <= rateCapacity(r2, ref) + roundingSlack(c);
     }));
+  });
+
+  test("the inputs where the quotient dips by a rounding step stay within the slack, and a real decrease does not", () => {
+    // CI's counterexample (seed -1022153638), and a time pair found the same
+    // way against the registered 12.4 s budget: the larger input gives a value
+    // one step lower. Both are inside the slack the rise is checked with.
+    const c1 = rateCapacity(9999.999999999976, 471.1878684656285);
+    const c2 = rateCapacity(9999.999999999985, 471.1878684656285);
+    expect(c1 - c2).toBeLessThanOrEqual(roundingSlack(c1));
+    const d1 = timeDemand(18.40917981699164), d2 = timeDemand(18.409179816991642);
+    expect(d1 - d2).toBeLessThanOrEqual(roundingSlack(d1));
+    // The slack is not a hole: one part in a million of rate is a real decrease
+    // and is far outside it.
+    expect(rateCapacity(9999.99, 471.19) - rateCapacity(9999.98, 471.19)).toBeGreaterThan(roundingSlack(c1));
+    expect(timeDemand(18.41) - timeDemand(18.40)).toBeGreaterThan(roundingSlack(d1));
+    expect(timeDemand(0)).toBe(0);
+    expect(rateCapacity(0, 1)).toBe(0);
   });
 
   test("demand exceeds capacity exactly when the persona's own time, T x r_ref / r_p, exceeds the budget", () => {
