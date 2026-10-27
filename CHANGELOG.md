@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.0.3](https://github.com/alexandriashai/cbrowser/compare/v21.0.2...v21.0.3) (2026-10-27)
+
+### Fixed
+
+* **tools:** say "not yet tested", not "says nothing", in score text ([319b1ef](https://github.com/alexandriashai/cbrowser/commit/319b1efba913151841d2109137a368e122d2922b))
+* **views:** lead with what is measured, put design values one click away ([fa68cab](https://github.com/alexandriashai/cbrowser/commit/fa68cabaf5733993bc5ce96cf0a4b99f5f977b71))
+
 ## [21.0.2](https://github.com/alexandriashai/cbrowser/compare/v21.0.1...v21.0.2) (2026-10-26)
 
 ### Fixed
