@@ -820,13 +820,13 @@ const CSS = `
     text-transform:uppercase;padding:.16rem .38rem;border-radius:3px;white-space:nowrap;
     background:var(--raise);color:var(--ink)}
   .pchip .sw{width:8px;height:8px}
-  .pchip.hypothesis{background:color-mix(in srgb,var(--warn) 20%,transparent);color:color-mix(in srgb,var(--warn) 62%,var(--ink))}
   .pchip.fitted{background:color-mix(in srgb,var(--ok) 20%,transparent);color:color-mix(in srgb,var(--ok) 55%,var(--ink))}
   .pchip.published{background:color-mix(in srgb,var(--brand) 18%,transparent);color:color-mix(in srgb,var(--brand) 70%,var(--ink))}
-  .pchip.definition,.pchip.mixed{background:var(--raise);color:var(--ink)}
+  /* A design value is a status, not a warning: it takes the neutral chip. */
+  .pchip.definition,.pchip.mixed,.pchip.hypothesis{background:var(--raise);color:var(--ink)}
   .pchip.custom{background:color-mix(in srgb,var(--brand-2) 20%,transparent);color:color-mix(in srgb,var(--brand-2) 55%,var(--ink))}
   .psw-fitted{background:var(--ok)} .psw-published{background:var(--brand)}
-  .psw-definition{background:color-mix(in srgb,var(--ink) 35%,transparent)} .psw-hypothesis{background:var(--warn)}
+  .psw-definition{background:color-mix(in srgb,var(--ink) 45%,transparent)} .psw-hypothesis{background:color-mix(in srgb,var(--sub) 35%,transparent)}
   .pscope{font-size:.79rem;color:var(--sub);margin:.4rem 0 0}
   details.pids{margin:.6rem 0 0}
   details.pids>summary{cursor:pointer;font-size:.8rem;color:var(--ink);padding:.25rem 0}
@@ -840,6 +840,10 @@ const CSS = `
   .pstatus{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .5rem;margin:0 0 .55rem;font-size:.79rem;color:var(--sub)}
   .pstatus .pchip{flex:0 0 auto}
   .pstatus span.ptext{flex:1 1 14rem;min-width:0}
+  details.pnote{flex:1 1 14rem;min-width:0}
+  details.pnote>summary{cursor:pointer;color:var(--ink);padding:.05rem 0}
+  details.pnote>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+  details.pnote p.ptext{margin:.35rem 0 0}
   .pslot{flex:0 0 4.4rem;display:flex;justify-content:flex-start}
   .ptag{font:650 .6rem/1.2 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:.14rem .3rem;
     border-radius:3px;border:1px solid var(--line);background:none;color:var(--ink);white-space:nowrap}
@@ -1254,8 +1258,10 @@ const RUNTIME = String.raw`
         row.appendChild(el("span", "mgrname", String(p.name || "(unnamed)")));
         var meta = [];
         if (p.builtin) meta.push("built-in");
-        // Where the values come from, on the row that picks the persona.
-        if (p.provenance && p.provenance.label) meta.push(String(p.provenance.label));
+        // Where the values come from, on the row that picks the persona, when
+        // it says more than "built-in": every built-in shares the hypothesis
+        // status, which the pane's status line names.
+        if (p.provenance && p.provenance.label && p.provenance.status !== "hypothesis") meta.push(String(p.provenance.label));
         if (p.valuesRoute) meta.push(String(p.valuesRoute));
         if (meta.length) row.appendChild(el("span", "cap", meta.join(" · ")));
         row.addEventListener("click", function () {
@@ -1740,11 +1746,13 @@ const RUNTIME = String.raw`
     fitted: "estimated from named data, with a held-out score",
     published: "taken from a cited law or measurement in the literature",
     definition: "a choice of units, scale or encoding; no empirical claim",
-    hypothesis: "a design value, not yet fitted to user data",
+    hypothesis: "set by design and registered as a hypothesis until user data fits it",
   };
+  // The chip names the registry status in the reader's words; the meaning
+  // beside it keeps the registry's own word.
+  var PROV_LABEL = { fitted: "fitted", published: "published", definition: "definition", hypothesis: "design value" };
   var PROV_PHRASE = {
-    fitted: "fitted to data", published: "published",
-    definition: "definitions", hypothesis: "design values (hypotheses)",
+    fitted: "fitted to data", published: "from published laws and measurements", definition: "definitions",
   };
   function isProvenance(p) {
     return !!(p && typeof p === "object" && p.counts && typeof p.counts === "object");
@@ -1753,21 +1761,32 @@ const RUNTIME = String.raw`
     return PROV_ORDER.reduce(function (s, k) { return s + (Number(p.counts[k]) || 0); }, 0);
   }
 
-  // One sentence of counts, every status named even at zero: "0 fitted to
-  // data" is the finding for a score, not an omission.
+  // Measured first: what the answer is built on, then, in a sentence of its
+  // own, how many of its values are design values. A status at zero stays out
+  // of the sentence; the list under it names all four, zeros included.
   function provenanceLine(p, subject, seeAlso, qualifier) {
     var line = el("p", "prov");
-    var total = provTotal(p);
-    line.appendChild(document.createTextNode("This " + (subject || "answer") + " reads "));
-    line.appendChild(el("b", null, String(total)));
-    line.appendChild(document.createTextNode(" registered constant" + (total === 1 ? "" : "s")
-      + (qualifier ? " " + qualifier : "") + ": "));
-    PROV_ORDER.forEach(function (k, i) {
-      if (i) line.appendChild(document.createTextNode(i === PROV_ORDER.length - 1 ? ", and " : ", "));
-      line.appendChild(el("b", null, String(Number(p.counts[k]) || 0)));
-      line.appendChild(document.createTextNode(" " + PROV_PHRASE[k]));
-    });
-    line.appendChild(document.createTextNode("." + (seeAlso ? ' What each means is under "' + seeAlso + '".' : "")));
+    var n = function (k) { return Number(p.counts[k]) || 0; };
+    var text = function (s) { line.appendChild(document.createTextNode(s)); };
+    var measured = ["fitted", "published", "definition"].filter(function (k) { return n(k) > 0; });
+    var design = n("hypothesis");
+    var what = "This " + (subject || "answer");
+    if (measured.length) {
+      text(what + " is built on ");
+      measured.forEach(function (k, i) {
+        if (i) text(i === measured.length - 1 ? (measured.length > 2 ? ", and " : " and ") : ", ");
+        line.appendChild(el("b", null, String(n(k))));
+        text((i === 0 && k !== "definition" ? " constant" + (n(k) === 1 ? "" : "s") : "") + " " + PROV_PHRASE[k]);
+      });
+      text(".");
+      if (design) text(" Its other " + design + " value" + (design === 1 ? " is a design value" : "s are design values")
+        + ", not yet fitted to user data.");
+    } else {
+      text(design ? what + " reads " + design + " design value" + (design === 1 ? "" : "s") + ", not yet fitted to user data."
+        : what + " reads no registered constants.");
+    }
+    if (qualifier) text(" " + qualifier);
+    if (seeAlso) text(' What each means is under "' + seeAlso + '".');
     return line;
   }
 
@@ -1805,7 +1824,7 @@ const RUNTIME = String.raw`
       var li = el("li");
       var chip = el("span", "pchip " + k);
       chip.appendChild(el("span", "sw psw-" + k));
-      chip.appendChild(document.createTextNode(k));
+      chip.appendChild(document.createTextNode(PROV_LABEL[k]));
       li.appendChild(chip);
       li.appendChild(el("span", "pnum", String(Number(p.counts[k]) || 0)));
       li.appendChild(el("span", "pmean", PROV_MEANING[k]));
@@ -1847,16 +1866,25 @@ const RUNTIME = String.raw`
     var p = at(data, b.provenanceField);
     return p && typeof p === "object" && p.status ? p : null;
   }
+  // One short line over the meters: the status chip, and the payload's note
+  // with the row-mark legend behind a disclosure. The values are the
+  // content; where they come from is one click away, not a paragraph above them.
   function traitStatusLine(p) {
     var box = el("div", "pstatus");
-    box.appendChild(el("span", "pchip " + String(p.status), String(p.label || p.status)));
-    box.appendChild(el("span", "ptext", String(p.note || "")));
+    box.appendChild(el("span", "pchip " + String(p.status),
+      p.status === "hypothesis" ? PROV_LABEL.hypothesis + "s" : String(p.label || p.status)));
     var marks = [];
-    if (p.anchored && Object.keys(p.anchored).length) marks.push("anchored: the value is the percentile a published population mean implies on a normed instrument, still a hypothesis (select the tag for the source)");
+    if (p.anchored && Object.keys(p.anchored).length) marks.push("anchored: the value is the percentile a published population mean implies on a normed instrument (select the tag for the source)");
     if (p.cited && Object.keys(p.cited).length) marks.push("cited: a finding is cited for the direction of this value, not for its number (select the tag for the source)");
     if (Array.isArray(p.unset) && p.unset.length) marks.push("default: the persona does not set this trait, so the model's default is shown");
     if (p.statuses && Object.keys(p.statuses).length) marks.push("a status name: that value's registry status differs from the line above");
-    if (marks.length) box.appendChild(el("span", "ptext", "Marked on a row: " + marks.join("; ") + "."));
+    if (p.note || marks.length) {
+      var d = el("details", "pnote");
+      d.appendChild(el("summary", null, "Where these values come from"));
+      if (p.note) d.appendChild(el("p", "ptext", String(p.note)));
+      if (marks.length) d.appendChild(el("p", "ptext", "Marked on a row: " + marks.join("; ") + "."));
+      box.appendChild(d);
+    }
     return box;
   }
   function traitTag(p, name) {
@@ -1875,10 +1903,10 @@ const RUNTIME = String.raw`
       btn.setAttribute("aria-label", word + ": source for " + titleize(name));
       var iv = anch && Array.isArray(anch.interval) ? anch.interval : null;
       var info = anch
-        ? { label: "Norm-anchored" + (st ? " (" + st + ")" : " (hypothesis)"),
+        ? { label: "Norm-anchored" + (st ? " (" + st + ")" : ""),
             description: String(anch.cite) + ". " + String(anch.reported) + "."
               + (iv ? " Value interval " + iv[0] + " to " + iv[1] + "." : "")
-              + " Mapping the instrument onto this trait is cbrowser's choice, so the value stays a hypothesis." }
+              + " Mapping the instrument onto this trait is cbrowser's choice, so the value stays registered as a hypothesis." }
         : { label: "Cited for direction" + (st ? " (" + st + ")" : ""),
             description: String(cited.cite) + ", for " + String(cited["for"]) + ". That supports the direction of this persona's difference from typical users, not the number." };
       btn.addEventListener("mouseenter", function () { showTip(btn, info); });
@@ -1981,7 +2009,7 @@ const RUNTIME = String.raw`
         // The map's own block: the attention model's constants, which the
         // score's block leaves out because the map is context, not input.
         if (isProvenance(ov.provenance)) {
-          pane.appendChild(provenanceLine(ov.provenance, "map", null, "of the attention model, counted apart from the score"));
+          pane.appendChild(provenanceLine(ov.provenance, "map", null, "These are the attention model's constants, counted apart from the score's."));
         }
       } catch (e) {
         pane.innerHTML = "";

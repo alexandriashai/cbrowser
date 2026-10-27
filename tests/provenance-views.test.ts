@@ -117,11 +117,13 @@ afterAll(async () => {
 
 interface Seen {
   dark: boolean; overflow: number; text: string;
+  /** What the view shows before anything is opened: its text minus every closed disclosure. */
+  main: string;
   fails: Array<{ k: number; sel: string; text: string }>; checked: number;
   q: Record<string, string[]>;
 }
 
-/** Everything a view shows, after opening the named drawers (and clicking a chain bar). */
+/** Everything a view shows, after opening the named disclosures (and clicking a chain bar). */
 async function render(widget: string, payload: unknown, theme: "light" | "dark", width: number,
   opts: { open?: string[]; click?: string; ready: string; query?: string[] }): Promise<Seen> {
   current = { widget, host: hostPage(theme, width, payload) };
@@ -135,8 +137,17 @@ async function render(widget: string, payload: unknown, theme: "light" | "dark",
   await frame.waitForSelector(opts.ready, { timeout: 20000 });
   return frame.evaluate(async (a: { open: string[]; click: string; bg: string; query: string[] }) => {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    for (const d of Array.from(document.querySelectorAll("details.drawer")) as HTMLDetailsElement[]) {
-      const t = d.querySelector("summary")?.textContent || "";
+    // The view's text, never its source: the widget's inline script holds
+    // every template string, so body.textContent would match any of them
+    // whether or not the view drew it.
+    const shown = (root: HTMLElement, drop: string) => {
+      const c = root.cloneNode(true) as HTMLElement;
+      c.querySelectorAll(drop).forEach((d) => d.remove());
+      return (c.textContent || "").replace(/\s+/g, " ");
+    };
+    const main = shown(document.body, "script, style, template, details:not([open])");
+    for (const d of Array.from(document.querySelectorAll("details")) as HTMLDetailsElement[]) {
+      const t = d.querySelector(":scope > summary")?.textContent || "";
       if (a.open.some((o) => t.includes(o))) { d.open = true; d.querySelectorAll("details").forEach((x) => { (x as HTMLDetailsElement).open = true; }); }
     }
     if (a.click) {
@@ -180,7 +191,7 @@ async function render(widget: string, payload: unknown, theme: "light" | "dark",
     for (const s of a.query) q[s] = Array.from(document.querySelectorAll(s)).map((x) => (x.textContent || "").replace(/\s+/g, " ").trim());
     const root = document.documentElement;
     return { dark: root.classList.contains("dark"), overflow: root.scrollWidth - root.clientWidth,
-      text: (document.body.textContent || "").replace(/\s+/g, " "), fails, checked, q };
+      text: shown(document.body, "script, style, template"), main, fails, checked, q };
   }, { open: opts.open ?? [], click: opts.click ?? "", bg: BG[theme], query: opts.query ?? [] });
 }
 
@@ -193,29 +204,43 @@ function expectSound(v: Seen, theme: "light" | "dark") {
 }
 
 const COMBOS = (["light", "dark"] as const).flatMap((theme) => [900, 393].map((width) => ({ theme, width })));
-const LINE = (subject: string) => new RegExp(`This ${subject} reads \\d+ registered constants?: \\d+ fitted to data, \\d+ published, \\d+ definitions, and \\d+ design values \\(hypotheses\\)`);
+// Measured first: what the answer is built on, then its design values in a
+// sentence of their own (21.0.3). Through 21.0.2 the sentence opened on the
+// four counts with "0 fitted to data" first, beside the finding.
+const LINE = (subject: string) => new RegExp(`^This ${subject} is built on \\d+ constants? (fitted to data|from published laws and measurements)[^.]*\\. Its other \\d+ values are design values, not yet fitted to user data\\.`);
+// The main flow (everything not behind a closed disclosure) never names the
+// hypothesis status: the measured findings lead, and the status is one click
+// away. Checked on every view the provenance work touched.
+const expectMainLeads = (v: Seen) => expect(v.main).not.toMatch(/hypothes/i);
 
 describe("effort view: modelProvenance in its own drawer", () => {
   for (const { theme, width } of COMBOS)
     test(`${theme} at ${width}px`, async () => {
       const v = await render(ui.buildEffortTemplate(), effort(), theme, width,
         { ready: ".chain .seg", open: ["What this score rests on"], click: "visualComplexity",
-          query: [".body > .prov", "details.drawer > summary", ".pcounts .pchip", ".pidl li", ".pint", ".ovpane .prov"] });
+          query: [".body > .prov", "details.drawer .prov", "details.drawer > summary", ".pcounts .pchip", ".pidl li", ".pint", ".ovpane .prov"] });
       expectSound(v, theme);
-      // The line beside the finding, naming the drawer.
-      expect(v.q[".body > .prov"].length).toBe(1);
-      expect(v.q[".body > .prov"][0]).toMatch(LINE("score"));
-      expect(v.q[".body > .prov"][0]).toContain(`${SCORE.counts.hypothesis} design values`);
-      expect(v.q[".body > .prov"][0]).toContain('What each means is under "What this score rests on"');
+      expectMainLeads(v);
+      // No count line beside the finding; the sentence is in the drawer.
+      expect(v.q[".body > .prov"]).toEqual([]);
+      const line = v.q["details.drawer .prov"];
+      expect(line.length).toBe(1);
+      expect(line[0]).toMatch(LINE("score"));
+      expect(line[0]).toContain(`Its other ${SCORE.counts.hypothesis} values are design values`);
+      // A status at zero stays out of the sentence (the score has no fitted constant).
+      expect(SCORE.counts.fitted).toBe(0);
+      expect(line[0]).not.toContain("fitted to data");
       expect(v.q["details.drawer > summary"].some((s) => s.startsWith("What this score rests on"))).toBe(true);
-      // The drawer: four statuses with their meaning, and every hand-set id.
-      expect(v.q[".pcounts .pchip"]).toEqual(["fitted", "published", "definition", "hypothesis"]);
+      // The drawer: all four statuses with their meaning, zero included, and every hand-set id.
+      expect(v.q[".pcounts .pchip"]).toEqual(["fitted", "published", "definition", "design value"]);
+      expect(v.text).toContain("registered as a hypothesis until user data fits it");
       expect(v.q[".pidl li"].length).toBe(SCORE.hypotheses.length);
       expect(v.text).toContain(SCORE.scope.slice(0, 60));
       // No interval in the payload, none drawn.
       expect(v.q[".pint"]).toEqual([]);
       // The saliency overlay names its own block, apart from the score's.
-      expect(v.q[".ovpane .prov"][0]).toMatch(/^This map reads \d+ registered constants of the attention model, counted apart from the score/);
+      expect(v.q[".ovpane .prov"][0]).toMatch(LINE("map"));
+      expect(v.q[".ovpane .prov"][0]).toMatch(/These are the attention model's constants, counted apart from the score's\.$/);
     }, 60000);
 
   test("an interval in the payload is drawn first in the drawer, in percent as the rank block says it (ISC-70)", async () => {
@@ -229,32 +254,41 @@ describe("attention views: attentionProvenance and the perceptual filter", () =>
   for (const { theme, width } of COMBOS)
     test(`attention_analysis, ${theme} at ${width}px`, async () => {
       const v = await render(ui.buildAttentionTemplate(), attention("builtin", "cognitive-adhd"), theme, width,
-        { ready: ".prov", open: ["What this map rests on"], query: [".facts .fact", ".body > .prov", ".pcounts li"] });
+        { ready: ".facts .fact", open: ["What this map rests on"], query: [".facts .fact", ".body > .prov", "details.drawer .prov", ".pcounts li"] });
       expectSound(v, theme);
+      expectMainLeads(v);
       expect(v.q[".facts .fact"]).toContain("built-in: cognitive-adhdperceptual filter");
-      expect(v.q[".body > .prov"][0]).toMatch(LINE("map"));
-      expect(v.text).toContain("Drawn through the built-in perceptual filter for cognitive-adhd.");
+      expect(v.q[".body > .prov"]).toEqual([]);
+      expect(v.q["details.drawer .prov"][0]).toMatch(LINE("map"));
+      expect(v.main).toContain("Drawn through the built-in perceptual filter for cognitive-adhd.");
+      // The filter's own settings: named in the drawer, apart from the counts.
+      expect(v.text).toContain("The built-in filter for cognitive-adhd has settings of its own (perceptual.cognitive-adhd.*). They are design values, registered as hypotheses");
       expect(v.q[".pcounts li"].length).toBe(4);
       expect(v.text).toContain(ATTENTION_PROVENANCE_TEXT.scope.slice(0, 60));
     }, 60000);
 
   test("a persona with no filter of its own reads as the neutral default, not a modelled one", async () => {
     const v = await render(ui.buildAttentionTemplate(), attention("default", "default"), "light", 393,
-      { ready: ".prov", query: [".facts .fact"] });
+      { ready: ".facts .fact", query: [".facts .fact"] });
     expect(v.q[".facts .fact"]).toContain("none (neutral default)perceptual filter");
-    expect(v.text).toContain("No perceptual filter matched this persona, so the map used the neutral default");
+    expect(v.main).toContain("No perceptual filter matched this persona, so the map used the neutral default");
+    expect(v.text).toContain("The neutral default's settings are registered as definitions.");
   }, 60000);
 
   for (const { theme, width } of COMBOS)
     test(`attention_compare, ${theme} at ${width}px`, async () => {
       const v = await render(ui.buildAttentionCompareTemplate(), compare, theme, width,
-        { ready: ".prov", open: ["What these maps rest on"], query: [".facts .fact", ".body > .prov", ".pcounts li"] });
+        { ready: ".facts .fact", open: ["What these maps rest on"], query: [".facts .fact", ".body > .prov", "details.drawer .prov", ".pcounts li"] });
       expectSound(v, theme);
+      expectMainLeads(v);
       expect(v.q[".facts .fact"]).toContain("built-in: cognitive-adhdfilter, persona A");
       expect(v.q[".facts .fact"]).toContain("none (neutral default)filter, persona B");
-      expect(v.q[".body > .prov"][0]).toMatch(LINE("comparison"));
-      expect(v.text).toContain("Drawn through the built-in perceptual filter for cognitive-adhd.");
-      expect(v.text).toContain("No perceptual filter matched this persona");
+      expect(v.q[".body > .prov"]).toEqual([]);
+      expect(v.q["details.drawer .prov"][0]).toMatch(LINE("comparison"));
+      expect(v.main).toContain("Drawn through the built-in perceptual filter for cognitive-adhd.");
+      expect(v.main).toContain("No perceptual filter matched this persona");
+      expect(v.text).toContain("The built-in filter for cognitive-adhd has settings of its own");
+      expect(v.text).toContain("The neutral default's settings are registered as definitions.");
       expect(v.q[".pcounts li"].length).toBe(4);
     }, 60000);
 });
@@ -264,16 +298,27 @@ describe("persona and trait views: each built-in value's status", () => {
     test(`persona_lookup (built-in), ${theme} at ${width}px`, async () => {
       const payload = await call("persona_lookup", { persona: "dyslexic-user" });
       const v = await render(ui.buildPersonaTemplate(), payload, theme, width,
-        { ready: ".pstatus", query: [".pstatus .pchip", "button.ptag", "span.ptag"] });
+        { ready: ".pstatus", open: ["Where these values come from"],
+          query: [".pstatus .pchip", "details.pnote", "details.pnote[open] p.ptext", "button.ptag", "span.ptag"] });
       expectSound(v, theme);
-      // A status line over the cognitive traits and over the accessibility traits.
-      expect(v.q[".pstatus .pchip"]).toEqual(["hypothesis", "hypothesis"]);
+      expectMainLeads(v);
+      // One short status line over the cognitive traits and over the accessibility traits.
+      expect(v.q[".pstatus .pchip"]).toEqual(["design values", "design values"]);
+      // The payload's note, in full, behind a disclosure on each (opened here, so its contrast is checked).
+      expect(v.q["details.pnote"].length).toBe(2);
+      expect(v.q["details.pnote[open] p.ptext"][0]).toBe(payload.traitProvenance.note);
+      expect(v.text).toContain("registered as a hypothesis");
       // One "cited" tag per value personas.ts cites a source beside.
       const cited = Object.keys(payload.traitProvenance.cited ?? {}).length + Object.keys(payload.accessibilityProvenance.cited ?? {}).length;
       expect(cited).toBeGreaterThan(0);
       expect(v.q["button.ptag"].length).toBe(cited);
-      expect(v.text).toContain("registered as a hypothesis");
     }, 60000);
+
+  test("the status note starts closed", async () => {
+    const payload = await call("persona_lookup", { persona: "dyslexic-user" });
+    const v = await render(ui.buildPersonaTemplate(), payload, "light", 393, { ready: ".pstatus", query: ["details.pnote[open]"] });
+    expect(v.q["details.pnote[open]"]).toEqual([]);
+  }, 60000);
 
   for (const { theme, width } of COMBOS)
     test(`a norm-anchored value carries its own tag, ${theme} at ${width}px`, async () => {
@@ -301,7 +346,11 @@ describe("persona and trait views: each built-in value's status", () => {
       const v = await render(ui.buildPersonaManagerTemplate(), payload, theme, width,
         { ready: ".mgrrow", query: [".mgrrow .cap", ".mgrpane .pstatus .pchip"] });
       expectSound(v, theme);
-      expect(v.q[".mgrrow .cap"].some((s) => s.includes("built-in · hypothesis"))).toBe(true);
+      expectMainLeads(v);
+      // A built-in row says built-in; the status every built-in shares is on the pane.
+      const builtins = v.q[".mgrrow .cap"].filter((s) => s.startsWith("built-in"));
+      expect(builtins.length).toBeGreaterThan(0);
+      expect(builtins.every((s) => !/hypothes/i.test(s))).toBe(true);
       expect(v.q[".mgrrow .cap"].some((s) => s.includes("custom (user-set)"))).toBe(true);
       expect(v.q[".mgrpane .pstatus .pchip"].length).toBe(1);
     }, 60000);
@@ -310,10 +359,13 @@ describe("persona and trait views: each built-in value's status", () => {
     test(`persona_trait_lookup, ${theme} at ${width}px`, async () => {
       const payload = await call("persona_trait_lookup", { trait: "workingMemory", value: 0.3 });
       const v = await render(ui.buildTraitTemplate(), payload, theme, width,
-        { ready: ".band", open: ["Built-in personas on this scale"], query: [".btitle", "details.drawer[open] .grid tbody tr"] });
+        { ready: ".band", open: ["How this scale was built"], query: [".btitle", "details.drawer[open] .stitle", "details.drawer[open] .grid tbody tr"] });
       expectSound(v, theme);
+      expectMainLeads(v);
       expect(v.q[".btitle"]).toContain("Scale source");
-      expect(v.q[".btitle"]).toContain("What the source covers");
+      // What the source covers sits in the drawer, with each built-in value's status.
+      expect(v.q[".btitle"]).not.toContain("What the source covers");
+      expect(v.q["details.drawer[open] .stitle"]).toContain("What the source covers");
       expect(v.text).not.toContain("Research basis");
       expect(v.text).toContain(payload.scaleProvenance);
       // One row per built-in persona that sets the trait, each with its status.
@@ -436,7 +488,7 @@ describe("the provenance surfaces work from the keyboard", () => {
 
     test(`attention drawer, ${theme} at ${width}px`, async () => {
       const r = await viaKeyboard(ui.buildAttentionTemplate(), attention("builtin", "cognitive-adhd"), theme, width,
-        { summary: "What this map rests on", ready: ".prov", shot: "kbd-attention" });
+        { summary: "What this map rests on", ready: ".facts .fact", shot: "kbd-attention" });
       expectRing(r);
       expect(r.openAfterEnter).toBe(true);
       expect(r.idsOpenAfterSpace).toBe(true);
@@ -444,7 +496,7 @@ describe("the provenance surfaces work from the keyboard", () => {
 
     test(`attention_compare drawer, ${theme} at ${width}px`, async () => {
       const r = await viaKeyboard(ui.buildAttentionCompareTemplate(), compare, theme, width,
-        { summary: "What these maps rest on", ready: ".prov", shot: "kbd-compare" });
+        { summary: "What these maps rest on", ready: ".facts .fact", shot: "kbd-compare" });
       expectRing(r);
       expect(r.openAfterEnter).toBe(true);
       expect(r.idsOpenAfterSpace).toBe(true);
@@ -453,7 +505,7 @@ describe("the provenance surfaces work from the keyboard", () => {
     test(`trait drawer, ${theme} at ${width}px`, async () => {
       const payload = await call("persona_trait_lookup", { trait: "workingMemory", value: 0.3 });
       const r = await viaKeyboard(ui.buildTraitTemplate(), payload, theme, width,
-        { summary: "Built-in personas on this scale", ready: ".band", shot: "kbd-trait" });
+        { summary: "How this scale was built", ready: ".band", shot: "kbd-trait" });
       expectRing(r);
       expect(r.openAfterEnter).toBe(true);
       // No id list here, so focus stays on the drawer it opened.
@@ -468,6 +520,14 @@ describe("the provenance surfaces work from the keyboard", () => {
       expect(r.tip).toContain("Wilson AC 2024");
       expect(r.tip).toContain("Value interval");
       expect(r.tipAfterEscape).toBe(false);
+    }, 60000);
+
+    test(`persona status note, ${theme} at ${width}px`, async () => {
+      const payload = await call("persona_lookup", { persona: "cognitive-adhd" });
+      const r = await viaKeyboard(ui.buildPersonaTemplate(), payload, theme, width,
+        { summary: "Where these values come from", ready: ".pstatus", shot: "kbd-persona-note" });
+      expectRing(r);
+      expect(r.openAfterEnter).toBe(true);
     }, 60000);
   }
 });

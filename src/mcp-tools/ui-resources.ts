@@ -220,8 +220,9 @@ export const PERSONA_SPEC: WidgetSpec = {
     // persona_update rather than asking the reader to copy numbers into a
     // separate tool call. (2026-08-01)
     // Each meter section opens with where its numbers come from: a
-    // built-in's are set by hand and registered as hypotheses, a custom
-    // persona's by its author. Both were drawn as bare numbers. (21.0)
+    // built-in's are design values (registered as hypotheses), a custom
+    // persona's are its author's. Both were drawn as bare numbers. (21.0)
+    // Since 21.0.3 that is a status chip with the note behind a disclosure.
     { type: "editor", title: "Cognitive traits", field: "traits", personaField: "name", ramp: "trait", describe: true,
       provenanceField: "traitProvenance" },
     { type: "traits", title: "Values", field: "values", ramp: "value" },
@@ -379,10 +380,22 @@ const PERCEPTUAL_FACT: Record<string, string> = {
   "*": "{resolution}: {name}",
 };
 const PERCEPTUAL_SENTENCE: Record<string, string> = {
-  builtin: "Drawn through the built-in perceptual filter for {name}. Its settings are design values, registered as hypotheses (perceptual.{name}.*); the count above covers how a filter is applied, not these settings.",
-  synthesized: "Drawn through a filter synthesized from {name}'s own accessibility traits. The rules that turn traits into filter settings are not registered yet, so nothing here says where those numbers come from.",
-  inferred: "This persona has no perceptual filter of its own. Its name matched the built-in {name}, so the map was drawn through that persona's filter, whose settings are design values (hypotheses, perceptual.{name}.*).",
-  default: "No perceptual filter matched this persona, so the map used the neutral default: it filters nothing and models no one (its settings are registered as definitions).",
+  builtin: "Drawn through the built-in perceptual filter for {name}.",
+  synthesized: "Drawn through a filter synthesized from {name}'s own accessibility traits.",
+  inferred: "This persona has no perceptual filter of its own. Its name matched the built-in {name}, so the map was drawn through that persona's filter.",
+  default: "No perceptual filter matched this persona, so the map used the neutral default: it filters nothing and models no one.",
+  "*": "Perceptual filter: {name} ({resolution}).",
+};
+/**
+ * Where the filter's own settings come from, in the "rests on" drawer beside
+ * the counts: the counts cover how a filter is applied, not its settings.
+ * Through 21.0.2 this rode in the main-flow sentence above. (21.0.3)
+ */
+const PERCEPTUAL_BASIS: Record<string, string> = {
+  builtin: "The built-in filter for {name} has settings of its own (perceptual.{name}.*). They are design values, registered as hypotheses, and the counts above do not include them.",
+  synthesized: "The rules that turn accessibility traits into filter settings are not registered yet, so the counts above do not cover those settings.",
+  inferred: "The borrowed filter's settings (perceptual.{name}.*) are design values, registered as hypotheses, and the counts above do not include them.",
+  default: "The neutral default's settings are registered as definitions.",
   "*": "Perceptual filter: {name} ({resolution}).",
 };
 
@@ -417,12 +430,13 @@ export const ATTENTION_SPEC: WidgetSpec = {
       caption: "heatmapNote",
       emptyNote: "No heatmap in this result: the call passed heatmap: false, so no picture was made. Run attention_analysis again without heatmap: false to see where attention lands.",
     },
-    // What the map rests on, beside the map; the full block is a drawer.
-    { type: "provenance", field: "attentionProvenance", variant: "line", subject: "map", seeAlso: "What this map rests on" },
     { type: "note", title: "Perceptual filter", field: "perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
     { type: "table", title: "Where attention lands", field: "topAttentionAreas" },
+    // What the map rests on, one click away: the map and where attention
+    // lands are the answer. Through 21.0.2 a count line sat under the map.
     { type: "drawer", title: "What this map rests on", blocks: [
       { type: "provenance", title: "Where each number comes from", field: "attentionProvenance", variant: "full", subject: "map", open: true },
+      { type: "note", title: "The perceptual filter's settings", field: "perceptualProfile", by: "resolution", templates: PERCEPTUAL_BASIS },
     ] },
     {
       type: "drawer",
@@ -459,7 +473,6 @@ export const ATTENTION_COMPARE_SPEC: WidgetSpec = {
       caption: "heatmapNote",
       emptyNote: "No comparison map in this result: it was not drawn or could not be saved, so there is no picture to fetch.",
     },
-    { type: "provenance", field: "attentionProvenance", variant: "line", subject: "comparison", seeAlso: "What these maps rest on" },
     { type: "kv", title: "Persona A", field: "personaA" },
     { type: "note", title: "Persona A's perceptual filter", field: "personaA.perceptualProfile", by: "resolution", templates: PERCEPTUAL_SENTENCE },
     { type: "kv", title: "Persona B", field: "personaB" },
@@ -471,6 +484,8 @@ export const ATTENTION_COMPARE_SPEC: WidgetSpec = {
       columns: ["direction", "x", "y", "cellCount", "divergence"] },
     { type: "drawer", title: "What these maps rest on", blocks: [
       { type: "provenance", title: "Where each number comes from", field: "attentionProvenance", variant: "full", subject: "comparison", open: true },
+      { type: "note", title: "Persona A's filter settings", field: "personaA.perceptualProfile", by: "resolution", templates: PERCEPTUAL_BASIS },
+      { type: "note", title: "Persona B's filter settings", field: "personaB.perceptualProfile", by: "resolution", templates: PERCEPTUAL_BASIS },
     ] },
     { type: "drawer", title: "Details", blocks: [{ type: "rest", title: "All fields" }] },
   ],
@@ -559,15 +574,19 @@ export const TRAIT_SPEC: WidgetSpec = {
       behaviorsField: "behaviors",
     },
     // The source names what the scale means. Titled "Research basis" under
-    // the bands, it read as backing for the bands and for the value; the
-    // sentence under it says what it does and does not cover. (21.0)
+    // the bands, it read as backing for the bands and for the value. (21.0)
     { type: "note", title: "Scale source", field: "researchBasis" },
-    { type: "note", title: "What the source covers", field: "scaleProvenance" },
+    // What the source does and does not cover, and each built-in value's
+    // status, one click away: through 21.0.2 that paragraph sat in the main
+    // flow under the source. (21.0.3)
     {
       type: "drawer",
-      title: "Built-in personas on this scale",
-      blocks: [{ type: "table", title: "Each built-in value and its status", field: "builtinValues",
-        columns: ["persona", "value", "status", "basis", "citation"] }],
+      title: "How this scale was built",
+      blocks: [
+        { type: "note", title: "What the source covers", field: "scaleProvenance" },
+        { type: "table", title: "Each built-in value and its status", field: "builtinValues",
+          columns: ["persona", "value", "status", "basis", "citation"] },
+      ],
     },
     {
       type: "drawer",
@@ -717,10 +736,10 @@ export const EFFORT_SPEC: WidgetSpec = {
       // Each bar opens into that layer's overlay on the real page. Layers with
       // no overlay stay inert and say why.
       overlaysField: "layerOverlays", fetchTool: "artifact_fetch" },
-    // What the score rests on, in one sentence beside the finding: how many
-    // of the constants it read are fitted, published, definitions or set by
-    // hand. The full block is its own drawer below.
-    { type: "provenance", field: "modelProvenance", variant: "line", subject: "score", seeAlso: "What this score rests on" },
+    // What the score rests on is the "What this score rests on" drawer below.
+    // Through 21.0.2 a count sentence sat here, between the chain and the law
+    // times, and opened on "0 fitted to data": the measured findings are the
+    // answer, and where each number comes from is one click away. (21.0.3)
     // The four law times the motor, decision, reading and procedure demands
     // come from (Stage B), each against the one time budget, so a reader sees
     // which law dominates. Field names from the tool (lawTimesReport). (ISC-70)

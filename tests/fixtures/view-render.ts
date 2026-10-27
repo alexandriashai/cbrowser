@@ -138,8 +138,12 @@ export async function startViewHost(): Promise<{
         });
       }
       const root = document.documentElement;
+      // The view's text, never its source: the widget's inline script holds
+      // every template string, so body.textContent would match any of them.
+      const shown = document.body.cloneNode(true) as HTMLElement;
+      shown.querySelectorAll("script, style, template").forEach((x) => x.remove());
       return { dark: root.classList.contains("dark"), overflow: root.scrollWidth - root.clientWidth,
-        text: (document.body.textContent || "").replace(/\s+/g, " "), fails, checked, q, geom, aria, box };
+        text: (shown.textContent || "").replace(/\s+/g, " "), fails, checked, q, geom, aria, box };
     }, { open: opts.open ?? [], bg: BG[theme], query: opts.query ?? [] });
     if (opts.shot) {
       // The host sizes the frame to the view, as an MCP Apps host does on
