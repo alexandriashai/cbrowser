@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.1.0](https://github.com/alexandriashai/cbrowser/compare/v21.0.3...v21.1.0) (2026-10-28)
+
+### Added
+
+* --color-scheme flag and colorScheme on the mcp tools that set up rendering ([e4534ff](https://github.com/alexandriashai/cbrowser/commit/e4534ff61c19d4088c610b98025bf7481f30d544))
+
 ## [21.0.3](https://github.com/alexandriashai/cbrowser/compare/v21.0.2...v21.0.3) (2026-10-27)
 
 ### Fixed
