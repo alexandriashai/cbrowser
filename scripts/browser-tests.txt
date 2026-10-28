@@ -25,6 +25,7 @@ tests/cli-device.test.ts
 tests/cli-flag-contract.test.ts
 tests/clickables-offscreen-text-region.test.ts
 tests/cognitive-effort-motor-preview.test.ts
+tests/color-scheme.test.ts
 tests/daemon-evaluate-red-zone.test.ts
 tests/daemon-har.test.ts
 tests/daemon-viewport.test.ts

@@ -315,7 +315,7 @@ cbrowser daemon stop
 
 While the daemon runs, `navigate`, `click`, `fill`, `hover`, `type`, `press`, `keyboard`, `screenshot`, `extract`, `run`, `scroll`, `evaluate`, `capture`, `har`, `network` and `console` use its browser. Commands that would open a second browser on its profile refuse until you stop it.
 
-Global browser flags work on every command that opens a browser: `--device <name>` (200+ presets; `cbrowser device list`), `--viewport 390x844` or a size name, `--browser chromium|firefox|webkit`, `--geo <preset or lat,lon>`, `--locale`, `--timezone`, `--no-headless` and `--no-persistent`. Flags also take `--flag=value`.
+Global browser flags work on every command that opens a browser: `--device <name>` (200+ presets; `cbrowser device list`), `--viewport 390x844` or a size name, `--browser chromium|firefox|webkit`, `--geo <preset or lat,lon>`, `--locale`, `--timezone`, `--color-scheme light|dark|no-preference` (what the page's `prefers-color-scheme` sees; also `CBROWSER_COLOR_SCHEME`), `--no-headless` and `--no-persistent`. Flags also take `--flag=value`.
 
 ---
 

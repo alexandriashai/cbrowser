@@ -47,7 +47,7 @@ import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
-import { getStatusInfo, formatStatus, getDataDir, getPaths } from "./config.js";
+import { getStatusInfo, formatStatus, getDataDir, getPaths, isColorScheme } from "./config.js";
 import { uniqueStamp } from "./temp-files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
@@ -896,6 +896,8 @@ OPTIONS
   --geo <location>            Location preset or lat,lon coordinates
   --locale <locale>           Browser locale (e.g., en-US, fr-FR)
   --timezone <tz>             Timezone (e.g., America/New_York)
+  --color-scheme <scheme>     Page color scheme: light, dark or no-preference (what
+                              the page's prefers-color-scheme media query sees)
   --record-video              Enable video recording
   --force                     Bypass red zone safety checks (CLI only; over MCP,
                               zone enforcement is opt-in via CBROWSER_ENFORCE_RED_ZONE
@@ -910,6 +912,7 @@ ENVIRONMENT VARIABLES
   CBROWSER_DEVICE             Device preset name
   CBROWSER_LOCALE             Browser locale
   CBROWSER_TIMEZONE           Timezone
+  CBROWSER_COLOR_SCHEME       Page color scheme (light, dark, no-preference)
   CBROWSER_HEADLESS           Run headless by default (true/false)
   CBROWSER_TIMEOUT            Default timeout in ms (default: 30000)
   CBROWSER_RECORD_VIDEO       Record video by default (true/false)
@@ -1135,7 +1138,7 @@ const DRIVES_THE_PAGE = [
  */
 const SHARED_BROWSER_FLAGS = [
   "url", "browser", "device", "viewport", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "verbose",
+  "locale", "timezone", "geo", "color-scheme", "verbose",
 ];
 
 /**
@@ -3056,6 +3059,23 @@ async function main(): Promise<void> {
   // One gate for every command in the registry, before anything executes.
   validateCommandFlags(command, options);
 
+  // --color-scheme takes the CSS prefers-color-scheme values. Checked here, so
+  // every command (daemon start included) refuses a bad one before a browser
+  // opens; Playwright would otherwise fail at launch with its own wording.
+  if (options["color-scheme"] !== undefined && !isColorScheme(options["color-scheme"])) {
+    const got = options["color-scheme"] === true ? "no value" : `"${options["color-scheme"]}"`;
+    console.error(`Error: --color-scheme must be light, dark or no-preference, got ${got}`);
+    process.exit(1);
+  }
+  const colorScheme = isColorScheme(options["color-scheme"]) ? options["color-scheme"] : undefined;
+  // The flag sets what CBROWSER_COLOR_SCHEME sets, for this run (and wins over
+  // the config file, as the env var does). Every CBrowser reads the env when it
+  // is built (mergeConfig), so this one line reaches the shared browser, the
+  // daemon's, test-suite's and the library functions that launch their own
+  // (visual, responsive, ab, perf, flaky, coverage...): none of them can accept
+  // the flag and ignore it.
+  if (colorScheme) process.env.CBROWSER_COLOR_SCHEME = colorScheme;
+
   // Doctor command - environment health check (v18.54.0)
   if (command === "doctor") {
     await runDoctor(outputOpts);
@@ -3359,6 +3379,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         for (const flag of ["locale", "timezone"] as const) {
           if (typeof options[flag] === "string") launchArgs.push(`--${flag}`, options[flag] as string);
         }
+        if (colorScheme) launchArgs.push("--color-scheme", colorScheme);
         if (typeof options.geo === "string") {
           if (!parseGeoLocation(options.geo)) {
             console.error(`Error: invalid --geo: ${options.geo} (a preset name or lat,lon)`);
@@ -3455,7 +3476,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     console.error("🔌 Connected to running daemon");
     // The daemon's browser keeps the settings it started with; a flag on a
     // command it runs cannot change them, so say so instead of ignoring it.
-    const browserFlags = ["device", "viewport", "browser", "headless", "locale", "timezone", "geo"]
+    const browserFlags = ["device", "viewport", "browser", "headless", "locale", "timezone", "geo", "color-scheme"]
       .filter((f) => options[f] !== undefined);
     if (browserFlags.length > 0) {
       console.error(`⚠ ${browserFlags.map((f) => `--${f}`).join(", ")} do not apply to commands the daemon runs: its browser keeps the settings it started with.`);
@@ -7890,6 +7911,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           // audit from the CLI was silently a desktop audit.
           ...(typeof options.device === "string" ? { device: resolveDevicePreset(options.device) } : {}),
           ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
+          // Its Lightpanda path builds a context without CBrowser, so the env
+          // var does not reach it.
+          ...(colorScheme ? { colorScheme } : {}),
         });
 
         // Print formatted report

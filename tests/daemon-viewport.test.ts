@@ -132,6 +132,28 @@ describe("daemon start --device --viewport", () => {
     }
   }, TIMEOUT * 3);
 
+  test("daemon start forwards --color-scheme, and a routed command's own one is named as not applying", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cb-daemon-scheme-"));
+    try {
+      const start = await cli(dir, "daemon", "start", "--port", String(await freePort()), "--color-scheme", "dark");
+      expect(start.code, start.stdout + start.stderr).toBe(0);
+      const dark = "matchMedia('(prefers-color-scheme: dark)').matches";
+      const r = await cli(dir, "evaluate", dark, "--url", `${fixtures.base}static.html`, "--raw", "--force");
+      expect(r.code, r.stderr).toBe(0);
+      expect(lastLine(r.stdout)).toBe("true");
+      const own = await cli(dir, "evaluate", dark, "--color-scheme", "light", "--raw", "--force");
+      expect(own.stderr).toContain("--color-scheme do not apply to commands the daemon runs");
+      expect(lastLine(own.stdout)).toBe("true");
+    } finally {
+      await cli(dir, "daemon", "stop").catch(() => {});
+      try {
+        const state = JSON.parse(readFileSync(join(dir, "daemon.json"), "utf8"));
+        if (state.pid) process.kill(state.pid);
+      } catch { /* stopped */ }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 3);
+
   test("an unknown device fails before a daemon starts", async () => {
     const r = await cli(lonelyDir, "daemon", "start", "--port", String(await freePort()), "--device", "iphone-99");
     expect(r.code).toBe(1);

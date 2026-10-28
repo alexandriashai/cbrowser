@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Color scheme</title>
+<style>
+  /* So a screenshot shows the scheme too: white in light, black in dark. */
+  body { background: #fff; color: #000; }
+  @media (prefers-color-scheme: dark) { body { background: #000; color: #fff; } }
+</style>
+</head>
+<body>
+<p id="scheme">scheme: unknown</p>
+<script>
+  // The page's own reading of prefers-color-scheme, as text the CLI and NL
+  // assertions can check.
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const light = matchMedia("(prefers-color-scheme: light)").matches;
+  document.getElementById("scheme").textContent = "scheme: " + (dark ? "dark" : light ? "light" : "none");
+</script>
+</body>
+</html>

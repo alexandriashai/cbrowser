@@ -17,7 +17,7 @@ import { isStaleSingletonLock } from "./utils.js";
 import { join, dirname } from "path";
 import { execSync } from "child_process";
 
-import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths } from "./config.js";
+import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme } from "./config.js";
 import { getPersonaOrRefuse } from "./personas.js";
 import type {
   SavedSession,
@@ -348,6 +348,8 @@ export class CBrowser {
   private paths: CBrowserPaths;
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
+  /** Contexts whose new pages follow setColorScheme (one listener each). */
+  private colorSchemeFollowers = new WeakSet<BrowserContext>();
   private page: Page | null = null;
   private currentPersona: Persona | null = null;
   private networkRequests: NetworkRequest[] = [];
@@ -2081,6 +2083,39 @@ For more help: https://playwright.dev/docs/browsers
       }
     }
     return { device: this.config.device ?? null };
+  }
+
+  /**
+   * Set the page's prefers-color-scheme: "light", "dark" or "no-preference".
+   * Unlike a device this needs no relaunch: Playwright emulates the media
+   * feature on a live page, so an open session keeps its page and login. Pages
+   * opened later in the same browser follow it, and a later launch reads it
+   * from config. An unknown value throws, as an unknown device does.
+   */
+  async setColorScheme(scheme: ColorScheme): Promise<void> {
+    if (!isColorScheme(scheme)) {
+      throw new CBrowserError(CBrowserErrorCode.CONFIG_INVALID,
+        `colorScheme must be ${COLOR_SCHEMES.join(", ")}, got: ${String(scheme)}`, { colorScheme: scheme });
+    }
+    this.config.colorScheme = scheme;
+    const context = this.context;
+    if (!context) return;
+    for (const p of context.pages()) {
+      if (!p.isClosed()) await p.emulateMedia({ colorScheme: scheme });
+    }
+    if (!this.colorSchemeFollowers.has(context)) {
+      this.colorSchemeFollowers.add(context);
+      // The context was created with the scheme it launched with; a page it
+      // opens now would start from that, not from this call.
+      context.on("page", (p) => {
+        if (this.config.colorScheme) p.emulateMedia({ colorScheme: this.config.colorScheme }).catch(() => {});
+      });
+    }
+  }
+
+  /** The color scheme pages render with, or null for the browser default. */
+  get colorScheme(): ColorScheme | null {
+    return this.config.colorScheme ?? null;
   }
 
   /**

@@ -15,6 +15,7 @@ import { MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import { PREVIEW_RESULT_MARGIN, contentSize } from "../inline-image.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedUrl } from "../hosted-inputs.js";
+import { colorSchemeParam } from "../color-scheme.js";
 
 /** Frame geometry of the heatmap GIF. Pinned — changing these changes output. */
 export const HEATMAP_GIF_FRAME_WIDTH = 640;
@@ -118,6 +119,7 @@ export function registerGifTools(
       maxSteps: z.number().optional().default(8).describe("Maximum journey steps (each becomes a GIF frame)"),
       frameDelay: z.number().optional().default(2000).describe("Milliseconds per frame in the GIF (default: 2000ms)"),
       device: z.string().optional().describe("Device: 'mobile', 'tablet', 'desktop'"),
+      colorScheme: colorSchemeParam,
     },
     annotations: {
       title: "Journey Heatmap GIF",
@@ -126,7 +128,7 @@ export function registerGifTools(
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, persona, goal, maxSteps, frameDelay, device }) => {
+  }, async ({ url, persona, goal, maxSteps, frameDelay, device, colorScheme }) => {
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
     const hostedRefusal = refuseHostedUrl("journey_heatmap_gif", { url });
     if (hostedRefusal) return hostedRefusal;
@@ -166,6 +168,7 @@ export function registerGifTools(
       const browser = new BrowserClass({
         headless: true,
         ...(device ? { device: device.toLowerCase() } : { viewportWidth: 1280, viewportHeight: 800 }),
+        ...(colorScheme ? { colorScheme } : {}),
       });
 
       await browser.launch();
@@ -297,6 +300,7 @@ export function registerGifTools(
         // Which perceptual filter drew the frames, as attention_analysis reports it.
         ...(perceptualProfile ? { perceptualProfile } : {}),
         goal,
+        ...(colorScheme ? { colorScheme } : {}),
         frames: frames.length,
         steps: stepDescriptions,
         gifUrl,

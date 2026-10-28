@@ -90,6 +90,7 @@ export function writeAuditScreenshot(
 // record's own accessibilityTraits, only the fields it sets. It used to be
 // copied here and in the other tool file.
 import { personaStoredAccessibilityTraits as personaAccessibilityTraits } from "../../visual/stored-accessibility-traits.js";
+import { colorSchemeParam } from "../color-scheme.js";
 
 export function registerAuditTools(server: McpServer, context?: ToolRegistrationContext): void {
   const getBrowserByToken = context?.getBrowserByToken;
@@ -99,6 +100,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     inputSchema: {
       url: z.string().url().describe("URL to audit"),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Tests mobile AI-friendliness (responsive selectors, touch targets, viewport-specific layouts)."),
+      colorScheme: colorSchemeParam,
       limit: z.number().optional().default(5).describe("How many issues (worst first) and recommendations (priority order) to return. Totals and severity counts always cover ALL findings."),
       offset: z.number().optional().default(0).describe("Skip this many issues and recommendations before returning, for paging through a large result."),
     },
@@ -109,11 +111,11 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, device, limit, offset }) => {
+  }, async ({ url, device, colorScheme, limit, offset }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("agent_ready_audit", { url });
       if (hostedRefusal) return hostedRefusal;
-      const result = await runAgentReadyAudit(url, { headless: true, ...(device ? { device } : {}) });
+      const result = await runAgentReadyAudit(url, { headless: true, ...(device ? { device } : {}), ...(colorScheme ? { colorScheme } : {}) });
       const responseData = {
         url: result.url,
         score: result.score,
@@ -125,6 +127,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         // when everything past the fifth finding was unreachable.
         ...pageAgentReadyFindings(result, { limit, offset }),
         duration: result.duration,
+        ...(colorScheme ? { colorScheme } : {}),
       };
       // Auto-save handled by tier-gate wrapper
       return { content: [{ type: "text", text: JSON.stringify(responseData, null, 2) }] };
@@ -250,6 +253,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing (e.g., 'http://user:pass@proxy.example.com:12321'). Routes browser through the proxy so sites see the proxy's IP/location instead of the server's."),
       geoRegion: z.string().optional().describe("Route through a residential proxy in this region. Available: us-west, us-east, us-central, uk, germany, japan. Overrides proxy parameter."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used."),
+      colorScheme: colorSchemeParam,
       waitAfterLoad: z.number().optional().describe("Extra milliseconds to wait after page loads. Use for sites with client-side translation or deferred rendering (e.g., 3000-5000 for i18n sites)."),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load. Example: '[data-translated]', '.content-loaded'. Times out gracefully."),
       scope: z.enum(["viewport", "full_page"]).optional().default("viewport").describe("What to measure: 'viewport' (first impression, above-the-fold — default) or 'full_page' (scroll through entire page). Viewport is right for landing page optimization; full_page for WCAG compliance."),
@@ -262,7 +266,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, recordedAnswer(async ({ url, personas, threshold, siteFamiliarity, userLocation, userTimezone, userLanguage, proxy, geoRegion, device, waitAfterLoad, waitForSelector, scope, _browserToken }) => {
+  }, recordedAnswer(async ({ url, personas, threshold, siteFamiliarity, userLocation, userTimezone, userLanguage, proxy, geoRegion, device, colorScheme, waitAfterLoad, waitForSelector, scope, _browserToken }) => {
     // recordedAnswer: one provenance recording per call, across every await,
     // reported as modelProvenance once gate 3 has scored (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
@@ -302,6 +306,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         ownsBrowser = false; // Don't close — it belongs to the session pool
         (response as Record<string, unknown>)._browserToken = token;
         (response as Record<string, unknown>).sessionReused = true;
+        // Needs no relaunch, so unlike device it applies to a session too.
+        if (colorScheme) await browser.setColorScheme(colorScheme);
       } else {
         // Create fresh browser with locale and proxy settings
         // Resolve geoRegion to proxy config (overrides raw proxy)
@@ -335,6 +341,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // the only class in the package where a paying caller gets a confidently
           // wrong number. (2026-07-26)
           ...(device ? { device } : {}),
+          ...(colorScheme ? { colorScheme } : {}),
           ...(userTimezone ? { timezone: userTimezone } : {}),
           ...(proxyConfig ? { proxy: proxyConfig, timeout: 60000 } : {}),
         });
@@ -492,6 +499,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         // desktop" while no device meant the configured 1280x800 (audit M8).
         response.device = ownsBrowser ? (device ?? null) : "session";
         response.viewport = page.viewportSize();
+        if (browser.colorScheme) response.colorScheme = browser.colorScheme;
 
         // ── Gate 2: Agent-Ready Audit ──
         try {
@@ -499,6 +507,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             headless: true,
             ...(proxyConfig ? { proxy: proxyConfig } : {}),
             locale: expectedLocale,
+            // Gate 2 opens its own browser; it renders in the same scheme.
+            ...(browser.colorScheme ? { colorScheme: browser.colorScheme } : {}),
             // Increase timeouts when proxied — residential proxies add 5-15s latency
             ...(proxyConfig ? { timeout: 120000, navigationTimeout: 60000 } : {}),
           });
@@ -750,6 +760,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       url: z.string().url().describe("URL to analyze"),
       persona: z.string().optional().default("cognitive-adhd").describe("Persona name"),
       device: z.string().optional().describe("Device to emulate: 'mobile', 'tablet', 'desktop' (1920x1080), or a specific device like 'iPhone 15', 'Pixel 7', 'iPad Pro 11'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used. Ignored with _browserToken (the session keeps its own)."),
+      colorScheme: colorSchemeParam,
       useValues: z.boolean().optional().default(false).describe("Apply the persona's Schwartz values (opt-in). They change two things: the attention quality scoring (which CTAs and distractors the persona weights), and the effort summary, where they modulate the page's demand inside the chain through its registered coefficients (chain.valueModulation.*, design values registered as hypotheses, counted in modelProvenance), exactly as cognitive_effort's useValues does. They do not change the attention heatmap. `valueModulation` in the response says whether values were found for the chain and which scores it used. Default: false."),
       // Goal-directed attention is the largest single lever in the semantic
       // layer: computeGoalRelevance boosts any element whose text matches the
@@ -768,7 +779,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, recordedAnswer(async ({ url, persona, device, useValues, goal, aiLayer, _browserToken }) => {
+  }, recordedAnswer(async ({ url, persona, device, colorScheme, useValues, goal, aiLayer, _browserToken }) => {
     // recordedAnswer: one provenance recording per call, across every await,
     // reported as modelProvenance (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
@@ -791,6 +802,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         browser = session.browser;
         vcsToken = session.token;
         ownsVcsBrowser = false;
+        if (colorScheme) await browser.setColorScheme(colorScheme);
       } else {
         browser = new BrowserClass({
           headless: true,
@@ -808,6 +820,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
             viewportWidth: getDefaultConfig().viewportWidth,
             viewportHeight: getDefaultConfig().viewportHeight,
           }),
+          ...(colorScheme ? { colorScheme } : {}),
         });
         await browser.launch();
       }
@@ -1220,6 +1233,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // (1920x1080)" while no device rendered at the configured 1280x800.
           device: ownsVcsBrowser ? (device ?? null) : "session",
           viewport: page.viewportSize(),
+          ...(browser.colorScheme ? { colorScheme: browser.colorScheme } : {}),
           narrative,
           ...(aiAttention ? { aiAttention } : {}),
           images: urls,
@@ -1309,6 +1323,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
       includeScreenshots: z.boolean().optional().default(false).describe("Inline base64 page screenshots in the response. Off by default because they are large enough to overflow an MCP client's context; when off, screenshots are written to disk and screenshotPath is returned instead."),
       scope: z.enum(["viewport", "full_page"]).optional().default("viewport").describe("What to score: 'viewport' (first impression, above-the-fold only — default) or 'full_page' (scroll through entire page, all barriers). Use 'viewport' for landing page optimization; 'full_page' for WCAG compliance audits."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15', 'Pixel 7'. Essential for mobile WCAG audits — touch targets, viewport sizing, and responsive barriers differ significantly on mobile."),
+      colorScheme: colorSchemeParam,
       // Description only, behaviour unchanged. The view is declared on the tool
       // (_meta.ui above), so the host renders it whatever this flag says; the
       // old text told scripted callers to set it false, which did nothing.
@@ -1322,7 +1337,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, goal, disabilities, wcagLevel, maxSteps, maxTime, scope, device, includeScreenshots, uiResource }) => {
+  }, async ({ url, goal, disabilities, wcagLevel, maxSteps, maxTime, scope, device, colorScheme, includeScreenshots, uiResource }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("empathy_audit", { url });
       if (hostedRefusal) return hostedRefusal;
@@ -1342,6 +1357,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
           headless: true,
           scope: scope || "viewport",
           device: device || undefined,
+          ...(colorScheme ? { colorScheme } : {}),
         });
         // Build response with guidance for additional personas
         const testedPersona = singlePersona[0];
@@ -1401,6 +1417,7 @@ export function registerEmpathyAuditTool(server: McpServer): void {
           // As rendered: "desktop" was echoed when no device was set, and the
           // audit ran at the configured 1280x800 with no emulation (audit M8).
           ...describeRenderTarget(device || undefined, { width: getDefaultConfig().viewportWidth, height: getDefaultConfig().viewportHeight }),
+          ...(colorScheme ? { colorScheme } : {}),
           scopeNote: scope === "full_page"
             ? "Full-page audit: scrolled through entire page before barrier detection. Scores reflect all content including below-the-fold."
             : "Viewport-only audit: scored first impression (above-the-fold). Use scope='full_page' for complete barrier inventory, or cognitive_journey for path-dependent experience.",

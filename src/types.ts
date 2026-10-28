@@ -4108,6 +4108,8 @@ export interface VisualBaseline {
   device?: string;
   /** Browser engine, when one was chosen at capture; a test renders with the same one */
   browser?: SupportedBrowser;
+  /** prefers-color-scheme the capture rendered with, when one was set; a test renders with the same one */
+  colorScheme?: "light" | "dark" | "no-preference";
   /** Timestamp of capture */
   timestamp: string;
   /** Optional element selector for partial screenshot */
@@ -4253,6 +4255,8 @@ export interface BrowserLaunchOptions {
   device?: string;
   /** Page size. With a device, it sets the size and the device keeps its pixel ratio, touch and user agent. */
   viewport?: { width: number; height: number };
+  /** prefers-color-scheme. Unset: CBROWSER_COLOR_SCHEME or the config file (since 21.1). */
+  colorScheme?: "light" | "dark" | "no-preference";
 }
 
 /**
@@ -4942,6 +4946,8 @@ export interface AgentReadyAuditOptions {
   proxy?: { server: string; username?: string; password?: string };
   /** Browser locale for language-accurate testing (e.g., "en-US") @since v18.39.0 */
   locale?: string;
+  /** The page's prefers-color-scheme ("light", "dark", "no-preference") @since v21.1.0 */
+  colorScheme?: "light" | "dark" | "no-preference";
   /** Device emulation: 'mobile', 'tablet', 'desktop', or specific device name @since v18.60.0 */
   device?: string;
   /** Pre-existing Playwright Page — skip browser launch and navigation. The page must already be at the target URL. */
@@ -5568,6 +5574,8 @@ export interface EmpathyAuditOptions {
   scope?: "viewport" | "full_page";
   /** Device emulation: 'mobile', 'tablet', 'desktop', or specific device name like 'iPhone 15' */
   device?: string;
+  /** prefers-color-scheme to render with ("light", "dark", "no-preference") */
+  colorScheme?: "light" | "dark" | "no-preference";
   /** Generate HTML report */
   html?: boolean;
   /** Pre-existing Playwright Page — skip browser launch and navigation. Page must already be at the target URL. */

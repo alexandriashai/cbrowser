@@ -2617,6 +2617,7 @@ export async function runAgentReadyAudit(
         const context = await browser.newContext({
           viewport: { width: 1920, height: 1080 },
           ...(options.locale ? { locale: options.locale } : {}),
+          ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
         });
         page = await context.newPage();
       } else {
@@ -2625,6 +2626,7 @@ export async function runAgentReadyAudit(
           persistent: false,
           ...(options.proxy ? { proxy: options.proxy } : {}),
           ...(options.locale ? { locale: options.locale } : {}),
+          ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
           ...(options.device ? { device: options.device.toLowerCase() } : {}),
         });
         await cbrowser.launch();

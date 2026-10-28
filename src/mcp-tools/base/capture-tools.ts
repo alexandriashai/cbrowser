@@ -32,6 +32,7 @@ import { VIEWPORT_PRESETS } from "../../types.js";
 import { buildContentWithScreenshots, MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import type { CBrowser, McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedPath, refuseHostedPathName, refuseHostedUrl } from "../hosted-inputs.js";
+import { colorSchemeParam } from "../color-scheme.js";
 
 /**
  * Does the active key entitle paid model calls?
@@ -442,6 +443,8 @@ export interface CaptureStartArgs {
   viewport?: string;
   /** Device preset to emulate (relaunches an already-running browser). */
   device?: string;
+  /** prefers-color-scheme to render with; switches a live page in place. */
+  colorScheme?: "light" | "dark" | "no-preference";
   region?: string;
   element?: string;
   padding?: number;
@@ -588,6 +591,8 @@ export async function startCapture(
   // running browser is relaunched with it (the CLI's --device). An unknown
   // name throws with the closest presets.
   if (args.device) await browser.emulate({ device: args.device });
+  // After emulate (which closes a running browser); needs no relaunch itself.
+  if (args.colorScheme) await browser.setColorScheme(args.colorScheme);
 
   if (args.viewport) {
     const size = parseViewport(args.viewport);
@@ -703,6 +708,7 @@ export async function startCapture(
     capture_method: status.captureMethod,
     engine,
     ...(recViewport ? { viewport: `${recViewport.width}x${recViewport.height}` } : {}),
+    ...(browser.colorScheme ? { color_scheme: browser.colorScheme } : {}),
     ...(openingFrame ? { opening_frame: openingFrame, opening_frame_mime: "image/jpeg" } : {}),
     ...(elementNote ? { element_note: elementNote } : {}),
     note:
@@ -1134,6 +1140,7 @@ export const captureStartSchema = {
   duration: z.string().optional().describe("Auto-stop after this long: 5s, 2m, 1500ms. Omit for an open-ended capture stopped by capture_stop."),
   viewport: z.string().optional().describe("Viewport as WIDTHxHEIGHT (e.g. 1280x720) or a size preset (mobile 393x852, tablet 834x1194, desktop 1920x1080, desktop-lg, ...)"),
   device: z.string().optional().describe("Device preset to emulate (user agent, touch, pixel ratio, size), e.g. 'mobile' or 'iPhone 15'; list_devices shows them. The CLI's --device. Relaunches a running browser on stdio; on the hosted server it applies only without _browserToken."),
+  colorScheme: colorSchemeParam,
   region: z.string().optional().describe("Capture a fixed region as x,y,width,height (e.g. 0,0,800,600). Clamped to the viewport."),
   element: z.string().optional().describe("CSS selector to capture. Resolved to the element's bounding box once at start; the region does not follow the element if it moves."),
   padding: z.number().optional().describe("Padding in pixels around the element region (default: 0)"),

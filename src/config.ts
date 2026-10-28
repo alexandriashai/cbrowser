@@ -53,6 +53,11 @@ export function resetSessionId(): void {
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
 export type ColorScheme = "light" | "dark" | "no-preference";
+/** The values --color-scheme, colorScheme and CBROWSER_COLOR_SCHEME take (the CSS prefers-color-scheme values). */
+export const COLOR_SCHEMES: readonly ColorScheme[] = ["light", "dark", "no-preference"];
+export function isColorScheme(value: unknown): value is ColorScheme {
+  return typeof value === "string" && (COLOR_SCHEMES as readonly string[]).includes(value);
+}
 
 export interface CBrowserConfig {
   /** Base directory for all CBrowser data. Default: ~/.cbrowser/ */

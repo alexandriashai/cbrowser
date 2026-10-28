@@ -91,6 +91,7 @@ import { personaStoredAccessibilityTraits as personaAccessibilityTraits } from "
 
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { confineToAccountDir, refuseHostedUrl } from "../hosted-inputs.js";
+import { colorSchemeParam } from "../color-scheme.js";
 import {
   runVisualRegression,
   runCrossBrowserTest,
@@ -172,6 +173,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       delay: z.number().optional().default(1500).describe("Delay between captures in ms"),
       selector: z.string().optional().describe("CSS selector to capture specific element"),
       device: z.string().optional().describe("Device emulation (e.g. mobile, tablet, iphone-15)"),
+      colorScheme: colorSchemeParam,
       waitFor: z.union([z.number(), z.string()]).optional().describe("Wait after page load: number = ms delay, string = CSS selector to wait for. Useful for client-side translation or deferred rendering."),
     },
     annotations: {
@@ -181,7 +183,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       idempotentHint: false,
       openWorldHint: true,
     },
-  }, async ({ url, name, captures, delay, selector, device, waitFor }) => {
+  }, async ({ url, name, captures, delay, selector, device, colorScheme, waitFor }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("visual_baseline", { url });
       if (hostedRefusal) return hostedRefusal;
@@ -191,6 +193,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
         captureDelay: delay,
         selector,
         device,
+        colorScheme,
         waitFor,
       });
       return {
@@ -207,6 +210,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
               meanDistance: Math.round(result.meanDistance * 10000) / 10000,
               adaptiveThreshold: result.adaptiveThreshold,
               reference: result.referencePath,
+              ...(result.colorScheme ? { colorScheme: result.colorScheme } : {}),
               computeTime: `${result.computeTimeMs.toFixed(0)}ms`,
             }, null, 2),
           },
@@ -622,6 +626,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       cellSize: z.number().int().min(1).optional().default(4).describe("Saliency grid cell size in pixels of the half-resolution analysis image (smaller = finer heatmap, default: 4). Changes resolution only: the calibrated foveal smoothing keeps its fitted width in pixels at any cell size."),
       heatmap: z.boolean().optional().default(true).describe("Generate the heatmap overlay (default: true). The heatmap is the main finding. false returns the metrics only: no inline preview, and the attention view shows no picture."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device name"),
+      colorScheme: colorSchemeParam,
       useValues: z.boolean().optional().default(false).describe("Include the persona's motivational values in the attention-quality score. The saliency map always reflects the persona's Schwartz values when the persona has them, whatever this flag says. Default: false."),
       freezeAnimations: z.boolean().optional().default(false).describe("Pause CSS and Web-Animations before the screenshot, so two runs of an animated page are comparable. An infinite animation has no canonical frame, so sampling one at random reports where attention goes during a fraction of a loop as where attention goes. Default false: every published attention number was measured with animation live. Check `animationState` in the response for what actually ran."),
     },
@@ -635,7 +640,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
     // Declares the attention view. The heatmap is the finding here, and a JSON
     // list of scores is a lossy description of where a persona actually looks.
     _meta: { ui: { resourceUri: "ui://cbrowser/attention" } },
-  }, async ({ url, persona: requestedPersona, goal, cellSize, heatmap, device, useValues, freezeAnimations: doFreeze, _browserToken, scrollY }) => {
+  }, async ({ url, persona: requestedPersona, goal, cellSize, heatmap, device, colorScheme, useValues, freezeAnimations: doFreeze, _browserToken, scrollY }) => {
       // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
       const hostedRefusal = refuseHostedUrl("attention_analysis", { url });
       if (hostedRefusal) return hostedRefusal;
@@ -675,6 +680,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       const ownsBrowser = !_browserToken;
       let restoreSession: (() => Promise<void>) | undefined;
       try {
+        if (colorScheme) await browser.setColorScheme(colorScheme);
         if (ownsBrowser) await browser.launch();
         if (url) {
           await browser.navigate(url);
@@ -883,6 +889,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
               : device
                 ? `device: ${device.toLowerCase()}`
                 : `${getDefaultConfig().viewportWidth}x${getDefaultConfig().viewportHeight}`,
+            ...(browser.colorScheme ? { colorScheme: browser.colorScheme } : {}),
             url: pageUrl,
             ...(scroll ? { scroll } : {}),
             ...(sessionToken ? { _browserToken: sessionToken, ...(device ? { deviceIgnored: "device does not apply to an existing session; its own viewport was used" } : {}) } : {}),

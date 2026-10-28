@@ -28,6 +28,7 @@ export function browserLaunchConfig(options: BrowserLaunchOptions = {}): Partial
     ...(options.headless !== undefined ? { headless: options.headless } : {}),
     ...(options.browser ? { browser: options.browser } : {}),
     ...(options.device ? { device: options.device } : {}),
+    ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
     ...(options.viewport
       ? {
           viewportWidth: options.viewport.width,

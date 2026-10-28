@@ -3831,6 +3831,7 @@ export async function runEmpathyAudit(
           headless,
           persistent: false,
           ...(options.device ? { device: options.device.toLowerCase() } : {}),
+          ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
         });
         await browser.launch();
         page = await browser.getPage();

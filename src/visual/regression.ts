@@ -19,7 +19,7 @@ import { CBrowser } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
 import { resolveDevice } from "../devices.js";
 import { VIEWPORT_PRESETS } from "../types.js";
-import { effectiveDataDir, getPaths } from "../config.js";
+import { effectiveDataDir, getPaths, type ColorScheme } from "../config.js";
 import type {
   BrowserLaunchOptions,
   VisualBaseline,
@@ -231,6 +231,9 @@ export async function captureVisualBaseline(
       viewport,
       device: options.device,
       ...(options.browser ? { browser: options.browser } : {}),
+      // The scheme it rendered with, from the options or CBROWSER_COLOR_SCHEME,
+      // so the test renders dark against a dark baseline.
+      ...(browser.colorScheme ? { colorScheme: browser.colorScheme } : {}),
       timestamp: new Date().toISOString(),
       selector: options.selector,
     };
@@ -353,9 +356,10 @@ export function resolveBaselineTarget(device: string | undefined): {
  * touch, pixel ratio); a viewport with it sets the size. Neither: 1920x1080,
  * the size baselines have always defaulted to.
  */
-function browserForTarget(target: { device?: string; viewport?: { width: number; height: number } }): CBrowser {
+function browserForTarget(target: { device?: string; viewport?: { width: number; height: number }; colorScheme?: ColorScheme }): CBrowser {
   return new CBrowser({
     ...(target.device ? { device: target.device } : {}),
+    ...(target.colorScheme ? { colorScheme: target.colorScheme } : {}),
     viewportWidth: target.viewport?.width ?? 1920,
     viewportHeight: target.viewport?.height ?? 1080,
     ...(target.device && target.viewport ? { viewportOverride: target.viewport } : {}),
@@ -383,6 +387,7 @@ export async function captureSmartBaseline(
     selector?: string;
     device?: string;
     viewport?: { width: number; height: number };
+    colorScheme?: ColorScheme;
     waitFor?: string | number;
     numCaptures?: number;
     captureDelay?: number;
@@ -395,7 +400,11 @@ export async function captureSmartBaseline(
   // One meaning for a device name (audit M7): a device preset first, then a
   // size-only VIEWPORT_PRESETS name. The table that stood here mapped "mobile"
   // to 375x667 and "desktop-lg" to 2560x1440, unlike either other table.
-  const target = { ...resolveBaselineTarget(options.device), ...(options.viewport ? { viewport: options.viewport } : {}) };
+  const target = {
+    ...resolveBaselineTarget(options.device),
+    ...(options.viewport ? { viewport: options.viewport } : {}),
+    ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
+  };
   const browser = browserForTarget(target);
   let renderedViewport: { width: number; height: number } | undefined;
 
@@ -461,6 +470,7 @@ export async function captureSmartBaseline(
   // (audit M6, 2026-10-21)
   if (target.device) baseline.device = target.device;
   if (renderedViewport) baseline.viewport = renderedViewport;
+  if (browser.colorScheme) baseline.colorScheme = browser.colorScheme;
 
   // Save to index
   const baselines = loadSmartBaselines();
@@ -572,7 +582,7 @@ export async function runSmartRegression(
 
   // Capture current screenshot at the baseline's own device and size (M6).
   // Baselines from before 2026-10-21 carry neither and keep 1920x1080.
-  const browser = browserForTarget({ device: baseline.device, viewport: baseline.viewport });
+  const browser = browserForTarget({ device: baseline.device, viewport: baseline.viewport, colorScheme: baseline.colorScheme });
   const region = baseline.viewport ?? { width: 1920, height: 1080 };
 
   // Session screenshots dir, where retention applies (v8 B36). Time plus
@@ -721,8 +731,8 @@ export async function runRegressionWithTransportMap(
   // Capture current screenshot
   // At the baseline's device and size (M6); a regular baseline records both too.
   const captureTarget = smartBaseline
-    ? { device: smartBaseline.device, viewport: smartBaseline.viewport }
-    : { device: regularBaseline!.device, viewport: regularBaseline!.viewport };
+    ? { device: smartBaseline.device, viewport: smartBaseline.viewport, colorScheme: smartBaseline.colorScheme }
+    : { device: regularBaseline!.device, viewport: regularBaseline!.viewport, colorScheme: regularBaseline!.colorScheme };
   const browser = browserForTarget(captureTarget);
   // Session screenshots dir, where retention applies (v8 B36).
   const currentPath = join(getCurrentCaptureDir(), `current-${uniqueStamp()}.png`);
@@ -1247,6 +1257,7 @@ export async function runVisualRegression(
     browser: baseline.browser,
     device: baseline.device,
     viewport: baseline.viewport,
+    colorScheme: baseline.colorScheme,
   }));
 
   try {

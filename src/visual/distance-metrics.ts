@@ -639,6 +639,8 @@ export interface SmartBaseline {
   device?: string;
   /** Page size the captures used (since 2026-10-21; older baselines: 1920x1080) */
   viewport?: { width: number; height: number };
+  /** prefers-color-scheme the captures used, when one was set (since 21.1) */
+  colorScheme?: "light" | "dark" | "no-preference";
 }
 
 /**

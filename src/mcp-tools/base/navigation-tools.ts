@@ -13,6 +13,7 @@ import { refuseHostedUrl } from "../hosted-inputs.js";
 import { DEVICE_PRESETS, resolveDevice } from "../../devices.js";
 import { VIEWPORT_PRESETS } from "../../types.js";
 import { parseViewport } from "./capture-tools.js";
+import { colorSchemeParam } from "../color-scheme.js";
 
 function navigateRefusal(error: string, message: string, extra: Record<string, unknown> = {}) {
   return {
@@ -30,7 +31,7 @@ export function registerNavigationTools(
 ): void {
   server.registerTool("navigate", {
     title: "Navigate to URL",
-    description: "Navigate to a URL and take a screenshot. Pass _browserToken from a previous tool call to reuse the same browser session. To emulate a phone or tablet, pass device (list_devices shows the presets) and/or viewport on the navigate that starts the session; the response reports the device and viewport used.",
+    description: "Navigate to a URL and take a screenshot. Pass _browserToken from a previous tool call to reuse the same browser session. To emulate a phone or tablet, pass device (list_devices shows the presets) and/or viewport on the navigate that starts the session; the response reports the device and viewport used. To see the page's dark (or light) theme, pass colorScheme; it works on a new or an existing session.",
     inputSchema: {
       url: z.string().url().describe("The URL to navigate to"),
       waitAfterLoad: z.number().optional().describe("Additional milliseconds to wait after page loads. Useful for sites with client-side translation, deferred rendering, or async content. Example: 3000 for i18n sites."),
@@ -38,6 +39,7 @@ export function registerNavigationTools(
       _browserToken: z.string().optional().describe("Browser session token from a previous tool call. Pass this to maintain browser state (cookies, page) across calls."),
       device: z.string().optional().describe("Device preset to emulate for this session: 'mobile', 'tablet', 'desktop', or a name from list_devices such as 'iPhone 15' or 'Pixel 8' (user agent, touch, pixel ratio and size). Applies when navigate starts a session (no _browserToken); a session keeps the device it started with."),
       viewport: z.string().optional().describe("Page size for this session: WIDTHxHEIGHT (e.g. 1280x720) or a size preset (mobile, tablet, desktop, desktop-sm, ...). With device, sets the size and keeps the device's emulation. Applies when navigate starts a session (no _browserToken)."),
+      colorScheme: colorSchemeParam,
     },
     annotations: {
       title: "Navigate to URL",
@@ -46,7 +48,7 @@ export function registerNavigationTools(
       idempotentHint: true,
       openWorldHint: true,
     },
-  }, async ({ url, waitAfterLoad, waitForSelector, _browserToken, device, viewport }) => {
+  }, async ({ url, waitAfterLoad, waitForSelector, _browserToken, device, viewport, colorScheme }) => {
       // Hosted: http(s) only. z.string().url() accepts file:, data: and
       // view-source:, and the root-run browser opened them (sec-paths, 2026-10-10).
       const refused = refuseHostedUrl("navigate", { url });
@@ -90,6 +92,9 @@ export function registerNavigationTools(
         b = await getBrowser();
       }
       const applied = emulating ? await b.emulate({ device: deviceKey, viewport: size }) : undefined;
+      // After emulate, which closes a running browser: the scheme needs no
+      // relaunch, so unlike device it also switches an existing session.
+      if (colorScheme) await b.setColorScheme(colorScheme);
       let result = await b.navigate(url, {
         ...(waitAfterLoad ? { waitAfterLoad } : {}),
         ...(waitForSelector ? { waitForSelector } : {}),
@@ -152,6 +157,7 @@ export function registerNavigationTools(
             ...(result.desyncDetected ? { desyncDetected: true, expectedUrl: result.expectedUrl } : {}),
             ...(integrity.ok ? {} : { contentIntegrity: integrity }),
             ...(applied ? await renderedAt(b, applied.device) : {}),
+            ...(b.colorScheme ? { colorScheme: b.colorScheme } : {}),
             ...(token ? { _browserToken: token } : {}),
           },
           result.screenshot
