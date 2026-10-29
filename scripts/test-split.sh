@@ -226,23 +226,29 @@ done
 
 # The summary exists so "green" and "green after a retry" are never the same
 # report. A flake rate you cannot see is a flake rate nobody fixes.
+#
+# All of it goes to stderr. CI merges stdout and stderr from separate pipes, so
+# a summary split across the two arrives interleaved: on 2026-10-28 the
+# quarantined file printed under "failed twice" and read as a second failure.
+# The lines below also stop saying "green", since they print in failed runs too.
+exec >&2
 if [ "${#SKIPPED[@]}" -gt 0 ]; then
   echo ""
   echo "test-split: ${#SKIPPED[@]} file(s) NOT RUN on CI (quarantined):"
   for f in "${SKIPPED[@]}"; do echo "              $f"; done
-  echo "            This run is green WITHOUT them. They still run locally."
+  echo "            Every result in this run excludes them. They still run locally."
 fi
 
 if [ "${#RETRIED[@]}" -gt 0 ]; then
   echo ""
   echo "test-split: ${#RETRIED[@]} file(s) PASSED ONLY ON RETRY:"
   for f in "${RETRIED[@]}"; do echo "              $f"; done
-  echo "            The run is green. These are still flaky and still unexplained."
+  echo "            These are still flaky and still unexplained."
 fi
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
   echo ""
-  echo "test-split: ${#FAILED[@]} file(s) failed twice:" >&2
-  for f in "${FAILED[@]}"; do echo "              $f" >&2; done
+  echo "test-split: ${#FAILED[@]} file(s) failed twice:"
+  for f in "${FAILED[@]}"; do echo "              $f"; done
   exit 1
 fi
