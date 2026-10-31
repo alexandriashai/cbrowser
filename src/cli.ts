@@ -47,7 +47,7 @@ import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
-import { getStatusInfo, formatStatus, getDataDir, getPaths, isColorScheme } from "./config.js";
+import { getStatusInfo, formatStatus, getDataDir, getPaths, isColorScheme, localeTag } from "./config.js";
 import { uniqueStamp } from "./temp-files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
@@ -894,7 +894,8 @@ OPTIONS
                               Size names work too (mobile, tablet, desktop-md...): size
                               only; use --device for touch and a mobile user agent
   --geo <location>            Location preset or lat,lon coordinates
-  --locale <locale>           Browser locale (e.g., en-US, fr-FR)
+  --locale <locale>           Browser locale and Accept-Language header, e.g. fr-FR
+                              (default: the host's language, else en-US)
   --timezone <tz>             Timezone (e.g., America/New_York)
   --color-scheme <scheme>     Page color scheme: light, dark or no-preference (what
                               the page's prefers-color-scheme media query sees)
@@ -910,7 +911,7 @@ ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
   CBROWSER_BROWSER            Browser engine (chromium/firefox/webkit)
   CBROWSER_DEVICE             Device preset name
-  CBROWSER_LOCALE             Browser locale
+  CBROWSER_LOCALE             Browser locale (default: the host's, else en-US)
   CBROWSER_TIMEZONE           Timezone
   CBROWSER_COLOR_SCHEME       Page color scheme (light, dark, no-preference)
   CBROWSER_HEADLESS           Run headless by default (true/false)
@@ -3076,6 +3077,23 @@ async function main(): Promise<void> {
   // the flag and ignore it.
   if (colorScheme) process.env.CBROWSER_COLOR_SCHEME = colorScheme;
 
+  // --locale, the same way (2026-10-31): the library functions above build
+  // their own browser and dropped the flag, so `diff --locale fr-FR` or
+  // `responsive --locale fr-FR` ran in the default locale and exited 0. A value
+  // that is no language tag ("german" passes BCP 47 and fails in Chromium), or
+  // no value at all, is refused before a browser opens. The POSIX spelling
+  // (en_US) is taken, as Playwright took it before.
+  if (options.locale !== undefined) {
+    const tag = typeof options.locale === "string" ? localeTag(options.locale) : undefined;
+    if (!tag) {
+      const got = typeof options.locale === "string" && options.locale.trim() ? `"${options.locale}"` : "no value";
+      console.error(`Error: --locale must be a language tag such as en-US or fr-FR, got ${got}`);
+      process.exit(1);
+    }
+    options.locale = tag;
+    process.env.CBROWSER_LOCALE = tag;
+  }
+
   // Doctor command - environment health check (v18.54.0)
   if (command === "doctor") {
     await runDoctor(outputOpts);
@@ -4365,6 +4383,10 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           headless,
           device: personaFlags.device,
           viewport: personaFlags.viewport,
+          // An override for every journey: two personas carry their own
+          // locale, which beats CBROWSER_LOCALE, so the env alone left them
+          // in en-US while the rest took the flag.
+          ...(typeof options.locale === "string" ? { locale: options.locale } : {}),
         });
 
         // Print formatted report

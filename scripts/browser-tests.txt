@@ -130,3 +130,6 @@ tests/hotfix-path-escape.test.ts
 # Launches two chromiums in a row with a forced GC between them (Bun's second
 # close of a dead child's extra stdio, tests/fixtures/extra-stdio-guard.ts).
 tests/bun-extra-stdio-late-close-browser.test.ts
+# Opens a page in chromium, firefox and webkit and in crossBrowserDiff, and
+# reads the Accept-Language each request carried.
+tests/accept-language-browser.test.ts

@@ -17,6 +17,7 @@ import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
 import { navigationError } from "../navigation-errors.js";
 import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
+import { defaultLocale } from "../config.js";
 import type {
   AgentReadyAuditResult,
   AgentReadyIssue,
@@ -2614,9 +2615,14 @@ export async function runAgentReadyAudit(
         if (result.isLightpanda) {
           console.log("🐼 Using Lightpanda for audit (11x faster)");
         }
+        // The Playwright fallback skips CBrowser, so it takes the default
+        // locale here (without one Chromium sends no Accept-Language,
+        // 2026-10-31). Lightpanda itself gets only a locale the caller names:
+        // whether it honours the emulation has not been measured.
+        const locale = options.locale ?? (result.isLightpanda ? undefined : defaultLocale());
         const context = await browser.newContext({
           viewport: { width: 1920, height: 1080 },
-          ...(options.locale ? { locale: options.locale } : {}),
+          ...(locale ? { locale } : {}),
           ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
         });
         page = await context.newPage();

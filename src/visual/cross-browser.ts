@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { effectiveDataDir, getPaths } from "../config.js";
+import { defaultLocale, effectiveDataDir, getPaths } from "../config.js";
 import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser } from "../browser.js";
@@ -106,7 +106,7 @@ async function captureWithBrowser(
   const browser = new CBrowser({
     viewportWidth: 1920,
     viewportHeight: 1080,
-    ...browserLaunchConfig({ headless: options.headless, device: options.device, viewport: options.viewport }),
+    ...browserLaunchConfig({ headless: options.headless, device: options.device, viewport: options.viewport, locale: options.locale }),
     browser: browserType,
   });
 
@@ -748,6 +748,11 @@ export async function crossBrowserDiff(
   }
   const contextOptions = {
     viewport: options.viewport ?? descriptor?.viewport ?? { width: 1920, height: 1080 },
+    // This page skips CBrowser, so it takes the locale here: the caller's,
+    // else the default. Without one Chromium sent no Accept-Language and
+    // Firefox sent its own, so the engines being compared could be served
+    // different pages (2026-10-31).
+    locale: options.locale || defaultLocale(),
     ...(descriptor
       ? {
           ...(descriptor.userAgent ? { userAgent: descriptor.userAgent } : {}),

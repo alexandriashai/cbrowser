@@ -29,6 +29,7 @@ export function browserLaunchConfig(options: BrowserLaunchOptions = {}): Partial
     ...(options.browser ? { browser: options.browser } : {}),
     ...(options.device ? { device: options.device } : {}),
     ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
+    ...(options.locale ? { locale: options.locale } : {}),
     ...(options.viewport
       ? {
           viewportWidth: options.viewport.width,

@@ -179,6 +179,79 @@ export function loadConfigFile(dir?: string): CBrowserConfigFile | null {
   return null;
 }
 
+/** The locale a browser runs in when neither the caller, the env, the config file nor the host names one. */
+export const DEFAULT_LOCALE = "en-US";
+
+/**
+ * A POSIX locale name (de_DE.UTF-8, sr_RS@latin) or a BCP 47 tag (fr-FR) as a
+ * tag all three engines take, or undefined for C, POSIX, blank and anything
+ * else. The language must be 2 or 3 letters: BCP 47 also allows 5 to 8, so
+ * Intl passes glibc's aliases ("german", "french"), and Chromium refuses them
+ * ("Invalid locale name"), which failed every launch on such a host.
+ */
+export function localeTag(value: string | undefined): string | undefined {
+  const posix = value?.trim().split(/[.@]/)[0];
+  if (!posix || /^(c|posix)$/i.test(posix)) return undefined;
+  let tag: string;
+  try {
+    tag = Intl.getCanonicalLocales(posix.replace(/_/g, "-"))[0];
+  } catch {
+    return undefined;
+  }
+  return /^[a-z]{2,3}(-|$)/i.test(tag) ? tag : undefined;
+}
+
+/**
+ * The host's language, read the way Chromium reads it: each entry of
+ * LANGUAGE, then LC_ALL, then LC_MESSAGES, then LANG, skipping any that is not
+ * a language (C, blank, an alias). Undefined when none is.
+ *
+ * Measured with Playwright's chromium (2026-10-31): LANG=de_DE.UTF-8 gave the
+ * page "de", LC_ALL and LC_MESSAGES beat LANG, LANGUAGE=de beat everything even
+ * with LANG=C, and LANGUAGE=C:de or LC_ALL=C with LANG=de_DE still gave "de".
+ * This keeps the region ("de-DE"), which Chromium drops when it has no
+ * translation for it; the language and Intl formatting are the same. The env
+ * is read directly because Bun's Intl reports en-US whatever LANG says.
+ */
+export function hostLocale(env: Record<string, string | undefined> = process.env): string | undefined {
+  for (const value of [...(env.LANGUAGE?.split(":") ?? []), env.LC_ALL, env.LC_MESSAGES, env.LANG]) {
+    const tag = localeTag(value);
+    if (tag) return tag;
+  }
+  return undefined;
+}
+
+/**
+ * The runtime's own default locale, when it is a language. On a host that sets
+ * none of the variables above (often Windows, sometimes a macOS terminal),
+ * Node's Intl reports the default ICU finds; Bun reports en-US. Not measured on
+ * either here: on this Linux box both only follow the env, read first anyway.
+ */
+function runtimeLocale(): string | undefined {
+  try {
+    return localeTag(Intl.DateTimeFormat().resolvedOptions().locale);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The locale for a browser whose caller names none: CBROWSER_LOCALE, then the
+ * config file, then the host's (hostLocale, then the runtime's), then en-US.
+ *
+ * Until 2026-10-31 there was no default, and Chromium then sent no
+ * Accept-Language on any request. Its page still took the host's language
+ * (navigator.language "de" under LANG=de_DE.UTF-8), Firefox and WebKit took
+ * en-US, so the header and the page disagreed, the engines disagreed, and a
+ * site that picks its language from the header served a page no real browser
+ * gets (mozilla.org: its language picker instead of /en-US/). Now the same
+ * value reaches the page and the header in all three engines. Hosts that name
+ * no language (LANG=C.UTF-8, as on the hosted servers and CI) get en-US.
+ */
+export function defaultLocale(configFile: CBrowserConfigFile | null = loadConfigFile(getDataDir())): string {
+  return process.env.CBROWSER_LOCALE || configFile?.locale || hostLocale() || runtimeLocale() || DEFAULT_LOCALE;
+}
+
 /**
  * Get default configuration, merging with environment variables and config file.
  */
@@ -232,11 +305,13 @@ export function getDefaultConfig(): CBrowserConfig {
     timeout: parseInt(process.env.CBROWSER_TIMEOUT || (configFile?.timeout?.toString()) || "30000", 10) || 30000,
     verbose: process.env.CBROWSER_VERBOSE === "true",
     device: process.env.CBROWSER_DEVICE || configFile?.device,
-    // No built-in locale or timezone: the browser uses the host's unless the
-    // env or config file sets one. These were en-US and America/Denver (the
-    // author's), hidden until 20.0 because the CLI overwrote them with undefined.
-    // Priority: env var > config file > CBrowser default > (system default unused)
-    locale: process.env.CBROWSER_LOCALE || configFile?.locale || undefined,
+    // Priority: env var > config file > built-in default. The locale defaults
+    // to the host's, else en-US (see defaultLocale). The timezone has no
+    // default, so the browser
+    // uses the host's unless the env or config file sets one; it was the
+    // author's America/Denver, hidden until 20.0 because the CLI overwrote it
+    // with undefined.
+    locale: defaultLocale(configFile),
     timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone || undefined,
     colorScheme: (process.env.CBROWSER_COLOR_SCHEME as ColorScheme) || configFile?.colorScheme,
     recordVideo: process.env.CBROWSER_RECORD_VIDEO === "true" || configFile?.recordVideo || false,

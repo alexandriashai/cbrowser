@@ -20,7 +20,7 @@
  */
 
 export { CBrowser, launchBrowserWithFallback, isBrowserNotInstalledError, installPlaywrightBrowsers, getBrowserInstallErrorMessage } from "./browser.js";
-export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig } from "./config.js";
+export { getDefaultConfig, getPaths, ensureDirectories, mergeConfig, defaultLocale, hostLocale, localeTag, DEFAULT_LOCALE } from "./config.js";
 export type { CBrowserConfig, CBrowserPaths, BrowserType } from "./config.js";
 export { getGeoProxy, listGeoRegions, isGeoProxyConfigured } from "./geo-proxy.js";
 export * from "./types.js";

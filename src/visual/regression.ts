@@ -234,6 +234,9 @@ export async function captureVisualBaseline(
       // The scheme it rendered with, from the options or CBROWSER_COLOR_SCHEME,
       // so the test renders dark against a dark baseline.
       ...(browser.colorScheme ? { colorScheme: browser.colorScheme } : {}),
+      // The locale too: a site that picks its language from Accept-Language
+      // serves another page in another one, and the default follows the host.
+      locale: browser.locale,
       timestamp: new Date().toISOString(),
       selector: options.selector,
     };
@@ -356,10 +359,11 @@ export function resolveBaselineTarget(device: string | undefined): {
  * touch, pixel ratio); a viewport with it sets the size. Neither: 1920x1080,
  * the size baselines have always defaulted to.
  */
-function browserForTarget(target: { device?: string; viewport?: { width: number; height: number }; colorScheme?: ColorScheme }): CBrowser {
+function browserForTarget(target: { device?: string; viewport?: { width: number; height: number }; colorScheme?: ColorScheme; locale?: string }): CBrowser {
   return new CBrowser({
     ...(target.device ? { device: target.device } : {}),
     ...(target.colorScheme ? { colorScheme: target.colorScheme } : {}),
+    ...(target.locale ? { locale: target.locale } : {}),
     viewportWidth: target.viewport?.width ?? 1920,
     viewportHeight: target.viewport?.height ?? 1080,
     ...(target.device && target.viewport ? { viewportOverride: target.viewport } : {}),
@@ -388,6 +392,7 @@ export async function captureSmartBaseline(
     device?: string;
     viewport?: { width: number; height: number };
     colorScheme?: ColorScheme;
+    locale?: string;
     waitFor?: string | number;
     numCaptures?: number;
     captureDelay?: number;
@@ -404,6 +409,7 @@ export async function captureSmartBaseline(
     ...resolveBaselineTarget(options.device),
     ...(options.viewport ? { viewport: options.viewport } : {}),
     ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
+    ...(options.locale ? { locale: options.locale } : {}),
   };
   const browser = browserForTarget(target);
   let renderedViewport: { width: number; height: number } | undefined;
@@ -471,6 +477,7 @@ export async function captureSmartBaseline(
   if (target.device) baseline.device = target.device;
   if (renderedViewport) baseline.viewport = renderedViewport;
   if (browser.colorScheme) baseline.colorScheme = browser.colorScheme;
+  baseline.locale = browser.locale;
 
   // Save to index
   const baselines = loadSmartBaselines();
@@ -582,7 +589,7 @@ export async function runSmartRegression(
 
   // Capture current screenshot at the baseline's own device and size (M6).
   // Baselines from before 2026-10-21 carry neither and keep 1920x1080.
-  const browser = browserForTarget({ device: baseline.device, viewport: baseline.viewport, colorScheme: baseline.colorScheme });
+  const browser = browserForTarget({ device: baseline.device, viewport: baseline.viewport, colorScheme: baseline.colorScheme, locale: baseline.locale });
   const region = baseline.viewport ?? { width: 1920, height: 1080 };
 
   // Session screenshots dir, where retention applies (v8 B36). Time plus
@@ -731,8 +738,8 @@ export async function runRegressionWithTransportMap(
   // Capture current screenshot
   // At the baseline's device and size (M6); a regular baseline records both too.
   const captureTarget = smartBaseline
-    ? { device: smartBaseline.device, viewport: smartBaseline.viewport, colorScheme: smartBaseline.colorScheme }
-    : { device: regularBaseline!.device, viewport: regularBaseline!.viewport, colorScheme: regularBaseline!.colorScheme };
+    ? { device: smartBaseline.device, viewport: smartBaseline.viewport, colorScheme: smartBaseline.colorScheme, locale: smartBaseline.locale }
+    : { device: regularBaseline!.device, viewport: regularBaseline!.viewport, colorScheme: regularBaseline!.colorScheme, locale: regularBaseline!.locale };
   const browser = browserForTarget(captureTarget);
   // Session screenshots dir, where retention applies (v8 B36).
   const currentPath = join(getCurrentCaptureDir(), `current-${uniqueStamp()}.png`);
@@ -1258,6 +1265,7 @@ export async function runVisualRegression(
     device: baseline.device,
     viewport: baseline.viewport,
     colorScheme: baseline.colorScheme,
+    locale: baseline.locale,
   }));
 
   try {

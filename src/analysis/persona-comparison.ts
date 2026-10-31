@@ -43,6 +43,8 @@ export interface ComparePersonasOptions {
   headless?: boolean;
   /** Device preset every journey emulates (devices.ts) */
   device?: string;
+  /** Locale every journey uses, over each persona's own (since 21.2) */
+  locale?: string;
   /** Page size for every journey; wins over the device preset's size */
   viewport?: { width: number; height: number };
   /** Enable vision mode (send screenshots to Claude) */
@@ -118,6 +120,7 @@ export async function comparePersonas(
     headless = true,
     device,
     viewport,
+    locale,
     vision = true, // Vision ON by default (v17.1.0) - text-only misses rendered content
   } = options;
 
@@ -164,6 +167,7 @@ export async function comparePersonas(
           // The CLI's --device and --viewport never reached the journeys (audit D20).
           device,
           viewport,
+          ...(locale ? { location: { locale } } : {}),
           // A fresh profile per journey: these run concurrently, and only one browser can
           // own the shared persistent profile (cognitive/index.ts). Each persona also
           // starts as a new visitor, not inside the user's logged-in session.

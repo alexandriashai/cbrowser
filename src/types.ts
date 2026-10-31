@@ -3844,7 +3844,7 @@ export interface PerformanceBaseline {
     device?: string;
     connection?: string;
     /** The device and page size the capture was asked for; a regression check renders with the same */
-    requested?: { device?: string; viewport?: { width: number; height: number } };
+    requested?: { device?: string; viewport?: { width: number; height: number }; locale?: string };
   };
 }
 
@@ -4110,6 +4110,8 @@ export interface VisualBaseline {
   browser?: SupportedBrowser;
   /** prefers-color-scheme the capture rendered with, when one was set; a test renders with the same one */
   colorScheme?: "light" | "dark" | "no-preference";
+  /** Locale the capture rendered with (since 21.2); a test renders with the same one. Older baselines: the current default. */
+  locale?: string;
   /** Timestamp of capture */
   timestamp: string;
   /** Optional element selector for partial screenshot */
@@ -4257,6 +4259,8 @@ export interface BrowserLaunchOptions {
   viewport?: { width: number; height: number };
   /** prefers-color-scheme. Unset: CBROWSER_COLOR_SCHEME or the config file (since 21.1). */
   colorScheme?: "light" | "dark" | "no-preference";
+  /** Locale (navigator.language, Intl, Accept-Language). Unset: defaultLocale() (since 21.2). */
+  locale?: string;
 }
 
 /**

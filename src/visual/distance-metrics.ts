@@ -641,6 +641,8 @@ export interface SmartBaseline {
   viewport?: { width: number; height: number };
   /** prefers-color-scheme the captures used, when one was set (since 21.1) */
   colorScheme?: "light" | "dark" | "no-preference";
+  /** Locale the captures used (since 21.2; older baselines: the current default) */
+  locale?: string;
 }
 
 /**

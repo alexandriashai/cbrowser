@@ -17,7 +17,7 @@ import { isStaleSingletonLock } from "./utils.js";
 import { join, dirname } from "path";
 import { execSync } from "child_process";
 
-import { type CBrowserConfig, mergeConfig, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme } from "./config.js";
+import { type CBrowserConfig, mergeConfig, defaultLocale, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme } from "./config.js";
 import { getPersonaOrRefuse } from "./personas.js";
 import type {
   SavedSession,
@@ -772,16 +772,18 @@ For more help: https://playwright.dev/docs/browsers
       contextOptions.permissions = ["geolocation"];
     }
 
-    // Apply locale if configured — sets navigator.language AND Accept-Language header
-    // This makes sites that respect Accept-Language serve localized content
-    if (this.config.locale) {
-      contextOptions.locale = this.config.locale;
-      const lang = this.config.locale.split("-")[0];
-      contextOptions.extraHTTPHeaders = {
-        ...contextOptions.extraHTTPHeaders,
-        "Accept-Language": `${this.config.locale},${lang};q=0.9,en;q=0.5`,
-      };
-    }
+    // Locale, always (this.locale: the configured one, else defaultLocale()).
+    // Playwright's locale sets navigator.language, Intl and Accept-Language,
+    // the same value on documents, frames, subresources and fetch in chromium,
+    // firefox and webkit (measured 2026-10-31). It used to apply only when
+    // configured, and nothing configured it, so Chromium sent no
+    // Accept-Language at all. With a locale, it also added a header built by
+    // hand ("fr-FR,fr;q=0.9,en;q=0.5"; "en-US,en;q=0.9,en;q=0.5" repeats "en"):
+    // Firefox and WebKit sent that on every request, Chromium only on
+    // subresources and fetch, its documents and frames keeping the bare locale.
+    // One value everywhere costs that fallback list; RFC 4647 lookup still
+    // reduces "fr-FR" to "fr".
+    contextOptions.locale = this.locale;
 
     // Apply timezone if configured
     if (this.config.timezone) {
@@ -2116,6 +2118,14 @@ For more help: https://playwright.dev/docs/browsers
   /** The color scheme pages render with, or null for the browser default. */
   get colorScheme(): ColorScheme | null {
     return this.config.colorScheme ?? null;
+  }
+
+  /**
+   * The locale this browser's contexts get: the configured one, else
+   * defaultLocale(). An empty string counts as unset (`--locale=`).
+   */
+  get locale(): string {
+    return this.config.locale || defaultLocale();
   }
 
   /**

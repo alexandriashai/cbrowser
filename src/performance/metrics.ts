@@ -224,14 +224,14 @@ export async function capturePerformanceBaseline(
   url: string,
   options: PerformanceBaselineOptions = {}
 ): Promise<PerformanceBaseline> {
-  const { runs = 3, name, headless = true, device, viewport, throttle } = options;
+  const { runs = 3, name, headless = true, device, viewport, locale, throttle } = options;
   const paths = getPaths();
   ensureDirectories();
 
   // device was accepted and never reached the browser, and nor did a viewport
   // (audit D20). Both are recorded as `requested`, so a regression check
   // renders the same page shape.
-  const requested = { ...(device ? { device } : {}), ...(viewport ? { viewport } : {}) };
+  const requested = { ...(device ? { device } : {}), ...(viewport ? { viewport } : {}), ...(locale ? { locale } : {}) };
   const browser = new CBrowser(browserLaunchConfig({ headless, ...requested }));
   const allMetrics: PerformanceMetrics[] = [];
   let rendered: { width: number; height: number } | null = null;

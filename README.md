@@ -93,7 +93,7 @@ Since 20.0 nothing falls back to a keyless guess. The old keyless modes of `expl
 
 **Behaviour you may notice**
 - The default page size is **1920x1080** (was 1280x800), the size `desktop` means everywhere else. Set `CBROWSER_VIEWPORT_WIDTH`/`CBROWSER_VIEWPORT_HEIGHT` or `viewport` in the config file to keep the old size.
-- Pages render in the host's locale and timezone unless you set `--locale`/`--timezone`, `CBROWSER_LOCALE`/`CBROWSER_TIMEZONE` or the config file (it was en-US and America/Denver). Env vars and the config file are no longer overridden by built-in values.
+- Pages render in the host's locale and timezone unless you set `--locale`/`--timezone`, `CBROWSER_LOCALE`/`CBROWSER_TIMEZONE` or the config file (it was en-US and America/Denver). Env vars and the config file are no longer overridden by built-in values. *(Until 21.2.0 this held only for Chromium's page, which sent no `Accept-Language` header at all, while Firefox and WebKit used en-US. Since 21.2.0 the host's language, or en-US when the host names none, reaches the page and the header in all three engines.)*
 - A one-off `--device` or `--geo` no longer sticks to later commands.
 - `explore`, `CBrowser.journey()` and `competitive-benchmark` need an Anthropic API key. Their keyless heuristic modes are gone (see above).
 - Commands that fail exit 1. That includes unknown subcommands, failed clicks and navigations through the daemon, `record start/stop/save` (which never recorded across commands and now refuse), `perf audit` and `visual compare` failures, and `daemon status` when nothing is running.
@@ -583,7 +583,8 @@ Environment variables override the config file, and command-line flags override 
 | `CBROWSER_BROWSER` | `chromium` | `chromium`, `firefox` or `webkit` |
 | `CBROWSER_VIEWPORT_WIDTH` / `CBROWSER_VIEWPORT_HEIGHT` | `1920` / `1080` | Default page size |
 | `CBROWSER_DEVICE` | none | Default device preset |
-| `CBROWSER_LOCALE` / `CBROWSER_TIMEZONE` | the host's | Browser locale and timezone |
+| `CBROWSER_LOCALE` | the host's (`LANGUAGE`, `LC_ALL`, `LC_MESSAGES`, `LANG`), else `en-US` | Browser locale: `navigator.language`, `Intl` and the `Accept-Language` header on every request |
+| `CBROWSER_TIMEZONE` | the host's | Browser timezone |
 | `CBROWSER_TIMEOUT` | `30000` | Default timeout (ms) |
 | `CBROWSER_PROXY` | none | Proxy URL (or `CBROWSER_PROXY_SERVER`, `_USERNAME`, `_PASSWORD`) |
 | `CBROWSER_RECORD_VIDEO` | `false` | Record video of browser sessions |
