@@ -3543,6 +3543,10 @@ export interface CBrowserConfigFile {
   locale?: string;
   timezone?: string;
   colorScheme?: "light" | "dark" | "no-preference";
+  /** Send Do Not Track (DNT: 1). CBROWSER_DNT wins over it. */
+  doNotTrack?: boolean;
+  /** Send Global Privacy Control (Sec-GPC: 1). CBROWSER_GPC wins over it. */
+  globalPrivacyControl?: boolean;
   recordVideo?: boolean;
   networkMocks?: NetworkMock[];
   performanceBudget?: PerformanceBudget;
@@ -3844,7 +3848,10 @@ export interface PerformanceBaseline {
     device?: string;
     connection?: string;
     /** The device and page size the capture was asked for; a regression check renders with the same */
-    requested?: { device?: string; viewport?: { width: number; height: number }; locale?: string };
+    requested?: {
+      device?: string; viewport?: { width: number; height: number }; locale?: string;
+      doNotTrack?: boolean; globalPrivacyControl?: boolean;
+    };
   };
 }
 
@@ -4112,6 +4119,10 @@ export interface VisualBaseline {
   colorScheme?: "light" | "dark" | "no-preference";
   /** Locale the capture rendered with (since 21.2); a test renders with the same one. Older baselines: the current default. */
   locale?: string;
+  /** Whether the capture sent Do Not Track (since 21.3); a test sends the same. Older baselines: the current default. */
+  doNotTrack?: boolean;
+  /** Whether the capture sent Global Privacy Control (since 21.3); a test sends the same. Older baselines: the current default. */
+  globalPrivacyControl?: boolean;
   /** Timestamp of capture */
   timestamp: string;
   /** Optional element selector for partial screenshot */
@@ -4261,6 +4272,10 @@ export interface BrowserLaunchOptions {
   colorScheme?: "light" | "dark" | "no-preference";
   /** Locale (navigator.language, Intl, Accept-Language). Unset: defaultLocale() (since 21.2). */
   locale?: string;
+  /** Send Do Not Track. Unset: CBROWSER_DNT, the config file, else off (since 21.3). */
+  doNotTrack?: boolean;
+  /** Send Global Privacy Control. Unset: CBROWSER_GPC, the config file, else off (since 21.3). */
+  globalPrivacyControl?: boolean;
 }
 
 /**

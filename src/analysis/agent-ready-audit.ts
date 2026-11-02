@@ -17,7 +17,8 @@ import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
 import { navigationError } from "../navigation-errors.js";
 import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
-import { defaultLocale } from "../config.js";
+import { defaultLocale, privacySignalsFor } from "../config.js";
+import { addPrivacyInitScript, privacySetup } from "../privacy-signals.js";
 import type {
   AgentReadyAuditResult,
   AgentReadyIssue,
@@ -2620,11 +2621,21 @@ export async function runAgentReadyAudit(
         // 2026-10-31). Lightpanda itself gets only a locale the caller names:
         // whether it honours the emulation has not been measured.
         const locale = options.locale ?? (result.isLightpanda ? undefined : defaultLocale());
+        // Do Not Track and GPC, when on, for the Playwright fallback (chromium)
+        // only, for the same reason: Lightpanda's handling of extra headers and
+        // init scripts has not been measured, so it gets neither, and says so.
+        const signals = privacySignalsFor();
+        if (result.isLightpanda && (signals.doNotTrack || signals.globalPrivacyControl)) {
+          console.warn("⚠ Lightpanda: Do Not Track and Global Privacy Control are not sent on this audit");
+        }
+        const privacy = result.isLightpanda ? {} : privacySetup("chromium", signals);
         const context = await browser.newContext({
           viewport: { width: 1920, height: 1080 },
           ...(locale ? { locale } : {}),
           ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
+          ...(privacy.extraHTTPHeaders ? { extraHTTPHeaders: privacy.extraHTTPHeaders } : {}),
         });
+        await addPrivacyInitScript(context, privacy);
         page = await context.newPage();
       } else {
         const cbrowser = new CBrowser({

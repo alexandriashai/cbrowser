@@ -52,6 +52,12 @@ export function parseArgs(args: string[], booleanFlags: ReadonlySet<string> = BO
         const value = quoted.value;
         i += quoted.extra;
         options[key] = booleanFlags.has(key) && (value === "true" || value === "false") ? value === "true" : value;
+        // --no-x=true means --no-x and --no-x=false means --x, as the bare
+        // --no-x below sets x. Before, --no-dnt=true set only "no-dnt" and the
+        // signal stayed on. Any other value (--no-cache=foo) is not inverted.
+        if (key.startsWith("no-") && key.length > 3 && (value === "true" || value === "false")) {
+          options[key.slice(3)] = value === "false";
+        }
         continue;
       }
 
@@ -123,8 +129,8 @@ function joinCurlyQuoted(
  */
 export const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   "attention-overlay", "auto-apply", "capture", "clear", "comprehensive",
-  "contact-sheet", "continue-on-failure", "dismiss-overlays", "dry-run",
-  "expect-truthy", "force", "full-page", "fuzzy-match", "headless", "help",
+  "contact-sheet", "continue-on-failure", "dismiss-overlays", "dnt", "dry-run",
+  "expect-truthy", "force", "full-page", "fuzzy-match", "gpc", "headless", "help",
   "html", "json", "json-output", "keep-config", "lightpanda", "offline",
   "persistent", "plain", "quiet", "raw", "record-video", "restore",
   "screenshot-on-failure", "stateful", "step-through", "text", "trace",

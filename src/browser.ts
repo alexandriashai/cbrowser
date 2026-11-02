@@ -17,7 +17,8 @@ import { isStaleSingletonLock } from "./utils.js";
 import { join, dirname } from "path";
 import { execSync } from "child_process";
 
-import { type CBrowserConfig, mergeConfig, defaultLocale, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme } from "./config.js";
+import { type CBrowserConfig, mergeConfig, defaultLocale, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme, type PrivacySignals } from "./config.js";
+import { addPrivacyInitScript, privacySetup } from "./privacy-signals.js";
 import { getPersonaOrRefuse } from "./personas.js";
 import type {
   SavedSession,
@@ -795,6 +796,16 @@ For more help: https://playwright.dev/docs/browsers
       contextOptions.colorScheme = this.config.colorScheme;
     }
 
+    // Do Not Track and Global Privacy Control (privacy-signals.ts): Firefox's
+    // own preferences at launch, always both; in chromium and webkit, when on,
+    // the headers here and navigator's values by init script once the context
+    // exists.
+    const privacy = privacySetup(this.config.browser, this.privacySignals);
+    if (privacy.extraHTTPHeaders) {
+      contextOptions.extraHTTPHeaders = privacy.extraHTTPHeaders;
+    }
+    const privacyLaunch = privacy.firefoxUserPrefs ? { firefoxUserPrefs: privacy.firefoxUserPrefs } : {};
+
     // Enable video recording if configured
     if (this.config.recordVideo) {
       const videoDir = this.config.videoDir || join(this.paths.dataDir, "videos");
@@ -863,7 +874,9 @@ For more help: https://playwright.dev/docs/browsers
           env: this.config.launchEnv ? { ...process.env, ...this.config.launchEnv } as Record<string, string> : undefined,
           ...contextOptions,
           ...proxyOptions,
+          ...privacyLaunch,
         });
+        await addPrivacyInitScript(this.context, privacy);
         this.page = this.context.pages()[0] || await this.context.newPage();
         // Restore cookies snapshotted on the previous close — in particular
         // session cookies, which the persistent userDataDir drops between CLI
@@ -893,8 +906,10 @@ For more help: https://playwright.dev/docs/browsers
           args: launchArgs,
           env: this.config.launchEnv ? { ...process.env, ...this.config.launchEnv } as Record<string, string> : undefined,
           ...proxyOptions,
+          ...privacyLaunch,
         });
         this.context = await this.browser.newContext(contextOptions);
+        await addPrivacyInitScript(this.context, privacy);
         this.page = await this.context.newPage();
         if (this.config.verbose && this.config.proxy) {
           console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
@@ -2126,6 +2141,14 @@ For more help: https://playwright.dev/docs/browsers
    */
   get locale(): string {
     return this.config.locale || defaultLocale();
+  }
+
+  /** Whether this browser's contexts send Do Not Track and Global Privacy Control. */
+  get privacySignals(): Required<PrivacySignals> {
+    return {
+      doNotTrack: this.config.doNotTrack === true,
+      globalPrivacyControl: this.config.globalPrivacyControl === true,
+    };
   }
 
   /**

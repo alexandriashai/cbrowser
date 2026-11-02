@@ -154,6 +154,32 @@ describe("daemon start --device --viewport", () => {
     }
   }, TIMEOUT * 3);
 
+  test("daemon start forwards --dnt and --gpc, and a routed command's own --no-dnt is named as not applying", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cb-daemon-privacy-"));
+    try {
+      const daemonPort = String(await freePort());
+      const start = await cli(dir, "daemon", "start", "--port", daemonPort, "--dnt", "--gpc");
+      expect(start.code, start.stdout + start.stderr).toBe(0);
+      // Starting it again with --no-dnt says the flag was not applied.
+      const again = await cli(dir, "daemon", "start", "--port", daemonPort, "--no-dnt");
+      expect(again.stderr).toContain("The browser flags were not applied");
+      const signals = "JSON.stringify([navigator.doNotTrack, navigator.globalPrivacyControl])";
+      const r = await cli(dir, "evaluate", signals, "--url", `${fixtures.base}static.html`, "--raw", "--force");
+      expect(r.code, r.stderr).toBe(0);
+      expect(lastLine(r.stdout)).toBe('["1",true]');
+      const own = await cli(dir, "evaluate", signals, "--no-dnt", "--raw", "--force");
+      expect(own.stderr).toContain("--dnt do not apply to commands the daemon runs");
+      expect(lastLine(own.stdout)).toBe('["1",true]');
+    } finally {
+      await cli(dir, "daemon", "stop").catch(() => {});
+      try {
+        const state = JSON.parse(readFileSync(join(dir, "daemon.json"), "utf8"));
+        if (state.pid) process.kill(state.pid);
+      } catch { /* stopped */ }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 3);
+
   test("an unknown device fails before a daemon starts", async () => {
     const r = await cli(lonelyDir, "daemon", "start", "--port", String(await freePort()), "--device", "iphone-99");
     expect(r.code).toBe(1);

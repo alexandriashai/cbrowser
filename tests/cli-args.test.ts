@@ -63,6 +63,11 @@ describe("the inversion does not overreach", () => {
     expect(o.cache).toBeUndefined();
   });
 
+  test("--no-x=true and --no-x=false invert, as the bare forms do", () => {
+    expect(opts(["--no-dnt=true"]).dnt).toBe(false);
+    expect(opts(["--no-dnt=false"]).dnt).toBe(true);
+  });
+
   test("a bare --no is not treated as a negation", () => {
     expect(opts(["--no"])["no"]).toBe(true);
     expect(Object.keys(opts(["--no"]))).toEqual(["no"]);

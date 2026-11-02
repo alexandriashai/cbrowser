@@ -92,6 +92,10 @@ export interface CBrowserConfig {
   timezone?: string;
   /** Color scheme preference */
   colorScheme?: ColorScheme;
+  /** Send Do Not Track: DNT: 1 on the browser's requests, navigator.doNotTrack "1" (since 21.3; coverage in privacy-signals.ts) */
+  doNotTrack?: boolean;
+  /** Send Global Privacy Control: Sec-GPC: 1 on the browser's requests, navigator.globalPrivacyControl true (since 21.3) */
+  globalPrivacyControl?: boolean;
   /** Record video of sessions */
   recordVideo?: boolean;
   /** Video output directory */
@@ -253,6 +257,55 @@ export function defaultLocale(configFile: CBrowserConfigFile | null = loadConfig
 }
 
 /**
+ * A privacy signal setting (CBROWSER_DNT, CBROWSER_GPC, the config file's
+ * doNotTrack and globalPrivacyControl, --dnt and --gpc): 1, true, on and yes
+ * turn it on, 0, false, off and no turn it off, unset or blank leaves it
+ * unset. Anything else is refused with `name` in the message, so a typo
+ * cannot quietly leave a signal off.
+ */
+export function privacyFlag(value: unknown, name: string): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "boolean") return value;
+  const text = String(value).trim().toLowerCase();
+  if (text === "") return undefined;
+  if (["1", "true", "on", "yes"].includes(text)) return true;
+  if (["0", "false", "off", "no"].includes(text)) return false;
+  throw new Error(`${name} must be 1 or 0 (or true or false), got "${String(value)}"`);
+}
+
+/** Do Not Track and Global Privacy Control, the two opt-out signals a browser can send. */
+export interface PrivacySignals {
+  /** DNT: 1 on the browser's requests, navigator.doNotTrack "1" */
+  doNotTrack?: boolean;
+  /** Sec-GPC: 1 on the browser's requests, navigator.globalPrivacyControl true */
+  globalPrivacyControl?: boolean;
+}
+
+/**
+ * The privacy signals for a browser whose caller names none: CBROWSER_DNT and
+ * CBROWSER_GPC, then the config file, else off. Off is what Playwright's
+ * engines do on their own: measured 2026-11-02, chromium, firefox and webkit
+ * send neither header on any request unless asked.
+ */
+export function defaultPrivacySignals(configFile: CBrowserConfigFile | null = loadConfigFile(getDataDir())): Required<PrivacySignals> {
+  return {
+    doNotTrack: privacyFlag(process.env.CBROWSER_DNT, "CBROWSER_DNT")
+      ?? privacyFlag(configFile?.doNotTrack, "doNotTrack in the config file") ?? false,
+    globalPrivacyControl: privacyFlag(process.env.CBROWSER_GPC, "CBROWSER_GPC")
+      ?? privacyFlag(configFile?.globalPrivacyControl, "globalPrivacyControl in the config file") ?? false,
+  };
+}
+
+/** Each signal as `given` sets it, else the default: for the code that builds a context without CBrowser. */
+export function privacySignalsFor(given: PrivacySignals = {}): Required<PrivacySignals> {
+  const defaults = defaultPrivacySignals();
+  return {
+    doNotTrack: given.doNotTrack ?? defaults.doNotTrack,
+    globalPrivacyControl: given.globalPrivacyControl ?? defaults.globalPrivacyControl,
+  };
+}
+
+/**
  * Get default configuration, merging with environment variables and config file.
  */
 export function getDefaultConfig(): CBrowserConfig {
@@ -314,6 +367,7 @@ export function getDefaultConfig(): CBrowserConfig {
     locale: defaultLocale(configFile),
     timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone || undefined,
     colorScheme: (process.env.CBROWSER_COLOR_SCHEME as ColorScheme) || configFile?.colorScheme,
+    ...defaultPrivacySignals(configFile),
     recordVideo: process.env.CBROWSER_RECORD_VIDEO === "true" || configFile?.recordVideo || false,
     videoDir: join(dataDir, "videos"),
     networkMocks: configFile?.networkMocks,

@@ -224,14 +224,18 @@ export async function capturePerformanceBaseline(
   url: string,
   options: PerformanceBaselineOptions = {}
 ): Promise<PerformanceBaseline> {
-  const { runs = 3, name, headless = true, device, viewport, locale, throttle } = options;
+  const { runs = 3, name, headless = true, device, viewport, locale, doNotTrack, globalPrivacyControl, throttle } = options;
   const paths = getPaths();
   ensureDirectories();
 
   // device was accepted and never reached the browser, and nor did a viewport
   // (audit D20). Both are recorded as `requested`, so a regression check
   // renders the same page shape.
-  const requested = { ...(device ? { device } : {}), ...(viewport ? { viewport } : {}), ...(locale ? { locale } : {}) };
+  const requested = {
+    ...(device ? { device } : {}), ...(viewport ? { viewport } : {}), ...(locale ? { locale } : {}),
+    ...(doNotTrack !== undefined ? { doNotTrack } : {}),
+    ...(globalPrivacyControl !== undefined ? { globalPrivacyControl } : {}),
+  };
   const browser = new CBrowser(browserLaunchConfig({ headless, ...requested }));
   const allMetrics: PerformanceMetrics[] = [];
   let rendered: { width: number; height: number } | null = null;
@@ -290,7 +294,9 @@ export async function capturePerformanceBaseline(
       viewport: rendered ?? { width: 1280, height: 800 },
       device,
       connection: throttle,
-      ...(Object.keys(requested).length > 0 ? { requested } : {}),
+      // With the privacy signals the browser sent, given or from CBROWSER_DNT /
+      // CBROWSER_GPC, so a regression check sends the same (since 21.3).
+      requested: { ...requested, ...browser.privacySignals },
     },
   };
 

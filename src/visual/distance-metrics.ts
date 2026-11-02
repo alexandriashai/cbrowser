@@ -643,6 +643,10 @@ export interface SmartBaseline {
   colorScheme?: "light" | "dark" | "no-preference";
   /** Locale the captures used (since 21.2; older baselines: the current default) */
   locale?: string;
+  /** Whether the captures sent Do Not Track (since 21.3; older baselines: the current default) */
+  doNotTrack?: boolean;
+  /** Whether the captures sent Global Privacy Control (since 21.3; older baselines: the current default) */
+  globalPrivacyControl?: boolean;
 }
 
 /**

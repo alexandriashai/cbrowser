@@ -133,3 +133,6 @@ tests/bun-extra-stdio-late-close-browser.test.ts
 # Opens a page in chromium, firefox and webkit and in crossBrowserDiff, and
 # reads the Accept-Language each request carried.
 tests/accept-language-browser.test.ts
+# Opens a page in chromium, firefox and webkit, crossBrowserDiff and the CLI,
+# and reads the DNT and Sec-GPC each request carried.
+tests/privacy-signals-browser.test.ts

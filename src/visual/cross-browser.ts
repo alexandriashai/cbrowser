@@ -14,7 +14,8 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { defaultLocale, effectiveDataDir, getPaths } from "../config.js";
+import { defaultLocale, effectiveDataDir, getPaths, privacySignalsFor } from "../config.js";
+import { addPrivacyInitScript, privacySetup } from "../privacy-signals.js";
 import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser } from "../browser.js";
@@ -106,7 +107,10 @@ async function captureWithBrowser(
   const browser = new CBrowser({
     viewportWidth: 1920,
     viewportHeight: 1080,
-    ...browserLaunchConfig({ headless: options.headless, device: options.device, viewport: options.viewport, locale: options.locale }),
+    ...browserLaunchConfig({
+      headless: options.headless, device: options.device, viewport: options.viewport, locale: options.locale,
+      doNotTrack: options.doNotTrack, globalPrivacyControl: options.globalPrivacyControl,
+    }),
     browser: browserType,
   });
 
@@ -746,6 +750,9 @@ export async function crossBrowserDiff(
     if ("error" in resolved) throw new Error(resolved.error);
     descriptor = DEVICE_PRESETS[resolved.key];
   }
+  // Do Not Track and GPC the same way as the locale below: the caller's, else
+  // the default, set per engine below (privacy-signals.ts).
+  const privacy = privacySignalsFor(options);
   const contextOptions = {
     viewport: options.viewport ?? descriptor?.viewport ?? { width: 1920, height: 1080 },
     // This page skips CBrowser, so it takes the locale here: the caller's,
@@ -801,8 +808,16 @@ export async function crossBrowserDiff(
     const launcher = browserLaunchers[browserName];
     let browser: any = null;
     try {
-      browser = await launcher.launch({ headless: options.headless ?? true });
-      const page = await browser.newPage(contextOptions);
+      const setup = privacySetup(browserName, privacy);
+      browser = await launcher.launch({
+        headless: options.headless ?? true,
+        ...(setup.firefoxUserPrefs ? { firefoxUserPrefs: setup.firefoxUserPrefs } : {}),
+      });
+      const page = await browser.newPage({
+        ...contextOptions,
+        ...(setup.extraHTTPHeaders ? { extraHTTPHeaders: setup.extraHTTPHeaders } : {}),
+      });
+      await addPrivacyInitScript(page, setup);
 
       const startTime = Date.now();
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })

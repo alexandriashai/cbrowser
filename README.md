@@ -315,7 +315,7 @@ cbrowser daemon stop
 
 While the daemon runs, `navigate`, `click`, `fill`, `hover`, `type`, `press`, `keyboard`, `screenshot`, `extract`, `run`, `scroll`, `evaluate`, `capture`, `har`, `network` and `console` use its browser. Commands that would open a second browser on its profile refuse until you stop it.
 
-Global browser flags work on every command that opens a browser: `--device <name>` (200+ presets; `cbrowser device list`), `--viewport 390x844` or a size name, `--browser chromium|firefox|webkit`, `--geo <preset or lat,lon>`, `--locale`, `--timezone`, `--color-scheme light|dark|no-preference` (what the page's `prefers-color-scheme` sees; also `CBROWSER_COLOR_SCHEME`), `--no-headless` and `--no-persistent`. Flags also take `--flag=value`.
+Global browser flags work on every command that opens a browser: `--device <name>` (200+ presets; `cbrowser device list`), `--viewport 390x844` or a size name, `--browser chromium|firefox|webkit`, `--geo <preset or lat,lon>`, `--locale`, `--timezone`, `--color-scheme light|dark|no-preference` (what the page's `prefers-color-scheme` sees; also `CBROWSER_COLOR_SCHEME`), `--dnt` and `--gpc` (send Do Not Track and Global Privacy Control; also `CBROWSER_DNT` and `CBROWSER_GPC`), `--no-headless` and `--no-persistent`. Flags also take `--flag=value`.
 
 ---
 
@@ -585,6 +585,8 @@ Environment variables override the config file, and command-line flags override 
 | `CBROWSER_DEVICE` | none | Default device preset |
 | `CBROWSER_LOCALE` | the host's (`LANGUAGE`, `LC_ALL`, `LC_MESSAGES`, `LANG`), else `en-US` | Browser locale: `navigator.language`, `Intl` and the `Accept-Language` header on every request |
 | `CBROWSER_TIMEZONE` | the host's | Browser timezone |
+| `CBROWSER_DNT` | `0` | `1`: send Do Not Track, `DNT: 1` on the browser's requests and `navigator.doNotTrack` `"1"` (Firefox natively; Chromium and WebKit leave it off service-worker and WebSocket requests, see `src/privacy-signals.ts`) |
+| `CBROWSER_GPC` | `0` | `1`: send Global Privacy Control, `Sec-GPC: 1` on the browser's requests and `navigator.globalPrivacyControl` `true` (same coverage as `CBROWSER_DNT`) |
 | `CBROWSER_TIMEOUT` | `30000` | Default timeout (ms) |
 | `CBROWSER_PROXY` | none | Proxy URL (or `CBROWSER_PROXY_SERVER`, `_USERNAME`, `_PASSWORD`) |
 | `CBROWSER_RECORD_VIDEO` | `false` | Record video of browser sessions |

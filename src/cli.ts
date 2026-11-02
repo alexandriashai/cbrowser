@@ -47,7 +47,7 @@ import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
 import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
-import { getStatusInfo, formatStatus, getDataDir, getPaths, isColorScheme, localeTag } from "./config.js";
+import { getStatusInfo, formatStatus, getDataDir, getPaths, isColorScheme, localeTag, privacyFlag } from "./config.js";
 import { uniqueStamp } from "./temp-files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
@@ -899,6 +899,11 @@ OPTIONS
   --timezone <tz>             Timezone (e.g., America/New_York)
   --color-scheme <scheme>     Page color scheme: light, dark or no-preference (what
                               the page's prefers-color-scheme media query sees)
+  --dnt                       Send Do Not Track: DNT: 1 on the browser's requests, and
+                              navigator.doNotTrack "1" (--no-dnt: off; default off)
+  --gpc                       Send Global Privacy Control: Sec-GPC: 1 on the browser's
+                              requests, and navigator.globalPrivacyControl true
+                              (--no-gpc: off; default off)
   --record-video              Enable video recording
   --force                     Bypass red zone safety checks (CLI only; over MCP,
                               zone enforcement is opt-in via CBROWSER_ENFORCE_RED_ZONE
@@ -914,6 +919,8 @@ ENVIRONMENT VARIABLES
   CBROWSER_LOCALE             Browser locale (default: the host's, else en-US)
   CBROWSER_TIMEZONE           Timezone
   CBROWSER_COLOR_SCHEME       Page color scheme (light, dark, no-preference)
+  CBROWSER_DNT                Send Do Not Track (1 or 0; default 0)
+  CBROWSER_GPC                Send Global Privacy Control (1 or 0; default 0)
   CBROWSER_HEADLESS           Run headless by default (true/false)
   CBROWSER_TIMEOUT            Default timeout in ms (default: 30000)
   CBROWSER_RECORD_VIDEO       Record video by default (true/false)
@@ -1139,7 +1146,7 @@ const DRIVES_THE_PAGE = [
  */
 const SHARED_BROWSER_FLAGS = [
   "url", "browser", "device", "viewport", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "color-scheme", "verbose",
+  "locale", "timezone", "geo", "color-scheme", "dnt", "gpc", "verbose",
 ];
 
 /**
@@ -3094,6 +3101,26 @@ async function main(): Promise<void> {
     process.env.CBROWSER_LOCALE = tag;
   }
 
+  // --dnt and --gpc (2026-11-02), the same way: each sets its env var for this
+  // run, so every browser the command builds sends the signal. --no-dnt and
+  // --no-gpc set it to 0, which beats a config file that turns it on. A bad
+  // CBROWSER_DNT or CBROWSER_GPC is refused where a browser's config is built
+  // (defaultPrivacySignals), before it opens; commands that open none, such as
+  // doctor and ask, are not stopped by it.
+  for (const [flag, envName] of [["dnt", "CBROWSER_DNT"], ["gpc", "CBROWSER_GPC"]] as const) {
+    try {
+      if (options[flag] !== undefined) {
+        const on = privacyFlag(options[flag], `--${flag}`);
+        if (on === undefined) throw new Error(`--${flag}=<value> must be 1 or 0 (or true or false), got no value`);
+        options[flag] = on;
+        process.env[envName] = on ? "1" : "0";
+      }
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+
   // Doctor command - environment health check (v18.54.0)
   if (command === "doctor") {
     await runDoctor(outputOpts);
@@ -3398,6 +3425,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           if (typeof options[flag] === "string") launchArgs.push(`--${flag}`, options[flag] as string);
         }
         if (colorScheme) launchArgs.push("--color-scheme", colorScheme);
+        for (const flag of ["dnt", "gpc"] as const) {
+          if (typeof options[flag] === "boolean") launchArgs.push(options[flag] ? `--${flag}` : `--no-${flag}`);
+        }
         if (typeof options.geo === "string") {
           if (!parseGeoLocation(options.geo)) {
             console.error(`Error: invalid --geo: ${options.geo} (a preset name or lat,lon)`);
@@ -3494,7 +3524,7 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     console.error("🔌 Connected to running daemon");
     // The daemon's browser keeps the settings it started with; a flag on a
     // command it runs cannot change them, so say so instead of ignoring it.
-    const browserFlags = ["device", "viewport", "browser", "headless", "locale", "timezone", "geo", "color-scheme"]
+    const browserFlags = ["device", "viewport", "browser", "headless", "locale", "timezone", "geo", "color-scheme", "dnt", "gpc"]
       .filter((f) => options[f] !== undefined);
     if (browserFlags.length > 0) {
       console.error(`⚠ ${browserFlags.map((f) => `--${f}`).join(", ")} do not apply to commands the daemon runs: its browser keeps the settings it started with.`);
@@ -5412,6 +5442,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           browser: "a test renders with its baseline's engine; capture a new baseline to change it",
           device: "a test renders with its baseline's device; capture a new baseline to change it",
           viewport: "a test renders at its baseline's size; capture a new baseline to change it",
+          doNotTrack: "a test sends the Do Not Track its baseline was captured with; capture a new baseline to change it",
+          globalPrivacyControl: "a test sends the Global Privacy Control its baseline was captured with; capture a new baseline to change it",
         };
 
         switch (subcommand) {
@@ -7451,6 +7483,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           device: "it renders with the baseline's recorded device; capture a new baseline with perf-baseline save --device",
           viewport: "it renders with the baseline's recorded size; capture a new baseline with perf-baseline save --viewport",
           browser: "performance baselines are measured in Chromium",
+          doNotTrack: "it sends the baseline's recorded Do Not Track; capture a new baseline with perf-baseline save --dnt",
+          globalPrivacyControl: "it sends the baseline's recorded Global Privacy Control; capture a new baseline with perf-baseline save --gpc",
         });
         const sensitivity = (options.sensitivity as string) || "normal";
         if (!["strict", "normal", "ci", "lenient"].includes(sensitivity)) {

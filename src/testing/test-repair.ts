@@ -388,7 +388,10 @@ export async function repairTest(
 
   // Engine, device and viewport too: only headless reached the browser (audit
   // D20). The verify run below uses the same ones.
-  const launch = browserLaunchConfig({ headless, browser: options.browser, device: options.device, viewport: options.viewport, locale: options.locale });
+  const launch = browserLaunchConfig({
+    headless, browser: options.browser, device: options.device, viewport: options.viewport, locale: options.locale,
+    doNotTrack: options.doNotTrack, globalPrivacyControl: options.globalPrivacyControl,
+  });
   const browser = new CBrowser(launch);
   const failureAnalyses: FailureAnalysis[] = [];
   const repairedSteps: NLTestStep[] = [];

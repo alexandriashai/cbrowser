@@ -77,6 +77,9 @@ export function parseBrowserFlags(options: Record<string, string | boolean>): Br
       height: options.height !== undefined ? pixels("height", options.height) : 1080,
     };
   }
+  // --dnt / --gpc, already read as true or false by the CLI (--no-dnt: false).
+  if (typeof options.dnt === "boolean") flags.doNotTrack = options.dnt;
+  if (typeof options.gpc === "boolean") flags.globalPrivacyControl = options.gpc;
 
   return flags;
 }
@@ -91,6 +94,13 @@ export function browserFlagsOrExit(command: string, options: Record<string, stri
   }
 }
 
+/** How a refusal names a flag whose option key is not its flag. */
+const FLAG_NAMES: Partial<Record<BrowserFlag, string>> = {
+  viewport: "--viewport (or --width/--height)",
+  doNotTrack: "--dnt (or --no-dnt)",
+  globalPrivacyControl: "--gpc (or --no-gpc)",
+};
+
 /**
  * Refuse the flags a command cannot honour, naming each and why, and exit 1.
  * A refused flag would otherwise run the command without it and exit 0.
@@ -103,7 +113,7 @@ export function refuseBrowserFlags(
   const refused = (Object.keys(cannot) as BrowserFlag[]).filter((flag) => flags[flag] !== undefined);
   if (refused.length === 0) return;
   for (const flag of refused) {
-    const name = flag === "viewport" ? "--viewport (or --width/--height)" : `--${flag}`;
+    const name = FLAG_NAMES[flag] ?? `--${flag}`;
     console.error(`Error: '${command}' cannot take ${name}: ${cannot[flag]}`);
   }
   process.exit(1);
