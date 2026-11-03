@@ -47,10 +47,13 @@ describe("no constant in the chain registry is dead", () => {
   // Each perturbed build re-derives the totalCTC reference curves (three
   // option pairs x every reference page x 25 personas) under the new constant, so this
   // is a few seconds of chain runs rather than under one; the bound is set
-  // well above it.
+  // well above it. Measured: 13.5 s here, 32.7 s on GitHub's ubuntu-24.04
+  // runner (21.1.0's release), 140 s and 143 s on ubuntu-26.04, which
+  // ubuntu-latest became in October 2026 and which timed out 21.2.0's release
+  // gate twice at 120 s.
   test("every CHAIN_PROVENANCE id, scaled by 1.1 or 0.9, moves a score in the golden matrix", () => {
     expect(deadConstants(CHAIN_PROVENANCE)).toEqual([]);
-  }, 120_000);
+  }, 600_000);
 
   test("the detector goes red on a constant that is read but cannot matter (absence test of the test)", () => {
     // Pin weightSurplus to its registered value INSIDE the build, so the outer
