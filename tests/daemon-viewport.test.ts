@@ -10,7 +10,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createServer } from "node:net";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { serveFixtures } from "./fixtures/serve-fixtures.js";
@@ -36,10 +36,15 @@ async function freePort(): Promise<number> {
 }
 
 async function cli(dir: string, ...args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  return cliAt(dir, dir, ...args);
+}
+
+/** The CLI with its data dir at `dir`, writing its output files to `outDir` (which must exist). */
+async function cliAt(outDir: string, dir: string, ...args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
   const n = runSeq++;
-  const outPath = join(dir, `out-${n}.txt`);
-  const errPath = join(dir, `err-${n}.txt`);
-  const codePath = join(dir, `code-${n}.txt`);
+  const outPath = join(outDir, `out-${n}.txt`);
+  const errPath = join(outDir, `err-${n}.txt`);
+  const codePath = join(outDir, `code-${n}.txt`);
   const proc = Bun.spawn(
     ["bash", "-c", 'bun run "$0" "$@" > "$CB_OUT" 2> "$CB_ERR"; c=$?; echo $c > "$CB_CODE"; exit $c', CLI, ...args],
     {
@@ -179,6 +184,43 @@ describe("daemon start --device --viewport", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, TIMEOUT * 3);
+
+  test("daemon start makes a data dir that does not exist yet (21.1.0 crashed on daemon.log)", async () => {
+    const parent = mkdtempSync(join(tmpdir(), "cb-daemon-fresh-"));
+    const dir = join(parent, "not-yet");
+    try {
+      const start = await cliAt(parent, dir, "daemon", "start", "--port", String(await freePort()));
+      expect(start.stdout + start.stderr).not.toContain("ENOENT");
+      expect(start.code, start.stdout + start.stderr).toBe(0);
+      expect(start.stdout).toContain("Daemon started");
+      expect(existsSync(join(dir, "daemon.log"))).toBe(true);
+    } finally {
+      await cliAt(parent, dir, "daemon", "stop").catch(() => {});
+      try {
+        const state = JSON.parse(readFileSync(join(dir, "daemon.json"), "utf8"));
+        if (state.pid) process.kill(state.pid);
+      } catch { /* stopped */ }
+      rmSync(parent, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 2);
+
+  test("a daemon log that cannot be written is reported, and the daemon still starts", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cb-daemon-nolog-"));
+    mkdirSync(join(dir, "daemon.log")); // a directory: opening it to append fails
+    try {
+      const start = await cli(dir, "daemon", "start", "--port", String(await freePort()));
+      expect(start.code, start.stdout + start.stderr).toBe(0);
+      expect(start.stdout).toContain("Daemon started");
+      expect(start.stderr).toContain("The daemon log could not be written");
+    } finally {
+      await cli(dir, "daemon", "stop").catch(() => {});
+      try {
+        const state = JSON.parse(readFileSync(join(dir, "daemon.json"), "utf8"));
+        if (state.pid) process.kill(state.pid);
+      } catch { /* stopped */ }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT * 2);
 
   test("an unknown device fails before a daemon starts", async () => {
     const r = await cli(lonelyDir, "daemon", "start", "--port", String(await freePort()), "--device", "iphone-99");

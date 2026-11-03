@@ -20,9 +20,9 @@
  */
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "http";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, createWriteStream, renameSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, createWriteStream, renameSync, mkdirSync } from "fs";
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { join } from "path";
+import { dirname, join } from "path";
 import { spawn } from "child_process";
 import { VideoCaptureSession, type VideoCaptureOptions, type VideoCaptureResult } from "./recording/engine.js";
 import { CBrowser } from "./browser.js";
@@ -234,8 +234,11 @@ export async function startDaemon(
     return { success: true, message: `Daemon already running on port ${state.port} (PID: ${state.pid})`, alreadyRunning: true };
   }
 
-  // Start daemon as background process
+  // Start daemon as background process. The data dir may not exist yet (a new
+  // CBROWSER_DATA_DIR): opening the log in it threw ENOENT, unhandled, and
+  // `daemon start` crashed with exit 1 (21.1.0, 2026-11-02).
   const logPath = getDaemonLogPath();
+  mkdirSync(dirname(logPath), { recursive: true, mode: 0o700 });
   const child = spawn(
     process.execPath,
     [process.argv[1], "daemon", "run", "--port", String(port), ...launchArgs],
@@ -247,6 +250,8 @@ export async function startDaemon(
 
   // Write logs to file
   const logStream = createWriteStream(logPath, { flags: "a" });
+  // A log that cannot be written loses the log, not the start.
+  logStream.on("error", (e) => console.error(`⚠ The daemon log could not be written (${logPath}): ${e.message}`));
   child.stdout?.pipe(logStream);
   child.stderr?.pipe(logStream);
 
