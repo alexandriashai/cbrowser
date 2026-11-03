@@ -64,11 +64,13 @@ function loadConfig(): GeoProxyConfig | null {
     };
   }
 
-  // Check config file
-  const configPaths = [
+  // Check config file: the data dir's first (CBROWSER_DATA_DIR, where
+  // uninstall looks for it), then ~/.cbrowser, then the working directory.
+  const configPaths = [...new Set([
+    join(process.env.CBROWSER_DATA_DIR || join(homedir(), ".cbrowser"), "geo-proxy.json"),
     join(homedir(), ".cbrowser", "geo-proxy.json"),
     join(process.cwd(), "geo-proxy.json"),
-  ];
+  ])];
 
   for (const configPath of configPaths) {
     if (existsSync(configPath)) {

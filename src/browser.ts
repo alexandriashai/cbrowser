@@ -19,6 +19,7 @@ import { execSync } from "child_process";
 
 import { type CBrowserConfig, mergeConfig, defaultLocale, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme, type PrivacySignals } from "./config.js";
 import { addPrivacyInitScript, privacySetup } from "./privacy-signals.js";
+import { needsForwarder, startProxyForwarder, NO_WEBRTC_SCRIPT, type ProxyForwarder } from "./proxy-forwarder.js";
 import { getPersonaOrRefuse } from "./personas.js";
 import type {
   SavedSession,
@@ -349,6 +350,8 @@ export class CBrowser {
   private paths: CBrowserPaths;
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
+  /** The local proxy the browser uses in place of one with a login (proxy-forwarder.ts). */
+  private proxyForwarder: ProxyForwarder | null = null;
   /** Contexts whose new pages follow setColorScheme (one listener each). */
   private colorSchemeFollowers = new WeakSet<BrowserContext>();
   private page: Page | null = null;
@@ -676,6 +679,17 @@ For more help: https://playwright.dev/docs/browsers
   async launch(): Promise<void> {
     if (this.browser || this.context) return;
 
+    // An unconfigured geo region, or a Do Not Track / GPC value that is not 1
+    // or 0, from the environment or the config file: refused here, before
+    // anything opens, rather than when the config is built, so commands that
+    // open no browser are not stopped by it (config.ts `invalid`).
+    const unusable = [this.config.invalid?.geoRegion, this.config.invalid?.privacySignals].filter(Boolean);
+    if (unusable.length > 0) {
+      throw new CBrowserError(CBrowserErrorCode.CONFIG_INVALID, unusable.join("; "), {
+        howToFix: "Fix CBROWSER_GEO_REGION, CBROWSER_DNT or CBROWSER_GPC (or the config file), or unset it.",
+      });
+    }
+
     // An unknown device is an error, never a silent desktop render (reported
     // 2026-10-21: "iphone-16" captured 1280x800 and called it success, and so did
     // "Pixel 7" from the MCP tools' own descriptions). Names are normalised here,
@@ -727,8 +741,10 @@ For more help: https://playwright.dev/docs/browsers
         width: this.config.viewportWidth,
         height: this.config.viewportHeight,
       },
-      // Accept self-signed certs when using proxies (SOCKS proxies may alter cert chain)
-      ...(this.config.proxy ? { ignoreHTTPSErrors: true } : {}),
+      // Accept self-signed certs when using proxies (SOCKS proxies may alter cert chain).
+      // Not for a residential region: its exit is a stranger's device and the
+      // tunnel leaves TLS end to end, so a certificate error there is a real one.
+      ...(this.config.proxy && !this.config.geoRegion ? { ignoreHTTPSErrors: true } : {}),
     };
 
     // Apply device emulation if configured
@@ -804,7 +820,13 @@ For more help: https://playwright.dev/docs/browsers
     if (privacy.extraHTTPHeaders) {
       contextOptions.extraHTTPHeaders = privacy.extraHTTPHeaders;
     }
-    const privacyLaunch = privacy.firefoxUserPrefs ? { firefoxUserPrefs: privacy.firefoxUserPrefs } : {};
+    // Through a proxy, WebRTC must not reach STUN servers directly: it would
+    // give the page this machine's own address (measured 2026-11-02, chromium
+    // and firefox both did). Firefox's pref is set either way, as a persistent
+    // profile keeps it.
+    const privacyLaunch = this.config.browser === "firefox"
+      ? { firefoxUserPrefs: { ...privacy.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": !!this.config.proxy } }
+      : privacy.firefoxUserPrefs ? { firefoxUserPrefs: privacy.firefoxUserPrefs } : {};
 
     // Enable video recording if configured
     if (this.config.recordVideo) {
@@ -848,14 +870,27 @@ For more help: https://playwright.dev/docs/browsers
       );
     }
 
-    // Build proxy options for Playwright if configured
+    if (this.config.proxy && this.config.browser === "chromium") {
+      launchArgs.push("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
+    }
+
+    // Build proxy options for Playwright if configured. A proxy with a login is
+    // reached through a local forwarder that holds the login, because
+    // Playwright hands a launch proxy's login to every site in chromium and
+    // webkit (proxy-forwarder.ts).
+    await this.closeProxyForwarder();
+    if (needsForwarder(this.config.proxy)) {
+      this.proxyForwarder = await startProxyForwarder(this.config.proxy);
+    }
     const proxyOptions = this.config.proxy ? {
-      proxy: {
-        server: this.config.proxy.server,
-        username: this.config.proxy.username,
-        password: this.config.proxy.password,
-        bypass: this.config.proxy.bypass?.join(","),
-      },
+      proxy: this.proxyForwarder
+        ? { server: this.proxyForwarder.server, bypass: this.config.proxy.bypass?.join(",") }
+        : {
+            server: this.config.proxy.server,
+            username: this.config.proxy.username,
+            password: this.config.proxy.password,
+            bypass: this.config.proxy.bypass?.join(","),
+          },
     } : {};
 
     // Helper to perform the actual browser launch
@@ -877,6 +912,7 @@ For more help: https://playwright.dev/docs/browsers
           ...privacyLaunch,
         });
         await addPrivacyInitScript(this.context, privacy);
+        if (this.config.proxy && this.config.browser === "webkit") await this.context.addInitScript(NO_WEBRTC_SCRIPT);
         this.page = this.context.pages()[0] || await this.context.newPage();
         // Restore cookies snapshotted on the previous close — in particular
         // session cookies, which the persistent userDataDir drops between CLI
@@ -897,7 +933,7 @@ For more help: https://playwright.dev/docs/browsers
         if (this.config.verbose) {
           console.log(`🔄 Using persistent browser context: ${browserStateDir}`);
           if (this.config.proxy) {
-            console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
+            console.log(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
           }
         }
       } else {
@@ -910,9 +946,10 @@ For more help: https://playwright.dev/docs/browsers
         });
         this.context = await this.browser.newContext(contextOptions);
         await addPrivacyInitScript(this.context, privacy);
+        if (this.config.proxy && this.config.browser === "webkit") await this.context.addInitScript(NO_WEBRTC_SCRIPT);
         this.page = await this.context.newPage();
         if (this.config.verbose && this.config.proxy) {
-          console.log(`🌐 Using proxy: ${this.config.proxy.server}`);
+          console.log(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
         }
       }
 
@@ -949,33 +986,40 @@ For more help: https://playwright.dev/docs/browsers
       }
     };
 
-    // Attempt launch with automatic browser installation fallback
+    // Attempt launch with automatic browser installation fallback. A launch
+    // that fails for good takes its proxy forwarder with it; the retry after
+    // an install still needs it.
     try {
-      await performLaunch();
-    } catch (error) {
-      if (this.isBrowserNotInstalledError(error)) {
-        // Attempt automatic installation
-        const installed = await this.installPlaywrightBrowsers();
-        if (installed) {
-          // Retry launch after installation
-          try {
-            await performLaunch();
-          } catch (retryError) {
-            // Installation succeeded but launch still failed
-            throw new Error(
-              `Browser launch failed after installation. ` +
-              `This may indicate a system configuration issue.\n\n` +
-              `Original error: ${retryError instanceof Error ? retryError.message : String(retryError)}`
-            );
+      try {
+        await performLaunch();
+      } catch (error) {
+        if (this.isBrowserNotInstalledError(error)) {
+          // Attempt automatic installation
+          const installed = await this.installPlaywrightBrowsers();
+          if (installed) {
+            // Retry launch after installation
+            try {
+              await performLaunch();
+            } catch (retryError) {
+              // Installation succeeded but launch still failed
+              throw new Error(
+                `Browser launch failed after installation. ` +
+                `This may indicate a system configuration issue.\n\n` +
+                `Original error: ${retryError instanceof Error ? retryError.message : String(retryError)}`
+              );
+            }
+          } else {
+            // Installation failed - provide actionable instructions
+            throw new Error(this.getBrowserInstallErrorMessage(this.config.browser));
           }
         } else {
-          // Installation failed - provide actionable instructions
-          throw new Error(this.getBrowserInstallErrorMessage(this.config.browser));
+          // Not a browser installation error - re-throw
+          throw error;
         }
-      } else {
-        // Not a browser installation error - re-throw
-        throw error;
       }
+    } catch (error) {
+      if (!this.browser && !this.context) await this.closeProxyForwarder();
+      throw error;
     }
 
     // Apply network mocks if configured
@@ -1062,6 +1106,13 @@ For more help: https://playwright.dev/docs/browsers
       await this.browser.close().catch(() => {});
       this.browser = null;
     }
+    await this.closeProxyForwarder();
+  }
+
+  private async closeProxyForwarder(): Promise<void> {
+    const forwarder = this.proxyForwarder;
+    this.proxyForwarder = null;
+    await forwarder?.close().catch(() => {});
   }
 
   /**

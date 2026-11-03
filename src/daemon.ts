@@ -27,7 +27,7 @@ import { spawn } from "child_process";
 import { VideoCaptureSession, type VideoCaptureOptions, type VideoCaptureResult } from "./recording/engine.js";
 import { CBrowser } from "./browser.js";
 import { executeNaturalLanguage } from "./analysis/index.js";
-import { getPaths, mergeConfig, type CBrowserConfig } from "./config.js";
+import { defaultGeoRegion, getPaths, mergeConfig, type CBrowserConfig } from "./config.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
 import { evaluateScript } from "./eval-script.js";
 
@@ -49,6 +49,42 @@ interface DaemonState {
    * 0600, so only the daemon's own user can read the token. (2026-10-12)
    */
   token?: string;
+  /** The residential proxy region the daemon's browser goes out through; absent: none (since 21.3). */
+  geoRegion?: string;
+}
+
+/**
+ * The region this process asks for: a name (flag, CBROWSER_GEO_REGION or the
+ * config file), null for an explicit none (--no-geo-region, which sets
+ * CBROWSER_GEO_REGION=none), undefined when it asks for nothing.
+ */
+function askedGeoRegion(): string | null | undefined {
+  if (process.env.CBROWSER_GEO_REGION?.trim().toLowerCase() === "none") return null;
+  return defaultGeoRegion();
+}
+
+/**
+ * Why a command must not go to a daemon whose browser goes out through
+ * `daemonRegion`, or undefined when it may. The daemon's browser keeps the
+ * region it started with, so a command asking for another one would be
+ * answered from that exit, or from this machine's own IP: until 2026-11-02 it
+ * was, with exit 0, and silently when the region came from
+ * CBROWSER_GEO_REGION or a config file. A command that asks for nothing uses
+ * the daemon's. Every command is checked: even reading the console can launch
+ * the daemon's browser, which reloads the last page.
+ */
+export function daemonRegionMismatch(daemonRegion: string | undefined, asked: string | null | undefined = askedGeoRegion()): string | undefined {
+  if (asked === undefined) return undefined;
+  const has = daemonRegion ? `through geo region ${daemonRegion}` : "from this machine's own IP";
+  if (asked === null) {
+    return daemonRegion
+      ? `the daemon's browser goes out ${has}, and this command asks for no region, so nothing was sent. ` +
+        "To change it: cbrowser daemon stop, then cbrowser daemon start --no-geo-region"
+      : undefined;
+  }
+  if (asked.toLowerCase() === daemonRegion?.toLowerCase()) return undefined;
+  return `the daemon's browser goes out ${has}, and this command asks for geo region ${asked}, so nothing was sent. ` +
+    `To change it: cbrowser daemon stop, then cbrowser daemon start --geo-region ${asked}`;
 }
 
 const TOKEN_HEADER = "x-cbrowser-daemon-token";
@@ -197,6 +233,8 @@ export async function sendToDaemon(command: string, args: Record<string, unknown
   if (!state) {
     return { success: false, error: "Daemon not running" };
   }
+  const mismatch = daemonRegionMismatch(state.geoRegion);
+  if (mismatch) return { success: false, error: mismatch };
   const v = await verifyDaemon(state, 5000);
   if (v !== "verified") {
     return { success: false, error: v === "unreachable" ? "Daemon not responding" : `The process on port ${state.port} did not prove it is this daemon; nothing was sent` };
@@ -352,6 +390,12 @@ export async function runDaemonServer(
   /** `daemon start --timeout`; documented since 6.4 and never read before 20.0. */
   idleTimeoutMs: number = DAEMON_TIMEOUT_MS,
 ): Promise<void> {
+  // The region, read once and pinned for the daemon's life. Its browser is
+  // built later, on the first command, from a fresh read of the env and the
+  // config file, which could otherwise disagree with the region the state
+  // file records and clients are checked against.
+  const daemonGeoRegion = config.geoRegion ?? defaultGeoRegion();
+  process.env.CBROWSER_GEO_REGION = daemonGeoRegion ?? "none";
   let browser: CBrowser | null = null;
   // The engine the daemon's browser actually runs. A capture used to take the
   // engine from the client's --browser flag, so a firefox label on a chromium
@@ -820,6 +864,8 @@ export async function runDaemonServer(
       token,
       idleTimeoutMs,
     };
+    // Its region, so a client asking for another is refused (sendToDaemon).
+    if (daemonGeoRegion) state.geoRegion = daemonGeoRegion;
     writeDaemonState(state);
 
     console.log(`[${new Date().toISOString()}] CBrowser daemon started on port ${port} (PID: ${process.pid})`);

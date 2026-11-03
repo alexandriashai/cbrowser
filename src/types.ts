@@ -3547,6 +3547,8 @@ export interface CBrowserConfigFile {
   doNotTrack?: boolean;
   /** Send Global Privacy Control (Sec-GPC: 1). CBROWSER_GPC wins over it. */
   globalPrivacyControl?: boolean;
+  /** Residential proxy region (geo-proxy.json) for every browser. CBROWSER_GEO_REGION wins over it. */
+  geoRegion?: string;
   recordVideo?: boolean;
   networkMocks?: NetworkMock[];
   performanceBudget?: PerformanceBudget;
@@ -4276,6 +4278,8 @@ export interface BrowserLaunchOptions {
   doNotTrack?: boolean;
   /** Send Global Privacy Control. Unset: CBROWSER_GPC, the config file, else off (since 21.3). */
   globalPrivacyControl?: boolean;
+  /** Residential proxy region (geo-proxy.ts). Unset: CBROWSER_GEO_REGION, the config file, else none (since 21.3). */
+  geoRegion?: string;
 }
 
 /**
@@ -4963,6 +4967,8 @@ export interface AgentReadyAuditOptions {
   useRandomUserAgent?: boolean;
   /** Proxy server for geo-accurate testing (e.g., { server: "socks5://host:port" }) @since v18.39.0 */
   proxy?: { server: string; username?: string; password?: string };
+  /** The residential region `proxy` belongs to, or the region to use when no proxy is given; certificates stay checked through one (since 21.3) */
+  geoRegion?: string;
   /** Browser locale for language-accurate testing (e.g., "en-US") @since v18.39.0 */
   locale?: string;
   /** The page's prefers-color-scheme ("light", "dark", "no-preference") @since v21.1.0 */

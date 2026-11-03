@@ -45,9 +45,9 @@ import { LOCATION_PRESETS } from "./types.js";
 import { CBROWSER_DEVICE_KEYS, DEVICE_PRESETS, resolveDevice } from "./devices.js";
 import { startMcpServer } from "./mcp-server.js";
 import { startRemoteMcpServer } from "./mcp-server-remote.js";
-import { startDaemon, stopDaemon, getDaemonStatus, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
+import { startDaemon, stopDaemon, getDaemonStatus, getDaemonState, daemonRegionMismatch, isDaemonRunning, sendToDaemon, runDaemonServer } from "./daemon.js";
 import { evaluateScriptRefusal } from "./security/script-gate.js";
-import { getStatusInfo, formatStatus, getDataDir, getPaths, isColorScheme, localeTag, privacyFlag } from "./config.js";
+import { getStatusInfo, formatStatus, getDataDir, getPaths, defaultGeoRegion, geoRegionProxy, isColorScheme, localeTag, privacyFlag } from "./config.js";
 import { uniqueStamp } from "./temp-files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolveCookieDomain, hostFromUrl } from "./utils.js";
@@ -904,6 +904,10 @@ OPTIONS
   --gpc                       Send Global Privacy Control: Sec-GPC: 1 on the browser's
                               requests, and navigator.globalPrivacyControl true
                               (--no-gpc: off; default off)
+  --geo-region <region>       Send every request through the residential proxy for this
+                              region (us-west, uk, japan...; see Geo Proxy in the README).
+                              Exits 1 if the region is not configured. --no-geo-region:
+                              none for this run, whatever the env or config file says
   --record-video              Enable video recording
   --force                     Bypass red zone safety checks (CLI only; over MCP,
                               zone enforcement is opt-in via CBROWSER_ENFORCE_RED_ZONE
@@ -921,6 +925,7 @@ ENVIRONMENT VARIABLES
   CBROWSER_COLOR_SCHEME       Page color scheme (light, dark, no-preference)
   CBROWSER_DNT                Send Do Not Track (1 or 0; default 0)
   CBROWSER_GPC                Send Global Privacy Control (1 or 0; default 0)
+  CBROWSER_GEO_REGION         Residential proxy region for every browser (e.g. uk; none: off)
   CBROWSER_HEADLESS           Run headless by default (true/false)
   CBROWSER_TIMEOUT            Default timeout in ms (default: 30000)
   CBROWSER_RECORD_VIDEO       Record video by default (true/false)
@@ -1146,7 +1151,7 @@ const DRIVES_THE_PAGE = [
  */
 const SHARED_BROWSER_FLAGS = [
   "url", "browser", "device", "viewport", "headless", "persistent", "restore",
-  "locale", "timezone", "geo", "color-scheme", "dnt", "gpc", "verbose",
+  "locale", "timezone", "geo", "geo-region", "color-scheme", "dnt", "gpc", "verbose",
 ];
 
 /**
@@ -3121,6 +3126,27 @@ async function main(): Promise<void> {
     }
   }
 
+  // --geo-region (2026-11-02), the same way: it sets CBROWSER_GEO_REGION for
+  // this run, and every browser's config resolves the region to its proxy
+  // (getDefaultConfig), so no browser the command opens can leave from this
+  // machine's IP. Until then only agent-ready-audit read it: navigate and the
+  // daemon took the flag and exited 0 from the local IP.
+  if (options["geo-region"] === false) {
+    // --no-geo-region: no region for this run, whatever CBROWSER_GEO_REGION or
+    // the config file says (defaultGeoRegion reads "none" as none).
+    process.env.CBROWSER_GEO_REGION = "none";
+  } else if (options["geo-region"] !== undefined) {
+    const region = typeof options["geo-region"] === "string" ? options["geo-region"].trim() : "";
+    if (!region) {
+      console.error("Error: --geo-region needs a region name, e.g. --geo-region uk");
+      process.exit(1);
+    }
+    // An unconfigured one is refused where a browser launches (CBrowser.launch,
+    // proxyFor) and by daemon start, before any request.
+    options["geo-region"] = region;
+    process.env.CBROWSER_GEO_REGION = region;
+  }
+
   // Doctor command - environment health check (v18.54.0)
   if (command === "doctor") {
     await runDoctor(outputOpts);
@@ -3424,6 +3450,9 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         for (const flag of ["locale", "timezone"] as const) {
           if (typeof options[flag] === "string") launchArgs.push(`--${flag}`, options[flag] as string);
         }
+        // The region is not forwarded: --geo-region and --no-geo-region set
+        // CBROWSER_GEO_REGION for this run, and the daemon inherits this env
+        // (startDaemon spawns it without its own), then pins it (daemon.ts).
         if (colorScheme) launchArgs.push("--color-scheme", colorScheme);
         for (const flag of ["dnt", "gpc"] as const) {
           if (typeof options[flag] === "boolean") launchArgs.push(options[flag] ? `--${flag}` : `--no-${flag}`);
@@ -3452,9 +3481,30 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           }
           launchArgs.push("--idle-timeout-ms", String(ms));
         }
+        // A region from CBROWSER_GEO_REGION or the config file is checked here
+        // too (--geo-region was, above): a bad one inside the detached daemon
+        // would only show up as a daemon whose every command fails.
+        const daemonRegion = defaultGeoRegion();
+        if (daemonRegion) {
+          try {
+            geoRegionProxy(daemonRegion);
+          } catch (e) {
+            console.error(`Error: ${(e as Error).message}`);
+            process.exit(1);
+          }
+        }
         console.log("🚀 Starting CBrowser daemon...");
         const result = await startDaemon(port, launchArgs);
         console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
+        if (result.alreadyRunning) {
+          // A running daemon in another region would answer every command
+          // from there: refused, not warned (2026-11-02).
+          const mismatch = daemonRegionMismatch(getDaemonState()?.geoRegion);
+          if (mismatch) {
+            console.error(`Error: ${mismatch}`);
+            process.exit(1);
+          }
+        }
         if (result.alreadyRunning && launchArgs.length > 0) {
           console.error("⚠ The browser flags were not applied: the daemon was already running. Run cbrowser daemon stop first.");
         }
@@ -3524,6 +3574,8 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     console.error("🔌 Connected to running daemon");
     // The daemon's browser keeps the settings it started with; a flag on a
     // command it runs cannot change them, so say so instead of ignoring it.
+    // --geo-region is not here: sendToDaemon refuses one the daemon was not
+    // started with, and one it was started with applies.
     const browserFlags = ["device", "viewport", "browser", "headless", "locale", "timezone", "geo", "color-scheme", "dnt", "gpc"]
       .filter((f) => options[f] !== undefined);
     if (browserFlags.length > 0) {
@@ -7940,21 +7992,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
           process.exit(1);
         }
 
-        // Resolve geo proxy if --geo-region is specified
-        const geoRegion = options["geo-region"] as string | undefined;
-        let auditProxy: { server: string; username?: string; password?: string } | undefined;
-        if (geoRegion) {
-          const { getGeoProxy } = await import("./geo-proxy.js");
-          const geoProxy = getGeoProxy(geoRegion);
-          if (geoProxy) {
-            auditProxy = { server: geoProxy.server, username: geoProxy.username, password: geoProxy.password };
-          } else {
-            // The README promises this fails loudly; it warned, ran from the
-            // local IP, and still printed "(via <region>)" (audit 2026-10-21).
-            console.error(`Error: geo-region "${geoRegion}" is not configured, so the audit would run from this machine's own IP.`);
-            console.error("  Configure it in ~/.cbrowser/geo-proxy.json, or run without --geo-region.");
-            process.exit(1);
-          }
+        // --geo-region was checked and set for this run above (an unconfigured
+        // one exits 1 there); the audit's browser takes it from its config.
+        const geoRegion = defaultGeoRegion();
+        if (useLightpanda && geoRegion) {
+          console.error(`Error: --lightpanda does not go through geo region ${geoRegion}: Lightpanda's browser does not use the proxy, so the audit would run from its own IP.`);
+          console.error("  Run without --lightpanda, or without the region.");
+          process.exit(1);
         }
 
         console.log(`\n🤖 Running Agent-Ready Audit on ${url}...${useLightpanda ? " (with Lightpanda)" : ""}${geoRegion ? ` (via ${geoRegion})` : ""}\n`);
@@ -7962,7 +8006,6 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         const result = await runAgentReadyAudit(url, {
           headless,
           useLightpanda,
-          ...(auditProxy ? { proxy: auditProxy } : {}),
           // Accepted by the engine and dropped here until 20.0, so a mobile
           // audit from the CLI was silently a desktop audit.
           ...(typeof options.device === "string" ? { device: resolveDevicePreset(options.device) } : {}),

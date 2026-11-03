@@ -27,9 +27,23 @@
 
 import { realpathSync } from "node:fs";
 import { isAbsolute, resolve, sep } from "node:path";
+import { isIP } from "node:net";
+import { lookup } from "node:dns/promises";
 import { scopedDataDir } from "../persona-scope.js";
 
 export type HostedRefusal = { isError: true; content: Array<{ type: "text"; text: string }> };
+
+/** An address on this machine or a private, shared or link-local network. */
+function privateAddress(ip: string): boolean {
+  const v4 = ip.replace(/^::ffff:/i, "");
+  if (isIP(v4) === 4) {
+    const [a, b] = v4.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+  }
+  const v6 = ip.toLowerCase();
+  return v6 === "::" || v6 === "::1" || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
+}
 
 let hostedMode = false;
 
@@ -138,6 +152,38 @@ export function refuseHostedUrl(tool: string, params: Record<string, unknown>): 
         message: `${tool}: ${param} must be an absolute http: or https: URL on the hosted server.`,
       });
     }
+  }
+  return null;
+}
+
+/**
+ * Refuse a caller's proxy that points at this server or its network. The proxy
+ * forwarders that hold the operator's residential login listen on 127.0.0.1
+ * (proxy-forwarder.ts) and serve every process of their user, which on the
+ * hosted servers is every account's: a caller who named 127.0.0.1:<port> as
+ * its proxy would have used another account's login (found 2026-11-02). A host
+ * name is resolved and refused when any address is private. Not covered: a
+ * name that resolves differently when the browser connects (P-10).
+ */
+export async function refuseHostedProxy(tool: string, proxy: unknown): Promise<HostedRefusal | null> {
+  if (!hostedMode || proxy === undefined || proxy === null || proxy === "") return null;
+  const text = String(proxy);
+  let host = "";
+  try {
+    host = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${text}`).hostname.replace(/^\[(.*)\]$/, "$1");
+  } catch { /* refused below */ }
+  let addresses: string[] = [];
+  if (host && isIP(host)) addresses = [host];
+  else if (host && host.toLowerCase() !== "localhost") {
+    try { addresses = (await lookup(host, { all: true })).map((a) => a.address); } catch { /* refused below */ }
+  }
+  if (addresses.length === 0 || addresses.some(privateAddress)) {
+    return refusal({
+      error: "proxy_not_allowed",
+      tool,
+      parameter: "proxy",
+      message: `${tool}: proxy must be a public host on the hosted server, not this machine or a private network.`,
+    });
   }
   return null;
 }

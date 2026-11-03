@@ -390,7 +390,7 @@ export async function repairTest(
   // D20). The verify run below uses the same ones.
   const launch = browserLaunchConfig({
     headless, browser: options.browser, device: options.device, viewport: options.viewport, locale: options.locale,
-    doNotTrack: options.doNotTrack, globalPrivacyControl: options.globalPrivacyControl,
+    doNotTrack: options.doNotTrack, globalPrivacyControl: options.globalPrivacyControl, geoRegion: options.geoRegion,
   });
   const browser = new CBrowser(launch);
   const failureAnalyses: FailureAnalysis[] = [];

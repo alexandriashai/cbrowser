@@ -194,12 +194,9 @@ async function analyzeTestFlakiness(
   console.log(`\n   🔄 Running ${runs} times...`);
 
   for (let i = 1; i <= runs; i++) {
-    const result = await runTestOnce(test, i, {
-      headless,
-      browser: options.browser,
-      device: options.device,
-      viewport: options.viewport,
-    });
+    // Every launch option: a list here dropped the locale, Do Not Track, GPC
+    // and the geo region a caller passed (2026-11-02).
+    const result = await runTestOnce(test, i, { ...options, headless });
     testRuns.push(result);
 
     const icon = result.passed ? "✓" : "✗";

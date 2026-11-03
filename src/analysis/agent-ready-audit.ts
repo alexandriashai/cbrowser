@@ -17,7 +17,7 @@ import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
 import { navigationError } from "../navigation-errors.js";
 import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
-import { defaultLocale, privacySignalsFor } from "../config.js";
+import { defaultGeoRegion, defaultLocale, privacySignalsFor, proxyFor } from "../config.js";
 import { addPrivacyInitScript, privacySetup } from "../privacy-signals.js";
 import type {
   AgentReadyAuditResult,
@@ -2592,6 +2592,9 @@ export async function runAgentReadyAudit(
   const overallTimeout = options.timeout ?? 60000;
   const navigationTimeout = options.navigationTimeout ?? 30000;
   let browser: Browser | null = null;
+  // The CBrowser this audit built, if any: closing only its Playwright browser
+  // left its proxy forwarder open, holding the proxy login (2026-11-02).
+  let ownedCBrowser: CBrowser | null = null;
 
   // Wrap entire operation in timeout
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -2607,6 +2610,17 @@ export async function runAgentReadyAudit(
         page = externalPage;
         // Skip navigation — caller already navigated
       } else if (options.useLightpanda && isLightpandaConfigured()) {
+        // Lightpanda's browser takes no proxy, so a region or proxy asked for
+        // here (the caller's, a geo region, CBROWSER_PROXY) would be skipped
+        // and the audit would run from its own IP. Refused before anything
+        // opens (2026-11-02).
+        const route = proxyFor({ proxy: options.proxy, geoRegion: options.geoRegion });
+        if (route.proxy) {
+          throw new Error(
+            `Lightpanda does not go through ${route.geoRegion ? `geo region ${route.geoRegion}` : "the proxy"}, so the audit would run from its own IP. ` +
+            "Run without Lightpanda, or without the region or proxy.",
+          );
+        }
         const result = await launchWithLightpandaFallback({
           headless: true,
           explicitOptIn: true,
@@ -2642,10 +2656,12 @@ export async function runAgentReadyAudit(
           headless: options.headless ?? true,
           persistent: false,
           ...(options.proxy ? { proxy: options.proxy } : {}),
+          ...(options.geoRegion ? { geoRegion: options.geoRegion } : {}),
           ...(options.locale ? { locale: options.locale } : {}),
           ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
           ...(options.device ? { device: options.device.toLowerCase() } : {}),
         });
+        ownedCBrowser = cbrowser;
         await cbrowser.launch();
         browser = (cbrowser as any).browser;
         page = await cbrowser.getPage();
@@ -2666,7 +2682,7 @@ export async function runAgentReadyAudit(
             `3. Some sites (Stripe, GitHub, banking) aggressively block residential proxies`
           );
         }
-        if (errMsg.includes("ERR_NETWORK_CHANGED") && options.proxy) {
+        if (errMsg.includes("ERR_NETWORK_CHANGED") && (options.proxy || defaultGeoRegion())) {
           throw new Error(
             `Network changed during proxy connection to ${url}. The residential proxy IP may have rotated mid-request.\n\n` +
             `Recommendations:\n` +
@@ -2763,6 +2779,8 @@ export async function runAgentReadyAudit(
       if (browser && !externalPage) {
         await browser.close();
       }
+      // After the browser, so its page is closed and no session URL is saved.
+      await ownedCBrowser?.close().catch(() => {});
     }
   };
 
@@ -2773,6 +2791,7 @@ export async function runAgentReadyAudit(
     if (browser && !options.page) {
       await (browser as Browser).close();
     }
+    await (ownedCBrowser as CBrowser | null)?.close().catch(() => {});
     throw error;
   }
 }

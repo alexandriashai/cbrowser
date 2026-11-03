@@ -32,6 +32,7 @@ export function browserLaunchConfig(options: BrowserLaunchOptions = {}): Partial
     ...(options.locale ? { locale: options.locale } : {}),
     ...(options.doNotTrack !== undefined ? { doNotTrack: options.doNotTrack } : {}),
     ...(options.globalPrivacyControl !== undefined ? { globalPrivacyControl: options.globalPrivacyControl } : {}),
+    ...(options.geoRegion ? { geoRegion: options.geoRegion } : {}),
     ...(options.viewport
       ? {
           viewportWidth: options.viewport.width,

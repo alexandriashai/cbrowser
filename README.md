@@ -315,7 +315,7 @@ cbrowser daemon stop
 
 While the daemon runs, `navigate`, `click`, `fill`, `hover`, `type`, `press`, `keyboard`, `screenshot`, `extract`, `run`, `scroll`, `evaluate`, `capture`, `har`, `network` and `console` use its browser. Commands that would open a second browser on its profile refuse until you stop it.
 
-Global browser flags work on every command that opens a browser: `--device <name>` (200+ presets; `cbrowser device list`), `--viewport 390x844` or a size name, `--browser chromium|firefox|webkit`, `--geo <preset or lat,lon>`, `--locale`, `--timezone`, `--color-scheme light|dark|no-preference` (what the page's `prefers-color-scheme` sees; also `CBROWSER_COLOR_SCHEME`), `--dnt` and `--gpc` (send Do Not Track and Global Privacy Control; also `CBROWSER_DNT` and `CBROWSER_GPC`), `--no-headless` and `--no-persistent`. Flags also take `--flag=value`.
+Global browser flags work on every command that opens a browser: `--device <name>` (200+ presets; `cbrowser device list`), `--viewport 390x844` or a size name, `--browser chromium|firefox|webkit`, `--geo <preset or lat,lon>`, `--locale`, `--timezone`, `--color-scheme light|dark|no-preference` (what the page's `prefers-color-scheme` sees; also `CBROWSER_COLOR_SCHEME`), `--dnt` and `--gpc` (send Do Not Track and Global Privacy Control; also `CBROWSER_DNT` and `CBROWSER_GPC`), `--geo-region <region>` (every request through a residential proxy; see [Geo Proxy](#geo-proxy)), `--no-headless` and `--no-persistent`. Flags also take `--flag=value`.
 
 ---
 
@@ -389,15 +389,25 @@ cbrowser competitive-benchmark \
 
 ## Geo Proxy
 
-Test from 10 global regions via residential proxies. Today `agent-ready-audit` is the command that routes through them:
+Test from 10 global regions via residential proxies. Every command that opens a browser takes `--geo-region` (since 21.3; before, only `agent-ready-audit` read it): navigate and the other page commands, the daemon (`daemon start --geo-region uk`), audits, visual and performance commands, and `diff`, in chromium, firefox and webkit. Every request each browser makes goes through the region's exit.
 
 ```bash
-cbrowser agent-ready-audit "https://your-site.com" --geo-region uk
+cbrowser navigate "https://your-site.com" --geo-region uk
+cbrowser agent-ready-audit "https://your-site.com" --geo-region japan
+CBROWSER_GEO_REGION=us-west cbrowser diff "https://your-site.com"
 ```
+
+`CBROWSER_GEO_REGION` or a config file's `geoRegion` sets a region for every run; `--no-geo-region` (or `CBROWSER_GEO_REGION=none`) turns it off for one; in code, `new CBrowser({ geoRegion: "uk" })`. A region replaces `CBROWSER_PROXY`. A region that is not configured stops a command that opens a browser, before any request; commands that open none (`status`, `persona list`) still run.
+
+- **The proxy's login stays out of the browser.** A proxy with a username and password (a region's, or `CBROWSER_PROXY`'s) is reached through a local forwarder on 127.0.0.1 that adds the login itself, so a site cannot collect it: Playwright otherwise hands it to any site that answers 401 (chromium, webkit), and webkit sent it to every HTTPS site. On Linux the forwarder serves only your own user.
+- **WebRTC does not go around the proxy**, so a page cannot learn your own IP from a STUN server: chromium and firefox keep it inside the proxy, and webkit pages (popups and frames too) get no WebRTC through one.
+- **Certificates stay checked** through a region (with `CBROWSER_PROXY` they are not).
+- **The daemon** keeps the region it was started with (`daemon start --geo-region uk`). A command that asks it for another region, by flag, env or config file, is refused and nothing is sent.
+- **Not covered:** webkit opens no WebSocket through a proxy (it fails; nothing goes around it). `--lightpanda` is refused with a region or proxy, since Lightpanda's browser takes none. Some commands make HTTP requests without a browser, which go from your own IP: the agent-ready audit's no-JavaScript page fetch and llms.txt, the WebMCP checks, and `coverage --sitemap`.
 
 **Regions:** `us-west`, `us-east`, `us-central`, `uk`, `germany`, `france`, `japan`, `australia`, `canada`, `brazil`
 
-Geo routing needs your own residential-proxy credentials; the package ships the mechanism and no keys. Set `IPROYAL_USERNAME` / `IPROYAL_PASSWORD`, or place a `geo-proxy.json` in `~/.cbrowser/`. Without either, `--geo-region` exits 1 rather than silently running from your own IP. A `geo-proxy.json` may define additional regions; they merge over the ten above.
+Geo routing needs your own residential-proxy credentials; the package ships the mechanism and no keys. Set `IPROYAL_USERNAME` / `IPROYAL_PASSWORD`, or place a `geo-proxy.json` in your data directory (`~/.cbrowser/`, or `CBROWSER_DATA_DIR`). Without either, `--geo-region` exits 1 rather than silently running from your own IP. A `geo-proxy.json` may define additional regions; they merge over the ten above.
 
 For location without a proxy (the browser's reported geolocation, not its IP), use `--geo new-york` or `--geo 40.71,-74.00` on any command.
 
@@ -589,6 +599,7 @@ Environment variables override the config file, and command-line flags override 
 | `CBROWSER_GPC` | `0` | `1`: send Global Privacy Control, `Sec-GPC: 1` on the browser's requests and `navigator.globalPrivacyControl` `true` (same coverage as `CBROWSER_DNT`) |
 | `CBROWSER_TIMEOUT` | `30000` | Default timeout (ms) |
 | `CBROWSER_PROXY` | none | Proxy URL (or `CBROWSER_PROXY_SERVER`, `_USERNAME`, `_PASSWORD`) |
+| `CBROWSER_GEO_REGION` | none | Residential proxy region for every browser, e.g. `uk` (see [Geo Proxy](#geo-proxy)); replaces `CBROWSER_PROXY`; `none` turns a config-file region off; an unconfigured one is refused before a browser opens |
 | `CBROWSER_RECORD_VIDEO` | `false` | Record video of browser sessions |
 | `NO_COLOR` | unset | Disable colour output |
 

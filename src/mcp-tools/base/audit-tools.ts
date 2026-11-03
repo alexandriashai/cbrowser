@@ -14,7 +14,7 @@ import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive
 import { lawTimesReport } from "../../visual/law-times-report.js";
 import { resolveSiteFamiliarity as resolveRunFamiliarity } from "./site-familiarity.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { refuseHostedUrl } from "../hosted-inputs.js";
+import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import { ctcRank } from "../../visual/ctc-bands.js";
 import { recordedAnswer } from "./answer-provenance.js";
@@ -251,7 +251,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver') — for time-sensitive content evaluation"),
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US') — for readability calibration"),
       proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing (e.g., 'http://user:pass@proxy.example.com:12321'). Routes browser through the proxy so sites see the proxy's IP/location instead of the server's."),
-      geoRegion: z.string().optional().describe("Route through a residential proxy in this region. Available: us-west, us-east, us-central, uk, germany, japan. Overrides proxy parameter."),
+      geoRegion: z.string().optional().describe("Route through a residential proxy in this region. Available: us-west, us-east, us-central, uk, germany, japan. Ignored when proxy is given. A region this server has not configured is an error. Not with _browserToken."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used."),
       colorScheme: colorSchemeParam,
       waitAfterLoad: z.number().optional().describe("Extra milliseconds to wait after page loads. Use for sites with client-side translation or deferred rendering (e.g., 3000-5000 for i18n sites)."),
@@ -270,7 +270,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     // recordedAnswer: one provenance recording per call, across every await,
     // reported as modelProvenance once gate 3 has scored (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
-    const hostedRefusal = refuseHostedUrl("site_cognitive_assessment", { url });
+    const hostedRefusal = refuseHostedUrl("site_cognitive_assessment", { url }) ?? await refuseHostedProxy("site_cognitive_assessment", proxy);
     if (hostedRefusal) return hostedRefusal;
     const startTime = Date.now();
     const personaList = (personas || "first-timer,cognitive-adhd").split(",").map(s => s.trim()).filter(Boolean);
@@ -298,6 +298,15 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       let browser: InstanceType<typeof BrowserClass>;
       let token: string | undefined;
 
+      // A session's browser keeps the network path it was opened with: a
+      // region or proxy asked for with one was dropped, and the assessment ran
+      // from wherever the session goes out (found 2026-11-02).
+      if (_browserToken && (geoRegion || proxy)) {
+        response.gate1 = { status: "error", error: "geoRegion and proxy do not apply to _browserToken: the session's browser keeps the network path it was opened with. Call without _browserToken to use them." };
+        response.result = "ERROR";
+        return { isError: true, content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      }
+
       // If _browserToken is provided, reuse existing session (preserves language selection, cookies, etc.)
       if (_browserToken && getBrowserByToken) {
         const session = await getBrowserByToken(_browserToken);
@@ -314,10 +323,15 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         if (geoRegion && !proxy) {
           const { getGeoProxy } = await import("../../geo-proxy.js");
           const geoProxy = getGeoProxy(geoRegion);
-          if (geoProxy) {
-            proxy = `http://${encodeURIComponent(geoProxy.username)}:${encodeURIComponent(geoProxy.password)}@${geoProxy.server.replace('http://', '')}`;
-            (response as Record<string, unknown>).geoRegion = geoRegion;
+          if (!geoProxy) {
+            // It ran from this server's own IP and answered as if it had not
+            // been asked for a region (found 2026-11-02).
+            response.gate1 = { status: "error", error: `geoRegion "${geoRegion}" is not configured on this server, so the assessment would run from its own IP` };
+            response.result = "ERROR";
+            return { isError: true, content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
           }
+          proxy = `http://${encodeURIComponent(geoProxy.username)}:${encodeURIComponent(geoProxy.password)}@${geoProxy.server.replace('http://', '')}`;
+          (response as Record<string, unknown>).geoRegion = geoRegion;
         }
 
         proxyConfig = proxy ? (() => {
@@ -343,7 +357,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           ...(device ? { device } : {}),
           ...(colorScheme ? { colorScheme } : {}),
           ...(userTimezone ? { timezone: userTimezone } : {}),
-          ...(proxyConfig ? { proxy: proxyConfig, timeout: 60000 } : {}),
+          // A region keeps certificate checks on (config.ts geoRegion).
+          ...(proxyConfig ? { proxy: proxyConfig, timeout: 60000, ...(response.geoRegion ? { geoRegion } : {}) } : {}),
         });
         await browser.launch();
 
@@ -505,7 +520,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
         try {
           const auditResult = await runAgentReadyAudit(url, {
             headless: true,
-            ...(proxyConfig ? { proxy: proxyConfig } : {}),
+            // With the region's name, so gate 2 checks certificates as gate 1 does.
+            ...(proxyConfig ? { proxy: proxyConfig, ...(response.geoRegion ? { geoRegion } : {}) } : {}),
             locale: expectedLocale,
             // Gate 2 opens its own browser; it renders in the same scheme.
             ...(browser.colorScheme ? { colorScheme: browser.colorScheme } : {}),

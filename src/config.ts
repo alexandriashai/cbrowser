@@ -17,6 +17,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { scopedDataDir } from "./persona-scope.js";
+import { getGeoProxy, listGeoRegions } from "./geo-proxy.js";
 import type { GeoLocation, DeviceDescriptor, NetworkMock, PerformanceBudget, CBrowserConfigFile, ProxyConfig } from "./types.js";
 
 /**
@@ -112,6 +113,19 @@ export interface CBrowserConfig {
   skipSessionRestore?: boolean;
   /** Proxy configuration for residential/datacenter proxies */
   proxy?: ProxyConfig;
+  /**
+   * Residential proxy region (geo-proxy.ts), e.g. "uk". Sets `proxy` to that
+   * region's exit; certificates stay checked. Unset: CBROWSER_GEO_REGION, then
+   * the config file's geoRegion (since 21.3).
+   */
+  geoRegion?: string;
+  /**
+   * Settings from the environment or the config file that cannot be used: an
+   * unconfigured geo region, a Do Not Track or GPC value that is not 1 or 0.
+   * launch() refuses while one is set; building the config does not throw,
+   * so commands that open no browser (status, persona list) still run.
+   */
+  invalid?: { geoRegion?: string; privacySignals?: string };
   /** Extra env vars passed to the browser process at launch (e.g. DISPLAY for headed Xvfb). Merged with process.env. */
   launchEnv?: Record<string, string>;
   /**
@@ -306,6 +320,68 @@ export function privacySignalsFor(given: PrivacySignals = {}): Required<PrivacyS
 }
 
 /**
+ * The residential proxy region for a browser whose caller names none:
+ * CBROWSER_GEO_REGION, then the config file's geoRegion. Blank is unset;
+ * "none" (what --no-geo-region sets) is no region, whatever the file says.
+ */
+export function defaultGeoRegion(configFile: CBrowserConfigFile | null = loadConfigFile(getDataDir())): string | undefined {
+  const fromEnv = process.env.CBROWSER_GEO_REGION?.trim();
+  if (fromEnv?.toLowerCase() === "none") return undefined;
+  if (fromEnv) return fromEnv;
+  const fromFile = typeof configFile?.geoRegion === "string" ? configFile.geoRegion.trim() : "";
+  return fromFile || undefined;
+}
+
+/**
+ * Each region's proxy, kept 25 minutes (geoRegionProxy): under the 30-minute
+ * sticky session it asks for, and a long-lived process (the daemon, an MCP
+ * server) still sees an edited geo-proxy.json.
+ */
+const regionProxies = new Map<string, { proxy: ProxyConfig; until: number }>();
+const REGION_PROXY_MS = 25 * 60_000;
+
+/**
+ * The proxy for a residential region, or an error. Never undefined: a region
+ * that is asked for and missing would otherwise send every request from this
+ * machine's own IP while the caller believes it came from the region. Until
+ * 2026-11-02 only agent-ready-audit read --geo-region; navigate, the daemon and
+ * every other command took it and ran from the local IP.
+ */
+export function geoRegionProxy(region: string): ProxyConfig {
+  // One proxy per region for the process: getGeoProxy picks a new sticky
+  // session on every call, so each browser a command opened left from a
+  // different residential IP.
+  const key = region.trim().toLowerCase();
+  const cached = regionProxies.get(key);
+  if (cached && cached.until > Date.now()) return { ...cached.proxy };
+  const proxy = getGeoProxy(region);
+  if (proxy) {
+    regionProxies.set(key, { proxy, until: Date.now() + REGION_PROXY_MS });
+    return { ...proxy };
+  }
+  const known = listGeoRegions();
+  throw new Error(known.length > 0
+    ? `geo region "${region}" is not configured (configured: ${known.join(", ")}), so the browser would run from this machine's own IP`
+    : `geo region "${region}" is not configured, so the browser would run from this machine's own IP. ` +
+      "Set IPROYAL_USERNAME and IPROYAL_PASSWORD, or add ~/.cbrowser/geo-proxy.json");
+}
+
+/**
+ * The proxy for code that launches a browser without CBrowser
+ * (crossBrowserDiff), or that must refuse one it cannot route (the audit's
+ * Lightpanda path): the caller's proxy, else its region's, else the default
+ * region's, else CBROWSER_PROXY. `geoRegion` is set when the proxy is a
+ * region's. An unconfigured default region throws here, at launch.
+ */
+export function proxyFor(given: { proxy?: ProxyConfig; geoRegion?: string } = {}): { proxy?: ProxyConfig; geoRegion?: string } {
+  if (given.proxy) return { proxy: given.proxy, ...(given.geoRegion ? { geoRegion: given.geoRegion } : {}) };
+  if (given.geoRegion) return { proxy: geoRegionProxy(given.geoRegion), geoRegion: given.geoRegion };
+  const defaults = getDefaultConfig();
+  if (defaults.invalid?.geoRegion) throw new Error(defaults.invalid.geoRegion);
+  return { ...(defaults.proxy ? { proxy: defaults.proxy } : {}), ...(defaults.geoRegion ? { geoRegion: defaults.geoRegion } : {}) };
+}
+
+/**
  * Get default configuration, merging with environment variables and config file.
  */
 export function getDefaultConfig(): CBrowserConfig {
@@ -345,6 +421,24 @@ export function getDefaultConfig(): CBrowserConfig {
       password: process.env.CBROWSER_PROXY_PASSWORD,
     };
   }
+  // A region replaces CBROWSER_PROXY: it is the more specific ask. A setting
+  // that cannot be used is recorded, and launch() refuses it.
+  const invalid: NonNullable<CBrowserConfig["invalid"]> = {};
+  const geoRegion = defaultGeoRegion(configFile);
+  if (geoRegion) {
+    try {
+      proxy = geoRegionProxy(geoRegion);
+    } catch (e) {
+      proxy = undefined;
+      invalid.geoRegion = (e as Error).message;
+    }
+  }
+  let privacySignals: Required<PrivacySignals> = { doNotTrack: false, globalPrivacyControl: false };
+  try {
+    privacySignals = defaultPrivacySignals(configFile);
+  } catch (e) {
+    invalid.privacySignals = (e as Error).message;
+  }
 
   return {
     dataDir,
@@ -367,12 +461,14 @@ export function getDefaultConfig(): CBrowserConfig {
     locale: defaultLocale(configFile),
     timezone: process.env.CBROWSER_TIMEZONE || configFile?.timezone || undefined,
     colorScheme: (process.env.CBROWSER_COLOR_SCHEME as ColorScheme) || configFile?.colorScheme,
-    ...defaultPrivacySignals(configFile),
+    ...privacySignals,
     recordVideo: process.env.CBROWSER_RECORD_VIDEO === "true" || configFile?.recordVideo || false,
     videoDir: join(dataDir, "videos"),
     networkMocks: configFile?.networkMocks,
     performanceBudget: configFile?.performanceBudget,
     proxy,
+    ...(geoRegion ? { geoRegion } : {}),
+    ...(invalid.geoRegion || invalid.privacySignals ? { invalid } : {}),
   };
 }
 
@@ -496,8 +592,23 @@ export function mergeConfig(userConfig: Partial<CBrowserConfig>): CBrowserConfig
   // env var / config file value with undefined, so CBROWSER_DEVICE, LOCALE,
   // TIMEZONE and a config file's device were ignored by the CLI, which passes
   // every option key whether or not its flag was given (audit 2026-10-21).
-  const given = Object.fromEntries(Object.entries(userConfig).filter(([, v]) => v !== undefined)) as Partial<CBrowserConfig>;
-  return { ...defaults, ...given };
+  // A blank region is no region, as in CBROWSER_GEO_REGION.
+  const given = Object.fromEntries(Object.entries(userConfig).filter(([k, v]) =>
+    v !== undefined && !(k === "geoRegion" && typeof v === "string" && v.trim() === ""))) as Partial<CBrowserConfig>;
+  const merged = { ...defaults, ...given };
+  // A region given here sets its proxy; a proxy given without one is not the
+  // default region's, so it does not keep that region's name. Either way the
+  // default region no longer matters, nor whether it was usable.
+  if (given.geoRegion && !given.proxy) merged.proxy = geoRegionProxy(given.geoRegion);
+  else if (given.proxy && !given.geoRegion) delete merged.geoRegion;
+  if (merged.invalid && (given.proxy || given.geoRegion || given.doNotTrack !== undefined && given.globalPrivacyControl !== undefined)) {
+    const invalid = { ...merged.invalid };
+    if (given.proxy || given.geoRegion) delete invalid.geoRegion;
+    if (given.doNotTrack !== undefined && given.globalPrivacyControl !== undefined) delete invalid.privacySignals;
+    if (invalid.geoRegion || invalid.privacySignals) merged.invalid = invalid;
+    else delete merged.invalid;
+  }
+  return merged;
 }
 
 /**

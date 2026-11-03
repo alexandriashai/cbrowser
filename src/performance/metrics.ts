@@ -236,7 +236,8 @@ export async function capturePerformanceBaseline(
     ...(doNotTrack !== undefined ? { doNotTrack } : {}),
     ...(globalPrivacyControl !== undefined ? { globalPrivacyControl } : {}),
   };
-  const browser = new CBrowser(browserLaunchConfig({ headless, ...requested }));
+  // The region is not recorded: a regression check uses its own run's.
+  const browser = new CBrowser(browserLaunchConfig({ headless, ...requested, geoRegion: options.geoRegion }));
   const allMetrics: PerformanceMetrics[] = [];
   let rendered: { width: number; height: number } | null = null;
 

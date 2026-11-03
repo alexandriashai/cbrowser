@@ -14,8 +14,9 @@
 import { existsSync, mkdirSync } from "fs";
 import { VERSION } from "../version.js";
 import { join } from "path";
-import { defaultLocale, effectiveDataDir, getPaths, privacySignalsFor } from "../config.js";
+import { defaultLocale, effectiveDataDir, getPaths, privacySignalsFor, proxyFor } from "../config.js";
 import { addPrivacyInitScript, privacySetup } from "../privacy-signals.js";
+import { needsForwarder, startProxyForwarder, NO_WEBRTC_SCRIPT, type ProxyForwarder } from "../proxy-forwarder.js";
 import { uniqueStamp } from "../temp-files.js";
 
 import { CBrowser } from "../browser.js";
@@ -109,7 +110,7 @@ async function captureWithBrowser(
     viewportHeight: 1080,
     ...browserLaunchConfig({
       headless: options.headless, device: options.device, viewport: options.viewport, locale: options.locale,
-      doNotTrack: options.doNotTrack, globalPrivacyControl: options.globalPrivacyControl,
+      doNotTrack: options.doNotTrack, globalPrivacyControl: options.globalPrivacyControl, geoRegion: options.geoRegion,
     }),
     browser: browserType,
   });
@@ -753,6 +754,10 @@ export async function crossBrowserDiff(
   // Do Not Track and GPC the same way as the locale below: the caller's, else
   // the default, set per engine below (privacy-signals.ts).
   const privacy = privacySignalsFor(options);
+  // The proxy too (2026-11-02): the caller's region, else CBROWSER_GEO_REGION,
+  // the config file's, or CBROWSER_PROXY. Every engine launches through it, so
+  // the browsers compared are served from the same place.
+  const route = proxyFor({ geoRegion: options.geoRegion });
   const contextOptions = {
     viewport: options.viewport ?? descriptor?.viewport ?? { width: 1920, height: 1080 },
     // This page skips CBrowser, so it takes the locale here: the caller's,
@@ -807,17 +812,38 @@ export async function crossBrowserDiff(
   for (const browserName of available) {
     const launcher = browserLaunchers[browserName];
     let browser: any = null;
+    let forwarder: ProxyForwarder | null = null;
     try {
       const setup = privacySetup(browserName, privacy);
+      // As CBrowser launches (browser.ts): a proxy's login stays in a local
+      // forwarder, WebRTC does not go around the proxy, and CBROWSER_PROXY
+      // without a region skips certificate errors.
+      if (needsForwarder(route.proxy)) forwarder = await startProxyForwarder(route.proxy);
+      const firefoxUserPrefs = browserName === "firefox"
+        ? { ...setup.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": !!route.proxy }
+        : setup.firefoxUserPrefs;
       browser = await launcher.launch({
         headless: options.headless ?? true,
-        ...(setup.firefoxUserPrefs ? { firefoxUserPrefs: setup.firefoxUserPrefs } : {}),
+        ...(firefoxUserPrefs ? { firefoxUserPrefs } : {}),
+        ...(route.proxy && browserName === "chromium" ? { args: ["--force-webrtc-ip-handling-policy=disable_non_proxied_udp"] } : {}),
+        ...(route.proxy
+          ? {
+              proxy: forwarder
+                ? { server: forwarder.server, bypass: route.proxy.bypass?.join(",") }
+                : { ...route.proxy, bypass: route.proxy.bypass?.join(",") },
+            }
+          : {}),
       });
       const page = await browser.newPage({
         ...contextOptions,
         ...(setup.extraHTTPHeaders ? { extraHTTPHeaders: setup.extraHTTPHeaders } : {}),
+        ...(route.proxy && !route.geoRegion ? { ignoreHTTPSErrors: true } : {}),
       });
-      await addPrivacyInitScript(page, setup);
+      // On the page's context, not the page: a popup the site opens is another
+      // page of it, and a page-level script missed it (its WebRTC sent STUN
+      // around the proxy; its navigator lacked the privacy signals).
+      await addPrivacyInitScript(page.context(), setup);
+      if (route.proxy && browserName === "webkit") await page.context().addInitScript(NO_WEBRTC_SCRIPT);
 
       const startTime = Date.now();
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
@@ -857,6 +883,7 @@ export async function crossBrowserDiff(
           // Browser already closed or crashed, ignore
         }
       }
+      await forwarder?.close().catch(() => {});
     }
   }
 

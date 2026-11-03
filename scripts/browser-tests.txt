@@ -136,3 +136,7 @@ tests/accept-language-browser.test.ts
 # Opens a page in chromium, firefox and webkit, crossBrowserDiff and the CLI,
 # and reads the DNT and Sec-GPC each request carried.
 tests/privacy-signals-browser.test.ts
+# Opens a page in chromium, firefox and webkit, the daemon, crossBrowserDiff,
+# the audit and the CLI through a local proxy, and reads the region each
+# request's credentials carried.
+tests/geo-region-browser.test.ts
