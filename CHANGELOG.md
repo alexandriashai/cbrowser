@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.2.0](https://github.com/alexandriashai/cbrowser/compare/v21.1.0...v21.2.0) (2026-11-03)
+
+### Added
+
+* **locale:** send the page's locale as accept-language on every request ([7b6cd04](https://github.com/alexandriashai/cbrowser/commit/7b6cd041a9d17381f87331d657d6c95c8ddee24e))
+
 ## [21.1.0](https://github.com/alexandriashai/cbrowser/compare/v21.0.3...v21.1.0) (2026-10-28)
 
 ### Added
