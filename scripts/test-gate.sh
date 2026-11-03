@@ -87,4 +87,8 @@ if [ -z "$FILES" ]; then
 fi
 
 echo "test-gate: running $(echo "$FILES" | wc -w) files (quarantined: $(echo "$QUARANTINED" | tr '|' ' '))"
-exec bun test $FILES
+# 30 s per test unless a test sets its own. GitHub's runners differ about 2x
+# in speed for the same image (2026-11-03: the gate took 296 s, 301 s, 582 s
+# and 588 s), and on the slow ones CPU-bound tests passed bun's 5 s default:
+# 21.3.0's release gate failed on two that take 0.7 s and 0.9 s here.
+exec bun test --timeout 30000 $FILES

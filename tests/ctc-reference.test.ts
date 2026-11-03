@@ -639,12 +639,16 @@ describe("the curve is derived through the live chain, from raw measurements", (
     expect(after).toBeGreaterThan(before);
   });
 
-  test("a curve build stays under a second per scope and option pair", () => {
+  // Under a second each here (the six take 0.7 s). On CI the bound is 3 s:
+  // GitHub's runners differ about 2x in speed, and the six took 1.7 s, 3.1 s
+  // and over 5 s on three release runs of the same code.
+  const BUILD_BUDGET_MS = process.env.CI ? 3000 : 1000;
+  test("a curve build stays under a second per scope and option pair (3 s on CI)", () => {
     for (const scope of ["viewport", "full_page"] as const)
       for (const opts of OPTION_PAIRS) {
         const t0 = performance.now();
         withParamOverrides({}, () => ctcReferenceCurve(scope, opts));
-        expect(performance.now() - t0).toBeLessThan(1000);
+        expect(performance.now() - t0).toBeLessThan(BUILD_BUDGET_MS);
       }
-  });
+  }, 60_000);
 });
