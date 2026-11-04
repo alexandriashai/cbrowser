@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.2](https://github.com/alexandriashai/cbrowser/compare/v21.4.1...v21.4.2) (2026-11-04)
+
+### Fixed
+
+* **mcp:** cognitive_effort measures through the proxy it is given ([d28b22e](https://github.com/alexandriashai/cbrowser/commit/d28b22e5179d0c8da77d573d80c0a64b96b3fc09))
+
 ## [21.4.1](https://github.com/alexandriashai/cbrowser/compare/v21.4.0...v21.4.1) (2026-11-04)
 
 ### Fixed
