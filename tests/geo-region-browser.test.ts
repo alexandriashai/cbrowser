@@ -50,7 +50,7 @@ const { browserLaunchConfig } = await import("../src/browser-options.js");
 const { registerAuditTools } = await import("../src/mcp-tools/base/audit-tools.js");
 const { startProxyForwarder, loopbackPeerUid, proxyConfigFromUrl } = await import("../src/proxy-forwarder.js");
 const { registerPersonaComparisonTools } = await import("../src/mcp-tools/base/persona-comparison-tools.js");
-const { setHostedMode, refuseHostedProxy } = await import("../src/mcp-tools/hosted-inputs.js");
+const { setHostedMode, refuseHostedProxy, pinHostedProxy } = await import("../src/mcp-tools/hosted-inputs.js");
 const { runCrossBrowserTest } = await import("../src/visual/cross-browser.js");
 const { detectFlakyTests } = await import("../src/testing/flaky-detection.js");
 const { repairTest } = await import("../src/testing/test-repair.js");
@@ -951,6 +951,34 @@ describe("a hosted caller's proxy", () => {
       setHostedMode(false);
     }
     expect(await refuseHostedProxy("t", "http://127.0.0.1:9")).toBeNull();
+  });
+
+  test("given by name, is connected to at the address checked, so a name that answers differently later cannot move it", async () => {
+    setHostedMode(true);
+    try {
+      // A rebinding name: public for the check, loopback for whoever asks next.
+      let asked = 0;
+      const rebinding = async () => (asked++ === 0 ? ["93.184.216.34"] : ["127.0.0.1"]);
+      const pinned = await pinHostedProxy("t", "http://u:p@proxy.rebind.test:3128", rebinding);
+      expect(pinned).toEqual({ ok: true, proxy: "http://u:p@93.184.216.34:3128/" });
+      expect(asked).toBe(1);
+      expect(proxyConfigFromUrl((pinned as { proxy: string }).proxy)).toEqual({ server: "http://93.184.216.34:3128", username: "u", password: "p" });
+      expect(await pinHostedProxy("t", "proxy.rebind.test:3128", async () => ["2606:4700:4700::1111"])).toEqual({ ok: true, proxy: "http://[2606:4700:4700::1111]:3128/" });
+      // Any private answer refuses; an address is used as given and never resolved.
+      expect((await pinHostedProxy("t", "http://proxy.rebind.test:3128", async () => ["93.184.216.34", "127.0.0.1"])).ok).toBe(false);
+      const noLookup = async (): Promise<string[]> => { throw new Error("an address is not resolved"); };
+      expect(await pinHostedProxy("t", "http://8.8.8.8:3128", noLookup)).toEqual({ ok: true, proxy: "http://8.8.8.8:3128" });
+      expect((await pinHostedProxy("t", "http://[::ffff:7f00:1]:9", noLookup)).ok).toBe(false);
+      // An https proxy's certificate names its host, so it must come as an address.
+      const tls = await pinHostedProxy("t", "https://proxy.rebind.test:443", async () => ["93.184.216.34"]);
+      expect(tls.ok).toBe(false);
+      expect(JSON.stringify(tls)).toContain("must be given by IP address");
+      expect(await pinHostedProxy("t", "https://8.8.8.8:443", noLookup)).toEqual({ ok: true, proxy: "https://8.8.8.8:443" });
+    } finally {
+      setHostedMode(false);
+    }
+    // Not hosted: unchanged and never resolved.
+    expect(await pinHostedProxy("t", "http://proxy.rebind.test:3128", async () => { throw new Error("resolved"); })).toEqual({ ok: true, proxy: "http://proxy.rebind.test:3128" });
   });
 });
 

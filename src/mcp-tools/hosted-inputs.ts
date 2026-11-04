@@ -189,36 +189,77 @@ export function refuseHostedUrl(tool: string, params: Record<string, unknown>): 
   return null;
 }
 
+/** Every address a name resolves to. A parameter so tests can answer as a rebinding name would. */
+export type ProxyResolver = (host: string) => Promise<string[]>;
+const lookupAll: ProxyResolver = async (host) => (await lookup(host, { all: true })).map((a) => a.address);
+
+/** A proxy parameter as a URL, its bare host, and the addresses the host stands for (none when it cannot be read). */
+async function proxyAddresses(text: string, resolve: ProxyResolver): Promise<{ url?: URL; host: string; addresses: string[] }> {
+  let url: URL | undefined;
+  let host = "";
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${text}`);
+    host = url.hostname.replace(/^\[(.*)\]$/, "$1");
+  } catch { /* refused by the caller */ }
+  let addresses: string[] = [];
+  if (host && isIP(host)) addresses = [host];
+  else if (host && host.toLowerCase() !== "localhost") {
+    try { addresses = await resolve(host); } catch { /* refused by the caller */ }
+  }
+  return { url, host, addresses };
+}
+
+function proxyNotAllowed(tool: string, message: string): HostedRefusal {
+  return refusal({ error: "proxy_not_allowed", tool, parameter: "proxy", message });
+}
+
 /**
  * Refuse a caller's proxy that points at this server or its network. The proxy
  * forwarders that hold the operator's residential login listen on 127.0.0.1
  * (proxy-forwarder.ts) and serve every process of their user, which on the
  * hosted servers is every account's: a caller who named 127.0.0.1:<port> as
  * its proxy would have used another account's login (found 2026-11-02). A host
- * name is resolved and refused when any address is private. Not covered: a
- * name that resolves differently when the browser connects (P-10).
+ * name is resolved and refused when any address is private. This only checks;
+ * a tool that opens a browser through the proxy uses pinHostedProxy, which also
+ * makes the browser connect to the address checked.
  */
-export async function refuseHostedProxy(tool: string, proxy: unknown): Promise<HostedRefusal | null> {
+export async function refuseHostedProxy(tool: string, proxy: unknown, resolve: ProxyResolver = lookupAll): Promise<HostedRefusal | null> {
   if (!hostedMode || proxy === undefined || proxy === null || proxy === "") return null;
-  const text = String(proxy);
-  let host = "";
-  try {
-    host = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${text}`).hostname.replace(/^\[(.*)\]$/, "$1");
-  } catch { /* refused below */ }
-  let addresses: string[] = [];
-  if (host && isIP(host)) addresses = [host];
-  else if (host && host.toLowerCase() !== "localhost") {
-    try { addresses = (await lookup(host, { all: true })).map((a) => a.address); } catch { /* refused below */ }
-  }
+  const { addresses } = await proxyAddresses(String(proxy), resolve);
   if (addresses.length === 0 || addresses.some(privateAddress)) {
-    return refusal({
-      error: "proxy_not_allowed",
-      tool,
-      parameter: "proxy",
-      message: `${tool}: proxy must be a public host on the hosted server, not this machine or a private network.`,
-    });
+    return proxyNotAllowed(tool, `${tool}: proxy must be a public host on the hosted server, not this machine or a private network.`);
   }
   return null;
+}
+
+/**
+ * refuseHostedProxy, then the proxy with its host replaced by the address that
+ * was checked, so the browser (or the forwarder in front of a login) connects
+ * there and does not resolve the name again. Without it a name could answer
+ * with a public address for the check and with 127.0.0.1 a moment later, when
+ * the browser connected (DNS rebinding: P-10, raised again by the security
+ * review of 2026-11-04, because cognitive_effort would have added a second
+ * route). An https:// proxy given by name is refused: its certificate names the
+ * host, so the address cannot stand in for it. Not hosted, omitted, or given by
+ * IP address: the proxy comes back as it was.
+ */
+export async function pinHostedProxy(
+  tool: string,
+  proxy: string | undefined,
+  resolve: ProxyResolver = lookupAll,
+): Promise<{ ok: true; proxy: string | undefined } | { ok: false; result: HostedRefusal }> {
+  if (!hostedMode || !proxy) return { ok: true, proxy };
+  const { url, host, addresses } = await proxyAddresses(proxy, resolve);
+  if (!url || addresses.length === 0 || addresses.some(privateAddress)) {
+    return { ok: false, result: proxyNotAllowed(tool, `${tool}: proxy must be a public host on the hosted server, not this machine or a private network.`) };
+  }
+  if (isIP(host)) return { ok: true, proxy };
+  if (url.protocol === "https:") {
+    return { ok: false, result: proxyNotAllowed(tool, `${tool}: on the hosted server an https:// proxy must be given by IP address. The server connects to the address it checked, and an https proxy's certificate names its host. An http:// or socks5:// proxy can be given by name.`) };
+  }
+  const address = addresses[0];
+  url.hostname = isIP(address) === 6 ? `[${address}]` : address;
+  return { ok: true, proxy: url.toString() };
 }
 
 /**

@@ -84,7 +84,7 @@ export function resolveBrowserSetup(given: {
   _browserToken?: string;
   alsoSession?: Record<string, unknown>;
 }): { ok: true; options: BrowserSetupOptions | null } | { ok: false; problem: BrowserSetupProblem } {
-  // "" counts as omitted, as refuseHostedProxy treats it.
+  // "" counts as omitted, as the hosted proxy check treats it.
   const proxy = given.proxy || undefined;
   const userTimezone = given.userTimezone?.trim() || undefined;
   const userLocation = given.userLocation?.trim() || undefined;

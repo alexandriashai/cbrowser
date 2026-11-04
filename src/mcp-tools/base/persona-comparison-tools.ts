@@ -11,7 +11,7 @@ import { buildContentWithPreviews } from "../inline-image.js";
 import { makeTempDir, type CallTempDir } from "../../temp-files.js";
 import { scopeProse } from "../../visual/scope-prose.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
+import { pinHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
 import { proxyParam, resolveBrowserSetup, userLocationParam, userTimezoneParam } from "../browser-setup.js";
 import { comparePersonas } from "../../analysis/index.js";
 import { isApiKeyConfigured } from "../../cognitive/index.js";
@@ -796,14 +796,16 @@ Begin with the first persona: ${personas[0]}
     // recordedAnswer: one provenance recording per call, across every await,
     // reported as modelProvenance at the end (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10), and a proxy on a public
-    // host only (see hosted-inputs.ts).
-    const hostedRefusal = refuseHostedUrl("cognitive_effort", { url }) ?? await refuseHostedProxy("cognitive_effort", proxy);
+    // host only, connected to at the address checked (see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("cognitive_effort", { url });
     if (hostedRefusal) return hostedRefusal;
+    const pinned = await pinHostedProxy("cognitive_effort", proxy);
+    if (!pinned.ok) return pinned.result;
     // Through 21.4.0 proxy, userTimezone and userLocation were accepted and
     // never applied: the page was measured from the server's own IP, in its
     // time zone, with no geolocation, and the answer did not say so
     // (2026-11-04). All three need a browser of the call's own (browser-setup.ts).
-    const setup = resolveBrowserSetup({ proxy, userTimezone, userLocation, _browserToken });
+    const setup = resolveBrowserSetup({ proxy: pinned.proxy, userTimezone, userLocation, _browserToken });
     if (!setup.ok) {
       return {
         isError: true,

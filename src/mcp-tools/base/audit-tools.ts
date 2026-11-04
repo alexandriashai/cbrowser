@@ -14,7 +14,7 @@ import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive
 import { lawTimesReport } from "../../visual/law-times-report.js";
 import { resolveSiteFamiliarity as resolveRunFamiliarity } from "./site-familiarity.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
+import { pinHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
 import { proxyConfigFromUrl } from "../../proxy-forwarder.js";
 import { proxyParam, resolveBrowserSetup, userLocationParam, userTimezoneParam } from "../browser-setup.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
@@ -272,8 +272,12 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
     // recordedAnswer: one provenance recording per call, across every await,
     // reported as modelProvenance once gate 3 has scored (answer-provenance.ts).
     // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
-    const hostedRefusal = refuseHostedUrl("site_cognitive_assessment", { url }) ?? await refuseHostedProxy("site_cognitive_assessment", proxy);
+    const hostedRefusal = refuseHostedUrl("site_cognitive_assessment", { url });
     if (hostedRefusal) return hostedRefusal;
+    // A proxy on a public host only, connected to at the address checked.
+    const pinned = await pinHostedProxy("site_cognitive_assessment", proxy);
+    if (!pinned.ok) return pinned.result;
+    proxy = pinned.proxy;
     const startTime = Date.now();
     const personaList = (personas || "first-timer,cognitive-adhd").split(",").map(s => s.trim()).filter(Boolean);
 
