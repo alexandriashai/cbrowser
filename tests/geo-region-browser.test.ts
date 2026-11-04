@@ -789,9 +789,16 @@ describe("a hosted caller's proxy", () => {
   test("may not be this machine or a private network (each account's forwarder listens on 127.0.0.1)", async () => {
     setHostedMode(true);
     try {
-      for (const p of ["http://127.0.0.1:9", "127.0.0.1:9", "http://localhost:3128", "http://10.1.2.3:3128", "http://[::1]:3128", "http://192.168.1.1:8080"]) {
+      // The bracketed IPv4-in-IPv6 forms passed as public until 2026-11-04: the URL
+      // parser writes [::ffff:127.0.0.1] as [::ffff:7f00:1].
+      for (const p of ["http://127.0.0.1:9", "127.0.0.1:9", "http://localhost:3128", "http://10.1.2.3:3128", "http://[::1]:3128", "http://192.168.1.1:8080",
+        "http://[::ffff:127.0.0.1]:9", "http://[::ffff:7f00:1]:9", "http://[0:0:0:0:0:ffff:7f00:1]:9", "http://[::7f00:1]:9", "http://[::ffff:a00:1]:9",
+        "http://[64:ff9b::7f00:1]:9", "http://[::]:9", "http://[fd00::1]:9", "http://[fe80::1]:9", "http://[fec0::1]:9", "http://[ff02::1]:9", "http://2130706433:9"]) {
         const r = await refuseHostedProxy("t", p);
         expect(`${p}: ${r?.isError}`).toBe(`${p}: true`);
+      }
+      for (const p of ["http://[2606:4700:4700::1111]:3128", "http://[::ffff:8.8.8.8]:3128", "http://[64:ff9b::808:808]:3128"]) {
+        expect(`${p}: ${await refuseHostedProxy("t", p)}`).toBe(`${p}: null`);
       }
       expect(await refuseHostedProxy("t", "http://8.8.8.8:3128")).toBeNull();
       type Handler = (args: Record<string, unknown>, extra?: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }>;

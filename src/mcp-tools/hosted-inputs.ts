@@ -33,16 +33,49 @@ import { scopedDataDir } from "../persona-scope.js";
 
 export type HostedRefusal = { isError: true; content: Array<{ type: "text"; text: string }> };
 
-/** An address on this machine or a private, shared or link-local network. */
-function privateAddress(ip: string): boolean {
-  const v4 = ip.replace(/^::ffff:/i, "");
-  if (isIP(v4) === 4) {
-    const [a, b] = v4.split(".").map(Number);
-    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+function privateV4(ip: string): boolean {
+  const [a, b] = ip.split(".").map(Number);
+  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+}
+
+/** The eight 16-bit groups of an IPv6 address (a trailing dotted IPv4 part allowed), or null. */
+function v6Groups(ip: string): number[] | null {
+  let s = ip.toLowerCase().replace(/%.*$/, "");
+  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (dotted) {
+    if (isIP(dotted[1]) !== 4) return null;
+    const [a, b, c, d] = dotted[1].split(".").map(Number);
+    s = s.slice(0, -dotted[1].length) + ((a << 8) | b).toString(16) + ":" + ((c << 8) | d).toString(16);
   }
-  const v6 = ip.toLowerCase();
-  return v6 === "::" || v6 === "::1" || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+  if (fill < 0 || (halves.length === 1 && head.length !== 8)) return null;
+  const groups = [...head, ...Array<string>(fill).fill("0"), ...tail].map((g) => (/^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN));
+  return groups.length === 8 && groups.every((g) => g >= 0) ? groups : null;
+}
+
+/**
+ * An address on this machine or a private, shared or link-local network.
+ *
+ * An IPv4 address written inside IPv6 is judged as that IPv4 address. Only a
+ * dotted "::ffff:" prefix used to be stripped, and the URL parser writes
+ * [::ffff:127.0.0.1] as [::ffff:7f00:1], so loopback in that form passed as
+ * public and reached the 127.0.0.1 forwarders (review, 2026-11-04).
+ */
+function privateAddress(ip: string): boolean {
+  if (isIP(ip) === 4) return privateV4(ip);
+  const g = v6Groups(ip);
+  if (!g) return true;
+  // ::a.b.c.d (compatible, so :: and ::1 too), ::ffff:a.b.c.d (mapped), 64:ff9b::a.b.c.d (NAT64).
+  const embedded = (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0 || g[5] === 0xffff)) ||
+    (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0));
+  if (embedded) return privateV4(`${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`);
+  // Unique local fc00::/7, link-local fe80::/10, site-local fec0::/10, multicast ff00::/8.
+  return (g[0] & 0xfe00) === 0xfc00 || (g[0] & 0xffc0) === 0xfe80 || (g[0] & 0xffc0) === 0xfec0 || (g[0] & 0xff00) === 0xff00;
 }
 
 let hostedMode = false;
