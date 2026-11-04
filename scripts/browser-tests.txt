@@ -140,3 +140,6 @@ tests/privacy-signals-browser.test.ts
 # the audit and the CLI through a local proxy, and reads the region each
 # request's credentials carried.
 tests/geo-region-browser.test.ts
+# Runs cognitive_effort and site_cognitive_assessment on a local page that
+# reports the time zone and geolocation its chromium sees.
+tests/browser-setup-user-context.test.ts

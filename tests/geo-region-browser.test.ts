@@ -519,7 +519,7 @@ describe("the hosted assessment tool", () => {
     expect(hits).toEqual([]);
     const session = await handlers.site_cognitive_assessment({ url: PAGE, geoRegion: "uk", _browserToken: "t" }, {});
     expect(session.isError).toBe(true);
-    expect(session.content[0].text).toContain("geoRegion and proxy do not apply to _browserToken");
+    expect(session.content[0].text).toContain("geoRegion does not apply to _browserToken");
     expect(hits).toEqual([]);
   }, TIMEOUT);
 

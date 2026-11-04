@@ -12,7 +12,7 @@ import { makeTempDir, type CallTempDir } from "../../temp-files.js";
 import { scopeProse } from "../../visual/scope-prose.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
-import { proxyParam, resolveBrowserSetup } from "../browser-setup.js";
+import { proxyParam, resolveBrowserSetup, userLocationParam, userTimezoneParam } from "../browser-setup.js";
 import { comparePersonas } from "../../analysis/index.js";
 import { isApiKeyConfigured } from "../../cognitive/index.js";
 import {
@@ -776,8 +776,8 @@ Begin with the first persona: ${personas[0]}
         .describe("How familiar this persona is with THIS url: 0 first visit, 1 daily user. Omitted, the run scores a first visit (0). Familiarity is a persona-site pair, not a disposition: no persona carries one, and site knowledge does not supply one."),
       persona: z.string().describe("Persona name (e.g. first-timer, power-user, cognitive-adhd). To simulate someone who already knows this site, pass siteFamiliarity; the persona name does not imply it."),
       _browserToken: z.string().optional().describe("Browser session token"),
-      userLocation: z.string().optional().describe("User's approximate location (e.g., 'Denver, Colorado, US')"),
-      userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver')"),
+      userLocation: userLocationParam,
+      userTimezone: userTimezoneParam,
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US')"),
       proxy: proxyParam,
       useValues: z.boolean().optional().default(false).describe("Apply the persona's Schwartz values (opt-in). When true, the values modulate the page's demand inside the chain, through its ten registered coefficients (chain.valueModulation.*, design values registered as hypotheses, counted in modelProvenance): stimulation and security on changeBlindness; achievement on satisficing and riskTolerance; conformity on socialProofSensitivity and anchoringBias; selfDirection on socialProofSensitivity; power on fearOfMissingOut; stimulation on patience; benevolence on emotionalContagion. Each adds coefficient x score x max(chain.valueModulation.demandFloor, demand) to that trait's demand, clamped to [0, 1]; hedonism, tradition and universalism change nothing. Applies to the aggregate score and, at scope 'sequential', to every screen. Scores come from the persona registry, the persona's own schwartzValues, its Big Five, or an account persona in the CMS; `valueModulation` in the response says whether any were found. Default: false (trait-only mode)."),
@@ -799,10 +799,11 @@ Begin with the first persona: ${personas[0]}
     // host only (see hosted-inputs.ts).
     const hostedRefusal = refuseHostedUrl("cognitive_effort", { url }) ?? await refuseHostedProxy("cognitive_effort", proxy);
     if (hostedRefusal) return hostedRefusal;
-    // Through 21.4.0 proxy was accepted and never read: the page was measured
-    // from the server's own IP, and the answer did not say so (2026-11-04). It
-    // needs a browser of the call's own (browser-setup.ts).
-    const setup = resolveBrowserSetup({ proxy, _browserToken });
+    // Through 21.4.0 proxy, userTimezone and userLocation were accepted and
+    // never applied: the page was measured from the server's own IP, in its
+    // time zone, with no geolocation, and the answer did not say so
+    // (2026-11-04). All three need a browser of the call's own (browser-setup.ts).
+    const setup = resolveBrowserSetup({ proxy, userTimezone, userLocation, _browserToken });
     if (!setup.ok) {
       return {
         isError: true,
@@ -812,7 +813,7 @@ Begin with the first persona: ${personas[0]}
         }],
       };
     }
-    // The browser opened for the proxy, closed in the finally below.
+    // The browser opened for them, closed in the finally below.
     let ownBrowser: Awaited<ReturnType<typeof getBrowser>> | undefined;
     try {
       // Get browser
@@ -1551,7 +1552,13 @@ Begin with the first persona: ${personas[0]}
         siteKnowledgeAvailable: familiarity.siteKnowledgeAvailable,
         siteFamiliarityEffect: `Cockburn, Gutwin & Greenberg's (2007) expertise e on the choosing time: (1 - e) x novice visual search + e x the Hick-Hyman expert limit, so a familiar visitor is asked less search by every choice on the page. It moves the cognitiveLoad layer (convention knowledge, working memory, foraging, transfer), the same for every persona; the decision dispositions keep the first-visit time. It is not a persona trait. The score is still ranked against first visits (e = 0).`,
         ...(languageWarning ? { languageWarning } : {}),
-        ...(userLocation ? { userContext: { location: userLocation, timezone: userTimezone, language: userLanguage } } : {}),
+        // What the browser was set up with, now that it is applied.
+        ...(userLocation || userTimezone ? { userContext: {
+          location: userLocation || null,
+          geolocation: setup.options?.geolocation ?? null,
+          timezone: setup.options?.timezone ?? null,
+          language: userLanguage || null,
+        } } : {}),
         ...(token ? { _browserToken: token } : {}),
       };
 

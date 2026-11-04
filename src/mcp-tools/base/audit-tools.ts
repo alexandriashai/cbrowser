@@ -16,6 +16,7 @@ import { resolveSiteFamiliarity as resolveRunFamiliarity } from "./site-familiar
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
 import { proxyConfigFromUrl } from "../../proxy-forwarder.js";
+import { proxyParam, resolveBrowserSetup, userLocationParam, userTimezoneParam } from "../browser-setup.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import { ctcRank } from "../../visual/ctc-bands.js";
 import { recordedAnswer } from "./answer-provenance.js";
@@ -248,10 +249,10 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       // scores a first visit (0.0); see site-familiarity.ts. (2026-08-01, 21.0)
       siteFamiliarity: z.number().min(0).max(1).optional()
         .describe("How familiar these personas are with THIS site: 0 first visit, 1 regular user. Omitted, every persona is scored as a first visit (0). Familiarity is a persona-site pair, not a disposition, so set it per run; site knowledge does not supply it."),
-      userLocation: z.string().optional().describe("User's approximate location (e.g., 'Denver, Colorado, US') — for geo-aware content expectations"),
-      userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver') — for time-sensitive content evaluation"),
+      userLocation: userLocationParam,
+      userTimezone: userTimezoneParam,
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US') — for readability calibration"),
-      proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing (e.g., 'http://user:pass@proxy.example.com:12321'). Routes browser through the proxy so sites see the proxy's IP/location instead of the server's."),
+      proxy: proxyParam,
       geoRegion: z.string().optional().describe("Route through a residential proxy in this region. Available: us-west, us-east, us-central, uk, germany, japan. Ignored when proxy is given. A region this server has not configured is an error. Not with _browserToken."),
       device: z.string().optional().describe("Device emulation: 'mobile', 'tablet', 'desktop', or specific device like 'iPhone 15'. Default: no emulation, at the configured viewport (1920x1080 unless CBROWSER_VIEWPORT_WIDTH/HEIGHT or the config file say otherwise); the response reports the device and viewport used."),
       colorScheme: colorSchemeParam,
@@ -291,6 +292,18 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       },
     };
 
+    // The time zone was set on the browser this tool opens and dropped on a
+    // session; the location was only echoed (2026-11-04). Both now go on the
+    // browser it opens, and with a region or proxy are refused on a session,
+    // which keeps what it was opened with (browser-setup.ts).
+    const setup = resolveBrowserSetup({ proxy, userTimezone, userLocation, _browserToken, alsoSession: { geoRegion } });
+    if (!setup.ok) {
+      response.gate1 = { status: "error", error: setup.problem.message, code: setup.problem.error, parameters: setup.problem.parameters };
+      response.result = "ERROR";
+      return { isError: true, content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+    }
+    if (setup.options?.geolocation) (response.userContext as Record<string, unknown>).geolocation = setup.options.geolocation;
+
     // ── Gate 1: Bot Detection Probe ──
     let ownsBrowser = true;
     let proxyConfig: { server: string; username?: string; password?: string } | undefined;
@@ -299,14 +312,9 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
       let browser: InstanceType<typeof BrowserClass>;
       let token: string | undefined;
 
-      // A session's browser keeps the network path it was opened with: a
-      // region or proxy asked for with one was dropped, and the assessment ran
-      // from wherever the session goes out (found 2026-11-02).
-      if (_browserToken && (geoRegion || proxy)) {
-        response.gate1 = { status: "error", error: "geoRegion and proxy do not apply to _browserToken: the session's browser keeps the network path it was opened with. Call without _browserToken to use them." };
-        response.result = "ERROR";
-        return { isError: true, content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
+      // A region, proxy, time zone or location with _browserToken was refused
+      // above: the session's browser keeps what it was opened with, and a region
+      // or proxy asked for with one used to be dropped (found 2026-11-02).
 
       // If _browserToken is provided, reuse existing session (preserves language selection, cookies, etc.)
       if (_browserToken && getBrowserByToken) {
@@ -348,7 +356,8 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           // wrong number. (2026-07-26)
           ...(device ? { device } : {}),
           ...(colorScheme ? { colorScheme } : {}),
-          ...(userTimezone ? { timezone: userTimezone } : {}),
+          ...(setup.options?.timezone ? { timezone: setup.options.timezone } : {}),
+          ...(setup.options?.geolocation ? { geolocation: setup.options.geolocation } : {}),
           // A region keeps certificate checks on (config.ts geoRegion).
           ...(proxyConfig ? { proxy: proxyConfig, timeout: 60000, ...(response.geoRegion ? { geoRegion } : {}) } : {}),
         });
