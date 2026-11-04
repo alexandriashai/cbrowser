@@ -11,7 +11,8 @@ import { buildContentWithPreviews } from "../inline-image.js";
 import { makeTempDir, type CallTempDir } from "../../temp-files.js";
 import { scopeProse } from "../../visual/scope-prose.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
-import { refuseHostedUrl } from "../hosted-inputs.js";
+import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
+import { proxyParam, resolveBrowserSetup } from "../browser-setup.js";
 import { comparePersonas } from "../../analysis/index.js";
 import { isApiKeyConfigured } from "../../cognitive/index.js";
 import {
@@ -778,7 +779,7 @@ Begin with the first persona: ${personas[0]}
       userLocation: z.string().optional().describe("User's approximate location (e.g., 'Denver, Colorado, US')"),
       userTimezone: z.string().optional().describe("User's timezone (e.g., 'America/Denver')"),
       userLanguage: z.string().optional().describe("User's expected language (e.g., 'en-US')"),
-      proxy: z.string().optional().describe("Proxy server URL for geo-accurate testing"),
+      proxy: proxyParam,
       useValues: z.boolean().optional().default(false).describe("Apply the persona's Schwartz values (opt-in). When true, the values modulate the page's demand inside the chain, through its ten registered coefficients (chain.valueModulation.*, design values registered as hypotheses, counted in modelProvenance): stimulation and security on changeBlindness; achievement on satisficing and riskTolerance; conformity on socialProofSensitivity and anchoringBias; selfDirection on socialProofSensitivity; power on fearOfMissingOut; stimulation on patience; benevolence on emotionalContagion. Each adds coefficient x score x max(chain.valueModulation.demandFloor, demand) to that trait's demand, clamped to [0, 1]; hedonism, tradition and universalism change nothing. Applies to the aggregate score and, at scope 'sequential', to every screen. Scores come from the persona registry, the persona's own schwartzValues, its Big Five, or an account persona in the CMS; `valueModulation` in the response says whether any were found. Default: false (trait-only mode)."),
       waitAfterLoad: z.number().optional().describe("Extra ms to wait after page loads (e.g., 3000 for sites with client-side translation)"),
       waitForSelector: z.string().optional().describe("CSS selector to wait for after load (e.g., '[data-translated]')"),
@@ -794,14 +795,35 @@ Begin with the first persona: ${personas[0]}
   }, recordedAnswer(async ({ url, persona: personaName, siteFamiliarity, _browserToken, userLocation, userTimezone, userLanguage, proxy, useValues, waitAfterLoad, waitForSelector, scope }) => {
     // recordedAnswer: one provenance recording per call, across every await,
     // reported as modelProvenance at the end (answer-provenance.ts).
-    // Hosted: http(s) only (sec-paths, 2026-10-10; see hosted-inputs.ts).
-    const hostedRefusal = refuseHostedUrl("cognitive_effort", { url });
+    // Hosted: http(s) only (sec-paths, 2026-10-10), and a proxy on a public
+    // host only (see hosted-inputs.ts).
+    const hostedRefusal = refuseHostedUrl("cognitive_effort", { url }) ?? await refuseHostedProxy("cognitive_effort", proxy);
     if (hostedRefusal) return hostedRefusal;
+    // Through 21.4.0 proxy was accepted and never read: the page was measured
+    // from the server's own IP, and the answer did not say so (2026-11-04). It
+    // needs a browser of the call's own (browser-setup.ts).
+    const setup = resolveBrowserSetup({ proxy, _browserToken });
+    if (!setup.ok) {
+      return {
+        isError: true,
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ ...setup.problem, url, persona: personaName }, null, 2),
+        }],
+      };
+    }
+    // The browser opened for the proxy, closed in the finally below.
+    let ownBrowser: Awaited<ReturnType<typeof getBrowser>> | undefined;
     try {
       // Get browser
       let b: Awaited<ReturnType<typeof getBrowser>>;
       let token: string | undefined;
-      if (getBrowserByToken) {
+      if (setup.options) {
+        const { CBrowser: BrowserClass } = await import("../../browser.js");
+        ownBrowser = new BrowserClass({ headless: true, persistent: false, ...setup.options });
+        await ownBrowser.launch();
+        b = ownBrowser;
+      } else if (getBrowserByToken) {
         const result = await getBrowserByToken(_browserToken);
         b = result.browser;
         token = result.token;
@@ -1736,6 +1758,9 @@ Begin with the first persona: ${personas[0]}
           }, null, 2),
         }],
       };
+    } finally {
+      // A proxy's forwarder holds its login open until the browser closes.
+      await ownBrowser?.close().catch(() => {});
     }
   }));
 }

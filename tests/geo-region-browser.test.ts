@@ -34,6 +34,8 @@ const startDir = process.cwd();
 const startEnv = { ...process.env };
 process.chdir(workDir);
 process.env.CBROWSER_DATA_DIR = dataDir;
+// cognitive_effort writes its overlays here, not the server's artifact dir.
+process.env.CBROWSER_ARTIFACT_DIR = join(workDir, "artifacts");
 // IPROYAL_* would win over geo-proxy.json and send these tests to the real proxy.
 const GEO_ENV = ["CBROWSER_GEO_REGION", "CBROWSER_PROXY", "CBROWSER_PROXY_SERVER", "IPROYAL_USERNAME", "IPROYAL_PASSWORD", "LIGHTPANDA_ENDPOINT", "LIGHTPANDA_TOKEN"];
 for (const k of GEO_ENV) delete process.env[k];
@@ -46,7 +48,8 @@ const { runAgentReadyAudit } = await import("../src/analysis/agent-ready-audit.j
 const { capturePerformanceBaseline } = await import("../src/performance/metrics.js");
 const { browserLaunchConfig } = await import("../src/browser-options.js");
 const { registerAuditTools } = await import("../src/mcp-tools/base/audit-tools.js");
-const { startProxyForwarder, loopbackPeerUid } = await import("../src/proxy-forwarder.js");
+const { startProxyForwarder, loopbackPeerUid, proxyConfigFromUrl } = await import("../src/proxy-forwarder.js");
+const { registerPersonaComparisonTools } = await import("../src/mcp-tools/base/persona-comparison-tools.js");
 const { setHostedMode, refuseHostedProxy } = await import("../src/mcp-tools/hosted-inputs.js");
 const { runCrossBrowserTest } = await import("../src/visual/cross-browser.js");
 const { detectFlakyTests } = await import("../src/testing/flaky-detection.js");
@@ -518,6 +521,141 @@ describe("the hosted assessment tool", () => {
     expect(session.isError).toBe(true);
     expect(session.content[0].text).toContain("geoRegion and proxy do not apply to _browserToken");
     expect(hits).toEqual([]);
+  }, TIMEOUT);
+
+  test("reaches a caller's proxy written without http:// (its inline parse read the user as a scheme)", async () => {
+    type Handler = (args: Record<string, unknown>, extra?: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }>;
+    const handlers: Record<string, Handler> = {};
+    registerAuditTools({ registerTool: (name: string, _c: unknown, h: Handler) => { handlers[name] = h; } } as never);
+    hits.length = 0;
+    await handlers.site_cognitive_assessment({ url: PAGE, personas: "first-timer", proxy: `caller-user:caller-pw@127.0.0.1:${proxyPort}` }, {});
+    const page = hits.filter((h) => h.host === "plain.test");
+    expect(page.map((h) => h.path)).toContain("/");
+    expect([...new Set(page.map((h) => h.auth))]).toEqual(["caller-user:caller-pw"]);
+  }, 180_000);
+});
+
+describe("a proxy parameter's URL", () => {
+  test("becomes the server and its decoded login; a proxy without a port or a scheme keeps its host", () => {
+    expect(proxyConfigFromUrl("http://u:p@proxy.example.com:3128")).toEqual({ server: "http://proxy.example.com:3128", username: "u", password: "p" });
+    // site_cognitive_assessment's inline parse wrote "http://proxy.example.com:" and "proxy.example.com://".
+    expect(proxyConfigFromUrl("http://proxy.example.com")).toEqual({ server: "http://proxy.example.com" });
+    expect(proxyConfigFromUrl("proxy.example.com:3128")).toEqual({ server: "http://proxy.example.com:3128" });
+    expect(proxyConfigFromUrl("http://us%40er:p%3Ass@h.example:1")).toEqual({ server: "http://h.example:1", username: "us@er", password: "p:ss" });
+    expect(proxyConfigFromUrl("socks5://h.example:1080")).toEqual({ server: "socks5://h.example:1080" });
+    expect(proxyConfigFromUrl("https://u:p@[::1]:8443")).toEqual({ server: "https://[::1]:8443", username: "u", password: "p" });
+  });
+
+  test("keeps a login with a malformed escape out of the server; text that is not a URL is refused without repeating it", () => {
+    // Both used to come back as { server: <the whole text> }, login inside, so the forwarder was skipped.
+    expect(proxyConfigFromUrl("http://u:p%@h.example:1")).toEqual({ server: "http://h.example:1", username: "u", password: "p%" });
+    expect(() => proxyConfigFromUrl("http://u:s3cret@[bad")).toThrow(/^proxy is not a URL/);
+    try { proxyConfigFromUrl("http://u:s3cret@[bad"); } catch (e) { expect((e as Error).message).not.toContain("s3cret"); }
+  });
+});
+
+describe("cognitive_effort given a proxy", () => {
+  // Through 21.4.0 the tool accepted proxy and never read it: the page was
+  // measured from the server's own IP (2026-11-04).
+  type Handler = (args: Record<string, unknown>) => Promise<{ isError?: boolean; content: Array<{ type: string; text?: string }> }>;
+  const CALLER = "caller-user:caller-pw";
+  const callerProxy = () => `http://${CALLER}@127.0.0.1:${proxyPort}`;
+
+  /** The tool with a session browser that has no proxy, and how many times that browser was handed out. */
+  async function withEffort<T>(fn: (effort: Handler, sessionUses: () => number) => Promise<T>): Promise<T> {
+    const handlers: Record<string, Handler> = {};
+    let session: InstanceType<typeof CBrowser> | undefined;
+    let uses = 0;
+    const getBrowser = async () => { uses++; return (session ??= new CBrowser({ headless: true, persistent: false })); };
+    registerPersonaComparisonTools({
+      registerTool: (name: string, _c: unknown, h: Handler) => { handlers[name] = h; },
+      tool: () => {}, registerResource: () => {}, resource: () => {},
+    } as never, { getBrowser, getBrowserByToken: async (t?: string) => ({ browser: await getBrowser(), token: t ?? "session" }) } as never);
+    try {
+      return await fn(handlers.cognitive_effort, () => uses);
+    } finally {
+      await session?.close();
+    }
+  }
+
+  test("measures the page through the caller's proxy, with the caller's login, in a browser of its own", async () => {
+    await withEffort(async (effort, sessionUses) => {
+      hits.length = 0;
+      const r = await effort({ url: PAGE, persona: "first-timer", proxy: callerProxy(), useValues: false, scope: "viewport" });
+      expect(r.isError).toBeUndefined();
+      const data = JSON.parse(r.content[0].text!);
+      expect(typeof data.cognitiveTransportCost?.total).toBe("number");
+      // A one-off browser: no session token to come back with.
+      expect(data._browserToken).toBeUndefined();
+      const page = hits.filter((h) => h.host === "plain.test");
+      expect(page.map((h) => h.path)).toContain("/");
+      expect([...new Set(page.map((h) => h.auth))]).toEqual([CALLER]);
+      expect(sessionUses()).toBe(0);
+    });
+  }, 180_000);
+
+  test("keeps the caller's login out of a site that asks for one", async () => {
+    await withEffort(async (effort) => {
+      const before = siteLogins.length;
+      hits.length = 0;
+      await effort({ url: "http://plain.test/auth", persona: "first-timer", proxy: callerProxy(), useValues: false, scope: "viewport" });
+      expect(hits.some((h) => h.host === "plain.test" && h.path === "/auth")).toBe(true);
+      expect(siteLogins.slice(before)).toEqual([]);
+    });
+  }, TIMEOUT);
+
+  test("is refused with _browserToken, before any request", async () => {
+    await withEffort(async (effort, sessionUses) => {
+      hits.length = 0;
+      const r = await effort({ url: PAGE, persona: "first-timer", proxy: callerProxy(), _browserToken: "t" });
+      expect(r.isError).toBe(true);
+      const body = JSON.parse(r.content[0].text!);
+      expect(body.error).toBe("not_with_browser_token");
+      expect(body.parameters).toEqual(["proxy"]);
+      expect(hits).toEqual([]);
+      expect(sessionUses()).toBe(0);
+    });
+  }, TIMEOUT);
+
+  test("closes the browser it opened, and with it the forwarder holding the login", async () => {
+    const forwarders: string[] = [];
+    const close = CBrowser.prototype.close;
+    CBrowser.prototype.close = async function (this: { proxyForwarder?: { server: string } | null }, ...a: unknown[]) {
+      if (this.proxyForwarder) forwarders.push(this.proxyForwarder.server);
+      return close.apply(this as never, a as never);
+    } as typeof close;
+    try {
+      await withEffort(async (effort) => {
+        await effort({ url: PAGE, persona: "first-timer", proxy: callerProxy(), useValues: false, scope: "viewport" });
+      });
+    } finally {
+      CBrowser.prototype.close = close;
+    }
+    expect(forwarders.length).toBe(1);
+    const port = Number(new URL(forwarders[0]).port);
+    const refused = await new Promise<boolean>((done) => {
+      const s = netConnect(port, "127.0.0.1");
+      s.on("connect", () => { s.destroy(); done(false); });
+      s.on("error", () => done(true));
+    });
+    expect(refused).toBe(true);
+  }, 180_000);
+
+  test("on the hosted server, may not be this machine or a private network", async () => {
+    setHostedMode(true);
+    try {
+      await withEffort(async (effort, sessionUses) => {
+        hits.length = 0;
+        // plain.test resolves only through the proxy, so a run that skipped the refusal goes nowhere.
+        const r = await effort({ url: PAGE, persona: "first-timer", proxy: "http://127.0.0.1:9" });
+        expect(r.isError).toBe(true);
+        expect(r.content[0].text).toContain("proxy_not_allowed");
+        expect(hits).toEqual([]);
+        expect(sessionUses()).toBe(0);
+      });
+    } finally {
+      setHostedMode(false);
+    }
   }, TIMEOUT);
 });
 

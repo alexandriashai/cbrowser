@@ -48,6 +48,31 @@ export function proxyServerUrl(server: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(server) ? server : `http://${server}`;
 }
 
+/**
+ * A tool's proxy parameter ("http://user:pass@host:port") as a ProxyConfig,
+ * with the login decoded. site_cognitive_assessment parsed it inline as
+ * protocol//hostname:port, which wrote "http://host:" for a proxy without a
+ * port and read "host:3128" as the scheme "host:" (2026-11-04).
+ *
+ * Text that is not a URL is refused, without repeating it, rather than used
+ * whole as the server: the whole text can carry the login, which would then
+ * skip the forwarder. A login with a malformed %-escape stays as written.
+ */
+export function proxyConfigFromUrl(proxy: string): ProxyConfig {
+  let u: URL;
+  try {
+    u = new URL(proxyServerUrl(proxy));
+  } catch {
+    throw new Error("proxy is not a URL: give it as http://user:pass@host:port (or socks5://host:port).");
+  }
+  const decode = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
+  return {
+    server: `${u.protocol}//${u.host}`,
+    ...(u.username ? { username: decode(u.username) } : {}),
+    ...(u.password ? { password: decode(u.password) } : {}),
+  };
+}
+
 /** Whether a proxy needs the forwarder: an http(s) proxy with a login. Playwright refuses a login on socks. */
 export function needsForwarder(proxy: ProxyConfig | undefined): proxy is ProxyConfig {
   return !!proxy && !!(proxy.username || proxy.password) && /^https?:\/\//i.test(proxyServerUrl(proxy.server));

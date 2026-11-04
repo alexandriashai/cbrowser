@@ -15,6 +15,7 @@ import { lawTimesReport } from "../../visual/law-times-report.js";
 import { resolveSiteFamiliarity as resolveRunFamiliarity } from "./site-familiarity.js";
 import type { McpServer, ToolRegistrationContext } from "../types.js";
 import { refuseHostedProxy, refuseHostedUrl } from "../hosted-inputs.js";
+import { proxyConfigFromUrl } from "../../proxy-forwarder.js";
 import { activeProvenance, collectPersonaReads, isolatedProvenanceAsync, personaRateProvenance, ATTENTION_PROVENANCE_TEXT, type PersonaRateProvenance, type ProvenanceSummary } from "../../visual/model-provenance.js";
 import { ctcRank } from "../../visual/ctc-bands.js";
 import { recordedAnswer } from "./answer-provenance.js";
@@ -334,16 +335,7 @@ export function registerAuditTools(server: McpServer, context?: ToolRegistration
           (response as Record<string, unknown>).geoRegion = geoRegion;
         }
 
-        proxyConfig = proxy ? (() => {
-          try {
-            const u = new URL(proxy);
-            return {
-              server: `${u.protocol}//${u.hostname}:${u.port}`,
-              ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
-              ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
-            };
-          } catch { return { server: proxy }; }
-        })() : undefined;
+        proxyConfig = proxy ? proxyConfigFromUrl(proxy) : undefined;
 
         browser = new BrowserClass({
           headless: true,
