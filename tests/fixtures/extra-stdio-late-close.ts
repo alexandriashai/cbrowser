@@ -11,7 +11,7 @@
  *    That child's `exited` never resolves and it stays a zombie.
  *
  * Imported by tests/bun-extra-stdio-late-close.test.ts, and run as a script
- * (`bun run`, so without the test preload) to show what Bun does unguarded.
+ * (`bun run`) to show what Bun does in a fresh process.
  * Prints the result as JSON when run directly.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
@@ -30,6 +30,12 @@ export interface LateCloseResult {
   /** Bun.spawn children whose `exited` never resolved. */
   stranded: number[];
   children: number;
+  /**
+   * Whether the forced GC collected the dead ChildProcess. The late close
+   * happens when it is finalized, so an empty lateClosed means "closed once"
+   * only when this is true; otherwise the chain proved nothing.
+   */
+  collected: boolean;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,7 +49,7 @@ const target = (fd: number) => {
 const openFds = () => new Set(readdirSync("/proc/self/fd").map(Number));
 
 /** Runs and reaps a child with Playwright's stdio; returns the fds it held. */
-async function runDeadChild(): Promise<number[]> {
+async function runDeadChild(): Promise<{ held: number[]; ref: WeakRef<object> }> {
   const before = openFds();
   const child = spawn("/bin/sh", ["-c", "sleep 0.2"], {
     stdio: ["ignore", "pipe", "pipe", "pipe", "pipe"],
@@ -52,11 +58,11 @@ async function runDeadChild(): Promise<number[]> {
   const held = [...openFds()].filter((fd) => !before.has(fd));
   await new Promise((resolve) => child.once("close", resolve));
   await sleep(50);
-  return held;
+  return { held, ref: new WeakRef(child) };
 }
 
 export async function lateCloseChain(): Promise<LateCloseResult> {
-  const held = await runDeadChild();
+  const { held, ref } = await runDeadChild();
   const freed = held.filter((fd) => target(fd) === null);
 
   // Spawn until a pidfd sits on every freed number, or give up at 32.
@@ -72,12 +78,13 @@ export async function lateCloseChain(): Promise<LateCloseResult> {
     await sleep(20);
   }
   const lateClosed = covered.filter((fd) => !pidfdOn(fd));
+  const collected = ref.deref() === undefined;
 
   const settled = await Promise.all(
     children.map((child) => Promise.race([child.exited.then(() => true), sleep(4000).then(() => false)])),
   );
   const stranded = children.filter((_, i) => !settled[i]).map((child) => child.pid);
-  return { freed, covered, lateClosed, stranded, children: children.length };
+  return { freed, covered, lateClosed, stranded, children: children.length, collected };
 }
 
 if (import.meta.main) {

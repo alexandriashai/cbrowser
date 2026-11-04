@@ -6,8 +6,9 @@
  * chromium over pipes 3 and 4, and the next launch gets the same two fd
  * numbers the last one freed. On Bun before 1.4.0, a GC that finalizes the
  * first browser's ChildProcess closes them again, so the second browser stops
- * answering and newPage() never returns. Without the test preload this fails
- * every time on 1.3.8.
+ * answering and newPage() never returns. Unguarded, this failed every time on
+ * 1.3.8. It runs unguarded since the test preload was removed on 2026-11-04,
+ * so it fails again if a newer Bun brings the bug back.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT

@@ -17,9 +17,10 @@
  *     files. That home's .cbrowser/personas must be empty afterwards.
  *     CBROWSER_PERSONA_GUARD=all runs every persona-writing test file (about
  *     90 s of browsers) instead of the fast four. Run together in one process
- *     those can hit the long-process browser hang scripts/test-split.sh
- *     describes (a timeout, failing "the run itself passes"; it does so on
- *     21.0's tree before this fix too); the personas-dir check still holds.
+ *     on Bun before 1.4.0 those could hit the long-process browser hang
+ *     scripts/test-split.sh describes (a timeout, failing "the run itself
+ *     passes"; it did so on 21.0's tree before this fix too); the personas-dir
+ *     check still holds.
  *   - Every test file that writes personas sets its own data dir (assigned,
  *     not ??=, which inherits an earlier file's) and removes it.
  *

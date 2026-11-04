@@ -12,12 +12,32 @@
 # per test, 34 of them, and something accumulates across a long-lived `bun test`
 # process until a launch hangs.
 #
-# THIS BOUNDS A SYMPTOM. It does not name a cause. The exhausting resource is
-# still unidentified; seven hypotheses were falsified getting here (probe budget,
-# event-loop starvation, Chrome SingletonLock, parallel contention — the suite is
-# sequential — the wedged capture in recording-autocapture, a single culprit
-# predecessor, and an arbitrary process split). If the real cause is found, delete
-# this and fix that.
+# THE CAUSE, found 2026-10-24: Bun before 1.4.0 closes a dead
+# node:child_process child's pipes 3 and up a second time when the
+# ChildProcess is garbage collected. Playwright starts chromium with CDP on
+# pipes 3 and 4, so a GC after a browser closed shut whatever held those fd
+# numbers by then: the next browser's CDP pipe (the hung launch) or a
+# Bun.spawn child's pidfd (a CLI child whose exit never resolved). Every
+# closed browser left two such numbers behind, which is why only a long
+# process hung. Measured on Bun 1.3.8 and 1.3.14, gone in 1.4.0 and 1.4.4;
+# tests/bun-extra-stdio-late-close*.test.ts fail on a Bun that has it. (Seven
+# hypotheses were falsified before that: probe budget, event-loop starvation,
+# Chrome SingletonLock, parallel contention, the wedged capture in
+# recording-autocapture, a single culprit predecessor, an arbitrary split.)
+#
+# WHY THE SPLIT STAYS (measured 2026-11-04, Bun 1.4.4, no guard): the hang is
+# gone -- recording-engine + recording-change-tiers together, which "hangs,
+# every run" below, passed 57 / 0 three times, and the whole suite in ONE
+# `bun test` ran 1036 s with no test at a timeout ceiling. But that one
+# process failed 12 tests, each in milliseconds. 11 of them are
+# tests/benchmark-device-wiring.test.ts's mock.module of the journey engine
+# and the agent-ready audit leaking into the files after it (in one process
+# with it, journey-fixes-browser fails 6 and navigation-error-message,
+# accept-language-browser and cli-flag-contract fail 5; without it, 0).
+# mock.module is process-wide in Bun, which is why that file and
+# journey-replies-browser are listed for a process of their own. The 12th, a
+# journey-golden pin, is not traced. So the isolation is still load-bearing;
+# its reason is the module mocks now, not the hang.
 #
 # DISCOVERY, NOT A HAND-WRITTEN LIST. Test files live in three places (tests/,
 # tests/golden/, src/visual/). Enumerating them by hand would silently drop the
@@ -47,8 +67,8 @@ set -euo pipefail
 # this release's changes. The new files did not introduce the bug, they consumed
 # the remaining headroom.
 #
-# Still bounding a symptom, still not naming a cause. Every file listed here
-# launches real browsers per test. If the real cause is ever found, delete this.
+# (2026-11-04: the cause is the Bun late close in the header, fixed in 1.4.0.
+# On 1.4.4 the pair above passes together.)
 # 2026-09-17: the list moved to scripts/browser-tests.txt, read by BOTH this
 # script and scripts/test-gate.sh. They each kept their own copy until today and
 # had drifted: the gate quarantined 7 files while this script isolated 10, so
@@ -87,15 +107,18 @@ fi
 # including the next agent, to skim past the signal. That is a real cost being
 # paid to avoid a larger one, not a cleanup.
 #
-# UNRESOLVED. Twelve hypotheses refuted -- the eight in test-gate.sh, plus
+# Twelve hypotheses refuted at the time -- the eight in test-gate.sh, plus
 # fast-check run count, CPU starvation (passes pinned to one core),
 # missing anti-throttling launch args, and a wedged session.stop() (bounded at
 # 45s; the bound never fired, which proves the hang is UPSTREAM of the stop, in
 # launch / navigate / session.start / the hold).
 #
-# Next step when someone picks this up: instrument the capture helper stage by
-# stage and read which stage never returns on CI. Do not re-run the refuted
-# twelve.
+# Likely explained since (2026-11-04): those CI failures were on Bun 1.3.14,
+# which has the late close in the header (a hung launch is upstream of the
+# stop). Since CI moved to Bun 1.4 (1.4.2 by 2026-09-18), the Tests
+# workflow's diagnostic step has run this file on its own and it passed
+# 12 / 0 in every one of 29 runs sampled from 2026-09-18 to 2026-11-04.
+# Lifting the quarantine is a separate decision, not taken here.
 QUARANTINED_ON_CI=(
   "tests/recording-change-tiers.test.ts"
 )
@@ -162,7 +185,8 @@ echo "test-split: ${#ALL[@]} test files discovered — ${#REST[@]} in pass 1, ${
 bun test "${REST[@]}"
 
 # Each isolated file gets its OWN process. Running them as one `bun test` with
-# several arguments would recreate the union that hangs.
+# several arguments recreated the union that hung on Bun before 1.4.0, and
+# would still share module mocks between files (see the header).
 #
 # RETRY ONCE, and loudly (2026-08-12, Alexa's call).
 #
@@ -170,14 +194,17 @@ bun test "${REST[@]}"
 # wall-clock timing, and the failure they exhibit is a capture that never
 # completes, reported at exactly the test's declared ceiling (180000.96ms,
 # 60000.95ms -- the ceiling, to the millisecond, because nothing else bounds
-# it). The root cause is NOT known. Eleven hypotheses have been refuted:
-# shared data dir, orphaned Chrome, a console.log patch, AbortSignal timeouts,
-# bun concurrency, file position, glob discovery, an fd leak, fast-check run
-# count, CPU starvation (passes pinned to one core), and missing
-# anti-throttling launch args.
+# it). Most likely that was the Bun late close in the header, fixed in 1.4.0;
+# eleven other hypotheses had been refuted first.
 #
-# What IS known, and what makes a retry the honest response rather than a
-# cover-up: the failure is intermittent in ISOLATION, not only in the union.
+# The retry stays for wall-clock browser timing on CI's runners. In 22 CI
+# runs on Bun 1.4.x that reached these files (sampled 2026-09-18 to
+# 2026-11-04) it rescued one flake (2026-10-09,
+# screenshot-no-viewport-resize, a resize-count assertion); its other five
+# firings were a real bug that failed twice, as it should.
+#
+# Why a retry was the honest response rather than a cover-up: on Bun 1.3.x the
+# failure was intermittent in ISOLATION, not only in the union.
 # CI failed recording-change-tiers in its own process at 194s having passed the
 # same file in its own process at 18.7s earlier the same day. So isolation
 # alone does not make these deterministic, and a single flake was failing the
