@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.3](https://github.com/alexandriashai/cbrowser/compare/v21.4.2...v21.4.3) (2026-11-04)
+
+### Fixed
+
+* **mcp:** usertimezone and userlocation set the browser the page is measured in ([55b3b16](https://github.com/alexandriashai/cbrowser/commit/55b3b1644e4f8852b9ae6cfaa25aeeb93602ee67))
+
 ## [21.4.2](https://github.com/alexandriashai/cbrowser/compare/v21.4.1...v21.4.2) (2026-11-04)
 
 ### Fixed
