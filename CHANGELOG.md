@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.4](https://github.com/alexandriashai/cbrowser/compare/v21.4.3...v21.4.4) (2026-11-04)
+
+### Fixed
+
+* **proxy:** a hosted caller's proxy is connected to at the address checked ([18939c0](https://github.com/alexandriashai/cbrowser/commit/18939c05b4180602dd27ee37a901d51765df231d))
+
 ## [21.4.3](https://github.com/alexandriashai/cbrowser/compare/v21.4.2...v21.4.3) (2026-11-04)
 
 ### Fixed
