@@ -20,7 +20,8 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser } from "playwright";
-import { measurePageMetricsFixtures, PAGE_METRICS_FIXTURES, type PageMetricsGolden } from "./fixtures/page-metrics-measure.js";
+import { measureFixturePage, measurePageMetricsFixtures, PAGE_METRICS_FIXTURES, type PageMetricsGolden } from "./fixtures/page-metrics-measure.js";
+import { serveFixtures } from "./fixtures/serve-fixtures.js";
 
 const golden = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "page-metrics-golden.json"), "utf8")) as PageMetricsGolden;
 
@@ -62,4 +63,22 @@ describe("extractPageMetrics output is unchanged on the fixture pages", () => {
       expect(measured[name].perScreen).toEqual(golden[name].perScreen);
     });
   }
+});
+
+describe("the measurement does not depend on when it runs", () => {
+  test("latin, with its animations parked at 90 degrees first, still equals the golden", async () => {
+    // 500 ms of the 2 s turn is 90 degrees, inside the window where an unheld
+    // measurement differs on screen 2 (see measureFixturePage). Parked there,
+    // this is the worst-timed runner, every time: it fails if the hold goes.
+    const fixtures = await serveFixtures();
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+    try {
+      await page.goto(`${fixtures.base}page-metrics-latin.html`, { waitUntil: "load" });
+      await page.evaluate(() => document.getAnimations().forEach((a) => { a.pause(); a.currentTime = 500; }));
+      expect(await measureFixturePage(page)).toEqual(golden["page-metrics-latin.html"]);
+    } finally {
+      await page.close();
+      await fixtures.close();
+    }
+  }, 60_000);
 });

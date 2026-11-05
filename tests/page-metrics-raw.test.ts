@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser } from "playwright";
 import { serveFixtures } from "./fixtures/serve-fixtures.js";
-import { PAGE_METRICS_FIXTURES, type PageMetricsGolden } from "./fixtures/page-metrics-measure.js";
+import { holdAnimations, PAGE_METRICS_FIXTURES, type PageMetricsGolden } from "./fixtures/page-metrics-measure.js";
 import { measurePageRaw, deriveMetrics, RAW_PAGE_FORMAT, type RawPageMeasurement, type MetricScope } from "../src/visual/cognitive-transport.js";
 import { param, withParamOverrides } from "../src/visual/model-provenance.js";
 
@@ -34,10 +34,12 @@ beforeAll(async () => {
   const fixtures = await serveFixtures();
   try {
     for (const name of PAGE_METRICS_FIXTURES) {
-      // Measured as the golden was: same viewport, viewport first, then full_page.
+      // Measured as the golden was: same viewport, animations held at their
+      // first frame, viewport first, then full_page.
       const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
       try {
         await page.goto(`${fixtures.base}${name}`, { waitUntil: "load" });
+        await holdAnimations(page);
         const viewport = await measurePageRaw(page, "viewport");
         const full_page = await measurePageRaw(page, "full_page");
         raws[name] = { viewport: JSON.stringify(viewport), full_page: JSON.stringify(full_page) };
