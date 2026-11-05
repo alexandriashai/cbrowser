@@ -91,37 +91,21 @@ if [ "${#ISOLATED_FILES[@]}" -eq 0 ]; then
   exit 1
 fi
 
-# QUARANTINED ON CI ONLY (2026-08-12, Alexa's call).
-#
-# These still run here, on a developer machine. They are not run in CI.
-#
-# Why, specifically: `a continuously animating page is flagged saturated` fails
-# DETERMINISTICALLY on CI and passes 4 of 4 locally in 18s. Two CI attempts
-# under the retry failed the same assertion at 180001.06ms and 180000.40ms with
-# file durations of 194.66s and 194.67s -- identical, so no retry policy can
-# help it. The release gate already excludes this file; the Tests workflow was
-# the only thing still running it, and it had been red since 2026-08-06.
-#
-# The bar for adding to this list is high, and this file clears it only because
-# a permanently red CI is worse than a missing check: it trains everyone,
-# including the next agent, to skim past the signal. That is a real cost being
-# paid to avoid a larger one, not a cleanup.
-#
-# Twelve hypotheses refuted at the time -- the eight in test-gate.sh, plus
-# fast-check run count, CPU starvation (passes pinned to one core),
-# missing anti-throttling launch args, and a wedged session.stop() (bounded at
-# 45s; the bound never fired, which proves the hang is UPSTREAM of the stop, in
-# launch / navigate / session.start / the hold).
-#
-# Likely explained since (2026-11-04): those CI failures were on Bun 1.3.14,
-# which has the late close in the header (a hung launch is upstream of the
-# stop). Since CI moved to Bun 1.4 (1.4.2 by 2026-09-18), the Tests
-# workflow's diagnostic step has run this file on its own and it passed
-# 12 / 0 in every one of 29 runs sampled from 2026-09-18 to 2026-11-04.
-# Lifting the quarantine is a separate decision, not taken here.
-QUARANTINED_ON_CI=(
-  "tests/recording-change-tiers.test.ts"
-)
+# CI runs every file this machine runs. From 2026-08-12 to 2026-11-04 it did
+# not: tests/recording-change-tiers.test.ts was skipped when CI was set
+# (Alexa's call), because `a continuously animating page is flagged saturated`
+# failed on CI at its 180 s ceiling every time (180001.06ms and 180000.40ms,
+# files 194.66 s and 194.67 s, so no retry could help) while passing locally
+# in 18 s, and twelve hypotheses had been refuted. A wedged session.stop() was
+# among them: its 45 s bound never fired, so the hang was upstream of the stop.
+# Those failures were on Bun 1.3.14, which has the late close in the header.
+# On Bun 1.4.x the Tests workflow ran the file on its own, non-blocking, and it
+# passed 12 / 0 in all 29 runs sampled (2026-09-18 to 2026-11-04), so the
+# quarantine was lifted (Alexa's call) and the file now runs in its own
+# process with the retry like every other listed file.
+# tests/ci-runner-config.test.ts runs this script under CI=true and fails if
+# any discovered file is not handed to bun test, so a CI-only skip comes back
+# only by changing that test.
 
 # Match what `bun test` itself discovers, MINUS build output.
 #
@@ -218,23 +202,7 @@ bun test "${REST[@]}"
 #   - the exit code still reflects reality
 RETRIED=()
 FAILED=()
-SKIPPED=()
 for iso in "${ISOLATED_FILES[@]}"; do
-  # CI-only quarantine. Announced every time, because a skip nobody sees is how
-  # a suite goes green while a file stops being tested -- this script's own
-  # discovery guard exists for exactly that reason.
-  if [ -n "${CI:-}" ]; then
-    skip=0
-    for q in "${QUARANTINED_ON_CI[@]}"; do
-      if [ "$iso" = "$q" ]; then skip=1; break; fi
-    done
-    if [ "$skip" = "1" ]; then
-      echo "test-split: SKIPPED ON CI — $iso (quarantined; runs locally, see QUARANTINED_ON_CI)"
-      SKIPPED+=("$iso")
-      continue
-    fi
-  fi
-
   echo "test-split: isolated run — $iso"
   if bun test "$iso"; then
     continue
@@ -256,15 +224,10 @@ done
 #
 # All of it goes to stderr. CI merges stdout and stderr from separate pipes, so
 # a summary split across the two arrives interleaved: on 2026-10-28 the
-# quarantined file printed under "failed twice" and read as a second failure.
-# The lines below also stop saying "green", since they print in failed runs too.
+# CI-only quarantine's skip notice (lifted since) printed under "failed twice"
+# and read as a second failure. The lines below also stop saying "green",
+# since they print in failed runs too.
 exec >&2
-if [ "${#SKIPPED[@]}" -gt 0 ]; then
-  echo ""
-  echo "test-split: ${#SKIPPED[@]} file(s) NOT RUN on CI (quarantined):"
-  for f in "${SKIPPED[@]}"; do echo "              $f"; done
-  echo "            Every result in this run excludes them. They still run locally."
-fi
 
 if [ "${#RETRIED[@]}" -gt 0 ]; then
   echo ""

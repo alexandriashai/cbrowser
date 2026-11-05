@@ -14,6 +14,9 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const wf = async (name: string) =>
   await Bun.file(new URL(`../.github/workflows/${name}`, import.meta.url)).text();
@@ -33,8 +36,8 @@ describe("the Tests workflow uses the split runner", () => {
     //
     // The forbidden thing is the ARGUMENT-LESS union -- `bun test` with no
     // paths, which discovers and runs everything in one process. `bun test
-    // <one file>` is a different command and a legitimate one; the diagnostic
-    // step uses it deliberately.
+    // <one file>` is a different command and a legitimate one; a diagnostic
+    // step used it deliberately from 2026-08-12 to 2026-11-04.
     //
     // The first version of this test banned the substring, so adding a
     // single-file diagnostic tripped it. The assertion was broader than the
@@ -273,54 +276,47 @@ describe("the isolated runs retry once, loudly", () => {
   });
 });
 
-describe("the CI-only quarantine", () => {
-  const split = async () =>
-    await Bun.file(new URL("../scripts/test-split.sh", import.meta.url)).text();
+describe("CI runs every file a developer machine runs", () => {
+  // From 2026-08-12 to 2026-11-04 test-split.sh skipped
+  // tests/recording-change-tiers.test.ts when CI was set, and the Tests
+  // workflow ran it only in a non-blocking diagnostic step. Its CI failures
+  // were on Bun 1.3.14; on Bun 1.4.x that step passed 12 / 0 in all 29 runs
+  // sampled, so the quarantine was lifted. Putting a file back under a CI-only
+  // skip now has to change this test, which keeps it a visible act.
+  const root = new URL("..", import.meta.url).pathname;
 
-  test("the quarantine applies ONLY when CI is set", async () => {
-    // The file still runs on a developer machine. A quarantine that also
-    // stopped local runs would delete the coverage rather than relocate it.
-    const src = await split();
-    const block = src.slice(src.indexOf("for iso in"));
-    expect(block).toContain('if [ -n "${CI:-}" ]');
-    expect(block).toContain("QUARANTINED_ON_CI");
-  });
+  test("with CI set, every discovered file is handed to bun test", async () => {
+    // End to end rather than by reading the script: a stub `bun` first on
+    // PATH records each call, so the script's real control flow runs under
+    // CI=true and this sees exactly which files it would have tested.
+    const split = await Bun.file(new URL("../scripts/test-split.sh", import.meta.url)).text();
+    const find = split.match(/find \. \\\([\s\S]*?\| sort\)/)?.[0];
+    expect(find, "the find command must be locatable in the script").toBeTruthy();
+    const cmd = find!.replace(/^mapfile[^<]*< <\(/, "").replace(/\)$/, "");
+    const discovered = new TextDecoder()
+      .decode(Bun.spawnSync(["bash", "-c", cmd], { cwd: root }).stdout)
+      .trim().split("\n").filter(Boolean);
+    expect(discovered.length).toBeGreaterThan(50);
 
-  test("a skip is announced, not silent", async () => {
-    // This script's own discovery guard exists because "silently skipping it is
-    // how a suite goes green while a file stops being tested". A quarantine is
-    // a deliberate skip and gets held to the same standard.
-    const src = await split();
-    expect(src).toContain("SKIPPED ON CI");
-    expect(src).toContain("NOT RUN on CI");
-  });
-
-  test("the quarantine list is small and explicitly enumerated", async () => {
-    // Not a pattern, not a directory: a list someone has to type into, so
-    // growing it is a visible act.
-    const src = await split();
-    const block = src.slice(src.indexOf("QUARANTINED_ON_CI=("));
-    const files = [...block.slice(0, block.indexOf(")")).matchAll(/"(tests\/[^"]+)"/g)];
-    expect(files.length).toBeGreaterThan(0);
-    expect(files.length).toBeLessThanOrEqual(2);
-  });
-
-  test("everything quarantined on CI is also in the isolated list", async () => {
-    // So a file cannot be quarantined without first having been isolated —
-    // i.e. without having earned it.
-    const src = await split();
-    const q = src.slice(src.indexOf("QUARANTINED_ON_CI=("));
-    const quarantined = [...q.slice(0, q.indexOf(")")).matchAll(/"(tests\/[^"]+)"/g)].map((m) => m[1]);
-    const listed = (await Bun.file(new URL("../scripts/browser-tests.txt", import.meta.url).pathname).text())
-      .split("\n").map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("#"));
-    for (const f of quarantined) expect(listed, `${f} must be isolated too`).toContain(f);
-  });
-
-  test("the reason is recorded in the file, not just in a commit message", async () => {
-    // A quarantine whose justification lives only in git history is one nobody
-    // will ever revisit.
-    const src = await split();
-    expect(src).toMatch(/DETERMINISTIC|deterministic/);
-    expect(src).toContain("hypotheses refuted");
+    const dir = mkdtempSync(join(tmpdir(), "split-ci-"));
+    try {
+      const log = join(dir, "calls");
+      writeFileSync(join(dir, "bun"), `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${log}'\n`, { mode: 0o755 });
+      const proc = Bun.spawnSync(["bash", "scripts/test-split.sh"], {
+        cwd: root,
+        env: { ...process.env, CI: "true", PATH: `${dir}:${process.env.PATH}` },
+      });
+      const output = new TextDecoder().decode(proc.stdout) + new TextDecoder().decode(proc.stderr);
+      expect(proc.exitCode, output).toBe(0);
+      const tested = new Set(
+        readFileSync(log, "utf8").trim().split("\n")
+          .filter((l) => l.startsWith("test "))
+          .flatMap((l) => l.slice("test ".length).split(" ")),
+      );
+      expect(discovered.filter((f) => !tested.has(f))).toEqual([]);
+      expect(output).not.toMatch(/SKIPPED|NOT RUN/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

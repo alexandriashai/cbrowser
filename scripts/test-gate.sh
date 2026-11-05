@@ -4,8 +4,7 @@
 #
 # Runs every test file EXCEPT the real-browser ones listed in
 # scripts/browser-tests.txt. Those still run, in the Tests workflow
-# (scripts/test-split.sh runs every file; on CI it skips its QUARANTINED_ON_CI
-# file, which there runs only in the non-blocking diagnostic step) -- they are
+# (scripts/test-split.sh runs every file, on CI too) -- they are
 # excluded from the GATE, not from the suite. Deleting coverage to make a gate green would be the
 # dishonest version of this.
 #
@@ -41,7 +40,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Every test file that drives a REAL browser. These run in the Tests workflow
-# (scripts/test-split.sh, less its CI-only quarantine), not in the gate.
+# (scripts/test-split.sh), not in the gate.
 #
 # Widened 2026-07-27 from two files to the whole browser family, on CI evidence:
 # two consecutive Release runs on the SAME commit failed with DIFFERENT subsets
