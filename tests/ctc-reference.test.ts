@@ -637,7 +637,11 @@ describe("the curve is derived through the live chain, from raw measurements", (
     const before = referencePages("viewport")[0].informationDensity;
     const after = withParamOverrides({ "pageMetrics.informationDensity.midpoint": 2500 }, () => referencePages("viewport")[0].informationDensity);
     expect(after).toBeGreaterThan(before);
-  });
+    // Ten curve builds: 1.1 s here, and on CI about 2 s or 4 to 7 s by runner
+    // (14 Tests runs, 2026-10-26 to 2026-11-04). Bun's 5 s default failed 4 of
+    // the last 10. This test checks what the curve reads, not how fast it is
+    // built; the budget test below owns speed, with a CI bound of its own.
+  }, 60_000);
 
   // Under a second each here (the six take 0.7 s). On CI the bound is 3 s:
   // GitHub's runners differ about 2x in speed, and the six took 1.7 s, 3.1 s

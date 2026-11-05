@@ -98,6 +98,12 @@ describe("emotionalContagion is priced by exposure", () => {
     expect({ charged: charged.length, first: charged.slice(0, 5) }).toEqual({ charged: 0, first: [] });
   });
 
+  // This test and the next sweep every reference page for every roster persona:
+  // 0.8 s each in the suite here, up to 3.9 s on CI (14 Tests runs, 2026-10-26
+  // to 2026-11-04), where GitHub's slowest runners took 6.5x this box's time
+  // and a sibling sweep in ctc-reference.test.ts failed Bun's 5 s default 4 of
+  // 10 times. They check what the chain computes, not how fast, so they carry
+  // their own bound.
   test("its cost never falls as the page's motion rises (animationLevel 0 to 1), for every roster persona on every static page", () => {
     const LEVELS = [0, 0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1];
     const falls: string[] = [];
@@ -110,7 +116,7 @@ describe("emotionalContagion is priced by exposure", () => {
       }
     });
     expect({ falls: falls.length, first: falls.slice(0, 5) }).toEqual({ falls: 0, first: [] });
-  });
+  }, 60_000);
 
   test("its cost never falls as the persona's emotionalContagion rises, on every static page with one carousel", () => {
     const VALUES = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1];
@@ -122,5 +128,5 @@ describe("emotionalContagion is priced by exposure", () => {
       }
     });
     expect({ falls: falls.length, first: falls.slice(0, 5) }).toEqual({ falls: 0, first: [] });
-  });
+  }, 60_000);
 });
