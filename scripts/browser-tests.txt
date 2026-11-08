@@ -23,6 +23,7 @@ tests/attention-heatmap-inline.test.ts
 tests/cli-evaluate-keyboard.test.ts
 tests/cli-device.test.ts
 tests/cli-flag-contract.test.ts
+tests/cli-page-continuity.test.ts
 tests/clickables-offscreen-text-region.test.ts
 tests/cognitive-effort-motor-preview.test.ts
 tests/color-scheme.test.ts

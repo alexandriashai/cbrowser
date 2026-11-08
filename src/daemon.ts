@@ -366,8 +366,10 @@ export async function getDaemonStatus(): Promise<string> {
   const running = await isDaemonRunning();
   const state = getDaemonState();
 
+  // The data dir is where commands look for it: one run with another
+  // CBROWSER_DATA_DIR finds no daemon and opens its own browser.
   if (!running || !state) {
-    return "Daemon is not running";
+    return `Daemon is not running (data dir: ${getPaths().dataDir})`;
   }
 
   const uptime = Math.round((Date.now() - new Date(state.startedAt).getTime()) / 1000);
@@ -576,6 +578,26 @@ export async function runDaemonServer(
           if (refusal) return { success: false, error: refusal };
           await page.keyboard.press(req.args.key as string);
           return { success: true, result: { key: req.args.key } };
+        }
+
+        case "drag": {
+          // As the local path does it, on the daemon's page. Before
+          // 2026-11-08 the CLI refused drag and upload while a daemon ran.
+          const source = req.args.source as string;
+          const target = req.args.target as string;
+          const page = await b.getPage();
+          const refusal = await b.dragRedZone(source, target, req.args.force === true);
+          if (refusal) return { success: false, error: refusal };
+          await page.dragAndDrop(source, target);
+          return { success: true, result: { source, target } };
+        }
+
+        case "upload": {
+          const selector = req.args.selector as string;
+          const file = req.args.file as string;
+          const page = await b.getPage();
+          await page.locator(selector).setInputFiles(file);
+          return { success: true, result: { selector, file } };
         }
 
         case "type": {

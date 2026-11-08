@@ -1132,7 +1132,8 @@ describe("cbrowser on the command line", () => {
   test("the proxy password is never printed, --verbose included", async () => {
     const r = await cli(dataDir, {}, "navigate", PAGE, "--geo-region", "uk", "--verbose");
     expect(r.code, r.stderr).toBe(0);
-    expect(r.stdout).toContain(`Using proxy: http://127.0.0.1:${proxyPort} (uk)`);
+    // A status line, so on stderr since 2026-11-08 (stdout carries the result).
+    expect(r.stderr).toContain(`Using proxy: http://127.0.0.1:${proxyPort} (uk)`);
     expect(`${r.stdout}\n${r.stderr}`).not.toContain(SECRET);
   }, TIMEOUT);
 

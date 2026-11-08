@@ -189,29 +189,27 @@ Sessions are automatically cleaned up:
 
 ---
 
-## Preserving Page State (`--no-restore`)
+## Preserving Page State (the daemon, not `--no-restore`)
 
-By default, each CLI command restores the last saved URL by navigating to it. This resets SPA state — open modals, dialogs, dropdowns, and form inputs are lost.
+Each CLI command is its own process with its own browser. By default it reloads the last saved URL (saved for an hour), so cookies and localStorage carry over, but the page's live state does not: open modals, dialogs and dropdowns, form input, script variables, sessionStorage and scroll. A command that acts on the page says so on stderr when it reloads it ("No daemon found for data dir ...").
 
-Use `--no-restore` to skip URL restoration and capture the page in its current state:
+To keep one page across commands, start the daemon first, and give every command the same `CBROWSER_DATA_DIR`:
 
 ```bash
-# Step 1: Navigate and interact
-npx cbrowser click "[data-testid='search-trigger']" --url "https://cbrowser.ai"
+export CBROWSER_DATA_DIR=/tmp/my-flow   # the same value for every command
+npx cbrowser daemon start --port 9301
 
-# Step 2: Capture the current state (dialog still open)
-npx cbrowser screenshot --no-restore --output /tmp/dialog-open.png
+npx cbrowser click "[data-testid='search-trigger']" --url "https://cbrowser.ai"
+npx cbrowser screenshot --output /tmp/dialog-open.png   # the dialog is still open
+
+npx cbrowser daemon stop
 ```
 
-**When to use `--no-restore`:**
-- Screenshotting after clicking a button (modal/dialog open)
-- Capturing form state mid-fill
-- Visual regression of specific UI states
-- Documenting interactive elements in their active state
+The daemon is found through the data dir. If your shell does not keep environment variables between calls (an agent's tool calls often do not), set `CBROWSER_DATA_DIR` on every command, or leave it unset everywhere: a command run with another value finds no daemon and opens its own browser. `cbrowser daemon status` names the data dir it looked in.
 
-**When NOT to use it:**
-- First command in a session (no prior state to preserve)
-- After a browser crash or reset
+**`--no-restore` does not keep the page.** It only skips the reload. Without a daemon the new browser then has no page at all, so a command that acts on the page exits 1 unless it is given `--url`. (Through 21.4.6 such a command ran on about:blank instead: `evaluate`, `extract` and `screenshot` exited 0 with blank results.) With a daemon running it changes nothing.
+
+Only the commands the daemon runs share its page: `navigate`, `click`, `fill`, `hover`, `type`, `press`, `keyboard`, `drag`, `upload`, `screenshot`, `extract`, `run`, `scroll` and `evaluate`. Others, such as `assert` and `smart-click`, refuse while it runs; for a flow that needs them, use one `cbrowser test-suite`, whose steps share one browser.
 
 ---
 

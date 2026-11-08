@@ -232,8 +232,8 @@ export function isBrowserNotInstalledError(error: unknown): boolean {
  * Returns true if installation succeeded, false otherwise.
  */
 export async function installPlaywrightBrowsers(browserName?: string): Promise<boolean> {
-  console.log("🔧 Playwright browsers not found. Installing automatically...");
-  console.log("   This may take a few minutes on first run.\n");
+  console.error("🔧 Playwright browsers not found. Installing automatically...");
+  console.error("   This may take a few minutes on first run.\n");
 
   try {
     // Install specific browser or all browsers
@@ -242,7 +242,7 @@ export async function installPlaywrightBrowsers(browserName?: string): Promise<b
       stdio: "inherit",
       timeout: 300000, // 5 minute timeout
     });
-    console.log("\n✅ Playwright browsers installed successfully.\n");
+    console.error("\n✅ Playwright browsers installed successfully.\n");
     return true;
   } catch {
     console.error("\n❌ Automatic browser installation failed.\n");
@@ -385,6 +385,24 @@ export class CBrowser {
   private static readonly CONSOLE_TEXT_CAP = 2000;
   private skipSessionRestore: boolean;
 
+  /**
+   * Called with the saved URL each time this browser reloads it into its
+   * page. A new browser has none of what earlier commands did to that page,
+   * and the CLI says so through this (src/page-continuity.ts).
+   */
+  onSessionRestored: ((url: string) => void) | null = null;
+
+  /**
+   * The saved URL this browser will reload when it opens its page, or null
+   * when it will open on about:blank: not persistent, restore skipped, or no
+   * saved page from the last hour. Reads the same state the launch does.
+   */
+  pendingSessionRestore(): string | null {
+    if (!this.config.persistent || this.skipSessionRestore) return null;
+    const url = this.loadSessionState()?.url;
+    return url && url !== "about:blank" ? url : null;
+  }
+
   // Modular components (extracted for maintainability)
   private sessionManager: SessionManager;
   private selectorCacheManager: SelectorCacheManager;
@@ -479,7 +497,7 @@ export class CBrowser {
       try {
         unlinkSync(lock);
         if (this.config.verbose) {
-          console.log(`[browser] removed stale SingletonLock (target: ${target})`);
+          console.error(`[browser] removed stale SingletonLock (target: ${target})`);
         }
       } catch (e) {
         if (this.config.verbose) {
@@ -627,8 +645,8 @@ export class CBrowser {
    * Returns true if installation succeeded, false otherwise.
    */
   private async installPlaywrightBrowsers(): Promise<boolean> {
-    console.log("🔧 Playwright browsers not found. Installing automatically...");
-    console.log("   This may take a few minutes on first run.\n");
+    console.error("🔧 Playwright browsers not found. Installing automatically...");
+    console.error("   This may take a few minutes on first run.\n");
 
     try {
       // Install all browsers to avoid future issues
@@ -636,7 +654,7 @@ export class CBrowser {
         stdio: "inherit",
         timeout: 300000, // 5 minute timeout
       });
-      console.log("\n✅ Playwright browsers installed successfully.\n");
+      console.error("\n✅ Playwright browsers installed successfully.\n");
       return true;
     } catch (installError) {
       console.error("\n❌ Automatic browser installation failed.\n");
@@ -723,7 +741,7 @@ For more help: https://playwright.dev/docs/browsers
       if (savedSession?.device && DEVICE_PRESETS[savedSession.device]) {
         this.config.device = savedSession.device;
         if (this.config.verbose) {
-          console.log(`🔄 Restoring device: ${savedSession.device}`);
+          console.error(`🔄 Restoring device: ${savedSession.device}`);
         }
       }
     }
@@ -930,10 +948,12 @@ For more help: https://playwright.dev/docs/browsers
             console.warn(`[browser] cookie restore failed: ${(e as Error).message}`);
           }
         }
+        // Status, so stderr: stdout carries a command's result, and
+        // `evaluate --raw` piped these lines in ahead of it.
         if (this.config.verbose) {
-          console.log(`🔄 Using persistent browser context: ${browserStateDir}`);
+          console.error(`🔄 Using persistent browser context: ${browserStateDir}`);
           if (this.config.proxy) {
-            console.log(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
+            console.error(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
           }
         }
       } else {
@@ -949,7 +969,7 @@ For more help: https://playwright.dev/docs/browsers
         if (this.config.proxy && this.config.browser === "webkit") await this.context.addInitScript(NO_WEBRTC_SCRIPT);
         this.page = await this.context.newPage();
         if (this.config.verbose && this.config.proxy) {
-          console.log(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
+          console.error(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
         }
       }
 
@@ -1036,12 +1056,13 @@ For more help: https://playwright.dev/docs/browsers
       if (savedSession && savedSession.url && savedSession.url !== "about:blank") {
         try {
           if (this.config.verbose) {
-            console.log(`🔄 Restoring session: ${savedSession.url}`);
+            console.error(`🔄 Restoring session: ${savedSession.url}`);
           }
           await this.page!.goto(savedSession.url, {
             waitUntil: "domcontentloaded",
             timeout: 15000,
           });
+          this.onSessionRestored?.(savedSession.url);
           // Wait for network idle and JS hydration
           await this.page!.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
           await this.page!.waitForTimeout(1000);
@@ -1053,7 +1074,7 @@ For more help: https://playwright.dev/docs/browsers
         } catch (e) {
           // If restore fails, continue with blank page
           if (this.config.verbose) {
-            console.log(`⚠️ Could not restore session: ${(e as Error).message}`);
+            console.error(`⚠️ Could not restore session, so the page is blank: ${(e as Error).message}`);
           }
         }
       }
@@ -1149,7 +1170,7 @@ For more help: https://playwright.dev/docs/browsers
         // Quick health check - verify page is responsive
         if (this.page.isClosed()) {
           if (this.config.verbose) {
-            console.log(`⚠️ Page was closed, recovering...`);
+            console.error(`⚠️ Page was closed, recovering...`);
           }
           await this.recoverBrowser();
         } else {
@@ -1162,7 +1183,7 @@ For more help: https://playwright.dev/docs/browsers
       } catch (e) {
         // Page is unresponsive, attempt recovery
         if (this.config.verbose) {
-          console.log(`⚠️ Page unresponsive, recovering: ${(e as Error).message}`);
+          console.error(`⚠️ Page unresponsive, recovering: ${(e as Error).message}`);
         }
         try {
           await this.recoverBrowser();
@@ -1182,12 +1203,13 @@ For more help: https://playwright.dev/docs/browsers
         if (savedSession && savedSession.url && savedSession.url !== "about:blank") {
           try {
             if (this.config.verbose) {
-              console.log(`🔄 Restoring session: ${savedSession.url}`);
+              console.error(`🔄 Restoring session: ${savedSession.url}`);
             }
             await this.page.goto(savedSession.url, {
               waitUntil: "domcontentloaded",
               timeout: 15000,
             });
+            this.onSessionRestored?.(savedSession.url);
             // Wait for network idle and JS hydration
             await this.page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
             await this.page.waitForTimeout(1000);
@@ -1196,7 +1218,7 @@ For more help: https://playwright.dev/docs/browsers
             }
           } catch (e) {
             if (this.config.verbose) {
-              console.log(`⚠️ Could not restore session: ${(e as Error).message}`);
+              console.error(`⚠️ Could not restore session, so the page is blank: ${(e as Error).message}`);
             }
           }
         }
@@ -1338,8 +1360,8 @@ For more help: https://playwright.dev/docs/browsers
     }
 
     if (this.config.verbose) {
-      console.log(`🔄 Browser crash detected: ${healthResult.message}`);
-      console.log(`🔄 Attempting recovery (max ${maxAttempts} attempts)...`);
+      console.error(`🔄 Browser crash detected: ${healthResult.message}`);
+      console.error(`🔄 Attempting recovery (max ${maxAttempts} attempts)...`);
     }
 
     // Get the last known URL before crash for restoration
@@ -1351,7 +1373,7 @@ For more help: https://playwright.dev/docs/browsers
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         if (this.config.verbose) {
-          console.log(`🔄 Recovery attempt ${attempt}/${maxAttempts}...`);
+          console.error(`🔄 Recovery attempt ${attempt}/${maxAttempts}...`);
         }
 
         // Force close any zombie processes
@@ -1374,7 +1396,7 @@ For more help: https://playwright.dev/docs/browsers
           } catch (e) {
             // URL restoration is best-effort, don't fail recovery
             if (this.config.verbose) {
-              console.log(`⚠️ Could not restore URL: ${restoreUrl}`);
+              console.error(`⚠️ Could not restore URL: ${restoreUrl}`);
             }
           }
         }
@@ -1383,7 +1405,7 @@ For more help: https://playwright.dev/docs/browsers
         const postRecoveryHealth = await this.isBrowserHealthy();
         if (postRecoveryHealth.healthy) {
           if (this.config.verbose) {
-            console.log(`✅ Browser recovered successfully on attempt ${attempt}`);
+            console.error(`✅ Browser recovered successfully on attempt ${attempt}`);
           }
           return {
             success: true,
@@ -1398,7 +1420,7 @@ For more help: https://playwright.dev/docs/browsers
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
         if (this.config.verbose) {
-          console.log(`❌ Recovery attempt ${attempt} failed: ${lastError}`);
+          console.error(`❌ Recovery attempt ${attempt} failed: ${lastError}`);
         }
       }
     }
@@ -1521,7 +1543,7 @@ For more help: https://playwright.dev/docs/browsers
       }
 
       if (this.config.verbose) {
-        console.log(`🔄 Browser crash detected during ${operationName}, attempting recovery...`);
+        console.error(`🔄 Browser crash detected during ${operationName}, attempting recovery...`);
       }
 
       // Attempt recovery
@@ -1543,7 +1565,7 @@ For more help: https://playwright.dev/docs/browsers
 
       // Recovery succeeded, retry the operation once
       if (this.config.verbose) {
-        console.log(`🔄 Retrying ${operationName} after recovery...`);
+        console.error(`🔄 Retrying ${operationName} after recovery...`);
       }
 
       try {
@@ -2449,7 +2471,7 @@ For more help: https://playwright.dev/docs/browsers
         if (error.message?.includes("Timeout") || error.message?.includes("timeout")) {
           // Fallback: Use domcontentloaded + manual stability check
           if (this.config.verbose) {
-            console.log(`⚠️ networkidle timeout after ${waitTimeout}ms, falling back to domcontentloaded...`);
+            console.error(`⚠️ networkidle timeout after ${waitTimeout}ms, falling back to domcontentloaded...`);
           }
 
           // Fallback to domcontentloaded (rethrows on failure)
@@ -2516,7 +2538,7 @@ For more help: https://playwright.dev/docs/browsers
       // Page context is desynced - return error with details
       const screenshot = await this.screenshot();
       if (this.config.verbose) {
-        console.log(`⚠️ Page context desync detected: expected ${expectedHost}, got ${actualHost}`);
+        console.error(`⚠️ Page context desync detected: expected ${expectedHost}, got ${actualHost}`);
       }
       const logged = loggedHere();
       return {
@@ -2685,7 +2707,7 @@ For more help: https://playwright.dev/docs/browsers
     }
 
     if (this.config.verbose) {
-      console.log(`⏳ Cloudflare ${initialCheck.type} challenge detected, waiting for resolution...`);
+      console.error(`⏳ Cloudflare ${initialCheck.type} challenge detected, waiting for resolution...`);
     }
 
     // Wait for the challenge to resolve (URL changes or content changes)
@@ -2707,7 +2729,7 @@ For more help: https://playwright.dev/docs/browsers
         const waitTime = Date.now() - startTime;
 
         if (this.config.verbose) {
-          console.log(`✅ Cloudflare challenge resolved in ${waitTime}ms`);
+          console.error(`✅ Cloudflare challenge resolved in ${waitTime}ms`);
         }
 
         return {
@@ -2720,7 +2742,7 @@ For more help: https://playwright.dev/docs/browsers
       }
 
       if (this.config.verbose && elapsed % 5000 === 0) {
-        console.log(`⏳ Still waiting for Cloudflare... (${Math.round(elapsed / 1000)}s)`);
+        console.error(`⏳ Still waiting for Cloudflare... (${Math.round(elapsed / 1000)}s)`);
       }
     }
 

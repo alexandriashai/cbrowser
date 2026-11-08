@@ -80,6 +80,7 @@ import {
 
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
+import { actsOnCurrentPage, blankPageRefusal, reloadNote } from "./page-continuity.js";
 
 // Accessible output system (v18.54.0)
 import {
@@ -138,7 +139,9 @@ function helpText(): string {
 NAVIGATION
   navigate <url>              Navigate and take screenshot
   screenshot [url] [path]     Take a screenshot (of <url> when given, else the current page)
-    --no-restore                Don't reload saved URL (capture current state after interactions)
+    --no-restore                Don't reload the saved URL first. Without a daemon that
+                                leaves no page, so it needs <url>; to capture the page
+                                earlier commands left, use a daemon (see DAEMON MODE)
 
 INTERACTION
   click <selector>            Click element (tries text, label, role, CSS)
@@ -831,10 +834,18 @@ DAEMON MODE
   daemon status               Check if daemon is running (exits 1 when it is not)
   daemon run                  Run daemon in foreground (internal use)
     Note: while the daemon runs, navigate, click, fill, hover, type, press,
-          keyboard, screenshot, extract, run, scroll, evaluate, capture, har,
-          network and console use its browser. Commands that would open a second
-          browser on its profile (script, ai, explore, a11y, perf, visual,
-          drag, upload, reset and others) refuse until you stop it.
+          keyboard, drag, upload, screenshot, extract, run, scroll, evaluate,
+          capture, har, network and console use its browser, so they share one
+          page. Commands that would open a second browser on its profile
+          (script, ai, explore, a11y, perf, visual, reset and others) refuse
+          until you stop it. Without a daemon each command opens its own
+          browser and reloads the last URL (saved for an hour): cookies and
+          localStorage carry over; script variables, sessionStorage, scroll
+          and typed input do not. With no page to reload, click, fill, hover,
+          type, press, keyboard, drag, upload, evaluate, extract, screenshot,
+          smart-click, dismiss-overlay, assert, scroll and run refuse unless
+          given --url. Commands find the daemon through the data dir, so give
+          every one the same CBROWSER_DATA_DIR.
 
 API CONFIGURATION
   config set-api-key <key>    Set Anthropic API key for cognitive journeys
@@ -914,7 +925,10 @@ OPTIONS
                               because MCP has no force affordance)
   --headless                  Run browser in headless mode
   --no-persistent             Disable persistent browser context (default: enabled)
-  --no-restore                Skip session URL restoration (preserves page state after interactions)
+  --no-restore                Don't reload the saved URL first. Without a daemon the
+                              commands that act on the page (listed under DAEMON
+                              MODE) then need --url and refuse otherwise; keeping
+                              a page between commands takes a daemon
 
 ENVIRONMENT VARIABLES
   CBROWSER_DATA_DIR           Custom data directory (default: ~/.cbrowser)
@@ -3562,10 +3576,12 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   // Commands that drive the page. When a daemon holds the browser these MUST
   // go through it: run locally and they open a second browser, drive a
   // different page, and report success for work the user cannot see - which is
-  // exactly what `keyboard` did during a live capture.
+  // exactly what `keyboard` did during a live capture. drag and upload were
+  // refused while a daemon ran (DRIVES_THE_PAGE below) until 2026-11-08, so a
+  // flow that kept its page in the daemon could not drag or upload on it.
   const INTERACTION_COMMANDS = [
     "navigate", "click", "fill", "hover", "screenshot", "extract", "run",
-    "keyboard", "press", "type", "evaluate", "eval",
+    "keyboard", "press", "type", "evaluate", "eval", "drag", "upload",
   ];
 
   if (daemonRunning && INTERACTION_COMMANDS.includes(command)) {
@@ -3602,6 +3618,22 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
         break;
       case "fill":
         daemonArgs = { selector: args[0], value: args[1], ...urlArg };
+        break;
+      case "drag":
+        if (!args[0] || !args[1]) {
+          console.error("Usage: cbrowser drag <source-selector> <target-selector>");
+          process.exit(1);
+        }
+        daemonArgs = { source: args[0], target: args[1], force: options.force === true, ...urlArg };
+        break;
+      case "upload":
+        if (!args[0] || !args[1]) {
+          console.error("Usage: cbrowser upload <selector> <file-path>");
+          process.exit(1);
+        }
+        // Resolved here, as screenshot's path is: the daemon's cwd is wherever
+        // `daemon start` ran.
+        daemonArgs = { selector: args[0], file: resolve(args[1]), ...urlArg };
         break;
       case "keyboard": {
         validateCommandFlags("keyboard", options);
@@ -3718,6 +3750,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
       }
     } else {
       console.error(`✗ Daemon error: ${result.error}`);
+      // A daemon outlives a CLI upgrade, and one started before a command was
+      // routed to it (drag and upload, 2026-11-08) does not know it.
+      if (typeof result.error === "string" && result.error.startsWith("Unknown command:")) {
+        console.error("  The running daemon was started by an older cbrowser. Restart it: cbrowser daemon stop, then cbrowser daemon start");
+      }
       process.exit(1);
     }
     // Every other command path ends with an explicit exit; this one returned,
@@ -3756,13 +3793,13 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   // Use --no-persistent to disable
   const persistentMode = options.persistent !== false && options.persistent !== "false";
   if (!persistentMode) {
-    console.log("🔄 Persistent mode disabled");
+    console.error("🔄 Persistent mode disabled");
   }
 
   // Default to headless for CLI usage, unless explicitly set to false
   const headless = options.headless !== false && options.headless !== "false";
 
-  // --no-restore: skip session URL restoration (preserves page state after interactions)
+  // --no-restore: skip session URL restoration (see the blank-page check below)
   const skipRestore = options.restore === false || options.restore === "false";
 
   // Device presets are validated before the browser is built, since that is
@@ -3797,6 +3834,24 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
     skipSessionRestore: skipRestore,
     verbose: true,
   });
+
+  // No daemon was found (a page command goes through it when one is), so this
+  // browser is new and its page is the saved URL, reloaded, or about:blank
+  // when there is none to reload. A command that acts on the page in front of
+  // it is refused here, before anything launches, when that would be blank;
+  // otherwise it says, when the reload happens, that what earlier commands
+  // did to the page is not on it (src/page-continuity.ts).
+  const daemonRunsIt = INTERACTION_COMMANDS.includes(command);
+  if (!daemonRunning && actsOnCurrentPage(command, args, options)) {
+    const reason = skipRestore ? "no-restore" : !persistentMode ? "no-persistent" : browser.pendingSessionRestore() ? null : "nothing-saved";
+    if (reason) {
+      console.error(blankPageRefusal(command, reason, getDataDir(), daemonRunsIt));
+      process.exit(1);
+    }
+  }
+  if (!daemonRunning && DRIVES_THE_PAGE.includes(command)) {
+    browser.onSessionRestored = (url) => console.error(reloadNote(url, command, getDataDir(), daemonRunsIt));
+  }
 
   try {
     switch (command) {
