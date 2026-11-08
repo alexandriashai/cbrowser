@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.7](https://github.com/alexandriashai/cbrowser/compare/v21.4.6...v21.4.7) (2026-11-08)
+
+### Fixed
+
+* **cli:** say when a command reloads the page, and refuse a blank one ([e0a824b](https://github.com/alexandriashai/cbrowser/commit/e0a824bc09d90922dd6a909e406cd1a9fd82eb48))
+
 ## [21.4.6](https://github.com/alexandriashai/cbrowser/compare/v21.4.5...v21.4.6) (2026-11-08)
 
 ### Fixed
