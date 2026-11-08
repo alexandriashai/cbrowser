@@ -46,10 +46,10 @@
  * at full_page, and moving their costs by it moves the curve by at most
  * 0.0014 of percentile (0.0026 taking every page's held-minus-unheld
  * difference, read noise included), against a median half-width of 0.0274
- * for its 90% interval. Loading the same pages again that day moved the
- * curve by up to 0.0075 at viewport, about as far as re-crawling them would
- * have (0.0077 with the hold), so a re-crawl would trade one draw of page
- * noise for another. Not measured: the 28 proxy-route pages (paid proxy) and
+ * for its 95% interval (the one totalCTCInterval reports). Loading the same
+ * pages again that day moved the curve by up to 0.0075 at viewport, about as
+ * far as re-crawling them would have (0.0077 with the hold), so a re-crawl
+ * would trade one draw of page noise for another. Not measured: the 28 proxy-route pages (paid proxy) and
  * 16 direct pages that no longer loaded; at the rate seen, fewer than one of
  * those 44 would be expected to change.
  *
