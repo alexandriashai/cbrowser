@@ -166,7 +166,14 @@ echo "test-split: ${#ALL[@]} test files discovered — ${#REST[@]} in pass 1, ${
 
 # Pass 1 gets NO retry. These are ordinary deterministic tests; a retry here
 # would hide a real regression.
-bun test "${REST[@]}"
+#
+# A pass-1 failure no longer ends the script (2026-11-07). Under `set -e` it
+# did, so the four Tests runs that went red on one pass-1 timeout (2026-11-03
+# to 2026-11-04) ran none of the isolated files, and their results were not
+# in the log at all. The isolated files run anyway now, and the run still
+# fails at the end.
+PASS1_STATUS=0
+bun test "${REST[@]}" || PASS1_STATUS=$?
 
 # Each isolated file gets its OWN process. Running them as one `bun test` with
 # several arguments recreated the union that hung on Bun before 1.4.0, and
@@ -240,5 +247,13 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
   echo ""
   echo "test-split: ${#FAILED[@]} file(s) failed twice:"
   for f in "${FAILED[@]}"; do echo "              $f"; done
+fi
+
+if [ "$PASS1_STATUS" -ne 0 ]; then
+  echo ""
+  echo "test-split: pass 1 FAILED (bun test exit $PASS1_STATUS); its failures are above it in the log."
+fi
+
+if [ "$PASS1_STATUS" -ne 0 ] || [ "${#FAILED[@]}" -gt 0 ]; then
   exit 1
 fi

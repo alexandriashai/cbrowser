@@ -29,8 +29,14 @@ jobs:
       # assertions in tests/visual-distance-browser.test.ts were skipped.
       # Install all three with their system libraries, so a failed download
       # fails this step by name.
+      #
+      # Bounded, so a hung package mirror fails here by name instead of holding
+      # the job to GitHub's 6-hour default. It usually takes 30 s to 8 min; on
+      # 2026-11-05 (run 42123973184) the Ubuntu mirror served 119 MB at 31 kB/s
+      # and the step took 64 min, then the tests passed. 75 lets that through.
       - name: Install browsers
         run: bunx playwright install --with-deps chromium firefox webkit
+        timeout-minutes: 75
 
       # `bun run test` is scripts/test-split.sh, NOT `bun test`.
       #

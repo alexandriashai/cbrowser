@@ -63,6 +63,15 @@ describe("the Tests workflow uses the split runner", () => {
     const step = c.slice(c.indexOf("run: bun run test"));
     expect(step).toContain("timeout-minutes:");
   });
+
+  test("the browser install is bounded too", async () => {
+    // It downloads from a package mirror, which took 64 min on 2026-11-05.
+    const c = cmds(await wf("test.yml"));
+    const at = c.indexOf("run: bunx playwright install");
+    expect(at, "the install step must be locatable").toBeGreaterThan(-1);
+    const step = c.slice(at, c.indexOf("- name:", at));
+    expect(step).toMatch(/timeout-minutes: \d+/);
+  });
 });
 
 describe("the package script still points at the split", () => {
@@ -315,6 +324,35 @@ describe("CI runs every file a developer machine runs", () => {
       );
       expect(discovered.filter((f) => !tested.has(f))).toEqual([]);
       expect(output).not.toMatch(/SKIPPED|NOT RUN/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a failing pass 1 still runs every isolated file, and the run still fails", async () => {
+    // Until 2026-11-07 `set -e` ended the script at a pass-1 failure, so the
+    // four Tests runs that went red on one pass-1 timeout (2026-11-03 to
+    // 2026-11-04) ran none of the browser files: their results were simply
+    // absent. Here the stub fails the pass-1 call (the only call with more than
+    // one file) and passes the rest.
+    const listed = (await Bun.file(new URL("../scripts/browser-tests.txt", import.meta.url)).text())
+      .split("\n").map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("#"));
+    const dir = mkdtempSync(join(tmpdir(), "split-red-"));
+    try {
+      const log = join(dir, "calls");
+      writeFileSync(join(dir, "bun"),
+        `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${log}'\n[ "$#" -gt 2 ] && exit 1\nexit 0\n`, { mode: 0o755 });
+      const proc = Bun.spawnSync(["bash", "scripts/test-split.sh"], {
+        cwd: root,
+        env: { ...process.env, CI: "true", PATH: `${dir}:${process.env.PATH}` },
+      });
+      const output = new TextDecoder().decode(proc.stdout) + new TextDecoder().decode(proc.stderr);
+      expect(proc.exitCode, output).not.toBe(0);
+      const isolatedCalls = readFileSync(log, "utf8").trim().split("\n")
+        .filter((l) => l.startsWith("test ") && l.split(" ").length === 2)
+        .map((l) => l.slice("test ".length));
+      expect(listed.filter((f) => !isolatedCalls.includes(f))).toEqual([]);
+      expect(output).toContain("pass 1 FAILED");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
