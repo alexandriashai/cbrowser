@@ -154,7 +154,7 @@ describe("cbrowser --color-scheme", () => {
 });
 
 describe("CBrowser.setColorScheme on a live browser", () => {
-  test("switches the open page without a reload, and pages opened later follow it", async () => {
+  test("switches the open page without a reload, and tabs opened later follow it", async () => {
     const b = new CBrowser({ headless: true, persistent: false });
     try {
       await b.navigate(page);
@@ -167,10 +167,40 @@ describe("CBrowser.setColorScheme on a live browser", () => {
       // Same document: a reload or relaunch would have dropped the marker.
       expect(await p.evaluate(() => (window as unknown as { marker: number }).marker)).toBe(42);
 
-      const second = await p.context().newPage();
+      // A tab cbrowser opens has the scheme before its first load, so the
+      // page's own one-time reading of it says dark. A bare
+      // context.newPage() then goto raced the follower and loaded light on
+      // CI (Tests run 42462587260); here the race never loses, so applying
+      // the scheme is slowed for the test to make it lose every time, and
+      // only a tab that waits for the scheme passes.
+      const proto = Object.getPrototypeOf(p) as { emulateMedia: (o: unknown) => Promise<void> };
+      const emulate = proto.emulateMedia;
+      proto.emulateMedia = async function (this: unknown, o: unknown) {
+        await new Promise((r) => setTimeout(r, 400));
+        return emulate.call(this, o);
+      };
+      let second;
+      try {
+        second = await b.newTab();
+        expect(await second.evaluate(DARK)).toBe(true);
+      } finally {
+        proto.emulateMedia = emulate;
+      }
       await second.goto(page);
       expect(await second.textContent("#scheme")).toBe("scheme: dark");
       await second.close();
+
+      // A page opened outside newTab, as a site's popup is, follows once the
+      // follower lands; its first load is not held (see setColorScheme).
+      const popup = await p.context().newPage();
+      await popup.goto(page);
+      let followed = false;
+      for (let i = 0; i < 50 && !followed; i++) {
+        followed = await popup.evaluate(DARK);
+        if (!followed) await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(followed).toBe(true);
+      await popup.close();
 
       await b.setColorScheme("light");
       expect(await p.evaluate(DARK)).toBe(false);

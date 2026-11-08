@@ -249,7 +249,9 @@ export function registerBrowserManagementTools(
     }
 
     if (action === "create") {
-      const page = await context.newPage();
+      // newTab, not context.newPage(): it applies a color scheme set on this
+      // session before the tab's first load (see CBrowser.newTab).
+      const page = await b.newTab();
       if (url) await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
       // Switch to new tab
       (b as any).page = page;

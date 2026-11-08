@@ -2174,11 +2174,32 @@ For more help: https://playwright.dev/docs/browsers
     if (!this.colorSchemeFollowers.has(context)) {
       this.colorSchemeFollowers.add(context);
       // The context was created with the scheme it launched with; a page it
-      // opens now would start from that, not from this call.
+      // opens now would start from that, not from this call. This listener
+      // cannot hold a page's first load: a page the site opens itself (a
+      // popup) gets the scheme a moment after it exists, so a script that
+      // reads prefers-color-scheme once while that page is still loading can
+      // read the launch scheme. Tabs cbrowser opens go through newTab, which
+      // applies it first.
       context.on("page", (p) => {
         if (this.config.colorScheme) p.emulateMedia({ colorScheme: this.config.colorScheme }).catch(() => {});
       });
     }
+  }
+
+  /**
+   * Open a tab in this browser's context, with the color scheme already
+   * applied when setColorScheme changed it, so the tab's first load renders
+   * in it. A bare context.newPage() followed by goto raced the follower
+   * above: on GitHub's ubuntu-26.04 runner the page loaded light after
+   * setColorScheme("dark"), twice in a row (Tests run 42462587260, 2026-11-08).
+   */
+  async newTab(): Promise<Page> {
+    if (!this.context) await this.launch();
+    const page = await this.context!.newPage();
+    if (this.config.colorScheme && this.colorSchemeFollowers.has(this.context!)) {
+      await page.emulateMedia({ colorScheme: this.config.colorScheme });
+    }
+    return page;
   }
 
   /** The color scheme pages render with, or null for the browser default. */
