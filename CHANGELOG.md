@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.5](https://github.com/alexandriashai/cbrowser/compare/v21.4.4...v21.4.5) (2026-11-08)
+
+### Fixed
+
+* **page-metrics:** read looping animations at time 0, so one page measures one way ([9a6670b](https://github.com/alexandriashai/cbrowser/commit/9a6670b1a5be2b64a4caf0652fa0fde6b4b7aabc))
+
 ## [21.4.4](https://github.com/alexandriashai/cbrowser/compare/v21.4.3...v21.4.4) (2026-11-04)
 
 ### Fixed
