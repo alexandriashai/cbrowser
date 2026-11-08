@@ -80,7 +80,7 @@ import {
 
 // Version from package.json - single source of truth
 import { VERSION } from "./version.js";
-import { actsOnCurrentPage, blankPageRefusal, reloadNote } from "./page-continuity.js";
+import { actsOnCurrentPage, blankPageRefusal, isBoundedCapture, keepPageAdvice, pageCommandName, reloadNote, restoreFailedMessage } from "./page-continuity.js";
 
 // Accessible output system (v18.54.0)
 import {
@@ -835,17 +835,21 @@ DAEMON MODE
   daemon run                  Run daemon in foreground (internal use)
     Note: while the daemon runs, navigate, click, fill, hover, type, press,
           keyboard, drag, upload, screenshot, extract, run, scroll, evaluate,
-          capture, har, network and console use its browser, so they share one
-          page. Commands that would open a second browser on its profile
-          (script, ai, explore, a11y, perf, visual, reset and others) refuse
-          until you stop it. Without a daemon each command opens its own
-          browser and reloads the last URL (saved for an hour): cookies and
-          localStorage carry over; script variables, sessionStorage, scroll
-          and typed input do not. With no page to reload, click, fill, hover,
-          type, press, keyboard, drag, upload, evaluate, extract, screenshot,
-          smart-click, dismiss-overlay, assert, scroll and run refuse unless
-          given --url. Commands find the daemon through the data dir, so give
-          every one the same CBROWSER_DATA_DIR.
+          an open-ended capture, har, network and console use its browser, so
+          they share one page. Commands that would open a second browser on
+          its profile (script, ai, explore, a11y, perf, visual, session save
+          and load, reset and others) refuse until you stop it, and so does a
+          bounded capture (--duration, --until-*) given no URL. Without a
+          daemon each command opens its own browser and reloads the last URL
+          (saved for an hour): cookies and localStorage carry over; script
+          variables, sessionStorage, scroll and typed input do not. With no
+          page to reload, click, fill, hover, type, press, keyboard, drag,
+          upload, evaluate, extract, screenshot, smart-click, dismiss-overlay,
+          assert, scroll, run, a11y audit, perf, visual save/compare, session
+          save and a bounded capture start refuse unless given a URL; when the
+          saved page does not load, they stop with the reason. Commands find
+          the daemon through the data dir, so give every one the same
+          CBROWSER_DATA_DIR.
 
 API CONFIGURATION
   config set-api-key <key>    Set Anthropic API key for cognitive journeys
@@ -1569,10 +1573,18 @@ async function runCaptureStart(
   // A capture with no end condition needs somewhere to live that outlasts this
   // process. The daemon owns the browser, so the capture runs there and later
   // commands drive the same page into the same recording.
-  const openEnded = options.duration === undefined
-    && options["until-element"] === undefined
-    && options["until-element-gone"] === undefined
-    && options["until-idle"] === undefined;
+  const openEnded = !isBoundedCapture(options);
+
+  // A bounded capture records in a browser of its own, so with no URL it got a
+  // blank page while the daemon held the real one, and exited 0 (2026-11-08).
+  if (!openEnded && !url && await isDaemonRunning()) {
+    console.error("Error: a bounded capture (--duration or --until-*) records in a browser of its own, not the daemon's,");
+    console.error("  so with no URL it would record a blank page.");
+    console.error("");
+    console.error("  Record the daemon's page:  leave out --duration and --until-*, then cbrowser capture stop");
+    console.error("  Or give it the page:       cbrowser capture start <url> --duration 5s");
+    process.exit(1);
+  }
 
   if (openEnded) {
     if (await isDaemonRunning()) {
@@ -3765,8 +3777,11 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   }
 
   // An interaction command that is NOT routed would drive a second browser.
-  if (daemonRunning && !INTERACTION_COMMANDS.includes(command) && DRIVES_THE_PAGE.includes(command)) {
-    console.error(`Error: '${command}' cannot run while the daemon holds the browser.`);
+  // So would session save and load: save stored a blank page's session while
+  // the daemon held the real one (2026-11-08).
+  const sessionOpensPage = command === "session" && (args[0] === "save" || args[0] === "load");
+  if (daemonRunning && !INTERACTION_COMMANDS.includes(command) && (DRIVES_THE_PAGE.includes(command) || sessionOpensPage)) {
+    console.error(`Error: '${sessionOpensPage ? `session ${args[0]}` : command}' cannot run while the daemon holds the browser.`);
     console.error(`  It would launch a second browser and drive a different page,`);
     console.error(`  so its effects would not appear in a running capture.`);
     console.error(`  Stop the daemon first: cbrowser daemon stop`);
@@ -3840,17 +3855,24 @@ Documentation: https://github.com/alexandriashai/cbrowser/wiki
   // when there is none to reload. A command that acts on the page in front of
   // it is refused here, before anything launches, when that would be blank;
   // otherwise it says, when the reload happens, that what earlier commands
-  // did to the page is not on it (src/page-continuity.ts).
-  const daemonRunsIt = INTERACTION_COMMANDS.includes(command);
-  if (!daemonRunning && actsOnCurrentPage(command, args, options)) {
+  // did to the page is not on it, or stops when it does not load
+  // (src/page-continuity.ts). Only a bounded capture counts: it records in a
+  // browser of its own, while an open-ended one goes to the daemon.
+  const advice = keepPageAdvice(command, INTERACTION_COMMANDS.includes(command));
+  const pageName = pageCommandName(command, args, options);
+  const actsOnPage = !daemonRunning && actsOnCurrentPage(command, args, options);
+  if (actsOnPage) {
     const reason = skipRestore ? "no-restore" : !persistentMode ? "no-persistent" : browser.pendingSessionRestore() ? null : "nothing-saved";
     if (reason) {
-      console.error(blankPageRefusal(command, reason, getDataDir(), daemonRunsIt));
+      console.error(blankPageRefusal(pageName, reason, getDataDir(), advice));
       process.exit(1);
     }
+    browser.onSessionRestoreFailed = (url, error) => {
+      throw new Error(restoreFailedMessage(url, pageName, error));
+    };
   }
-  if (!daemonRunning && DRIVES_THE_PAGE.includes(command)) {
-    browser.onSessionRestored = (url) => console.error(reloadNote(url, command, getDataDir(), daemonRunsIt));
+  if (actsOnPage || (!daemonRunning && DRIVES_THE_PAGE.includes(command))) {
+    browser.onSessionRestored = (url) => console.error(reloadNote(url, pageName, getDataDir(), advice));
   }
 
   try {

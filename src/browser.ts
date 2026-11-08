@@ -13,7 +13,7 @@
 
 import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type ConsoleMessage, type Route, type Locator, type ElementHandle } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync, readlinkSync } from "fs";
-import { isStaleSingletonLock } from "./utils.js";
+import { isRestorablePageUrl, isStaleSingletonLock } from "./utils.js";
 import { join, dirname } from "path";
 import { execSync } from "child_process";
 
@@ -393,6 +393,13 @@ export class CBrowser {
   onSessionRestored: ((url: string) => void) | null = null;
 
   /**
+   * Called when the saved URL does not load, which leaves the page blank (a
+   * browser error page). Throwing from it stops the command: the CLI does
+   * that for a command that acts on the page, rather than run it on nothing.
+   */
+  onSessionRestoreFailed: ((url: string, error: Error) => void) | null = null;
+
+  /**
    * The saved URL this browser will reload when it opens its page, or null
    * when it will open on about:blank: not persistent, restore skipped, or no
    * saved page from the last hour. Reads the same state the launch does.
@@ -400,7 +407,29 @@ export class CBrowser {
   pendingSessionRestore(): string | null {
     if (!this.config.persistent || this.skipSessionRestore) return null;
     const url = this.loadSessionState()?.url;
-    return url && url !== "about:blank" ? url : null;
+    return isRestorablePageUrl(url) ? url : null;
+  }
+
+  /**
+   * After loading the saved URL threw. A timeout once the page has committed
+   * leaves the real page, slow but there, so it counts as reloaded, as it did
+   * before the failure hook existed. A load that never got there leaves
+   * about:blank or the browser's error page, which onSessionRestoreFailed may
+   * refuse to act on. Telling the two apart is the point: a page whose
+   * DOMContentLoaded came after 15 s was refused as blank while on screen.
+   */
+  private afterFailedRestore(page: Page, url: string, error: Error): void {
+    if (isRestorablePageUrl(page.url())) {
+      if (this.config.verbose) {
+        console.error(`⚠️ The saved page is still loading; going on with it as it stands: ${error.message.split("\n")[0]}`);
+      }
+      this.onSessionRestored?.(url);
+      return;
+    }
+    if (this.config.verbose) {
+      console.error(`⚠️ Could not restore session, so the page is blank: ${error.message}`);
+    }
+    this.onSessionRestoreFailed?.(url, error);
   }
 
   // Modular components (extracted for maintainability)
@@ -509,8 +538,9 @@ export class CBrowser {
 
   private saveSessionState(url: string, viewport?: { width: number; height: number }, device?: string): void {
     try {
-      // Don't save about:blank or empty URLs
-      if (!url || url === "about:blank" || url === "") return;
+      // Not about:blank, an empty URL or a browser error page: the next
+      // command would reload it and act on nothing (isRestorablePageUrl).
+      if (!isRestorablePageUrl(url)) return;
 
       // Device and location persist only when set on purpose (`device set`,
       // `geo set`), so carry those over from the file. Saving this run's
@@ -1053,7 +1083,7 @@ For more help: https://playwright.dev/docs/browsers
     // Restore previous session URL if available (persistent mode only)
     if (this.config.persistent && !this.skipSessionRestore) {
       const savedSession = this.loadSessionState();
-      if (savedSession && savedSession.url && savedSession.url !== "about:blank") {
+      if (savedSession && isRestorablePageUrl(savedSession.url)) {
         try {
           if (this.config.verbose) {
             console.error(`🔄 Restoring session: ${savedSession.url}`);
@@ -1072,10 +1102,7 @@ For more help: https://playwright.dev/docs/browsers
             await this.page!.setViewportSize(savedSession.viewport);
           }
         } catch (e) {
-          // If restore fails, continue with blank page
-          if (this.config.verbose) {
-            console.error(`⚠️ Could not restore session, so the page is blank: ${(e as Error).message}`);
-          }
+          this.afterFailedRestore(this.page!, savedSession.url, e as Error);
         }
       }
     }
@@ -1200,7 +1227,7 @@ For more help: https://playwright.dev/docs/browsers
       const currentUrl = this.page.url();
       if (currentUrl === "about:blank" || currentUrl === "") {
         const savedSession = this.loadSessionState();
-        if (savedSession && savedSession.url && savedSession.url !== "about:blank") {
+        if (savedSession && isRestorablePageUrl(savedSession.url)) {
           try {
             if (this.config.verbose) {
               console.error(`🔄 Restoring session: ${savedSession.url}`);
@@ -1217,9 +1244,7 @@ For more help: https://playwright.dev/docs/browsers
               await this.page.setViewportSize(savedSession.viewport);
             }
           } catch (e) {
-            if (this.config.verbose) {
-              console.error(`⚠️ Could not restore session, so the page is blank: ${(e as Error).message}`);
-            }
+            this.afterFailedRestore(this.page, savedSession.url, e as Error);
           }
         }
       }

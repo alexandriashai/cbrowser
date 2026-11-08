@@ -408,6 +408,22 @@ export function resolveCookieDomain(explicitDomain?: string, url?: string): stri
 }
 
 // ============================================================================
+// The page a persistent profile saves for the next command
+// ============================================================================
+
+/**
+ * Whether a URL is a page to save for the next command and reload there. Not
+ * about:blank and not the browser's own pages: a load that fails leaves the
+ * tab on chrome-error://chromewebdata/ (about:neterror in Firefox), and saving
+ * that made every later command reload Chrome's blank error page and exit 0
+ * (2026-11-08).
+ */
+export function isRestorablePageUrl(url: string | null | undefined): url is string {
+  if (!url) return false;
+  return !/^(about|chrome|chrome-error|chrome-extension|chrome-search|devtools|edge|view-source):/i.test(url.trim());
+}
+
+// ============================================================================
 // Chromium SingletonLock staleness (persistent-profile wedge recovery)
 // ============================================================================
 

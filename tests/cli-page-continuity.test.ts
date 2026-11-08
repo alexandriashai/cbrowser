@@ -6,8 +6,9 @@
  * separate process works; what was wrong is that nothing said so, and that a
  * command with no saved page to reload (--no-restore, documented as keeping
  * the page state, --no-persistent, or a new data dir) ran on about:blank and
- * exited 0. An agent driving a flow from separate shell calls read results
- * from a blank page without knowing it.
+ * exited 0, and so did one whose saved page no longer loaded, on the
+ * browser's error page. An agent driving a flow from separate shell calls
+ * read results from a blank page without knowing it.
  *
  * Drives the path a user takes: separate CLI invocations, then a detached
  * daemon from `daemon start`. The subprocess harness is the one in
@@ -16,10 +17,11 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createServer } from "node:net";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { serveFixtures } from "./fixtures/serve-fixtures.js";
+import { CBrowser } from "../src/browser.js";
 
 const CLI = resolve(import.meta.dir, "..", "src", "cli.ts");
 const TIMEOUT = 60_000;
@@ -123,12 +125,15 @@ describe("without a daemon, with a saved page", () => {
     expect(r.stderr).toContain("Restoring session");
   }, TIMEOUT);
 
-  test("the other page commands say so too (scroll, assert)", async () => {
-    for (const args of [["scroll", "bottom"], ["assert", "title contains 'Recording'"]]) {
+  test("the other page commands say so too (scroll, assert, session save)", async () => {
+    for (const args of [["scroll", "bottom"], ["assert", "title contains 'Recording'"], ["session", "save", "noted"]]) {
       const r = await cli(localDir, ...args);
       expect(r.stderr, args[0]).toContain(`reloaded ${page}`);
     }
-  }, TIMEOUT * 2);
+    // Named as the user would say it, and pointed at the URL, not a daemon that refuses it.
+    const r = await cli(localDir, "session", "save", "noted2");
+    expect(r.stderr).toContain("session save does not run in the daemon");
+  }, TIMEOUT * 3);
 
   test("a red-zone refusal opens no browser: no launch, no reload, no note", async () => {
     const r = await cli(localDir, "evaluate", "1 + 1", "--raw");
@@ -249,6 +254,170 @@ describe("without a daemon, with no saved page", () => {
     expect(r.stdout).toBe("2\n");
     expect(r.stderr).toContain("Restoring device");
   }, TIMEOUT);
+
+  test("the page subcommands refuse too: an audit of about:blank scored 100, a baseline saved a blank image", async () => {
+    const dir = newDir("subcommands");
+    const commands: Array<[string, string[]]> = [
+      ["a11y audit", ["a11y", "audit"]],
+      ["perf audit", ["perf", "audit"]],
+      ["perf", ["perf"]],
+      ["visual save", ["visual", "save", "base"]],
+      ["visual compare", ["visual", "compare", "base"]],
+      ["session save", ["session", "save", "s1"]],
+      ["capture start", ["capture", "start", "--duration", "1"]],
+    ];
+    for (const [name, args] of commands) {
+      const r = await cli(dir, ...args);
+      expect(r.code, `${name}: ${r.stdout}${r.stderr}`).toBe(1);
+      expect(r.stderr, name).toContain(`${name} would run on a blank page`);
+      expect(r.stderr, name).not.toContain("Using persistent browser context");
+      // None of these runs in the daemon (a bounded capture has a browser of its own).
+      expect(r.stderr, name).not.toContain("cbrowser daemon start");
+    }
+    // Their other subcommands do not need a page.
+    for (const args of [["visual", "list"], ["session", "list"]]) {
+      const r = await cli(dir, ...args);
+      expect(r.code, `${args.join(" ")}: ${r.stderr}`).toBe(0);
+    }
+    // A form missing its name gets its usage error, not the page refusal.
+    const noName = await cli(dir, "visual", "save");
+    expect(noName.code).toBe(1);
+    expect(noName.stderr).toContain("Usage: cbrowser visual save <name>");
+    expect(noName.stderr).not.toContain("blank page");
+  }, TIMEOUT * 2);
+
+  test("a browser error page saved by an older version is not reloaded", async () => {
+    const dir = newDir("chrome-error");
+    mkdirSync(join(dir, "browser-state"), { recursive: true });
+    writeFileSync(join(dir, "browser-state", "last-session.json"), JSON.stringify({ url: "chrome-error://chromewebdata/", timestamp: Date.now() }));
+    const r = await cli(dir, "evaluate", "location.href", "--raw", "--force");
+    expect(r.code, r.stdout + r.stderr).toBe(1);
+    expect(r.stderr).toContain("no saved page in data dir");
+    expect(r.stdout).toBe("");
+  }, TIMEOUT);
+});
+
+describe("without a daemon, with a saved page that no longer loads", () => {
+  test("a page command stops with the reason instead of acting on the browser's error page", async () => {
+    const dir = newDir("dead");
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: () => new Response("<!doctype html><title>soon gone</title><h1>here</h1>", { headers: { "content-type": "text/html" } }),
+    });
+    const gone = `http://127.0.0.1:${server.port}/page`;
+    expect((await cli(dir, "navigate", gone)).code).toBe(0);
+    server.stop(true);
+
+    const shot = join(dir, "blank.png");
+    const commands: Array<[string, string[]]> = [
+      ["evaluate", ["evaluate", "document.title", "--raw", "--force"]],
+      ["screenshot", ["screenshot", shot]],
+      ["a11y audit", ["a11y", "audit"]],
+    ];
+    for (const [name, args] of commands) {
+      const r = await cli(dir, ...args);
+      expect(r.code, `${name}: ${r.stdout}${r.stderr}`).toBe(1);
+      expect(r.stderr, name).toContain(`Could not reload the saved page ${gone}`);
+      expect(r.stderr, name).toContain(`${name} would run on a blank page`);
+      expect(r.stdout, name).toBe("");
+    }
+    expect(existsSync(shot)).toBe(false);
+    // The error page is not saved over it: the next command tries the real page again.
+    const saved = JSON.parse(readFileSync(join(dir, "browser-state", "last-session.json"), "utf8"));
+    expect(saved.url).toBe(gone);
+  }, TIMEOUT * 3);
+
+  test("a saved page that is only slow (DOMContentLoaded after the 15 s reload wait) is used as it stands", async () => {
+    const dir = newDir("slow");
+    // The h1 is on screen at once; a script that takes 20 s holds DOMContentLoaded back.
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: async (req) => {
+        if (new URL(req.url).pathname === "/hang.js") {
+          await Bun.sleep(20_000);
+          return new Response("", { headers: { "content-type": "text/javascript" } });
+        }
+        return new Response("<!doctype html><title>slow</title><h1 id=h>slow but here</h1><script src=/hang.js></script>", { headers: { "content-type": "text/html" } });
+      },
+    });
+    try {
+      const slow = `http://127.0.0.1:${server.port}/slow`;
+      mkdirSync(join(dir, "browser-state"), { recursive: true });
+      writeFileSync(join(dir, "browser-state", "last-session.json"), JSON.stringify({ url: slow, timestamp: Date.now() }));
+      const r = await cli(dir, "evaluate", "document.getElementById('h').textContent", "--raw", "--force");
+      expect(r.code, r.stdout + r.stderr).toBe(0);
+      expect(r.stdout).toBe("slow but here\n");
+      expect(r.stderr).not.toContain("Could not reload");
+      expect(r.stderr).toContain(`reloaded ${slow}`);
+    } finally {
+      server.stop(true);
+    }
+  }, TIMEOUT * 2);
+});
+
+// The CLI stops a page command before Chromium commits its error page, so the
+// two guards below never come into play there. They do for the daemon, the
+// MCP server and anything else that keeps going after a load fails.
+describe("the browser's own error page, in the library", () => {
+  test("is not saved for the next command to reload", async () => {
+    const dir = newDir("lib-save");
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("gone soon") });
+    const dead = `http://127.0.0.1:${server.port}/`;
+    server.stop(true);
+    const b = new CBrowser({ headless: true, persistent: true, dataDir: dir, skipSessionRestore: true });
+    try {
+      const p = await b.getPage();
+      await p.goto(dead).catch(() => {});
+      // Precondition, so the check below cannot pass on a page that never got there.
+      for (let i = 0; i < 50 && !p.url().startsWith("chrome-error:"); i++) await p.waitForTimeout(100);
+      expect(p.url()).toStartWith("chrome-error:");
+    } finally {
+      await b.close();
+    }
+    const file = join(dir, "browser-state", "last-session.json");
+    const saved = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")).url : null;
+    expect(saved).toBeNull();
+  }, TIMEOUT);
+
+  test("saved by an older version, is not reloaded when the browser opens", async () => {
+    const dir = newDir("lib-restore");
+    mkdirSync(join(dir, "browser-state"), { recursive: true });
+    writeFileSync(join(dir, "browser-state", "last-session.json"), JSON.stringify({ url: "chrome-error://chromewebdata/", timestamp: Date.now() }));
+    const b = new CBrowser({ headless: true, persistent: true, dataDir: dir });
+    const tried: string[] = [];
+    b.onSessionRestored = (url) => tried.push(`restored ${url}`);
+    b.onSessionRestoreFailed = (url) => tried.push(`failed ${url}`);
+    try {
+      expect(b.pendingSessionRestore()).toBeNull();
+      const p = await b.getPage();
+      expect(p.url()).toBe("about:blank");
+      expect(tried).toEqual([]);
+    } finally {
+      await b.close();
+    }
+  }, TIMEOUT);
+
+  test("a later page request that reloads the saved page reports a failed load too", async () => {
+    // getPage() reloads the saved page again when it finds its page blank (after a
+    // recovery, say), through a second path the launch does not take.
+    const dir = newDir("lib-second-path");
+    const b = new CBrowser({ headless: true, persistent: true, dataDir: dir });
+    const failed: string[] = [];
+    b.onSessionRestoreFailed = (url) => failed.push(url);
+    try {
+      expect((await b.getPage()).url()).toBe("about:blank");
+      const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("x") });
+      const dead = `http://127.0.0.1:${server.port}/`;
+      server.stop(true);
+      writeFileSync(join(dir, "browser-state", "last-session.json"), JSON.stringify({ url: dead, timestamp: Date.now() }));
+      await b.getPage();
+      expect(failed).toEqual([dead]);
+    } finally {
+      await b.close();
+    }
+  }, TIMEOUT);
 });
 
 describe("with a daemon", () => {
@@ -289,4 +458,19 @@ describe("with a daemon", () => {
     expect(r.code, r.stderr).toBe(0);
     expect(JSON.parse(r.stdout)).toEqual({ dropped: true, file: "static.html" });
   }, TIMEOUT * 3);
+
+  test("what would act on a blank page of its own instead of the daemon's is refused", async () => {
+    // A bounded capture with no URL recorded a white page; session save stored
+    // about:blank; both exited 0 while the daemon held the real page.
+    const capture = await cli(daemonDir, "capture", "start", "--duration", "1", "--format", "gif");
+    expect(capture.code, capture.stdout + capture.stderr).toBe(1);
+    expect(capture.stderr).toContain("records in a browser of its own");
+    expect(capture.stderr).not.toContain("Using persistent browser context");
+    for (const sub of ["save", "load"]) {
+      const r = await cli(daemonDir, "session", sub, "s-daemon");
+      expect(r.code, `session ${sub}: ${r.stdout}${r.stderr}`).toBe(1);
+      expect(r.stderr).toContain(`'session ${sub}' cannot run while the daemon holds the browser`);
+    }
+    expect(existsSync(join(daemonDir, "sessions", "s-daemon.json"))).toBe(false);
+  }, TIMEOUT * 2);
 });
