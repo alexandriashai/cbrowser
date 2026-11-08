@@ -1059,16 +1059,97 @@ export interface PageGeometry {
 }
 
 /**
+ * Put the looping-animation hold on the page, as window.__cbHoldLooping.
+ *
+ * WHY. Page metrics decide what is in view from getBoundingClientRect, which
+ * includes transforms, so a box that turns or slides forever is in or out of
+ * view, and its colour in or out of the sample, by where its cycle happens to
+ * be when the page is read: one page could measure two ways a second apart.
+ * The page-metrics golden did on CI (2026-11-05). On the CTC reference pages
+ * a Netlify page's score moved 0.081 by phase alone, and a held and an
+ * unheld read of hejabbanifatemi.com up to 0.35 apart (2026-11-07).
+ *
+ * WHAT. A read calls __cbHoldLooping() first thing inside its own evaluate and
+ * the function it returns just before it returns, so the seek, the read and
+ * the restore are one synchronous task: the timeline does not advance inside
+ * it and no frame runs, so the page never paints the held state and loses no
+ * time. Held: every running animation that repeats forever on the document
+ * timeline with a nonzero rate, in the document and in every open shadow root
+ * (document.getAnimations() leaves out animations whose target is in a shadow
+ * tree, in all three engines), sought to time 0, then put back where it was.
+ * Time 0 is the state the page starts it in: its first frame, or partway
+ * into the cycle for one with a negative delay (staggered spinners), the same
+ * place on every read either way.
+ * Seeking moves layout, and the browser moves the scroll offset with it (a
+ * clamp when the page gets shorter, scroll anchoring when something above the
+ * fold changes size), so the offset is put back after the seek, for the read,
+ * and after the restore, for the page.
+ *
+ * Seeking only, never pause() or play(): after either, a CSS animation no
+ * longer follows animation-play-state, and a pause control the audits test
+ * would stop working. Left as they are: an animation that ends (read as it
+ * stands, as a user would see it at that moment), one the page paused or set
+ * to rate 0, a scroll-driven one (its position is the scroll's), one inside a
+ * closed shadow root (unreachable from page script) and SVG SMIL animation
+ * (not a Web Animations object). The count of running animations does not
+ * change: seeking leaves the computed animation-play-state "running".
+ *
+ * Installed before every read, because a navigation replaces the window; a
+ * read on a page without it reads the page as it stands.
+ */
+export async function installLoopingHold(page: any): Promise<void> {
+  await page.evaluate(() => {
+    (window as any).__cbHoldLooping = (): (() => void) => {
+      const roots: Array<Document | ShadowRoot> = [document];
+      for (let i = 0; i < roots.length; i++) {
+        for (const el of Array.from(roots[i].querySelectorAll("*"))) if (el.shadowRoot) roots.push(el.shadowRoot);
+      }
+      // Before the first seek: a seek can move the offset (see above).
+      const sx = window.scrollX;
+      const sy = window.scrollY;
+      const held: Array<[Animation, CSSNumberish | null]> = [];
+      for (const root of roots) {
+        for (const a of root.getAnimations?.() ?? []) {
+          try {
+            if (a.playState !== "running" || a.playbackRate === 0 || a.timeline !== document.timeline) continue;
+            if (a.effect?.getComputedTiming().iterations !== Infinity) continue;
+            held.push([a, a.currentTime]);
+            a.currentTime = 0;
+          } catch { /* an animation that cannot be sought is read as it stands */ }
+        }
+      }
+      const offsetBack = () => {
+        if (window.scrollX !== sx || window.scrollY !== sy) window.scrollTo({ left: sx, top: sy, behavior: "instant" as ScrollBehavior });
+      };
+      if (held.length) offsetBack();
+      return () => {
+        for (const [a, t] of held) { try { a.currentTime = t; } catch { /* left at its first frame, still running */ } }
+        if (held.length) offsetBack();
+      };
+    };
+  }).catch(() => { /* a page that will not run script is read as it stands */ });
+}
+
+/**
  * Measure the page's geometry in a single evaluate.
  *
  * One round trip on purpose: two reads of `innerHeight` and `scrollHeight` can
  * straddle a layout change, and the whole point of this function is that they cannot.
  */
 export async function measurePageGeometry(page: any, maxScreens = 20): Promise<PageGeometry> {
-  const { viewportHeight, documentHeight } = await page.evaluate(() => ({
-    viewportHeight: window.innerHeight,
-    documentHeight: Math.max(window.innerHeight, document.documentElement.scrollHeight),
-  }));
+  await installLoopingHold(page);
+  const { viewportHeight, documentHeight } = await page.evaluate(() => {
+    // Looping animations at their first frame for this read (installLoopingHold):
+    // a transformed box adds to the scrollable overflow, so a bar turning at the
+    // foot of a page lengthens it at some angles.
+    const release: () => void = (window as any).__cbHoldLooping?.() ?? (() => {});
+    const read = {
+      viewportHeight: window.innerHeight,
+      documentHeight: Math.max(window.innerHeight, document.documentElement.scrollHeight),
+    };
+    release();
+    return read;
+  });
   return {
     viewportHeight,
     documentHeight,
@@ -1124,8 +1205,12 @@ export async function extractPerScreenMetrics(
     await page.evaluate((y: number) => window.scrollTo(0, y), i * vh);
     await page.waitForTimeout(250);
     const metrics = await extractPageMetrics(page, "viewport");
-    // Re-charge only what this screen introduces.
+    // Re-charge only what this screen introduces. Looping animations at their
+    // first frame here too (installLoopingHold), or a control one carries
+    // across the screen edge would be new on whichever screen the cycle put it.
+    await installLoopingHold(page);
     const fresh = await page.evaluate(() => {
+      const release: () => void = (window as any).__cbHoldLooping?.() ?? (() => {});
       const seen: Set<string> = (window as any).__cbSeqSeen;
       const vh2 = window.innerHeight;
       const visible = (el: Element) => {
@@ -1143,6 +1228,7 @@ export async function extractPerScreenMetrics(
         if (el.tagName === "A") newChoices++;
         if (el.tagName === "SELECT") newChoices += el.querySelectorAll("option").length;
       }
+      release();
       return { newInteractive, newChoices };
     });
     // The law times are re-charged for the same share: what this screen
@@ -1552,7 +1638,11 @@ export async function measurePageRaw(
   // the sequential path were two derivations of one quantity from two separate reads;
   // passing it in makes them one measurement rather than two that agree by luck.
   const geo = geometry ?? (await measurePageGeometry(page));
+  await installLoopingHold(page);
   return page.evaluate(([measureScope, geoIn, P]: [MetricScope, PageGeometry, MeasureParams]) => {
+    // Looping animations at their first frame for the whole read, put back
+    // before it returns (installLoopingHold).
+    const releaseLooping: () => void = (window as any).__cbHoldLooping?.() ?? (() => {});
     const vw = window.innerWidth;
     const vh = geoIn.viewportHeight;
     const fullPage = measureScope === "full_page";
@@ -2020,6 +2110,9 @@ export async function measurePageRaw(
       cjkChars: navCjkChars,
     };
 
+    // Everything is read; the looping animations go back where they were. (A
+    // throw on the way here leaves them at time 0, still running.)
+    releaseLooping();
     return {
       format: 2 as const,
       scope: measureScope,

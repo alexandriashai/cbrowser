@@ -36,6 +36,23 @@
  * the direct attempt was blocked. Every attempted page is listed with its
  * outcome (referenceOutcomes), graded or not.
  *
+ * MEASURED BEFORE THE ANIMATION HOLD. Every read now holds animations that
+ * loop forever at time 0 (installLoopingHold, cognitive-transport.ts); these
+ * pages were measured on 2026-10-24 with them wherever their cycle stood. The
+ * reference was not re-crawled for it, on a measurement (2026-11-07): the 470
+ * direct-route graded pages that still loaded were each loaded twice and read
+ * twice with the hold and twice without. On the pages whose repeated reads
+ * agreed, the hold changed the metrics of 4 of 445 at viewport and 2 of 363
+ * at full_page, and moving their costs by it moves the curve by at most
+ * 0.0014 of percentile (0.0026 taking every page's held-minus-unheld
+ * difference, read noise included), against a median half-width of 0.0274
+ * for its 90% interval. Loading the same pages again that day moved the
+ * curve by up to 0.0075 at viewport, about as far as re-crawling them would
+ * have (0.0077 with the hold), so a re-crawl would trade one draw of page
+ * noise for another. Not measured: the 28 proxy-route pages (paid proxy) and
+ * 16 direct pages that no longer loaded; at the rate seen, fewer than one of
+ * those 44 would be expected to change.
+ *
  * WEIGHTING. Every graded page counts once. The crawl's quotas, not the
  * curve, balance frames and types: each frame stopped at about a third of the
  * pages and each inner type at a cap, so the counts are near balance by

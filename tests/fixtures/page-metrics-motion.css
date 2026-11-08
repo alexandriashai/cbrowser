@@ -1,0 +1,25 @@
+/* Looping-animation fixtures for the measurement hold
+   (tests/page-metrics-golden.test.ts). Fixed boxes, so what is in view depends
+   on these numbers and on where an animation is in its cycle, not on fonts. */
+html, body { margin: 0; padding: 0; }
+body { width: 1280px; background: #fafaf7; color: #1a1a1a; font: 16px/20px sans-serif; }
+.tall { display: block; height: 1000px; overflow: hidden; }
+.gap { display: block; height: 820px; overflow: hidden; }
+.top, .lift a { display: block; width: 200px; height: 30px; overflow: hidden; }
+/* 1000 x 20, turning about its centre: at 90 degrees it stands 1000 px tall. */
+.turn { display: block; width: 1000px; height: 20px; background: #4a6; animation: turn 2s linear infinite; }
+@keyframes turn { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* Lifts its link 200 px over one 2 s cycle, so halfway it sits 100 px higher. */
+.lift { display: block; height: 30px; animation: lift 2s linear infinite; }
+@keyframes lift { from { transform: translateY(0); } to { transform: translateY(-200px); } }
+/* Left alone by the hold: a one-shot animation over a long run, and a
+   looping one the page itself paused. The test puts each halfway, holding its
+   link 100 px up (no negative delay: time 0 would then be halfway too, and a
+   hold that sought them could not be told apart from one that did not). */
+.once { display: block; height: 30px; animation: lift 2000s linear 1; }
+.parked { display: block; height: 30px; animation: lift 2s linear infinite paused; }
+.once a, .parked a, .host a, .row a { display: block; width: 200px; height: 30px; overflow: hidden; }
+/* Grows from 100 to 900 px over one 2 s cycle, above everything else. */
+.grow { display: block; height: 100px; overflow: hidden; animation: grow 2s linear infinite; }
+@keyframes grow { from { height: 100px; } to { height: 900px; } }
+.row { display: block; height: 400px; overflow: hidden; }

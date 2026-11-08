@@ -37,6 +37,7 @@ import {
   estimateCognitiveLoad,
   COGNITIVE_TRAITS,
   OVERALL_LEVEL_KEY,
+  installLoopingHold,
   type OTCognitiveProfile,
 } from "../../visual/cognitive-transport.js";
 import { bridgeCapacityTraits, personaRateContext } from "../../visual/cognitive-models.js";
@@ -1131,8 +1132,12 @@ Begin with the first persona: ${personas[0]}
       try {
         const { motorAccessibility, readability, getPointingProfile, getReadingProfile } = await import("../../visual/cognitive-models.js");
 
-        // Get interactive elements for motor analysis — viewport-visible only
+        // Get interactive elements for motor analysis — viewport-visible only.
+        // Looping animations at their first frame, as for the CTC's own pointing
+        // read (installLoopingHold), so the two agree on the same call.
+        await installLoopingHold(page);
         const elements = await page.evaluate(() => {
+          const release: () => void = (window as any).__cbHoldLooping?.() ?? (() => {});
           const vw = window.innerWidth;
           const vh = window.innerHeight;
           const interactive = document.querySelectorAll('a, button, input, select, textarea, [role="button"]');
@@ -1157,7 +1162,7 @@ Begin with the first persona: ${personas[0]}
           // ever extended to keyboard traversal they belong there, with their
           // FOCUSED geometry rather than their hidden geometry. (2026-08-02)
           const MIN_TARGET_PX = 4;
-          return Array.from(interactive).filter((el) => {
+          const found = Array.from(interactive).filter((el) => {
             const rect = el.getBoundingClientRect();
             if (rect.width < MIN_TARGET_PX || rect.height < MIN_TARGET_PX) return false;
             if (rect.bottom <= 0 || rect.top >= vh || rect.right <= 0 || rect.left >= vw) return false;
@@ -1215,13 +1220,18 @@ Begin with the first persona: ${personas[0]}
               distance: Math.sqrt((rect.x + rect.width/2 - cx) ** 2 + (rect.y + rect.height/2 - cy) ** 2),
             };
           });
+          release();
+          return found;
         });
 
         motorGeom = elements.map((e) => ({ selector: e.selector, x: e.x, y: e.y, width: e.width, height: e.height }));
         motorResult = motorAccessibility(elements, otProfile);
 
-        // Get text blocks for readability analysis — viewport-visible only
+        // Get text blocks for readability analysis — viewport-visible only,
+        // looping animations held like the motor read above.
+        await installLoopingHold(page);
         const textBlocks = await page.evaluate(() => {
+          const release: () => void = (window as any).__cbHoldLooping?.() ?? (() => {});
           const vw = window.innerWidth;
           const vh = window.innerHeight;
           const blocks: Array<{ text: string; fontSize: number; lineHeight: number; fontFamily: string; isSerif: boolean; contrastRatio: number; x: number; y: number; width: number; height: number }> = [];
@@ -1244,6 +1254,7 @@ Begin with the first persona: ${personas[0]}
               x: rect.x, y: rect.y, width: rect.width, height: rect.height });
             if (blocks.length >= 20) break;
           }
+          release();
           return blocks;
         });
 
