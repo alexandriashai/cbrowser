@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.8](https://github.com/alexandriashai/cbrowser/compare/v21.4.7...v21.4.8) (2026-11-08)
+
+### Fixed
+
+* **cli:** no audit, baseline or capture of a blank page, and no reload of an error page ([3ba7334](https://github.com/alexandriashai/cbrowser/commit/3ba733470e3a3f3e9ac2e77a62e3089a6f0d2dd4))
+
 ## [21.4.7](https://github.com/alexandriashai/cbrowser/compare/v21.4.6...v21.4.7) (2026-11-08)
 
 ### Fixed
