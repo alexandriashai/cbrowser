@@ -789,7 +789,24 @@ export async function runDaemonServer(
     res.end(JSON.stringify({ success: false, error: "unauthorized: this daemon only accepts its own CLI (token in its state file)" }));
   };
 
-  const server: Server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  // The listener is async and nothing awaits its promise, so a throw inside it
+  // used to be an unhandled rejection, which ends the process. It now ends
+  // only that request. Same defect class as the hosted server's listener.
+  // (crash hotfix, 2026-11-12)
+  const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    void handleDaemonRequest(req, res).catch((err: unknown) => {
+      console.error(`[daemon] request failed: ${err instanceof Error ? err.name : typeof err}`);
+      if (res.headersSent) { res.destroy(); return; }
+      try {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "internal error" }));
+      } catch {
+        res.destroy();
+      }
+    });
+  });
+
+  async function handleDaemonRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     // CORS headers - use request origin instead of wildcard
     const origin = req.headers.origin;
     if (origin) {
@@ -849,6 +866,10 @@ export async function runDaemonServer(
           res.end(JSON.stringify(response));
         } catch (err) {
           console.error("[daemon] Request handling failed:", err);
+          // A response that would not serialize throws after writeHead(200),
+          // and a second writeHead here then threw out of this async listener,
+          // which nothing catches.
+          if (res.headersSent) { res.destroy(); return; }
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: false, error: `Invalid request: ${err}` }));
         }
@@ -858,14 +879,20 @@ export async function runDaemonServer(
 
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
-  });
+  }
 
   const shutdown = async () => {
     if (idleTimer) {
       clearTimeout(idleTimer);
     }
     if (browser) {
-      await browser.close();
+      // A browser that fails to close must not stop the daemon from exiting
+      // and clearing its state file; before, the rejection skipped both.
+      try {
+        await browser.close();
+      } catch (err) {
+        console.error(`[daemon] browser close failed during shutdown: ${err instanceof Error ? err.name : typeof err}`);
+      }
     }
     server.close();
     clearDaemonState();

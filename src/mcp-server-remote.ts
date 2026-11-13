@@ -1086,6 +1086,215 @@ function rejectRedirectUri(res: import("http").ServerResponse, uri: string): voi
   );
 }
 
+// ============================================================================
+// Request guard (crash hotfix, 2026-11-12)
+//
+// The HTTP listener was an async function whose promise nobody caught, and the
+// process had no unhandledRejection handler, so any throw before the MCP
+// dispatch ended the process for every account: POST /token with the body "{"
+// (bare JSON.parse), a request line of "//" or a Host header that is not a
+// host (new URL), a password grant while the CMS was down (bare fetch), and
+// any POST whose body was cut off (the body loop rejects). None needed
+// credentials. Every request now runs inside answerRequestSafely, which turns
+// a throw into one log line and a 400, 413 or 500, and the branches that read
+// client input answer it themselves.
+// ============================================================================
+
+/** OAuth bodies are a few hundred bytes; anything past this is refused unread. */
+const MAX_OAUTH_BODY_BYTES = 64 * 1024;
+
+/**
+ * Bound each CMS call a sign-in makes. Without it a CMS that accepted the
+ * connection and never answered held the sign-in open forever. Longer than
+ * the 3 s key check because a password login runs a slow hash on the CMS.
+ */
+const OAUTH_CMS_TIMEOUT_MS = 10_000;
+
+/** A request the server could not read. The guard answers it with `status`, never 500. */
+export class RequestInputError extends Error {
+  constructor(readonly status: number, readonly errorCode: string, message: string) {
+    super(message);
+    this.name = "RequestInputError";
+  }
+}
+
+/**
+ * One short description of an error for the log. A SyntaxError from JSON.parse
+ * quotes the start of the body it failed on, which can be a password, so for
+ * that one only the name is kept.
+ */
+export function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return String(typeof err).slice(0, 40);
+  const code = (err as NodeJS.ErrnoException).code;
+  const head = code ? `${err.name} ${code}` : err.name;
+  if (err instanceof SyntaxError) return head;
+  return `${head}: ${err.message}`.replace(/[\r\n]+/g, " ").slice(0, 200);
+}
+
+/** The request path for the log: no query string (it can carry codes and state), no control characters. */
+function pathForLog(target: string | undefined): string {
+  return (target ?? "").split("?")[0].replace(/[^\x20-\x7e]/g, "?").slice(0, 100);
+}
+
+/**
+ * Read a request body, refusing it past `limit` bytes. Too large: rejects with
+ * RequestInputError(413) and stops keeping what arrives, so the rest is
+ * discarded rather than buffered. Client gone before the end: rejects, and the
+ * guard closes the socket.
+ */
+export function readBodyCapped(req: IncomingMessage, limit: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let received = 0;
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+      req.off("close", onClose);
+    };
+    const onData = (chunk: Buffer | string) => {
+      const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      received += buf.length;
+      if (received > limit) {
+        cleanup();
+        // An error listener stays, so a reset after this is not an unhandled 'error' event.
+        req.on("error", () => {});
+        req.resume();
+        reject(new RequestInputError(413, "payload_too_large", `Request body exceeds ${limit} bytes.`));
+        return;
+      }
+      chunks.push(buf);
+    };
+    const onEnd = () => {
+      cleanup();
+      resolve(Buffer.concat(chunks).toString("utf-8"));
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      req.on("error", () => {});
+      reject(err);
+    };
+    const onClose = () => {
+      cleanup();
+      reject(Object.assign(new Error("request body ended early"), { code: "ECONNRESET" }));
+    };
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", onError);
+    req.on("close", onClose);
+  });
+}
+
+/**
+ * The request target as a URL, or RequestInputError(400). Origin-form must be
+ * one slash and a path: new URL reads "//x" and "/\x" as a host named x, and
+ * throws on "//" alone. Absolute-form ("http://host/path") is legal HTTP/1.1
+ * and parses as given; only its path and query are used. The Host header is
+ * the base, so a Host that is not a host is refused here too.
+ */
+export function parseRequestUrl(req: IncomingMessage): URL {
+  const target = req.url || "/";
+  const absolute = /^https?:\/\//i.test(target);
+  if (!absolute && (!target.startsWith("/") || /^\/[/\\]/.test(target))) {
+    throw new RequestInputError(400, "bad_request", "Malformed request target.");
+  }
+  try {
+    return new URL(target, `http://${req.headers.host}`);
+  } catch {
+    throw new RequestInputError(400, "bad_request", "Malformed request target or Host header.");
+  }
+}
+
+/**
+ * The /token parameters, or null when the body cannot be read. JSON when the
+ * Content-Type says so or the body starts with "{" or "["; then it must be an
+ * object, and only its string, number and boolean fields are taken. Form data
+ * otherwise, which is what RFC 6749 clients send.
+ */
+export function parseTokenRequestBody(body: string, contentType: string | undefined): URLSearchParams | null {
+  const trimmed = body.trimStart();
+  const isJson = /^application\/([\w.+-]+\+)?json\b/i.test(contentType ?? "") || trimmed.startsWith("{") || trimmed.startsWith("[");
+  if (!isJson) return new URLSearchParams(body);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") params.set(k, String(v));
+  }
+  return params;
+}
+
+/** An OAuth error answer (RFC 6749 section 5.2 shape). */
+function oauthError(res: ServerResponse, status: number, error: string, description: string): void {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error, error_description: description }));
+}
+
+/**
+ * Run one request's handler so that nothing it throws leaves this function.
+ * A throw is logged as one line (method, path without query, status, error
+ * name and message; never the body or headers) and answered: the error's own
+ * status for a request the server could not read, 500 for anything else. When
+ * the client has gone, or headers are already out, the socket is closed
+ * instead. This function never rejects.
+ */
+export async function answerRequestSafely(
+  req: IncomingMessage,
+  res: ServerResponse,
+  handler: () => Promise<void>,
+): Promise<void> {
+  try {
+    await handler();
+  } catch (err) {
+    try {
+      const clientGone = (req.destroyed && !req.complete) || (err as NodeJS.ErrnoException)?.code === "ECONNRESET";
+      const status = err instanceof RequestInputError ? err.status : 500;
+      console.error(`[HTTP] ${String(req.method).slice(0, 10)} ${pathForLog(req.url)} -> ${clientGone ? "client gone" : status}: ${describeError(err)}`);
+      if (clientGone || res.headersSent) {
+        res.destroy();
+        return;
+      }
+      res.writeHead(status, {
+        "Content-Type": "application/json",
+        // A refused oversized body is not read to its end, so the connection cannot be reused.
+        ...(status === 413 ? { Connection: "close" } : {}),
+      });
+      res.end(JSON.stringify(err instanceof RequestInputError
+        ? { error: err.errorCode, error_description: err.message }
+        : { error: "server_error" }));
+    } catch {
+      res.destroy();
+    }
+  }
+}
+
+let rejectionLoggerInstalled = false;
+
+/**
+ * Second layer behind answerRequestSafely, for a promise that rejects outside
+ * any request (a timer, a fire-and-forget call). Node and Bun end the process
+ * on an unhandled rejection; here it is logged and the server keeps serving.
+ *
+ * uncaughtException is deliberately NOT caught. A synchronous throw that
+ * reaches the top can leave module state half-updated (a map entry written,
+ * its pair not), and serving every account from that state is worse than a
+ * restart; systemd restarts the unit (Restart=always). A rejected promise has
+ * already unwound its own async function, so the state it leaves is the same
+ * as a handled error's.
+ */
+function installRejectionLogger(): void {
+  if (rejectionLoggerInstalled) return;
+  rejectionLoggerInstalled = true;
+  process.on("unhandledRejection", (reason) => {
+    console.error(`[process] unhandled rejection, server kept running: ${describeError(reason)}`);
+  });
+}
+
 const RATE_LIMIT_WINDOW_MS = 3600000;       // 1 hour
 const RATE_LIMIT_BURST_WINDOW_MS = 300000;  // 5 minutes
 
@@ -1903,10 +2112,14 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   // ran, several awaits later; an overlapping request from another account
   // overwrote them in between. The context starts as an unauthenticated caller
   // at the deployment's default tier. (sec-identity, 2026-10-10)
-  const httpServer = createServer((req, res) => withRequestIdentity(
-    { keyHash: null, tier: effectiveTier(null), apiKey: undefined },
-    async () => {
-    const url = new URL(req.url || "/", `http://${req.headers.host}`);
+  //
+  // The routing below runs inside answerRequestSafely, so nothing it throws
+  // escapes the listener (see the request guard above). Before 2026-11-12 the
+  // listener's promise was left uncaught and one malformed request ended the
+  // process.
+  installRejectionLogger();
+  const routeRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const url = parseRequestUrl(req);
 
     // Security headers (defense in depth)
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -2005,8 +2218,7 @@ if (urlParams.get('error')) {
 
     // POST /authorize — validate credentials, issue code, redirect
     if (url.pathname === "/authorize" && req.method === "POST") {
-      let body = "";
-      for await (const chunk of req) body += chunk;
+      const body = await readBodyCapped(req, MAX_OAUTH_BODY_BYTES);
       const params = new URLSearchParams(body);
       const email = params.get("email") || "";
       const password = params.get("password") || "";
@@ -2048,6 +2260,7 @@ if (urlParams.get('error')) {
           // Password is a cbk_ API key — validate it directly
           const validateRes = await fetch(`${cmsUrl}/api/accounts/validate-key`, {
             headers: { "X-API-Key": password },
+            signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
           });
           if (!validateRes.ok) {
             errorRedirect("Invalid API key");
@@ -2060,6 +2273,7 @@ if (urlParams.get('error')) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
+            signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
           });
 
           if (!loginRes.ok) {
@@ -2073,6 +2287,7 @@ if (urlParams.get('error')) {
           const keyRes = await fetch(`${cmsUrl}/api/accounts/keys?name=Claude+MCP`, {
             method: "POST",
             headers: { Authorization: `Bearer ${loginData.token}` },
+            signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
           });
           const keyData = await keyRes.json() as { key?: string; error?: string };
           apiKey = keyData.key || "";
@@ -2107,15 +2322,13 @@ if (urlParams.get('error')) {
 
     // POST /token — exchange auth code for API key (bearer token)
     if (url.pathname === "/token" && req.method === "POST") {
-      let body = "";
-      for await (const chunk of req) body += chunk;
-
-      let params: URLSearchParams;
-      if (body.startsWith("{")) {
-        const json = JSON.parse(body);
-        params = new URLSearchParams(json);
-      } else {
-        params = new URLSearchParams(body);
+      const body = await readBodyCapped(req, MAX_OAUTH_BODY_BYTES);
+      // A body that starts with "{" went to a bare JSON.parse here, so "{"
+      // alone ended the process. (crash hotfix, 2026-11-12)
+      const params = parseTokenRequestBody(body, req.headers["content-type"]);
+      if (!params) {
+        oauthError(res, 400, "invalid_request", "The request body must be form data or a JSON object.");
+        return;
       }
 
       const grantType = params.get("grant_type");
@@ -2172,42 +2385,54 @@ if (urlParams.get('error')) {
 
         const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
 
-        if (clientSecret.startsWith("cbk_")) {
-          // client_secret is an API key — validate directly
-          const valRes = await fetch(`${cmsUrl}/api/accounts/validate-key`, {
-            headers: { "X-API-Key": clientSecret },
-          });
-          if (!valRes.ok) {
-            res.writeHead(401, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "invalid_client", error_description: "Invalid API key" }));
-            return;
+        // The CMS calls had no try and no time limit: with the CMS down or
+        // restarting, one sign-in ended the process; with it hung, the
+        // sign-in never answered. Now either is a 503. (crash hotfix, 2026-11-12)
+        try {
+          if (clientSecret.startsWith("cbk_")) {
+            // client_secret is an API key — validate directly
+            const valRes = await fetch(`${cmsUrl}/api/accounts/validate-key`, {
+              headers: { "X-API-Key": clientSecret },
+              signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
+            });
+            if (!valRes.ok) {
+              res.writeHead(401, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "invalid_client", error_description: "Invalid API key" }));
+              return;
+            }
+            accessToken = clientSecret;
+          } else {
+            // client_secret is a password — login via CMS
+            const loginRes = await fetch(`${cmsUrl}/api/accounts/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: clientId, password: clientSecret }),
+              signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
+            });
+            if (!loginRes.ok) {
+              res.writeHead(401, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "invalid_client", error_description: "Invalid email or password" }));
+              return;
+            }
+            const loginData = await loginRes.json() as { token: string };
+            // Generate API key for this session
+            const keyRes = await fetch(`${cmsUrl}/api/accounts/keys?name=Claude+Session`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${loginData.token}` },
+              signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
+            });
+            const keyData = await keyRes.json() as { key?: string };
+            accessToken = keyData.key || null;
+            if (!accessToken) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "server_error", error_description: "Max API keys reached. Delete unused keys at cbrowser.ai/account" }));
+              return;
+            }
           }
-          accessToken = clientSecret;
-        } else {
-          // client_secret is a password — login via CMS
-          const loginRes = await fetch(`${cmsUrl}/api/accounts/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: clientId, password: clientSecret }),
-          });
-          if (!loginRes.ok) {
-            res.writeHead(401, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "invalid_client", error_description: "Invalid email or password" }));
-            return;
-          }
-          const loginData = await loginRes.json() as { token: string };
-          // Generate API key for this session
-          const keyRes = await fetch(`${cmsUrl}/api/accounts/keys?name=Claude+Session`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${loginData.token}` },
-          });
-          const keyData = await keyRes.json() as { key?: string };
-          accessToken = keyData.key || null;
-          if (!accessToken) {
-            res.writeHead(400, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "server_error", error_description: "Max API keys reached. Delete unused keys at cbrowser.ai/account" }));
-            return;
-          }
+        } catch (err) {
+          console.error(`[OAuth] /token: account service unusable: ${describeError(err)}`);
+          oauthError(res, 503, "temporarily_unavailable", "The account service could not be reached. Try again shortly.");
+          return;
         }
       } else {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -2488,11 +2713,9 @@ ${VERSION}
         // Allow tools/list without auth (discovery surface is public, action surface is gated).
         // Buffer the body to check if this is a tools/list or initialize request.
         if (req.method === "POST" && (url.pathname === "/mcp" || url.pathname === "/")) {
-          const bodyChunks: Buffer[] = [];
-          for await (const chunk of req) {
-            bodyChunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
-          }
-          const bodyStr = Buffer.concat(bodyChunks).toString("utf-8");
+          // Capped like handleMcpRequest's read: this one runs for every
+          // rejected caller and buffered whatever it was sent. (crash hotfix, 2026-11-12)
+          const bodyStr = await readBodyCapped(req, MAX_REQUEST_BODY_BYTES);
           try {
             const parsed = JSON.parse(bodyStr);
             const method = parsed.method || "";
@@ -2728,7 +2951,14 @@ ${VERSION}
     // 404 for other paths
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
-  }));
+  };
+
+  const httpServer = createServer((req, res) => {
+    void withRequestIdentity(
+      { keyHash: null, tier: effectiveTier(null), apiKey: undefined },
+      () => answerRequestSafely(req, res, () => routeRequest(req, res)),
+    );
+  });
 
   httpServer.listen(port, host, () => { void (async () => {
     console.log(`\nCognitive Browser Remote MCP Server running at http://${host}:${port}`);
