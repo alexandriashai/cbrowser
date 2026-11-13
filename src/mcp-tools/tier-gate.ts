@@ -206,10 +206,33 @@ export function createGatedServer(server: unknown): unknown {
       if (prefix && typeof config.description === "string") {
         config.description = prefix + config.description;
       }
+      // Bill only what ran: a call this request was charged for, that came
+      // back isError, gets refunded exactly once. currentCharge() is only
+      // non-undefined when mcp-server-remote.ts's deduct actually succeeded
+      // for THIS request; an unbilled call (no key, outage allowance) has
+      // nothing to refund. The `.tool` check guards against a scope somehow
+      // outliving its request and being read by an unrelated tool call.
+      const refundOnce = async () => {
+        const charge = currentCharge();
+        if (charge && charge.tool === name && !charge.refundAttempted) {
+          charge.refundAttempted = true;
+          await refundCharge({ keyHash: charge.keyHash, tool: charge.tool, idempotencyKey: charge.idempotencyKey });
+        }
+      };
       const wrappedHandler = async (...args: unknown[]) => {
         logToolCall(name);
         const startTime = Date.now();
-        const result = await (handler as (...a: unknown[]) => Promise<unknown>)(...args);
+        let result: unknown;
+        try {
+          result = await (handler as (...a: unknown[]) => Promise<unknown>)(...args);
+        } catch (err) {
+          // A handler that throws reaches the client as an isError result too
+          // (the SDK converts it after this wrapper), so it is refunded like
+          // one. It used to stay charged: an expired _browserToken throws.
+          // (2026-11-12)
+          await refundOnce();
+          throw err;
+        }
         const durationMs = Date.now() - startTime;
 
         // isError is the MCP protocol's own failure flag, and the ONLY thing
@@ -218,19 +241,7 @@ export function createGatedServer(server: unknown): unknown {
         // DID drive a real browser and did billable work. (P-09, 2026-09-17)
         const isError = (result as { isError?: boolean } | undefined)?.isError === true;
 
-        // Bill only what ran: a call this request was charged for, that came
-        // back isError, gets refunded exactly once. currentCharge() is only
-        // non-undefined when mcp-server-remote.ts's deduct actually succeeded
-        // for THIS request — an unbilled call (no key, fail-open) has nothing
-        // to refund. The `.tool` check guards against a scope somehow
-        // outliving its request and being read by an unrelated tool call.
-        if (isError) {
-          const charge = currentCharge();
-          if (charge && charge.tool === name && !charge.refundAttempted) {
-            charge.refundAttempted = true;
-            await refundCharge({ keyHash: charge.keyHash, tool: charge.tool, idempotencyKey: charge.idempotencyKey });
-          }
-        }
+        if (isError) await refundOnce();
 
         // Auto-save tool result (fire-and-forget). Skipped on isError (F-L13):
         // the tier-gate autosave used to post the error body itself as though

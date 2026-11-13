@@ -28,9 +28,10 @@
  * WHAT IS DELIBERATELY NOT IN SCOPE
  *
  * A charge scope is entered ONLY when a deduct actually succeeded (`allowed === true`
- * and a non-zero cost). The fail-open paths - CMS unreachable, a non-2xx status, a
- * response without `allowed` - ran the tool UNBILLED, so there is nothing to refund,
- * and entering a scope there would give the caller money they never paid.
+ * and a non-zero cost). A call run on the outage allowance (CMS unreachable or
+ * failing; every other non-success answer refuses the call since 2026-11-12) ran
+ * UNBILLED, so there is nothing to refund, and entering a scope there would give
+ * the caller money they never paid.
  *
  * @since 2026-09-17
  */

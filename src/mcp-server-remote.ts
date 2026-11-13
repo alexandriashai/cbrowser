@@ -24,9 +24,9 @@
  *   MCP_API_KEYS - Comma-separated list of valid API keys (optional, alternative to MCP_API_KEY)
  *
  * Auth0 OAuth Environment Variables:
- *   AUTH0_DOMAIN - Your Auth0 tenant domain (e.g., 'your-tenant.auth0.com')
- *   AUTH0_AUDIENCE - API audience/identifier (e.g., 'https://cbrowser-mcp.yourdomain.com')
- *   AUTH0_CLIENT_ID - Optional: Client ID for static registration
+ *   AUTH0_DOMAIN, AUTH0_AUDIENCE - when set, authentication stays required, but
+ *     Auth0 tokens are refused (no CBrowser account can be matched to one);
+ *     sign-in is by cbk_ API key or this server's own /authorize (2026-11-12)
  *
  * Rate Limiting Environment Variables:
  *   RATE_LIMIT_ENABLED - Enable IP-based rate limiting (default: false)
@@ -38,7 +38,6 @@
 import { registerUiResources } from "./mcp-tools/ui-resources.js";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID, randomBytes } from "node:crypto";
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CBrowser } from "./browser.js";
@@ -61,32 +60,29 @@ import {
 import { registerAllPublicTools, setRemoteMode, setHostedMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
 import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
 import { withChargeScope } from "./charge-scope.js";
+import { refundCharge } from "./mcp-tools/credit-refund.js";
 import { withRequestIdentity } from "./request-context.js";
 
 /**
- * keyHash -> accountId, so a request can be scoped to the tenant that owns it.
+ * The account owning this request, or null when it carries no account key or
+ * the CMS named no account for it.
  *
- * Deliberately NOT a module-level "current account" the way setActiveKeyHash
- * works: that shape is why billing identity had to be moved to a per-request
- * resolver, and applied to personas it would let one tenant's tool call read
- * another's directory whenever two requests overlap. This is a lookup keyed by
- * the request's own hash, and the value is carried through AsyncLocalStorage.
+ * Read from the same cache entry as the key's tier (tierCache, filled by
+ * validateAccountKey), so the outage grace that keeps a key authenticated also
+ * keeps its account. The account used to live in a cache of its own with no
+ * grace: 30 s into a CMS outage the key still authenticated but the request
+ * ran with no account scope, so its browser tokens, saved sessions and personas
+ * landed in the shared process directory where another unscoped caller could
+ * load them (auth-tenancy-billing-6, 2026-11-12).
+ *
+ * Deliberately NOT a module-level "current account": the value is looked up by
+ * the request's own key and carried through AsyncLocalStorage.
  */
-const accountCache = new Map<string, { accountId: number; expiresAt: number }>();
-
-/** The account owning this request, or null when unauthenticated/unknown. */
 export async function resolveRequestAccountId(req: IncomingMessage): Promise<number | null> {
   const apiKey = extractApiKey(req);
-  if (!apiKey) return null;
-  const { createHash } = await import("crypto");
-  const keyHash = createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
-  const hit = accountCache.get(keyHash);
-  if (hit && hit.expiresAt > Date.now()) return hit.accountId;
-  // Populated as a side effect of tier resolution, which every authed request
-  // already performs.
-  await resolveApiKeyTier(apiKey);
-  const after = accountCache.get(keyHash);
-  return after && after.expiresAt > Date.now() ? after.accountId : null;
+  if (!apiKey?.startsWith("cbk_")) return null;
+  const verdict = await validateAccountKey(apiKey);
+  return verdict.valid && typeof verdict.accountId === "number" ? verdict.accountId : null;
 }
 import { type PricingTier, TOOL_CATEGORIES, categorizedToolNames } from "./mcp-tools/tool-categories.js";
 import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS, AGENT_PERSONAS } from "./personas.js";
@@ -552,127 +548,35 @@ export function sessionIdFromHeader(header: string | string[] | undefined): stri
 // Transport storage for stateful sessions
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
-// Auth0 configuration interface
-interface Auth0Config {
-  domain: string;
-  audience: string;
-  clientId?: string;
+/**
+ * Whether this deployment has an Auth0 tenant configured (AUTH0_DOMAIN and
+ * AUTH0_AUDIENCE). Only one thing still depends on it: a server configured for
+ * Auth0 keeps authentication required, as it always did.
+ *
+ * Auth0 tokens are no longer ACCEPTED (2026-11-12, enterprise-7). A verified
+ * token authenticated the caller with no CBrowser account behind it, so the
+ * tier check, the CMS deduct (which is also the domain gate) and the account
+ * scope were all skipped: every tool on the enterprise server, unbilled, on the
+ * shared unscoped data directory. The CMS has no way to map an Auth0 subject to
+ * an account (no such column or route in cbrowser-web/cms, read 2026-11-12),
+ * and 30 days of logs showed no request authenticated this way. So a token of
+ * that shape is refused with a pointer to API-key sign-in, and the discovery
+ * documents below advertise this server's own /authorize and /token, which
+ * hand out cbk_ keys, instead of the tenant.
+ */
+function auth0Configured(): boolean {
+  return Boolean(process.env.AUTH0_DOMAIN && process.env.AUTH0_AUDIENCE);
 }
 
-// Token cache for Auth0 validation
-const tokenCache = new Map<string, { payload: JWTPayload; expiry: number }>();
-const TOKEN_CACHE_MARGIN = 60 * 1000; // 1 minute margin before expiry
-
-function getAuth0Config(): Auth0Config | null {
-  const domain = process.env.AUTH0_DOMAIN;
-  const audience = process.env.AUTH0_AUDIENCE;
-
-  if (!domain || !audience) {
-    return null;
-  }
-
-  return {
-    domain,
-    audience,
-    clientId: process.env.AUTH0_CLIENT_ID,
-  };
+/** Three base64url segments: the shape of a JWT, which is what Auth0 issues. */
+export function looksLikeJwt(token: string): boolean {
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/.test(token);
 }
 
-async function validateAuth0Token(token: string): Promise<JWTPayload | null> {
-  const auth0 = getAuth0Config();
-  if (!auth0) return null;
-
-  // Check cache first
-  const cached = tokenCache.get(token);
-  if (cached && cached.expiry > Date.now()) {
-    return cached.payload;
-  }
-
-  try {
-    // Try JWT validation first
-    const jwks = createRemoteJWKSet(new URL(`https://${auth0.domain}/.well-known/jwks.json`));
-
-    const { payload } = await jwtVerify(token, jwks, {
-      issuer: `https://${auth0.domain}/`,
-      audience: auth0.audience,
-    });
-
-    // Cache the result
-    const exp = payload.exp ? payload.exp * 1000 : Date.now() + 30 * 60 * 1000;
-    tokenCache.set(token, {
-      payload,
-      expiry: exp - TOKEN_CACHE_MARGIN,
-    });
-
-    return payload;
-  } catch (jwtError) {
-    // Opaque-token fallback via /userinfo — OFF by default since 2026-07-26.
-    //
-    // The JWT branch above validates `audience`. This one structurally cannot:
-    // /userinfo answers 200 for ANY access token the tenant issued, for any
-    // application in it, and returns no audience to check. So it authenticated
-    // tokens minted for a different app in the same tenant with zero CMS
-    // involvement — the one remaining route to valid:true that the account-key
-    // fix did not touch.
-    //
-    // Defaulting it off is reasoned, not cautious-by-reflex: Auth0 issues an
-    // OPAQUE token precisely when no audience was requested, which is exactly the
-    // case the audience check exists to reject. And cbrowser's own OAuth flow
-    // hands out `cbk_` keys as access tokens, so real customers take the
-    // account-key path and are unaffected. AUTH0_ALLOW_OPAQUE_TOKENS=true
-    // restores the old behaviour if some integration turns out to need it, and
-    // the rejection is logged either way so it is diagnosable, not mysterious.
-    if (process.env.AUTH0_ALLOW_OPAQUE_TOKENS !== "true") {
-      console.error("[Auth0] Rejected an opaque access token: /userinfo exposes no audience to verify. Set AUTH0_ALLOW_OPAQUE_TOKENS=true to permit it.");
-      return null;
-    }
-
-    try {
-      const userinfoResponse = await fetch(`https://${auth0.domain}/userinfo`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        // Attacker-triggered outbound request on a pre-auth path: it must not be
-        // able to hold the request open indefinitely.
-        signal: AbortSignal.timeout(AUTH_BACKEND_TIMEOUT_MS),
-      });
-
-      if (userinfoResponse.ok) {
-        const userinfo = await userinfoResponse.json();
-        const payload: JWTPayload = {
-          sub: userinfo.sub,
-          email: userinfo.email,
-          name: userinfo.name,
-        };
-
-        // 5 minutes, not 30: an opaque token carries no readable expiry, so a
-        // long cache means a revoked token keeps working for that whole window.
-        tokenCache.set(token, {
-          payload,
-          expiry: Date.now() + 5 * 60 * 1000 - TOKEN_CACHE_MARGIN,
-        });
-
-        return payload;
-      }
-    } catch {
-      // Opaque token validation also failed
-    }
-
-    return null;
-  }
-}
-
-function getProtectedResourceMetadata(): object | null {
-  const auth0 = getAuth0Config();
-  if (!auth0) return null;
-
-  return {
-    resource: auth0.audience,
-    authorization_servers: [`https://${auth0.domain}`],
-    bearer_methods_supported: ["header"],
-    scopes_supported: ["openid", "profile", "email"],
-  };
-}
+export const AUTH0_REFUSED_MESSAGE =
+  "Auth0 tokens are not accepted on this server: no CBrowser account is linked to them. " +
+  "Connect with your CBrowser API key (cbk_...) as the Bearer token, or sign in through this server's /authorize. " +
+  "Get a key at https://cbrowser.ai/account.";
 
 function getApiKeys(): Set<string> | null {
   const singleKey = process.env.MCP_API_KEY;
@@ -737,7 +641,7 @@ const tokenToKeyHash = new Map<string, { keyHash: string; expiresAt: number }>()
  * to look broken. The lookup is a local HTTP call to the CMS on the same box, so the
  * cache is a micro-optimisation and a short window costs almost nothing.
  */
-const tierCache = new Map<string, { tier: PricingTier; expiresAt: number }>();
+const tierCache = new Map<string, { tier: PricingTier; accountId?: number; expiresAt: number }>();
 /** Pre-auth request bodies are capped; see the read loop in handleMcpRequest. */
 const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 
@@ -767,12 +671,41 @@ export function chargedByDeduct(httpOk: boolean, data: { allowed?: boolean; cost
   return httpOk && data.allowed === true && data.cost !== 0;
 }
 
+/** Longest path, and longest non-http(s) string, sent as the deduct target. */
+const DEDUCT_TARGET_PATH_MAX = 512;
+
+/**
+ * The target URL as the deduct call carries it: origin plus at most
+ * DEDUCT_TARGET_PATH_MAX characters of path, no query, no fragment.
+ *
+ * The CMS deduct route reads its arguments from the query string only (it has
+ * no body form, cbrowser-web/cms/routes/credits.ts read 2026-11-12) and gates on
+ * the URL's host alone. The whole caller URL used to go into that query, and a
+ * url argument over about 16 KB (a #fragment of padding changes nothing about
+ * the page loaded) made the request line too long: the CMS runtime answered 431
+ * before the route ran, and that answer used to run the tool unbilled
+ * (auth-tenancy-billing-4, 2026-11-12). A string that is not an http(s) URL is
+ * cut to the same length and passed on, so the CMS still refuses a data: or
+ * unparseable target for a scoped tool as it did.
+ */
+export function deductTarget(raw: string): string {
+  try {
+    const u = new URL(raw);
+    if (u.protocol === "http:" || u.protocol === "https:") {
+      return u.origin + u.pathname.slice(0, DEDUCT_TARGET_PATH_MAX);
+    }
+  } catch {
+    // not a URL: passed on, bounded
+  }
+  return raw.slice(0, DEDUCT_TARGET_PATH_MAX);
+}
+
 /** Query string for POST /api/credits/deduct. */
 export function deductQuery(keyHash: string, toolName: string, targetUrl: string | undefined): string {
   return new URLSearchParams({
     key_hash: keyHash,
     tool: toolName,
-    ...(targetUrl ? { target_url: targetUrl } : {}),
+    ...(targetUrl ? { target_url: deductTarget(targetUrl) } : {}),
     ...(creditChargeMode === "none" ? { charge: "none" } : {}),
   }).toString();
 }
@@ -824,7 +757,7 @@ async function resolveRequestKeyHash(req: IncomingMessage): Promise<string | nul
  * and conflating them was a complete authentication bypass — see validateAccountKey.
  */
 export type KeyVerdict =
-  | { valid: true; tier: PricingTier }
+  | { valid: true; tier: PricingTier; accountId?: number }
   | { valid: false; reason: "unknown_key" | "backend_unreachable" | "not_an_account_key" };
 
 /**
@@ -880,7 +813,11 @@ const AUTH_STALE_GRACE_MS = 5 * 60_000;
  */
 export function _clearTierCache(): void {
   tierCache.clear();
-  accountCache.clear();
+}
+
+/** Test seam: make every cached key `ms` older, to reach the outage grace without waiting. */
+export function _ageTierCache(ms: number): void {
+  for (const entry of tierCache.values()) entry.expiresAt -= ms;
 }
 
 /**
@@ -910,11 +847,239 @@ export function creditDeniedResult(data: { reason?: string; message?: string; re
   };
 }
 
+/** A refused or unbillable call, answered as a tool error so nothing runs. */
+function billingErrorResult(error: string, message: string): {
+  content: Array<{ type: "text"; text: string }>;
+  isError: true;
+} {
+  return {
+    isError: true,
+    content: [{ type: "text", text: JSON.stringify({ error, message }, null, 2) }],
+  };
+}
+
+/** How a deduct call came back. Only "ok" lets the tool run. */
+export type DeductOutcome =
+  | { kind: "ok"; charged: boolean }
+  | { kind: "denied"; data: { reason?: string; message?: string; remaining?: number } }
+  | { kind: "refused"; why: string }
+  | { kind: "outage"; why: string };
+
+/**
+ * Classify a deduct response. Exported for tests.
+ *
+ *   2xx with allowed:true          -> ok (charged unless cost is 0)
+ *   2xx/402/403 with allowed:false -> denied (the CMS's own refusal, shown as is)
+ *   5xx                            -> outage (the CMS is up but failing)
+ *   anything else                  -> refused, and the tool does not run
+ *
+ * "Anything else" used to run the tool unbilled. That included statuses the
+ * caller can cause: a 431 from a long URL (auth-tenancy-billing-4), a 404 for a
+ * key revoked inside the tier-cache window, a 403 or 2xx without a verdict.
+ * The CMS answers every real decision with an `allowed` field, so a response
+ * without one is not a decision and is not treated as permission. (2026-11-12)
+ */
+export function classifyDeduct(status: number, data: unknown): DeductOutcome {
+  const d = (data && typeof data === "object" ? data : {}) as { allowed?: unknown; cost?: number; reason?: string; message?: string; remaining?: number };
+  const ok = status >= 200 && status < 300;
+  if ((ok || status === 402 || status === 403) && d.allowed === false) {
+    return { kind: "denied", data: { reason: d.reason, message: d.message, remaining: d.remaining } };
+  }
+  if (ok && d.allowed === true) return { kind: "ok", charged: chargedByDeduct(true, { allowed: true, cost: d.cost }) };
+  if (status >= 500) return { kind: "outage", why: `CMS returned HTTP ${status}` };
+  if (ok) return { kind: "refused", why: `CMS answered HTTP ${status} without a verdict` };
+  return { kind: "refused", why: `CMS returned HTTP ${status}` };
+}
+
+/** One deduct call for one target. Never throws. */
+async function deductOnce(keyHash: string, toolName: string, targetUrl: string | undefined): Promise<DeductOutcome> {
+  const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
+  let res: Response;
+  try {
+    res = await fetch(`${cmsUrl}/api/credits/deduct?${deductQuery(keyHash, toolName, targetUrl)}`, {
+      method: "POST",
+      // The CMS deduct endpoint is internal-only and 403s without this header.
+      headers: { "X-Internal-Secret": process.env.CMS_INTERNAL_SECRET || "" },
+      // Without this, a CMS that accepts the connection and never answers
+      // hangs the MCP request forever, before the handler is ever reached.
+      signal: AbortSignal.timeout(CREDIT_DEDUCT_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // Connection refused or reset, or the time limit: the CMS cannot be reached.
+    return { kind: "outage", why: `CMS unreachable (${describeError(err)})` };
+  }
+  let data: unknown = null;
+  try {
+    data = await res.json();
+  } catch {
+    // A 2xx whose body is not JSON is a CMS fault, not a decision.
+    if (res.ok) return { kind: "outage", why: `CMS answered HTTP ${res.status} with a body that is not JSON` };
+  }
+  return classifyDeduct(res.status, data);
+}
+
+/**
+ * Calls an account may run unbilled while the CMS cannot be reached.
+ *
+ * Every call during an outage used to run unbilled and ungated for as long as
+ * the outage lasted, and an outage can be caused from outside: wrong-password
+ * logins hold the CMS's single thread (prior-plan-status-6). A CMS blip must not
+ * take the product down, so a few calls still run; past this allowance the call
+ * is refused until the CMS answers again. Per account, so one account using its
+ * allowance leaves every other account's intact. (2026-11-12)
+ */
+const OUTAGE_ALLOWANCE_CALLS = 5;
+const OUTAGE_ALLOWANCE_WINDOW_MS = 10 * 60_000;
+const outageAllowanceUse = new Map<string, number[]>();
+
+/** Take one unbilled call from `who`'s allowance; false when it is used up. Exported for tests. */
+export function takeOutageAllowance(who: string, now: number = Date.now()): { allowed: boolean; used: number } {
+  const recent = (outageAllowanceUse.get(who) ?? []).filter((t) => now - t < OUTAGE_ALLOWANCE_WINDOW_MS);
+  if (recent.length >= OUTAGE_ALLOWANCE_CALLS) {
+    outageAllowanceUse.set(who, recent);
+    return { allowed: false, used: recent.length };
+  }
+  recent.push(now);
+  outageAllowanceUse.set(who, recent);
+  // Entries for accounts that stopped calling are dropped as others arrive.
+  if (outageAllowanceUse.size > 1000) {
+    for (const [k, ts] of outageAllowanceUse) {
+      if (!ts.some((t) => now - t < OUTAGE_ALLOWANCE_WINDOW_MS)) outageAllowanceUse.delete(k);
+    }
+  }
+  return { allowed: true, used: recent.length };
+}
+
+/** Test seam: forget every account's outage allowance use. */
+export function _resetOutageAllowance(): void {
+  outageAllowanceUse.clear();
+}
+
+/**
+ * Argument names that carry a target URL but do not say "url". Everything whose
+ * name contains "url" is collected anyway (urlA, start_url, entry_url, baseUrl,
+ * restoreUrl, mcp_url, competitor_url...), and so is any other top-level string
+ * that is an absolute http(s) address, so a tool added later with a new name
+ * cannot slip past the gate by naming its argument differently.
+ */
+const URL_ARRAY_ARGS = new Set(["sites", "variants"]);
+
+/**
+ * Arguments that hold a URL that is NOT where the tool goes: a proxy to route
+ * through, request patterns to block. Gating them against the account's
+ * registered sites would refuse every proxied or chaos-tested call.
+ */
+const NOT_A_TARGET_ARGS = new Set(["proxy", "proxy_server", "proxyServer", "blockUrls", "_browserToken"]);
+
+/** At most this many distinct hosts are gated for one call. */
+export const MAX_GATED_HOSTS = 10;
+
+const isHttpUrl = (s: string): boolean => /^https?:\/\//i.test(s.trim());
+
+/**
+ * Every URL a tool call names as a target, in argument order with `url` first,
+ * duplicates removed. Exported for tests.
+ *
+ * The domain gate used to see only `url` or `sites[0]`, so cognitive_journey_
+ * autonomous (start_url), marketing_funnel_analyze (entry_url),
+ * cognitive_journey_init (startUrl), coverage_map (baseUrl) and ab_comparison
+ * (urlA, urlB) reached the CMS with no target and skipped the registered-domain
+ * check (enterprise-3, 2026-11-12). Found by reading every inputSchema the
+ * demo and enterprise servers publish (131 tools each).
+ */
+export function targetUrlsOf(args: Record<string, unknown> | undefined): string[] {
+  if (!args || typeof args !== "object") return [];
+  const out: string[] = [];
+  const add = (v: unknown, named: boolean) => {
+    if (typeof v !== "string" || !v) return;
+    if (named || isHttpUrl(v)) out.push(v);
+  };
+  const keys = Object.keys(args);
+  keys.sort((a, b) => (a === "url" ? -1 : b === "url" ? 1 : 0));
+  for (const k of keys) {
+    if (NOT_A_TARGET_ARGS.has(k)) continue;
+    const v = args[k];
+    const named = /url/i.test(k) || URL_ARRAY_ARGS.has(k);
+    if (Array.isArray(v)) for (const item of v) add(item, named);
+    else add(v, named);
+  }
+  return [...new Set(out)];
+}
+
+/** The host a target is gated on: its hostname, or the string itself when it is not a URL. */
+function gateHost(target: string): string {
+  try {
+    return new URL(target).hostname.toLowerCase() || target;
+  } catch {
+    return target;
+  }
+}
+
+const BILLING_UNAVAILABLE = "billing is temporarily unavailable, try again shortly";
+
+/**
+ * Charge and gate one tool call. Returns the refusal to send instead of running
+ * the tool, or whether the call was charged (and so enters a charge scope, where
+ * an isError result is refunded).
+ *
+ * The first target is charged. Each further target on a different host gets a
+ * deduct of its own, because the CMS route gates one target per call and has
+ * no gate-only form; credits that extra deduct took are given back at once, so
+ * the call costs what one call of the tool costs. Any refusal refuses the whole
+ * call and gives back whatever was taken. (2026-11-12)
+ */
+async function chargeAndGate(
+  keyHash: string,
+  toolName: string,
+  targets: string[],
+  who: string,
+): Promise<{ refusal: ReturnType<typeof billingErrorResult> | ReturnType<typeof creditDeniedResult> } | { charged: boolean }> {
+  const giveBack = async (n: number) => {
+    for (let i = 0; i < n; i++) await refundCharge({ keyHash, tool: toolName, idempotencyKey: randomUUID() });
+  };
+  const refusalFor = (o: Exclude<DeductOutcome, { kind: "ok" }>) => {
+    if (o.kind === "denied") return creditDeniedResult(o.data);
+    if (o.kind === "outage") return billingErrorResult("billing_unavailable", `${toolName} did not run: ${BILLING_UNAVAILABLE}.`);
+    return billingErrorResult("billing_refused", `${toolName} did not run: the billing service refused the charge (${o.why}). Nothing was charged.`);
+  };
+
+  const first = await deductOnce(keyHash, toolName, targets[0]);
+  if (first.kind === "outage") {
+    const take = takeOutageAllowance(who);
+    if (take.allowed) {
+      console.warn(`[Credits] OUTAGE ALLOWANCE: ${who} ran ${toolName} unbilled (${take.used} of ${OUTAGE_ALLOWANCE_CALLS} in ${OUTAGE_ALLOWANCE_WINDOW_MS / 60_000} min): ${first.why}`);
+      return { charged: false };
+    }
+    console.warn(`[Credits] OUTAGE REFUSED: ${who} ${toolName}: allowance of ${OUTAGE_ALLOWANCE_CALLS} unbilled calls in ${OUTAGE_ALLOWANCE_WINDOW_MS / 60_000} min used: ${first.why}`);
+    return { refusal: refusalFor(first) };
+  }
+  if (first.kind !== "ok") {
+    console.warn(`[Credits] ${toolName}: ${first.kind === "denied" ? `DENIED (${first.data.reason})` : `REFUSED: ${first.why}`}`);
+    return { refusal: refusalFor(first) };
+  }
+
+  const seen = new Set([gateHost(targets[0] ?? "")]);
+  for (const target of targets.slice(1)) {
+    const host = gateHost(target);
+    if (seen.has(host)) continue;
+    seen.add(host);
+    const o = await deductOnce(keyHash, toolName, target);
+    if (o.kind === "ok") {
+      if (o.charged) await giveBack(1);
+      continue;
+    }
+    console.warn(`[Credits] ${toolName}: further target ${host} ${o.kind === "denied" ? `DENIED (${o.data.reason})` : `REFUSED: ${o.why}`}; call refused`);
+    if (first.charged) await giveBack(1);
+    return { refusal: refusalFor(o) };
+  }
+  return { charged: first.charged };
+}
+
 /** Serve a previously-validated key during a backend outage, or reject. */
 function staleServe(keyHash: string): KeyVerdict {
   const cached = tierCache.get(keyHash);
   if (cached && cached.expiresAt + AUTH_STALE_GRACE_MS > Date.now()) {
-    return { valid: true, tier: cached.tier };
+    return { valid: true, tier: cached.tier, accountId: cached.accountId };
   }
   return { valid: false, reason: "backend_unreachable" };
 }
@@ -928,7 +1093,7 @@ export async function validateAccountKey(
   const { createHash } = await import("crypto");
   const keyHash = createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
   const cached = tierCache.get(keyHash);
-  if (cached && cached.expiresAt > Date.now()) return { valid: true, tier: cached.tier };
+  if (cached && cached.expiresAt > Date.now()) return { valid: true, tier: cached.tier, accountId: cached.accountId };
 
   const doFetch = deps.fetch ?? fetch;
   const cmsUrl = deps.cmsUrl ?? process.env.CMS_URL ?? "http://localhost:3200";
@@ -975,60 +1140,33 @@ export async function validateAccountKey(
   }
 
   const tier = (data.tier as PricingTier) || "free";
-  tierCache.set(keyHash, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
-  // Record the account here too. This runs FIRST on every authenticated request
-  // and fills tierCache; resolveRequestAccountId then fell through to
-  // resolveApiKeyTier, hit that tier cache, returned early and never learned the
-  // account -- so no account key ever entered persona scope, from the day scoping
-  // shipped (2026-08-01). Custom personas resolved only because a process-global
-  // copy and the flat store papered over it; removing both in 19.2.1 made every
-  // custom persona unresolvable by the measurement tools (B16). (2026-10-09)
-  if (typeof data.accountId === "number") {
-    accountCache.set(keyHash, { accountId: data.accountId, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
-  }
-  return { valid: true, tier };
+  // The account goes in the SAME entry as the tier, so the outage grace in
+  // staleServe returns both. It lived in a second cache with no grace, and 30 s
+  // into an outage a key that still authenticated ran with no account scope
+  // (auth-tenancy-billing-6, 2026-11-12). Before that it was not recorded here
+  // at all, so no account key ever entered persona scope (B16, 2026-10-09).
+  const accountId = typeof data.accountId === "number" ? data.accountId : undefined;
+  tierCache.set(keyHash, { tier, accountId, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
+  return { valid: true, tier, accountId };
 }
 
 /**
- * Resolve the pricing tier for an API key by calling the CMS backend.
- * Returns null for non-cbk keys (server admin keys pass through as-is).
- * Caches results for 5 minutes.
+ * The pricing tier for an API key: null for a key that is not an account key
+ * (server admin keys pass through as-is), "free" when the CMS does not vouch for it.
  *
  * PRICING ONLY. This runs AFTER authentication has already succeeded, so its
  * "free" fallback is a safe-by-default *billing* decision. It must never be used
  * to decide whether a caller is authenticated — use validateAccountKey for that.
+ *
+ * It asks validateAccountKey, so it shares that function's cache, its 3 s time
+ * limit and its outage grace. It used to make its own CMS call with no time
+ * limit, so a CMS that accepted connections and never answered hung every
+ * authenticated request here, after auth had already passed (2026-11-12).
  */
 async function resolveApiKeyTier(apiKey: string): Promise<PricingTier | null> {
-  // Only resolve cbk_ keys (user account keys)
   if (!apiKey.startsWith("cbk_")) return null;
-
-  // Check cache
-  const { createHash } = await import("crypto");
-  const keyHash = createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
-  const cached = tierCache.get(keyHash);
-  if (cached && cached.expiresAt > Date.now()) return cached.tier;
-
-  // Call CMS to validate key and get tier
-  const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
-  try {
-    const res = await fetch(`${cmsUrl}/api/accounts/validate-key`, {
-      headers: { "X-API-Key": apiKey },
-    });
-    if (!res.ok) return "free"; // Invalid key → free tier
-    // accountId was already in this response and was being discarded. It is
-    // what scopes persona reads to one tenant. (2026-08-01)
-    const data = await res.json() as { valid: boolean; tier?: string; accountId?: number };
-    if (!data.valid) return "free";
-    const tier = (data.tier as PricingTier) || "free";
-    tierCache.set(keyHash, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
-    if (typeof data.accountId === "number") {
-      accountCache.set(keyHash, { accountId: data.accountId, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
-    }
-    return tier;
-  } catch {
-    // CMS unreachable — fall back to free
-    return "free";
-  }
+  const verdict = await validateAccountKey(apiKey);
+  return verdict.valid ? verdict.tier : "free";
 }
 
 // ============================================================================
@@ -1129,6 +1267,31 @@ export function describeError(err: unknown): string {
   const head = code ? `${err.name} ${code}` : err.name;
   if (err instanceof SyntaxError) return head;
   return `${head}: ${err.message}`.replace(/[\r\n]+/g, " ").slice(0, 200);
+}
+
+/**
+ * Why a parsed POST /mcp body cannot be dispatched, or null when it can.
+ * Exported for tests.
+ *
+ * The body must be ONE JSON-RPC message object. A batch (array) is refused
+ * because the charge and every gate read the body as one message, and the SDK
+ * ran each element of a batch past them (auth-tenancy-billing-2, -5). A
+ * tools/call without a string or number id is a notification to the SDK: it is
+ * never run, so charging for it would take credits for nothing. (2026-11-12)
+ */
+export function unsupportedBodyShape(parsed: unknown): string | null {
+  if (Array.isArray(parsed)) {
+    return "Batch requests are not supported: send one JSON-RPC message per request.";
+  }
+  if (parsed === undefined) return "The request body is empty: send one JSON-RPC message object.";
+  if (parsed === null || typeof parsed !== "object") {
+    return "The request body must be one JSON-RPC message object.";
+  }
+  const msg = parsed as { method?: unknown; id?: unknown };
+  if (msg.method === "tools/call" && typeof msg.id !== "string" && typeof msg.id !== "number") {
+    return "A tools/call must carry an id: as a notification it would not run.";
+  }
+  return null;
 }
 
 /** The request path for the log: no query string (it can carry codes and state), no control characters. */
@@ -1422,7 +1585,6 @@ export function startBackgroundTimers(): void {
 async function validateAuth(
   req: IncomingMessage,
   apiKeys: Set<string> | null,
-  auth0Enabled: boolean
 ): Promise<{ valid: boolean; reason?: string }> {
   // Try static API key first (fastest — for admin/server keys)
   if (apiKeys && validateApiKey(req, apiKeys)) {
@@ -1457,36 +1619,26 @@ async function validateAuth(
           : "Invalid or expired API key",
       };
     }
-    // Try Auth0 if enabled
-    if (auth0Enabled) {
-      const payload = await validateAuth0Token(token);
-      if (payload) return { valid: true };
-    }
+    // An Auth0 token is refused on its shape, without asking the tenant: there
+    // is no CBrowser account it could be billed and scoped to (see
+    // auth0Configured). It used to authenticate as a caller with no account.
+    if (looksLikeJwt(token)) return { valid: false, reason: AUTH0_REFUSED_MESSAGE };
   }
 
   return { valid: false, reason: "Authentication required. Get your API key at https://cbrowser.ai/account/register then enter it as the Bearer token when connecting." };
 }
 
 function sendUnauthorized(res: ServerResponse, message?: string): void {
-  const auth0 = getAuth0Config();
-  let wwwAuth = "Bearer";
-
-  if (auth0) {
-    wwwAuth = `Bearer realm="cbrowser-mcp", authorization_uri="https://${auth0.domain}/authorize", token_uri="https://${auth0.domain}/oauth/token"`;
-  }
-
+  // No Auth0 endpoints here any more: they named a tenant whose tokens this
+  // server refuses. Sign-in is this server's own /authorize, which discovery
+  // (/.well-known/oauth-authorization-server) describes. (2026-11-12)
   res.writeHead(401, {
     "Content-Type": "application/json",
-    "WWW-Authenticate": wwwAuth,
+    "WWW-Authenticate": "Bearer",
   });
   res.end(JSON.stringify({
     error: "Unauthorized",
     message: message || "Valid authentication required. Use Authorization: Bearer <token>",
-    ...(auth0 && {
-      auth0_domain: auth0.domain,
-      authorization_endpoint: `https://${auth0.domain}/authorize`,
-      token_endpoint: `https://${auth0.domain}/oauth/token`,
-    }),
   }));
 }
 
@@ -1779,9 +1931,9 @@ async function handleMcpRequest(
     const body = Buffer.concat(chunks).toString("utf-8");
 
     // Safely parse JSON - reject malformed requests gracefully
-    let parsedBody: Record<string, unknown> | undefined;
+    let parsedJson: unknown;
     try {
-      parsedBody = body ? JSON.parse(body) : undefined;
+      parsedJson = body ? JSON.parse(body) : undefined;
     } catch (parseError) {
       console.error(`Invalid JSON in request body: ${(parseError as Error).message}`);
       console.error(`Body preview: ${body.substring(0, 100)}...`);
@@ -1797,10 +1949,47 @@ async function handleMcpRequest(
       return;
     }
 
+    // ONE JSON-RPC MESSAGE OBJECT, OR NOTHING IS DISPATCHED.
+    //
+    // Everything below (the tier check, the charge, the domain gate, the
+    // account scope) reads the body as one message. A JSON array is a batch,
+    // and the SDK transport ran every element of it: those calls skipped all of
+    // the above, were never charged and counted as one request for the rate
+    // limit (auth-tenancy-billing-2 and -5, reproduced on 21.4.8 2026-11-12).
+    // Refused before anything else, so no transport shape can bypass billing.
+    const shapeError = unsupportedBodyShape(parsedJson);
+    if (shapeError) {
+      console.warn(`[MCP] refused a request body: ${shapeError}`);
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32600, message: shapeError } }));
+      return;
+    }
+    const parsedBody = parsedJson as Record<string, unknown>;
+
     // Log request details
-    const method = (parsedBody?.method as string) || "unknown";
+    const method = (parsedBody.method as string) || "unknown";
     let logLine = `← ${method}`;
-    const params = parsedBody?.params as Record<string, unknown> | undefined;
+    const params = parsedBody.params as Record<string, unknown> | undefined;
+
+    // The account this request runs as. Resolved here, before any charge, so
+    // a call is never charged or run for an account key whose account is not
+    // known. The CMS vouching for a key without naming its account used to
+    // dispatch the call with no account scope: its browser tokens, saved
+    // sessions and personas went to the shared process directory
+    // (auth-tenancy-billing-6, 2026-11-12). Callers that are not account keys
+    // (the operator key, a local server with no auth) keep running unscoped.
+    const scopeAccountId = await resolveRequestAccountId(req);
+    if (scopeAccountId === null && extractApiKey(req)?.startsWith("cbk_")) {
+      console.warn(`[MCP] ${method}: an account key with no resolvable account; answered 503, nothing run`);
+      res.writeHead(503, { "Content-Type": "application/json", "Retry-After": "5" });
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: parsedBody.id ?? null,
+        error: { code: -32603, message: "Your account could not be looked up right now, so nothing was run. Try again shortly." },
+      }));
+      return;
+    }
+
     // Set inside the tools/call branch below, read at dispatch time (after that
     // branch's own block scope has closed) to decide whether this request's
     // tool call runs inside withChargeScope. Declared out here, not inside,
@@ -1814,7 +2003,18 @@ async function handleMcpRequest(
       // Deduct credits and enforce domain scoping (blocking for denials)
       const toolName = params.name as string;
       const toolArgs = params.arguments as Record<string, unknown> | undefined;
-      const requestedUrl = (toolArgs?.url || (Array.isArray(toolArgs?.sites) ? (toolArgs.sites as string[])[0] : "") || "") as string;
+      // Every URL the call names, not only `url` and `sites[0]` (enterprise-3).
+      const requestedUrls = targetUrlsOf(toolArgs);
+      const distinctHosts = new Set(requestedUrls.map(gateHost));
+      if (distinctHosts.size > MAX_GATED_HOSTS) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: parsedBody.id ?? null,
+          result: billingErrorResult("too_many_sites", `${toolName} did not run: it names ${distinctHosts.size} different sites, and one call can name at most ${MAX_GATED_HOSTS}. Nothing was charged.`),
+        }));
+        return;
+      }
       // GATE ON WHERE THE URL GOES, NOT WHERE IT WAS TYPED.
       //
       // ucdenver.edu is a registered domain and 301s to cudenver.edu, which is
@@ -1826,31 +2026,31 @@ async function handleMcpRequest(
       // Resolution failure falls back to the requested URL. That is the
       // pre-fix behaviour and it is the right direction to fail: denying
       // whenever a HEAD is blocked would break every site that rejects HEAD.
-      let targetUrl = requestedUrl;
-      let resolvedNote = "";
-      if (requestedUrl) {
+      // Each URL is resolved; they are resolved together, so a call naming
+      // several waits for the slowest, not their sum.
+      const targetUrls = await Promise.all(requestedUrls.map(async (requestedUrl) => {
         try {
           const { resolveFinalUrl } = await import("./url-resolution.js");
           const r = await resolveFinalUrl(requestedUrl);
           if (r.hostChanged && !r.error) {
-            targetUrl = r.finalUrl;
-            resolvedNote = ` [redirects ${r.requestedHost} -> ${r.finalHost}, gating on ${r.finalHost}]`;
-            console.log(`[Domain] ${toolName}: ${requestedUrl} resolves to ${r.finalUrl} after ${r.hops} hop(s); gating on ${r.finalHost}`);
-          } else if (r.error) {
-            console.log(`[Domain] ${toolName}: could not resolve ${requestedUrl} (${r.error}); gating on the requested host`);
+            logLine += ` [redirects ${r.requestedHost} -> ${r.finalHost}, gating on ${r.finalHost}]`;
+            console.log(`[Domain] ${toolName}: ${pathForLog(requestedUrl)} resolves to ${pathForLog(r.finalUrl)} after ${r.hops} hop(s); gating on ${r.finalHost}`);
+            return r.finalUrl;
+          }
+          if (r.error) {
+            console.log(`[Domain] ${toolName}: could not resolve ${pathForLog(requestedUrl)} (${r.error}); gating on the requested host`);
           }
         } catch (e) {
           console.log(`[Domain] ${toolName}: resolver unavailable (${String(e)}); gating on the requested host`);
         }
-      }
-      if (resolvedNote) logLine += resolvedNote;
+        return requestedUrl;
+      }));
       // Derived from THIS request, not from the module global — see resolveRequestKeyHash.
       const keyHash = await resolveRequestKeyHash(req);
       // chargedKeyHash/chargedTool (outer scope) get set ONLY when a real deduct
-      // succeeded below (creditRes.ok AND an explicit allowed:true) — never on
-      // the fail-open paths (CMS unreachable, a non-2xx status, a response
-      // missing `allowed`). Those ran the tool UNBILLED, and entering a charge
-      // scope for them would let a later isError refund credits the caller
+      // succeeded below (a 2xx AND an explicit allowed:true AND a cost), never
+      // on the outage allowance. That ran the tool UNBILLED, and entering a
+      // charge scope for it would let a later isError refund credits the caller
       // never paid. (P-09, 2026-09-17)
 
       // GATE BEFORE CHARGE. The CMS credit catalog and the package's tier catalog
@@ -1867,65 +2067,33 @@ async function handleMcpRequest(
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           jsonrpc: "2.0",
-          id: parsedBody?.id ?? null,
+          id: parsedBody.id ?? null,
           result: upgradePrompt(toolName),
         }));
         return;
       }
 
       if (keyHash) {
-        const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
-        const deductParams = deductQuery(keyHash, toolName, targetUrl);
-        try {
-          const creditRes = await fetch(`${cmsUrl}/api/credits/deduct?${deductParams}`, {
-            method: "POST",
-            // The CMS deduct endpoint is internal-only and 403s without this header.
-            // Omitting it made the CMS return 403 → parsed as {allowed: undefined} →
-            // every tool call denied ("Tool execution denied", reason undefined).
-            headers: { "X-Internal-Secret": process.env.CMS_INTERNAL_SECRET || "" },
-            // Without this, a CMS that accepts the connection and never answers
-            // hangs the MCP request forever, before the handler is ever reached.
-            signal: AbortSignal.timeout(CREDIT_DEDUCT_TIMEOUT_MS),
-          });
-          // Every status must land in a branch. Previously anything outside
-          // {ok, 402, 403} — a 500, or an nginx 502 during a CMS restart — fell
-          // straight through to execution with NO LOG LINE AT ALL, because the
-          // deliberate loud fail-open message below only fires on a THROWN fetch.
-          // That is the most likely outage shape, and it was the one shape that
-          // stayed invisible, which defeats the point of the loud message.
-          if (!(creditRes.ok || creditRes.status === 402 || creditRes.status === 403)) {
-            console.warn(`[Credits] FAIL-OPEN: ${toolName} ran unbilled — CMS returned HTTP ${creditRes.status}`);
-          } else if (creditRes.ok || creditRes.status === 402 || creditRes.status === 403) {
-            const data = await creditRes.json() as { allowed: boolean; reason?: string; message?: string; remaining?: number; cost?: number };
-            // Only deny on an EXPLICIT allowed:false from the deduct endpoint.
-            // A missing `allowed` field means the response was not a real deduct
-            // result (e.g. an internal-auth 403) — fail open rather than blanket-deny.
-            if (data.allowed === false) {
-              console.log(`[Credits] ${toolName}: DENIED (${data.reason})`);
-              // Block tool execution — return the refusal as a tool error
-              res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({
-                jsonrpc: "2.0",
-                id: parsedBody?.id ?? null,
-                result: creditDeniedResult(data),
-              }));
-              return;
-            }
-            // Reached only on a genuine deduct success. The 402/403 statuses
-            // above either returned already (allowed:false) or are fail-open
-            // (a response with no `allowed` field at all, e.g. an internal-auth
-            // failure) — neither charged the account, so neither sets this.
-            if (chargedByDeduct(creditRes.ok, data)) {
-              chargedKeyHash = keyHash;
-              chargedTool = toolName;
-            }
-          }
-        } catch (err) {
-          // CMS unreachable — allow tool execution (fail open). Deliberate: a CMS blip
-          // must not take the product down. But it IS an ungated, unbilled call, and it
-          // used to pass in complete silence, so an outage was indistinguishable from
-          // normal operation in every log and in the ledger. Make it loud.
-          console.warn(`[Credits] FAIL-OPEN: ${toolName} ran unbilled — CMS unreachable (${String(err)})`);
+        // Only an explicit allowed:true from the CMS runs the tool. Every other
+        // answer refuses the call, except an unreachable or failing CMS, where
+        // the account's small outage allowance decides (see chargeAndGate).
+        // Callers with a billing key but no account (none exist today: an
+        // account key without an account was answered 503 above) share one
+        // allowance, and nothing that identifies the key is logged.
+        const who = scopeAccountId !== null ? `account ${scopeAccountId}` : "a caller with no account";
+        const outcome = await chargeAndGate(keyHash, toolName, targetUrls, who);
+        if ("refusal" in outcome) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            jsonrpc: "2.0",
+            id: parsedBody.id ?? null,
+            result: outcome.refusal,
+          }));
+          return;
+        }
+        if (outcome.charged) {
+          chargedKeyHash = keyHash;
+          chargedTool = toolName;
         }
       }
     }
@@ -1955,7 +2123,6 @@ async function handleMcpRequest(
     // — the whole reason this uses AsyncLocalStorage. Unauthenticated requests
     // enter no scope and fall back to the process default, which is the
     // behaviour every local install already has. (2026-08-01)
-    const scopeAccountId = await resolveRequestAccountId(req);
     const dispatch = () =>
       scopeAccountId !== null
         ? withPersonaScope(scopeAccountId, () => transport.handleRequest(req, res, parsedBody))
@@ -1964,9 +2131,9 @@ async function handleMcpRequest(
     // Charge scope: entered ONLY when this request's tool call was actually
     // billed (chargedKeyHash/chargedTool set above, on a real deduct success).
     // The tier-gate wrapper (createGatedServer) reads currentCharge() after the
-    // handler returns and refunds when the result carries isError: true. An
-    // unbilled call (no key, or the fail-open path) enters no scope, so nothing
-    // downstream can refund money that was never taken. (P-09, 2026-09-17)
+    // handler returns (or throws) and refunds when the result carries isError:
+    // true. An unbilled call (no key, or the outage allowance) enters no scope,
+    // so nothing downstream can refund money that was never taken. (P-09, 2026-09-17)
     if (chargedKeyHash !== null && chargedTool !== null) {
       await withChargeScope(chargedKeyHash, chargedTool, dispatch);
     } else {
@@ -2076,23 +2243,24 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   const host = process.env.HOST || "0.0.0.0";
   const sessionMode = process.env.MCP_SESSION_MODE || "stateless";
   const apiKeys = getApiKeys();
-  const auth0 = getAuth0Config();
   const apiKeyAuthEnabled = apiKeys !== null && apiKeys.size > 0;
-  const auth0Enabled = auth0 !== null;
+  // A server configured for Auth0 still requires authentication, as it did when
+  // it accepted Auth0 tokens; it now accepts only API keys (see auth0Configured).
+  const auth0Set = auth0Configured();
   // REQUIRE_AUTH=true forces auth even without static API keys (uses cbk_ keys + OAuth)
   const requireAuth = process.env.REQUIRE_AUTH === "true";
-  const authEnabled = apiKeyAuthEnabled || auth0Enabled || requireAuth;
+  const authEnabled = apiKeyAuthEnabled || auth0Set || requireAuth;
   // In requireAuth mode the server accepts dynamic cbk_ API keys even with no static
   // keys loaded, so API-key auth is genuinely active — advertise it as such in /health.
-  const apiKeyAuthAdvertised = apiKeyAuthEnabled || requireAuth;
+  const apiKeyAuthAdvertised = apiKeyAuthEnabled || requireAuth || auth0Set;
   console.log(`Starting CBrowser Remote MCP Server v${VERSION}...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
   if (apiKeyAuthEnabled) {
     console.log(`  - API Key auth: enabled (${apiKeys?.size} keys)`);
   }
-  if (auth0Enabled) {
-    console.log(`  - Auth0 OAuth: enabled (${auth0?.domain})`);
+  if (auth0Set) {
+    console.log(`  - AUTH0_DOMAIN is set, but Auth0 tokens are refused: no CBrowser account can be matched to one. Sign-in is by API key and this server's /authorize.`);
   }
   console.log(`Session Isolation: enabled`);
   console.log(`  - Max concurrent sessions: ${MAX_CONCURRENT_SESSIONS}`);
@@ -2474,7 +2642,8 @@ if (urlParams.get('error')) {
         auth: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthAdvertised,
-          oauth: auth0Enabled,
+          // Auth0 tokens are refused (auth0Configured), so never advertised.
+          oauth: false,
         },
       }));
       return;
@@ -2491,11 +2660,7 @@ if (urlParams.get('error')) {
         auth_required: authEnabled,
         auth_methods: {
           api_key: apiKeyAuthAdvertised,
-          oauth: auth0Enabled ? {
-            domain: auth0?.domain,
-            authorization_endpoint: `https://${auth0?.domain}/authorize`,
-            token_endpoint: `https://${auth0?.domain}/oauth/token`,
-          } : false,
+          oauth: false,
         },
         capabilities: ["navigation", "interaction", "visual-testing", "nlp-testing", "performance"],
       }));
@@ -2611,93 +2776,45 @@ ${VERSION}
       return;
     }
 
-    // Protected Resource Metadata (RFC 9728) - required for OAuth
     // OAuth Authorization Server Metadata (RFC 8414)
-    // Return 404 when no Auth0 — prevents Claude.ai from initiating OAuth flow
-    // Users authenticate via Bearer token (cbk_ API key) instead
     if (url.pathname === "/.well-known/oauth-authorization-server") {
       const serverHost = req.headers.host || `${host}:${port}`;
       const protocol = req.headers["x-forwarded-proto"] || "http";
       const baseUrl = `${protocol}://${serverHost}`;
 
-      if (auth0Enabled) {
-        // This branch was EMPTY. No response written, no return -- just a comment
-        // claiming "existing behavior" -- so an Auth0-configured server fell through
-        // to the protected-endpoint auth gate below and answered its own OAuth
-        // discovery document with 401. A client cannot authenticate when the metadata
-        // telling it HOW to authenticate is itself behind authentication.
-        //
-        // That is the whole of the "enterprise connector exposes zero tools" report.
-        // The enterprise deployment sets AUTH0_DOMAIN, so it took this branch and
-        // 401'd; the pro deployment does not, took the else branch, and worked. A
-        // client that cannot complete discovery keeps the connector unauthenticated
-        // and renders only its own placeholder tools, which reads to a user as "this
-        // server has no tools". The server was serving 130 the whole time.
-        //
-        // Auth0 publishes its own RFC 8414 document, so derive from the tenant rather
-        // than restating endpoints that would then have two places to drift.
-        const tenant = process.env.AUTH0_DOMAIN;
-        if (tenant) {
-          const issuer = `https://${tenant}/`;
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({
-            issuer,
-            authorization_endpoint: `${issuer}authorize`,
-            token_endpoint: `${issuer}oauth/token`,
-            registration_endpoint: `${issuer}oidc/register`,
-            jwks_uri: `${issuer}.well-known/jwks.json`,
-            response_types_supported: ["code"],
-            grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"],
-            code_challenge_methods_supported: ["S256"],
-            token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
-            scopes_supported: ["openid", "profile", "email"],
-          }));
-          return;
-        }
-        // auth0Enabled with no domain is a misconfiguration, not a request to fall
-        // through into the auth gate. Say so, rather than emitting a 401 that blames
-        // the caller for the server's own config.
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "server_error", error_description: "OAuth is enabled but AUTH0_DOMAIN is unset." }));
-        return;
-      } else {
-        // Self-hosted OAuth PKCE (built-in /authorize + /token)
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          issuer: baseUrl,
-          authorization_endpoint: `${baseUrl}/authorize`,
-          token_endpoint: `${baseUrl}/token`,
-          response_types_supported: ["code"],
-          grant_types_supported: ["authorization_code", "client_credentials"],
-          code_challenge_methods_supported: ["S256"],
-          token_endpoint_auth_methods_supported: ["none"],
-          scopes_supported: [],
-        }));
-        return;
-      }
+      // Always this server's own /authorize and /token, which hand out cbk_
+      // keys. With AUTH0_DOMAIN set this advertised the Auth0 tenant, whose
+      // tokens the server now refuses (auth0Configured), so a connector that
+      // followed it could never sign in. (2026-11-12)
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        issuer: baseUrl,
+        authorization_endpoint: `${baseUrl}/authorize`,
+        token_endpoint: `${baseUrl}/token`,
+        response_types_supported: ["code"],
+        grant_types_supported: ["authorization_code", "client_credentials"],
+        code_challenge_methods_supported: ["S256"],
+        token_endpoint_auth_methods_supported: ["none"],
+        scopes_supported: [],
+      }));
+      return;
     }
 
+    // Protected Resource Metadata (RFC 9728): the built-in auth server only,
+    // for the reason given on the document above.
     if (url.pathname === "/.well-known/oauth-protected-resource") {
-      const metadata = getProtectedResourceMetadata();
-      if (metadata) {
-        // Full OAuth configured
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(metadata));
-      } else {
-        // Self-hosted OAuth — advertise built-in auth server
-        const serverHost = req.headers.host || `${host}:${port}`;
-        const protocol = req.headers["x-forwarded-proto"] || "http";
-        const baseUrl = `${protocol}://${serverHost}`;
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          resource: baseUrl,
-          authorization_servers: [baseUrl],
-          bearer_methods_supported: ["header"],
-          scopes_supported: [],
-          resource_documentation: `${protocol}://${serverHost}/docs`,
-          resource_description: "CBrowser MCP Server - Open access (no authentication required)",
-        }));
-      }
+      const serverHost = req.headers.host || `${host}:${port}`;
+      const protocol = req.headers["x-forwarded-proto"] || "http";
+      const baseUrl = `${protocol}://${serverHost}`;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        resource: baseUrl,
+        authorization_servers: [baseUrl],
+        bearer_methods_supported: ["header"],
+        scopes_supported: [],
+        resource_documentation: `${protocol}://${serverHost}/docs`,
+        resource_description: "CBrowser MCP Server - Open access (no authentication required)",
+      }));
       return;
     }
 
@@ -2708,7 +2825,7 @@ ${VERSION}
     // Auth check first (we need the tier for rate limiting)
     let requestTier: PricingTier | null = null;
     if (authEnabled) {
-      const authResult = await validateAuth(req, apiKeys, auth0Enabled);
+      const authResult = await validateAuth(req, apiKeys);
       if (!authResult.valid) {
         // Allow tools/list without auth (discovery surface is public, action surface is gated).
         // Buffer the body to check if this is a tools/list or initialize request.
@@ -2966,25 +3083,15 @@ ${VERSION}
     console.log(`  MCP:      http://${host}:${port}/mcp`);
     console.log(`  Health:   http://${host}:${port}/health`);
     console.log(`  Info:     http://${host}:${port}/info`);
-    if (auth0Enabled) {
-      console.log(`  OAuth:    http://${host}:${port}/.well-known/oauth-protected-resource`);
-    }
     if (authEnabled) {
       console.log(`\nAuthentication:`);
       if (apiKeyAuthEnabled) {
         console.log(`  API Key:  Authorization: Bearer <your-api-key>`);
         console.log(`            X-API-Key: <your-api-key>`);
       }
-      if (auth0Enabled) {
-        console.log(`  OAuth:    Authorization: Bearer <jwt-token>`);
-        console.log(`            Auth0 Domain: ${auth0?.domain}`);
-      }
     }
     console.log(`\nFor claude.ai custom connector:`);
     console.log(`  URL: http://${host}:${port}/mcp`);
-    if (auth0Enabled) {
-      console.log(`  OAuth metadata: http://${host}:${port}/.well-known/oauth-protected-resource`);
-    }
 
     // Cache tool manifest for unauthenticated tools/list (discovery surface is public).
     // Create a temporary server to extract the registered tool list directly.
