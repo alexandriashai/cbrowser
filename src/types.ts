@@ -3391,6 +3391,14 @@ export interface NetworkRequest {
   postData?: string;
   resourceType: string;
   timestamp: string;
+  /** The URL was longer than the log keeps (8 KB) and was cut. */
+  urlTruncated?: boolean;
+  /** Headers past 8 KB in all were left out. */
+  headersTruncated?: boolean;
+  /** postData holds only the first 16 KB of the body. */
+  postDataTruncated?: boolean;
+  /** Size of the whole body in bytes, when postData was cut. */
+  postDataBytes?: number;
   /**
    * Response status, filled in when the response arrives. Optional because a
    * request may still be in flight, or may never complete.

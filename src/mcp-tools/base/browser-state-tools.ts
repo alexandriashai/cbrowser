@@ -107,7 +107,7 @@ export function registerBrowserStateTools(
   // ── get_network_requests ──
   server.registerTool("get_network_requests", {
     title: "Get Network Requests",
-    description: "Get network requests captured during the current page session. Shows URLs, status codes, methods, and timing. Returns the 50 most recent matching requests, oldest first; total counts every match and showing how many were returned.",
+    description: "Get network requests captured during the current page session. Shows URLs, status codes, methods, and timing. Returns the 50 most recent matching requests, oldest first; total counts every match and showing how many were returned. The session keeps the latest 1,000 requests; dropped, when present, counts older ones no longer kept.",
     inputSchema: {
       filter: z.enum(["all", "xhr", "document", "script", "stylesheet", "image", "fetch"]).optional().default("all").describe("Filter by resource type"),
       clear: z.boolean().optional().default(false).describe("Clear captured requests after reading"),
@@ -140,11 +140,14 @@ export function registerBrowserStateTools(
       ...(r.status === undefined ? { pending: true } : {}),
     }));
 
+    // The log keeps the latest 1,000 requests; dropped counts the older ones
+    // it let go, so a total of 1,000 is not read as "1,000 happened".
+    const dropped = b.networkRequestsDropped();
     if (clear) {
       b.clearNetworkHistory();
     }
 
-    return { content: [{ type: "text" as const, text: JSON.stringify({ requests: summary, total: filtered.length, showing: summary.length, _browserToken: token }, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify({ requests: summary, total: filtered.length, showing: summary.length, ...(dropped > 0 ? { dropped } : {}), _browserToken: token }, null, 2) }] };
   });
 
   // ── manage_cookies ──

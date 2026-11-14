@@ -76,7 +76,7 @@ import { SelectorCacheManager } from "./browser/selector-cache.js";
 import { extractExpected, extractSubject, UNPARSEABLE_MESSAGE } from "./browser/assertion-value.js";
 import { OverlayHandler } from "./browser/overlay-handler.js";
 import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.js";
-import { assertHostedNavigable } from "./mcp-tools/hosted-inputs.js";
+import { assertHostedNavigable, isHostedMode } from "./mcp-tools/hosted-inputs.js";
 import { clampRect } from "./recording/timing.js";
 import { navigationError, gateNavigationError, markedNavigationError, type GateRecord } from "./navigation-errors.js";
 import { uniqueStamp } from "./temp-files.js";
@@ -290,7 +290,8 @@ export async function launchBrowserWithFallback(
   try {
     return await browserType.launch(options);
   } catch (error) {
-    if (isBrowserNotInstalledError(error)) {
+    // Never on the hosted server: see the same test in CBrowser.launch.
+    if (isBrowserNotInstalledError(error) && !isHostedMode()) {
       // Attempt automatic installation
       const installed = await installPlaywrightBrowsers(browserName);
       if (installed) {
@@ -422,6 +423,56 @@ export async function gotoThroughGate<T extends Response | null>(gate: GateRecor
   }
 }
 
+/**
+ * A copy of `s` that shares no memory with the string it was cut from. V8 keeps
+ * a slice of a long string as a view onto the original, so storing a short
+ * slice keeps the whole original alive.
+ */
+export function copyString(s: string): string {
+  return Buffer.from(s, "utf8").toString("utf8");
+}
+
+/** Decode at most `maxBytes` of a UTF-8 buffer, dropping a character cut in half. */
+export function decodeUtf8Prefix(buf: Buffer, maxBytes: number): string {
+  if (buf.length <= maxBytes) return buf.toString("utf8");
+  let end = maxBytes;
+  // Back up over continuation bytes so the cut lands on a character boundary.
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end--;
+  return buf.subarray(0, end).toString("utf8");
+}
+
+/** `s` kept to at most `maxBytes` of UTF-8, as a fresh string, and whether it was cut. */
+export function capUtf8(s: string, maxBytes: number): { text: string; truncated: boolean } {
+  // Every UTF-16 unit is at most 3 bytes of UTF-8, so a short string needs no work.
+  if (s.length * 3 <= maxBytes) return { text: s, truncated: false };
+  if (s.length <= maxBytes && Buffer.byteLength(s) <= maxBytes) return { text: s, truncated: false };
+  // maxBytes UTF-16 units encode to at least maxBytes bytes, so this covers the cut.
+  return { text: decodeUtf8Prefix(Buffer.from(s.slice(0, maxBytes), "utf8"), maxBytes), truncated: true };
+}
+
+/** Headers kept to `maxBytes` of names and values in all; the rest are left out. */
+export function capHeaders(headers: Record<string, string>, maxBytes: number): { headers: Record<string, string>; truncated: boolean } {
+  const out: Record<string, string> = {};
+  let left = maxBytes;
+  let truncated = false;
+  for (const [name, value] of Object.entries(headers)) {
+    const cost = Buffer.byteLength(name) + Buffer.byteLength(value);
+    if (cost <= left) {
+      out[name] = value;
+      left -= cost;
+      continue;
+    }
+    truncated = true;
+    const room = left - Buffer.byteLength(name);
+    if (room > 0) {
+      out[name] = capUtf8(value, room).text;
+      left = 0;
+    }
+    break;
+  }
+  return { headers: out, truncated };
+}
+
 export class CBrowser {
   private config: CBrowserConfig;
   private paths: CBrowserPaths;
@@ -449,6 +500,19 @@ export class CBrowser {
    */
   private pendingRequests: Map<string, { req: NetworkRequest; startedAt: number }> = new Map();
   private static readonly MAX_PENDING_REQUESTS = 2000;
+  /**
+   * The per-session request log is a ring of this many entries, each with its
+   * body, headers and URL capped. It used to keep every request with its whole
+   * body for the life of the session, so a page that POSTed 2 MB every 20 ms
+   * took the hosted server, one process for every account, to the V8 heap
+   * limit in about 30 s (leaks-static-2, 2026-11-12). Dropped entries are
+   * counted, and get_network_requests reports the count.
+   */
+  private static readonly MAX_NETWORK_REQUESTS = 1000;
+  private static readonly MAX_POST_DATA_BYTES = 16 * 1024;
+  private static readonly MAX_HEADER_BYTES = 8 * 1024;
+  private static readonly MAX_URL_BYTES = 8 * 1024;
+  private droppedNetworkRequests = 0;
   private harEntries: HAREntry[] = [];
   private isRecordingHar = false;
   /**
@@ -1156,7 +1220,17 @@ For more help: https://playwright.dev/docs/browsers
       try {
         await performLaunch();
       } catch (error) {
-        if (this.isBrowserNotInstalledError(error)) {
+        // Not on the hosted server. The classifier matches every launch
+        // failure (Playwright prefixes them all with "browserType.launch"), so
+        // a launch that failed for lack of tasks or memory, or timed out under
+        // load, ran `npx playwright install` through execSync: the one Node
+        // process serving every account stopped for as long as npx took (up
+        // to 5 minutes), as root, and the caller was then told browsers are
+        // not installed. The hosted server's browsers are installed at deploy
+        // time, so the launch error itself is the answer. (audit
+        // leaks-live-2, 2026-11-12) The CLI, the stdio server and library use
+        // keep the automatic install.
+        if (this.isBrowserNotInstalledError(error) && !isHostedMode()) {
           // Attempt automatic installation
           const installed = await this.installPlaywrightBrowsers();
           if (installed) {
@@ -1659,14 +1733,13 @@ For more help: https://playwright.dev/docs/browsers
         // Playwright's Browser does NOT expose the child process — verified
         // 2026-07-26: `typeof browser.process === "function"` is false on a
         // chromium.launch() handle; only launchServer()'s BrowserServer has
-        // process(). Which also means the session reaper in mcp-server-remote.ts
-        // (`browserInstance?.process?.()?.pid`) always resolves undefined and its
-        // force-kill branch never runs either — another guard that reads as
-        // working and does nothing.
+        // process(). The hosted server no longer relies on it: it finds each
+        // session's processes by user-data-dir (browser-process-tree.ts) and
+        // kills a tree this method leaves behind on its next sweep (2026-11-12).
         //
-        // Until the launch path moves to launchServer (a real change, not a
-        // patch), the honest behaviour is to make the orphan LOUD so it can be
-        // reaped externally, instead of dropping the handle in silence.
+        // Elsewhere (CLI, daemon, library) the honest behaviour is still to
+        // make the orphan LOUD so it can be reaped externally, instead of
+        // dropping the handle in silence.
         console.warn("[CBrowser] forceClose: browser.close() timed out after 2000ms — the chromium process may be orphaned. Playwright exposes no process handle to signal it; reap externally if these accumulate.");
       }
     }
@@ -1836,15 +1909,33 @@ For more help: https://playwright.dev/docs/browsers
     if (!this.page) return;
 
     this.page.on("request", (request) => {
+      const url = capUtf8(request.url(), CBrowser.MAX_URL_BYTES);
+      const headers = capHeaders(request.headers(), CBrowser.MAX_HEADER_BYTES);
       const networkRequest: NetworkRequest = {
-        url: request.url(),
+        url: url.text,
         method: request.method(),
-        headers: request.headers(),
-        postData: request.postData() || undefined,
+        headers: headers.headers,
         resourceType: request.resourceType(),
         timestamp: new Date().toISOString(),
       };
+      if (url.truncated) networkRequest.urlTruncated = true;
+      if (headers.truncated) networkRequest.headersTruncated = true;
+      // Read from the buffer so only the kept part is ever decoded.
+      const body = request.postDataBuffer();
+      if (body && body.length > 0) {
+        if (body.length > CBrowser.MAX_POST_DATA_BYTES) {
+          networkRequest.postData = decodeUtf8Prefix(body, CBrowser.MAX_POST_DATA_BYTES);
+          networkRequest.postDataTruncated = true;
+          networkRequest.postDataBytes = body.length;
+        } else {
+          networkRequest.postData = body.toString("utf8");
+        }
+      }
       this.networkRequests.push(networkRequest);
+      if (this.networkRequests.length > CBrowser.MAX_NETWORK_REQUESTS) {
+        this.networkRequests.shift();
+        this.droppedNetworkRequests++;
+      }
 
       // Track it so the response handler can complete the record. Evict the
       // oldest entry rather than growing forever when responses never arrive.
@@ -1852,7 +1943,9 @@ For more help: https://playwright.dev/docs/browsers
         const oldest = this.pendingRequests.keys().next();
         if (!oldest.done) this.pendingRequests.delete(oldest.value);
       }
-      this.pendingRequests.set(request.url() + request.method(), {
+      // Keyed by the capped URL: a 2 MB query string held as a map key 2,000
+      // times is the same leak by another road.
+      this.pendingRequests.set(CBrowser.requestKey(request.url(), request.method()), {
         req: networkRequest,
         startedAt: Date.now(),
       });
@@ -1871,12 +1964,12 @@ For more help: https://playwright.dev/docs/browsers
             bodySize: request.postData()?.length || 0,
           },
         };
-        this.networkResponses.set(request.url() + request.method(), harEntry as any);
+        this.networkResponses.set(CBrowser.requestKey(request.url(), request.method()), harEntry as any);
       }
     });
 
     this.page.on("response", async (response) => {
-      const key = response.url() + response.request().method();
+      const key = CBrowser.requestKey(response.url(), response.request().method());
 
       // This status was already being computed here and then discarded into an
       // unused local, which is why get_network_requests could never report the
@@ -1961,11 +2054,23 @@ For more help: https://playwright.dev/docs/browsers
     return filename;
   }
 
+  /** Map key for a request: its URL as the log keeps it, plus its method. */
+  private static requestKey(url: string, method: string): string {
+    return (url.length > CBrowser.MAX_URL_BYTES ? capUtf8(url, CBrowser.MAX_URL_BYTES).text : url) + method;
+  }
+
   /**
-   * Get all captured network requests.
+   * Get the captured network requests: the latest 1,000 since the session
+   * started or since clearNetworkHistory(). networkRequestsDropped() counts
+   * the older ones the log let go.
    */
   getNetworkRequests(): NetworkRequest[] {
     return [...this.networkRequests];
+  }
+
+  /** How many requests the log dropped to stay at its cap. */
+  networkRequestsDropped(): number {
+    return this.droppedNetworkRequests;
   }
 
   /**
@@ -1973,6 +2078,7 @@ For more help: https://playwright.dev/docs/browsers
    */
   clearNetworkHistory(): void {
     this.networkRequests = [];
+    this.droppedNetworkRequests = 0;
     this.harEntries = [];
     this.pendingRequests.clear();
   }
@@ -1999,8 +2105,13 @@ For more help: https://playwright.dev/docs/browsers
     const push = (msg: CapturedConsoleMessage): void => {
       if (msg.text.length > CBrowser.CONSOLE_TEXT_CAP) {
         const extra = msg.text.length - CBrowser.CONSOLE_TEXT_CAP;
-        msg.text = `${msg.text.slice(0, CBrowser.CONSOLE_TEXT_CAP)}... [${extra} more characters]`;
+        // copyString, not a bare slice: V8 keeps a slice as a view of the
+        // whole message, so a 2,000-character entry held a 10 MB log line
+        // alive and the 500-entry cap bounded nothing.
+        msg.text = `${copyString(msg.text.slice(0, CBrowser.CONSOLE_TEXT_CAP))}... [${extra} more characters]`;
       }
+      if (msg.url !== undefined) msg.url = capUtf8(msg.url, CBrowser.MAX_URL_BYTES).text;
+      if (msg.pageUrl !== undefined) msg.pageUrl = capUtf8(msg.pageUrl, CBrowser.MAX_URL_BYTES).text;
       buffer.entries.push({ seq: ++this.consoleSeq, msg });
       if (buffer.entries.length > CBrowser.CONSOLE_BUFFER_CAP) {
         buffer.entries.shift();

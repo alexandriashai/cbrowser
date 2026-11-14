@@ -37,10 +37,11 @@
 
 import { registerUiResources } from "./mcp-tools/ui-resources.js";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CBrowser } from "./browser.js";
+import { readProcTable, browserIdentity, hasLaunched, sessionTreePids, treeMemoryMB, killPids, waitForExit, type ProcEntry } from "./browser-process-tree.js";
 import { ensureDirectories, getDataDir } from "./config.js";
 
 // Version from package.json - single source of truth
@@ -59,9 +60,9 @@ import {
 // HTTP request enters at createServer below. (sec-identity, 2026-10-10)
 import { registerAllPublicTools, setRemoteMode, setHostedMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
 import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
-import { withChargeScope } from "./charge-scope.js";
+import { withChargeScope, currentCharge } from "./charge-scope.js";
 import { refundCharge } from "./mcp-tools/credit-refund.js";
-import { withRequestIdentity } from "./request-context.js";
+import { withRequestIdentity, currentRequestIdentity } from "./request-context.js";
 import { checkOwnAddressConfig } from "./egress.js";
 
 /**
@@ -122,10 +123,19 @@ export function generateBrowserToken(sessionId: string): string {
   return token;
 }
 
+/**
+ * Tokens of sessions the server closed itself (idle, over the memory limit),
+ * kept for the token lifetime so the owner's next call is told why instead of
+ * a bare "expired". Swept with the other token maps.
+ */
+const closedTokens = new Map<string, { accountId: number | undefined; reason: string; closedAt: number }>();
+
 /** Thrown when a caller supplies a browser token that no longer resolves. */
 export class BrowserSessionExpiredError extends Error {
-  constructor(token: string) {
-    super(`Browser session '${token}' has expired or does not exist. Call navigate() to start a new session and pass the _browserToken it returns.`);
+  constructor(token: string, reason?: string) {
+    super(reason
+      ? `Browser session '${token}' was closed: ${reason}. Call navigate() to start a new session and pass the _browserToken it returns.`
+      : `Browser session '${token}' has expired or does not exist. Call navigate() to start a new session and pass the _browserToken it returns.`);
     this.name = "BrowserSessionExpiredError";
   }
 }
@@ -166,37 +176,75 @@ export async function getBrowserByToken(token?: string): Promise<{ browser: CBro
       }
       browserTokens.delete(token);
     }
-    throw new BrowserSessionExpiredError(token);
+    const closed = closedTokens.get(token);
+    throw new BrowserSessionExpiredError(token, closed && closed.accountId === scopedAccountId() ? closed.reason : undefined);
   }
 
-  // No token supplied — create new session
+  // No token supplied: start a new session.
+  //
+  // Minting is kept, and now counted. A token promises a browser that only its
+  // holder drives, and a tokenless navigate is how a caller starts a second,
+  // independent one (two conversations of one account, two flows compared
+  // side by side). Handing every tokenless call the account's one shared
+  // browser would let the second navigate move the first caller's page under
+  // a token that still claims to be theirs. What was wrong was that nothing
+  // counted these sessions: one account opened 46 browsers in two requests
+  // (audit auth-tenancy-billing-3). admitNewSession now applies the server
+  // cap and the per-account share before anything is created. (2026-11-12)
+  let bucket: string | undefined;
+  try {
+    bucket = admitNewSession(now);
+  } catch (err) {
+    await refundRefusedCall();
+    throw err;
+  }
   const sessionId = randomUUID();
-  const proxyConfig = stealthConfig?.proxy;
-  const sessionBrowser = new CBrowser({
-    headless: true,
-    persistent: false,
-    proxy: proxyConfig,
-  });
-
-  activeSessions.set(sessionId, {
-    browser: sessionBrowser,
-    createdAt: now,
-    lastActivity: now,
-    accountId: scopedAccountId(),
-  });
+  const info = createSession(sessionId, now, bucket);
 
   const newToken = generateBrowserToken(sessionId);
-  console.log(`[Token] New browser session ${sessionId.substring(0, 8)}... → token ${newToken}`);
-  return { browser: sessionBrowser, token: newToken };
+  console.log(`[Token] New browser session ${sessionId.substring(0, 8)}... → token ${newToken} (${openSessionCount()}/${sessionLimits().maxConcurrent} open)`);
+  return { browser: info.browser, token: newToken };
 }
 
 // ============================================================================
 // Session Isolation (v18.4.0)
 // ============================================================================
 
-const MAX_CONCURRENT_SESSIONS = parseInt(process.env.MAX_CONCURRENT_SESSIONS || "20", 10);
-const SESSION_IDLE_TIMEOUT_MS = parseInt(process.env.SESSION_IDLE_TIMEOUT_MS || "300000", 10); // 5 min
-const SESSION_MEMORY_LIMIT_MB = parseInt(process.env.SESSION_MEMORY_LIMIT_MB || "800", 10); // 800MB per session
+function envPositiveInt(name: string, fallback: number): number {
+  const n = parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * The session limits, read from the environment on each use so a test (or an
+ * operator reading the code) sees one place that decides them.
+ *
+ * maxConcurrent  every browser session in this process, whoever opened it.
+ * perAccount     the share one caller may hold, so one account cannot take
+ *                the whole pool from everyone else (audit leaks-live-1).
+ * anonymous      the share every caller with no account and no credential
+ *                holds together (an open server's keyless callers).
+ * launchGraceMs  a session that has not launched a browser counts only while
+ *                it was handed out this recently: one whose launch failed, or
+ *                that a tool never launched, holds nothing and stops counting.
+ * closeTimeoutMs how long close() may take before the session's processes
+ *                are killed.
+ */
+export function sessionLimits(): {
+  maxConcurrent: number; perAccount: number; anonymous: number;
+  idleTimeoutMs: number; memoryLimitMB: number; launchGraceMs: number; closeTimeoutMs: number;
+} {
+  const perAccount = envPositiveInt("MAX_SESSIONS_PER_ACCOUNT", 3);
+  return {
+    maxConcurrent: envPositiveInt("MAX_CONCURRENT_SESSIONS", 20),
+    perAccount,
+    anonymous: envPositiveInt("MAX_SESSIONS_ANONYMOUS", perAccount),
+    idleTimeoutMs: envPositiveInt("SESSION_IDLE_TIMEOUT_MS", 300_000),
+    memoryLimitMB: envPositiveInt("SESSION_MEMORY_LIMIT_MB", 800),
+    launchGraceMs: envPositiveInt("SESSION_LAUNCH_GRACE_MS", 60_000),
+    closeTimeoutMs: envPositiveInt("SESSION_CLOSE_TIMEOUT_MS", 10_000),
+  };
+}
 
 interface SessionInfo {
   browser: CBrowser;
@@ -204,6 +252,70 @@ interface SessionInfo {
   lastActivity: number;
   /** Account scope that created it; undefined when unscoped. (tenant, 2026-10-10) */
   accountId: number | undefined;
+  /** Whose share it counts against (sessionBucket); undefined outside any remote request. */
+  bucket: string | undefined;
+  /**
+   * The --user-data-dir of every Chromium this session has launched, learned
+   * from /proc (browser-process-tree.ts). It is how the session's processes
+   * are found for the memory limit and the force-kill, and it survives a
+   * relaunch, so a browser the crash recovery left behind is still this
+   * session's to kill.
+   */
+  browserDirs: Set<string>;
+}
+
+/** Callers with no account and no credential share this one bucket. */
+export const ANONYMOUS_BUCKET = "anonymous";
+
+/**
+ * Whose share a new session counts against.
+ *
+ *   account:<id>  a request in an account scope (an account key).
+ *   key:<hash>    a request with a credential but no account: the operator
+ *                 key, an Auth0 token. One bucket per credential.
+ *   anonymous     a request with no credential at all (an open server). One
+ *                 bucket for all of them: the client address cannot be
+ *                 trusted here, because X-Forwarded-For's first entry is what
+ *                 the client wrote and the socket peer behind nginx is
+ *                 loopback for everyone, so a per-address bucket would be one
+ *                 bucket per header value the caller cares to send.
+ *   undefined     no remote request at all (library use, tests): only the
+ *                 server cap applies.
+ */
+export function sessionBucket(): string | undefined {
+  const accountId = scopedAccountId();
+  if (accountId !== undefined) return `account:${accountId}`;
+  const identity = currentRequestIdentity();
+  if (!identity) return undefined;
+  if (identity.apiKey) return `key:${createHash("sha256").update(identity.apiKey).digest("hex").slice(0, 16)}`;
+  return ANONYMOUS_BUCKET;
+}
+
+/** The server holds as many browser sessions as it may run at once. */
+export class SessionCapacityError extends Error {
+  constructor(open: number, idleSeconds: number) {
+    super(
+      `The server is at capacity, try again shortly. ${open} browser sessions are open, the most this server runs at once; ` +
+      `each one closes after ${idleSeconds} s without use.`,
+    );
+    this.name = "SessionCapacityError";
+  }
+}
+
+/** The caller already holds its share of the server's browsers. */
+export class AccountSessionLimitError extends Error {
+  constructor(open: number, limit: number, anonymous: boolean, idleSeconds: number, oldestIdleSeconds: number) {
+    super(
+      (anonymous
+        ? `Callers without an account already have ${open} browser sessions open on this server, the most they may hold together (${limit}). `
+        : `This account already has ${open} browser sessions open on this server, the most one account may hold at once (${limit}). `) +
+      `To keep working now, pass the _browserToken of a browser you already have instead of starting a new one. ` +
+      `To free one, stop using it: a browser closes after ${idleSeconds} s without use ` +
+      `(the least recently used one here was last used ${oldestIdleSeconds} s ago). ` +
+      `reset_browser does not free one: it clears a browser's state and keeps it open.`,
+    );
+    this.name = "AccountSessionLimitError";
+  }
 }
 
 /** Thrown when a session id names a browser another account created. */
@@ -216,6 +328,107 @@ export class SessionOwnedElsewhereError extends Error {
 
 // Active sessions: sessionId -> SessionInfo
 const activeSessions = new Map<string, SessionInfo>();
+
+/**
+ * Sessions being closed, keyed uniquely so the id is free for a new session
+ * at once. They still count against both limits until their processes are
+ * gone: a browser that takes 10 s to close, or has to be killed, still holds
+ * its memory and tasks until then.
+ */
+const closingSessions = new Map<string, SessionInfo>();
+let closingSeq = 0;
+
+/**
+ * Browsers of sessions already closed, watched for a while because a tool call
+ * that was still running when its session closed can launch the same CBrowser
+ * again (getPage launches when there is no page). Such a browser belongs to no
+ * session and nothing else would ever close it. Value: when it was retired and
+ * the user-data-dirs it is known by.
+ */
+const retiredBrowsers = new Map<CBrowser, { retiredAt: number; dirs: Set<string>; label: string }>();
+const RETIRED_WATCH_MS = 15 * 60_000;
+
+/** Every session that holds, or may be about to hold, a browser. */
+function countsAgainstLimits(s: SessionInfo, now: number, graceMs: number): boolean {
+  return hasLaunched(s.browser) || now - s.lastActivity <= graceMs;
+}
+
+function liveSessions(now: number): SessionInfo[] {
+  const { launchGraceMs } = sessionLimits();
+  return [...activeSessions.values(), ...closingSessions.values()].filter((s) => countsAgainstLimits(s, now, launchGraceMs));
+}
+
+/** How many sessions count against the server cap now, or against one bucket's share. */
+export function openSessionCount(now: number = Date.now(), bucket?: string): number {
+  const live = liveSessions(now);
+  return bucket === undefined ? live.length : live.filter((s) => s.bucket === bucket).length;
+}
+
+/**
+ * Apply the server cap and the caller's share before a session is created, for
+ * every path that creates one (the tokenless branch of getBrowserByToken and
+ * getSessionBrowser, which also serves the account's own tokenless browser).
+ * Synchronous on purpose: the count and the insert that follows run in one
+ * turn of the event loop, so a batch of 24 calls in one request cannot all pass
+ * the check before any of them is counted. Returns the caller's bucket.
+ */
+function admitNewSession(now: number): string | undefined {
+  const limits = sessionLimits();
+  const live = liveSessions(now);
+  const idleSeconds = Math.round(limits.idleTimeoutMs / 1000);
+  if (live.length >= limits.maxConcurrent) {
+    console.warn(`[Session] Refused a new session: server at capacity (${live.length}/${limits.maxConcurrent})`);
+    throw new SessionCapacityError(live.length, idleSeconds);
+  }
+  const bucket = sessionBucket();
+  if (bucket !== undefined) {
+    const limit = bucket === ANONYMOUS_BUCKET ? limits.anonymous : limits.perAccount;
+    const mine = live.filter((s) => s.bucket === bucket);
+    if (mine.length >= limit) {
+      const oldest = Math.min(...mine.map((s) => s.lastActivity));
+      console.warn(`[Session] Refused a new session for ${bucket.split(":")[0]}: ${mine.length}/${limit} of its share open`);
+      throw new AccountSessionLimitError(mine.length, limit, bucket === ANONYMOUS_BUCKET, idleSeconds, Math.max(0, Math.round((now - oldest) / 1000)));
+    }
+  }
+  return bucket;
+}
+
+/**
+ * Refund the call admitNewSession just refused. A refusal is thrown
+ * (the SDK turns it into an isError result), and the tier gate refunds only an
+ * isError result its handler RETURNS, so a thrown refusal stayed billed
+ * although nothing ran: measured on a scratch server, 19 refused calls were
+ * deducted and none refunded. The refund here uses the same per-call idempotency key
+ * and marks the charge, so the gate never refunds it a second time.
+ *
+ * Called from the catch around admitNewSession, never before it: on success
+ * the check and the insert that follows must run in one turn of the event
+ * loop, with no await between them.
+ */
+async function refundRefusedCall(): Promise<void> {
+  const charge = currentCharge();
+  if (charge && !charge.refundAttempted) {
+    charge.refundAttempted = true;
+    await refundCharge({ keyHash: charge.keyHash, tool: charge.tool, idempotencyKey: charge.idempotencyKey });
+  }
+}
+
+function createSession(sessionId: string, now: number, bucket: string | undefined): SessionInfo {
+  const info: SessionInfo = {
+    browser: new CBrowser({
+      headless: true,
+      persistent: false, // Non-persistent = fresh context per session
+      proxy: stealthConfig?.proxy,
+    }),
+    createdAt: now,
+    lastActivity: now,
+    accountId: scopedAccountId(),
+    bucket,
+    browserDirs: new Set(),
+  };
+  activeSessions.set(sessionId, info);
+  return info;
+}
 
 // Track recently expired sessions for clear error messaging
 // Sessions stay in this set for 10 minutes after expiry
@@ -251,253 +464,201 @@ export async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
     return existing.browser;
   }
 
-  // Check concurrent session limit
-  if (activeSessions.size >= MAX_CONCURRENT_SESSIONS) {
-    throw new Error(
-      `🚫 CBrowser Demo Server at Capacity\n\n` +
-      `The demo server currently has ${MAX_CONCURRENT_SESSIONS} active sessions.\n\n` +
-      `Please tell the user:\n` +
-      `"The CBrowser demo server is currently at full capacity. ` +
-      `Please wait a few minutes and try again, or visit https://cbrowser.ai/enterprise for unlimited access."\n\n` +
-      `Sessions automatically expire after 5 minutes of inactivity.`
-    );
+  // The server cap and the caller's share, the same check as the token path.
+  // This check used to be the only one, and it counted map entries rather than
+  // browsers. (2026-11-12)
+  const now = Date.now();
+  let bucket: string | undefined;
+  try {
+    bucket = admitNewSession(now);
+  } catch (err) {
+    await refundRefusedCall();
+    throw err;
   }
+  const info = createSession(sessionId, now, bucket);
 
-  // Create new session with isolated browser context
-  const proxyConfig = stealthConfig?.proxy;
-  const sessionBrowser = new CBrowser({
-    headless: true,
-    persistent: false, // Non-persistent = fresh context per session
-    proxy: proxyConfig,
-  });
+  console.log(`[Session] Created new session ${sessionId.substring(0, 8)}... (${openSessionCount(now)}/${sessionLimits().maxConcurrent} open)`);
 
-  activeSessions.set(sessionId, {
-    browser: sessionBrowser,
-    createdAt: Date.now(),
-    lastActivity: Date.now(),
-    accountId: scopedAccountId(),
-  });
+  return info.browser;
+}
 
-  console.log(`[Session] Created new session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active)`);
+/** Learn the user-data-dir of the session's current Chromium, if it runs. Returns it. */
+function recordBrowserIdentity(dirs: Set<string>, b: CBrowser, table: Map<number, ProcEntry>): string | undefined {
+  const dir = browserIdentity(b, table);
+  if (dir) dirs.add(dir);
+  return dir;
+}
 
-  return sessionBrowser;
+/** close(), but give up after `ms`. True when close() finished. */
+async function closeWithin(b: CBrowser, ms: number): Promise<boolean> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      b.close().then(() => true, () => true),
+      new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), ms); }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Close a browser and make sure its processes are gone: close() first, then
+ * SIGKILL to whatever is left of its trees (found by user-data-dir, children
+ * of this process only) when close() has not finished in closeTimeoutMs.
+ * Leftovers after a close() that did finish are killed too: they are trees the
+ * crash recovery abandoned, and nothing else would end them.
+ */
+async function closeAndReap(b: CBrowser, dirs: Set<string>, label: string): Promise<void> {
+  recordBrowserIdentity(dirs, b, readProcTable());
+  const { closeTimeoutMs } = sessionLimits();
+  const finished = await closeWithin(b, closeTimeoutMs);
+  const left = sessionTreePids(dirs, readProcTable());
+  if (left.length > 0) {
+    const killed = killPids(left);
+    const gone = await waitForExit(left, 3000);
+    console.log(`[Session] Force-killed ${killed} browser process${killed === 1 ? "" : "es"} of ${label} (${finished ? "still running after close()" : `close() did not finish in ${Math.round(closeTimeoutMs / 1000)} s`})${gone ? "" : "; some had not exited 3 s later"}`);
+  }
 }
 
 /**
  * Clean up a session's browser context
- * @param reason - Why the session was cleaned up (for user messaging)
+ * @param reason - Why the session was cleaned up (for the log)
+ * @param ownerReason - Why, in words for the session's owner, shown when they
+ *   next present one of its tokens. Omitted when they closed it themselves.
  */
-async function cleanupSession(sessionId: string, reason: string = "Session ended"): Promise<void> {
+async function cleanupSession(sessionId: string, reason: string = "Session ended", ownerReason?: string): Promise<void> {
   const session = activeSessions.get(sessionId);
-  if (session) {
-    // Capture Chrome PID before closing (for force-kill fallback)
-    let chromePid: number | undefined;
-    try {
-      const browserInstance = (session.browser as any).browser;
-      chromePid = browserInstance?.process?.()?.pid;
-    } catch { /* ignore */ }
+  if (!session) return;
 
-    // Graceful close with timeout
-    try {
-      await Promise.race([
-        session.browser.close(),
-        new Promise(resolve => setTimeout(resolve, 5000)), // 5s timeout
-      ]);
-    } catch (e) {
-      // Ignore cleanup errors
+  // Out of the table at once, so no caller is handed a browser that is being
+  // closed and the id is free for a new session, but still counted (in
+  // closingSessions) until its processes are gone.
+  activeSessions.delete(sessionId);
+  const closingKey = `${sessionId}#${++closingSeq}`;
+  closingSessions.set(closingKey, session);
+
+  const now = Date.now();
+  for (const [token, info] of browserTokens) {
+    if (info.sessionId === sessionId) {
+      browserTokens.delete(token);
+      if (ownerReason) closedTokens.set(token, { accountId: info.accountId, reason: ownerReason, closedAt: now });
     }
-
-    // Force-kill Chrome if graceful close didn't work
-    if (chromePid) {
-      try {
-        process.kill(chromePid, 0); // Check if still alive
-        process.kill(chromePid, "SIGKILL");
-        console.log(`[Session] Force-killed Chrome PID ${chromePid} for session ${sessionId.substring(0, 8)}...`);
-      } catch { /* already dead — good */ }
-    }
-
-    activeSessions.delete(sessionId);
-
-    // Also clean any browser tokens pointing to this session
-    for (const [token, info] of browserTokens) {
-      if (info.sessionId === sessionId) {
-        browserTokens.delete(token);
-      }
-    }
-
-    // Track as expired so subsequent requests get a clear message
-    expiredSessions.set(sessionId, {
-      expiredAt: Date.now(),
-      reason,
-    });
-
-    console.log(`[Session] Cleaned up session ${sessionId.substring(0, 8)}... (${activeSessions.size}/${MAX_CONCURRENT_SESSIONS} active) - ${reason}`);
   }
-}
+  expiredSessions.set(sessionId, { expiredAt: now, reason });
 
-/**
- * Get memory usage of a browser session in MB
- * Returns null if unable to determine
- */
-async function getSessionMemoryMB(session: SessionInfo): Promise<number | null> {
+  const label = `session ${sessionId.substring(0, 8)}...`;
   try {
-    // CBrowser wraps Playwright - try to get the underlying browser process
-    const browserInstance = (session.browser as any).browser;
-    if (!browserInstance) return null;
-
-    const browserProcess = browserInstance.process?.();
-    if (!browserProcess?.pid) return null;
-
-    // Read /proc/<pid>/status for RSS memory
-    const { readFileSync } = await import("node:fs");
-    const status = readFileSync(`/proc/${browserProcess.pid}/status`, "utf-8");
-    const rssMatch = status.match(/VmRSS:\s+(\d+)\s+kB/);
-    if (rssMatch) {
-      return Math.round(parseInt(rssMatch[1], 10) / 1024); // Convert kB to MB
-    }
+    await closeAndReap(session.browser, session.browserDirs, label);
   } catch (e) {
-    // Process may have exited or not be accessible
+    console.warn(`[Session] Closing ${label} failed: ${describeError(e)}`);
+  } finally {
+    closingSessions.delete(closingKey);
+    retiredBrowsers.set(session.browser, { retiredAt: Date.now(), dirs: session.browserDirs, label });
   }
-  return null;
-}
 
-/**
- * Kill orphaned chrome-headless-shell processes not tracked by any active session.
- * These accumulate when clients disconnect abruptly or sessions aren't cleaned up properly.
- */
-async function killOrphanedChromeProcesses(): Promise<number> {
-  try {
-    const { execSync } = await import("node:child_process");
-
-    // Get all chrome-headless-shell PIDs on the system
-    const output = execSync("pgrep -f chrome-headless-shell 2>/dev/null || true", { encoding: "utf-8" }).trim();
-    if (!output) return 0;
-
-    const allChromePids = new Set(output.split("\n").map(p => parseInt(p, 10)).filter(p => !isNaN(p)));
-    if (allChromePids.size === 0) return 0;
-
-    // Collect PIDs tracked by active sessions
-    const trackedPids = new Set<number>();
-    for (const [, session] of activeSessions) {
-      try {
-        const browserInstance = (session.browser as any).browser;
-        if (browserInstance) {
-          const proc = browserInstance.process?.();
-          if (proc?.pid) {
-            trackedPids.add(proc.pid);
-            // Also add child PIDs (chrome spawns sub-processes)
-            const children = execSync(`pgrep -P ${proc.pid} 2>/dev/null || true`, { encoding: "utf-8" }).trim();
-            if (children) {
-              children.split("\n").forEach(p => { const n = parseInt(p, 10); if (!isNaN(n)) trackedPids.add(n); });
-            }
-          }
-        }
-      } catch { /* session browser may not be launched yet */ }
-    }
-
-    // Also check the shared browser instance
-    if (browser) {
-      try {
-        const proc = (browser as any).browser?.process?.();
-        if (proc?.pid) {
-          trackedPids.add(proc.pid);
-          const children = execSync(`pgrep -P ${proc.pid} 2>/dev/null || true`, { encoding: "utf-8" }).trim();
-          if (children) {
-            children.split("\n").forEach(p => { const n = parseInt(p, 10); if (!isNaN(n)) trackedPids.add(n); });
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Kill orphans (chrome PIDs not tracked by any session)
-    // Safety: only kill processes older than 2 minutes to avoid killing
-    // browsers mid-tool-call that haven't been tracked yet
-    let killed = 0;
-    for (const pid of allChromePids) {
-      if (!trackedPids.has(pid)) {
-        try {
-          // Check process age via /proc/<pid>/stat (field 22 = starttime in jiffies)
-          const stat = execSync(`stat -c %Z /proc/${pid} 2>/dev/null || echo 0`, { encoding: "utf-8" }).trim();
-          const startTime = parseInt(stat, 10);
-          const ageSeconds = startTime > 0 ? Math.floor(Date.now() / 1000) - startTime : 0;
-          if (ageSeconds > 120) { // Only kill if older than 2 minutes
-            process.kill(pid, "SIGKILL");
-            killed++;
-          }
-        } catch { /* already dead or inaccessible */ }
-      }
-    }
-
-    if (killed > 0) {
-      console.log(`[Cleanup] Killed ${killed} orphaned chrome processes (${allChromePids.size} total, ${trackedPids.size} tracked)`);
-    }
-    return killed;
-  } catch {
-    return 0;
-  }
+  console.log(`[Session] Cleaned up ${label} (${openSessionCount()}/${sessionLimits().maxConcurrent} open) - ${reason}`);
 }
 
 /**
  * Periodic cleanup of idle sessions, memory hogs, expired session tracking,
- * and orphaned Chrome processes.
+ * the auth caches, and browsers left behind by closed or recovered sessions.
  */
 let sessionCleanupTimer: NodeJS.Timeout | null = null;
 let rateLimitCleanupTimer: NodeJS.Timeout | null = null;
+let sweepRunning = false;
 
-const makeSessionCleanupTimer = () => setInterval(async () => {
-  const now = Date.now();
+/**
+ * One pass of the session sweep. Exported so tests can run a pass without
+ * waiting for the timer.
+ *
+ * The old pass also ran a host-wide reaper (CBROWSER_ORPHAN_REAPER=on) that
+ * SIGKILLed every chrome-headless-shell on the machine older than 2 minutes
+ * that it could not match to a session, and it could never match one (it
+ * read browser.process()), so it killed other sessions', the sibling server's
+ * and unrelated programs' browsers (measured 2026-09-05). It is gone: every
+ * kill below goes through sessionTreePids, which only reaches this process's
+ * own children by the user-data-dir a session recorded. CBROWSER_ORPHAN_REAPER
+ * is no longer read.
+ */
+export async function sweepSessions(now: number = Date.now()): Promise<void> {
+  // A pass can take closeTimeoutMs on a hung browser; the 30 s timer must not
+  // start a second pass over the same sessions meanwhile.
+  if (sweepRunning) return;
+  sweepRunning = true;
+  try {
+    const limits = sessionLimits();
 
-  // Clean up expired session tracking (older than retention period)
-  for (const [sessionId, info] of expiredSessions) {
-    if (now - info.expiredAt > EXPIRED_SESSION_RETENTION_MS) {
-      expiredSessions.delete(sessionId);
+    for (const [sessionId, info] of expiredSessions) {
+      if (now - info.expiredAt > EXPIRED_SESSION_RETENTION_MS) expiredSessions.delete(sessionId);
     }
-  }
-
-  // Clean up expired browser tokens
-  for (const [token, info] of browserTokens) {
-    if (now - info.createdAt > TOKEN_EXPIRY_MS) {
-      browserTokens.delete(token);
+    for (const [token, info] of browserTokens) {
+      if (now - info.createdAt > TOKEN_EXPIRY_MS) browserTokens.delete(token);
     }
-  }
+    for (const [token, info] of closedTokens) {
+      if (now - info.closedAt > TOKEN_EXPIRY_MS) closedTokens.delete(token);
+    }
+    sweepAuthCaches(now);
 
-  // Check each active session for idle timeout and memory usage
-  for (const [sessionId, session] of activeSessions) {
-    // Check idle timeout
-    if (now - session.lastActivity > SESSION_IDLE_TIMEOUT_MS) {
-      const idleSeconds = Math.round((now - session.lastActivity) / 1000);
-      console.log(`[Session] Cleaning up idle session ${sessionId.substring(0, 8)}... (idle for ${idleSeconds}s)`);
-      await cleanupSession(sessionId, `Idle timeout (inactive for ${idleSeconds}s)`);
-      continue;
+    const table = readProcTable();
+    const closes: Promise<void>[] = [];
+    for (const [sessionId, session] of activeSessions) {
+      const short = sessionId.substring(0, 8);
+      if (now - session.lastActivity > limits.idleTimeoutMs) {
+        const idleSeconds = Math.round((now - session.lastActivity) / 1000);
+        console.log(`[Session] Cleaning up idle session ${short}... (idle for ${idleSeconds}s)`);
+        closes.push(cleanupSession(sessionId, `Idle timeout (inactive for ${idleSeconds}s)`,
+          `it was not used for ${idleSeconds} s (a browser closes after ${Math.round(limits.idleTimeoutMs / 1000)} s without use)`));
+        continue;
+      }
+
+      const current = recordBrowserIdentity(session.browserDirs, session.browser, table);
+
+      // A tree of this session other than its current browser is one the
+      // crash recovery gave up on (forceClose drops the handle when close()
+      // hangs and launches a new browser).
+      const stale = new Set([...session.browserDirs].filter((d) => d !== current));
+      const stalePids = sessionTreePids(stale, table);
+      if (stalePids.length > 0) {
+        const killed = killPids(stalePids);
+        console.log(`[Session] Force-killed ${killed} processes of a browser session ${short}... replaced (recovery left it running)`);
+      }
+
+      if (!current) continue;
+      const memoryMB = treeMemoryMB(sessionTreePids(new Set([current]), table));
+      if (memoryMB !== null && memoryMB > limits.memoryLimitMB) {
+        console.log(`[Session] Killing session ${short}... (${memoryMB}MB > ${limits.memoryLimitMB}MB limit)`);
+        closes.push(cleanupSession(sessionId, `Memory limit exceeded (${memoryMB}MB used, ${limits.memoryLimitMB}MB limit)`,
+          `its browser used ${memoryMB} MB, over this server's limit of ${limits.memoryLimitMB} MB per browser`));
+      }
     }
 
-    // Check memory usage
-    const memoryMB = await getSessionMemoryMB(session);
-    if (memoryMB !== null && memoryMB > SESSION_MEMORY_LIMIT_MB) {
-      console.log(`[Session] Killing session ${sessionId.substring(0, 8)}... (${memoryMB}MB > ${SESSION_MEMORY_LIMIT_MB}MB limit)`);
-      await cleanupSession(sessionId, `Memory limit exceeded (${memoryMB}MB used, ${SESSION_MEMORY_LIMIT_MB}MB limit)`);
+    for (const [b, r] of retiredBrowsers) {
+      if (now - r.retiredAt > RETIRED_WATCH_MS) {
+        retiredBrowsers.delete(b);
+        continue;
+      }
+      if (hasLaunched(b)) {
+        console.log(`[Session] A call still running when ${r.label} closed launched its browser again; closing it`);
+        closes.push(closeAndReap(b, r.dirs, `${r.label} (relaunched after close)`).catch(() => {}));
+      } else {
+        const left = sessionTreePids(r.dirs, table);
+        if (left.length > 0) {
+          const killed = killPids(left);
+          console.log(`[Session] Force-killed ${killed} leftover processes of ${r.label}`);
+        }
+      }
     }
-  }
 
-  // Kill orphaned Chrome processes every cycle.
-  //
-  // OFF BY DEFAULT since 2026-09-08. This sweep is host-wide: it runs
-  // `pgrep -f chrome-headless-shell` and SIGKILLs anything older than its age
-  // heuristic that is not in `trackedPids`. `trackedPids` is built from
-  // `(session.browser as any).browser?.process?.()`, and Playwright declares
-  // `process()` only on BrowserServer and ElectronApplication -- never on
-  // Browser -- so the tracked set is ALWAYS empty and the sweep kills every
-  // Chromium on the box over ~120s, including this server's own live sessions,
-  // the sibling server's, and any unrelated process. Measured 2026-09-05:
-  // cbrowser-enterprise killed all 7 pids of a browser owned by a third process.
-  //
-  // The idle-timeout and memory checks above still run every cycle; only the
-  // host-wide kill is gated. Set CBROWSER_ORPHAN_REAPER=on to restore the old
-  // behaviour. The real fix -- launching via launchServer() so pids are known --
-  // replaces this flag.
-  if (process.env.CBROWSER_ORPHAN_REAPER === "on") {
-    await killOrphanedChromeProcesses();
+    // In parallel: ten hung browsers cost one close timeout, not ten.
+    await Promise.all(closes);
+  } finally {
+    sweepRunning = false;
   }
+}
+
+const makeSessionCleanupTimer = () => setInterval(() => {
+  sweepSessions().catch((e) => console.error(`[Session] sweep failed: ${describeError(e)}`));
 }, 30000); // Check every 30 seconds
 
 /**
@@ -525,10 +686,21 @@ async function getBrowser(): Promise<CBrowser> {
  * The browser a tokenless, session-less (stateless) tool call gets: the calling
  * account's own isolated browser inside an account scope, the shared legacy
  * browser otherwise. See configureMcpTools for why. (v8 O3, 2026-10-10)
+ *
+ * A remote request with no account gets one browser per caller bucket
+ * (sessionBucket: one per credential, one for all keyless callers), in the
+ * reserved "account:" namespace so no mcp-session-id header can name it, and
+ * swept on idle like any session. The persistent legacy browser is left to
+ * code running outside any remote request (library use, tests), as before.
+ * Until 2026-11-12 no hosted request reached this function at all: every
+ * stateless request carried a fresh random session id, so each tool call that
+ * used getBrowser() opened a new session nobody could name again.
  */
 export async function getTokenlessBrowser(): Promise<CBrowser> {
   const accountId = scopedAccountId();
-  return accountId === undefined ? getBrowser() : getSessionBrowser(`${ACCOUNT_SESSION_PREFIX}${accountId}`);
+  if (accountId !== undefined) return getSessionBrowser(`${ACCOUNT_SESSION_PREFIX}${accountId}`);
+  const bucket = sessionBucket();
+  return bucket === undefined ? getBrowser() : getSessionBrowser(`${ACCOUNT_SESSION_PREFIX}${bucket}`);
 }
 
 /**
@@ -540,6 +712,16 @@ export async function getTokenlessBrowser(): Promise<CBrowser> {
  * (19.3.8, 2026-10-10)
  */
 export const ACCOUNT_SESSION_PREFIX = "account:";
+
+/**
+ * The session id a request's tools use for getBrowser(). A stateless request
+ * whose client sent none gets undefined (its tools use getTokenlessBrowser):
+ * the id generated for it is never sent back, so a browser under it could not
+ * be reached again. Stateful mode returns the generated id to the client.
+ */
+export function toolSessionIdFor(sessionMode: string, sessionSource: string, browserSessionId: string): string | undefined {
+  return sessionMode !== "stateful" && sessionSource === "generated" ? undefined : browserSessionId;
+}
 
 export function sessionIdFromHeader(header: string | string[] | undefined): string | undefined {
   const id = Array.isArray(header) ? header[0] : header;
@@ -819,6 +1001,43 @@ export function _clearTierCache(): void {
 /** Test seam: make every cached key `ms` older, to reach the outage grace without waiting. */
 export function _ageTierCache(ms: number): void {
   for (const entry of tierCache.values()) entry.expiresAt -= ms;
+}
+
+/**
+ * The most entries any one auth cache keeps. A backstop behind the expiry
+ * sweep, for a burst of distinct valid credentials inside one TTL; the oldest
+ * entries go first (Map keeps insertion order), and a dropped entry costs one
+ * more CMS lookup, not a wrong answer.
+ */
+export const MAX_AUTH_CACHE_ENTRIES = 20_000;
+
+function dropExpired<V>(map: Map<string, V>, expired: (v: V) => boolean): void {
+  for (const [k, v] of map) if (expired(v)) map.delete(k);
+  let excess = map.size - MAX_AUTH_CACHE_ENTRIES;
+  if (excess <= 0) return;
+  for (const k of map.keys()) {
+    if (excess-- <= 0) break;
+    map.delete(k);
+  }
+}
+
+/**
+ * Drop expired entries from the auth caches. They were written and never
+ * deleted, so every key hash, login token and unredeemed OAuth code seen
+ * stayed for the life of the process (audit leaks-static-8, D-22 / P-15); an
+ * unredeemed code also kept the account's raw API key in memory. Runs on the
+ * 30 s session sweep. tierCache entries are kept through the outage grace,
+ * because staleServe reads them past their TTL while the CMS is down.
+ */
+export function sweepAuthCaches(now: number = Date.now()): void {
+  dropExpired(tokenToKeyHash, (v) => v.expiresAt <= now);
+  dropExpired(tierCache, (v) => v.expiresAt + AUTH_STALE_GRACE_MS <= now);
+  dropExpired(oauthCodes, (v) => v.expiresAt <= now);
+}
+
+/** Test seam: the auth caches themselves, so a test can seed and inspect them. */
+export function _authCachesForTest() {
+  return { tokenToKeyHash, tierCache, oauthCodes };
 }
 
 /**
@@ -2334,9 +2553,11 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
     console.log(`  - AUTH0_DOMAIN is set, but Auth0 tokens are refused: no CBrowser account can be matched to one. Sign-in is by API key and this server's /authorize.`);
   }
   console.log(`Session Isolation: enabled`);
-  console.log(`  - Max concurrent sessions: ${MAX_CONCURRENT_SESSIONS}`);
-  console.log(`  - Idle timeout: ${SESSION_IDLE_TIMEOUT_MS / 1000}s`);
-  console.log(`  - Memory limit per session: ${SESSION_MEMORY_LIMIT_MB}MB`);
+  const limits = sessionLimits();
+  console.log(`  - Max concurrent sessions: ${limits.maxConcurrent}`);
+  console.log(`  - Sessions per account: ${limits.perAccount} (callers without an account, together: ${limits.anonymous})`);
+  console.log(`  - Idle timeout: ${limits.idleTimeoutMs / 1000}s`);
+  console.log(`  - Memory limit per session: ${limits.memoryLimitMB}MB (sum of the browser's processes; close timeout ${limits.closeTimeoutMs / 1000}s, then SIGKILL)`);
   if (process.env.RATE_LIMIT_ENABLED === "true") {
     console.log(`Rate Limiting: per-account, tier-based`);
     console.log(`  - Free:       ${TIER_RATE_LIMITS.free.requests} req/hr (burst: ${TIER_RATE_LIMITS.free.burst})`);
@@ -3077,8 +3298,16 @@ ${VERSION}
           sessionIdGenerator: sessionMode === "stateful" ? () => browserSessionId : undefined,
         });
 
-        // Create and connect server with session isolation and tier gating
-        const server = createMcpServer(options?.registerTools, browserSessionId, resolvedTier);
+        // Create and connect server with session isolation and tier gating.
+        //
+        // A stateless request whose client sent no session id gets no session
+        // id for its tools: the generated one is never sent back (no
+        // sessionIdGenerator), so a browser opened under it could not be
+        // reached again and only held a slot until the idle sweep. Its tools
+        // use the caller's own tokenless browser instead (getTokenlessBrowser),
+        // which is what configureMcpTools already described. (2026-11-12)
+        const toolSessionId = toolSessionIdFor(sessionMode, sessionSource, browserSessionId);
+        const server = createMcpServer(options?.registerTools, toolSessionId, resolvedTier);
 
         // Allow extension with additional tools (for Enterprise)
         if (options?.extendServer) {

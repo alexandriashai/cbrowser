@@ -57,6 +57,7 @@ tests/red-zone-element-level.test.ts
 tests/red-zone-high-impact-keywords.test.ts
 tests/screenshot-no-viewport-resize.test.ts
 tests/selector-escape.test.ts
+tests/session-process-tree.test.ts
 tests/sticky-overlay-threshold.test.ts
 tests/svg-classname.test.ts
 tests/visual-story-inline.test.ts
