@@ -11,7 +11,7 @@
  * AI-powered browser automation with constitutional safety.
  */
 
-import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type ConsoleMessage, type Route, type Locator, type ElementHandle } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page, type BrowserContext, type ConsoleMessage, type Route, type Locator, type ElementHandle, type Request, type Response } from "playwright";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, mkdirSync, readlinkSync } from "fs";
 import { isRestorablePageUrl, isStaleSingletonLock } from "./utils.js";
 import { join, dirname } from "path";
@@ -19,7 +19,8 @@ import { execSync } from "child_process";
 
 import { type CBrowserConfig, mergeConfig, defaultLocale, getPaths, ensureDirectories, type CBrowserPaths, type ColorScheme, COLOR_SCHEMES, isColorScheme, type PrivacySignals } from "./config.js";
 import { addPrivacyInitScript, privacySetup } from "./privacy-signals.js";
-import { needsForwarder, startProxyForwarder, NO_WEBRTC_SCRIPT, type ProxyForwarder } from "./proxy-forwarder.js";
+import { openBrowserRoute, webRtcGuard, type ProxyForwarder } from "./proxy-forwarder.js";
+import { EGRESS_HEADER } from "./egress-gate.js";
 import { getPersonaOrRefuse } from "./personas.js";
 import type {
   SavedSession,
@@ -77,7 +78,7 @@ import { OverlayHandler } from "./browser/overlay-handler.js";
 import { getRemoteMode, MAX_RESPONSE_SIZE } from "./mcp-tools/screenshot-utils.js";
 import { assertHostedNavigable } from "./mcp-tools/hosted-inputs.js";
 import { clampRect } from "./recording/timing.js";
-import { navigationError } from "./navigation-errors.js";
+import { navigationError, gateNavigationError, markedNavigationError, type GateRecord } from "./navigation-errors.js";
 import { uniqueStamp } from "./temp-files.js";
 import type { Rect } from "./recording/types.js";
 
@@ -345,13 +346,95 @@ export function summarizePlaywrightError(message: string, headLines = 6, tailLin
   ].join("\n");
 }
 
+/**
+ * One main-frame navigation of `page`, read as the egress gate saw it.
+ *
+ * On the hosted server every browser is started behind the egress gate
+ * (egress-gate.ts), and a page the gate does not carry reaches the browser as
+ * a proxy's answer. Measured 2026-11-12 with Playwright 1.64.1, per engine:
+ *
+ *  - https (a CONNECT the gate answered 403 or 502): goto rejects with
+ *    "net::ERR_TUNNEL_CONNECTION_FAILED at <the URL asked for>" in chromium,
+ *    "NS_ERROR_PROXY_FORBIDDEN" or "NS_ERROR_PROXY_BAD_GATEWAY" in firefox,
+ *    and "Download is starting" in webkit.
+ *  - plain http: goto resolves with the gate's 403 or 502 as the page in
+ *    chromium and webkit; firefox resolves with the 403 and rejects the
+ *    empty 502 with "NS_ERROR_NET_ERROR_RESPONSE".
+ *
+ * None of these says which host failed or why, so the gate is asked
+ * (ProxyForwarder.failure). A rejection asks about the last main-frame
+ * navigation request the page made during `go`: every engine reports each
+ * hop of a redirect as a request before it reports the failure, so after a
+ * redirect that is the host that failed and not the one asked for. A
+ * response is the gate's own answer when it came over plain http and carries
+ * the gate's mark, and the mark's value is the reason. The gate removes the
+ * header from every answer a plain-http site sends, so the mark alone says
+ * the gate wrote it. The record is not asked there: it is one entry per host
+ * and port for all of this browser's requests, so another request to the
+ * same host carried in the meantime deletes it, and a later failure of
+ * another request replaces it (gate-3, second review of 2026-11-12). Inside
+ * https a site can send the header itself, so there the mark is never read.
+ *
+ * "refused" and "unreachable" become an EgressNavigationError with a plain
+ * sentence. "upstream" (the configured proxy failed) keeps what the caller
+ * said before: a rejection is passed on as it is, and a plain-http answer,
+ * which used to come back as a loaded page, is rejected in the words
+ * chromium uses for the same failure of an https page, so the caller's proxy
+ * text applies to both. The gate's 400 ("bad-request", a request it could
+ * not send on) is rejected in those words too, as chromium reports the same
+ * answer to an https CONNECT. A rejection with no record goes back
+ * untouched, and so does an unmarked response. Playwright's own time limit is
+ * never read as the gate's: a record there could only be an older one.
+ *
+ * Without a gate (not hosted, or a socks proxy) this is `go()` and nothing
+ * else: no listener is added to the page.
+ */
+export async function gotoThroughGate<T extends Response | null>(gate: GateRecord | null | undefined, page: Page, url: string, go: () => Promise<T>): Promise<T> {
+  if (!gate || typeof gate.failure !== "function") return go();
+  let last = url;
+  // Called by the browser for every request of the page. It must not throw:
+  // a request without a frame (a service worker's) throws from frame().
+  const onRequest = (request: Request): void => {
+    try {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) last = request.url();
+    } catch { /* not this page's navigation */ }
+  };
+  page.on("request", onRequest);
+  try {
+    let response: T;
+    try {
+      response = await go();
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === "TimeoutError";
+      throw (timedOut ? null : gateNavigationError(gate, last, url)) ?? error;
+    }
+    if (!response) return response;
+    const answeredFor = response.url();
+    if (!/^http:/i.test(answeredFor)) return response;
+    const mark = response.headers()[EGRESS_HEADER.toLowerCase()];
+    if (!mark) return response;
+    const refusal = markedNavigationError(mark, answeredFor, url) ?? new Error(`net::ERR_TUNNEL_CONNECTION_FAILED at ${answeredFor}`);
+    // The gate's text is not a page to take a screenshot of or to extract from.
+    await page.goto("about:blank", { timeout: 5000 }).catch(() => { /* the failure below is what matters */ });
+    throw refusal;
+  } finally {
+    page.off("request", onRequest);
+  }
+}
+
 export class CBrowser {
   private config: CBrowserConfig;
   private paths: CBrowserPaths;
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
-  /** The local proxy the browser uses in place of one with a login (proxy-forwarder.ts). */
+  /** The local proxy the browser uses: the forwarder in place of a proxy with a login, or on the hosted server the egress gate (proxy-forwarder.ts). */
   private proxyForwarder: ProxyForwarder | null = null;
+  /** The same object when it is the egress gate: what navigate asks why a page was not carried. */
+  private gate: ProxyForwarder | null = null;
+  /** The launch in flight, restore of the saved page included: what a second launch() call is given. */
+  private launching: Promise<void> | null = null;
+  /** The part of that launch that starts the browser: what close() waits for. */
+  private starting: Promise<void> | null = null;
   /** Contexts whose new pages follow setColorScheme (one listener each). */
   private colorSchemeFollowers = new WeakSet<BrowserContext>();
   private page: Page | null = null;
@@ -723,10 +806,45 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Launch the browser.
+   *
+   * One launch at a time. A call that arrives while a launch is in flight
+   * gets that launch's promise, and so its outcome. Until 2026-11-12 the only
+   * guard was "is there a browser yet", which is false for the whole start:
+   * two getPage() calls in one tick started two browsers and kept one, and a
+   * close() during the start found nothing to close while the start went on
+   * (review, launch-wiring-3; the hosted server hands one CBrowser to every
+   * concurrent call of an account).
    */
   async launch(): Promise<void> {
+    if (this.launching) return this.launching;
     if (this.browser || this.context) return;
+    const starting = this.startBrowser();
+    const launching = starting.then(() => this.restoreSavedPage());
+    this.starting = starting;
+    this.launching = launching;
+    const started = (): void => { if (this.starting === starting) this.starting = null; };
+    const launched = (): void => { if (this.launching === launching) this.launching = null; };
+    starting.then(started, started);
+    launching.then(launched, launched);
+    return launching;
+  }
 
+  /**
+   * A browser start in flight, awaited: close() and forceClose() tear down
+   * only what has finished starting. Closing during the start closed the
+   * egress gate and left the browser, which then came up behind a proxy that
+   * was gone: every later navigation of that hosted session failed until the
+   * browser was reset (measured in the review of 2026-11-12, 3 to 15 ms after
+   * the launch began). Not hosted the same race left a browser running with
+   * nothing holding it. A start that fails has nothing to close. The restore
+   * of the saved page is not waited for: closing under it ends it, as before.
+   */
+  private async startSettled(): Promise<void> {
+    while (this.starting) await this.starting.catch(() => { /* a failed start left nothing behind */ });
+  }
+
+  /** The start of launch(): everything up to a browser, a context and a page. */
+  private async startBrowser(): Promise<void> {
     // An unconfigured geo region, or a Do Not Track / GPC value that is not 1
     // or 0, from the environment or the config file: refused here, before
     // anything opens, rather than when the config is built, so commands that
@@ -871,9 +989,12 @@ For more help: https://playwright.dev/docs/browsers
     // Through a proxy, WebRTC must not reach STUN servers directly: it would
     // give the page this machine's own address (measured 2026-11-02, chromium
     // and firefox both did). Firefox's pref is set either way, as a persistent
-    // profile keeps it.
+    // profile keeps it. On the hosted server the same holds without a
+    // configured proxy, since the egress gate is every browser's proxy there
+    // (webRtcGuard, proxy-forwarder.ts).
+    const webRtc = webRtcGuard(this.config.browser, this.config.proxy, this.config.headless);
     const privacyLaunch = this.config.browser === "firefox"
-      ? { firefoxUserPrefs: { ...privacy.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": !!this.config.proxy } }
+      ? { firefoxUserPrefs: { ...privacy.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": webRtc.firefoxProxyOnly } }
       : privacy.firefoxUserPrefs ? { firefoxUserPrefs: privacy.firefoxUserPrefs } : {};
 
     // Enable video recording if configured
@@ -918,28 +1039,20 @@ For more help: https://playwright.dev/docs/browsers
       );
     }
 
-    if (this.config.proxy && this.config.browser === "chromium") {
-      launchArgs.push("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
-    }
+    launchArgs.push(...webRtc.args);
 
     // Build proxy options for Playwright if configured. A proxy with a login is
     // reached through a local forwarder that holds the login, because
     // Playwright hands a launch proxy's login to every site in chromium and
-    // webkit (proxy-forwarder.ts).
+    // webkit (proxy-forwarder.ts). On the hosted server every browser goes
+    // through the egress gate instead, with or without a configured proxy,
+    // and a gate that cannot start throws here, before any browser exists
+    // (openBrowserRoute decides; egress-gate.ts).
     await this.closeProxyForwarder();
-    if (needsForwarder(this.config.proxy)) {
-      this.proxyForwarder = await startProxyForwarder(this.config.proxy);
-    }
-    const proxyOptions = this.config.proxy ? {
-      proxy: this.proxyForwarder
-        ? { server: this.proxyForwarder.server, bypass: this.config.proxy.bypass?.join(",") }
-        : {
-            server: this.config.proxy.server,
-            username: this.config.proxy.username,
-            password: this.config.proxy.password,
-            bypass: this.config.proxy.bypass?.join(","),
-          },
-    } : {};
+    const route = await openBrowserRoute(this.config.proxy);
+    this.proxyForwarder = route.forwarder;
+    this.gate = route.gated ? route.forwarder : null;
+    const proxyOptions = route.proxy ? { proxy: route.proxy } : {};
 
     // Helper to perform the actual browser launch
     const performLaunch = async (): Promise<void> => {
@@ -960,7 +1073,7 @@ For more help: https://playwright.dev/docs/browsers
           ...privacyLaunch,
         });
         await addPrivacyInitScript(this.context, privacy);
-        if (this.config.proxy && this.config.browser === "webkit") await this.context.addInitScript(NO_WEBRTC_SCRIPT);
+        if (webRtc.initScript) await this.context.addInitScript(webRtc.initScript);
         this.page = this.context.pages()[0] || await this.context.newPage();
         // Restore cookies snapshotted on the previous close — in particular
         // session cookies, which the persistent userDataDir drops between CLI
@@ -996,7 +1109,7 @@ For more help: https://playwright.dev/docs/browsers
         });
         this.context = await this.browser.newContext(contextOptions);
         await addPrivacyInitScript(this.context, privacy);
-        if (this.config.proxy && this.config.browser === "webkit") await this.context.addInitScript(NO_WEBRTC_SCRIPT);
+        if (webRtc.initScript) await this.context.addInitScript(webRtc.initScript);
         this.page = await this.context.newPage();
         if (this.config.verbose && this.config.proxy) {
           console.error(`🌐 Using proxy: ${this.config.proxy.server}${this.config.geoRegion ? ` (${this.config.geoRegion})` : ""}`);
@@ -1079,7 +1192,10 @@ For more help: https://playwright.dev/docs/browsers
 
     // Set up network request/response tracking for HAR
     this.setupNetworkTracking();
+  }
 
+  /** The end of launch(): the page of the last session, loaded again into the browser that has just started. */
+  private async restoreSavedPage(): Promise<void> {
     // Restore previous session URL if available (persistent mode only)
     if (this.config.persistent && !this.skipSessionRestore) {
       const savedSession = this.loadSessionState();
@@ -1088,10 +1204,14 @@ For more help: https://playwright.dev/docs/browsers
           if (this.config.verbose) {
             console.error(`🔄 Restoring session: ${savedSession.url}`);
           }
-          await this.page!.goto(savedSession.url, {
+          // Through the gate reading, as every load of a page of this browser
+          // is: on the hosted server the gate's refusal is a failed restore,
+          // not the saved page (review of 2026-11-12, wiring-1).
+          const page = this.page!;
+          await this.gotoThroughGate(page, savedSession.url, () => page.goto(savedSession.url, {
             waitUntil: "domcontentloaded",
             timeout: 15000,
-          });
+          }));
           this.onSessionRestored?.(savedSession.url);
           // Wait for network idle and JS hydration
           await this.page!.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
@@ -1112,6 +1232,9 @@ For more help: https://playwright.dev/docs/browsers
    * Close the browser.
    */
   async close(): Promise<void> {
+    // A browser that is still starting is closed once it has started (startSettled).
+    await this.startSettled();
+
     // Save current URL before closing so next invocation can restore it
     if (this.page && !this.page.isClosed()) {
       try {
@@ -1160,7 +1283,18 @@ For more help: https://playwright.dev/docs/browsers
   private async closeProxyForwarder(): Promise<void> {
     const forwarder = this.proxyForwarder;
     this.proxyForwarder = null;
+    this.gate = null;
     await forwarder?.close().catch(() => {});
+  }
+
+  /**
+   * Hosted server: run one main-frame navigation of this browser's page and
+   * read a failure as the egress gate saw it (gotoThroughGate). For code that
+   * calls page.goto on a page of this browser itself, as the agent-ready
+   * audit does. Not hosted it is `go()`.
+   */
+  gotoThroughGate<T extends Response | null>(page: Page, url: string, go: () => Promise<T>): Promise<T> {
+    return gotoThroughGate(this.gate, page, url, go);
   }
 
   /**
@@ -1232,10 +1366,12 @@ For more help: https://playwright.dev/docs/browsers
             if (this.config.verbose) {
               console.error(`🔄 Restoring session: ${savedSession.url}`);
             }
-            await this.page.goto(savedSession.url, {
+            // Through the gate reading, as in restoreSavedPage.
+            const page = this.page;
+            await this.gotoThroughGate(page, savedSession.url, () => page.goto(savedSession.url, {
               waitUntil: "domcontentloaded",
               timeout: 15000,
-            });
+            }));
             this.onSessionRestored?.(savedSession.url);
             // Wait for network idle and JS hydration
             await this.page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
@@ -1414,10 +1550,13 @@ For more help: https://playwright.dev/docs/browsers
         // Restore previous URL if available
         if (restoreUrl && restoreUrl !== "about:blank" && this.page) {
           try {
-            await this.page.goto(restoreUrl, {
+            // Through the gate reading: on the hosted server the gate's
+            // refusal is a restore that failed, not a recovered page.
+            const page = this.page;
+            await this.gotoThroughGate(page, restoreUrl, () => page.goto(restoreUrl, {
               waitUntil: "domcontentloaded",
               timeout: 15000,
-            });
+            }));
           } catch (e) {
             // URL restoration is best-effort, don't fail recovery
             if (this.config.verbose) {
@@ -1467,6 +1606,9 @@ For more help: https://playwright.dev/docs/browsers
    * Used when browser is unresponsive and normal close() would hang.
    */
   private async forceClose(): Promise<void> {
+    // A browser that is still starting is closed once it has started (startSettled).
+    await this.startSettled();
+
     // Remove listeners to prevent memory leaks
     if (this.page) {
       try {
@@ -1528,6 +1670,13 @@ For more help: https://playwright.dev/docs/browsers
         console.warn("[CBrowser] forceClose: browser.close() timed out after 2000ms — the chromium process may be orphaned. Playwright exposes no process handle to signal it; reap externally if these accumulate.");
       }
     }
+
+    // The forwarder or egress gate goes with the browser it was started for.
+    // It used to stay until the next launch closed it, so a recovery that
+    // never relaunched kept its two listeners, and a browser whose close
+    // timed out above kept a working way out. Without the gate that browser
+    // reaches nothing: every engine fails closed on a proxy that is gone.
+    await this.closeProxyForwarder();
   }
 
   /**
@@ -2434,6 +2583,18 @@ For more help: https://playwright.dev/docs/browsers
     const waitTimeout = options.waitTimeout ?? 10000;
     const waitForStability = options.waitForStability ?? (waitStrategy === "auto" || waitStrategy === "domcontentloaded");
 
+    // Every goto below goes through the egress gate's reading (gotoThroughGate):
+    // on the hosted server a page the gate did not carry is a plain error
+    // here, whichever engine reported it and however, and a plain-http answer
+    // the gate wrote itself is a failed navigation, not a page. Not hosted
+    // this is page.goto and nothing else. That error passes through the two
+    // text checks below untouched because its sentence holds none of the
+    // words they look for (a net:: code, "Timeout"), which
+    // tests/browser-route.test.ts holds it to.
+    const gate = this.gate;
+    const goto = (waitUntil: "commit" | "load" | "domcontentloaded" | "networkidle", timeout: number): Promise<Response | null> =>
+      gotoThroughGate(gate, page, url, () => page.goto(url, { waitUntil, timeout }));
+
     // Helper to detect proxy tunnel errors and provide actionable messages
     const wrapProxyError = (e: unknown): never => {
       const errMsg = (e as Error).message || "";
@@ -2467,19 +2628,19 @@ For more help: https://playwright.dev/docs/browsers
     try {
     if (waitStrategy === "commit") {
       // Fastest: don't wait at all after navigation commits
-      await page.goto(url, { waitUntil: "commit", timeout: this.config.timeout || 30000 });
+      await goto("commit", this.config.timeout || 30000);
     } else if (waitStrategy === "load") {
       // Standard: wait for load event
-      await page.goto(url, { waitUntil: "load", timeout: this.config.timeout || 30000 });
+      await goto("load", this.config.timeout || 30000);
     } else if (waitStrategy === "domcontentloaded") {
       // Fast: wait only for DOM
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: this.config.timeout || 30000 });
+      await goto("domcontentloaded", this.config.timeout || 30000);
       if (waitForStability) {
         await this.waitForStability(page, 2000);
       }
     } else if (waitStrategy === "networkidle") {
       // Strict: wait for network idle, may fail on SPAs
-      await page.goto(url, { waitUntil: "networkidle", timeout: this.config.timeout || 30000 });
+      await goto("networkidle", this.config.timeout || 30000);
     } else {
       // "auto" (default): Progressive loading strategy
       // Many SPAs (GitHub, NYT, BBC, etc.) never reach networkidle
@@ -2487,10 +2648,7 @@ For more help: https://playwright.dev/docs/browsers
 
       try {
         // Try networkidle first with short timeout
-        await page.goto(url, {
-          waitUntil: "networkidle",
-          timeout: networkIdleTimeout,
-        });
+        await goto("networkidle", networkIdleTimeout);
       } catch (e) {
         const error = e as Error;
         if (error.message?.includes("Timeout") || error.message?.includes("timeout")) {
@@ -2500,10 +2658,7 @@ For more help: https://playwright.dev/docs/browsers
           }
 
           // Fallback to domcontentloaded (rethrows on failure)
-          await page.goto(url, {
-            waitUntil: "domcontentloaded",
-            timeout: this.config.timeout || 30000,
-          });
+          await goto("domcontentloaded", this.config.timeout || 30000);
 
           // Wait for page to stabilize (no major DOM changes for 500ms)
           if (waitForStability) {
@@ -6374,7 +6529,8 @@ For more help: https://playwright.dev/docs/browsers
    */
   async loadSession(name: string): Promise<LoadSessionResult> {
     const page = await this.getPage();
-    return this.sessionManager.load(name, page, this.context!);
+    // Itself, so the saved page loads through the gate reading.
+    return this.sessionManager.load(name, page, this.context!, this);
   }
 
   /**

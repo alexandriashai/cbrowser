@@ -21,10 +21,19 @@
  * browser that runs afterwards is a different egress path with different
  * protections; this one gets its own.
  *
+ * Since 2026-11-12 each request goes out through hostedFetch. Before that the
+ * first hop was not address-checked at all and later hops only by
+ * isPrivateHost, which reads the host as text and never resolves a name. On a
+ * hosted server every hop now connects only to an address that was checked
+ * (hosted-fetch.ts); isPrivateHost stays as the early check that reads well.
+ *
  * Resolution failure returns the input unchanged with `error` set. That is the
  * pre-fix behaviour and it is the safe direction: a gate that DENIED whenever a
  * HEAD was blocked would break every site that rejects HEAD.
  */
+
+import { EgressRefused } from "./egress.js";
+import { hostedFetch, refusalKind } from "./hosted-fetch.js";
 
 export interface ResolvedUrl {
   /** Where the URL ends up, or the input if resolution failed. */
@@ -38,6 +47,9 @@ export interface ResolvedUrl {
   /** Set when resolution could not complete. `finalUrl` is then the input. */
   error?: string;
 }
+
+/** fetch, as far as this file uses it. The default is hostedFetch; tests pass a stand-in. */
+export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 const MAX_HOPS = 5;
 const PER_HOP_TIMEOUT_MS = 4000;
@@ -53,8 +65,11 @@ const TOTAL_TIMEOUT_MS = 9000;
 export function isPrivateHost(host: string): boolean {
   const h = host.toLowerCase().replace(/^\[|\]$/g, "");
   if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
-  // IPv6 loopback and unique-local / link-local.
-  if (h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80:")) return true;
+  // IPv6 loopback and unique-local / link-local. Only for an IPv6 literal
+  // (a host name has no colon): the fc and fd prefixes were tested on every
+  // host, so fda.gov, fcc.gov and fdic.gov read as private and a redirect to
+  // them was refused.
+  if (h.includes(":") && (h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80:"))) return true;
   const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!v4) return false;
   const [a, b] = [Number(v4[1]), Number(v4[2])];
@@ -81,7 +96,7 @@ export function sameSite(a: string, b: string): boolean {
  */
 export async function resolveFinalUrl(
   input: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: FetchLike = hostedFetch,
 ): Promise<ResolvedUrl> {
   let requestedHost = "";
   try {
@@ -97,6 +112,8 @@ export async function resolveFinalUrl(
 
   const deadline = Date.now() + TOTAL_TIMEOUT_MS;
   let current = input;
+  /** The URL the last followed redirect came from. */
+  let previous = input;
   let hops = 0;
 
   for (; hops <= MAX_HOPS; ) {
@@ -115,6 +132,29 @@ export async function resolveFinalUrl(
         signal: AbortSignal.timeout(Math.min(PER_HOP_TIMEOUT_MS, Math.max(1, deadline - Date.now()))),
       } as RequestInit);
     } catch (e) {
+      if (e instanceof EgressRefused && refusalKind(e) === "unresolved") {
+        // The name gave no address. That is a fetch that failed at this hop,
+        // as it was with the runtime's fetch, and not a refusal: reported as
+        // one until 2026-11-12, a typo or a DNS outage read in the log as an
+        // attempt on the internal network. This text goes to the server's
+        // log only, so it may say what the caller's message does not.
+        return { ...base, finalUrl: current, hops, hostChanged: !sameSite(new URL(current).hostname, requestedHost),
+          finalHost: new URL(current).hostname, error: `fetch failed: the name ${new URL(current).hostname} did not resolve` };
+      }
+      if (e instanceof EgressRefused) {
+        // The address check refused this hop at connection time (or the
+        // refusal names no kind, and is read as the stricter one). Reported
+        // as a hop blocked by isPrivateHost is: the chain ends at the URL
+        // before it, with an error, so the gate falls back to the requested host.
+        const refusedHost = new URL(current).hostname;
+        if (hops === 0) {
+          return { ...base, finalUrl: current, hops, hostChanged: false,
+            error: `private address space (${refusedHost}) refused` };
+        }
+        const finalHost = new URL(previous).hostname;
+        return { ...base, finalUrl: previous, hops: hops - 1, finalHost, hostChanged: !sameSite(finalHost, requestedHost),
+          error: `redirect into private address space (${refusedHost}) refused` };
+      }
       return { ...base, finalUrl: current, hops, hostChanged: !sameSite(new URL(current).hostname, requestedHost),
         finalHost: new URL(current).hostname, error: `fetch failed: ${(e as Error).message}` };
     }
@@ -146,6 +186,7 @@ export async function resolveFinalUrl(
       return { ...base, finalUrl: current, hops, finalHost, hostChanged: !sameSite(finalHost, requestedHost),
         error: `redirect into private address space (${next.hostname}) refused` };
     }
+    previous = current;
     current = next.toString();
     hops++;
   }

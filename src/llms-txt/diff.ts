@@ -14,6 +14,7 @@
  */
 
 import { generateLlmsTxt, type LlmsTxtResult } from "../remediation/llms-txt.js";
+import { hostedFetch } from "../hosted-fetch.js";
 
 /**
  * A page entry from llms.txt or site
@@ -297,7 +298,7 @@ export async function diffLlmsTxtFromUrl(
 
   // Fetch existing llms.txt
   try {
-    const response = await fetch(fetchUrl);
+    const response = await hostedFetch(fetchUrl);
     if (!response.ok) {
       // No existing llms.txt - treat everything as additions
       const freshResult = await generateLlmsTxt({

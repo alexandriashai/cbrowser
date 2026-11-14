@@ -28,54 +28,29 @@
 import { realpathSync } from "node:fs";
 import { isAbsolute, resolve, sep } from "node:path";
 import { isIP } from "node:net";
-import { lookup } from "node:dns/promises";
 import { scopedDataDir } from "../persona-scope.js";
+import { allowedEgressAddress, resolveForEgress } from "../egress.js";
 
 export type HostedRefusal = { isError: true; content: Array<{ type: "text"; text: string }> };
 
-function privateV4(ip: string): boolean {
-  const [a, b] = ip.split(".").map(Number);
-  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
-}
-
-/** The eight 16-bit groups of an IPv6 address (a trailing dotted IPv4 part allowed), or null. */
-function v6Groups(ip: string): number[] | null {
-  let s = ip.toLowerCase().replace(/%.*$/, "");
-  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(s);
-  if (dotted) {
-    if (isIP(dotted[1]) !== 4) return null;
-    const [a, b, c, d] = dotted[1].split(".").map(Number);
-    s = s.slice(0, -dotted[1].length) + ((a << 8) | b).toString(16) + ":" + ((c << 8) | d).toString(16);
-  }
-  const halves = s.split("::");
-  if (halves.length > 2) return null;
-  const head = halves[0] ? halves[0].split(":") : [];
-  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
-  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
-  if (fill < 0 || (halves.length === 1 && head.length !== 8)) return null;
-  const groups = [...head, ...Array<string>(fill).fill("0"), ...tail].map((g) => (/^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN));
-  return groups.length === 8 && groups.every((g) => g >= 0) ? groups : null;
-}
-
 /**
- * An address on this machine or a private, shared or link-local network.
+ * An address a caller's proxy may not be on: anything the hosted server does
+ * not connect to. The decision is the egress module's (egress.ts), the same
+ * one the egress gate and hostedFetch ask: global unicast, and not one of this
+ * machine's own addresses.
  *
- * An IPv4 address written inside IPv6 is judged as that IPv4 address. Only a
- * dotted "::ffff:" prefix used to be stripped, and the URL parser writes
- * [::ffff:127.0.0.1] as [::ffff:7f00:1], so loopback in that form passed as
- * public and reached the 127.0.0.1 forwarders (review, 2026-11-04).
+ * This file used to carry its own list of private ranges. That list knew
+ * nothing of the machine's own public address, so a caller could name it as a
+ * proxy and reach the server's own services from inside (P-10; noted when the
+ * 21.4.4 live check ran through exactly such a proxy). It also passed the
+ * documentation, benchmarking and 6to4 ranges and the v4-compatible spelling
+ * of a public address, all of which are refused now. An IPv4 address written
+ * inside IPv6 as v4-mapped or NAT64 is still judged as that IPv4 address
+ * (review, 2026-11-04: the URL parser writes [::ffff:127.0.0.1] as
+ * [::ffff:7f00:1]).
  */
 function privateAddress(ip: string): boolean {
-  if (isIP(ip) === 4) return privateV4(ip);
-  const g = v6Groups(ip);
-  if (!g) return true;
-  // ::a.b.c.d (compatible, so :: and ::1 too), ::ffff:a.b.c.d (mapped), 64:ff9b::a.b.c.d (NAT64).
-  const embedded = (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0 || g[5] === 0xffff)) ||
-    (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0));
-  if (embedded) return privateV4(`${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`);
-  // Unique local fc00::/7, link-local fe80::/10, site-local fec0::/10, multicast ff00::/8.
-  return (g[0] & 0xfe00) === 0xfc00 || (g[0] & 0xffc0) === 0xfe80 || (g[0] & 0xffc0) === 0xfec0 || (g[0] & 0xff00) === 0xff00;
+  return !allowedEgressAddress(ip);
 }
 
 let hostedMode = false;
@@ -191,10 +166,21 @@ export function refuseHostedUrl(tool: string, params: Record<string, unknown>): 
 
 /** Every address a name resolves to. A parameter so tests can answer as a rebinding name would. */
 export type ProxyResolver = (host: string) => Promise<string[]>;
-const lookupAll: ProxyResolver = async (host) => (await lookup(host, { all: true })).map((a) => a.address);
 
-/** A proxy parameter as a URL, its bare host, and the addresses the host stands for (none when it cannot be read). */
-async function proxyAddresses(text: string, resolve: ProxyResolver): Promise<{ url?: URL; host: string; addresses: string[] }> {
+/**
+ * A proxy parameter as a URL, its bare host, and the addresses the host stands
+ * for: none when it cannot be read, does not resolve, or has an answer the
+ * server does not connect to.
+ *
+ * The lookup is resolveForEgress's (egress.ts), the one the egress gate and
+ * hostedFetch use: a single lookup with a time limit, off the shared
+ * getaddrinfo queue. Until 2026-11-12 this function did its own dns.lookup
+ * with no limit at all, so a proxy name whose name server stayed silent held
+ * the tool call for as long as the system resolver waited, and without bound
+ * behind a full lookup queue (review, policy-6). A resolver passed in is
+ * called as given, under the same time limit.
+ */
+async function proxyAddresses(text: string, resolve?: ProxyResolver): Promise<{ url?: URL; host: string; addresses: string[] }> {
   let url: URL | undefined;
   let host = "";
   try {
@@ -202,9 +188,9 @@ async function proxyAddresses(text: string, resolve: ProxyResolver): Promise<{ u
     host = url.hostname.replace(/^\[(.*)\]$/, "$1");
   } catch { /* refused by the caller */ }
   let addresses: string[] = [];
-  if (host && isIP(host)) addresses = [host];
-  else if (host && host.toLowerCase() !== "localhost") {
-    try { addresses = await resolve(host); } catch { /* refused by the caller */ }
+  if (host && host.toLowerCase() !== "localhost") {
+    const answer = await resolveForEgress(host, resolve ? { resolve } : {});
+    if (answer.ok) addresses = answer.addresses;
   }
   return { url, host, addresses };
 }
@@ -219,11 +205,12 @@ function proxyNotAllowed(tool: string, message: string): HostedRefusal {
  * (proxy-forwarder.ts) and serve every process of their user, which on the
  * hosted servers is every account's: a caller who named 127.0.0.1:<port> as
  * its proxy would have used another account's login (found 2026-11-02). A host
- * name is resolved and refused when any address is private. This only checks;
+ * name is resolved and refused when any address is one the server does not
+ * connect to, its own public address included. This only checks;
  * a tool that opens a browser through the proxy uses pinHostedProxy, which also
  * makes the browser connect to the address checked.
  */
-export async function refuseHostedProxy(tool: string, proxy: unknown, resolve: ProxyResolver = lookupAll): Promise<HostedRefusal | null> {
+export async function refuseHostedProxy(tool: string, proxy: unknown, resolve?: ProxyResolver): Promise<HostedRefusal | null> {
   if (!hostedMode || proxy === undefined || proxy === null || proxy === "") return null;
   const { addresses } = await proxyAddresses(String(proxy), resolve);
   if (addresses.length === 0 || addresses.some(privateAddress)) {
@@ -246,7 +233,7 @@ export async function refuseHostedProxy(tool: string, proxy: unknown, resolve: P
 export async function pinHostedProxy(
   tool: string,
   proxy: string | undefined,
-  resolve: ProxyResolver = lookupAll,
+  resolve?: ProxyResolver,
 ): Promise<{ ok: true; proxy: string | undefined } | { ok: false; result: HostedRefusal }> {
   if (!hostedMode || !proxy) return { ok: true, proxy };
   const { url, host, addresses } = await proxyAddresses(proxy, resolve);

@@ -3140,12 +3140,15 @@ async function executeAction(
         try {
           const escapedSel = selector.replace(/"/g, '\\"');
           const href = await page.locator(`a:has-text("${escapedSel}")`).first().getAttribute('href').catch(() => null);
+          // Through the browser's gate reading: on the hosted server a link the
+          // egress gate did not carry is a follow that failed, not a new page
+          // holding the gate's refusal (review of 2026-11-12, wiring-1).
           if (href && href.startsWith('http')) {
-            await page.goto(href, { waitUntil: 'domcontentloaded', timeout: param("journey.action.gotoTimeoutMs") });
+            await browser.gotoThroughGate(page, href, () => page.goto(href, { waitUntil: 'domcontentloaded', timeout: param("journey.action.gotoTimeoutMs") }));
             urlAfter = page.url();
           } else if (href && href.startsWith('/')) {
-            const base = new URL(urlBefore).origin;
-            await page.goto(base + href, { waitUntil: 'domcontentloaded', timeout: param("journey.action.gotoTimeoutMs") });
+            const target = new URL(urlBefore).origin + href;
+            await browser.gotoThroughGate(page, target, () => page.goto(target, { waitUntil: 'domcontentloaded', timeout: param("journey.action.gotoTimeoutMs") }));
             urlAfter = page.url();
           }
         } catch {}

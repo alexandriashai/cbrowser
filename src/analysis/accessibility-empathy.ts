@@ -37,7 +37,7 @@ import { type Page } from "playwright";
 import { weightKeyFor, barrierWeightFor, weightedSeverity } from "../visual/perceptual-transport.js";
 import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
-import { navigationError as toNavigationError } from "../navigation-errors.js";
+import { navigationError as toNavigationError, EgressNavigationError } from "../navigation-errors.js";
 import type {
   EmpathyAuditResult,
   EmpathyAuditOptions,
@@ -2199,7 +2199,9 @@ async function simulateAccessibilityJourney(
   scope: "viewport" | "full_page" = "viewport",
   maxSteps: number,
   maxTime: number,
-  wcagLevel: "A" | "AA" | "AAA" = "AA"
+  wcagLevel: "A" | "AA" | "AAA" = "AA",
+  /** The CBrowser that owns `page`, or null for a page the caller passed in. */
+  browser: CBrowser | null = null
 ): Promise<AccessibilityEmpathyResult> {
   const startTime = Date.now();
   const ctx: BarrierContext = {
@@ -2230,8 +2232,13 @@ async function simulateAccessibilityJourney(
 
   try {
     // Navigate to URL. A failed load is reported in plain words (unresolvable
-    // host, refused...) rather than Playwright's raw error and Call log.
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 })
+    // host, refused...) rather than Playwright's raw error and Call log. On
+    // the page of a CBrowser the load goes through its gate reading, so on the
+    // hosted server the egress gate's refusal is a failed load and not a page
+    // to audit (review of 2026-11-12, wiring-1). A page the caller passed in
+    // has no CBrowser here, and no MCP tool passes one.
+    const go = () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
+    await (browser ? browser.gotoThroughGate(page, url, go) : go())
       .catch((e: unknown) => { throw toNavigationError(e, url); });
     await page.waitForTimeout(1500);
 
@@ -2541,6 +2548,13 @@ async function simulateAccessibilityJourney(
     // Two things follow: record the error where the JSON can see it, and do not
     // charge a goal deduction for a traversal that never ran. An unmeasured goal
     // is unknown, not failed. (2026-07-29)
+    //
+    // A page the hosted server's egress gate did not carry is not degraded:
+    // nothing of the site was opened, so there is no page to score at all,
+    // and the audit ends with the plain sentence (wiring-1, second review of
+    // 2026-11-12). Only the first load above throws this error: the journey
+    // below catches its own. Not hosted it is never thrown.
+    if (e instanceof EgressNavigationError) throw e;
     navigationError = (e as Error).message;
     ctx.frictionPoints.push({
       step: 0,
@@ -3846,7 +3860,9 @@ export async function runEmpathyAudit(
         auditScope,
         maxSteps,
         maxTime,
-        wcagLevel
+        wcagLevel,
+        // The CBrowser made above, or null for the caller's own page.
+        browser,
       );
 
       // v18.28.0: Run attention analysis FIRST so we can pass page-specific data to perceptual transport

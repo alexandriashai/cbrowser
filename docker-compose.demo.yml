@@ -23,6 +23,15 @@ services:
       - PORT=3000
       # Multi-user safety: session-scoped screenshots with auto-cleanup
       - CBROWSER_SCREENSHOT_RETENTION=1h
+      # The server opens only public internet addresses, and never its own.
+      # Inside this container it sees only the container's address, not the
+      # host's public one, so name every public address that reaches the host
+      # here. Entries are separated by commas; each is an address, or a range
+      # written as address/N. Without it a caller can ask the server to open
+      # the host's own public address. Example, with documentation addresses:
+      # - CBROWSER_OWN_ADDRESSES=203.0.113.7,2001:db8:1::/48
+      # Do not set PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK here:
+      # the server refuses to start while it is set.
 
     # === RESOURCE LIMITS ===
     # These protect your host from demo abuse

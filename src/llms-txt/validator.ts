@@ -13,6 +13,67 @@
  * @since 17.0.0
  */
 
+import { hostedFetch } from "../hosted-fetch.js";
+import { isHostedMode } from "../mcp-tools/hosted-inputs.js";
+
+/**
+ * How many links are checked at the same time. Until 2026-11-12 every link
+ * was requested at once (Promise.all over the whole list): 2000 links in an
+ * 88 KB file opened 2000 connections from this machine in one moment.
+ */
+export const LINK_CHECK_POOL = 8;
+
+/**
+ * The most links one call checks on a hosted server, whatever
+ * maxLinksToValidate says. The tool's schema takes any number (an existing
+ * caller's value must not start failing validation), so the bound is here,
+ * and a call that asked for more is told in its result.
+ */
+export const HOSTED_MAX_LINKS = 100;
+
+type Link = { text: string; url: string; line: number };
+
+/**
+ * The links one call checks, and how many the caller's number selected. The
+ * two differ only on a hosted server, when the selection is longer than
+ * HOSTED_MAX_LINKS. The bound is put on the list and not on the number: a
+ * negative number selects all but the last few, and Infinity selects all.
+ */
+function linksToCheck(allLinks: Link[], maxLinksToValidate: number): { links: Link[]; asked: number } {
+  const selected = allLinks.slice(0, maxLinksToValidate);
+  return { links: isHostedMode() ? selected.slice(0, HOSTED_MAX_LINKS) : selected, asked: selected.length };
+}
+
+/**
+ * How long a hosted link check may run past linkTimeout, for all its links
+ * together. Each link still has its own linkTimeout; this bounds the call,
+ * which with a pool of eight would otherwise take linkTimeout for every
+ * eight dead links (thirteen times as long for a hundred).
+ */
+export const HOSTED_LINK_CHECK_MARGIN_MS = 5_000;
+
+/** The longest delay setTimeout takes; a larger one fires at once. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/**
+ * `work` over every item, at most `size` of them at a time, with the results
+ * in the order of the items. `work` must not reject. Once `signal` aborts no
+ * item is started; `skipped` gives the result of each item that was not.
+ */
+async function inPool<T, R>(items: readonly T[], size: number, signal: AbortSignal, work: (item: T) => Promise<R>, skipped: (item: T) => R): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length && !signal.aborted) {
+      const index = next++;
+      results[index] = await work(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker));
+  for (let i = next; i < items.length; i++) results[i] = skipped(items[i]);
+  return results;
+}
+
 /**
  * Validation error with severity
  */
@@ -298,38 +359,65 @@ export async function validateLlmsTxtLinks(
   const { allLinks } = parseLlmsTxt(content);
 
   // Limit number of links to validate
-  const linksToCheck = allLinks.slice(0, maxLinksToValidate);
+  const { links } = linksToCheck(allLinks, maxLinksToValidate);
 
-  // Check links in parallel with timeout
-  const results = await Promise.all(
-    linksToCheck.map(async (link) => {
-      // Skip relative URLs and anchors
-      if (link.url.startsWith("/") || link.url.startsWith("#")) {
-        return { link, ok: true, skipped: true };
-      }
+  type Checked = { link: Link; ok: boolean; skipped?: boolean; status?: number; error?: string };
+  const isRelative = (link: Link): boolean => link.url.startsWith("/") || link.url.startsWith("#");
 
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), linkTimeout);
+  // One link, with its own timeout. `deadline` also aborts it, as its own
+  // timer would, so a link cut short by the deadline reads as one that timed out.
+  const check = async (link: Link, deadline?: AbortSignal): Promise<Checked> => {
+    // Skip relative URLs and anchors
+    if (isRelative(link)) {
+      return { link, ok: true, skipped: true };
+    }
 
-        const response = await fetch(link.url, {
-          method: "HEAD",
-          signal: controller.signal,
-          redirect: "follow",
-        });
+    const controller = new AbortController();
+    const onDeadline = (): void => controller.abort();
+    try {
+      const timeoutId = setTimeout(() => controller.abort(), linkTimeout);
+      deadline?.addEventListener("abort", onDeadline, { once: true });
 
-        clearTimeout(timeoutId);
+      const response = await hostedFetch(link.url, {
+        method: "HEAD",
+        signal: controller.signal,
+        redirect: "follow",
+      });
 
-        return { link, ok: response.ok, status: response.status };
-      } catch (error) {
-        return {
-          link,
-          ok: false,
-          error: (error as Error).message,
-        };
-      }
-    })
-  );
+      clearTimeout(timeoutId);
+
+      return { link, ok: response.ok, status: response.status };
+    } catch (error) {
+      return {
+        link,
+        ok: false,
+        error: (error as Error).message,
+      };
+    } finally {
+      deadline?.removeEventListener("abort", onDeadline);
+    }
+  };
+
+  let results: Checked[];
+  if (!isHostedMode()) {
+    // Not hosted: every link at once, as before the hosted limits were added.
+    results = await Promise.all(links.map((link) => check(link)));
+  } else {
+    // Hosted: eight at a time, and the whole check ends HOSTED_LINK_CHECK_MARGIN_MS
+    // after one linkTimeout. A link still out then is aborted; one not started
+    // gets what an aborted link gets, the message of an aborted request.
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), Math.min(linkTimeout + HOSTED_LINK_CHECK_MARGIN_MS, MAX_TIMER_MS));
+    try {
+      results = await inPool(links, LINK_CHECK_POOL, deadline.signal, (link) => check(link, deadline.signal), (link): Checked => {
+        if (isRelative(link)) return { link, ok: true, skipped: true };
+        const reason: unknown = deadline.signal.reason;
+        return { link, ok: false, error: reason instanceof Error ? reason.message : String(reason) };
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   for (const result of results) {
     if (result.skipped) continue;
@@ -374,6 +462,19 @@ export async function validateLlmsTxt(
     linkIssues = await validateLlmsTxtLinks(content, options);
     linksValidated = Math.min(allLinks.length, options.maxLinksToValidate || 20);
     brokenLinks = linkIssues.filter((i) => i.type === "link").length;
+    // The same selection validateLlmsTxtLinks made. On a hosted server it
+    // stops at HOSTED_MAX_LINKS; the note below is not a broken link and is
+    // added after those were counted.
+    const { links, asked } = linksToCheck(allLinks, options.maxLinksToValidate ?? 20);
+    if (links.length < asked) {
+      linksValidated = links.length;
+      linkIssues.push({
+        line: allLinks[links.length].line,
+        severity: "warning",
+        type: "link",
+        message: `Only the first ${links.length} of the ${asked} links asked for were checked: a hosted server checks at most ${HOSTED_MAX_LINKS} links in one call.`,
+      });
+    }
   }
 
   const allIssues = [...formatIssues, ...linkIssues];
@@ -414,7 +515,7 @@ export async function validateLlmsTxtFromUrl(
   }
 
   try {
-    const response = await fetch(llmsTxtUrl);
+    const response = await hostedFetch(llmsTxtUrl);
     if (!response.ok) {
       return {
         valid: false,

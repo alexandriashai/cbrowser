@@ -62,6 +62,7 @@ import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
 import { withChargeScope } from "./charge-scope.js";
 import { refundCharge } from "./mcp-tools/credit-refund.js";
 import { withRequestIdentity } from "./request-context.js";
+import { checkOwnAddressConfig } from "./egress.js";
 
 /**
  * The account owning this request, or null when it carries no account key or
@@ -2234,6 +2235,43 @@ export interface RemoteMcpServerOptions {
 export type { ToolRegistrationContext };
 
 /**
+ * What the remote server checks about its egress rule before it starts, and
+ * the one line it logs about it.
+ *
+ * A hosted server opens only public internet addresses, and never its own
+ * (egress.ts). Two settings decide whether that rule can hold, and until
+ * 2026-11-12 nothing looked at either before the first tool call (review,
+ * regression-9 and policy-4):
+ *
+ *  - CBROWSER_OWN_ADDRESSES names the addresses that reach this machine
+ *    without being on one of its interfaces (Docker, NAT, a load balancer).
+ *    An entry that cannot be read makes every address refused, so the server
+ *    would start and then fail every page. It stops here instead, with the
+ *    variable and the entry named.
+ *  - PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK lets chromium reach
+ *    this machine's own addresses around the egress gate, so no hosted
+ *    browser is started while it is set (openBrowserRoute). The server would
+ *    start and then fail every browser launch. It stops here instead.
+ *
+ * The line gives counts, not addresses: this log is read more widely than
+ * the machine's interface list, and the server has no switch for verbose
+ * logging. Throws an Error whose message is for the operator.
+ */
+export function hostedEgressStartupCheck(): string {
+  const loopbackSwitch = "PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK";
+  if (process.env[loopbackSwitch]) {
+    throw new Error(`The remote MCP server was not started: ${loopbackSwitch} is set, and with it chromium connects to this machine's own addresses around the egress gate, so no browser could be started. Unset it and start the server again.`);
+  }
+  let own: { v4: number; v6: number };
+  try {
+    own = checkOwnAddressConfig();
+  } catch (error) {
+    throw new Error(`The remote MCP server was not started: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return `Egress: only public internet addresses are opened. Refused as this server's own: ${own.v4} IPv4 and ${own.v6} IPv6 addresses or ranges (interfaces, the kernel's local table, CBROWSER_OWN_ADDRESSES).`;
+}
+
+/**
  * Start the remote HTTP MCP server
  * @param options - Optional configuration including tool extension callback
  */
@@ -2256,6 +2294,11 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   // runs as root for many accounts; the stdio server and the CLI never set it.
   // (sec-paths, 2026-10-10 security review; see mcp-tools/hosted-inputs.ts)
   setHostedMode(true);
+
+  // The egress rule's own settings, checked before anything listens: a
+  // setting that would make every page or every browser fail stops the start
+  // here, with the reason (hostedEgressStartupCheck above).
+  console.log(hostedEgressStartupCheck());
 
   const port = parseInt(process.env.PORT || "3000", 10);
   const host = process.env.HOST || "0.0.0.0";

@@ -13,6 +13,7 @@
 
 import { existsSync, readFileSync } from "fs";
 import { VERSION } from "../version.js";
+import { hostedFetch } from "../hosted-fetch.js";
 
 import { CBrowser } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
@@ -190,7 +191,7 @@ export async function parseSitemap(sitemapUrl: string): Promise<SitePage[]> {
   const pages: SitePage[] = [];
 
   try {
-    const response = await fetch(sitemapUrl);
+    const response = await hostedFetch(sitemapUrl);
     const xml = await response.text();
 
     // Simple XML parsing for sitemap

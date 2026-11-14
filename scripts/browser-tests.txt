@@ -144,3 +144,11 @@ tests/geo-region-browser.test.ts
 # Runs cognitive_effort and site_cognitive_assessment on a local page that
 # reports the time zone and geolocation its chromium sees.
 tests/browser-setup-user-context.test.ts
+# Opens pages in chromium, firefox and webkit and in crossBrowserDiff with
+# hosted mode on, against listeners on this machine's own addresses, and
+# counts what reached them through the egress gate. The tests of the same
+# change that start no browser (the route a launch gets, the WebRTC settings,
+# what a caller is told, the server's start-up check) are in
+# tests/browser-route.test.ts, which is NOT listed here so that the release
+# gate runs it.
+tests/hosted-egress-browser.test.ts

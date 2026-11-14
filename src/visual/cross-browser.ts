@@ -16,10 +16,10 @@ import { VERSION } from "../version.js";
 import { join } from "path";
 import { defaultLocale, effectiveDataDir, getPaths, privacySignalsFor, proxyFor } from "../config.js";
 import { addPrivacyInitScript, privacySetup } from "../privacy-signals.js";
-import { needsForwarder, startProxyForwarder, NO_WEBRTC_SCRIPT, type ProxyForwarder } from "../proxy-forwarder.js";
+import { openBrowserRoute, webRtcGuard, type ProxyForwarder } from "../proxy-forwarder.js";
 import { uniqueStamp } from "../temp-files.js";
 
-import { CBrowser } from "../browser.js";
+import { CBrowser, gotoThroughGate } from "../browser.js";
 import { browserLaunchConfig } from "../browser-options.js";
 import { DEVICE_PRESETS, resolveDevice } from "../devices.js";
 import { navigationError } from "../navigation-errors.js";
@@ -39,6 +39,11 @@ import { analyzeVisualDifferences } from "./regression.js";
 /**
  * Check which browsers are actually available for launching.
  * Returns a map of browser name -> available boolean.
+ *
+ * Each engine is launched and closed without a page or a context, so nothing
+ * a caller names is ever loaded here. That is why this launch does not go
+ * through openBrowserRoute, and why tests/hosted-launch-coverage.test.ts
+ * lists it by name: a page opened here would need the route first.
  */
 async function checkBrowserAvailability(
   browsers: SupportedBrowser[]
@@ -817,22 +822,22 @@ export async function crossBrowserDiff(
       const setup = privacySetup(browserName, privacy);
       // As CBrowser launches (browser.ts): a proxy's login stays in a local
       // forwarder, WebRTC does not go around the proxy, and CBROWSER_PROXY
-      // without a region skips certificate errors.
-      if (needsForwarder(route.proxy)) forwarder = await startProxyForwarder(route.proxy);
+      // without a region skips certificate errors. On the hosted server this
+      // browser goes through the egress gate like every other, and an engine
+      // whose gate cannot start is not launched: the error below is its result
+      // (openBrowserRoute and webRtcGuard, proxy-forwarder.ts).
+      const headless = options.headless ?? true;
+      const webRtc = webRtcGuard(browserName, route.proxy, headless);
+      const launchRoute = await openBrowserRoute(route.proxy);
+      forwarder = launchRoute.forwarder;
       const firefoxUserPrefs = browserName === "firefox"
-        ? { ...setup.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": !!route.proxy }
+        ? { ...setup.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": webRtc.firefoxProxyOnly }
         : setup.firefoxUserPrefs;
       browser = await launcher.launch({
-        headless: options.headless ?? true,
+        headless,
         ...(firefoxUserPrefs ? { firefoxUserPrefs } : {}),
-        ...(route.proxy && browserName === "chromium" ? { args: ["--force-webrtc-ip-handling-policy=disable_non_proxied_udp"] } : {}),
-        ...(route.proxy
-          ? {
-              proxy: forwarder
-                ? { server: forwarder.server, bypass: route.proxy.bypass?.join(",") }
-                : { ...route.proxy, bypass: route.proxy.bypass?.join(",") },
-            }
-          : {}),
+        ...(webRtc.args.length > 0 ? { args: webRtc.args } : {}),
+        ...(launchRoute.proxy ? { proxy: launchRoute.proxy } : {}),
       });
       const page = await browser.newPage({
         ...contextOptions,
@@ -843,10 +848,15 @@ export async function crossBrowserDiff(
       // page of it, and a page-level script missed it (its WebRTC sent STUN
       // around the proxy; its navigator lacked the privacy signals).
       await addPrivacyInitScript(page.context(), setup);
-      if (route.proxy && browserName === "webkit") await page.context().addInitScript(NO_WEBRTC_SCRIPT);
+      if (webRtc.initScript) await page.context().addInitScript(webRtc.initScript);
 
       const startTime = Date.now();
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+      // Read as the egress gate saw it when this engine was started behind
+      // the gate (gotoThroughGate, browser.ts): a page the hosted server does
+      // not open, or that did not answer, is this engine's error in plain
+      // words, over https and over plain http alike, and is not measured or
+      // captured below as if it had loaded.
+      await gotoThroughGate(launchRoute.gated ? forwarder : null, page, url, () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }))
         .catch((e: unknown) => { throw navigationError(e, url); });
       const loadTime = Date.now() - startTime;
 

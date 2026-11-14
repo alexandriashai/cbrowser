@@ -16,6 +16,7 @@ import { type Page, type Browser } from "playwright";
 import { VERSION } from "../version.js";
 import { CBrowser } from "../browser.js";
 import { navigationError } from "../navigation-errors.js";
+import { hostedFetch } from "../hosted-fetch.js";
 import { launchWithLightpandaFallback, isLightpandaConfigured } from "../lightpanda.js";
 import { defaultGeoRegion, defaultLocale, privacySignalsFor, proxyFor } from "../config.js";
 import { addPrivacyInitScript, privacySetup } from "../privacy-signals.js";
@@ -241,7 +242,7 @@ async function detectClientOnlyContent(ctx: DetectionContext): Promise<void> {
   let rawChars = 0;
   let fetched = false;
   try {
-    const res = await fetch(url, {
+    const res = await hostedFetch(url, {
       redirect: "follow",
       headers: { "user-agent": "cbrowser-agent-ready-audit/1.0 (no-js probe)" },
       signal: AbortSignal.timeout(15000),
@@ -1608,7 +1609,7 @@ async function detectLlmsTxt(ctx: DetectionContext): Promise<void> {
     // What this gives up: the page's cookies and auth. `/llms.txt` is a public
     // file by definition, so that costs nothing real, and an OPTIONAL signal
     // must never be able to take the whole report down with it.
-    const response = await fetch(llmsTxtUrl, {
+    const response = await hostedFetch(llmsTxtUrl, {
       redirect: "follow",
       signal: AbortSignal.timeout(5000),
     });
@@ -2669,7 +2670,16 @@ export async function runAgentReadyAudit(
 
       // Navigate to URL (skip if external page provided — already navigated)
       if (!externalPage) try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: navigationTimeout });
+        // Through the CBrowser that owns the page when there is one, so that
+        // on the hosted server a page the egress gate did not carry is read
+        // from the gate's record (gotoThroughGate, browser.ts): an address the
+        // server does not open, or a host that did not answer, is then an
+        // error in plain words, which none of the text checks below matches,
+        // and not "the site is blocking proxies" (review of 2026-11-12,
+        // launch-wiring-1 and regression-3). Lightpanda's page has no gate:
+        // the CLI alone uses it.
+        const go = () => page.goto(url, { waitUntil: "domcontentloaded", timeout: navigationTimeout });
+        await (ownedCBrowser ? ownedCBrowser.gotoThroughGate(page, url, go) : go());
       } catch (navError) {
         const errMsg = navError instanceof Error ? navError.message : String(navError);
         if (errMsg.includes("ERR_TUNNEL_CONNECTION_FAILED") || errMsg.includes("ERR_PROXY_CONNECTION_FAILED")) {

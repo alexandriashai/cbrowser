@@ -8,6 +8,7 @@
 import { z } from "zod";
 import type { McpServer } from "../types.js";
 import { refuseHostedPath, refuseHostedUrl } from "../hosted-inputs.js";
+import { hostedFetch } from "../../hosted-fetch.js";
 import {
   securityAuditHandler,
   type SecurityAuditHandlerOptions,
@@ -76,7 +77,7 @@ export function registerSecurityTools(server: McpServer): void {
       if (mcp_url) {
         try {
           // Connect to remote MCP server and fetch tool list
-          const initResponse = await fetch(mcp_url, {
+          const initResponse = await hostedFetch(mcp_url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -97,7 +98,7 @@ export function registerSecurityTools(server: McpServer): void {
           if (!initData) throw new Error("No response from MCP server");
 
           // Fetch tool list
-          const toolsResponse = await fetch(mcp_url, {
+          const toolsResponse = await hostedFetch(mcp_url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

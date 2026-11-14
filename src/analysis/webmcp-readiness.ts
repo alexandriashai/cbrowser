@@ -8,6 +8,7 @@
  */
 
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
+import { hostedFetch } from "../hosted-fetch.js";
 import type {
   WebMCPReadyResult,
   WebMCPReadyOptions,
@@ -276,7 +277,7 @@ async function runTier1ServerImplementation(
     }
 
     // Send MCP initialize request
-    const response = await fetch(serverUrl, {
+    const response = await hostedFetch(serverUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -347,7 +348,7 @@ async function runTier1ServerImplementation(
     if (options.apiKey) headers["Authorization"] = `Bearer ${options.apiKey}`;
     else if (options.oauthToken) headers["Authorization"] = `Bearer ${options.oauthToken}`;
 
-    const response = await fetch(serverUrl, {
+    const response = await hostedFetch(serverUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -420,7 +421,7 @@ async function runTier1ServerImplementation(
     else if (options.oauthToken) headers["Authorization"] = `Bearer ${options.oauthToken}`;
 
     // Send invalid request to test error handling
-    const response = await fetch(serverUrl, {
+    const response = await hostedFetch(serverUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -520,7 +521,7 @@ async function runTier2ToolDiscoverability(
     else if (options.oauthToken) headers["Authorization"] = `Bearer ${options.oauthToken}`;
 
     // Initialize first
-    await fetch(serverUrl, {
+    await hostedFetch(serverUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -536,7 +537,7 @@ async function runTier2ToolDiscoverability(
     });
 
     // List tools
-    const response = await fetch(serverUrl, {
+    const response = await hostedFetch(serverUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -671,7 +672,7 @@ async function runTier3Instrumentation(
 
   // Check 3.1: Health endpoint
   try {
-    const response = await fetch(`${baseUrl}/health`, { method: "GET" });
+    const response = await hostedFetch(`${baseUrl}/health`, { method: "GET" });
     const hasHealth = response.ok;
 
     checks.push({
@@ -702,7 +703,7 @@ async function runTier3Instrumentation(
 
   // Check 3.2: Info endpoint
   try {
-    const response = await fetch(`${baseUrl}/info`, { method: "GET" });
+    const response = await hostedFetch(`${baseUrl}/info`, { method: "GET" });
     if (response.ok) {
       const data = await parseMcpResponse(response) as { name?: string; version?: string };
       const hasVersion = data?.version !== undefined;
@@ -744,7 +745,7 @@ async function runTier3Instrumentation(
 
   // Check 3.3: OAuth metadata (for Claude.ai compatibility)
   try {
-    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`, {
+    const response = await hostedFetch(`${baseUrl}/.well-known/oauth-protected-resource`, {
       method: "GET",
     });
 
@@ -992,7 +993,7 @@ async function runTier6Documentation(
 
   for (const path of ["/llms.txt", "/webmcp.txt", "/.well-known/llms.txt"]) {
     try {
-      const response = await fetch(`${baseUrl}${path}`, { method: "GET" });
+      const response = await hostedFetch(`${baseUrl}${path}`, { method: "GET" });
       if (response.ok) {
         llmsContent = await response.text();
         hasLlmsTxt = llmsContent.length > 50;
@@ -1021,7 +1022,7 @@ async function runTier6Documentation(
   // Check 6.2: README or docs endpoint
   let hasReadme = false;
   try {
-    const response = await fetch(`${baseUrl}/docs`, { method: "GET" });
+    const response = await hostedFetch(`${baseUrl}/docs`, { method: "GET" });
     hasReadme = response.ok;
   } catch {
     // No docs endpoint
@@ -1029,7 +1030,7 @@ async function runTier6Documentation(
 
   if (!hasReadme) {
     try {
-      const response = await fetch(`${baseUrl}/README`, { method: "GET" });
+      const response = await hostedFetch(`${baseUrl}/README`, { method: "GET" });
       hasReadme = response.ok;
     } catch {
       // No README endpoint

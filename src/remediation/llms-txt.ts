@@ -71,10 +71,15 @@ export interface LlmsTxtOptions {
 }
 
 /**
- * Extract data from a single page
+ * Extract data from a single page of `browser`.
+ *
+ * The load goes through the browser's gate reading: on the hosted server a
+ * page the egress gate did not carry rejects with the plain sentence navigate
+ * gives, and is not read as the site (over plain http it used to come back
+ * as the gate's refusal text; review of 2026-11-12, wiring-1).
  */
-async function extractPageData(page: Page, url: string): Promise<PageData> {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+async function extractPageData(browser: CBrowser, page: Page, url: string): Promise<PageData> {
+  await browser.gotoThroughGate(page, url, () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }))
     .catch((e: unknown) => { throw navigationError(e, url); });
 
   const data = await page.evaluate(() => {
@@ -356,7 +361,7 @@ export async function generateLlmsTxt(
     const page = await browser.getPage();
 
     // Extract main page data
-    const mainPageData = await extractPageData(page, url);
+    const mainPageData = await extractPageData(browser, page, url);
     const pages: PageData[] = [mainPageData];
 
     // Optionally crawl linked pages
@@ -376,7 +381,7 @@ export async function generateLlmsTxt(
       for (const link of toCrawl) {
         try {
           const fullUrl = new URL(link.href, url).toString();
-          const pageData = await extractPageData(page, fullUrl);
+          const pageData = await extractPageData(browser, page, fullUrl);
           pages.push(pageData);
         } catch (error) {
           // Skip failed pages

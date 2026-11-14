@@ -252,7 +252,11 @@ export function registerBrowserManagementTools(
       // newTab, not context.newPage(): it applies a color scheme set on this
       // session before the tab's first load (see CBrowser.newTab).
       const page = await b.newTab();
-      if (url) await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+      // Through the session's gate reading, so on the hosted server the egress
+      // gate's refusal is a load that failed and is not left in the new tab as
+      // its page (review of 2026-11-12, wiring-1). A failed load is not
+      // reported here, as before.
+      if (url) await b.gotoThroughGate(page, url, () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })).catch(() => {});
       // Switch to new tab
       (b as any).page = page;
       const title = await page.title().catch(() => "");

@@ -236,7 +236,10 @@ export async function runChaosTest(
     let baselineLoadTimeMs: number | undefined;
     try {
       const baselineStart = Date.now();
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
+      // Both loads go through the browser's gate reading, so on the hosted
+      // server the egress gate's refusal is a failed load and not a page that
+      // handled chaos (review of 2026-11-12, wiring-1).
+      await browser.gotoThroughGate(page, url, () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 }));
       baselineLoadTimeMs = Date.now() - baselineStart;
       await page.goto("about:blank"); // Reset
     } catch {
@@ -340,7 +343,7 @@ export async function runChaosTest(
     // Navigate with chaos applied
     const navStart = Date.now();
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await browser.gotoThroughGate(page, url, () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }));
       pageCompleted = true;
       loadTimeMs = Date.now() - navStart;
     } catch (e: any) {

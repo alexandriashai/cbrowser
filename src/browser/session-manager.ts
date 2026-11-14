@@ -17,6 +17,8 @@ import type { Page, BrowserContext, Cookie } from "playwright";
 import type { SavedSession, LoadSessionResult, SessionMetadata } from "../types.js";
 import { navigationError } from "../navigation-errors.js";
 import { scopedDataDir } from "../persona-scope.js";
+// Type only: browser.ts imports this file, and nothing of it is needed at run time here.
+import type { CBrowser } from "../browser.js";
 
 export interface SessionManagerConfig {
   sessionsDir: string;
@@ -148,12 +150,15 @@ export class SessionManager {
   }
 
   /**
-   * Load a saved session from disk.
+   * Load a saved session from disk. `browser` is the CBrowser that owns
+   * `page`; without it (a SessionManager used on its own) the saved page is
+   * loaded with page.goto alone.
    */
   async load(
     name: string,
     page: Page,
-    context: BrowserContext
+    context: BrowserContext,
+    browser?: Pick<CBrowser, "gotoThroughGate">
   ): Promise<LoadSessionResult> {
     const sessionPath = this.sessionPathFor(name);
 
@@ -198,8 +203,14 @@ export class SessionManager {
       await context.addCookies(session.cookies as Cookie[]);
     }
 
-    // Navigate to saved URL (a failed load in plain words, not the raw Playwright error)
-    await page.goto(session.url, { waitUntil: "networkidle" })
+    // Navigate to saved URL (a failed load in plain words, not the raw Playwright error).
+    // Through the CBrowser's gate reading when it passes itself, as
+    // CBrowser.loadSession does: on the hosted server a saved page the egress
+    // gate does not carry is then a failed load in the same plain sentence
+    // navigate gives, and its storage is not written into the gate's refusal
+    // page (review of 2026-11-12, wiring-1).
+    const go = () => page.goto(session.url, { waitUntil: "networkidle" });
+    await (browser ? browser.gotoThroughGate(page, session.url, go) : go())
       .catch((e: unknown) => { throw navigationError(e, session.url); });
 
     // Restore localStorage

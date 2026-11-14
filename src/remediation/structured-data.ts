@@ -166,10 +166,15 @@ function pageHeadline(signals: PageSignals): string {
 }
 
 /**
- * Extract signals from a page for type detection
+ * Extract signals from a page of `browser` for type detection.
+ *
+ * The load goes through the browser's gate reading: on the hosted server a
+ * page the egress gate did not carry rejects with the plain sentence navigate
+ * gives, and is not typed as the site (over plain http the gate's refusal
+ * came back as a "homepage"; review of 2026-11-12, wiring-1).
  */
-async function extractPageSignals(page: Page, url: string): Promise<PageSignals> {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+async function extractPageSignals(browser: CBrowser, page: Page, url: string): Promise<PageSignals> {
+  await browser.gotoThroughGate(page, url, () => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }))
     .catch((e: unknown) => { throw navigationError(e, url); });
 
   const signals = await page.evaluate(() => {
@@ -781,7 +786,7 @@ export async function suggestStructuredData(
     await browser.launch();
     const page = await browser.getPage();
 
-    const signals = await extractPageSignals(page, url);
+    const signals = await extractPageSignals(browser, page, url);
 
     await browser.close();
     browser = null;
