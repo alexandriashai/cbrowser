@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.4.9](https://github.com/alexandriashai/cbrowser/compare/v21.4.8...v21.4.9) (2026-11-14)
+
+### Fixed
+
+* **billing:** cap the URLs one call can make the box resolve, and check the tier first ([75a82e5](https://github.com/alexandriashai/cbrowser/commit/75a82e5957779fc106cce76b44d2baf5752cfa6f))
+* **billing:** every hosted tool call is charged and gated once, or refused ([3840998](https://github.com/alexandriashai/cbrowser/commit/384099861c8992f9a590d8b4ef27defe48196a8d))
+* **egress:** hostedFetch dials like the gate, and one request is one lookup owner ([f0bdd07](https://github.com/alexandriashai/cbrowser/commit/f0bdd07407f058f7add8d095485dd4357adebd62))
+* **mcp-remote:** one malformed request no longer ends the hosted server ([03f2616](https://github.com/alexandriashai/cbrowser/commit/03f261667f3f3f0324fdd07fb2890be73fcd96f5))
+
 ## [21.4.8](https://github.com/alexandriashai/cbrowser/compare/v21.4.7...v21.4.8) (2026-11-08)
 
 ### Fixed
