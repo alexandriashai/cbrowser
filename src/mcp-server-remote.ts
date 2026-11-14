@@ -974,6 +974,9 @@ const NOT_A_TARGET_ARGS = new Set(["proxy", "proxy_server", "proxyServer", "bloc
 /** At most this many distinct hosts are gated for one call. */
 export const MAX_GATED_HOSTS = 10;
 
+/** At most this many distinct URLs are resolved and gated for one call (each costs an outbound HEAD chain). */
+export const MAX_GATED_URLS = 10;
+
 const isHttpUrl = (s: string): boolean => /^https?:\/\//i.test(s.trim());
 
 /**
@@ -2015,6 +2018,43 @@ async function handleMcpRequest(
         }));
         return;
       }
+      // Each URL below costs the box a HEAD chain to a host the caller picks,
+      // before any charge. Counting hosts alone let one call name 5,000 paths
+      // on one host and have the box send 5,000 requests for free (review of
+      // 2026-11-14). So URLs are capped too, before anything is resolved.
+      if (requestedUrls.length > MAX_GATED_URLS) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: parsedBody.id ?? null,
+          result: billingErrorResult("too_many_sites", `${toolName} did not run: it names ${requestedUrls.length} different URLs, and one call can name at most ${MAX_GATED_URLS}. Nothing was charged.`),
+        }));
+        return;
+      }
+      // Derived from THIS request, not from the module global — see resolveRequestKeyHash.
+      const keyHash = await resolveRequestKeyHash(req);
+
+      // GATE BEFORE CHARGE. The CMS credit catalog and the package's tier catalog
+      // are two independent lists, and they disagree: CMS lists
+      // agent_ready_audit as a free-tier tool costing 5 credits, while the
+      // package gates it as "pro". A free account with credits was therefore
+      // debited 5 and then handed the upgrade prompt that createGatedServer had
+      // substituted for the handler — paying for an advertisement. Checking
+      // accessibility BEFORE the deduct fixes every present and future
+      // disagreement between the two lists, not just the one instance we found.
+      // (2026-07-26) It also runs before the URLs are resolved, so a call the
+      // tier refuses costs the box no outbound request. (2026-11-14)
+      if (keyHash && !isToolAccessible(toolName)) {
+        console.log(`[Credits] ${toolName}: unavailable at this tier — upgrade prompt returned WITHOUT charging`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: parsedBody.id ?? null,
+          result: upgradePrompt(toolName),
+        }));
+        return;
+      }
+
       // GATE ON WHERE THE URL GOES, NOT WHERE IT WAS TYPED.
       //
       // ucdenver.edu is a registered domain and 301s to cudenver.edu, which is
@@ -2045,33 +2085,11 @@ async function handleMcpRequest(
         }
         return requestedUrl;
       }));
-      // Derived from THIS request, not from the module global — see resolveRequestKeyHash.
-      const keyHash = await resolveRequestKeyHash(req);
       // chargedKeyHash/chargedTool (outer scope) get set ONLY when a real deduct
       // succeeded below (a 2xx AND an explicit allowed:true AND a cost), never
       // on the outage allowance. That ran the tool UNBILLED, and entering a
       // charge scope for it would let a later isError refund credits the caller
       // never paid. (P-09, 2026-09-17)
-
-      // GATE BEFORE CHARGE. The CMS credit catalog and the package's tier catalog
-      // are two independent lists, and they disagree: CMS lists
-      // agent_ready_audit as a free-tier tool costing 5 credits, while the
-      // package gates it as "pro". A free account with credits was therefore
-      // debited 5 and then handed the upgrade prompt that createGatedServer had
-      // substituted for the handler — paying for an advertisement. Checking
-      // accessibility BEFORE the deduct fixes every present and future
-      // disagreement between the two lists, not just the one instance we found.
-      // (2026-07-26)
-      if (keyHash && !isToolAccessible(toolName)) {
-        console.log(`[Credits] ${toolName}: unavailable at this tier — upgrade prompt returned WITHOUT charging`);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          jsonrpc: "2.0",
-          id: parsedBody.id ?? null,
-          result: upgradePrompt(toolName),
-        }));
-        return;
-      }
 
       if (keyHash) {
         // Only an explicit allowed:true from the CMS runs the tool. Every other

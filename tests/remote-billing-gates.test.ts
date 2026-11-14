@@ -484,6 +484,46 @@ describe("the domain gate sees every URL argument", () => {
   });
 });
 
+// The box resolves each URL a call names (a HEAD chain) before it charges. A
+// call must not be able to make it send many requests for free. (review of
+// 2026-11-14: one call naming 5,000 paths on one host made 5,000 HEADs.)
+describe("resolving URLs costs the box at most a few requests, and nothing for a refused call", () => {
+  let hits = 0;
+  let target: ReturnType<typeof Bun.serve> | undefined;
+  beforeAll(() => {
+    target = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => { hits++; return new Response("ok"); } });
+  });
+  afterAll(() => { target?.stop(true); });
+  const urls = (n: number) => Array.from({ length: n }, (_, i) => `http://127.0.0.1:${target!.port}/p${i}`);
+
+  test("eleven URLs on one host: refused before any is resolved, nothing charged", async () => {
+    const before = runs(demo).length;
+    hits = 0;
+    const { value, deducts } = await during(() => toolCall(demo, PRO, "navigate", { sites: urls(11) }));
+    expect(isErrorResult(value)).toBe(true);
+    expect(resultText(value)).toMatch(/too_many_sites/);
+    expect(hits).toBe(0);
+    expect(deducts).toHaveLength(0);
+    expect(runs(demo).length).toBe(before);
+  });
+
+  test("ten URLs on one host still run, one deduct", async () => {
+    hits = 0;
+    const { value, deducts } = await during(() => toolCall(demo, PRO, "navigate", { sites: urls(10) }));
+    expect(resultText(value)).toBe("navigate ran");
+    expect(deducts).toHaveLength(1);
+    expect(hits).toBeLessThanOrEqual(10);
+  });
+
+  test("a tool outside the tier is refused before its URL is resolved", async () => {
+    hits = 0;
+    const { value, deducts } = await during(() => toolCall(demo, FREE, "marketing_funnel_analyze", { entry_url: urls(1)[0] }));
+    expect(resultText(value).toLowerCase()).toMatch(/upgrade|pro/);
+    expect(hits).toBe(0);
+    expect(deducts).toHaveLength(0);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 4. Accounts and credentials.
 // ---------------------------------------------------------------------------
