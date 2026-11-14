@@ -62,6 +62,14 @@ export interface HostedFetchOptions {
   /** Replaces the lookup or the address decision. For tests. */
   policy?: EgressPolicy;
   /**
+   * The lookup owner for this call (EgressPolicy.owner): calls that share one
+   * share one owner's place in the system lookup. A caller resolving several
+   * URLs for one request passes one object for all of them. Default: a new
+   * owner per call. Not a test option: the only thing it changes is whose
+   * share a lookup counts against. (review, 2026-11-14)
+   */
+  owner?: object;
+  /**
    * Certificate authorities to trust in place of the system's. For tests of
    * the https path only: no call in src passes it
    * (tests/hosted-fetch-coverage.test.ts scans for one).
@@ -86,6 +94,14 @@ const MAX_CODINGS = 5;
  */
 const NEXT_ADDRESS_AFTER_MS = 250;
 /**
+ * The gate's own dial ceilings (egress-gate.ts): at most this many attempts
+ * open at once, over at most this many of the checked addresses. Without
+ * them a name with thousands of silent public addresses had one call keep
+ * starting a connection every 250 ms until its deadline. (review, 2026-11-14)
+ */
+const DIAL_MAX_ATTEMPTS = 2;
+const DIAL_MAX_ADDRESSES = 8;
+/**
  * The ports the fetch specification does not connect to ("bad ports"), as
  * undici 6.21.2 in Node 22.19.0 lists them. The runtime's fetch refused them
  * before this file replaced it on hosted servers; without the list a caller's
@@ -97,7 +113,7 @@ const BAD_PORTS: ReadonlySet<number> = new Set([
   123, 135, 137, 139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995,
   1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080,
 ]);
-const OWN_KEYS = ["maxBytes", "timeoutMs", "policy", "ca"] as const;
+const OWN_KEYS = ["maxBytes", "timeoutMs", "policy", "owner", "ca"] as const;
 
 /** The statuses fetch treats as a redirect. */
 const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
@@ -159,7 +175,8 @@ function failed(cause: unknown): TypeError {
  * nothing has been written on any socket when this returns: the caller
  * writes the request on the one it is given and on no other.
  */
-function connectFirst(addresses: readonly string[], port: number, signal: AbortSignal): Promise<Socket> {
+function connectFirst(checked: readonly string[], port: number, signal: AbortSignal): Promise<Socket> {
+  const addresses = checked.slice(0, DIAL_MAX_ADDRESSES);
   return new Promise((resolve, reject) => {
     const trying = new Set<Socket>();
     let next = 0;
@@ -187,6 +204,8 @@ function connectFirst(addresses: readonly string[], port: number, signal: AbortS
         if (trying.size === 0) end(null, lastError);
         return;
       }
+      // At the ceiling: the next address starts when one of these fails.
+      if (trying.size >= DIAL_MAX_ATTEMPTS) return;
       const address = addresses[next++];
       let socket: Socket;
       try {
@@ -209,7 +228,7 @@ function connectFirst(addresses: readonly string[], port: number, signal: AbortS
         socket.destroy();
         start();
       });
-      if (next < addresses.length) timer = setTimeout(start, NEXT_ADDRESS_AFTER_MS);
+      if (next < addresses.length && trying.size < DIAL_MAX_ATTEMPTS) timer = setTimeout(start, NEXT_ADDRESS_AFTER_MS);
     };
     if (signal.aborted) {
       reject(signal.reason);
@@ -615,7 +634,7 @@ export async function hostedFetch(input: string | URL, init?: HostedFetchInit): 
   // one caller aimed at slow names cannot use up the places every other
   // account's lookups need. One call is one owner, for all its hops: a new
   // object, unless a test passed one. A test's own policy is kept beside it.
-  const lookupPolicy: EgressPolicy = { ...init?.policy, owner: init?.policy?.owner ?? {} };
+  const lookupPolicy: EgressPolicy = { ...init?.policy, owner: init?.policy?.owner ?? init?.owner ?? {} };
 
   try {
     for (let hop = 0; ; hop++) {

@@ -2069,10 +2069,20 @@ async function handleMcpRequest(
       // whenever a HEAD is blocked would break every site that rejects HEAD.
       // Each URL is resolved; they are resolved together, so a call naming
       // several waits for the slowest, not their sum.
+      //
+      // One lookup owner for every URL and hop of this request, so the
+      // per-owner share in the system lookup (egress.ts) limits what one call
+      // can hold. Each hostedFetch call used to be an owner of its own, and
+      // only the process-wide pool bound a call naming many URLs. (review,
+      // 2026-11-14)
+      const lookupOwner = {};
+      const { hostedFetch } = await import("./hosted-fetch.js");
+      const ownedFetch = (input: string | URL, init?: RequestInit) =>
+        hostedFetch(input, { method: init?.method, redirect: init?.redirect, credentials: init?.credentials, headers: init?.headers, signal: init?.signal, owner: lookupOwner });
       const targetUrls = await Promise.all(requestedUrls.map(async (requestedUrl) => {
         try {
           const { resolveFinalUrl } = await import("./url-resolution.js");
-          const r = await resolveFinalUrl(requestedUrl);
+          const r = await resolveFinalUrl(requestedUrl, ownedFetch);
           if (r.hostChanged && !r.error) {
             logLine += ` [redirects ${r.requestedHost} -> ${r.finalHost}, gating on ${r.finalHost}]`;
             console.log(`[Domain] ${toolName}: ${pathForLog(requestedUrl)} resolves to ${pathForLog(r.finalUrl)} after ${r.hops} hop(s); gating on ${r.finalHost}`);

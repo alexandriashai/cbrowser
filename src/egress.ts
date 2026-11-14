@@ -715,7 +715,7 @@ const cachedResolvers = new WeakSet<object>();
  * process and for each owner (EgressPolicy.owner: one gate, one hostedFetch
  * call chain). A name that finds no room, or waits too long, is rejected and
  * nothing is remembered for it: it was never asked. resolveForEgress refuses
- * such a name as unresolved. An owner's share is 8 running and 8 waiting, and
+ * such a name as unresolved. An owner's share is 8 running and 24 waiting, and
  * past that only its own new names are refused, at once. Asking for a name
  * another owner's lookup is already running for, or waiting with, costs
  * nothing; and when such a name waits only because its first owner is at its

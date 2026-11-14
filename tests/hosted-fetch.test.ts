@@ -506,6 +506,42 @@ describe("hosted: a checked address that does not answer is not waited for", () 
   });
 });
 
+// The gate dials at most 2 at once over at most 8 addresses; hostedFetch had
+// neither, so a name with thousands of silent addresses kept one call opening
+// a connection every 250 ms until its deadline. (review, 2026-11-14)
+describe("hosted: the dial has the gate's ceilings", () => {
+  test("two silent attempts hold both places: a third address is not started", async () => {
+    if (process.platform !== "linux") return;
+    const good = await silentThenWorking(ALLOWED);
+    const p = policy({ "many.test": [SILENT, SILENT, ALLOWED] }, [SILENT, ALLOWED]);
+    setHostedMode(true);
+    const e = await refusal(hostedFetch(`http://many.test:${good.port}/`, { timeoutMs: 1200, policy: p }));
+    expect(e.name).toBe("TimeoutError");
+    expect(good.hits.length).toBe(0);
+  }, 20_000);
+
+  test("at most eight addresses are tried: a working ninth is never reached", async () => {
+    if (process.platform !== "linux") return;
+    const good = await silentThenWorking(ALLOWED);
+    const refused = Array.from({ length: 8 }, (_, i) => `127.0.0.${40 + i}`);
+    const p = policy({ "nine.test": [...refused, ALLOWED] }, [...refused, ALLOWED]);
+    setHostedMode(true);
+    await refusal(hostedFetch(`http://nine.test:${good.port}/`, { timeoutMs: 2000, policy: p }));
+    expect(good.hits.length).toBe(0);
+  }, 20_000);
+
+  test("a working eighth address is still reached", async () => {
+    if (process.platform !== "linux") return;
+    const good = await silentThenWorking(ALLOWED);
+    const refused = Array.from({ length: 7 }, (_, i) => `127.0.0.${40 + i}`);
+    const p = policy({ "eight.test": [...refused, ALLOWED] }, [...refused, ALLOWED]);
+    setHostedMode(true);
+    const res = await hostedFetch(`http://eight.test:${good.port}/`, { timeoutMs: 2000, policy: p });
+    expect(res.status).toBe(200);
+    expect(good.hits.length).toBe(1);
+  }, 20_000);
+});
+
 describe("hosted: the ports fetch does not connect to", () => {
   // The fetch specification's bad ports, as the runtime's fetch (undici 6.21.2
   // in Node 22.19.0) lists them. 6667 is first so that code without the rule
