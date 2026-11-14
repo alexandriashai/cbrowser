@@ -45,7 +45,7 @@ const CMS = "the operator's CMS (CMS_URL, else localhost:3200)";
 /** Files that may use the runtime's fetch, how many times, and why the destination is not the caller's. */
 const ALLOWED: Record<string, { uses: number; reason: string }> = {
   "hosted-fetch.ts": { uses: 2, reason: "hostedFetch itself, on the path taken when hosted mode is off" },
-  "mcp-server-remote.ts": { uses: 10, reason: `${CMS}: key validation (three calls and the default of its test seam), credits, /authorize and /token; and Auth0's userinfo on the operator's AUTH0_DOMAIN` },
+  "mcp-server-remote.ts": { uses: 8, reason: `${CMS}: the credit deduct and the default of the key-validation test seam; validate-key, login and key creation for /authorize and for /token (two each). No Auth0 call since 3840998: a JWT bearer is refused, not looked up` },
   "help-client.ts": { uses: 1, reason: "the operator's help service: CMS_URL, localhost:3200, then cbrowser.ai or CBROWSER_HELP_URL" },
   "mcp-tools/tier-gate.ts": { uses: 1, reason: `${CMS}: usage log` },
   "mcp-tools/credit-refund.ts": { uses: 1, reason: `${CMS}: credit refund` },
