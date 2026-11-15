@@ -600,6 +600,8 @@ describe("every browser launch in src", () => {
       "src/browser.ts | CBrowser.startBrowser | proxy: route.proxy",
       // Where a geo region becomes the config's proxy, before any browser exists: CBrowser.launch reads it through the route.
       "src/config.ts | mergeConfig | merged.proxy = geoRegionProxy(given.geoRegion)",
+      // openGatedLaunch hands openBrowserRoute's own route to callers that launch Playwright themselves (P-10b).
+      "src/proxy-forwarder.ts | openGatedLaunch | launchOptions.proxy = route.proxy",
       "src/visual/cross-browser.ts | crossBrowserDiff | proxy: launchRoute.proxy",
     ]);
   });

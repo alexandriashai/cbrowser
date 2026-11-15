@@ -603,3 +603,45 @@ export function webRtcGuard(engine: "chromium" | "firefox" | "webkit", proxy: Pr
     initScript: on && (engine === "webkit" || (hosted && engine === "chromium" && !headless)) ? NO_WEBRTC_SCRIPT : undefined,
   };
 }
+
+/** What a caller that launches Playwright itself needs for one gated launch. */
+export interface GatedLaunch {
+  /** Spread into `browserType.launch({...})`: the proxy (the gate, when hosted) and the WebRTC args. */
+  launchOptions: {
+    proxy?: { server: string; username?: string; password?: string; bypass?: string };
+    args: string[];
+    firefoxUserPrefs?: Record<string, string | number | boolean>;
+  };
+  /** Add to every context before any page (`context.addInitScript`), when set. */
+  initScript: string | undefined;
+  /** Whether the browser's connections are checked by the egress gate. */
+  gated: boolean;
+  /** Close the gate or forwarder started for this launch. Call it after the browser closes. */
+  close(): Promise<void>;
+}
+
+/**
+ * The route and WebRTC guard for code that launches Playwright itself rather
+ * than through CBrowser (cbrowser-enterprise's runWebSecurityScan, run by the
+ * CMS audit worker). It is what CBrowser.launch does, in one call: on a hosted
+ * process the browser goes through the egress gate with WebRTC kept off UDP;
+ * elsewhere it is the launch the caller would have made. (P-10b, 2026-11-14)
+ */
+export async function openGatedLaunch(
+  engine: "chromium" | "firefox" | "webkit",
+  options: { headless: boolean; proxy?: ProxyConfig },
+): Promise<GatedLaunch> {
+  const route = await openBrowserRoute(options.proxy);
+  const guard = webRtcGuard(engine, options.proxy, options.headless);
+  const launchOptions: GatedLaunch["launchOptions"] = { args: [...guard.args] };
+  if (route.proxy) launchOptions.proxy = route.proxy;
+  if (engine === "firefox" && guard.firefoxProxyOnly) {
+    launchOptions.firefoxUserPrefs = { "media.peerconnection.ice.proxy_only": true };
+  }
+  return {
+    launchOptions,
+    initScript: guard.initScript,
+    gated: route.gated,
+    close: async () => { await route.forwarder?.close(); },
+  };
+}

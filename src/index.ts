@@ -126,3 +126,6 @@ export {
   LIGHTPANDA_CLOUD_ENDPOINT,
 } from "./lightpanda.js";
 export type { LightpandaConfig, LightpandaConnectionResult, SensitiveOperation } from "./lightpanda.js";
+// A gated launch for code that drives Playwright itself (P-10b, 2026-11-14).
+export { openGatedLaunch } from "./proxy-forwarder.js";
+export type { GatedLaunch } from "./proxy-forwarder.js";

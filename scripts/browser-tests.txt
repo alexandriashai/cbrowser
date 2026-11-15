@@ -152,3 +152,4 @@ tests/browser-setup-user-context.test.ts
 # tests/browser-route.test.ts, which is NOT listed here so that the release
 # gate runs it.
 tests/hosted-egress-browser.test.ts
+tests/gated-launch.test.ts
