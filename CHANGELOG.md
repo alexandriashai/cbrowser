@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.5.0](https://github.com/alexandriashai/cbrowser/compare/v21.4.9...v21.5.0) (2026-11-15)
+
+### Added
+
+* **egress:** openGatedLaunch, one gated launch for code that drives playwright itself ([01b18a4](https://github.com/alexandriashai/cbrowser/commit/01b18a436307f3cbd22f30481bf20d2f8a9d0770))
+
 ## [21.4.9](https://github.com/alexandriashai/cbrowser/compare/v21.4.8...v21.4.9) (2026-11-14)
 
 ### Fixed
