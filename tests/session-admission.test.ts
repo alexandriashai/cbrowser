@@ -132,6 +132,66 @@ describe("one account's share", () => {
   });
 });
 
+describe("a lapsed session is admitted again before it is used (challenger review 2026-11-16)", () => {
+  test("tokens minted past the grace cannot all be resumed: the share holds", async () => {
+    process.env.MAX_CONCURRENT_SESSIONS = "100000";
+    process.env.MAX_SESSIONS_PER_ACCOUNT = "3";
+    process.env.SESSION_LAUNCH_GRACE_MS = "30";
+    const acct = freshAccount();
+    const tokens: string[] = [];
+    for (let round = 0; round < 3; round++) {
+      for (let i = 0; i < 3; i++) tokens.push((await asAccount(acct, () => getBrowserByToken())).token);
+      await new Promise((r) => setTimeout(r, 60)); // past the grace: these stop counting
+    }
+    expect(tokens.length).toBe(9);
+    let resumed = 0;
+    let refused = 0;
+    for (const t of tokens) {
+      try { await asAccount(acct, () => getBrowserByToken(t)); resumed++; }
+      catch (e) { if (e instanceof AccountSessionLimitError) refused++; else throw e; }
+    }
+    expect(resumed).toBe(3);
+    expect(refused).toBe(6);
+    expect(openSessionCount(Date.now(), `account:${acct}`)).toBe(3);
+  });
+
+  test("a session still within the grace resumes without a new check", async () => {
+    process.env.MAX_CONCURRENT_SESSIONS = "100000";
+    process.env.MAX_SESSIONS_PER_ACCOUNT = "1";
+    process.env.SESSION_LAUNCH_GRACE_MS = "60000";
+    const acct = freshAccount();
+    const { token } = await asAccount(acct, () => getBrowserByToken());
+    // At its share (1 of 1): a fresh session is refused, the open one resumes.
+    await expect(asAccount(acct, () => getBrowserByToken())).rejects.toBeInstanceOf(AccountSessionLimitError);
+    expect((await asAccount(acct, () => getBrowserByToken(token))).token).toBe(token);
+  });
+
+  test("the session-id path is checked the same way", async () => {
+    process.env.MAX_CONCURRENT_SESSIONS = "100000";
+    process.env.MAX_SESSIONS_PER_ACCOUNT = "1";
+    process.env.SESSION_LAUNCH_GRACE_MS = "30";
+    const acct = freshAccount();
+    const a = `sid-a-${acct}`;
+    const b = `sid-b-${acct}`;
+    await asAccount(acct, () => getSessionBrowser(a));
+    await new Promise((r) => setTimeout(r, 60));
+    await asAccount(acct, () => getSessionBrowser(b)); // admitted: a no longer counts
+    await expect(asAccount(acct, () => getSessionBrowser(a))).rejects.toBeInstanceOf(AccountSessionLimitError);
+  });
+});
+
+describe("session browsers are the session's to count (launch-gate.ts)", () => {
+  test("a browser from a token or a session id is marked, so the tool-browser gate leaves it alone", async () => {
+    process.env.MAX_CONCURRENT_SESSIONS = "100000";
+    process.env.MAX_SESSIONS_PER_ACCOUNT = "10";
+    const { isSessionBrowser } = await import("../src/launch-gate.js");
+    const acct = freshAccount();
+    const { browser } = await asAccount(acct, () => getBrowserByToken());
+    expect(isSessionBrowser(browser)).toBe(true);
+    expect(isSessionBrowser(await asAccount(acct, () => getSessionBrowser(`sid-mark-${acct}`)))).toBe(true);
+  });
+});
+
 describe("callers without an account", () => {
   test("bucket: account, credential, keyless, or none outside a request", () => {
     expect(sessionBucket()).toBeUndefined();

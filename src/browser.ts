@@ -82,6 +82,7 @@ import { navigationError, gateNavigationError, markedNavigationError, type GateR
 import { uniqueStamp } from "./temp-files.js";
 import type { Rect } from "./recording/types.js";
 import { releaseConsoleArgs } from "./console-handles.js";
+import { gatedLaunch, isSessionBrowser, onBrowserGone, onContextGone } from "./launch-gate.js";
 
 // Browser-specific fast launch args for performance optimization
 const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
@@ -289,7 +290,7 @@ export async function launchBrowserWithFallback(
   const browserName = browserType === chromium ? "chromium" : browserType === firefox ? "firefox" : "webkit";
 
   try {
-    return await browserType.launch(options);
+    return await gatedLaunch(() => browserType.launch(options), onBrowserGone);
   } catch (error) {
     // Never on the hosted server: see the same test in CBrowser.launch.
     if (isBrowserNotInstalledError(error) && !isHostedMode()) {
@@ -1129,7 +1130,9 @@ For more help: https://playwright.dev/docs/browsers
         // Recover from a stale SingletonLock left by a hard-killed browser,
         // which would otherwise wedge the launch below (see method doc).
         this.clearStaleSingletonLock(browserStateDir);
-        this.context = await browserType.launchPersistentContext(browserStateDir, {
+        // A browser of a hosted session is counted there; any other launch on
+        // the hosted server goes through the tool-browser gate (launch-gate.ts).
+        const launchContext = () => browserType.launchPersistentContext(browserStateDir, {
           headless: this.config.headless,
           args: launchArgs,
           env: this.config.launchEnv ? { ...process.env, ...this.config.launchEnv } as Record<string, string> : undefined,
@@ -1137,6 +1140,7 @@ For more help: https://playwright.dev/docs/browsers
           ...proxyOptions,
           ...privacyLaunch,
         });
+        this.context = isSessionBrowser(this) ? await launchContext() : await gatedLaunch(launchContext, onContextGone);
         await addPrivacyInitScript(this.context, privacy);
         if (webRtc.initScript) await this.context.addInitScript(webRtc.initScript);
         this.page = this.context.pages()[0] || await this.context.newPage();
@@ -1165,13 +1169,14 @@ For more help: https://playwright.dev/docs/browsers
           }
         }
       } else {
-        this.browser = await browserType.launch({
+        const launchPlain = () => browserType.launch({
           headless: this.config.headless,
           args: launchArgs,
           env: this.config.launchEnv ? { ...process.env, ...this.config.launchEnv } as Record<string, string> : undefined,
           ...proxyOptions,
           ...privacyLaunch,
         });
+        this.browser = isSessionBrowser(this) ? await launchPlain() : await gatedLaunch(launchPlain, onBrowserGone);
         this.context = await this.browser.newContext(contextOptions);
         await addPrivacyInitScript(this.context, privacy);
         if (webRtc.initScript) await this.context.addInitScript(webRtc.initScript);

@@ -77,9 +77,9 @@ beforeEach(() => {
   stops = 0;
 });
 
-function fakeBrowser() {
+function fakeBrowser(initial = { width: 800, height: 600 }) {
   const viewports: Array<{ width: number; height: number }> = [];
-  let current = { width: 800, height: 600 };
+  let current = initial;
   const page = {
     context: () => ({ browser: () => ({ browserType: () => ({ name: () => "chromium" }) }) }),
     viewportSize: () => current,
@@ -94,11 +94,11 @@ function fakeBrowser() {
 }
 
 describe("hosted capture limits (pure)", () => {
-  const limits = { maxFps: 30, maxDurationMs: 120_000, maxFrames: 1800, maxWidth: 1920, maxHeight: 1920 };
+  const limits = { maxFps: 30, maxDurationMs: 120_000, maxFrames: 1800, maxWidth: 1920, maxHeight: 1920, maxWaitMs: 60_000, maxBytes: 512 * 1024 * 1024 };
 
   test("values inside the limits pass through unchanged, with no notes", () => {
     const out = clampCaptureForHosted({ fps: 10, durationMs: 5000, maxFrames: 100, viewport: { width: 1280, height: 720 } }, limits);
-    expect(out).toEqual({ fps: 10, durationMs: 5000, maxFrames: 100, viewport: { width: 1280, height: 720 }, notes: [] });
+    expect(out).toEqual({ fps: 10, durationMs: 5000, maxFrames: 100, viewport: { width: 1280, height: 720 }, maxBytes: 512 * 1024 * 1024, notes: [] });
   });
 
   test("each value over its limit comes down to the limit, and says so", () => {
@@ -262,5 +262,92 @@ describe("the hosted server frees captures", () => {
     expect(captureSessionCount()).toBe(1);
     await remote.sweepSessions(now + 11 * 60_000);
     expect(captureSessionCount()).toBe(0);
+  });
+});
+
+describe("challenger findings (2026-11-16)", () => {
+  test("pure: afterDelay and timeout above the wait limit come down to it, and say so", () => {
+    const limits = hostedCaptureLimits({});
+    expect(limits.maxWaitMs).toBe(60_000);
+    expect(limits.maxBytes).toBe(512 * 1024 * 1024);
+    const out = clampCaptureForHosted({ startDelayMs: 35_000 * 60_000, triggerTimeoutMs: 10 * 60_000 }, limits);
+    expect(out.startDelayMs).toBe(60_000);
+    expect(out.triggerTimeoutMs).toBe(60_000);
+    expect(out.notes.filter((n) => /afterDelay|timeout lowered/.test(n))).toHaveLength(2);
+    const inside = clampCaptureForHosted({ startDelayMs: 500, triggerTimeoutMs: 2000 }, limits);
+    expect(inside.startDelayMs).toBe(500);
+    expect(inside.triggerTimeoutMs).toBe(2000);
+  });
+
+  test("hosted: the engine gets the clamped waits and a byte budget", async () => {
+    setHostedMode(true);
+    try {
+      const { browser } = fakeBrowser();
+      await startCapture(browser, { afterDelay: "35000m", timeout: "20m" } as never, "tok-waits");
+      expect(lastStartOpts.startDelayMs).toBe(60_000);
+      expect(lastStartOpts.triggerTimeoutMs).toBe(60_000);
+      expect(lastStartOpts.maxBytes).toBe(512 * 1024 * 1024);
+    } finally { setHostedMode(false); }
+  });
+
+  test("not hosted: waits and bytes are the caller's, as before", async () => {
+    const { browser } = fakeBrowser();
+    await startCapture(browser, { afterDelay: "5m" } as never, "tok-local-waits");
+    expect(lastStartOpts.startDelayMs).toBe(300_000);
+    expect(lastStartOpts.maxBytes).toBeUndefined();
+  });
+
+  test("hosted: a page already larger than the limit (navigate, device) is recorded at the limit", async () => {
+    setHostedMode(true);
+    try {
+      const { browser, viewports } = fakeBrowser({ width: 8000, height: 8000 });
+      const out = await startCapture(browser, {} as never, "tok-big-page");
+      expect(viewports.at(-1)).toEqual({ width: 1920, height: 1920 });
+      expect(JSON.stringify(out.hosted_limits)).toContain("8000x8000");
+    } finally { setHostedMode(false); }
+  });
+
+  test("two parallel starts on one browser: one records, the other is refused", async () => {
+    const slowStart = proto.start as (o: Record<string, unknown>) => Promise<unknown>;
+    proto.start = async function (this: unknown, o: Record<string, unknown> = {}) {
+      await new Promise((r) => setTimeout(r, 50));
+      return slowStart.call(this, o);
+    };
+    try {
+      const { browser } = fakeBrowser();
+      const results = await Promise.allSettled([
+        startCapture(browser, {} as never, "tok-race"),
+        startCapture(browser, {} as never, "tok-race"),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const refused = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+      expect(String(refused.reason)).toMatch(/already (starting|running)/);
+      expect(captureSessionCount()).toBe(1);
+    } finally { proto.start = slowStart; }
+  });
+});
+
+describe("engine byte budget", () => {
+  test("frames past maxBytes are dropped and the manifest says so", () => {
+    const s = new VideoCaptureSession({} as never, "chromium", ROOT) as unknown as Record<string, unknown>;
+    const framesDir = mkdtempSync(join(tmpdir(), "cb-bytes-"));
+    s.opts = { maxFrames: 100, maxBytes: 25 };
+    s.framesDir = framesDir;
+    s.viewport = { width: 10, height: 10 };
+    const enqueue = (s.enqueueFrame as (t: number, b: Buffer) => void).bind(s);
+    for (let i = 0; i < 5; i++) enqueue(i * 10, Buffer.alloc(10));
+    expect((s.frames as unknown[]).length).toBe(2);
+    expect(s.byteLimitReached).toBe(true);
+  });
+
+  test("with no budget every frame up to maxFrames is kept", () => {
+    const s = new VideoCaptureSession({} as never, "chromium", ROOT) as unknown as Record<string, unknown>;
+    s.opts = { maxFrames: 100, maxBytes: Number.POSITIVE_INFINITY };
+    s.framesDir = mkdtempSync(join(tmpdir(), "cb-bytes-"));
+    s.viewport = { width: 10, height: 10 };
+    const enqueue = (s.enqueueFrame as (t: number, b: Buffer) => void).bind(s);
+    for (let i = 0; i < 5; i++) enqueue(i * 10, Buffer.alloc(1_000_000));
+    expect((s.frames as unknown[]).length).toBe(5);
+    expect(s.byteLimitReached).toBe(false);
   });
 });

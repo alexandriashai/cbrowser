@@ -25,6 +25,7 @@
  */
 
 import { chromium, type Browser } from "playwright";
+import { gatedLaunch, onBrowserGone } from "./launch-gate.js";
 
 /**
  * Lightpanda connection configuration
@@ -365,10 +366,10 @@ export async function launchWithLightpandaFallback(options: {
   };
 
   const launcher = launchers[browserType] || playwrightChromium;
-  const browser = await launcher.launch({
+  const browser = await gatedLaunch(() => launcher.launch({
     headless,
     ...launchOptions,
-  });
+  }), onBrowserGone);
 
   return {
     browser,

@@ -430,10 +430,12 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
     description: "Test page across different viewport sizes",
     inputSchema: {
       url: z.string().url().describe("URL to test"),
-      viewports: z.array(z.string()).optional().describe("Viewport size presets (default mobile, tablet, desktop = 393x852, 834x1194, 1920x1080; also mobile-sm, mobile-lg, mobile-xl, tablet-sm, tablet-lg, desktop-sm, desktop-md, desktop-lg, desktop-xl). list_devices shows the sizes."),
+      viewports: z.array(z.string()).max(20).optional().describe("Viewport size presets (default mobile, tablet, desktop = 393x852, 834x1194, 1920x1080; also mobile-sm, mobile-lg, mobile-xl, tablet-sm, tablet-lg, desktop-sm, desktop-md, desktop-lg, desktop-xl). list_devices shows the sizes."),
       // The CLI's --wait, --wait-for and --sensitivity, which this tool did not
       // take. (audit M22, 2026-10-21)
-      wait: z.number().int().min(0).optional().describe("Milliseconds to wait before each capture (the CLI's --wait)"),
+      // At most 30 s: the wait holds a browser of its own the whole time, and an
+      // unbounded one held it for up to 24 days (challenger review 2026-11-16).
+      wait: z.number().int().min(0).max(30_000).optional().describe("Milliseconds to wait before each capture (the CLI's --wait), at most 30000"),
       waitFor: z.string().optional().describe("CSS selector to wait for before each capture (the CLI's --wait-for)"),
       sensitivity: z.enum(["low", "medium", "high"]).optional().describe("Comparison sensitivity (the CLI's --sensitivity)"),
     },
@@ -450,7 +452,7 @@ export function registerVisualTestingTools(server: McpServer, context?: ToolRegi
       if (hostedRefusal) return hostedRefusal;
       const result = await runResponsiveTest(url, {
         viewports,
-        ...(wait !== undefined ? { waitBeforeCapture: wait } : {}),
+        ...(wait !== undefined ? { waitBeforeCapture: Math.min(Math.max(0, wait), 30_000) } : {}),
         ...(waitFor ? { waitForSelector: waitFor } : {}),
         ...(sensitivity ? { sensitivity } : {}),
       });

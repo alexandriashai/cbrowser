@@ -111,6 +111,10 @@ export interface HostedCaptureLimits {
   maxFrames: number;
   maxWidth: number;
   maxHeight: number;
+  /** Longest a start delay or a trigger timeout may be (afterDelay, timeout). */
+  maxWaitMs: number;
+  /** Bytes of frames one capture may keep on disk. */
+  maxBytes: number;
 }
 
 export function hostedCaptureLimits(env: Record<string, string | undefined> = process.env): HostedCaptureLimits {
@@ -124,6 +128,8 @@ export function hostedCaptureLimits(env: Record<string, string | undefined> = pr
     maxFrames: read("CBROWSER_HOSTED_CAPTURE_MAX_FRAMES", 1800),
     maxWidth: read("CBROWSER_HOSTED_CAPTURE_MAX_WIDTH", 1920),
     maxHeight: read("CBROWSER_HOSTED_CAPTURE_MAX_HEIGHT", 1920),
+    maxWaitMs: read("CBROWSER_HOSTED_CAPTURE_MAX_WAIT_MS", 60_000),
+    maxBytes: read("CBROWSER_HOSTED_CAPTURE_MAX_BYTES", 512 * 1024 * 1024),
   };
 }
 
@@ -134,9 +140,15 @@ export function hostedCaptureLimits(env: Record<string, string | undefined> = pr
  * own (the engine's duration timer) even if capture_stop never comes.
  */
 export function clampCaptureForHosted(
-  req: { fps?: number; durationMs?: number; maxFrames?: number; viewport?: { width: number; height: number } },
+  req: {
+    fps?: number; durationMs?: number; maxFrames?: number; viewport?: { width: number; height: number };
+    startDelayMs?: number; triggerTimeoutMs?: number;
+  },
   limits: HostedCaptureLimits,
-): { fps?: number; durationMs: number; maxFrames: number; viewport?: { width: number; height: number }; notes: string[] } {
+): {
+  fps?: number; durationMs: number; maxFrames: number; viewport?: { width: number; height: number };
+  startDelayMs?: number; triggerTimeoutMs?: number; maxBytes: number; notes: string[];
+} {
   const notes: string[] = [];
   let fps = req.fps;
   if (fps !== undefined && fps > limits.maxFps) {
@@ -165,11 +177,28 @@ export function clampCaptureForHosted(
     notes.push(`viewport lowered from ${viewport.width}x${viewport.height} to ${next.width}x${next.height}, the hosted limit`);
     viewport = next;
   }
+  // Waits before recording are awaited before the duration timer starts, so
+  // they are bounded on their own (challenger review 2026-11-16: afterDelay
+  // "35000m" held a call for 24 days).
+  const waitSeconds = Math.round(limits.maxWaitMs / 1000);
+  let startDelayMs = req.startDelayMs;
+  if (startDelayMs !== undefined && startDelayMs > limits.maxWaitMs) {
+    notes.push(`afterDelay lowered from ${Math.round(startDelayMs / 1000)} s to ${waitSeconds} s, the hosted limit`);
+    startDelayMs = limits.maxWaitMs;
+  }
+  let triggerTimeoutMs = req.triggerTimeoutMs;
+  if (triggerTimeoutMs !== undefined && triggerTimeoutMs > limits.maxWaitMs) {
+    notes.push(`timeout lowered from ${Math.round(triggerTimeoutMs / 1000)} s to ${waitSeconds} s, the hosted limit`);
+    triggerTimeoutMs = limits.maxWaitMs;
+  }
   return {
     ...(fps !== undefined ? { fps } : {}),
     durationMs,
     maxFrames,
     ...(viewport ? { viewport } : {}),
+    ...(startDelayMs !== undefined ? { startDelayMs } : {}),
+    ...(triggerTimeoutMs !== undefined ? { triggerTimeoutMs } : {}),
+    maxBytes: limits.maxBytes,
     notes,
   };
 }
@@ -706,15 +735,22 @@ async function resolveElementRegion(
   };
 }
 
+/**
+ * Keys with a capture_start in progress. The "already recording" check and the
+ * map entry are many awaits apart, so two parallel starts on one browser both
+ * passed the check and both recorded; the second overwrote the first's entry,
+ * leaving the first out of reach of capture_stop and releaseCapturesForBrowser
+ * (challenger review 2026-11-16). The key is reserved in the same turn as the
+ * check.
+ */
+const startingCaptures = new Set<string>();
+
 /** Start a capture on the given browser. Returns the payload object. */
 export async function startCapture(
   browser: CBrowser,
   rawArgs: CaptureStartArgs,
   token?: string,
 ): Promise<Record<string, unknown>> {
-  const args = normalizeCaptureArgs(rawArgs);
-  // Validated before anything changes, so a bad trigger leaves the page alone.
-  const triggers = buildCaptureTriggerOptions(args);
   const key = sessionKey(token);
   const existing = sessions.get(key);
   if (existing && existing.session.status().state === "recording") {
@@ -723,6 +759,26 @@ export async function startCapture(
         "Call capture_stop before starting another.",
     );
   }
+  if (startingCaptures.has(key)) {
+    throw new Error("A capture is already starting on this browser. Wait for it, then call capture_stop before starting another.");
+  }
+  startingCaptures.add(key);
+  try {
+    return await startCaptureReserved(browser, rawArgs, token, key);
+  } finally {
+    startingCaptures.delete(key);
+  }
+}
+
+async function startCaptureReserved(
+  browser: CBrowser,
+  rawArgs: CaptureStartArgs,
+  token: string | undefined,
+  key: string,
+): Promise<Record<string, unknown>> {
+  const args = normalizeCaptureArgs(rawArgs);
+  // Validated before anything changes, so a bad trigger leaves the page alone.
+  const triggers = buildCaptureTriggerOptions(args);
 
   // Device before viewport and navigation: emulation is fixed at launch, so a
   // running browser is relaunched with it (the CLI's --device). An unknown
@@ -739,6 +795,8 @@ export async function startCapture(
         ...(args.duration !== undefined ? { durationMs: parseDurationMs(args.duration) } : {}),
         ...(args.maxFrames !== undefined ? { maxFrames: args.maxFrames } : {}),
         ...(args.viewport ? { viewport: parseViewport(args.viewport) } : {}),
+        ...(triggers.startDelayMs !== undefined ? { startDelayMs: triggers.startDelayMs } : {}),
+        ...(triggers.triggerTimeoutMs !== undefined ? { triggerTimeoutMs: triggers.triggerTimeoutMs } : {}),
       }, hostedCaptureLimits())
     : undefined;
 
@@ -750,6 +808,20 @@ export async function startCapture(
 
   if (args.url) await browser.navigate(args.url);
   const page = await browser.getPage();
+
+  // Hosted: the page's actual size is held to the limit too, not only a
+  // viewport passed here. navigate(viewport) or a device can set any size,
+  // and a capture without its own viewport used to record at it (challenger
+  // review 2026-11-16: 8000x8000 frames, 23.5 MB each at quality 100).
+  if (hosted) {
+    const limits = hostedCaptureLimits();
+    const current = page.viewportSize();
+    if (current && (current.width > limits.maxWidth || current.height > limits.maxHeight)) {
+      const next = { width: Math.min(current.width, limits.maxWidth), height: Math.min(current.height, limits.maxHeight) };
+      await page.setViewportSize(next);
+      hosted.notes.push(`the page was ${current.width}x${current.height}; recorded at ${next.width}x${next.height}, the hosted limit`);
+    }
+  }
 
   if (args.region && args.element) {
     throw new Error("Pass region or element, not both");
@@ -785,6 +857,13 @@ export async function startCapture(
     ...(args.name !== undefined ? { slug: args.name } : {}),
     ...(args.outDir !== undefined ? { outDir: resolve(args.outDir) } : {}),
     ...triggers,
+    ...(hosted
+      ? {
+          ...(hosted.startDelayMs !== undefined ? { startDelayMs: hosted.startDelayMs } : {}),
+          ...(hosted.triggerTimeoutMs !== undefined ? { triggerTimeoutMs: hosted.triggerTimeoutMs } : {}),
+          maxBytes: hosted.maxBytes,
+        }
+      : {}),
     // Overlay is resolved at stop, against the still-live page, so the DOM it
     // reads is the page as recorded rather than a reconstruction.
     // Register the account's custom personas before the overlay resolves one.

@@ -12,6 +12,7 @@
  */
 
 import { existsSync, mkdirSync } from "fs";
+import { gatedLaunch, onBrowserGone, ToolBrowserLimitError } from "../launch-gate.js";
 import { VERSION } from "../version.js";
 import { join } from "path";
 import { defaultLocale, effectiveDataDir, getPaths, privacySignalsFor, proxyFor } from "../config.js";
@@ -55,10 +56,12 @@ async function checkBrowserAvailability(
 
   for (const name of browsers) {
     try {
-      const b = await (launchers[name] as any).launch({ headless: true, timeout: 5000 });
+      const b = await gatedLaunch(() => launchers[name].launch({ headless: true, timeout: 5000 }), onBrowserGone);
       await b.close();
       available.push(name);
-    } catch {
+    } catch (e) {
+      // A refusal by the hosted tool-browser limit is not a missing browser.
+      if (e instanceof ToolBrowserLimitError) throw e;
       missing.push(name);
     }
   }
@@ -833,12 +836,12 @@ export async function crossBrowserDiff(
       const firefoxUserPrefs = browserName === "firefox"
         ? { ...setup.firefoxUserPrefs, "media.peerconnection.ice.proxy_only": webRtc.firefoxProxyOnly }
         : setup.firefoxUserPrefs;
-      browser = await launcher.launch({
+      browser = await gatedLaunch(() => launcher.launch({
         headless,
         ...(firefoxUserPrefs ? { firefoxUserPrefs } : {}),
         ...(webRtc.args.length > 0 ? { args: webRtc.args } : {}),
         ...(launchRoute.proxy ? { proxy: launchRoute.proxy } : {}),
-      });
+      }), onBrowserGone);
       const page = await browser.newPage({
         ...contextOptions,
         ...(setup.extraHTTPHeaders ? { extraHTTPHeaders: setup.extraHTTPHeaders } : {}),

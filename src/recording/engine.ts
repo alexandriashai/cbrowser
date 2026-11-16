@@ -103,6 +103,13 @@ export interface VideoCaptureOptions {
   quality?: number;
   /** Hard cap on retained frames; protects the disk on a long open-ended run. */
   maxFrames?: number;
+  /**
+   * Hard cap on the bytes of retained frames, together. maxFrames alone does
+   * not bound the disk: a 1920x1920 noisy frame at quality 100 is about 5 MB,
+   * so 1,800 frames is 9 GB (challenger review 2026-11-16). Frames past the
+   * budget are dropped like frames past maxFrames. Default: no limit.
+   */
+  maxBytes?: number;
   /** Recording name. Defaults to a timestamp slug. */
   slug?: string;
   /** Also write a contact sheet: one JPEG summarising the whole capture. */
@@ -337,6 +344,10 @@ export class VideoCaptureSession {
   private startedAtIso = "";
   private stopWallMs = 0;
   private frames: PendingFrame[] = [];
+  /** Bytes of the frames kept so far, against opts.maxBytes. */
+  private frameBytes = 0;
+  /** Set once a frame was dropped for the byte budget. */
+  private byteLimitReached = false;
   /**
    * DOM as it stood at a point in time, captured on navigation.
    *
@@ -457,6 +468,7 @@ export class VideoCaptureSession {
       format: options.format ?? ["gif"],
       quality: options.quality ?? DEFAULT_QUALITY,
       maxFrames: options.maxFrames ?? DEFAULT_MAX_FRAMES,
+      maxBytes: options.maxBytes !== undefined && options.maxBytes > 0 ? options.maxBytes : Number.POSITIVE_INFINITY,
       contactSheet: options.contactSheet ?? false,
       saliencyOverlay: options.saliencyOverlay ?? false,
       triggerTimeoutMs: options.triggerTimeoutMs ?? DEFAULT_TRIGGER_TIMEOUT_MS,
@@ -947,6 +959,11 @@ export class VideoCaptureSession {
     // and a --max-frames 5 that delivers 6 is a documented number the tool
     // does not honour.
     if (this.frames.length >= this.opts.maxFrames) return;
+    if (this.frameBytes + buffer.length > this.opts.maxBytes) {
+      this.byteLimitReached = true;
+      return;
+    }
+    this.frameBytes += buffer.length;
 
     const index = this.frames.length;
     // The manifest contract requires non-decreasing timestamps. Timestamps are
@@ -1005,17 +1022,21 @@ export class VideoCaptureSession {
     // page.on("request") listener makes Playwright keep every Request, body
     // included, for the life of the page, not just of the capture (measured
     // 2026-11-15; see setupNetworkTracking in browser.ts).
+    // Only the request source differs: everything below runs on every engine.
+    let requestsViaCdp = false;
     if (this.engine === "chromium") {
       try {
         const cdp = await this.page.context().newCDPSession(this.page);
         await cdp.send("Network.enable", { maxPostDataSize: 0, maxTotalBufferSize: 1024 * 1024, maxResourceBufferSize: 512 * 1024 });
         cdp.on("Network.requestWillBeSent", (e: { request: { url: string; method: string } }) => onRequest(e.request.url, e.request.method));
         this.networkCdp = cdp;
-        return;
+        requestsViaCdp = true;
       } catch { /* fall back to page events */ }
     }
-    this.requestListener = (req: Request) => onRequest(req.url(), req.method());
-    this.page.on("request", this.requestListener);
+    if (!requestsViaCdp) {
+      this.requestListener = (req: Request) => onRequest(req.url(), req.method());
+      this.page.on("request", this.requestListener);
+    }
 
     // Snapshot the DOM now and again whenever the page navigates, so a judged
     // frame is scored against the page as it was AT THAT MOMENT.
@@ -1200,6 +1221,7 @@ export class VideoCaptureSession {
       slug: this.slug,
       engine: this.engine,
       ...(this.interactions.length > 0 ? { interactions: this.interactions } : {}),
+      ...(this.byteLimitReached ? { byte_limit_reached: true } : {}),
       capture_method: this.captureMethod,
       target_fps: this.opts.fps,
       // Two decimals: 16 frames over 2.6 s printed 6.153846153846153. (v8 B41)

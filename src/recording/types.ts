@@ -284,6 +284,8 @@ export const RecordingManifestSchema = z.object({
     y: z.number(),
     label: z.string(),
   })).optional(),
+  /** True when frames were dropped because the capture's byte budget (maxBytes) was spent. */
+  byte_limit_reached: z.boolean().optional(),
   attention_overlay: z.object({
     applied: z.boolean(),
     quantity: z.enum(["predicted-attention", "visual-contrast-only"]),

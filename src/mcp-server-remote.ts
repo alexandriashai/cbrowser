@@ -60,6 +60,14 @@ import {
 // HTTP request enters at createServer below. (sec-identity, 2026-10-10)
 import { registerAllPublicTools, setRemoteMode, setHostedMode, setActiveTier as setTierGate, setActiveKeyHash, isToolAccessible, upgradePrompt } from "./mcp-tools/index.js";
 import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
+import { configureLaunchGate, markSessionBrowser } from "./launch-gate.js";
+/**
+ * The account a hosted request runs for, re-exported for code built on this
+ * server (cbrowser-enterprise counts its journey slots per account with it;
+ * counting per stored Anthropic key let one account switch keys and take
+ * every slot, challenger review 2026-11-16). undefined outside an account.
+ */
+export { scopedAccountId as requestAccountId, withPersonaScope } from "./persona-scope.js";
 import { withChargeScope, currentCharge } from "./charge-scope.js";
 import { refundCharge } from "./mcp-tools/credit-refund.js";
 import { releaseCapturesForBrowser, sweepCaptureSessions } from "./mcp-tools/base/capture-tools.js";
@@ -172,7 +180,7 @@ export async function getBrowserByToken(token?: string): Promise<{ browser: CBro
     if (info && info.accountId === scopedAccountId()) {
       const session = activeSessions.get(info.sessionId);
       if (session) {
-        session.lastActivity = now;
+        await readmitIfLapsed(session, now);
         return { browser: session.browser, token };
       }
       browserTokens.delete(token);
@@ -395,6 +403,28 @@ function admitNewSession(now: number): string | undefined {
 }
 
 /**
+ * Touch a session being resumed, admitting it again first if it had stopped
+ * counting. A session that never launched counts only within the launch grace,
+ * so without this a caller could mint tokens past the grace (each admitted
+ * while the earlier ones no longer counted) and later launch them all at once:
+ * the challenger review of 2026-11-16 held 12 live browsers on one account
+ * with a share of 3 and a server cap of 5. A lapsed session is checked like a
+ * new one; the refusal is refunded like a new one's. The check and the touch
+ * run in one turn of the event loop.
+ */
+async function readmitIfLapsed(session: SessionInfo, now: number): Promise<void> {
+  if (!countsAgainstLimits(session, now, sessionLimits().launchGraceMs)) {
+    try {
+      admitNewSession(now);
+    } catch (err) {
+      await refundRefusedCall();
+      throw err;
+    }
+  }
+  session.lastActivity = now;
+}
+
+/**
  * Refund the call admitNewSession just refused. A refusal is thrown
  * (the SDK turns it into an isError result), and the tier gate refunds only an
  * isError result its handler RETURNS, so a thrown refusal stayed billed
@@ -428,6 +458,7 @@ function createSession(sessionId: string, now: number, bucket: string | undefine
     browserDirs: new Set(),
   };
   activeSessions.set(sessionId, info);
+  markSessionBrowser(info.browser);
   return info;
 }
 
@@ -461,7 +492,7 @@ export async function getSessionBrowser(sessionId: string): Promise<CBrowser> {
   const existing = activeSessions.get(sessionId);
   if (existing) {
     if (existing.accountId !== scopedAccountId()) throw new SessionOwnedElsewhereError();
-    existing.lastActivity = Date.now();
+    await readmitIfLapsed(existing, Date.now());
     return existing.browser;
   }
 
@@ -690,6 +721,7 @@ async function getBrowser(): Promise<CBrowser> {
       // the config default is now the caller's directory. (tenant, 2026-10-10)
       dataDir: getDataDir(),
     });
+    markSessionBrowser(browser);
   }
   return browser;
 }
@@ -2529,6 +2561,10 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
 
   // Enable remote mode for screenshot handling (returns base64 images instead of paths)
   setRemoteMode(true);
+
+  // Browsers tools start for one call count against the caller's share too
+  // (launch-gate.ts); a refusal is refunded like a session refusal.
+  configureLaunchGate({ bucket: sessionBucket, onRefuse: refundRefusedCall });
 
   // Hosted input policy: no tool parameter may name a path on this server, and
   // URL parameters must be http(s). Set here, explicitly, because this process

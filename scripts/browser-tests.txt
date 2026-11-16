@@ -155,3 +155,4 @@ tests/browser-setup-user-context.test.ts
 tests/hosted-egress-browser.test.ts
 tests/gated-launch.test.ts
 tests/network-log-bounded.test.ts
+tests/launch-gate-browser.test.ts

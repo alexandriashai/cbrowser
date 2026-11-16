@@ -79,6 +79,15 @@ describe("responsive_test takes wait, waitFor, sensitivity (M22)", () => {
   test("in the schema", () => {
     expect(Object.keys(schemas.responsive_test)).toEqual(expect.arrayContaining(["wait", "waitFor", "sensitivity"]));
   });
+  test("wait is at most 30 s and viewports at most 20: each holds a browser of its own (challenger review 2026-11-16)", async () => {
+    const { z } = await import("zod");
+    const shape = z.object(schemas.responsive_test as Record<string, import("zod").ZodTypeAny>);
+    expect(shape.safeParse({ url: base, wait: 30_000 }).success).toBe(true);
+    expect(shape.safeParse({ url: base, wait: 30_001 }).success).toBe(false);
+    expect(shape.safeParse({ url: base, wait: 2_147_483_647 }).success).toBe(false);
+    expect(shape.safeParse({ url: base, viewports: Array(20).fill("mobile") }).success).toBe(true);
+    expect(shape.safeParse({ url: base, viewports: Array(21).fill("mobile") }).success).toBe(false);
+  });
   test("wait is honoured", async () => {
     const t0 = Date.now();
     const r = await handlers.responsive_test({ url: base, viewports: ["mobile-sm"], wait: 2500 });

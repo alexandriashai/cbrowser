@@ -132,11 +132,25 @@ describe("a capture's request timeline", () => {
       expect(listeners(p, "request")).toBe(0);
       await p.evaluate(async () => { await fetch("/small", { method: "POST", body: "during" }); });
       await p.evaluate(() => { document.body.style.background = "#eee"; });
+      // A click, so the interaction binding has something to report.
+      await p.evaluate(() => {
+        const b = document.createElement("button");
+        b.textContent = "Press me";
+        document.body.appendChild(b);
+      });
+      await p.click("button");
       await new Promise((r) => setTimeout(r, 600));
+      const navDuring = listeners(p, "framenavigated");
       const result = await session.stop();
       const urls = result.manifest.frames.flatMap((f: { network?: Array<{ url: string }> }) => (f.network ?? []).map((n) => n.url));
       expect(urls.some((u: string) => u.endsWith("/small"))).toBe(true);
       expect(listeners(p, "request")).toBe(0);
+      // The CDP request source must not cost the rest of the page listeners
+      // (challenger review 2026-11-16: an early return in attachPageListeners
+      // skipped the DOM snapshots, navigation, interaction and scroll hooks).
+      const interactions = (result.manifest as { interactions?: Array<{ type: string; label: string }> }).interactions ?? [];
+      expect(interactions.some((i) => i.type === "click" && i.label.includes("Press me"))).toBe(true);
+      expect(navDuring).toBeGreaterThan(0);
     } finally {
       await b.close();
     }
