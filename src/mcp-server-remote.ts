@@ -3340,12 +3340,20 @@ ${VERSION}
             await cleanupSession(browserSessionId);
           };
         } else {
-          // For stateless mode, clean up idle sessions (the 30s interval handles this)
-          // Don't aggressively clean on transport close since Claude.ai sends rapid sequential requests
-          transport.onclose = async () => {
-            // Mark the session so the periodic cleanup can evaluate it
-            // The 30s cleanup interval will handle actual cleanup after idle timeout
-          };
+          // Stateless: this transport and server exist for this one request.
+          // Close them when the client's connection closes, answered or not.
+          // Closing runs the SDK's own close handler, which aborts any tool
+          // still running (its extra.signal), so a journey the caller hung up
+          // on stops instead of running to its time limit. Measured before
+          // this (2026-11-16): a tool waiting on extra.signal ran its full
+          // 20 s after the client left at 3 s, because nothing closed the
+          // transport and an empty onclose assigned here replaced the
+          // handler server.connect() had installed. Browser sessions are not
+          // touched: the 30 s sweep still decides when an idle one goes,
+          // since Claude.ai sends rapid sequential requests.
+          res.on("close", () => {
+            transport.close().catch(() => { /* already closed */ });
+          });
         }
 
         // Add error handling for transport errors
