@@ -267,9 +267,15 @@ async function huntWithListener(
       }
     });
 
-    // Check for empty links
+    // Check for empty links. Read the attribute as written: a.href is the
+    // resolved address, so "#" came back as "https://site/page#" and
+    // href="" as the page itself, and neither ever matched. (2026-11-15)
+    const noTarget = (raw: string | null) => {
+      const h = (raw ?? "").trim();
+      return h === "" || h === "#" || /^javascript:\s*(void\s*\(\s*0\s*\)\s*;?)?\s*$/i.test(h);
+    };
     document.querySelectorAll("a").forEach((a, i) => {
-      if (!a.href || a.href === "#" || a.href === "javascript:void(0)") {
+      if (noTarget(a.getAttribute("href"))) {
         issues.push({
           type: "broken-link",
           description: `Empty/invalid link: ${a.textContent?.slice(0, 50) || "no text"}`,
@@ -575,8 +581,13 @@ async function huntWithListener(
               issues.push({ type: "a11y-verify", description: `Image (${Math.round(img.width)}x${Math.round(img.height)}px) declares alt="" (decorative)`, selector: `img:nth-of-type(${i + 1})`, recommendation: "Verify this image is purely decorative" });
             }
           });
+          // As on the first page: the attribute as written, not the resolved a.href.
+          const noTarget = (raw: string | null) => {
+            const h = (raw ?? "").trim();
+            return h === "" || h === "#" || /^javascript:\s*(void\s*\(\s*0\s*\)\s*;?)?\s*$/i.test(h);
+          };
           document.querySelectorAll("a").forEach((a, i) => {
-            if (!a.href || a.href === "#") {
+            if (noTarget(a.getAttribute("href"))) {
               issues.push({ type: "broken-link", description: `Empty link: ${a.textContent?.slice(0, 30) || "no text"}`, selector: `a:nth-of-type(${i + 1})` });
             }
           });
