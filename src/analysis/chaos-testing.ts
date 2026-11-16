@@ -17,6 +17,7 @@
 import type { CBrowser } from "../browser.js";
 import { executeNaturalLanguage } from "./natural-language.js";
 import { describeNavigationError } from "../navigation-errors.js";
+import { releaseConsoleArgs } from "../console-handles.js";
 
 /** Playwright appends a multi-line "Call log:"; a result keeps only the first line. */
 const firstLine = (m: unknown): string => String(m ?? "").split("\n")[0].trim();
@@ -223,6 +224,7 @@ export async function runChaosTest(
     // what any of them were, which makes the count unactionable. The text was
     // in hand the whole time. (2026-07-29)
     const consoleHandler = (msg: any) => {
+      releaseConsoleArgs(msg);
       if (msg.type() !== "error") return;
       consoleErrors++;
       const text = String(msg.text?.() ?? "").trim();

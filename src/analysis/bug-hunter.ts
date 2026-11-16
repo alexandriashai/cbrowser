@@ -17,6 +17,7 @@
  */
 
 import type { CBrowser } from "../browser.js";
+import { releaseConsoleArgs } from "../console-handles.js";
 
 export interface BugReport {
   type:
@@ -148,6 +149,7 @@ export async function huntBugs(
   // buffer instead: that caps text at 2000 characters and keeps 500 entries, so
   // a long error or a noisy page would change this tool's output.
   const onConsole = (msg: any) => {
+    releaseConsoleArgs(msg);
     if (msg.type() === "error") {
       const text: string = msg.text();
       const loc = typeof msg.location === "function" ? msg.location() : undefined;

@@ -31,7 +31,7 @@ import type { RecordingManifest } from "../../recording/types.js";
 import { VIEWPORT_PRESETS } from "../../types.js";
 import { buildContentWithScreenshots, MAX_RESPONSE_SIZE } from "../screenshot-utils.js";
 import type { CBrowser, McpServer, ToolRegistrationContext } from "../types.js";
-import { refuseHostedPath, refuseHostedPathName, refuseHostedUrl } from "../hosted-inputs.js";
+import { isHostedMode, refuseHostedPath, refuseHostedPathName, refuseHostedUrl } from "../hosted-inputs.js";
 import { colorSchemeParam } from "../color-scheme.js";
 
 /**
@@ -91,7 +91,144 @@ const sessions = new Map<string, {
   accountId: number | undefined;
   url?: string;
   viewport?: { width: number; height: number };
+  /** The browser it records, so closing that browser can release it. */
+  browser: CBrowser;
+  /** When a sweep first saw it stopped; the grace for capture_stop runs from here. */
+  seenStoppedAt?: number;
 }>();
+
+/**
+ * Limits on one capture on the hosted server (audit leaks-static-1, -7,
+ * 2026-11-12). The hosted server is one process for every account, and
+ * capture_start took any fps, duration, frame cap and viewport, so one caller
+ * could fill the disk with frames or keep a recording running for the life of
+ * the process. Each limit can be set per unit by environment variable; a
+ * missing, non-numeric or non-positive value keeps the default.
+ */
+export interface HostedCaptureLimits {
+  maxFps: number;
+  maxDurationMs: number;
+  maxFrames: number;
+  maxWidth: number;
+  maxHeight: number;
+}
+
+export function hostedCaptureLimits(env: Record<string, string | undefined> = process.env): HostedCaptureLimits {
+  const read = (name: string, fallback: number): number => {
+    const v = Number(env[name]);
+    return Number.isFinite(v) && v > 0 ? v : fallback;
+  };
+  return {
+    maxFps: read("CBROWSER_HOSTED_CAPTURE_MAX_FPS", 30),
+    maxDurationMs: read("CBROWSER_HOSTED_CAPTURE_MAX_DURATION_MS", 120_000),
+    maxFrames: read("CBROWSER_HOSTED_CAPTURE_MAX_FRAMES", 1800),
+    maxWidth: read("CBROWSER_HOSTED_CAPTURE_MAX_WIDTH", 1920),
+    maxHeight: read("CBROWSER_HOSTED_CAPTURE_MAX_HEIGHT", 1920),
+  };
+}
+
+/**
+ * Bring a capture request inside the hosted limits. Values inside pass through;
+ * each one lowered adds a note the caller sees in `hosted_limits`. An
+ * open-ended capture gets the time limit as its duration, so it stops on its
+ * own (the engine's duration timer) even if capture_stop never comes.
+ */
+export function clampCaptureForHosted(
+  req: { fps?: number; durationMs?: number; maxFrames?: number; viewport?: { width: number; height: number } },
+  limits: HostedCaptureLimits,
+): { fps?: number; durationMs: number; maxFrames: number; viewport?: { width: number; height: number }; notes: string[] } {
+  const notes: string[] = [];
+  let fps = req.fps;
+  if (fps !== undefined && fps > limits.maxFps) {
+    notes.push(`fps lowered from ${fps} to ${limits.maxFps}, the hosted limit`);
+    fps = limits.maxFps;
+  }
+  const seconds = Math.round(limits.maxDurationMs / 1000);
+  let durationMs: number;
+  if (req.durationMs === undefined) {
+    durationMs = limits.maxDurationMs;
+    notes.push(`no duration was given, so the capture stops on its own after ${seconds} s (the hosted limit); capture_stop still ends it sooner`);
+  } else if (req.durationMs > limits.maxDurationMs) {
+    durationMs = limits.maxDurationMs;
+    notes.push(`duration lowered from ${Math.round(req.durationMs / 1000)} s to ${seconds} s, the hosted limit`);
+  } else {
+    durationMs = req.durationMs;
+  }
+  let maxFrames = req.maxFrames ?? limits.maxFrames;
+  if (maxFrames > limits.maxFrames) {
+    notes.push(`maxFrames lowered from ${maxFrames} to ${limits.maxFrames}, the hosted limit`);
+    maxFrames = limits.maxFrames;
+  }
+  let viewport = req.viewport;
+  if (viewport && (viewport.width > limits.maxWidth || viewport.height > limits.maxHeight)) {
+    const next = { width: Math.min(viewport.width, limits.maxWidth), height: Math.min(viewport.height, limits.maxHeight) };
+    notes.push(`viewport lowered from ${viewport.width}x${viewport.height} to ${next.width}x${next.height}, the hosted limit`);
+    viewport = next;
+  }
+  return {
+    ...(fps !== undefined ? { fps } : {}),
+    durationMs,
+    maxFrames,
+    ...(viewport ? { viewport } : {}),
+    notes,
+  };
+}
+
+/** How many captures the map holds (recording or stopped and not yet dropped). */
+export function captureSessionCount(): number {
+  return sessions.size;
+}
+
+/** Test hook: the engine behind a key, to stop it the way its own timer does. */
+export function _captureEngineForTest(token?: string): VideoCaptureSession | undefined {
+  return sessions.get(sessionKey(token))?.session;
+}
+
+/**
+ * A browser is closing: stop every capture recording on it and drop them from
+ * the map. Before this, a capture whose session the server closed stayed in
+ * the map for the life of the process (leaks-static-7). The stop is bounded by
+ * `timeoutMs`, because a closing browser can leave stop() waiting on a page
+ * that will never answer, and the entry is dropped either way. Returns how
+ * many entries were released.
+ */
+export async function releaseCapturesForBrowser(browser: CBrowser, timeoutMs = 5000): Promise<number> {
+  const keys = [...sessions].filter(([, e]) => e.browser === browser).map(([k]) => k);
+  await Promise.all(keys.map(async (key) => {
+    const entry = sessions.get(key);
+    sessions.delete(key);
+    if (!entry || entry.session.status().state !== "recording") return;
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        entry.session.stop().then(() => undefined, () => undefined),
+        new Promise<void>((resolve) => { timer = setTimeout(resolve, timeoutMs); }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }));
+  return keys.length;
+}
+
+/**
+ * Drop captures that stopped (by their duration or a stop trigger) and were
+ * not collected with capture_stop within `graceMs` of a sweep first seeing
+ * them stopped. Recording captures are kept: on the hosted server every one
+ * has a duration, so each stops on its own. `finished` keeps one summary per
+ * key and is bounded by age the same way.
+ */
+export function sweepCaptureSessions(now: number = Date.now(), graceMs = 10 * 60_000): void {
+  for (const [key, entry] of sessions) {
+    if (entry.session.status().state !== "stopped") continue;
+    if (entry.seenStoppedAt === undefined) { entry.seenStoppedAt = now; continue; }
+    if (now - entry.seenStoppedAt > graceMs) sessions.delete(key);
+  }
+  for (const [key, done] of finished) {
+    const at = Date.parse(done.stoppedAt);
+    if (Number.isFinite(at) && now - at > 6 * graceMs) finished.delete(key);
+  }
+}
 
 /** Summary of a capture that has already stopped. */
 interface FinishedCapture {
@@ -594,8 +731,19 @@ export async function startCapture(
   // After emulate (which closes a running browser); needs no relaunch itself.
   if (args.colorScheme) await browser.setColorScheme(args.colorScheme);
 
+  // Hosted: one process for every account, so a capture is held inside fixed
+  // limits and an open-ended one gets a duration (leaks-static-1, -7).
+  const hosted = isHostedMode()
+    ? clampCaptureForHosted({
+        ...(args.fps !== undefined ? { fps: args.fps } : {}),
+        ...(args.duration !== undefined ? { durationMs: parseDurationMs(args.duration) } : {}),
+        ...(args.maxFrames !== undefined ? { maxFrames: args.maxFrames } : {}),
+        ...(args.viewport ? { viewport: parseViewport(args.viewport) } : {}),
+      }, hostedCaptureLimits())
+    : undefined;
+
   if (args.viewport) {
-    const size = parseViewport(args.viewport);
+    const size = hosted?.viewport ?? parseViewport(args.viewport);
     const page = await browser.getPage();
     await page.setViewportSize(size);
   }
@@ -631,6 +779,9 @@ export async function startCapture(
     ...(args.format !== undefined ? { format: parseFormats(args.format) } : {}),
     ...(args.quality !== undefined ? { quality: args.quality } : {}),
     ...(args.maxFrames !== undefined ? { maxFrames: args.maxFrames } : {}),
+    ...(hosted
+      ? { ...(hosted.fps !== undefined ? { fps: hosted.fps } : {}), durationMs: hosted.durationMs, maxFrames: hosted.maxFrames }
+      : {}),
     ...(args.name !== undefined ? { slug: args.name } : {}),
     ...(args.outDir !== undefined ? { outDir: resolve(args.outDir) } : {}),
     ...triggers,
@@ -679,6 +830,7 @@ export async function startCapture(
   const recViewport = page.viewportSize();
   sessions.set(key, {
     session,
+    browser,
     accountId: scopedAccountId(),
     ...(args.url ? { url: args.url } : {}),
     ...(recViewport ? { viewport: recViewport } : {}),
@@ -709,6 +861,7 @@ export async function startCapture(
     engine,
     ...(recViewport ? { viewport: `${recViewport.width}x${recViewport.height}` } : {}),
     ...(browser.colorScheme ? { color_scheme: browser.colorScheme } : {}),
+    ...(hosted && hosted.notes.length > 0 ? { hosted_limits: hosted.notes } : {}),
     ...(openingFrame ? { opening_frame: openingFrame, opening_frame_mime: "image/jpeg" } : {}),
     ...(elementNote ? { element_note: elementNote } : {}),
     note:

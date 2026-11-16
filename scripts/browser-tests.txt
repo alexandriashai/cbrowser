@@ -154,3 +154,4 @@ tests/browser-setup-user-context.test.ts
 # gate runs it.
 tests/hosted-egress-browser.test.ts
 tests/gated-launch.test.ts
+tests/network-log-bounded.test.ts

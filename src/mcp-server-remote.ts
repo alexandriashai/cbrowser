@@ -62,6 +62,7 @@ import { registerAllPublicTools, setRemoteMode, setHostedMode, setActiveTier as 
 import { withPersonaScope, scopedAccountId } from "./persona-scope.js";
 import { withChargeScope, currentCharge } from "./charge-scope.js";
 import { refundCharge } from "./mcp-tools/credit-refund.js";
+import { releaseCapturesForBrowser, sweepCaptureSessions } from "./mcp-tools/base/capture-tools.js";
 import { withRequestIdentity, currentRequestIdentity } from "./request-context.js";
 import { checkOwnAddressConfig } from "./egress.js";
 
@@ -548,6 +549,16 @@ async function cleanupSession(sessionId: string, reason: string = "Session ended
   expiredSessions.set(sessionId, { expiredAt: now, reason });
 
   const label = `session ${sessionId.substring(0, 8)}...`;
+  // A capture recording on this browser would otherwise stay in the capture
+  // map for the life of the process (leaks-static-7). Stopped before the
+  // close, while its page can still answer; bounded so a hung page cannot
+  // hold the close up.
+  try {
+    const released = await releaseCapturesForBrowser(session.browser, 5000);
+    if (released > 0) console.log(`[Session] Released ${released} capture${released === 1 ? "" : "s"} of ${label}`);
+  } catch (e) {
+    console.warn(`[Session] Releasing captures of ${label} failed: ${describeError(e)}`);
+  }
   try {
     await closeAndReap(session.browser, session.browserDirs, label);
   } catch (e) {
@@ -599,6 +610,7 @@ export async function sweepSessions(now: number = Date.now()): Promise<void> {
       if (now - info.closedAt > TOKEN_EXPIRY_MS) closedTokens.delete(token);
     }
     sweepAuthCaches(now);
+    sweepCaptureSessions(now);
 
     const table = readProcTable();
     const closes: Promise<void>[] = [];

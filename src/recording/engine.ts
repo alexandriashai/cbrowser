@@ -39,6 +39,7 @@ import { buildContactSheet } from "./contact-sheet.js";
 import { encodeGif, encodeMp4, encodeWebm, encodeWebp, MissingEncoderError } from "./encoders.js";
 import { changeScore, detectChangePoints, frameSignature } from "./ssim.js";
 import { clampRect, expandForPlayback, findFrameGaps } from "./timing.js";
+import { releaseConsoleArgs } from "../console-handles.js";
 import {
   CHANGE_SATURATION_RATIO,
   MANIFEST_VERSION,
@@ -163,6 +164,9 @@ export interface VideoCaptureResult {
 const DEFAULT_FPS = 10;
 const DEFAULT_QUALITY = 80;
 const DEFAULT_MAX_FRAMES = 3000;
+/** Most console and request events one capture keeps, and the longest text of one. */
+const MAX_CAPTURE_EVENTS = 5000;
+const MAX_CAPTURE_EVENT_TEXT = 2000;
 
 /** How often to check whether the page scrolled far enough to re-read the DOM. */
 const SCROLL_SNAPSHOT_INTERVAL_MS = 200;
@@ -376,6 +380,8 @@ export class VideoCaptureSession {
   private networkEvents: NetworkEntry[] = [];
   private consoleListener: ((msg: ConsoleMessage) => void) | null = null;
   private requestListener: ((req: Request) => void) | null = null;
+  /** The capture's own CDP session for the request timeline (Chromium). */
+  private networkCdp: CDPSession | null = null;
 
   private viewport = { width: 0, height: 0, deviceScaleFactor: 1 };
   private regionClamped = false;
@@ -970,25 +976,45 @@ export class VideoCaptureSession {
   }
 
   private async attachPageListeners(): Promise<void> {
+    // One capture's console and request timelines are bounded in count and
+    // size: a page logging or posting in a loop otherwise grows them for the
+    // whole recording (ISA 20261112-cbrowser-sessions-leaks ISC-5).
     this.consoleListener = (msg: ConsoleMessage) => {
-      if (this.state !== "recording") return;
+      releaseConsoleArgs(msg);
+      if (this.state !== "recording" || this.consoleEvents.length >= MAX_CAPTURE_EVENTS) return;
+      const text = msg.text();
       this.consoleEvents.push({
         t_ms: Math.max(0, Date.now() - this.startWallMs),
         type: msg.type(),
-        text: msg.text(),
+        text: text.length > MAX_CAPTURE_EVENT_TEXT ? `${Buffer.from(text.slice(0, MAX_CAPTURE_EVENT_TEXT), "utf8").toString("utf8")}...` : text,
       });
     };
 
-    this.requestListener = (req: Request) => {
-      if (this.state !== "recording") return;
+    const onRequest = (url: string, method: string): void => {
+      if (this.state !== "recording" || this.networkEvents.length >= MAX_CAPTURE_EVENTS) return;
+      const redacted = redactUrl(url);
       this.networkEvents.push({
         t_ms: Math.max(0, Date.now() - this.startWallMs),
-        url: redactUrl(req.url()),
-        method: req.method(),
+        url: redacted.length > MAX_CAPTURE_EVENT_TEXT ? Buffer.from(redacted.slice(0, MAX_CAPTURE_EVENT_TEXT), "utf8").toString("utf8") : redacted,
+        method,
       });
     };
 
     this.page.on("console", this.consoleListener);
+    // Chromium: requests from a CDP session of the capture's own. A
+    // page.on("request") listener makes Playwright keep every Request, body
+    // included, for the life of the page, not just of the capture (measured
+    // 2026-11-15; see setupNetworkTracking in browser.ts).
+    if (this.engine === "chromium") {
+      try {
+        const cdp = await this.page.context().newCDPSession(this.page);
+        await cdp.send("Network.enable", { maxPostDataSize: 0, maxTotalBufferSize: 1024 * 1024, maxResourceBufferSize: 512 * 1024 });
+        cdp.on("Network.requestWillBeSent", (e: { request: { url: string; method: string } }) => onRequest(e.request.url, e.request.method));
+        this.networkCdp = cdp;
+        return;
+      } catch { /* fall back to page events */ }
+    }
+    this.requestListener = (req: Request) => onRequest(req.url(), req.method());
     this.page.on("request", this.requestListener);
 
     // Snapshot the DOM now and again whenever the page navigates, so a judged
@@ -1087,6 +1113,10 @@ export class VideoCaptureSession {
     if (this.requestListener) this.page.off("request", this.requestListener);
     this.consoleListener = null;
     this.requestListener = null;
+    if (this.networkCdp) {
+      void this.networkCdp.detach().catch(() => { /* page already gone */ });
+      this.networkCdp = null;
+    }
   }
 
   // =======================================================================

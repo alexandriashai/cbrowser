@@ -81,6 +81,7 @@ import { clampRect } from "./recording/timing.js";
 import { navigationError, gateNavigationError, markedNavigationError, type GateRecord } from "./navigation-errors.js";
 import { uniqueStamp } from "./temp-files.js";
 import type { Rect } from "./recording/types.js";
+import { releaseConsoleArgs } from "./console-handles.js";
 
 // Browser-specific fast launch args for performance optimization
 const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
@@ -1264,8 +1265,9 @@ For more help: https://playwright.dev/docs/browsers
       await this.setupNetworkMocks(this.config.networkMocks);
     }
 
-    // Set up network request/response tracking for HAR
-    this.setupNetworkTracking();
+    // Set up network request/response tracking for HAR. Awaited so the CDP
+    // logger is listening before the first navigation.
+    await this.setupNetworkTracking();
   }
 
   /** The end of launch(): the page of the last session, loaded again into the browser that has just started. */
@@ -1904,38 +1906,183 @@ For more help: https://playwright.dev/docs/browsers
 
   /**
    * Set up network request/response tracking for HAR.
+   *
+   * Chromium reads the log from a CDP session of its own, not from
+   * page.on("request"). Measured 2026-11-15 on Playwright 1.64.1: once
+   * anything listens for "request", Playwright keeps every Request object,
+   * body included, for the life of the page (a navigation does not free them):
+   * a page posting 512 KB every 20 ms grew the heap 66 -> 789 MB in 30 s with
+   * an empty listener, and stayed at 66 MB with no listener or with a CDP
+   * Network listener. Capping this log alone left the server growing at the
+   * page's full send rate (705 -> 1,860 MB from 15 to 60 s), so the audit's
+   * leaks-static-2 was not bounded until the listener itself went.
+   * Firefox and WebKit have no CDP and keep the Playwright listeners.
    */
-  private setupNetworkTracking(): void {
+  private async setupNetworkTracking(): Promise<void> {
     if (!this.page) return;
+    const page = this.page;
+    const engine = page.context().browser()?.browserType().name() ?? this.config.browser ?? "chromium";
+    if (engine === "chromium") {
+      try {
+        await this.setupCdpNetworkTracking(page);
+        return;
+      } catch (e) {
+        if (this.config.verbose) console.warn(`[CBrowser] CDP network log unavailable, using page events: ${(e as Error).message}`);
+      }
+    }
+    this.setupPlaywrightNetworkTracking(page);
+  }
 
-    this.page.on("request", (request) => {
-      const url = capUtf8(request.url(), CBrowser.MAX_URL_BYTES);
-      const headers = capHeaders(request.headers(), CBrowser.MAX_HEADER_BYTES);
-      const networkRequest: NetworkRequest = {
-        url: url.text,
-        method: request.method(),
-        headers: headers.headers,
-        resourceType: request.resourceType(),
-        timestamp: new Date().toISOString(),
-      };
-      if (url.truncated) networkRequest.urlTruncated = true;
-      if (headers.truncated) networkRequest.headersTruncated = true;
+  /**
+   * Build a log record from one request, keep it, and drop the oldest past the
+   * cap. Shared by both sources so the two keep the same shape and limits.
+   * `body` is the body as far as the source has it; `bodyOmitted` means the
+   * source had a body it did not hand over (CDP above maxPostDataSize).
+   */
+  private logRequest(raw: {
+    url: string; method: string; headers: Record<string, string>; resourceType: string;
+    body?: Buffer; bodyOmitted?: boolean;
+  }): NetworkRequest {
+    const url = capUtf8(raw.url, CBrowser.MAX_URL_BYTES);
+    const headers = capHeaders(raw.headers, CBrowser.MAX_HEADER_BYTES);
+    const networkRequest: NetworkRequest = {
+      url: url.text,
+      method: raw.method,
+      headers: headers.headers,
+      resourceType: raw.resourceType,
+      timestamp: new Date().toISOString(),
+    };
+    if (url.truncated) networkRequest.urlTruncated = true;
+    if (headers.truncated) networkRequest.headersTruncated = true;
+    const body = raw.body;
+    if (body && body.length > 0) {
+      if (body.length > CBrowser.MAX_POST_DATA_BYTES) {
+        networkRequest.postData = decodeUtf8Prefix(body, CBrowser.MAX_POST_DATA_BYTES);
+        networkRequest.postDataTruncated = true;
+        networkRequest.postDataBytes = body.length;
+      } else {
+        networkRequest.postData = body.toString("utf8");
+      }
+    } else if (raw.bodyOmitted) {
+      networkRequest.postDataTruncated = true;
+      const declared = Number(Object.entries(raw.headers).find(([n]) => n.toLowerCase() === "content-length")?.[1]);
+      if (Number.isFinite(declared) && declared > 0) networkRequest.postDataBytes = declared;
+    }
+    this.networkRequests.push(networkRequest);
+    if (this.networkRequests.length > CBrowser.MAX_NETWORK_REQUESTS) {
+      this.networkRequests.shift();
+      this.droppedNetworkRequests++;
+    }
+    return networkRequest;
+  }
+
+  /**
+   * The Chromium network log, from a CDP session. Bodies longer than
+   * MAX_POST_DATA_BYTES are not sent over CDP at all (maxPostDataSize), so
+   * such a record carries postDataTruncated with no prefix. Events are plain
+   * data and nothing Playwright keeps, so the log's own caps bound it.
+   */
+  private async setupCdpNetworkTracking(page: Page): Promise<void> {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.enable", {
+      maxPostDataSize: CBrowser.MAX_POST_DATA_BYTES,
+      // Response bodies are never read through this session; keep Chromium's
+      // per-session copy of them small.
+      maxTotalBufferSize: 1024 * 1024,
+      maxResourceBufferSize: 512 * 1024,
+    });
+    const pending = new Map<string, { req: NetworkRequest; startedAt: number; har?: Partial<HAREntry> }>();
+    type CdpRequest = { url: string; method: string; headers: Record<string, unknown>; postData?: string; hasPostData?: boolean };
+    type CdpResponse = { status: number; statusText: string; headers: Record<string, unknown>; mimeType?: string };
+    const strHeaders = (h: Record<string, unknown>): Record<string, string> =>
+      Object.fromEntries(Object.entries(h ?? {}).map(([k, v]) => [k, String(v)]));
+
+    const complete = (id: string, res: CdpResponse): void => {
+      const entry = pending.get(id);
+      if (!entry) return;
+      pending.delete(id);
+      entry.req.status = res.status;
+      entry.req.statusText = res.statusText;
+      const endTime = Date.now();
+      entry.req.durationMs = endTime - entry.startedAt;
+      if (entry.har && this.isRecordingHar) {
+        const headers = strHeaders(res.headers);
+        const lower = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
+        this.harEntries.push({
+          ...(entry.har as HAREntry),
+          time: endTime - entry.startedAt,
+          response: {
+            status: res.status,
+            statusText: res.statusText,
+            httpVersion: "HTTP/1.1",
+            headers: Object.entries(headers).map(([name, value]) => ({ name, value })),
+            content: {
+              size: parseInt(lower["content-length"] || "0"),
+              mimeType: lower["content-type"] || res.mimeType || "application/octet-stream",
+            },
+            redirectURL: lower["location"] || "",
+            headersSize: -1,
+            bodySize: parseInt(lower["content-length"] || "-1"),
+          },
+          cache: {},
+          timings: { blocked: 0, dns: -1, connect: -1, send: 0, wait: endTime - entry.startedAt, receive: 0, ssl: -1 },
+        });
+      }
+    };
+
+    cdp.on("Network.requestWillBeSent", (e: { requestId: string; request: CdpRequest; type?: string; redirectResponse?: CdpResponse }) => {
+      // A redirect reuses the request id: the hop that redirected ends here.
+      if (e.redirectResponse) complete(e.requestId, e.redirectResponse);
+      const headers = strHeaders(e.request.headers);
+      const req = this.logRequest({
+        url: e.request.url,
+        method: e.request.method,
+        headers,
+        resourceType: (e.type ?? "other").toLowerCase(),
+        ...(e.request.postData !== undefined ? { body: Buffer.from(e.request.postData, "utf8") } : {}),
+        ...(e.request.postData === undefined && e.request.hasPostData ? { bodyOmitted: true } : {}),
+      });
+      if (pending.size >= CBrowser.MAX_PENDING_REQUESTS) {
+        const oldest = pending.keys().next();
+        if (!oldest.done) pending.delete(oldest.value);
+      }
+      pending.set(e.requestId, {
+        req,
+        startedAt: Date.now(),
+        ...(this.isRecordingHar
+          ? {
+              har: {
+                startedDateTime: new Date().toISOString(),
+                request: {
+                  method: e.request.method,
+                  url: req.url,
+                  httpVersion: "HTTP/1.1",
+                  headers: Object.entries(req.headers).map(([name, value]) => ({ name, value })),
+                  queryString: [],
+                  headersSize: -1,
+                  bodySize: req.postDataBytes ?? req.postData?.length ?? 0,
+                },
+              },
+            }
+          : {}),
+      });
+    });
+    cdp.on("Network.responseReceived", (e: { requestId: string; response: CdpResponse }) => complete(e.requestId, e.response));
+    cdp.on("Network.loadingFailed", (e: { requestId: string }) => { pending.delete(e.requestId); });
+  }
+
+  /** The page-event network log, for Firefox and WebKit (no CDP). */
+  private setupPlaywrightNetworkTracking(page: Page): void {
+    page.on("request", (request) => {
       // Read from the buffer so only the kept part is ever decoded.
       const body = request.postDataBuffer();
-      if (body && body.length > 0) {
-        if (body.length > CBrowser.MAX_POST_DATA_BYTES) {
-          networkRequest.postData = decodeUtf8Prefix(body, CBrowser.MAX_POST_DATA_BYTES);
-          networkRequest.postDataTruncated = true;
-          networkRequest.postDataBytes = body.length;
-        } else {
-          networkRequest.postData = body.toString("utf8");
-        }
-      }
-      this.networkRequests.push(networkRequest);
-      if (this.networkRequests.length > CBrowser.MAX_NETWORK_REQUESTS) {
-        this.networkRequests.shift();
-        this.droppedNetworkRequests++;
-      }
+      const networkRequest = this.logRequest({
+        url: request.url(),
+        method: request.method(),
+        headers: request.headers(),
+        resourceType: request.resourceType(),
+        ...(body ? { body } : {}),
+      });
 
       // Track it so the response handler can complete the record. Evict the
       // oldest entry rather than growing forever when responses never arrive.
@@ -1968,7 +2115,7 @@ For more help: https://playwright.dev/docs/browsers
       }
     });
 
-    this.page.on("response", async (response) => {
+    page.on("response", async (response) => {
       const key = CBrowser.requestKey(response.url(), response.request().method());
 
       // This status was already being computed here and then discarded into an
@@ -2134,6 +2281,7 @@ For more help: https://playwright.dev/docs/browsers
         ...(loc?.url ? { url: loc.url, lineNumber: loc.lineNumber } : {}),
         pageUrl: pageUrl(),
       });
+      releaseConsoleArgs(m);
     });
     page.on("pageerror", (err) => {
       push({
