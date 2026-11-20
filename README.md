@@ -18,7 +18,7 @@ npx cbrowser agent-ready-audit "https://your-site.com" --html
 ## Quickstart
 
 ```bash
-# 1. Install (Node.js 20.9 or newer). Installing also downloads Chromium.
+# 1. Install (Node.js 20.19+ or 22.12+). Installing also downloads Chromium.
 npm install -g cbrowser
 
 # 2. Check the environment
