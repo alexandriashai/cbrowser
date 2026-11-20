@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![MCP Ready](https://img.shields.io/badge/MCP-130%20Tools-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
-[![Node](https://img.shields.io/badge/Node-%3E%3D20.9-green.svg)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/Node-20.19%2B%20%7C%2022.12%2B-green.svg)](https://nodejs.org/)
 
 ```bash
 npx cbrowser agent-ready-audit "https://your-site.com" --html

@@ -90,10 +90,15 @@ describe("README counts, commands and tools match the code", () => {
 
   test("the Node badge and quickstart match engines.node", async () => {
     const pkg = await Bun.file(new URL("../package.json", import.meta.url)).json() as { engines: { node: string } };
-    const min = pkg.engines.node.replace(/^>=/, "");
-    const short = min.replace(/\.0$/, "");
-    expect(README).toContain(`Node-%3E%3D${short}`);
-    expect(README).toContain(`Node.js ${short} or newer`);
+    // engines.node is a range of lower bounds ("^20.19.0 || >=22.12.0" since the
+    // require(esm) fix); the badge and the quickstart state every one of them.
+    const mins = pkg.engines.node.split("||").map((part) => {
+      const m = /(\d+\.\d+)(?:\.0)?(?:\.\d+)?/.exec(part.trim());
+      expect(m, `engines part ${part}`).toBeTruthy();
+      return m![1];
+    });
+    expect(README).toContain(`Node-${mins.map((v) => `${v}%2B`).join("%20%7C%20")}`);
+    expect(README).toContain(`Node.js ${mins.map((v) => `${v}+`).join(" or ")}`);
   });
 
   test("the documented default page size is the config default", async () => {
