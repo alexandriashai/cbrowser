@@ -4,8 +4,10 @@ export { registerUiResources, publishCaptureUi, buildStatusTemplate, UI_PROBE_UR
  *
  * Modular tool registration for CBrowser MCP servers.
  *
- * Tool counts by deployment (measured 2026-10-21 by listing tools/list, list_devices included; the
- * numbers that stood here before, 104 and 91, were typed and had drifted):
+ * Tool counts by deployment (tools/list, list_devices included). tests/doc-tool-counts.test.ts
+ * counts the registered tools and fails when these numbers, the README, manifest.json or
+ * skill/SKILL.md disagree with them; they were typed by hand and drifted twice (104 and 91,
+ * then 139 and 9 after compare_personas_record_result/summarize were removed in 20.0.0):
  *
  * SHARED SET (registerAllPublicTools): 130
  * - Base tools: 104 (registerBaseTools; the 4 marketing_campaign/personas
@@ -16,17 +18,18 @@ export { registerUiResources, publishCaptureUi, buildStatusTemplate, UI_PROBE_UR
  * - Enterprise stubs: 18 (stealth_*, cloudflare_*, marketing_* analysis, api key)
  * The tier gate changes what a call returns, never what is listed.
  *
- * LOCAL MCP (npx cbrowser mcp-server): 139
+ * LOCAL MCP (npx cbrowser mcp-server): 137
  * - The shared set above (130), with tier null: no gate, no credits, no
  *   hosted path/URL refusals.
- * - Stdio-only session bridges: 9 (empathy_audit_init/record_barrier/
- *   complete_persona/summarize, compare_personas_record_result/summarize,
- *   get_emotional_state, list_emotional_personas, trigger_emotional_event).
+ * - Stdio-only session bridges: 7 (empathy_audit_init/record_barrier/
+ *   complete_persona/summarize, get_emotional_state,
+ *   list_emotional_personas, trigger_emotional_event).
  *
- * HOSTED (demo / pro): the shared set, 130, plus whatever the server adds.
+ * HOSTED (demo / pro): the shared set, 130, plus whatever the server adds
+ * (the Pro server built from cbrowser-enterprise adds web_security_scan).
  * ENTERPRISE: its own registerTools replaces the stubs with the real tools.
  *
- * tests/mcp-stdio-parity.test.ts pins the stdio = shared + 9 relation.
+ * tests/mcp-stdio-parity.test.ts pins the stdio = shared + 7 relation.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT

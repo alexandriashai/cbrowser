@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
   "name": "cbrowser",
-  "version": "18.59.0",
-  "description": "Cognitive browser automation with 120 MCP tools. Simulate real user cognition with 26 traits and 10 motivational values, run persona-based testing across 3 script families, and make sites AI-friendly.",
+  "version": "21.5.2",
+  "description": "Cognitive browser automation with 137 MCP tools. Simulate real user cognition with 26 traits and 10 motivational values, run persona-based testing across 3 script families, and make sites AI-friendly.",
   "author": {
     "name": "Alexandria Eden",
     "email": "alexandria.shai.eden@gmail.com",
