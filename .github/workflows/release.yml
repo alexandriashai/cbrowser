@@ -68,6 +68,11 @@ jobs:
       - name: Build
         run: bun run build
 
+      # test:gate ends with a real-browser smoke (scripts/browser-smoke.txt), which needs
+      # Chromium. Without this step the smoke fails and blocks every release.
+      - name: Install Chromium for the release smoke
+        run: bunx playwright install --with-deps chromium
+
       # THIS IS THE GATE. It was advisory until 2026-07-26 (`bun test || true` plus
       # `continue-on-error: true`) under a comment claiming "the Tests workflow is the real
       # gate". That claim was false: test.yml runs on push, release.yml is
