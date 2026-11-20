@@ -18,8 +18,12 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, readlinkSync } from "fs";
 import { isRestorablePageUrl, isStaleSingletonLock } from "../utils.js";
 import { join } from "path";
-import { execSync } from "child_process";
-import type { SessionState } from "./helpers.js";
+import {
+  isBrowserNotInstalledError as helperIsBrowserNotInstalledError,
+  installPlaywrightBrowsers as helperInstallPlaywrightBrowsers,
+  getBrowserInstallErrorMessage as helperGetBrowserInstallErrorMessage,
+  type SessionState,
+} from "./helpers.js";
 import type { CBrowser } from "../browser.js";
 
 // =========================================================================
@@ -167,54 +171,19 @@ export function clearSessionState(this: CBrowser): void {
 // Browser Installation
 // =========================================================================
 
+// The methods are the exported helpers. They were separate copies, and the
+// copies drifted (the method kept `npx playwright install` with inherited
+// stdout after the helper was the one exported), so they now delegate.
+
 export function isBrowserNotInstalledError(this: CBrowser, error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const message = error.message.toLowerCase();
-  return (
-    message.includes("executable doesn't exist") ||
-    message.includes("executable does not exist") ||
-    message.includes("browsertype.launch") ||
-    message.includes("no usable browser") ||
-    message.includes("browser was not found")
-  );
+  return helperIsBrowserNotInstalledError(error);
 }
 
+/** Installs all three browsers, as this method always has. */
 export async function installPlaywrightBrowsers(this: CBrowser): Promise<boolean> {
-  console.error("🔧 Playwright browsers not found. Installing automatically...");
-  console.error("   This may take a few minutes on first run.\n");
-
-  try {
-    // Install all browsers to avoid future issues
-    execSync("npx playwright install chromium firefox webkit", {
-      stdio: "inherit",
-      timeout: 300000, // 5 minute timeout
-    });
-    console.error("\n✅ Playwright browsers installed successfully.\n");
-    return true;
-  } catch (installError) {
-    console.error("\n❌ Automatic browser installation failed.\n");
-    return false;
-  }
+  return helperInstallPlaywrightBrowsers();
 }
 
 export function getBrowserInstallErrorMessage(this: CBrowser, browserName: string): string {
-  return `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  Playwright browsers are not installed                                        ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-CBrowser requires Playwright browsers to run. Automatic installation failed.
-
-To fix this, run one of these commands:
-
-  npx playwright install                    # Install all browsers
-  npx playwright install ${browserName.padEnd(20)} # Install ${browserName} only
-
-Common issues:
-  • Corporate network blocking downloads → Contact IT or use a VPN
-  • Permission errors → Try with sudo or check write permissions
-  • PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 → Unset this environment variable
-
-For more help: https://playwright.dev/docs/browsers
-`;
+  return helperGetBrowserInstallErrorMessage(browserName);
 }

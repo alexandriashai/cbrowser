@@ -11,7 +11,9 @@
  */
 
 import { chromium, firefox, webkit, type Browser, type Page, type Request, type Response } from "playwright";
-import { execSync } from "child_process";
+import { spawn } from "child_process";
+import { createRequire } from "module";
+import { dirname, join } from "path";
 import { EGRESS_HEADER } from "../egress-gate.js";
 import type { SupportedBrowser } from "../types.js";
 import { isHostedMode } from "../mcp-tools/hosted-inputs.js";
@@ -170,26 +172,57 @@ export function isBrowserNotInstalledError(error: unknown): boolean {
 }
 
 /**
+ * The CLI of the Playwright this package depends on. `npx playwright` ran
+ * whatever Playwright the caller's directory or npx cache held (measured
+ * 2026-11-20: 1.58.0 from a user's directory against the bundled 1.65.1), so
+ * it downloaded browser revisions this package never launches. Playwright does
+ * not export cli.js, so the path is taken from its package.json, which it does.
+ */
+function bundledPlaywrightCli(): string {
+  const req = createRequire(import.meta.url);
+  return join(dirname(req.resolve("playwright/package.json")), "cli.js");
+}
+
+/** How long an automatic install may run before it is stopped. */
+const INSTALL_TIMEOUT_MS = 5 * 60_000;
+
+/**
  * Attempt to install Playwright browsers automatically.
  * Returns true if installation succeeded, false otherwise.
+ *
+ * Everything the installer prints goes to stderr. It used to inherit stdout,
+ * and on the stdio MCP server stdout is the JSON-RPC channel: the download
+ * progress lines landed between protocol messages and a client reading them
+ * dropped the connection. It runs as a child process, not execSync, so the
+ * event loop keeps serving while it downloads.
+ *
+ * @param browserName one browser, or a space-separated list; all three when omitted
  */
 export async function installPlaywrightBrowsers(browserName?: string): Promise<boolean> {
   console.error("🔧 Playwright browsers not found. Installing automatically...");
   console.error("   This may take a few minutes on first run.\n");
 
+  const browsers = (browserName || "chromium firefox webkit").split(/\s+/).filter(Boolean);
+  let installed = false;
   try {
-    // Install specific browser or all browsers
-    const browsers = browserName || "chromium firefox webkit";
-    execSync(`npx playwright install ${browsers}`, {
-      stdio: "inherit",
-      timeout: 300000, // 5 minute timeout
+    const cli = bundledPlaywrightCli();
+    installed = await new Promise<boolean>((resolve) => {
+      const child = spawn(process.execPath, [cli, "install", ...browsers], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      child.stdout.pipe(process.stderr, { end: false });
+      child.stderr.pipe(process.stderr, { end: false });
+      const timer = setTimeout(() => child.kill("SIGTERM"), INSTALL_TIMEOUT_MS);
+      child.on("error", () => { clearTimeout(timer); resolve(false); });
+      child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
     });
-    console.error("\n✅ Playwright browsers installed successfully.\n");
-    return true;
   } catch {
-    console.error("\n❌ Automatic browser installation failed.\n");
-    return false;
+    installed = false;
   }
+  console.error(installed
+    ? "\n✅ Playwright browsers installed successfully.\n"
+    : "\n❌ Automatic browser installation failed.\n");
+  return installed;
 }
 
 /**
