@@ -31,6 +31,7 @@ import { describe, test, expect, beforeAll, afterAll, afterEach } from "bun:test
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cliSourceText } from "./cli-sources.js";
 
 const ROOT = mkdtempSync(join(tmpdir(), "cb-hosted-paths-"));
 const DATA = join(ROOT, "data");
@@ -140,7 +141,7 @@ describe("the flag", () => {
     const startBody = remote.slice(start, remote.indexOf("const port =", start));
     expect(startBody).toContain("setHostedMode(true)");
     expect(src("mcp-server.ts")).not.toContain("setHostedMode");
-    expect(src("cli.ts")).not.toContain("setHostedMode");
+    expect(cliSourceText()).not.toContain("setHostedMode");
   });
 });
 

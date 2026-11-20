@@ -1,5 +1,6 @@
 // Pin the README against the code, so the region list cannot drift again.
 import { describe, test, expect } from "bun:test";
+import { cliSourceText } from "./cli-sources.js";
 const README = await Bun.file(new URL("../README.md", import.meta.url)).text();
 const SRC = await Bun.file(new URL("../src/geo-proxy.ts", import.meta.url)).text();
 
@@ -110,7 +111,7 @@ describe("README counts, commands and tools match the code", () => {
   });
 
   test("every cbrowser command in a shell example is a real command", async () => {
-    const cli = await Bun.file(new URL("../src/cli.ts", import.meta.url)).text();
+    const cli = cliSourceText();
     const known = new Set([
       ...[...cli.matchAll(/case "([a-z0-9-]+)":/g)].map((m) => m[1]),
       ...[...cli.matchAll(/command === "([a-z0-9-]+)"/g)].map((m) => m[1]),

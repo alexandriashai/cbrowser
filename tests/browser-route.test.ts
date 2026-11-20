@@ -29,6 +29,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { connect as netConnect, createServer as createNetServer, Server as NetServer } from "node:net";
 import { readFileSync, readdirSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
+import { cliSourceText } from "./cli-sources.js";
 
 const LOOPBACK_SWITCH = "PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK";
 const OWN_ENV = "CBROWSER_OWN_ADDRESSES";
@@ -671,9 +672,10 @@ describe("the remote server's check before it starts (hostedEgressStartupCheck)"
     expect(checkAt).toBeLessThan(portAt);
     // Once in the start, and the definition: the stdio server and the CLI never run it.
     expect(src.split("hostedEgressStartupCheck(").length - 1).toBe(2);
-    for (const other of ["cli.ts", "mcp-server.ts", "daemon.ts", "browser.ts"]) {
+    for (const other of ["mcp-server.ts", "daemon.ts", "browser.ts"]) {
       expect(readFileSync(join(import.meta.dir, "..", "src", other), "utf8")).not.toContain("hostedEgressStartupCheck");
     }
+    expect(cliSourceText()).not.toContain("hostedEgressStartupCheck");
   });
 });
 

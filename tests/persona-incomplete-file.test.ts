@@ -19,6 +19,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { cliSourceFiles } from "./cli-sources.js";
 
 const ACCOUNT = 876543;
 let root: string;
@@ -115,9 +116,9 @@ describe("an unresolvable persona degrades loudly, not silently", () => {
 });
 
 describe("no unguarded demographics access remains", () => {
-  test("personas.ts and cli.ts optional-chain every read", async () => {
-    for (const f of ["../src/personas.ts", "../src/cli.ts"]) {
-      const src = await Bun.file(new URL(f, import.meta.url)).text();
+  test("personas.ts and the CLI (src/cli.ts, src/cli/) optional-chain every read", async () => {
+    for (const f of [new URL("../src/personas.ts", import.meta.url).pathname, ...cliSourceFiles()]) {
+      const src = await Bun.file(f).text();
       const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
       // `basePersona.demographics.x = ...` assignments are on an object this
       // module just constructed, so they are excluded by name.

@@ -413,7 +413,7 @@ const ALLOWED: Record<string, { members: string[]; reason: string }> = {
     members: ["launch"],
     reason: "Lightpanda is reached only from the CLI's --lightpanda (checked below)",
   },
-  "src/cli.ts | main": {
+  "src/cli/commands/testing.ts | runTestingCommand": {
     members: ["launch"],
     reason: "the CLI's step-through mode: a CBrowser written as any, so it is CBrowser.launch (checked below)",
   },
@@ -738,7 +738,7 @@ describe("every page.goto in src", () => {
       if (!sf.fileName.startsWith(SRC + "/") || sf.isDeclarationFile || sf.fileName === FIXTURE) continue;
       for (const call of callsTo(sf, "runEmpathyAudit")) callers.push(`${rel(sf.fileName)} | ${/\bpage\b/.test(call.arguments.slice(1).map((a) => a.getText()).join(" "))}`);
     }
-    expect(callers.sort()).toEqual(["src/cli.ts | false", "src/mcp-tools/base/audit-tools.ts | false"]);
+    expect(callers.sort()).toEqual(["src/cli/commands/audits.ts | false", "src/mcp-tools/base/audit-tools.ts | false"]);
     // SessionManager.load: one call in src, CBrowser.loadSession's, and it passes the CBrowser.
     const loads = filesMentioning(/sessionManager\.load\(/);
     expect(loads).toEqual(["src/browser.ts"]);
@@ -768,7 +768,7 @@ describe("the reasons on the list hold", () => {
   });
 
   test("Lightpanda is reached only through useLightpanda, which only the CLI sets", () => {
-    expect(filesMentioning(/\buseLightpanda\b/)).toEqual(["src/analysis/agent-ready-audit.ts", "src/cli.ts", "src/types.ts"]);
+    expect(filesMentioning(/\buseLightpanda\b/)).toEqual(["src/analysis/agent-ready-audit.ts", "src/cli/commands/audits.ts", "src/types.ts"]);
     expect(filesMentioning(/lightpanda/i).filter((f) => f.startsWith("src/mcp-tools/") || f.startsWith("src/mcp-server"))).toEqual([]);
     // The one caller outside lightpanda.ts, and it sits behind the option.
     expect(filesMentioning(/\b(launchWithLightpandaFallback|connectToLightpanda|checkLightpandaAvailability)\(/)).toEqual(["src/analysis/agent-ready-audit.ts", "src/lightpanda.ts"]);
@@ -779,12 +779,15 @@ describe("the reasons on the list hold", () => {
   });
 
   test("the launch written on `any` in the CLI is a CBrowser's", () => {
-    const site = siteIn("src/cli.ts | main", "launch")[0];
+    const site = siteIn("src/cli/commands/testing.ts | runTestingCommand", "launch")[0];
     const receiver = (site.node as ts.PropertyAccessExpression).expression.getText();
     expect(receiver).toBe("(stepBrowser as any)");
     expect(outermost(site.node).getText()).toContain(`const stepBrowser = new CBrowser${OPEN}{`);
     // The CLI never turns hosted mode on.
-    expect(texts.get("src/cli.ts")!).not.toContain("setHostedMode");
+    // src/cli.ts and everything split out of it into src/cli/ (2026-11-20).
+    const cli = [...texts].filter(([f]) => f === "src/cli.ts" || f.startsWith("src/cli/"));
+    expect(cli.length).toBeGreaterThan(20);
+    for (const [, text] of cli) expect(text).not.toContain("setHostedMode");
   });
 
   test("the connect behind a cast is the MCP server's", () => {

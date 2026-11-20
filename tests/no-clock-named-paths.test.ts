@@ -30,7 +30,7 @@ const HELPER = "temp-files.ts";
 interface Allowed { file: string; match: string; reason: string }
 
 const ALLOWED: Allowed[] = [
-  { file: "cli.ts", match: "(options.output as string) || `",
+  { file: "cli/commands/visual.ts", match: "(options.output as string) || `",
     reason: "CLI --output default: one report per invocation, in the user's working directory" },
   { file: "visual/regression.ts", match: "`diff-${baseline.id}-${Date.now()}.png`",
     reason: "never written: runVisualRegression returns this path, but nothing writes a diff image" },

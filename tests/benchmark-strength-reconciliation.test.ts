@@ -26,6 +26,7 @@
  * @license MIT
  */
 import { describe, test, expect } from "bun:test";
+import { cliSourceFiles } from "./cli-sources.js";
 import {
   reconcileStrengths,
   dedupeAdvantagesByAxis,
@@ -157,7 +158,7 @@ describe("the deprecated comparison key is gone from every layer", () => {
   });
 
   test("nothing in src reads scoreBreakdown.accessibility any more", async () => {
-    for (const f of ["../src/analysis/competitive-benchmark.ts", "../src/cli.ts"]) {
+    for (const f of ["../src/analysis/competitive-benchmark.ts", ...cliSourceFiles()]) {
       const code = await read(f);
       expect(code).not.toContain("scoreBreakdown.accessibility");
       expect(code).not.toContain("scoreBreakdown?.accessibility");

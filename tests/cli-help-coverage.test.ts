@@ -10,26 +10,32 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 const CLI = resolve(import.meta.dir, "..", "src", "cli.ts");
+// The dispatch switch was split by command group (2026-11-20): each module in
+// src/cli/commands/ holds one group's switch, plus the daemon route and the
+// commands that run before a browser exists.
+const COMMANDS_DIR = resolve(import.meta.dir, "..", "src", "cli", "commands");
 const TIMEOUT = 300_000;
 
 /**
- * Extract the `case "x":` labels of the main dispatch switch.
+ * Extract the `case "x":` labels of the dispatch switches.
  *
  * Cases inside nested switches (subcommand handling) are indented deeper, so
- * matching on the exact indentation of the top-level switch keeps this to real
- * top-level commands.
+ * matching on the exact indentation of a group's top-level switch keeps this
+ * to real top-level commands.
  */
 function dispatchCommands(): string[] {
-  const source = readFileSync(CLI, "utf-8");
   const commands = new Set<string>();
 
-  for (const line of source.split("\n")) {
-    const match = /^ {6}case "([a-z0-9-]+)":/.exec(line);
-    if (match) commands.add(match[1]);
+  for (const file of readdirSync(COMMANDS_DIR).filter((f) => f.endsWith(".ts"))) {
+    const source = readFileSync(join(COMMANDS_DIR, file), "utf-8");
+    for (const line of source.split("\n")) {
+      const match = /^ {4}case "([a-z0-9-]+)":/.exec(line);
+      if (match) commands.add(match[1]);
+    }
   }
   return [...commands].sort();
 }
