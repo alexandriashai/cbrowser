@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.5.3](https://github.com/alexandriashai/cbrowser/compare/v21.5.2...v21.5.3) (2026-11-20)
+
+### Fixed
+
+* **package:** require node 20.19+ or 22.12+, where require() of the esm build works ([9e59af8](https://github.com/alexandriashai/cbrowser/commit/9e59af849c189c64a37b71e63aa5edab3de8a668))
+
+### Changed
+
+* **browser:** split src/browser.ts into modules by capability ([8a97f3c](https://github.com/alexandriashai/cbrowser/commit/8a97f3cb0bb67b3c831119cf542a53bf4ad0ac45))
+* **cli:** split src/cli.ts into src/cli/ modules by command group ([f9944dc](https://github.com/alexandriashai/cbrowser/commit/f9944dc0957252abb8c7c7e11c8138af7db0b9ea))
+
 ## [21.5.2](https://github.com/alexandriashai/cbrowser/compare/v21.5.1...v21.5.2) (2026-11-16)
 
 ### Fixed
