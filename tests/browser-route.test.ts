@@ -672,7 +672,9 @@ describe("the remote server's check before it starts (hostedEgressStartupCheck)"
     expect(checkAt).toBeLessThan(portAt);
     // Once in the start, and the definition: the stdio server and the CLI never run it.
     expect(src.split("hostedEgressStartupCheck(").length - 1).toBe(2);
-    for (const other of ["mcp-server.ts", "daemon.ts", "browser.ts"]) {
+    const browserModules = readdirSync(join(import.meta.dir, "..", "src", "browser")).filter((f) => f.endsWith(".ts")).map((f) => `browser/${f}`);
+    expect(browserModules.length).toBeGreaterThan(20);
+    for (const other of ["mcp-server.ts", "daemon.ts", "browser.ts", ...browserModules]) {
       expect(readFileSync(join(import.meta.dir, "..", "src", other), "utf8")).not.toContain("hostedEgressStartupCheck");
     }
     expect(cliSourceText()).not.toContain("hostedEgressStartupCheck");

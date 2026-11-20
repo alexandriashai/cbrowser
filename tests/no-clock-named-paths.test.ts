@@ -54,7 +54,7 @@ const ALLOWED: Allowed[] = [
     reason: "not a path: a multipart boundary" },
   { file: "remediation/patch-generator.ts", match: "issueId: `",
     reason: "not a path: an issue id inside a patch report" },
-  { file: "browser.ts", match: "`audit-${new Date().toISOString().split(\"T\")[0]}.json`",
+  { file: "browser/constitutional-safety.ts", match: "`audit-${new Date().toISOString().split(\"T\")[0]}.json`",
     reason: "one audit log per day, shared on purpose; appended by a synchronous read-modify-write, which no other call in the process can interleave" },
 ];
 

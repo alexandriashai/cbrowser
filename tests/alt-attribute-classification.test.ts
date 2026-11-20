@@ -120,7 +120,11 @@ describe("the old truthiness check is gone from every site", () => {
 
   test("browser.ts uses getAttribute, not the img.alt property", async () => {
     // `img.alt` is "" for both cases, so the property can never distinguish them.
-    const code = await read("../src/browser.ts");
+    // The code moved from src/browser.ts to src/browser/ when that file was split.
+    const { readdirSync } = await import("node:fs");
+    const modules = readdirSync(new URL("../src/browser/", import.meta.url)).filter((f) => f.endsWith(".ts")).map((f) => `../src/browser/${f}`);
+    expect(modules.length).toBeGreaterThan(20);
+    const code = (await Promise.all(["../src/browser.ts", ...modules].map(read))).join("\n");
     expect(code).not.toContain("if (!img.alt && !img.getAttribute");
     expect(code).toContain('img.getAttribute("alt") === null');
   });

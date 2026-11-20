@@ -29,7 +29,8 @@
  * (wiring-3, second review).
  *
  * And it lists every page.goto in src, which on the hosted server must go
- * through the gate's reading (gotoThroughGate in src/browser.ts) or be on
+ * through the gate's reading (gotoThroughGate in src/browser/helpers.ts, which
+ * src/browser.ts re-exports) or be on
  * GOTO_EXCEPTIONS with a reason (wiring-1, second review).
  *
  * Named limits: a browser binary started with child_process is not seen
@@ -172,13 +173,19 @@ function outermost(node: ts.Node): ts.Node {
   return found;
 }
 
-/** Whether a member's symbol is CBrowser.launch itself, or belongs to the MCP SDK (a server or client connecting to a transport). */
+/**
+ * Whether a member's symbol is CBrowser.launch itself (the method in
+ * src/browser.ts, or the function in src/browser/lifecycle.ts that holds its
+ * body and that the method calls), or belongs to the MCP SDK (a server or
+ * client connecting to a transport).
+ */
 function harmless(symbol: ts.Symbol | undefined): boolean {
   const declarations = symbol?.declarations ?? [];
   if (declarations.length === 0) return false;
   return declarations.every((d) => {
     const file = d.getSourceFile().fileName;
     if (file.includes("/node_modules/@modelcontextprotocol/")) return true;
+    if (file === join(SRC, "browser", "lifecycle.ts") && ts.isFunctionDeclaration(d) && d.name?.text === "launch" && d.parameters[0]?.name.getText() === "this") return true;
     return file === join(SRC, "browser.ts") && ts.isMethodDeclaration(d) && ts.isClassDeclaration(d.parent) && d.parent.name?.text === "CBrowser" && d.name.getText() === "launch";
   });
 }
@@ -301,7 +308,7 @@ const realSites = found.sites.filter((s) => s.file !== FIXTURE_FILE);
 /**
  * One call of a member named goto on a Playwright page or frame, or on a
  * receiver written as any. "gate": the function holding it is handed to
- * gotoThroughGate (the one in src/browser.ts or CBrowser's method) where it
+ * gotoThroughGate (the one in src/browser/helpers.ts or CBrowser's method) where it
  * is written. "held": it is kept in a variable that is handed to
  * gotoThroughGate in the same function, and `direct` counts the calls of
  * that variable on its own. "about": it opens an about: page, which the gate
@@ -309,7 +316,7 @@ const realSites = found.sites.filter((s) => s.file !== FIXTURE_FILE);
  */
 interface Goto { file: string; within: string; node: ts.CallExpression; kind: "gate" | "held" | "about" | "bare"; direct: number }
 
-/** Whether a call is to gotoThroughGate as src/browser.ts declares it (the function, or CBrowser's method). */
+/** Whether a call is to gotoThroughGate as src/browser/helpers.ts declares it (the function, which src/browser.ts re-exports) or src/browser.ts does (CBrowser's method). */
 function callsGateReading(call: ts.CallExpression): boolean {
   const callee = call.expression;
   const name = ts.isIdentifier(callee) ? callee : ts.isPropertyAccessExpression(callee) ? callee.name : undefined;
@@ -317,7 +324,11 @@ function callsGateReading(call: ts.CallExpression): boolean {
   let symbol = checker.getSymbolAtLocation(name);
   if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
   const declarations = symbol?.declarations ?? [];
-  return declarations.length > 0 && declarations.every((d) => d.getSourceFile().fileName === join(SRC, "browser.ts"));
+  return declarations.length > 0 && declarations.every((d) => {
+    const file = d.getSourceFile().fileName;
+    if (file === join(SRC, "browser", "helpers.ts")) return ts.isFunctionDeclaration(d);
+    return file === join(SRC, "browser.ts") && ts.isMethodDeclaration(d) && ts.isClassDeclaration(d.parent) && d.parent.name?.text === "CBrowser";
+  });
 }
 
 function scanGotos(): Goto[] {
@@ -384,8 +395,8 @@ function grouped(sites: Site[]): Record<string, string[]> {
  * is routed through openBrowserRoute or listed here with a reason that holds.
  */
 const ALLOWED: Record<string, { members: string[]; reason: string }> = {
-  // The start of CBrowser.launch(), which runs one of these at a time.
-  "src/browser.ts | CBrowser.startBrowser": {
+  // The start of CBrowser.launch(), which runs one of these at a time (CBrowser.startBrowser's body).
+  "src/browser/lifecycle.ts | startBrowser": {
     members: ["launchPersistentContext", "launch"],
     reason: "the choke point: both take their proxy from openBrowserRoute (checked below)",
   },
@@ -397,7 +408,7 @@ const ALLOWED: Record<string, { members: string[]; reason: string }> = {
     members: ["launch"],
     reason: "launches each engine and closes it without a context or a page (checked below)",
   },
-  "src/browser.ts | launchBrowserWithFallback": {
+  "src/browser/helpers.ts | launchBrowserWithFallback": {
     members: ["launch", "launch"],
     reason: "no caller in src; exported for library users (checked below)",
   },
@@ -556,7 +567,7 @@ describe("every browser launch in src", () => {
   });
 
   test("CBrowser.launch gives both of its launches the proxy openBrowserRoute returned, and nothing else", () => {
-    const use = routeUse("src/browser.ts | CBrowser.startBrowser", ["launchPersistentContext", "launch"]);
+    const use = routeUse("src/browser/lifecycle.ts | startBrowser", ["launchPersistentContext", "launch"]);
     expect(use.launches.length).toBe(2);
     for (const launch of use.launches) {
       expect(launch.at).toBeGreaterThan(use.routeAt);
@@ -574,7 +585,7 @@ describe("every browser launch in src", () => {
   });
 
   test("both apply the WebRTC settings webRtcGuard returned: its arguments, firefox's preference and the script", () => {
-    for (const [key, members] of [["src/browser.ts | CBrowser.startBrowser", ["launchPersistentContext", "launch"]], ["src/visual/cross-browser.ts | crossBrowserDiff", ["launch"]]] as const) {
+    for (const [key, members] of [["src/browser/lifecycle.ts | startBrowser", ["launchPersistentContext", "launch"]], ["src/visual/cross-browser.ts | crossBrowserDiff", ["launch"]]] as const) {
       const fn = outermost(siteIn(key, members[0])[0].node);
       const guards = callsTo(fn, "webRtcGuard");
       expect(guards.length).toBe(1);
@@ -596,8 +607,8 @@ describe("every browser launch in src", () => {
     expect(real).toEqual([
       // The route's own proxy, once for each of CBrowser's two launches (both spread the same variable in) and once for crossBrowserDiff's.
       // That `route` and `launchRoute` are what openBrowserRoute returned is checked above.
-      "src/browser.ts | CBrowser.startBrowser | proxy: route.proxy",
-      "src/browser.ts | CBrowser.startBrowser | proxy: route.proxy",
+      "src/browser/lifecycle.ts | startBrowser | proxy: route.proxy",
+      "src/browser/lifecycle.ts | startBrowser | proxy: route.proxy",
       // Where a geo region becomes the config's proxy, before any browser exists: CBrowser.launch reads it through the route.
       "src/config.ts | mergeConfig | merged.proxy = geoRegionProxy(given.geoRegion)",
       // openGatedLaunch hands openBrowserRoute's own route to callers that launch Playwright themselves (P-10b).
@@ -607,19 +618,39 @@ describe("every browser launch in src", () => {
   });
 
   test("CBrowser.launch runs one start at a time, and close() and forceClose() wait for a start in flight", () => {
+    // CBrowser's methods, and the bodies src/browser/ holds for the ones that
+    // moved there (a function taking the instance as `this`), by name. A
+    // method whose body moved is a one-line call, so its body is what is read.
     const sf = program.getSourceFile(join(SRC, "browser.ts"))!;
+    const bodyFiles = program.getSourceFiles().filter((f) => f.fileName.startsWith(join(SRC, "browser") + "/") && !f.isDeclarationFile);
     const methods = new Map<string, string>();
     const visit = (node: ts.Node): void => {
       if (ts.isMethodDeclaration(node) && ts.isClassDeclaration(node.parent) && node.parent.name?.text === "CBrowser") methods.set(node.name.getText(), node.getText());
       ts.forEachChild(node, visit);
     };
     visit(sf);
+    const moved = new Set<string>();
+    for (const f of bodyFiles) {
+      for (const s of f.statements) {
+        if (!ts.isFunctionDeclaration(s) || !s.name || s.parameters[0]?.name.getText() !== "this") continue;
+        expect(moved.has(s.name.text)).toBe(false);
+        moved.add(s.name.text);
+        // The method that calls it is a one-line call with the same arguments.
+        expect(methods.get(s.name.text)!).toMatch(new RegExp(`\\{\\s*(return )?\\(?\\w+\\.${s.name.text}(<[\\w, ]+>\\))?\\.call\\(this[,)]`));
+        methods.set(s.name.text, s.getText());
+      }
+    }
+    for (const name of ["launch", "startBrowser", "close", "forceClose"]) expect(moved.has(name)).toBe(true);
     // launch() hands a second caller the launch in flight before it looks for a browser, and is the only caller of startBrowser.
     const launch = methods.get("launch")!;
     expect(launch.indexOf("if (this.launching) return this.launching;")).toBeGreaterThan(0);
     expect(launch.indexOf("if (this.launching) return this.launching;")).toBeLessThan(launch.indexOf("if (this.browser || this.context) return;"));
     expect(launch.indexOf("if (this.browser || this.context) return;")).toBeLessThan(launch.indexOf("this.startBrowser()"));
-    expect(sf.text.split("this.startBrowser()").length - 1).toBe(1);
+    const browserText = [sf, ...bodyFiles].map((f) => f.text).join("\n");
+    expect(browserText.split("this.startBrowser()").length - 1).toBe(1);
+    // The method's own call of its body is the only other way in.
+    expect(browserText.split("startBrowser.call(").length - 1).toBe(1);
+    expect(methods.size).toBeGreaterThan(100);
     // Both ways of closing wait before they look at what there is to close.
     for (const name of ["close", "forceClose"]) {
       const body = methods.get(name)!;
@@ -714,10 +745,10 @@ describe("every page.goto in src", () => {
       "src/cognitive/index.ts | executeAction",
       "src/browser/session-manager.ts | SessionManager.load",
       "src/mcp-tools/base/browser-management-tools.ts | registerBrowserManagementTools",
-      "src/browser.ts | CBrowser.navigate",
-      "src/browser.ts | CBrowser.restoreSavedPage",
-      "src/browser.ts | CBrowser.getPage",
-      "src/browser.ts | CBrowser.recoverBrowser",
+      "src/browser/navigation.ts | navigate",
+      "src/browser/lifecycle.ts | restoreSavedPage",
+      "src/browser/lifecycle.ts | getPage",
+      "src/browser/crash-recovery.ts | recoverBrowser",
       "src/visual/cross-browser.ts | crossBrowserDiff",
       "src/analysis/agent-ready-audit.ts | runAgentReadyAudit",
     ]) expect(`${key}: ${read.has(key)}`).toBe(`${key}: true`);
@@ -762,8 +793,10 @@ describe("the reasons on the list hold", () => {
     for (const [file, text] of texts) {
       for (const line of text.split("\n")) if (/\blaunchBrowserWithFallback\b/.test(line)) uses.push(`${file}: ${line.trim().slice(0, 60)}`);
     }
-    expect(uses.length).toBe(2);
-    expect(uses.some((u) => u.startsWith("src/browser.ts: export async function launchBrowserWithFallback("))).toBe(true);
+    expect(uses.length).toBe(3);
+    expect(uses.some((u) => u.startsWith("src/browser/helpers.ts: export async function launchBrowserWithFallback("))).toBe(true);
+    // src/browser.ts re-exports it from there, as it exported it before the split.
+    expect(uses.some((u) => u.startsWith("src/browser.ts: launchBrowserWithFallback,"))).toBe(true);
     expect(uses.some((u) => u.startsWith("src/index.ts: export {"))).toBe(true);
   });
 
