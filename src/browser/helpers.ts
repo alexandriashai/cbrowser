@@ -55,7 +55,7 @@ export const BROWSER_LAUNCH_ARGS: Record<SupportedBrowser, string[]> = {
 const _FAST_LAUNCH_ARGS = BROWSER_LAUNCH_ARGS.chromium;
 
 // Session state persistence - saves current URL between CLI invocations
-/** @internal */
+/** Shared by the src/browser/ modules; the package does not export it. Left untagged so their declarations can import it. */
 export interface SessionState {
   url: string;
   timestamp: number;
@@ -132,7 +132,6 @@ export interface ScreenshotInfo {
 
 /**
  * One encoded candidate in CBrowser.fitJpegToBudget.
- * @internal
  */
 export interface FittedJpeg {
   buffer: Buffer;
