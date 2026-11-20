@@ -45,7 +45,7 @@
   },
   "hooks": {
     "before:init": ["bun run build"],
-    "after:bump": "echo 'Version bumped to ${version}'",
+    "after:bump": ["node scripts/sync-manifest-version.mjs ${version}", "echo 'Version bumped to ${version}'"],
     "after:release": "echo 'Successfully released ${name} v${version} to npm and GitHub'"
   }
 }
