@@ -88,4 +88,22 @@ echo "test-gate: running $(echo "$FILES" | wc -w) files (quarantined: $(echo "$Q
 # in speed for the same image (2026-11-03: the gate took 296 s, 301 s, 582 s
 # and 588 s), and on the slow ones CPU-bound tests passed bun's 5 s default:
 # 21.3.0's release gate failed on two that take 0.7 s and 0.9 s here.
-exec bun test --timeout 30000 $FILES
+bun test --timeout 30000 $FILES
+
+# Browser smoke (2026-11-20): a few real-browser files from scripts/browser-smoke.txt,
+# one process each like scripts/test-split.sh, so a browser-only break fails the gate.
+# Each must also be in browser-tests.txt, or it would have run (and contended) above.
+SMOKE_LIST="$(dirname "$0")/browser-smoke.txt"
+mapfile -t SMOKE < <(grep -vE "^[[:space:]]*(#|$)" "$SMOKE_LIST")
+if [ "${#SMOKE[@]}" -eq 0 ]; then
+  echo "test-gate: $SMOKE_LIST parsed to an empty list — refusing to skip the browser smoke." >&2
+  exit 1
+fi
+for f in "${SMOKE[@]}"; do
+  if [ ! -f "$f" ] || ! grep -qxF "$f" "$BROWSER_LIST"; then
+    echo "test-gate: smoke file $f is missing or not in $BROWSER_LIST." >&2
+    exit 1
+  fi
+  echo "test-gate: browser smoke $f"
+  bun test --timeout 60000 "$f"
+done

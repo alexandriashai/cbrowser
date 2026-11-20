@@ -1,0 +1,13 @@
+# Real-browser files the release gate DOES run (scripts/test-gate.sh), each in
+# its own process after the shared pass. A short subset of browser-tests.txt, so
+# a browser-only break cannot reach npm while the full browser suite still runs
+# only in the Tests workflow, which the release does not wait for.
+#
+# Chosen 2026-11-20 for coverage and speed: navigation, the MCP browser-state
+# tools, the hosted launch gate and the journey engine end to end, about 30 s
+# together on this box (28 s of it the journey). Keep it small: the gate shares
+# a 20-minute step limit with release-it.
+tests/navigation-error-message.test.ts
+tests/mcp-browser-state-tools.test.ts
+tests/launch-gate-browser.test.ts
+tests/journey-golden-browser.test.ts
