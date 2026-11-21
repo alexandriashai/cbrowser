@@ -89,7 +89,7 @@ Since 20.0 nothing falls back to a keyless guess. The old keyless modes of `expl
 20.0 is a breaking release. Most of it makes commands that used to succeed silently either do what they claim or fail out loud. The full list is in [CHANGELOG.md](CHANGELOG.md).
 
 **Runtime**
-- Node.js 20.9 or newer. Node 18 is end of life and sharp 0.35 dropped it; stay on cbrowser 19.x if you need Node 18.
+- Node.js 20.9 or newer at 20.0 (21.5.3 raised it to 20.19+ or 22.12+). Node 18 is end of life and sharp 0.35 dropped it; stay on cbrowser 19.x if you need Node 18.
 
 **Behaviour you may notice**
 - The default page size is **1920x1080** (was 1280x800), the size `desktop` means everywhere else. Set `CBROWSER_VIEWPORT_WIDTH`/`CBROWSER_VIEWPORT_HEIGHT` or `viewport` in the config file to keep the old size.

@@ -11,6 +11,25 @@ import { VERSION } from "../version.js";
 import { emitJson } from "../output.js";
 
 /**
+ * The lowest Node version on each supported line, as [major, minor]: the lower
+ * bounds of package.json engines.node ("^20.19.0 || >=22.12.0"). Doctor checked
+ * ">= 20.9" after 21.5.3 raised engines, so it passed 20.9-20.18 and
+ * 22.0-22.11, the versions that raise was for (outside review, 2026-11-21).
+ * tests/doctor-node-floor.test.ts holds this list to engines.node.
+ */
+export const NODE_FLOORS: ReadonlyArray<readonly [number, number]> = [[20, 19], [22, 12]];
+
+/** True when `version` ("22.11.0") satisfies engines.node. */
+export function nodeMeetsEngines(version: string): boolean {
+  const [major, minor] = version.split(".").map((n) => parseInt(n, 10));
+  if (!Number.isFinite(major) || !Number.isFinite(minor)) return false;
+  const last = NODE_FLOORS[NODE_FLOORS.length - 1];
+  if (major > last[0]) return true;
+  const floor = NODE_FLOORS.find(([maj]) => maj === major);
+  return floor !== undefined && minor >= floor[1];
+}
+
+/**
  * Doctor command — validates environment health with pass/fail checks.
  * Checks: Node version, Playwright chromium, API key, data directory.
  */
@@ -27,18 +46,17 @@ export async function runDoctor(outputOpts: import("../output.js").OutputOptions
 
   const checks: DoctorCheck[] = [];
 
-  // Check 1: Node.js version
+  // Check 1: Node.js version, against the same floors as engines.node.
   const nodeVersion = process.versions.node;
-  const [nodeMajor, nodeMinor] = nodeVersion.split(".").map((n) => parseInt(n, 10));
-  // engines.node is >=20.9.0 since 20.0 (sharp 0.35 dropped Node 18).
-  if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 9)) {
-    checks.push({ name: "Node.js", status: "pass", message: `v${nodeVersion} (>= 20.9 required)` });
+  const nodeRequired = NODE_FLOORS.map(([maj, min]) => `${maj}.${min}+`).join(" or ");
+  if (nodeMeetsEngines(nodeVersion)) {
+    checks.push({ name: "Node.js", status: "pass", message: `v${nodeVersion} (${nodeRequired} required)` });
   } else {
     checks.push({
       name: "Node.js",
       status: "fail",
-      message: `v${nodeVersion} (>= 20.9 required)`,
-      fix: "Install Node.js 20.9 or newer from https://nodejs.org (or stay on cbrowser 19.x)",
+      message: `v${nodeVersion} (${nodeRequired} required)`,
+      fix: `Install Node.js ${nodeRequired} from https://nodejs.org`,
     });
   }
 
