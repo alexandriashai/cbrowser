@@ -1,6 +1,6 @@
 ---
 name: CBrowser
-description: Cognitive Browser — AI browser automation that simulates real user cognition. 137 MCP tools, 29 personas (25 human, 4 agent), 25 cognitive traits, constitutional safety, cognitive journeys with LLM-free trace replay, screen capture to GIF/WebP/WebM with an AI-readable frame manifest (v18.69.3). USE WHEN browser automation OR cognitive journey OR persona testing OR empathy audit OR agent-ready audit OR visual regression OR cross-browser test OR responsive test OR natural language tests OR flaky test detection OR performance regression OR user abandonment OR friction detection OR record a video OR record a gif OR screen capture OR capture animation OR capture motion OR screencast OR record the page OR capture an element as it moves.
+description: Cognitive Browser — AI browser automation that simulates real user cognition. 137 MCP tools, 29 personas (25 human, 4 agent), 26 cognitive traits, constitutional safety, cognitive journeys with LLM-free trace replay, screen capture to GIF/WebP/WebM with an AI-readable frame manifest. USE WHEN browser automation OR cognitive journey OR persona testing OR empathy audit OR agent-ready audit OR visual regression OR cross-browser test OR responsive test OR natural language tests OR flaky test detection OR performance regression OR user abandonment OR friction detection OR record a video OR record a gif OR screen capture OR capture animation OR capture motion OR screencast OR record the page OR capture an element as it moves.
 ---
 
 # CBrowser (Cognitive Browser)
@@ -56,10 +56,10 @@ Cognitive commands call the Anthropic API per journey step (~$0.05/test target).
 
 | Free (keyless) | Keyed (costs API money) |
 |----------------|-------------------------|
-| `navigate`, `screenshot`, `click`, `fill`, `extract`, `scroll` | `cognitive-journey` (LLM per step; fails loudly without a key) |
-| `explore` (built-in heuristics) | `compare-personas` (one full journey PER persona — N× cost) |
-| `agent-ready-audit`, `ai-benchmark`, `hunt-bugs`, `webmcp-ready` | `visual-cognitive-story` |
-| `doctor`, `status`, visual/perf baselines | anything doing per-step persona reasoning |
+| `navigate`, `screenshot`, `click`, `fill`, `extract`, `scroll` | `cognitive-journey`, `explore` (LLM per step; fail loudly without a key, since 20.0 removed the keyless heuristic mode) |
+| `agent-ready-audit`, `ai-benchmark`, `hunt-bugs`, `webmcp-ready` | `compare-personas` (one full journey PER persona — N× cost) |
+| `doctor`, `status`, visual/perf baselines | `visual-cognitive-story` |
+|  | anything doing per-step persona reasoning |
 
 **Replay is free (v18.69.0).** Record a journey once with `trace: true` — per-step JSONL lands in `~/.cbrowser/traces/<journeyId>.jsonl` (page state stored as a sha256 hash; secrets and raw HTML redacted by construction). Replay with `replayTrace: <path>`: deterministic, **zero per-step LLM calls**. Prefer replay for regression checks and debugging over re-running paid journeys. Dynamic pages legitimately diverge — `TraceDivergenceError` names the exact step.
 
@@ -100,7 +100,7 @@ Other tools will click "Delete All Data" if you ask. CBrowser classifies every a
 
 ### 2. User Perspective Testing (Unique)
 
-Other tools test if buttons click. CBrowser tests if **real humans** can use your site with 6 built-in personas that simulate realistic human behavior (reaction times, typo rates, mouse jitter, attention patterns).
+Other tools test if buttons click. CBrowser tests if **real humans** can use your site with 21 built-in personas that simulate realistic human behavior (reaction times, typo rates, mouse jitter, attention patterns).
 
 ### 3. Claude MCP Integration (Unique)
 
