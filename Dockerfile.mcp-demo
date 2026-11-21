@@ -29,6 +29,9 @@ USER cbrowser
 # Environment for demo mode
 ENV NODE_ENV=production
 ENV PORT=3000
+# An open demo, on purpose: without authentication the server listens on
+# 127.0.0.1 unless HOST says otherwise, which a container port cannot reach.
+ENV HOST=0.0.0.0
 ENV CBROWSER_DATA_DIR=/home/cbrowser/.cbrowser
 # Multi-user safety: Each session gets isolated screenshot directory
 # Cleanup: Delete old screenshot sessions after 1 hour

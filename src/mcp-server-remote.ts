@@ -18,7 +18,8 @@
  *
  * Environment variables:
  *   PORT - Port to listen on (default: 3000)
- *   HOST - Host to bind to (default: 0.0.0.0)
+ *   HOST - Host to bind to (default: 0.0.0.0 with authentication on, 127.0.0.1 without;
+ *     set HOST=0.0.0.0 to serve an open server on purpose, and expect a warning)
  *   MCP_SESSION_MODE - 'stateful' or 'stateless' (default: stateless)
  *   MCP_API_KEY - API key for authentication (optional, if not set server is open)
  *   MCP_API_KEYS - Comma-separated list of valid API keys (optional, alternative to MCP_API_KEY)
@@ -1745,12 +1746,47 @@ function getClientIP(req: IncomingMessage): string {
 }
 
 /**
+ * The rate-limit bucket for a request: the account (a SHA-256 prefix of its
+ * API key) when this server checks keys, the client IP otherwise.
+ *
+ * It was a 32-bit string hash of the key, so two accounts could share a bucket
+ * (about 1% at 10,000 accounts), and on a server without authentication every
+ * made-up Bearer string got a bucket of its own, so rotating strings escaped the
+ * per-IP limit (outside review, 2026-11-21). With authentication on, a request
+ * with a bad key is refused before this runs.
+ */
+export function rateLimitKey(apiKey: string | null | undefined, ip: string, authEnabled: boolean): string {
+  if (apiKey && authEnabled) return `account:${createHash("sha256").update(apiKey).digest("hex").slice(0, 32)}`;
+  return `ip:${ip}`;
+}
+
+/**
+ * Where the server listens when HOST is not set: every interface when it checks
+ * credentials, loopback when it does not. An open server on 0.0.0.0 hands a
+ * browser, this machine's IP and its CPU to anyone who finds the port (outside
+ * review, 2026-11-21). HOST still wins, so an open server can be served on
+ * purpose (Dockerfile.mcp-demo sets HOST=0.0.0.0).
+ */
+export function defaultBindHost(envHost: string | undefined, authEnabled: boolean): string {
+  if (envHost) return envHost;
+  return authEnabled ? "0.0.0.0" : "127.0.0.1";
+}
+
+/** The startup warning for an open server reachable beyond this machine, or null. */
+export function openAccessWarning(host: string, authEnabled: boolean): string | null {
+  if (authEnabled) return null;
+  if (host === "127.0.0.1" || host === "::1" || host === "localhost") return null;
+  return `WARNING: authentication is OFF and the server listens on ${host}. Anyone who can reach this port can drive a browser from this machine. Set MCP_API_KEY (or MCP_API_KEYS), or bind to 127.0.0.1.`;
+}
+
+/**
  * Check rate limit for a request, keyed by account (API key hash) with tier-based limits.
  * Falls back to IP-based limiting for unauthenticated requests (free tier limits).
  */
 function checkRateLimit(
   req: IncomingMessage,
   tier: PricingTier | null,
+  authEnabled: boolean,
 ): { allowed: boolean; remaining: number; resetTime: number; limit: number } {
   if (process.env.RATE_LIMIT_ENABLED !== "true") {
     return { allowed: true, remaining: 999, resetTime: 0, limit: 999 };
@@ -1764,19 +1800,7 @@ function checkRateLimit(
     return { allowed: true, remaining: 999999, resetTime: 0, limit: 0 };
   }
 
-  // Key by API key hash (account-based) or IP (unauthenticated)
-  const apiKey = extractApiKey(req);
-  let key: string;
-  if (apiKey) {
-    // Use a fast hash of the key for storage
-    let hash = 0;
-    for (let i = 0; i < apiKey.length; i++) {
-      hash = ((hash << 5) - hash + apiKey.charCodeAt(i)) | 0;
-    }
-    key = `account:${hash}`;
-  } else {
-    key = `ip:${getClientIP(req)}`;
-  }
+  const key = rateLimitKey(extractApiKey(req), getClientIP(req), authEnabled);
 
   const now = Date.now();
   const windowStart = now - RATE_LIMIT_WINDOW_MS;
@@ -2578,7 +2602,6 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   console.log(hostedEgressStartupCheck());
 
   const port = parseInt(process.env.PORT || "3000", 10);
-  const host = process.env.HOST || "0.0.0.0";
   const sessionMode = process.env.MCP_SESSION_MODE || "stateless";
   const apiKeys = getApiKeys();
   const apiKeyAuthEnabled = apiKeys !== null && apiKeys.size > 0;
@@ -2591,9 +2614,12 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
   // In requireAuth mode the server accepts dynamic cbk_ API keys even with no static
   // keys loaded, so API-key auth is genuinely active — advertise it as such in /health.
   const apiKeyAuthAdvertised = apiKeyAuthEnabled || requireAuth || auth0Set;
+  const host = defaultBindHost(process.env.HOST, authEnabled);
   console.log(`Starting CBrowser Remote MCP Server v${VERSION}...`);
   console.log(`Mode: ${sessionMode}`);
   console.log(`Auth: ${authEnabled ? "enabled" : "disabled (open access)"}`);
+  const openWarning = openAccessWarning(host, authEnabled);
+  if (openWarning) console.warn(openWarning);
   if (apiKeyAuthEnabled) {
     console.log(`  - API Key auth: enabled (${apiKeys?.size} keys)`);
   }
@@ -2637,11 +2663,16 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
 
-    // CORS headers for all responses
+    // CORS headers for all responses. Any origin may call, because callers
+    // authenticate with a header (Bearer or X-API-Key), never a cookie, and a
+    // page cannot read or send those for another site. No
+    // Allow-Credentials: with it, a reflected origin would let any page make
+    // cookie-carrying calls the day this server sets a cookie (outside review,
+    // 2026-11-21). Vary: the reply differs by Origin, so caches must not share it.
     const origin = req.headers.origin;
     if (origin) {
       res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id, X-API-Key, X-Signature, X-Timestamp, X-Nonce");
@@ -3236,7 +3267,7 @@ ${VERSION}
     }
 
     // Per-account, tier-based rate limit check
-    const rateLimit = checkRateLimit(req, requestTier);
+    const rateLimit = checkRateLimit(req, requestTier, authEnabled);
     if (!rateLimit.allowed) {
       const retryAfterSeconds = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
       const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);

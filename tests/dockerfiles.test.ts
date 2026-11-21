@@ -38,6 +38,12 @@ describe.each(["Dockerfile", "Dockerfile.mcp-demo"])("%s", (name) => {
   });
 });
 
+test("the open demo image binds every interface explicitly", () => {
+  // Without authentication the server defaults to 127.0.0.1, which a published
+  // container port cannot reach.
+  expect(readFileSync(join(ROOT, "Dockerfile.mcp-demo"), "utf8")).toMatch(/^ENV HOST=0\.0\.0\.0$/m);
+});
+
 test("postinstall uses the same script", () => {
   const scripts = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).scripts as Record<string, string>;
   expect(scripts.postinstall).toContain("scripts/install-browsers.cjs");

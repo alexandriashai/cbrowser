@@ -53,7 +53,7 @@ Point `demo.cbrowser.ai` to your server's IP address.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 3000 | HTTP port |
-| `HOST` | 0.0.0.0 | Bind address |
+| `HOST` | 0.0.0.0 with authentication, 127.0.0.1 without | Bind address (an open server on any other address logs a warning) |
 | `MCP_SESSION_MODE` | stateless | Session mode (stateless or stateful) |
 | `CBROWSER_OWN_ADDRESSES` | none | Public addresses that reach this machine without being on one of its network interfaces. See "What the server opens" below |
 | `PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK` | unset | Must stay unset. The server refuses to start while it is set. See "What the server opens" below |
