@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.5.4](https://github.com/alexandriashai/cbrowser/compare/v21.5.3...v21.5.4) (2026-11-21)
+
+### Fixed
+
+* **browser:** keep the automatic browser install off stdout and on the bundled playwright ([f3e2fdb](https://github.com/alexandriashai/cbrowser/commit/f3e2fdb95e7af7fec7e922f3c068fc3173bc1e44))
+
 ## [21.5.3](https://github.com/alexandriashai/cbrowser/compare/v21.5.2...v21.5.3) (2026-11-20)
 
 ### Fixed
