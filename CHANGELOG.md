@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.5.5](https://github.com/alexandriashai/cbrowser/compare/v21.5.4...v21.5.5) (2026-11-21)
+
+### Fixed
+
+* **cli:** check node against the engines floors in doctor ([db14975](https://github.com/alexandriashai/cbrowser/commit/db149758a00cb30ab38c34d6157a124b3acaadfe))
+* **install:** install browsers with the bundled playwright, never npx ([596220f](https://github.com/alexandriashai/cbrowser/commit/596220f0ec641b0064ab1727a4198a7c58644b02))
+* **mcp-remote:** bind loopback without auth, drop cors credentials, hash rate keys ([b5555fc](https://github.com/alexandriashai/cbrowser/commit/b5555fcdd0263c527f321fce55cb954945f9d6af))
+
 ## [21.5.4](https://github.com/alexandriashai/cbrowser/compare/v21.5.3...v21.5.4) (2026-11-21)
 
 ### Fixed
