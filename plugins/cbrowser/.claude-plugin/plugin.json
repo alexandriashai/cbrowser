@@ -1,0 +1,13 @@
+{
+  "name": "cbrowser",
+  "version": "21.5.5",
+  "description": "Browser automation that tests a site the way real people use it: personas, free AI-readiness and accessibility audits, cognitive journeys, natural-language tests, visual regression and screen capture.",
+  "author": {
+    "name": "Alexandria Eden",
+    "url": "https://cbrowser.ai"
+  },
+  "homepage": "https://cbrowser.ai",
+  "repository": "https://github.com/alexandriashai/cbrowser",
+  "license": "MIT",
+  "keywords": ["browser", "automation", "accessibility", "testing", "playwright", "mcp", "personas", "ux"]
+}

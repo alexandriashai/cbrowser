@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * Set manifest.json's "version" (the MCPB bundle) to the version release-it just
- * bumped package.json to. Run from .release-it.json's after:bump hook, so the
- * release commit carries both; tests/doc-tool-counts.test.ts fails when they differ.
- * manifest.json sat at 18.59.0 through three majors before this existed.
+ * Set the "version" of manifest.json (the MCPB bundle) and of the Claude Code
+ * plugin (plugins/cbrowser/.claude-plugin/plugin.json) to the version release-it
+ * just bumped package.json to. Run from .release-it.json's after:bump hook, so the
+ * release commit carries all three; tests/doc-tool-counts.test.ts and
+ * tests/skill-plugin.test.ts fail when they differ. manifest.json sat at 18.59.0
+ * through three majors before this existed.
  *
  * Usage: node scripts/sync-manifest-version.mjs <version>
  *
@@ -17,13 +19,15 @@ if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version ?? "")) {
   console.error(`sync-manifest-version: not a version: ${version}`);
   process.exit(1);
 }
-const path = new URL("../manifest.json", import.meta.url);
-// Replace only the version string, so the rest of the file keeps its formatting.
-const before = readFileSync(path, "utf8");
-const after = before.replace(/^(\s*"version":\s*")[^"]*(")/m, `$1${version}$2`);
-if (JSON.parse(after).version !== version) {
-  console.error("sync-manifest-version: the first \"version\" key is not the top-level one");
-  process.exit(1);
+// Replace only the version string, so the rest of each file keeps its formatting.
+for (const file of ["../manifest.json", "../plugins/cbrowser/.claude-plugin/plugin.json"]) {
+  const path = new URL(file, import.meta.url);
+  const before = readFileSync(path, "utf8");
+  const after = before.replace(/^(\s*"version":\s*")[^"]*(")/m, `$1${version}$2`);
+  if (JSON.parse(after).version !== version) {
+    console.error(`sync-manifest-version: the first "version" key in ${file} is not the top-level one`);
+    process.exit(1);
+  }
+  writeFileSync(path, after);
+  console.log(`${file.slice(3)} version -> ${version}`);
 }
-writeFileSync(path, after);
-console.log(`manifest.json version -> ${version}`);

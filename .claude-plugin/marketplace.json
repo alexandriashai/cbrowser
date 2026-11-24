@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cbrowser",
+  "description": "CBrowser for Claude Code: cognitive browser automation that tests sites the way real people use them",
+  "owner": {
+    "name": "Alexandria Eden",
+    "url": "https://cbrowser.ai"
+  },
+  "plugins": [
+    {
+      "name": "cbrowser",
+      "description": "Browser automation that tests a site the way real people use it: the CBrowser skill, the local cbrowser MCP server (137 tools), and /cbrowser:audit and /cbrowser:check-page.",
+      "source": "./plugins/cbrowser",
+      "category": "testing",
+      "homepage": "https://cbrowser.ai",
+      "repository": "https://github.com/alexandriashai/cbrowser",
+      "license": "MIT",
+      "keywords": ["browser", "automation", "accessibility", "testing", "playwright", "mcp", "personas", "ux"]
+    }
+  ]
+}

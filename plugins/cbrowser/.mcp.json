@@ -1,0 +1,6 @@
+{
+  "cbrowser": {
+    "command": "npx",
+    "args": ["-y", "cbrowser@21", "mcp-server"]
+  }
+}

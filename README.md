@@ -423,16 +423,28 @@ CBrowser runs as an MCP server for Claude.ai, Claude Desktop and Claude Code.
 2. Paste: `https://demo.cbrowser.ai/mcp`
 3. Optionally download the [Claude.ai Skill (.zip)](https://cbrowser.ai/downloads/cbrowser-claudeai.skill), which gives Claude context about the tools and workflows, and upload it under Customize → Skills.
 
-The Claude.ai Skill is a small knowledge file for the web interface. It is not the Claude Code Skill below.
+The Claude.ai Skill is a small knowledge file for the web interface. It is not the Claude Code plugin or skill below.
 
-### Claude Code Skill
+### Claude Code Plugin
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
-npm install -g cbrowser
+The plugin bundles the CBrowser skill, the local MCP server (`npx -y cbrowser@21 mcp-server`, every local tool, and it can open `localhost`) and two slash commands: `/cbrowser:audit <url>` runs the free audits and lists the fixes that matter most, and `/cbrowser:check-page <url>` checks a page in light and dark themes at desktop and phone width. In Claude Code:
+
+```
+/plugin marketplace add alexandriashai/cbrowser
+/plugin install cbrowser@cbrowser
 ```
 
-See the [Skill Installation Guide](https://cbrowser.ai/docs/claude-skill-installation).
+The first start downloads cbrowser and Chromium (about 1.3 GB), which can outlast Claude Code's server start timeout on a slow connection; if the server shows as failed the first time, it works in the next session. To warm it up beforehand, run `npm install -g cbrowser` (the plugin then starts in about a second) or `npx -y cbrowser@21 --version`.
+
+### Claude Code Skill only
+
+```bash
+cbrowser install-skill      # copies the skill this cbrowser version ships into ~/.claude/skills/CBrowser
+# or, before installing the npm package:
+curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
+```
+
+Either one writes only the skill's own files and leaves anything else in that directory alone. See the [Skill Installation Guide](https://cbrowser.ai/docs/claude-skill-installation).
 
 ### Claude Desktop
 
