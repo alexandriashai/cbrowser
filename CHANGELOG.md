@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.6.3](https://github.com/wyldfyre-ai/cbrowser/compare/v21.6.2...v21.6.3) (2026-11-24)
+
+### Fixed
+
+* **package:** point every link at wyldfyre-ai/cbrowser ([bf55745](https://github.com/wyldfyre-ai/cbrowser/commit/bf55745fb110bca7e042c6691705ef06725e4b24))
+
 ## [21.6.2](https://github.com/alexandriashai/cbrowser/compare/v21.6.1...v21.6.2) (2026-11-24)
 
 ### Fixed
