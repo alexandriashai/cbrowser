@@ -1,6 +1,6 @@
 {
   "cbrowser": {
     "type": "http",
-    "url": "https://demo.cbrowser.ai/mcp?auth=required"
+    "url": "https://demo.cbrowser.ai/mcp/signin"
   }
 }

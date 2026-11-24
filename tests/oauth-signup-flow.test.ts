@@ -138,6 +138,15 @@ describe("connecting", () => {
     expect(r.headers.get("www-authenticate")).toBe(`Bearer resource_metadata="http://${HOST}:${port}/.well-known/oauth-protected-resource"`);
   });
 
+  test("/mcp/signin (the plugin's URL) answers an anonymous connect with 401, and serves MCP to a signed-in caller", async () => {
+    const anon = await fetch(`${base}/mcp/signin`, { method: "POST", headers: mcpHeaders, body: initialize });
+    expect(anon.status).toBe(401);
+    expect(anon.headers.get("www-authenticate")).toContain("resource_metadata=");
+    const signedIn = await fetch(`${base}/mcp/signin`, { method: "POST", headers: { ...mcpHeaders, authorization: `Bearer ${NEW_KEY}` }, body: initialize });
+    expect(signedIn.status).toBe(200);
+    expect(await signedIn.text()).toContain('"serverInfo"');
+  });
+
   test("plain /mcp still answers initialize anonymously", async () => {
     const r = await fetch(`${base}/mcp`, { method: "POST", headers: mcpHeaders, body: initialize });
     expect(r.status).toBe(200);

@@ -3249,11 +3249,13 @@ ${VERSION}
         // Allow tools/list without auth (discovery surface is public, action surface is gated).
         // Buffer the body to check if this is a tools/list or initialize request.
         //
-        // Not with ?auth=required: Claude Code offers sign-in only when connecting
-        // answers 401 or 403, so a server that answers initialize anonymously is
-        // never signed in to, and every tool call then fails for want of a key.
-        // The Claude Code plugin connects with ?auth=required; existing connectors
-        // keep the open discovery. (2026-11-23)
+        // Not on /mcp/signin (it is not in the condition below) or with
+        // ?auth=required: Claude Code offers sign-in only when connecting answers
+        // 401 or 403, so a server that answers initialize anonymously is never
+        // signed in to, and every tool call then fails for want of a key. The
+        // Claude Code plugin connects to /mcp/signin; existing connectors keep the
+        // open discovery. A path, not a query: the claude.ai plugin directory
+        // refuses a server URL with "auth=" in it as a secret. (2026-11-23)
         const signInRequired = url.searchParams.get("auth") === "required";
         if (req.method === "POST" && (url.pathname === "/mcp" || url.pathname === "/") && !signInRequired) {
           // Capped like handleMcpRequest's read: this one runs for every
@@ -3368,7 +3370,8 @@ ${VERSION}
     }
 
     // MCP endpoint
-    if (url.pathname === "/mcp" || url.pathname === "/") {
+    // /mcp/signin is /mcp for a signed-in caller (the Claude Code plugin's URL).
+    if (url.pathname === "/mcp" || url.pathname === "/mcp/signin" || url.pathname === "/") {
       // Get or create session
       // v18.14.0: Use client's mcp-session-id for browser session correlation
       // This fixes DOM interaction desync where navigate worked but other tools saw blank page

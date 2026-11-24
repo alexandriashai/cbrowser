@@ -221,7 +221,9 @@ describe("the Claude Code plugins", () => {
   test("cbrowser, the one submitted to the directory, runs no code on the user's machine: the hosted server, with sign-in", () => {
     const mcp = JSON.parse(read(`${PLUGIN}/.mcp.json`));
     expect(Object.keys(mcp)).toEqual(["cbrowser"]);
-    expect(mcp.cbrowser).toEqual({ type: "http", url: "https://demo.cbrowser.ai/mcp?auth=required" });
+    expect(mcp.cbrowser).toEqual({ type: "http", url: "https://demo.cbrowser.ai/mcp/signin" });
+    // No query string: the plugin directory reads "auth=" in a server URL as a secret and refuses the plugin.
+    expect(new URL(mcp.cbrowser.url).search).toBe("");
     // A static Authorization header would turn Claude Code's OAuth sign-in off.
     expect(JSON.stringify(mcp)).not.toContain("Authorization");
   });

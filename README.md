@@ -431,7 +431,7 @@ Two plugins carry the CBrowser skill and two slash commands: `/cbrowser:audit <u
 
 | Plugin | MCP server | Account | Reaches `localhost` |
 |---|---|---|---|
-| `cbrowser` | hosted, `demo.cbrowser.ai` | sign in, or create a free one, in the browser when you connect | no |
+| `cbrowser` | hosted, `demo.cbrowser.ai/mcp/signin` | sign in, or create a free one, in the browser when you connect | no |
 | `cbrowser-local` | `npx -y cbrowser@21 mcp-server` on your machine, all 137 tools | none | yes |
 
 ```
@@ -443,7 +443,7 @@ With `cbrowser`, run `/mcp` and choose cbrowser the first time: a CBrowser page 
 
 With `cbrowser-local`, the first start downloads cbrowser and Chromium (about 1.3 GB), which can outlast Claude Code's server start timeout on a slow connection; if the server shows as failed the first time, it works in the next session. To download it beforehand, run `npm install -g cbrowser` (the plugin then starts in about a second) or `npx -y cbrowser@21 --version`.
 
-**Connecting any MCP client with sign-in.** The hosted server supports OAuth with dynamic client registration and loopback callbacks. A client that should be asked to sign in (rather than connect anonymously and list tools) uses `https://demo.cbrowser.ai/mcp?auth=required`.
+**Connecting any MCP client with sign-in.** The hosted server supports OAuth with dynamic client registration and loopback callbacks. A client that should be asked to sign in (rather than connect anonymously and list tools) uses `https://demo.cbrowser.ai/mcp/signin`.
 
 ### Claude Code Skill only
 
