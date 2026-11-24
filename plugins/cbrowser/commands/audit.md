@@ -10,7 +10,8 @@ If the cbrowser tools are not available in this session, say so and stop; do not
 1. Run `agent_ready_audit` on the URL. Note the overall score, the grade, the weakest category and its top issues.
 2. Run `empathy_audit` once per persona, one persona per call. For each, note the score and its top barriers.
 3. Run `hunt_bugs` on the URL. Note broken links, console errors and failed requests.
-4. If a tool reports that the server cannot reach the host (a hosted server opens only public internet addresses), say so and suggest the local server: `npx cbrowser mcp-server`, which the cbrowser plugin already runs.
+4. If a tool reports that the server cannot reach the host (the hosted server opens only public internet addresses), say so and suggest running cbrowser locally: the cbrowser-local plugin, or `npx cbrowser mcp-server`.
+5. If the cbrowser server shows as needing sign-in, tell the user to run `/mcp`, pick cbrowser, and sign in or create a free account in the browser page that opens. Never ask for a password or key in the chat.
 
 Then report, in this order:
 

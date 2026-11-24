@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * Regenerate skill/ from the canonical skill in plugins/cbrowser/skills/cbrowser/.
+ * Regenerate the copies of the canonical skill in plugins/cbrowser/skills/cbrowser/:
+ * skill/ (below), and the cbrowser-local plugin's skills/ and commands/ (a plugin
+ * is installed as its own directory, so it cannot point at a sibling's files).
  *
  * The skill lives in the Claude Code plugin's directory. skill/ is kept because
  * cbrowser 21.5.5 and older download `skill/<file>` from GitHub main in
@@ -9,7 +11,7 @@
  * retired; it stays here as a short stub so those versions keep working.
  *
  * Edit the canonical skill, then run: node scripts/sync-skill-mirror.mjs
- * tests/skill-plugin.test.ts fails when skill/ and the canonical skill differ.
+ * tests/skill-plugin.test.ts fails when a copy and the canonical files differ.
  *
  * @copyright 2026 Alexandria Eden alexandria.shai.eden@gmail.com https://cbrowser.ai
  * @license MIT
@@ -30,8 +32,14 @@ console.error("Tools/CBrowser.ts is retired. Use the cbrowser CLI: npm install -
 process.exit(1);
 `;
 
+const local = `${root}plugins/cbrowser-local`;
+for (const dir of ["skills", "commands"]) {
+  rmSync(`${local}/${dir}`, { recursive: true, force: true });
+  cpSync(`${root}plugins/cbrowser/${dir}`, `${local}/${dir}`, { recursive: true });
+}
+
 rmSync(mirror, { recursive: true, force: true });
 cpSync(canonical, mirror, { recursive: true });
 mkdirSync(`${mirror}/Tools`, { recursive: true });
 writeFileSync(`${mirror}/Tools/CBrowser.ts`, RETIRED_TOOL_STUB);
-console.log("skill/ regenerated from plugins/cbrowser/skills/cbrowser/");
+console.log("skill/ and plugins/cbrowser-local/{skills,commands} regenerated from plugins/cbrowser/");

@@ -11,11 +11,11 @@ Browser automation that asks whether a real person can finish the task, not only
 
 | You have | Use | Notes |
 |----------|-----|-------|
-| The cbrowser MCP server connected (the Claude Code plugin, `npx cbrowser mcp-server`, or a claude.ai connector) | the MCP tools by name: `navigate`, `click`, `agent_ready_audit`, ... | The tool prefix depends on how the server was added (`mcp__cbrowser__navigate`, `mcp__plugin_cbrowser_cbrowser__navigate`, a connector's own name). Match on the part after the last `__`. |
+| The cbrowser MCP server connected (the hosted `cbrowser` plugin, the local `cbrowser-local` plugin or `npx cbrowser mcp-server`, or a claude.ai connector) | the MCP tools by name: `navigate`, `click`, `agent_ready_audit`, ... | The tool prefix depends on how the server was added (`mcp__cbrowser__navigate`, `mcp__plugin_cbrowser_cbrowser__navigate`, a connector's own name). Match on the part after the last `__`. |
 | A shell | the `cbrowser` CLI (`npm install -g cbrowser`, or `npx cbrowser <command>`) | Node 20.19+ or 22.12+. Installing downloads Chromium. Run `cbrowser doctor` if a browser fails to launch. |
 | Neither | the hosted connector `https://demo.cbrowser.ai/mcp`, added in claude.ai | Hosted servers open public internet addresses only, never `localhost` or a private network. Test local sites with the CLI or the local MCP server. |
 
-The local stdio server registers 137 tools. A hosted server lists the set its plan allows; Enterprise-only tools answer with an upgrade notice elsewhere.
+The local stdio server registers 137 tools. A hosted server lists the set its plan allows and needs a CBrowser account for tool calls: the `cbrowser` plugin signs in through the browser, where a new user can create a free account on the spot (in Claude Code: `/mcp`, then cbrowser). Enterprise-only tools answer with an upgrade notice elsewhere. Never ask for a password or key in the chat.
 
 **Unsure what a tool does or what a score means?** Ask the docs: `question_answer` over MCP, or `cbrowser ask "<question>"`. Both search the cbrowser.ai documentation, need no account, and return their sources.
 

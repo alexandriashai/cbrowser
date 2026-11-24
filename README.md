@@ -427,14 +427,23 @@ The Claude.ai Skill is a small knowledge file for the web interface. It is not t
 
 ### Claude Code Plugin
 
-The plugin bundles the CBrowser skill, the local MCP server (`npx -y cbrowser@21 mcp-server`, every local tool, and it can open `localhost`) and two slash commands: `/cbrowser:audit <url>` runs the free audits and lists the fixes that matter most, and `/cbrowser:check-page <url>` checks a page in light and dark themes at desktop and phone width. In Claude Code:
+Two plugins carry the CBrowser skill and two slash commands: `/cbrowser:audit <url>` runs the free audits and lists the fixes that matter most, and `/cbrowser:check-page <url>` checks a page in light and dark themes at desktop and phone width. They differ in where the browser runs. Install one, not both.
+
+| Plugin | MCP server | Account | Reaches `localhost` |
+|---|---|---|---|
+| `cbrowser` | hosted, `demo.cbrowser.ai` | sign in, or create a free one, in the browser when you connect | no |
+| `cbrowser-local` | `npx -y cbrowser@21 mcp-server` on your machine, all 137 tools | none | yes |
 
 ```
 /plugin marketplace add alexandriashai/cbrowser
-/plugin install cbrowser@cbrowser
+/plugin install cbrowser@cbrowser          # or: /plugin install cbrowser-local@cbrowser
 ```
 
-The first start downloads cbrowser and Chromium (about 1.3 GB), which can outlast Claude Code's server start timeout on a slow connection; if the server shows as failed the first time, it works in the next session. To warm it up beforehand, run `npm install -g cbrowser` (the plugin then starts in about a second) or `npx -y cbrowser@21 --version`.
+With `cbrowser`, run `/mcp` and choose cbrowser the first time: a CBrowser page opens where you sign in or create a free account (email, a 6-digit code, a name and a password). Each plugin's README says what data it sends.
+
+With `cbrowser-local`, the first start downloads cbrowser and Chromium (about 1.3 GB), which can outlast Claude Code's server start timeout on a slow connection; if the server shows as failed the first time, it works in the next session. To download it beforehand, run `npm install -g cbrowser` (the plugin then starts in about a second) or `npx -y cbrowser@21 --version`.
+
+**Connecting any MCP client with sign-in.** The hosted server supports OAuth with dynamic client registration and loopback callbacks. A client that should be asked to sign in (rather than connect anonymously and list tools) uses `https://demo.cbrowser.ai/mcp?auth=required`.
 
 ### Claude Code Skill only
 

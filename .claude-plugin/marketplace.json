@@ -9,13 +9,41 @@
   "plugins": [
     {
       "name": "cbrowser",
-      "description": "Browser automation that tests a site the way real people use it: the CBrowser skill, the local cbrowser MCP server (137 tools), and /cbrowser:audit and /cbrowser:check-page.",
+      "description": "Browser automation that tests a site the way real people use it, on cbrowser.ai's hosted servers (sign in or create a free account when connecting): the CBrowser skill, the hosted MCP server, /cbrowser:audit and /cbrowser:check-page.",
       "source": "./plugins/cbrowser",
       "category": "testing",
       "homepage": "https://cbrowser.ai",
       "repository": "https://github.com/alexandriashai/cbrowser",
       "license": "MIT",
-      "keywords": ["browser", "automation", "accessibility", "testing", "playwright", "mcp", "personas", "ux"]
+      "keywords": [
+        "browser",
+        "automation",
+        "accessibility",
+        "testing",
+        "playwright",
+        "mcp",
+        "personas",
+        "ux"
+      ]
+    },
+    {
+      "name": "cbrowser-local",
+      "description": "CBrowser running on your machine: the same skill and commands with the local MCP server (npx cbrowser, all 137 tools, no account, reaches localhost). Install this or cbrowser, not both.",
+      "source": "./plugins/cbrowser-local",
+      "category": "testing",
+      "homepage": "https://cbrowser.ai",
+      "repository": "https://github.com/alexandriashai/cbrowser",
+      "license": "MIT",
+      "keywords": [
+        "browser",
+        "automation",
+        "accessibility",
+        "testing",
+        "playwright",
+        "mcp",
+        "personas",
+        "ux"
+      ]
     }
   ]
 }

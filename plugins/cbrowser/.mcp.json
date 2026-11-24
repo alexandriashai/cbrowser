@@ -1,6 +1,6 @@
 {
   "cbrowser": {
-    "command": "npx",
-    "args": ["-y", "cbrowser@21", "mcp-server"]
+    "type": "http",
+    "url": "https://demo.cbrowser.ai/mcp?auth=required"
   }
 }

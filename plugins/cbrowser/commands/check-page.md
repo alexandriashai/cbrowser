@@ -17,4 +17,4 @@ Report per combination:
 - What is wrong, if anything: text that is hard to read against its background, content cut off or overflowing sideways, overlapping elements, missing images, a layout that did not adapt, a theme that did not switch.
 - Console errors and failed requests, once per session.
 
-End with a one-line verdict per combination (looks right, or the problem). Say plainly when a screenshot was not clear enough to judge something. A hosted server cannot open `localhost` or private addresses; the plugin's local server can.
+End with a one-line verdict per combination (looks right, or the problem). Say plainly when a screenshot was not clear enough to judge something. The hosted server cannot open `localhost` or private addresses; the cbrowser-local plugin or the `cbrowser` CLI can. If the cbrowser server shows as needing sign-in, tell the user to run `/mcp`, pick cbrowser, and sign in or create a free account in the page that opens. Never ask for a password or key in the chat.

@@ -172,37 +172,73 @@ describe("skill/ mirrors the canonical skill for older cbrowser versions", () =>
   });
 });
 
-describe("the Claude Code plugin", () => {
+describe("the Claude Code plugins", () => {
   const pkg = JSON.parse(read("package.json"));
-  const plugin = JSON.parse(read(`${PLUGIN}/.claude-plugin/plugin.json`));
   const market = JSON.parse(read(".claude-plugin/marketplace.json"));
-  const mcp = JSON.parse(read(`${PLUGIN}/.mcp.json`));
+  const PLUGINS = { cbrowser: PLUGIN, "cbrowser-local": "plugins/cbrowser-local" } as const;
+  const manifest = (dir: string) => JSON.parse(read(`${dir}/.claude-plugin/plugin.json`));
 
-  test("plugin.json: name, and the package's version", () => {
-    expect(plugin.name).toBe("cbrowser");
-    expect(plugin.version).toBe(pkg.version);
+  test("each plugin.json: its name, and the package's version", () => {
+    for (const [name, dir] of Object.entries(PLUGINS)) {
+      expect(manifest(dir).name).toBe(name);
+      expect(manifest(dir).version, name).toBe(pkg.version);
+    }
   });
 
-  test("the release bump writes plugin.json's version", () => {
-    expect(read("scripts/sync-manifest-version.mjs")).toContain("plugins/cbrowser/.claude-plugin/plugin.json");
+  test("the release bump writes both plugin.json versions", () => {
+    const script = read("scripts/sync-manifest-version.mjs");
+    for (const dir of Object.values(PLUGINS)) expect(script).toContain(`${dir}/.claude-plugin/plugin.json`);
     expect(read(".release-it.json")).toContain("scripts/sync-manifest-version.mjs");
   });
 
-  test("marketplace.json lists the plugin at a source that holds it", () => {
+  test("marketplace.json lists both plugins at sources that hold them", () => {
     expect(market.name).toBeTruthy();
     expect(market.owner?.name).toBeTruthy();
-    const entry = market.plugins.find((p: { name: string }) => p.name === plugin.name);
-    expect(entry).toBeTruthy();
-    expect(join(ROOT, entry.source)).toBe(join(ROOT, PLUGIN));
-    expect(existsSync(join(ROOT, entry.source, ".claude-plugin/plugin.json"))).toBe(true);
+    for (const [name, dir] of Object.entries(PLUGINS)) {
+      const entry = market.plugins.find((p: { name: string }) => p.name === name);
+      expect(entry, name).toBeTruthy();
+      expect(join(ROOT, entry.source)).toBe(join(ROOT, dir));
+      expect(existsSync(join(ROOT, entry.source, ".claude-plugin/plugin.json"))).toBe(true);
+    }
   });
 
-  test(".mcp.json starts this major version's stdio server", () => {
-    const server = mcp.cbrowser;
+  // The claude.ai directory's checklist (2026-11-23): a README saying what the
+  // plugin does and what data it sends, a license, an icon, a privacy policy for
+  // a remote server.
+  test("each plugin meets the directory's checklist", () => {
+    for (const dir of Object.values(PLUGINS)) {
+      const m = manifest(dir);
+      expect(read(`${dir}/README.md`), dir).toMatch(/## What data it sends/);
+      expect(m.license, dir).toBe("MIT");
+      expect(m.privacyPolicyUrl, dir).toBe("https://cbrowser.ai/privacy");
+      expect(m.termsOfServiceUrl, dir).toBeTruthy();
+      const icon = readFileSync(join(ROOT, dir, m.icon));
+      expect(icon.subarray(1, 4).toString(), dir).toBe("PNG");
+      expect([icon.readUInt32BE(16), icon.readUInt32BE(20)], dir).toEqual([512, 512]);
+    }
+  });
+
+  test("cbrowser, the one submitted to the directory, runs no code on the user's machine: the hosted server, with sign-in", () => {
+    const mcp = JSON.parse(read(`${PLUGIN}/.mcp.json`));
+    expect(Object.keys(mcp)).toEqual(["cbrowser"]);
+    expect(mcp.cbrowser).toEqual({ type: "http", url: "https://demo.cbrowser.ai/mcp?auth=required" });
+    // A static Authorization header would turn Claude Code's OAuth sign-in off.
+    expect(JSON.stringify(mcp)).not.toContain("Authorization");
+  });
+
+  test("cbrowser-local starts this major version's stdio server", () => {
+    const server = JSON.parse(read("plugins/cbrowser-local/.mcp.json")).cbrowser;
     expect(server.command).toBe("npx");
-    const spec = server.args.find((a: string) => a.startsWith("cbrowser"));
-    expect(spec).toBe(`cbrowser@${pkg.version.split(".")[0]}`);
+    expect(server.args.find((a: string) => a.startsWith("cbrowser"))).toBe(`cbrowser@${pkg.version.split(".")[0]}`);
     expect(server.args.at(-1)).toBe("mcp-server");
+  });
+
+  test("cbrowser-local carries the same skill and commands, unchanged", () => {
+    for (const sub of ["skills/cbrowser", "commands"]) {
+      const files = listSkillFiles(join(ROOT, PLUGIN, sub));
+      expect(listSkillFiles(join(ROOT, "plugins/cbrowser-local", sub))).toEqual(files);
+      for (const f of files) expect(read(`plugins/cbrowser-local/${sub}/${f}`), f).toBe(read(`${PLUGIN}/${sub}/${f}`));
+    }
   });
 
   test("every slash command has a description", () => {

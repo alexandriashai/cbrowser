@@ -1,0 +1,27 @@
+{
+  "name": "cbrowser-local",
+  "version": "21.5.5",
+  "description": "CBrowser on your own machine: the same skill and commands as the cbrowser plugin, with the local MCP server (npx cbrowser, all 137 tools, no account, can test localhost and private networks).",
+  "author": {
+    "name": "Alexandria Eden",
+    "url": "https://cbrowser.ai"
+  },
+  "homepage": "https://cbrowser.ai",
+  "repository": "https://github.com/alexandriashai/cbrowser",
+  "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
+  "documentationUrl": "https://cbrowser.ai/docs",
+  "supportUrl": "https://github.com/alexandriashai/cbrowser/issues",
+  "privacyPolicyUrl": "https://cbrowser.ai/privacy",
+  "termsOfServiceUrl": "https://cbrowser.ai/terms",
+  "keywords": [
+    "browser",
+    "automation",
+    "accessibility",
+    "testing",
+    "playwright",
+    "mcp",
+    "personas",
+    "ux"
+  ]
+}

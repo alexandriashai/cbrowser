@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Set the "version" of manifest.json (the MCPB bundle) and of the Claude Code
- * plugin (plugins/cbrowser/.claude-plugin/plugin.json) to the version release-it
+ * Set the "version" of manifest.json (the MCPB bundle) and of both Claude Code
+ * plugins (plugins/cbrowser and plugins/cbrowser-local) to the version release-it
  * just bumped package.json to. Run from .release-it.json's after:bump hook, so the
- * release commit carries all three; tests/doc-tool-counts.test.ts and
+ * release commit carries all of them; tests/doc-tool-counts.test.ts and
  * tests/skill-plugin.test.ts fail when they differ. manifest.json sat at 18.59.0
  * through three majors before this existed.
  *
@@ -20,7 +20,7 @@ if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version ?? "")) {
   process.exit(1);
 }
 // Replace only the version string, so the rest of each file keeps its formatting.
-for (const file of ["../manifest.json", "../plugins/cbrowser/.claude-plugin/plugin.json"]) {
+for (const file of ["../manifest.json", "../plugins/cbrowser/.claude-plugin/plugin.json", "../plugins/cbrowser-local/.claude-plugin/plugin.json"]) {
   const path = new URL(file, import.meta.url);
   const before = readFileSync(path, "utf8");
   const after = before.replace(/^(\s*"version":\s*")[^"]*(")/m, `$1${version}$2`);
