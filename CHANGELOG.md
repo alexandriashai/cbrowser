@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [21.6.0](https://github.com/alexandriashai/cbrowser/compare/v21.5.5...v21.6.0) (2026-11-24)
+
+### Added
+
+* **auth:** sign up while connecting, for any mcp client ([73e3149](https://github.com/alexandriashai/cbrowser/commit/73e3149dd44fa17b44cf9947033939890ac8f478))
+* **cli:** install-browsers, and stop telling users to run npx playwright install ([63446de](https://github.com/alexandriashai/cbrowser/commit/63446dee01569c2f2da684e442f547572eb7ef70))
+* **plugin:** claude code plugin and marketplace ([212ca8b](https://github.com/alexandriashai/cbrowser/commit/212ca8b4d4e7a394be75eb941ffe1e7299f167a8))
+* **plugin:** hosted cbrowser plugin for the directory, cbrowser-local for npx ([2d02503](https://github.com/alexandriashai/cbrowser/commit/2d02503511f2d6c70b6ae04e7467c20f923c7919))
+
 ## [21.5.5](https://github.com/alexandriashai/cbrowser/compare/v21.5.4...v21.5.5) (2026-11-21)
 
 ### Fixed

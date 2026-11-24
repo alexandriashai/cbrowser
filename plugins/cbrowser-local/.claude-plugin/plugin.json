@@ -1,6 +1,6 @@
 {
   "name": "cbrowser-local",
-  "version": "21.5.5",
+  "version": "21.6.0",
   "description": "CBrowser on your own machine: the same skill and commands as the cbrowser plugin, with the local MCP server (npx cbrowser, all 137 tools, no account, can test localhost and private networks).",
   "author": {
     "name": "Alexandria Eden",
