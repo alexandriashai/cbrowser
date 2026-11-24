@@ -69,6 +69,17 @@ import { configureLaunchGate, markSessionBrowser } from "./launch-gate.js";
  * every slot, challenger review 2026-11-16). undefined outside an account.
  */
 export { scopedAccountId as requestAccountId, withPersonaScope } from "./persona-scope.js";
+import {
+  authorizeErrorMessage,
+  checkRedirect,
+  oauthClientKey,
+  registerOAuthClient,
+  renderAuthorizePage,
+  sendSignupCode,
+  registerAccount,
+  type AuthorizeMode,
+  type OAuthParams,
+} from "./oauth-signup.js";
 import { withChargeScope, currentCharge } from "./charge-scope.js";
 import { refundCharge } from "./mcp-tools/credit-refund.js";
 import { releaseCapturesForBrowser, sweepCaptureSessions } from "./mcp-tools/base/capture-tools.js";
@@ -1474,10 +1485,9 @@ const OAUTH_ALLOWED_REDIRECTS: string[] = (
   .map((s) => s.trim())
   .filter(Boolean);
 
-/** Exact-match only. No prefix matching: "https://claude.ai.evil.test" must not pass. */
-function isAllowedRedirect(uri: string): boolean {
-  return uri !== "" && OAUTH_ALLOWED_REDIRECTS.includes(uri);
-}
+// Checked with isAcceptedRedirect (src/oauth-signup.ts): an exact match here, no
+// prefix matching ("https://claude.ai.evil.test" must not pass), or a loopback
+// callback (RFC 8252) for clients registered at /register.
 
 /** Plain 400. Never redirect to an unvalidated URI, not even to report the error. */
 function rejectRedirectUri(res: import("http").ServerResponse, uri: string): void {
@@ -1919,13 +1929,14 @@ async function validateAuth(
   return { valid: false, reason: "Authentication required. Get your API key at https://cbrowser.ai/account/register then enter it as the Bearer token when connecting." };
 }
 
-function sendUnauthorized(res: ServerResponse, message?: string): void {
+function sendUnauthorized(res: ServerResponse, message?: string, resourceMetadataUrl?: string): void {
   // No Auth0 endpoints here any more: they named a tenant whose tokens this
   // server refuses. Sign-in is this server's own /authorize, which discovery
   // (/.well-known/oauth-authorization-server) describes. (2026-11-12)
+  // resource_metadata (RFC 9728 section 5.1) points a client straight at that discovery.
   res.writeHead(401, {
     "Content-Type": "application/json",
-    "WWW-Authenticate": "Bearer",
+    "WWW-Authenticate": resourceMetadataUrl ? `Bearer resource_metadata="${resourceMetadataUrl}"` : "Bearer",
   });
   res.end(JSON.stringify({
     error: "Unauthorized",
@@ -2690,68 +2701,38 @@ export async function startRemoteMcpServer(options?: RemoteMcpServerOptions): Pr
 
     // In-memory auth code store (short-lived, 5 min TTL)
 
-    // GET /authorize — login form for OAuth PKCE (Claude.ai opens this in a popup)
+    // GET /authorize: the sign-in page, or with mode=signup the first sign-up step.
+    // Claude.ai opens it in a popup; Claude Code and other clients that registered
+    // at /register open it in the user's browser with a loopback callback.
     if ((url.pathname === "/authorize" || url.pathname === "/login") && req.method === "GET") {
       const clientId = url.searchParams.get("client_id") || "";
-      const redirectUri = url.searchParams.get("redirect_uri") || "";
-      const state = url.searchParams.get("state") || "";
-      const codeChallenge = url.searchParams.get("code_challenge") || "";
-      const codeChallengeMethod = url.searchParams.get("code_challenge_method") || "";
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientId);
-      const prefillEmail = isEmail ? clientId : "";
+      const oauth: OAuthParams = {
+        redirectUri: url.searchParams.get("redirect_uri") || "",
+        state: url.searchParams.get("state") || "",
+        codeChallenge: url.searchParams.get("code_challenge") || "",
+        codeChallengeMethod: url.searchParams.get("code_challenge_method") || "",
+        clientId,
+      };
+      // Older connectors put the user's email in client_id.
+      const email = url.searchParams.get("email") || (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientId) ? clientId : "");
 
       // Refuse an unrecognised callback BEFORE showing a password field, so a
       // phishing link never reaches the point of collecting credentials.
-      if (!isAllowedRedirect(redirectUri)) {
-        rejectRedirectUri(res, redirectUri);
+      const callback = checkRedirect(oauth.redirectUri, clientId, OAUTH_ALLOWED_REDIRECTS, oauthClientKey());
+      if (!callback.ok) {
+        rejectRedirectUri(res, oauth.redirectUri);
         return;
       }
 
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(`<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CBrowser — Sign In</title>
-<style>
-  body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-  .card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 32px; width: 100%; max-width: 400px; }
-  h1 { font-size: 24px; margin: 0 0 8px; background: linear-gradient(to right, #3b82f6, #06b6d4); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  p { color: #888; font-size: 14px; margin: 0 0 24px; }
-  label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; }
-  input { width: 100%; padding: 10px 12px; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; color: #e5e5e5; font-size: 14px; margin-bottom: 16px; box-sizing: border-box; }
-  input:focus { outline: none; border-color: #3b82f6; }
-  button { width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6, #06b6d4); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
-  button:hover { opacity: 0.9; }
-  .error { background: #3b1111; border: 1px solid #7f1d1d; color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
-  .register { text-align: center; margin-top: 16px; font-size: 13px; color: #666; }
-  .register a { color: #3b82f6; text-decoration: none; }
-</style></head><body>
-<div class="card">
-  <h1>CBrowser</h1>
-  <p>Sign in to connect your account to Claude</p>
-  <div class="error" id="error"></div>
-  <form id="form" method="POST" action="/authorize">
-    <input type="hidden" name="redirect_uri" value="${redirectUri.replace(/"/g, '&quot;')}">
-    <input type="hidden" name="state" value="${state.replace(/"/g, '&quot;')}">
-    <input type="hidden" name="code_challenge" value="${codeChallenge.replace(/"/g, '&quot;')}">
-    <input type="hidden" name="code_challenge_method" value="${codeChallengeMethod.replace(/"/g, '&quot;')}">
-    <input type="hidden" name="client_id" value="${clientId.replace(/"/g, '&quot;')}">
-    <label for="email">Email</label>
-    <input type="email" id="email" name="email" required ${prefillEmail ? '' : 'autofocus'} placeholder="you@example.com" value="${prefillEmail.replace(/"/g, '&quot;')}">
-    <label for="password">Password or API Key</label>
-    <input type="password" id="password" name="password" required ${prefillEmail ? 'autofocus' : ''} placeholder="Password or cbk_... API key">
-    <button type="submit">Sign In &amp; Authorize</button>
-  </form>
-  <div class="register">No account? <a href="https://cbrowser.ai/account/register" target="_blank">Create one free</a></div>
-</div>
-<script>
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('error')) {
-  const err = document.getElementById('error');
-  err.textContent = decodeURIComponent(urlParams.get('error'));
-  err.style.display = 'block';
-}
-</script>
-</body></html>`);
+      const mode: AuthorizeMode = url.searchParams.get("mode") === "signup" ? "signup-email" : "signin";
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(renderAuthorizePage({
+        mode,
+        oauth,
+        email,
+        error: authorizeErrorMessage(url.searchParams.get("error")),
+        localClient: callback.loopback ? { clientName: callback.clientName, port: callback.port } : undefined,
+      }));
       return;
     }
 
@@ -2765,10 +2746,12 @@ if (urlParams.get('error')) {
       const state = params.get("state") || "";
       const codeChallenge = params.get("code_challenge") || "";
 
-      // Build authorize URL for error redirects
-      const errorRedirect = (msg: string) => {
+      // Build authorize URL for error redirects. The error is a code the GET
+      // turns into a fixed message (AUTHORIZE_ERRORS), never text it prints.
+      const errorRedirect = (code: "missing" | "invalid_login" | "invalid_key" | "max_keys" | "unavailable") => {
         const authUrl = new URL("/authorize", `https://${req.headers.host}`);
-        authUrl.searchParams.set("error", msg);
+        authUrl.searchParams.set("error", code);
+        if (email) authUrl.searchParams.set("email", email);
         authUrl.searchParams.set("redirect_uri", redirectUri);
         authUrl.searchParams.set("state", state);
         authUrl.searchParams.set("code_challenge", codeChallenge);
@@ -2780,18 +2763,82 @@ if (urlParams.get('error')) {
 
       // Re-validate on POST: the form field is attacker-controllable independently
       // of the GET that rendered it.
-      if (!isAllowedRedirect(redirectUri)) {
+      const callback = checkRedirect(redirectUri, params.get("client_id") || "", OAUTH_ALLOWED_REDIRECTS, oauthClientKey());
+      if (!callback.ok) {
         rejectRedirectUri(res, redirectUri);
         return;
       }
 
-      if (!email || !password) {
-        errorRedirect("Email and password required");
+      const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
+      const oauth: OAuthParams = {
+        redirectUri,
+        state,
+        codeChallenge,
+        codeChallengeMethod: params.get("code_challenge_method") || "S256",
+        clientId: params.get("client_id") || "",
+      };
+      const page = (mode: AuthorizeMode, extra: { email?: string; name?: string; error?: string; notice?: string }) => {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(renderAuthorizePage({
+          mode,
+          oauth,
+          ...extra,
+          localClient: callback.loopback ? { clientName: callback.clientName, port: callback.port } : undefined,
+        }));
+      };
+      const issueCode = (apiKey: string) => {
+        const code = randomUUID();
+        oauthCodes.set(code, { apiKey, redirectUri, codeChallenge, expiresAt: Date.now() + 5 * 60 * 1000 });
+        const callbackUrl = new URL(redirectUri);
+        callbackUrl.searchParams.set("code", code);
+        callbackUrl.searchParams.set("state", state);
+        res.writeHead(303, { Location: callbackUrl.toString() });
+        res.end();
+      };
+
+      // Sign-up, step 1: email the code (the CMS rate-limits per address).
+      const action = params.get("action") || "signin";
+      if (action === "send-code") {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+          page("signup-email", { email, error: "Enter a valid email address." });
+          return;
+        }
+        try {
+          const sent = await sendSignupCode(cmsUrl, email, OAUTH_CMS_TIMEOUT_MS);
+          if (sent.ok) page("signup-code", { email });
+          else if (sent.alreadyRegistered) page("signin", { email, error: sent.message });
+          else page("signup-email", { email, error: sent.message });
+        } catch {
+          page("signup-email", { email, error: "The account service is unavailable. Try again in a minute." });
+        }
         return;
       }
 
-      // Validate against CMS
-      const cmsUrl = process.env.CMS_URL || "http://localhost:3200";
+      // Sign-up, step 2: the code, a name and a password create the account,
+      // whose first key becomes the access token like a sign-in's.
+      if (action === "register") {
+        const name = (params.get("name") || "").trim();
+        const signupCode = (params.get("code") || "").trim();
+        if (!email || !/^[0-9]{6}$/.test(signupCode) || !name || password.length < 8) {
+          page("signup-code", { email, name, error: "Enter the 6-digit code, your name, and a password of at least 8 characters." });
+          return;
+        }
+        try {
+          const made = await registerAccount(cmsUrl, { email, code: signupCode, name, password }, OAUTH_CMS_TIMEOUT_MS);
+          if (made.ok) issueCode(made.apiKey);
+          else page("signup-code", { email, name, error: made.message });
+        } catch {
+          page("signup-code", { email, name, error: "The account service is unavailable. Try again in a minute." });
+        }
+        return;
+      }
+
+      if (!email || !password) {
+        errorRedirect("missing");
+        return;
+      }
+
+      // Sign in: validate against the CMS.
       try {
         let apiKey: string;
 
@@ -2802,7 +2849,7 @@ if (urlParams.get('error')) {
             signal: AbortSignal.timeout(OAUTH_CMS_TIMEOUT_MS),
           });
           if (!validateRes.ok) {
-            errorRedirect("Invalid API key");
+            errorRedirect("invalid_key");
             return;
           }
           apiKey = password;
@@ -2816,7 +2863,7 @@ if (urlParams.get('error')) {
           });
 
           if (!loginRes.ok) {
-            errorRedirect("Invalid email or password");
+            errorRedirect("invalid_login");
             return;
           }
 
@@ -2832,30 +2879,30 @@ if (urlParams.get('error')) {
           apiKey = keyData.key || "";
 
           if (!apiKey) {
-            errorRedirect("Max API keys reached. Delete an unused key at cbrowser.ai/account");
+            errorRedirect("max_keys");
             return;
           }
         }
 
-        // Generate auth code
-        const code = randomUUID();
-        oauthCodes.set(code, {
-          apiKey,
-          redirectUri,
-          codeChallenge,
-          expiresAt: Date.now() + 5 * 60 * 1000,
-        });
-
-        // Redirect back to Claude with auth code
-        const callbackUrl = new URL(redirectUri);
-        callbackUrl.searchParams.set("code", code);
-        callbackUrl.searchParams.set("state", state);
-
-        res.writeHead(303, { Location: callbackUrl.toString() });
-        res.end();
+        issueCode(apiKey);
       } catch {
-        errorRedirect("Authentication service unavailable");
+        errorRedirect("unavailable");
       }
+      return;
+    }
+
+    // POST /register: RFC 7591 dynamic client registration (see src/oauth-signup.ts).
+    if (url.pathname === "/register" && req.method === "POST") {
+      const body = await readBodyCapped(req, MAX_OAUTH_BODY_BYTES);
+      let metadata: unknown = null;
+      try {
+        metadata = JSON.parse(body);
+      } catch {
+        /* reported as invalid_client_metadata */
+      }
+      const result = registerOAuthClient(metadata, OAUTH_ALLOWED_REDIRECTS, oauthClientKey());
+      res.writeHead(result.status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(result.body));
       return;
     }
 
@@ -3162,6 +3209,7 @@ ${VERSION}
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/authorize`,
         token_endpoint: `${baseUrl}/token`,
+        registration_endpoint: `${baseUrl}/register`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "client_credentials"],
         code_challenge_methods_supported: ["S256"],
@@ -3184,7 +3232,7 @@ ${VERSION}
         bearer_methods_supported: ["header"],
         scopes_supported: [],
         resource_documentation: `${protocol}://${serverHost}/docs`,
-        resource_description: "CBrowser MCP Server - Open access (no authentication required)",
+        resource_description: "CBrowser MCP Server. Tool calls need a CBrowser account: sign in or create one free through /authorize, or send an API key as the Bearer token.",
       }));
       return;
     }
@@ -3200,7 +3248,14 @@ ${VERSION}
       if (!authResult.valid) {
         // Allow tools/list without auth (discovery surface is public, action surface is gated).
         // Buffer the body to check if this is a tools/list or initialize request.
-        if (req.method === "POST" && (url.pathname === "/mcp" || url.pathname === "/")) {
+        //
+        // Not with ?auth=required: Claude Code offers sign-in only when connecting
+        // answers 401 or 403, so a server that answers initialize anonymously is
+        // never signed in to, and every tool call then fails for want of a key.
+        // The Claude Code plugin connects with ?auth=required; existing connectors
+        // keep the open discovery. (2026-11-23)
+        const signInRequired = url.searchParams.get("auth") === "required";
+        if (req.method === "POST" && (url.pathname === "/mcp" || url.pathname === "/") && !signInRequired) {
           // Capped like handleMcpRequest's read: this one runs for every
           // rejected caller and buffered whatever it was sent. (crash hotfix, 2026-11-12)
           const bodyStr = await readBodyCapped(req, MAX_REQUEST_BODY_BYTES);
@@ -3255,7 +3310,9 @@ ${VERSION}
             // Not valid JSON — fall through to auth error
           }
         }
-        sendUnauthorized(res, authResult.reason);
+        const metaHost = req.headers.host || `${host}:${port}`;
+        const metaProto = req.headers["x-forwarded-proto"] || "http";
+        sendUnauthorized(res, authResult.reason, `${metaProto}://${metaHost}/.well-known/oauth-protected-resource`);
         return;
       }
     }

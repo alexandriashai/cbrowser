@@ -63,6 +63,7 @@ const ALLOWED: Record<string, { uses: number; reason: string }> = {
   "daemon.ts": { uses: 3, reason: "CLI only: the local daemon on 127.0.0.1" },
   "webhooks.ts": { uses: 1, reason: "CLI only: a webhook URL the operator stored, sent with redirect: error" },
   "cli/commands/testing.ts": { uses: 1, reason: "CLI only: the webhook test" },
+  "oauth-signup.ts": { uses: 2, reason: `${CMS}: sign-up while connecting (send-code, verify-code, register)` },
 };
 
 /** Where the inventory of 2026-11-12 found a request to a caller's URL, and how many times each file now names hostedFetch for it. */
