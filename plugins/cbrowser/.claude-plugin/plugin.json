@@ -1,6 +1,6 @@
 {
   "name": "cbrowser",
-  "version": "21.6.0",
+  "version": "21.6.1",
   "description": "Browser automation that tests a site the way real people use it, run on cbrowser.ai's hosted servers: free AI-readiness and accessibility audits, personas, cognitive journeys, natural-language tests, visual regression and screen capture. Sign in, or create a free account, when you connect.",
   "author": {
     "name": "Alexandria Eden",
