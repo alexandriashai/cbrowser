@@ -15,7 +15,7 @@ Thank you for your interest in contributing to CBrowser! This document provides 
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/alexandriashai/cbrowser.git
+   git clone https://github.com/wyldfyre-ai/cbrowser.git
    cd cbrowser
    ```
 3. Install dependencies:

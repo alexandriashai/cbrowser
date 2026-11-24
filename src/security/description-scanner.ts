@@ -315,7 +315,7 @@ const WARNING_PATTERNS: DetectionPattern[] = [
     // both had the same defect, which is why fixing one left security_audit
     // still flagging a plain GitHub URL. The class includes `/` (valid base64),
     // so any long slash-separated run matched: `keydown/keypress/keyup` and
-    // `com/alexandriashai/cbrowser` both did. Real base64 of binary data carries
+    // `com/wyldfyre-ai/cbrowser` both did. Real base64 of binary data carries
     // a digit, `+`, or `=` padding; slash-separated words do not. (2026-07-29)
     regex: /(?=[A-Za-z0-9+/]{20,}={0,2})[A-Za-z0-9+/]*[0-9+=][A-Za-z0-9+/]*={0,2}/,
     pattern: "encoded_content",

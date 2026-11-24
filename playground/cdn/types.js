@@ -885,7 +885,7 @@ export const ERROR_REMEDIATION = {
         docUrl: "https://cbrowser.ai/docs/errors#E804",
     },
     [CBrowserErrorCode.UNKNOWN]: {
-        howToFix: "An unexpected error occurred. Run 'cbrowser doctor' to check your environment, or report this at https://github.com/alexandriashai/cbrowser/issues",
+        howToFix: "An unexpected error occurred. Run 'cbrowser doctor' to check your environment, or report this at https://github.com/wyldfyre-ai/cbrowser/issues",
         docUrl: "https://cbrowser.ai/docs/errors#E999",
     },
 };

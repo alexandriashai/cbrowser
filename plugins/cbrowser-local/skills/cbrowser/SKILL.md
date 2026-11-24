@@ -146,4 +146,4 @@ There are 21 built-in personas, plus 4 emotional and 4 AI-agent personas.
 | `Credentials.md` | Handling credentials safely |
 | `Personas.md`, `CognitivePersonas.md`, `CognitiveState.md` | Personas, traits, and the patience and frustration model |
 
-Release notes: https://github.com/alexandriashai/cbrowser/blob/main/CHANGELOG.md
+Release notes: https://github.com/wyldfyre-ai/cbrowser/blob/main/CHANGELOG.md

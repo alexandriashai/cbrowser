@@ -2,11 +2,11 @@
 #
 # Installs the CBrowser Claude skill in ~/.claude/skills/CBrowser.
 #
-#   curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/wyldfyre-ai/cbrowser/main/scripts/install-skill.sh | bash
 #
 # Other ways to get the same skill:
 #   cbrowser install-skill           copies the skill your installed cbrowser version ships
-#   /plugin marketplace add alexandriashai/cbrowser, then /plugin install cbrowser@cbrowser
+#   /plugin marketplace add wyldfyre-ai/cbrowser, then /plugin install cbrowser@cbrowser
 #                                    (Claude Code plugin: the skill plus the MCP server)
 #
 # Every file is downloaded before anything is written, so a failed download leaves an
@@ -23,7 +23,7 @@
 
 set -euo pipefail
 
-BASE="${CBROWSER_SKILL_BASE:-https://raw.githubusercontent.com/alexandriashai/cbrowser/main/plugins/cbrowser/skills/cbrowser}"
+BASE="${CBROWSER_SKILL_BASE:-https://raw.githubusercontent.com/wyldfyre-ai/cbrowser/main/plugins/cbrowser/skills/cbrowser}"
 DEST="${CBROWSER_SKILL_DIR:-${HOME}/.claude/skills/CBrowser}"
 
 SKILL_FILES=(

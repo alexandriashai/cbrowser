@@ -27,5 +27,5 @@ Nothing is sent to CBrowser about the pages you test or the results. Results sta
 ## Links
 
 - Documentation: https://cbrowser.ai/docs
-- Source: https://github.com/alexandriashai/cbrowser (MIT)
-- Issues: https://github.com/alexandriashai/cbrowser/issues
+- Source: https://github.com/wyldfyre-ai/cbrowser (MIT)
+- Issues: https://github.com/wyldfyre-ai/cbrowser/issues

@@ -17,7 +17,7 @@
  *
  * @version 1.0.0
  * @since v18.28.0
- * @see https://github.com/alexandriashai/cbrowser/issues/159
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/159
  */
 
 import { resolvePerceptualProfile, type PerceptualFilter, type PerceptualResolution } from './perceptual-transport.js';

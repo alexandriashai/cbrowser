@@ -25,7 +25,7 @@ describe("citing documentation is not exfiltration", () => {
     "Press a key. See https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values",
     "Follows the HTML spec at https://html.spec.whatwg.org/multipage/",
     "Structured data vocabulary from https://schema.org/Product",
-    "Source at https://github.com/alexandriashai/cbrowser",
+    "Source at https://github.com/wyldfyre-ai/cbrowser",
     "See https://www.w3.org/TR/WCAG22/ for the criteria",
   ];
 

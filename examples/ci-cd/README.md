@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: alexandriashai/cbrowser@v8
+      - uses: wyldfyre-ai/cbrowser@v8
         with:
           test-file: tests/e2e/checkout.txt
           sensitivity: strict
@@ -37,7 +37,7 @@ Run CBrowser in any CI system using the official Docker image:
 ```bash
 docker run --rm \
   -v $(pwd)/tests:/work/tests \
-  ghcr.io/alexandriashai/cbrowser:latest \
+  ghcr.io/wyldfyre-ai/cbrowser:latest \
   test-suite tests/checkout.txt --output results.json --html
 ```
 
@@ -49,7 +49,7 @@ Include the reusable GitLab CI component:
 
 ```yaml
 include:
-  - component: gitlab.com/alexandriashai/cbrowser/.gitlab-ci-component.yml
+  - component: gitlab.com/wyldfyre-ai/cbrowser/.gitlab-ci-component.yml
     inputs:
       test-file: tests/e2e/checkout.txt
       sensitivity: strict

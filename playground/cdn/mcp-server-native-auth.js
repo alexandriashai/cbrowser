@@ -290,7 +290,7 @@ function createApp() {
             provider,
             issuerUrl: new URL(`https://${config.domain}`),
             baseUrl: serverUrl,
-            serviceDocumentationUrl: new URL("https://github.com/alexandriashai/cbrowser#readme"),
+            serviceDocumentationUrl: new URL("https://github.com/wyldfyre-ai/cbrowser#readme"),
             scopesSupported: ["openid", "profile", "cbrowser:read", "cbrowser:write"],
             resourceName: "CBrowser MCP Server",
             resourceServerUrl: serverUrl,

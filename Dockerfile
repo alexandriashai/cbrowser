@@ -6,7 +6,7 @@
 # inside the range and the major on the current release.
 FROM mcr.microsoft.com/playwright:v1.65.1-noble
 
-LABEL org.opencontainers.image.source="https://github.com/alexandriashai/cbrowser"
+LABEL org.opencontainers.image.source="https://github.com/wyldfyre-ai/cbrowser"
 LABEL org.opencontainers.image.description="CBrowser - Cognitive Browser automation for CI/CD pipelines"
 LABEL org.opencontainers.image.licenses="MIT"
 

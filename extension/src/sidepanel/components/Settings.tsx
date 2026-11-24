@@ -184,7 +184,7 @@ export function Settings({ settings, onSave }: SettingsProps) {
           CBrowser Extension v1.0.0
           <br />
           <a
-            href="https://github.com/alexandriashai/cbrowser"
+            href="https://github.com/wyldfyre-ai/cbrowser"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: 'var(--accent)' }}

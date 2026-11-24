@@ -36,7 +36,7 @@ function enterpriseUpgradeMessage(feature: string, description?: string): {
     feature,
     message: `${feature} requires CBrowser Enterprise.`,
     description,
-    upgrade_info: "https://github.com/alexandriashai/cbrowser/wiki/Enterprise",
+    upgrade_info: "https://github.com/wyldfyre-ai/cbrowser/wiki/Enterprise",
     contact: "alexandria.shai.eden@gmail.com",
   };
 }

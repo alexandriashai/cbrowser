@@ -435,7 +435,7 @@ Two plugins carry the CBrowser skill and two slash commands: `/cbrowser:audit <u
 | `cbrowser-local` | `npx -y cbrowser@21 mcp-server` on your machine, all 137 tools | none | yes |
 
 ```
-/plugin marketplace add alexandriashai/cbrowser
+/plugin marketplace add wyldfyre-ai/cbrowser
 /plugin install cbrowser@cbrowser          # or: /plugin install cbrowser-local@cbrowser
 ```
 
@@ -450,7 +450,7 @@ With `cbrowser-local`, the first start downloads cbrowser and Chromium (about 1.
 ```bash
 cbrowser install-skill      # copies the skill this cbrowser version ships into ~/.claude/skills/CBrowser
 # or, before installing the npm package:
-curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wyldfyre-ai/cbrowser/main/scripts/install-skill.sh | bash
 ```
 
 Either one writes only the skill's own files and leaves anything else in that directory alone. See the [Skill Installation Guide](https://cbrowser.ai/docs/claude-skill-installation).
@@ -549,7 +549,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: alexandriashai/cbrowser@v20.0.0
+      - uses: wyldfyre-ai/cbrowser@v20.0.0
         with:
           test-file: tests/e2e/search.txt
 ```
@@ -667,8 +667,8 @@ Unlimited tool use, with no credits.
 
 - **[Documentation](https://cbrowser.ai/docs)**: guides and API reference
 - [NPM Package](https://www.npmjs.com/package/cbrowser)
-- [GitHub](https://github.com/alexandriashai/cbrowser)
-- [Issue Tracker](https://github.com/alexandriashai/cbrowser/issues)
+- [GitHub](https://github.com/wyldfyre-ai/cbrowser)
+- [Issue Tracker](https://github.com/wyldfyre-ai/cbrowser/issues)
 
 ### Research
 

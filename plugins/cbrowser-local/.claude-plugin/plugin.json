@@ -7,11 +7,11 @@
     "url": "https://cbrowser.ai"
   },
   "homepage": "https://cbrowser.ai",
-  "repository": "https://github.com/alexandriashai/cbrowser",
+  "repository": "https://github.com/wyldfyre-ai/cbrowser",
   "license": "MIT",
   "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://cbrowser.ai/docs",
-  "supportUrl": "https://github.com/alexandriashai/cbrowser/issues",
+  "supportUrl": "https://github.com/wyldfyre-ai/cbrowser/issues",
   "privacyPolicyUrl": "https://cbrowser.ai/privacy",
   "termsOfServiceUrl": "https://cbrowser.ai/terms",
   "keywords": [

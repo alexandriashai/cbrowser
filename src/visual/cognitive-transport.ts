@@ -20,7 +20,7 @@
  *
  * @version 1.0.0
  * @since v18.27.0
- * @see https://github.com/alexandriashai/cbrowser/issues/159
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/159
  */
 
 import { param } from "./model-provenance.js";

@@ -13,7 +13,7 @@
       "source": "./plugins/cbrowser",
       "category": "testing",
       "homepage": "https://cbrowser.ai",
-      "repository": "https://github.com/alexandriashai/cbrowser",
+      "repository": "https://github.com/wyldfyre-ai/cbrowser",
       "license": "MIT",
       "keywords": [
         "browser",
@@ -32,7 +32,7 @@
       "source": "./plugins/cbrowser-local",
       "category": "testing",
       "homepage": "https://cbrowser.ai",
-      "repository": "https://github.com/alexandriashai/cbrowser",
+      "repository": "https://github.com/wyldfyre-ai/cbrowser",
       "license": "MIT",
       "keywords": [
         "browser",

@@ -12,7 +12,7 @@
  * - Supports barycenter computation (consensus baselines from N captures)
  *
  * @version 1.0.0
- * @see https://github.com/alexandriashai/cbrowser/issues/158
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/158
  */
 
 import { readFileSync } from 'fs';
@@ -978,7 +978,7 @@ export interface TransportMapConfig {
  * - A rendered SVG overlay visualization
  *
  * @since v18.0.0 (Phase 3)
- * @see https://github.com/alexandriashai/cbrowser/issues/158
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/158
  */
 export async function computeTransportMap(
   baselinePath: string,

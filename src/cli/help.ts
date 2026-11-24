@@ -717,7 +717,7 @@ CLAUDE SKILL INSTALLATION & SYNC
                               (no download). Run again after 'npm update -g cbrowser'.
                               Files you added to that directory are left alone.
     The Claude Code plugin bundles the skill with the MCP server:
-      /plugin marketplace add alexandriashai/cbrowser
+      /plugin marketplace add wyldfyre-ai/cbrowser
       /plugin install cbrowser@cbrowser
 
 BROWSERS

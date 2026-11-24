@@ -3122,7 +3122,7 @@ ${TOOL_CATEGORIES.map((cat) => `- ${cat.name} (${cat.tools.length}): ${cat.tools
 
 ## Links
 - Documentation: https://cbrowser.ai/docs
-- GitHub: https://github.com/alexandriashai/cbrowser
+- GitHub: https://github.com/wyldfyre-ai/cbrowser
 - npm: https://npmjs.com/package/cbrowser
 
 ## Version
@@ -3179,7 +3179,7 @@ ${VERSION}
   <h2>Links</h2>
   <ul>
     <li><a href="https://cbrowser.ai/docs">Full Documentation</a></li>
-    <li><a href="https://github.com/alexandriashai/cbrowser">GitHub Repository</a></li>
+    <li><a href="https://github.com/wyldfyre-ai/cbrowser">GitHub Repository</a></li>
     <li><a href="https://npmjs.com/package/cbrowser">npm Package</a></li>
     <li><a href="/llms.txt">llms.txt (AI-readable docs)</a></li>
     <li><a href="/info">Server Info (JSON)</a></li>

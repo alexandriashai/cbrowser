@@ -389,7 +389,7 @@ function browserForTarget(target: {
  * and other sources of non-deterministic rendering.
  *
  * @since v18.0.0
- * @see https://github.com/alexandriashai/cbrowser/issues/158
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/158
  */
 export async function captureSmartBaseline(
   url: string,
@@ -701,7 +701,7 @@ export async function runSmartRegression(
  * Can be used standalone or after a regression test to visualize what changed.
  *
  * @since v18.0.0 (Phase 3)
- * @see https://github.com/alexandriashai/cbrowser/issues/158
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/158
  */
 export async function generateTransportMap(
   baselinePath: string,
@@ -1149,7 +1149,7 @@ function performHeuristicAnalysis(
  * sub-pixel shifts, anti-aliasing, and font rendering differences.
  *
  * @since v18.0.0
- * @see https://github.com/alexandriashai/cbrowser/issues/158
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/158
  */
 async function performWassersteinAnalysis(
   baselinePath: string,

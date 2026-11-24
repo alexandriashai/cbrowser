@@ -119,12 +119,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alexandriashai/cbrowser.git"
+    "url": "git+https://github.com/wyldfyre-ai/cbrowser.git"
   },
   "bugs": {
-    "url": "https://github.com/alexandriashai/cbrowser/issues"
+    "url": "https://github.com/wyldfyre-ai/cbrowser/issues"
   },
-  "homepage": "https://github.com/alexandriashai/cbrowser#readme",
+  "homepage": "https://github.com/wyldfyre-ai/cbrowser#readme",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },

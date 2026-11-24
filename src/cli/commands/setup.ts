@@ -184,7 +184,7 @@ Claude Code finds it on its own; start a new session to load it.
   cbrowser install-browsers firefox webkit     Only for cross-browser testing
 
 The Claude Code plugin bundles this skill with the MCP server:
-  /plugin marketplace add alexandriashai/cbrowser
+  /plugin marketplace add wyldfyre-ai/cbrowser
   /plugin install cbrowser@cbrowser
 `);
 }

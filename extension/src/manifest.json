@@ -3,7 +3,7 @@
   "name": "CBrowser",
   "version": "1.0.0",
   "description": "AI-powered browser testing — local automation + remote MCP server",
-  "author": "alexandriashai",
+  "author": "wyldfyre-ai",
 
   "permissions": [
     "activeTab",

@@ -10,7 +10,7 @@
  *
  * @version 1.0.0
  * @since v18.26.0
- * @see https://github.com/alexandriashai/cbrowser/issues/158
+ * @see https://github.com/wyldfyre-ai/cbrowser/issues/158
  */
 
 import { computeWassersteinDistance, type DistanceMetricResult, type WassersteinConfig } from './distance-metrics.js';

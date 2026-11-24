@@ -1287,7 +1287,7 @@ async function main() {
         const fs = await import("fs");
         const os = await import("os");
         const skillDir = path.join(os.homedir(), ".claude", "skills", "CBrowser");
-        const repoUrl = "https://raw.githubusercontent.com/alexandriashai/cbrowser/main";
+        const repoUrl = "https://raw.githubusercontent.com/wyldfyre-ai/cbrowser/main";
         console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║         CBrowser Claude Skill Sync (auto-versioned)           ║
@@ -1358,7 +1358,7 @@ Next steps:
 
   3. Start using CBrowser in Claude Code!
 
-Documentation: https://github.com/alexandriashai/cbrowser/wiki
+Documentation: https://github.com/wyldfyre-ai/cbrowser/wiki
 `);
         return;
     }
