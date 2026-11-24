@@ -33,7 +33,7 @@ cbrowser config set-api-key <your-anthropic-key>
 cbrowser cognitive-journey --persona first-timer --start "https://your-site.com" --goal "sign up"
 ```
 
-If the browser download was skipped (for example with `--ignore-scripts`), run `npx playwright install chromium`.
+If the browser download was skipped (for example with `--ignore-scripts`), run `cbrowser install-browsers` (it uses cbrowser's own Playwright; `npx playwright` can pick a different version).
 
 **Stuck? Ask the docs.** `cbrowser ask` sends your question to cbrowser.ai and prints an AI answer grounded in the documentation, with its sources. No account or API key is needed; it is rate-limited.
 

@@ -645,7 +645,7 @@ async function encodeVideo(
       `Cannot encode ${container.toUpperCase()}: no ffmpeg binary found. ` +
         `Looked for Playwright's bundled ffmpeg under $PLAYWRIGHT_BROWSERS_PATH and ` +
         `${join(homedir(), ".cache", "ms-playwright")}/ffmpeg-*/. ` +
-        `Install it with 'npx playwright install ffmpeg', or re-run with --format gif,webp.`,
+        `Install it with 'cbrowser install-browsers ffmpeg', or re-run with --format gif,webp.`,
     );
   }
 

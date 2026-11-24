@@ -3180,7 +3180,7 @@ export const ERROR_REMEDIATION: Record<CBrowserErrorCode, { howToFix: string; do
     docUrl: "https://cbrowser.ai/docs/errors#e502",
   },
   [CBrowserErrorCode.BROWSER_NOT_INSTALLED]: {
-    howToFix: "Chromium is not installed. Run 'npx playwright install chromium' to install it (~150MB download).",
+    howToFix: "Chromium is not installed. Run 'cbrowser install-browsers chromium' to install it (~150MB download).",
     docUrl: "https://cbrowser.ai/docs/errors#e503",
   },
   [CBrowserErrorCode.FILE_NOT_FOUND]: {

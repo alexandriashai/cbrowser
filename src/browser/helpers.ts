@@ -238,8 +238,8 @@ CBrowser requires Playwright browsers to run. Automatic installation failed.
 
 To fix this, run one of these commands:
 
-  npx playwright install                    # Install all browsers
-  npx playwright install ${browserName.padEnd(20)} # Install ${browserName} only
+  cbrowser install-browsers chromium firefox webkit    # Install all browsers
+  cbrowser install-browsers ${browserName.padEnd(26)} # Install ${browserName} only
 
 Common issues:
   • Corporate network blocking downloads → Contact IT or use a VPN

@@ -1,10 +1,13 @@
 /**
  * Commands that run before any browser exists: config, uninstall,
- * install-skill / sync-skill.
+ * install-skill / sync-skill, install-browsers.
  *
  * Split out of src/cli.ts (2026-11-20); the code moved without changes.
  */
 
+import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { getDataDir } from "../../config.js";
 import { setAnthropicApiKey, getAnthropicApiKey, removeAnthropicApiKey } from "../../cognitive/index.js";
 import { formatBytes } from "../format.js";
@@ -206,4 +209,23 @@ Next steps:
 Documentation: https://github.com/alexandriashai/cbrowser/wiki
 `);
   return;
+}
+
+// Install Playwright browsers with the Playwright this package resolves. `npx
+// playwright install` can run a different, cached Playwright and download browser
+// revisions cbrowser never launches (1.58.0 against a bundled 1.65.1, measured
+// 2026-11-20); scripts/install-browsers.cjs does the same at install time.
+export async function runInstallBrowsersCommand(): Promise<void> {
+  const at = process.argv.indexOf("install-browsers");
+  const rest = at >= 0 ? process.argv.slice(at + 1) : [];
+  const browsers = rest.some((a) => !a.startsWith("-")) ? rest : ["chromium", ...rest];
+  let cli: string;
+  try {
+    cli = join(dirname(createRequire(import.meta.url).resolve("playwright/package.json")), "cli.js");
+  } catch (e) {
+    console.error(`playwright is not installed next to cbrowser (${(e as Error).message}). Reinstall cbrowser.`);
+    process.exit(1);
+  }
+  const result = spawnSync(process.execPath, [cli, "install", ...browsers], { stdio: "inherit" });
+  process.exit(result.status ?? 1);
 }

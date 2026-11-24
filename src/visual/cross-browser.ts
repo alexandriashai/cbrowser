@@ -73,7 +73,7 @@ async function checkBrowserAvailability(
  * Get the installation command for missing browsers.
  */
 function getInstallCommand(missing: SupportedBrowser[]): string {
-  return `npx playwright install ${missing.join(" ")}`;
+  return `cbrowser install-browsers ${missing.join(" ")}`;
 }
 
 /**

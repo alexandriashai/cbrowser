@@ -1,361 +1,136 @@
-# Interact Workflow
+# Interact
 
-AI-guided interactions with page elements using natural language.
+Click, fill, type, press keys, hover, drag, upload and scroll on a page, then confirm the action did what it should.
 
----
+## When to use
 
-## Trigger
+- "click", "fill in", "type", "select", "check the box", "submit", "press Enter", "hover", "drag", "upload".
+- Any step after `Workflows/Navigate.md` that changes the page.
+- Reproducing a user flow before writing it as a test (`Workflows/Test.md`).
 
-- "click", "fill", "submit", "type"
-- "interact with", "select", "toggle"
+## Before you start
 
----
+**Keep the page between steps.** Each CLI command is its own process. Without a daemon, the next command reloads the last URL and everything you typed is gone (a `fill` followed by an `evaluate` reads the field back as `""`). For a multi-step interaction, either:
 
-## Invocation Methods
+- start the daemon: `cbrowser daemon start`, run the steps with one `CBROWSER_DATA_DIR`, then `cbrowser daemon stop`; or
+- run the whole flow in one process: `cbrowser test-suite --inline "go to <url> ; type \"a@b.test\" in Email ; click Send ; verify url contains /done"`.
 
-### Option 1: Local Tool (Primary)
-```bash
-bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts click "the blue login button"
-bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts fill "email input" "user@example.com"
-```
+**MCP.** On the local stdio server (`npx cbrowser mcp-server`) every tool acts on one shared page. On the hosted server, pass the `param: _browserToken` from `navigate` to every call, or the action lands on a blank browser. Tool prefixes depend on the install; bare names are used here.
 
-### Option 2: CLI (Fallback)
-```bash
-npx cbrowser click "the blue login button"
-npx cbrowser fill "email input" "user@example.com"
-```
-
-### Option 3: MCP (Alternative - when MCP server is running)
-```
-mcp__claude_ai_CBrowser_Demo__click(selector: "the blue login button")
-mcp__claude_ai_CBrowser_Demo__fill(selector: "email input", value: "user@example.com")
-mcp__claude_ai_CBrowser_Demo__smart_click(selector: "Submit", dismissOverlays: true)
-```
-
----
-
-## Process
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    INTERACT WORKFLOW                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. UNDERSTAND                                              │
-│     ├─ Parse action (click, fill, etc.)                     │
-│     ├─ Parse target (natural language or selector)          │
-│     └─ Parse value (for fill/type actions)                  │
-│                                                             │
-│  2. LOCATE                                                  │
-│     ├─ Screenshot current page                              │
-│     ├─ AI vision: find element matching description         │
-│     ├─ Get element reference                                │
-│     └─ Fallback: accessibility tree → CSS                   │
-│                                                             │
-│  3. CLASSIFY                                                │
-│     ├─ Determine action zone (Green/Yellow/Red)             │
-│     ├─ Red Zone: Pause for verification                     │
-│     └─ Log action details                                   │
-│                                                             │
-│  4. EXECUTE                                                 │
-│     ├─ Perform the action                                   │
-│     ├─ Wait for response                                    │
-│     └─ Handle any dialogs/popups                            │
-│                                                             │
-│  5. VERIFY                                                  │
-│     ├─ Screenshot after action                              │
-│     ├─ Confirm expected result                              │
-│     └─ Report success or failure                            │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
+**Selectors.** `click`, `fill` and `hover` take visible text, a label, an ARIA role or name, or a CSS selector, and try them in that order ("Send", "Email", "#q", "button.primary"). `drag` and `upload_file` take CSS selectors.
 
 ## Actions
 
-### Click
+| Action | CLI | MCP |
+|--------|-----|-----|
+| Click | `cbrowser click "<selector>"` | `click` (selector, force, verbose) |
+| Fill a field, or pick a `<select>` option | `cbrowser fill "<selector>" "<value>"` | `fill` (selector, value, verbose) |
+| Type into the focused element, real key events | `cbrowser type "<text>" --delay 80` | `type_text` (text, delay, force) |
+| One key or chord | `cbrowser press Enter`, `cbrowser press "Control+a"` | `press_key` (key, force) |
+| Key sequence | `cbrowser keyboard "Control+A" "Backspace" "new text" --selector "#q"` | repeated `press_key` / `type_text` |
+| Hover | `cbrowser hover "<selector>"` | `hover` |
+| Drag and drop | `cbrowser drag "<css source>" "<css target>"` | `drag` (source, target, force) |
+| File input | `cbrowser upload "<css>" ./file.pdf` | `upload_file` (selector, filePaths) |
+| Scroll | `cbrowser scroll down 600`, `cbrowser scroll bottom` | `scroll` (direction, amount) |
+| Click with retries and healing | `cbrowser smart-click "<selector>" --max-retries 3 --dismiss-overlays` | `smart_click` |
+| Close a cookie/age/newsletter modal | `cbrowser dismiss-overlay --type cookie` | `dismiss_overlay` (type, customSelector) |
+| Find by intent, then click | `cbrowser ai find "email field"`, `cbrowser ai click "login button"` | `find_element_by_intent`, then `click` |
+| Plain-English steps | `cbrowser run "click Send"` (one step) | `nl_test_inline` (content: steps, one per line) |
+| JavaScript dialog | (handled for you) | `handle_dialog` (action, promptText) |
+
+`click`, `fill`, `keyboard` and `upload` take `--url <url>` to load a page first, which is handy for a single action without the daemon. `cbrowser help keyboard` explains chords, `--hold`, `--repeat` and `--text`.
+
+## Worked example (CLI, with the daemon)
 
 ```bash
-# Natural language
-bun run Tools/CBrowser.ts click "the blue login button"
-bun run Tools/CBrowser.ts click "Submit Order button"
-
-# With modifiers
-bun run Tools/CBrowser.ts click "link" --modifier ctrl  # New tab
-bun run Tools/CBrowser.ts click "item" --modifier shift  # Select range
-
-# Double/triple click
-bun run Tools/CBrowser.ts dblclick "text to select"
-bun run Tools/CBrowser.ts tripleclick "paragraph to select"
+export CBROWSER_DATA_DIR=~/.cbrowser
+cbrowser daemon start
+cbrowser navigate "https://example.com/signup"
+cbrowser fill "Email" "test@example.com"          # Filled: Email
+cbrowser fill "Size" "Large"                      # on a <select>: Selected: Large in Size
+cbrowser click "Newsletter"                       # a checkbox by its label text
+cbrowser click "#q" && cbrowser type "hello"      # focus, then real keystrokes
+cbrowser click "Send"
+cbrowser evaluate "location.href" --force         # where the submit went
+cbrowser screenshot ./after-submit.png
+cbrowser daemon stop
 ```
 
-### Fill
-
-```bash
-# Fill input field
-bun run Tools/CBrowser.ts fill "email field" "user@example.com"
-bun run Tools/CBrowser.ts fill "semantic:password" "secret123"
-
-# Fill with credential
-bun run Tools/CBrowser.ts fill "username" --cred github.username
-bun run Tools/CBrowser.ts fill "password" --cred github.password
-```
-
-### Type
-
-```bash
-# Type with realistic delay (simulates human typing)
-bun run Tools/CBrowser.ts type "search box" "search query"
-
-# Type with specific delay
-bun run Tools/CBrowser.ts type "input" "text" --delay 100ms
-```
-
-### Select
-
-```bash
-# Dropdown selection
-bun run Tools/CBrowser.ts select "country dropdown" "United States"
-bun run Tools/CBrowser.ts select "aria:combobox/Size" "Large"
-```
-
-### Toggle
-
-```bash
-# Checkbox/switch
-bun run Tools/CBrowser.ts toggle "remember me checkbox"
-bun run Tools/CBrowser.ts toggle "newsletter switch" --state on
-bun run Tools/CBrowser.ts toggle "notifications" --state off
-```
-
-### Hover
-
-```bash
-# Hover to reveal tooltip or dropdown
-bun run Tools/CBrowser.ts hover "account menu"
-bun run Tools/CBrowser.ts hover "info icon"
-```
-
-### Scroll
-
-```bash
-# Scroll to element
-bun run Tools/CBrowser.ts scroll-to "footer"
-bun run Tools/CBrowser.ts scroll-to "product reviews section"
-
-# Scroll direction
-bun run Tools/CBrowser.ts scroll down 500
-bun run Tools/CBrowser.ts scroll up 200
-```
-
-### Drag
-
-```bash
-# Drag and drop
-bun run Tools/CBrowser.ts drag "item 1" "drop zone"
-bun run Tools/CBrowser.ts drag "slider handle" --offset-x 100
-```
-
-### Upload
-
-```bash
-# File upload
-bun run Tools/CBrowser.ts upload "file input" "/path/to/file.jpg"
-bun run Tools/CBrowser.ts upload "drag drop zone" "/path/to/files/"
-```
-
----
-
-## Zone Classification
-
-| Action | Zone | Notes |
-|--------|------|-------|
-| Click (navigation) | Green | Regular links |
-| Click (button) | Yellow | Non-destructive buttons |
-| Click (delete/remove) | Red | Destructive actions |
-| Fill (non-sensitive) | Yellow | Regular form fields |
-| Fill (password/PII) | Yellow | Logged but value hidden |
-| Submit form | Red | Verification required |
-| Toggle | Yellow | Preferences |
-| Select | Yellow | Dropdown choices |
-| Upload | Yellow | Files (logged) |
-
----
-
-## Persona-Aware Interactions
-
-When running with a persona, interactions simulate their behavior:
-
-### Power User
-```yaml
-click_speed: immediate
-typing_speed: fast (20ms delay)
-uses_keyboard: true
-expects_feedback: immediate
-```
-
-### First-Timer
-```yaml
-click_speed: slow (500ms hesitation)
-typing_speed: slow (100ms delay)
-hovers_first: true
-reads_labels: true
-```
-
-### Mobile User
-```yaml
-action: tap (not click)
-tap_precision: center of element
-scrolls_to_view: true
-avoids_hover: true
-```
-
-### Screen Reader User
-```yaml
-navigation: keyboard only
-reads_labels: true
-uses_tab: true
-expects_announcements: true
-```
-
----
-
-## Error Handling
-
-### Element Not Found
-
-```
-❌ Element not found: "blue submit button"
-
-AI Analysis:
-  - No blue buttons found on page
-  - Found green "Submit" button - is this correct?
-  - Screenshot: /tmp/cognitive/xxx/element-search.png
-
-Options:
-  1. Try: bun run Tools/CBrowser.ts click "green submit button"
-  2. View screenshot and provide new description
-```
-
-### Element Not Interactable
-
-```
-⚠️ Element not interactable: "disabled button"
-
-Reason: Element is disabled
-Current state: disabled="true"
-
-Options:
-  1. Wait for element to become enabled
-  2. Check if precondition needed (login, form fill)
-```
-
-### Multiple Matches
-
-```
-⚠️ Multiple elements match: "Add to Cart"
-
-Found 3 matching elements:
-  1. Product 1: "Add to Cart" (visible)
-  2. Product 2: "Add to Cart" (visible)
-  3. Product 3: "Add to Cart" (below fold)
-
-Be more specific:
-  - "Add to Cart button for Product 1"
-  - "first Add to Cart button"
-  - "Add to Cart in hero section"
-```
-
----
-
-## Form Fill Sequences
-
-Fill entire forms with a single command:
-
-```bash
-bun run Tools/CBrowser.ts fill-form "registration" \
-  --data '{"email": "user@example.com", "name": "Test User"}'
-```
-
-Or use persona defaults:
-
-```bash
-bun run Tools/CBrowser.ts fill-form "registration" --persona provider-signup
-# Uses test data from persona definition
-```
-
----
-
-## Verbose Debugging (v7.4.16)
-
-When an interaction fails, use `--verbose` to see available elements and AI suggestions:
-
-```bash
-# Click with verbose feedback
-npx cbrowser click "search button" --url https://example.com --verbose
-
-# Fill with verbose feedback
-npx cbrowser fill "email" "user@test.com" --url https://example.com --verbose
-
-# Save debug screenshots to a directory
-npx cbrowser click "submit" --verbose --debug-dir ./debug
-```
-
-Verbose mode shows:
-- Available clickable elements (tag, text, selector)
-- Available input fields (type, name, placeholder, label)
-- AI-generated suggestions for the correct selector
-- Debug screenshot with green highlights on available elements
-
-## Overlay Dismissal (v7.4.14)
-
-Dismiss modal overlays before interacting:
-
-```bash
-# Auto-dismiss overlays before clicking
-npx cbrowser click "Add to Cart" --dismiss-overlays --url https://example.com
-
-# Dismiss specific overlay type
-npx cbrowser dismiss-overlay --type cookie --url https://example.com
-npx cbrowser dismiss-overlay --type age-verify --url https://example.com
-npx cbrowser dismiss-overlay --type newsletter --url https://example.com
-```
-
----
-
-## Keyboard Shortcuts
-
-```bash
-# Send keyboard shortcuts
-bun run Tools/CBrowser.ts key "ctrl+s"  # Save
-bun run Tools/CBrowser.ts key "escape"  # Close modal
-bun run Tools/CBrowser.ts key "tab tab enter"  # Navigate and submit
-```
-
----
-
-## Constitutional Compliance
-
-Interactions follow constitutional principles:
-
-- **Politeness**: 1-2 second delays between rapid actions
-- **Verification**: Red zone actions pause for confirmation
-- **Privacy**: Passwords never logged, only "***" in audit trail
-- **Fallback**: If uncertain about element, ask user
-
-### Audit Trail
+Through the daemon each action prints JSON. A click looks like:
 
 ```json
-{
-  "action": "fill",
-  "target": "semantic:password",
-  "target_resolved": "input#password",
-  "value": "***REDACTED***",
-  "zone": "yellow",
-  "timestamp": "2026-01-31T22:30:00Z",
-  "result": "success",
-  "screenshot_before": "/tmp/cognitive/xxx/005-before.png",
-  "screenshot_after": "/tmp/cognitive/xxx/005-after.png"
-}
+{ "success": true, "screenshot": "...png", "message": "Clicked: Learn more",
+  "zone": "yellow", "target": { "tag": "a", "label": "Learn more" } }
 ```
+
+`target` names what the selector actually resolved to. Check it, not just `success`.
+
+## Worked example (MCP)
+
+```
+navigate(url: "https://example.com/signup")
+fill(selector: "Email", value: "test@example.com")
+click(selector: "Send")
+assert(assertion: "url contains '/welcome'")
+```
+
+On the hosted server add the `param: _browserToken` from `navigate` to each call after it.
+
+Dialogs: `handle_dialog` arms a handler for the next alert, confirm or prompt and returns at once. Call it first, then trigger the dialog with the next call:
+
+```
+handle_dialog(action: "accept", promptText: "Jane")
+click(selector: "Rename")
+```
+
+## Confirm the result
+
+An action that "succeeded" may still have hit the wrong element. After anything that matters:
+
+- `cbrowser evaluate "document.querySelector('#email').value" --force` (daemon) or `evaluate_script` with `force: true` to read the value back.
+- `cbrowser assert "url contains '/dashboard'" --url <url>` (daemon stopped) or `assert`. Exit 1 on failure, with the actual value printed.
+- `cbrowser console --filter error` (daemon) or `get_console_messages` for errors the action caused.
+- A screenshot, viewed, for anything visual.
+
+## When an element is not found
+
+```bash
+cbrowser click "Sign in" --url "https://example.com" --verbose
+```
+
+exits 1 and lists the clickable elements it saw with a selector for each, plus a debug screenshot (`--debug-dir <dir>` chooses where). `fill --verbose` lists the inputs. MCP: `verbose: true` on `click` or `fill` returns `availableElements` and `aiSuggestion`; `find_element_by_intent` with `verbose: true` lists candidates on a miss.
+
+`smart-click` retries and tries alternative selectors. It reports the selector it finally used (`finalSelector`) and a `confidence`. Below 80 % it reports failure, but the click on the alternative has already happened, so look at the page before retrying:
+
+```
+$ cbrowser smart-click "Lern more" --url "https://example.com" --max-retries 2 --plain
+ Attempt 1: [FAIL] Lern more
+ Attempt 2: [PASS] Learn more (Text match: "Learn more")
+[FAIL] Clicked element with low confidence (75%) - may not be the intended target
+```
+
+Only alternatives at 80 % or above are cached. Healed selectors are kept per domain: `cbrowser heal stats`, `cbrowser heal list`, `cbrowser heal clear`, MCP `heal_stats`.
+
+## Red zone
+
+Controls that delete, pay, check out or otherwise cannot be undone are red zone. The click is refused and nothing is clicked:
+
+```
+$ cbrowser click "Delete account" --plain
+[FAIL] Red zone action requires --force: click "Delete account"
+```
+
+The command exits 1.
+
+To proceed on purpose, add `--force` (CLI) or `force: true` (`click`, `smart_click`, `press_key`, `type_text`, `drag`). Enter or Space on a focused red control, or Enter in a field whose form submits to one, is refused the same way. Ask the user before forcing anything you did not create yourself.
+
+`cbrowser evaluate` and `evaluate_script` are always red zone, because page script can activate any control. They run nothing without `--force` / `force: true`.
+
+## Gotchas
+
+- Without the daemon, typed input, checkbox state and scroll position do not survive to the next command. Cookies and localStorage do.
+- While the daemon runs, `smart-click`, `dismiss-overlay`, `assert`, `ai` and `analyze` refuse (they would open a second browser). Stop the daemon to use them: `smart-click`, `dismiss-overlay` and `assert` take `--url`, `analyze` takes the URL as its argument, and `ai` acts on the last URL. Or stay in the daemon and use `click`, `evaluate` and `screenshot`.
+- `cbrowser type` and `type_text` type into whatever has focus. Click or `--selector` (on `keyboard`) the field first. Use `fill` when you only need the value set; use `type` when the page reacts to keystrokes (autocomplete, search-as-you-type).
+- `scroll` without the daemon is lost on the next command. To bring an element into view, `hover` it.
+- On the hosted server, `upload_file` reads only files inside your account's directory; to upload a local file, run the local server.
+- A CLI alert, confirm or prompt does not block the click that opened it. Over MCP, arm `handle_dialog` first when the choice (accept or dismiss) matters.

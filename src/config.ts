@@ -1180,7 +1180,7 @@ export async function getStatusInfo(version: string, toolCount?: number): Promis
   const suggestions: string[] = [];
   const missingBrowsers = browsers.filter(b => !b.installed).map(b => b.name);
   if (missingBrowsers.length > 0) {
-    suggestions.push(`Install missing browsers: npx playwright install ${missingBrowsers.join(" ")}`);
+    suggestions.push(`Install missing browsers: cbrowser install-browsers ${missingBrowsers.join(" ")}`);
   }
   if (!findConfigFile()) {
     suggestions.push("Create a config file: .cbrowserrc.json for project-level settings");

@@ -718,6 +718,13 @@ CLAUDE SKILL INSTALLATION & SYNC
                               Run after 'npm update -g cbrowser' to stay in sync
                               Add to skill-index.json after first installation
 
+BROWSERS
+  install-browsers [name...]  Download browsers with cbrowser's own Playwright
+                              (default: chromium; also firefox, webkit, ffmpeg)
+                              Extra flags go to Playwright, e.g. --with-deps, --dry-run
+    Example:
+      cbrowser install-browsers firefox webkit
+
 DAEMON MODE
   daemon start                Start background daemon (keeps browser running)
     --port <port>             Daemon port (default: 9222)

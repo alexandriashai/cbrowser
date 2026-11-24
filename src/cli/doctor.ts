@@ -80,7 +80,7 @@ export async function runDoctor(outputOpts: import("../output.js").OutputOptions
         name: "Playwright Chromium",
         status: "fail",
         message: exe ? `Not on disk at ${exe}` : "Playwright reports no chromium executable path",
-        fix: "Run: npx playwright install chromium",
+        fix: "Run: cbrowser install-browsers chromium",
       });
     }
   } catch (err) {
@@ -88,7 +88,7 @@ export async function runDoctor(outputOpts: import("../output.js").OutputOptions
       name: "Playwright Chromium",
       status: "fail",
       message: `Not installed or not resolvable (${err instanceof Error ? err.message : String(err)})`,
-      fix: "Run: npx playwright install chromium",
+      fix: "Run: cbrowser install-browsers chromium",
     });
   }
 

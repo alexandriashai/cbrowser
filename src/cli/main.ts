@@ -24,7 +24,7 @@ import { showCommandHelp, showHelp } from "./help.js";
 import { rewriteScroll, parseGeoLocation, parseViewportList } from "./options.js";
 import type { CommandContext, PreBrowserContext } from "./context.js";
 import { runAskCommand } from "./commands/ask.js";
-import { runConfigCommand, runUninstallCommand, runInstallSkillCommand } from "./commands/setup.js";
+import { runConfigCommand, runUninstallCommand, runInstallSkillCommand, runInstallBrowsersCommand } from "./commands/setup.js";
 import { runDaemonCommand, routeToDaemon } from "./commands/daemon.js";
 import { runInteractionCommand } from "./commands/interaction.js";
 import { runAutomationCommand } from "./commands/automation.js";
@@ -240,6 +240,11 @@ export async function main(): Promise<void> {
 
   if (command === "install-skill" || command === "sync-skill") {
     await runInstallSkillCommand();
+    return;
+  }
+
+  if (command === "install-browsers") {
+    await runInstallBrowsersCommand();
     return;
   }
 
