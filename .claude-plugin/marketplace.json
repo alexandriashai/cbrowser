@@ -3,7 +3,7 @@
   "name": "cbrowser",
   "description": "CBrowser for Claude Code: cognitive browser automation that tests sites the way real people use them",
   "owner": {
-    "name": "Alexandria Eden",
+    "name": "wyldfyre-ai",
     "url": "https://cbrowser.ai"
   },
   "plugins": [

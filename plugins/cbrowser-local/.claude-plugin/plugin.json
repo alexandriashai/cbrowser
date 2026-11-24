@@ -3,7 +3,7 @@
   "version": "21.6.1",
   "description": "CBrowser on your own machine: the same skill and commands as the cbrowser plugin, with the local MCP server (npx cbrowser, all 137 tools, no account, can test localhost and private networks).",
   "author": {
-    "name": "Alexandria Eden",
+    "name": "wyldfyre-ai",
     "url": "https://cbrowser.ai"
   },
   "homepage": "https://cbrowser.ai",
