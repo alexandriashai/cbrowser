@@ -1,183 +1,132 @@
-# Navigate Workflow
+# Navigate
 
-Smart navigation with AI wait detection and session awareness.
+Open a URL in cbrowser's browser, confirm the page that actually loaded, and keep that page for the next step.
 
----
+## When to use
 
-## Trigger
+- "go to", "open", "navigate to", or a bare URL to look at.
+- The first step of any interaction, extraction, test or audit on a page.
+- Checking how a page renders on a phone, in dark mode, or in another locale.
 
-- "navigate to", "go to", "open"
-- URL provided directly
+## Two ways to drive it
 
----
+**CLI.** `cbrowser <command>` (or `npx cbrowser <command>` without a global install).
 
-## Invocation Methods
+**MCP.** The `navigate` tool and its siblings. The tool prefix depends on how the server was installed, so this file uses bare names.
 
-### Option 1: Local Tool (Primary)
-```bash
-bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts navigate "https://example.com"
-```
+- Local stdio server (`npx cbrowser mcp-server`): one browser per server process. Every tool acts on the same page, so no token is needed.
+- Hosted server (claude.ai connector or `cbrowser mcp-remote`): `navigate` without a token starts a new session and returns `param: _browserToken`. Pass it to every later call. Without it a tool acts on a fresh blank browser, and tools that report on page state refuse with a no_session error.
 
-### Option 2: CLI (Fallback)
-```bash
-npx cbrowser navigate "https://example.com"
-```
+## Page state between CLI commands
 
-### Option 3: MCP (Alternative - when MCP server is running)
-```
-mcp__claude_ai_CBrowser_Demo__navigate(url: "https://example.com")
-```
+Each CLI command is its own process. Without a daemon, a command opens its own browser and reloads the last URL (saved for an hour). Cookies and localStorage carry over; typed input, scroll position, sessionStorage and script variables do not.
 
----
-
-## Process
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    NAVIGATE WORKFLOW                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. PREPARE                                                 │
-│     ├─ Parse and validate URL                               │
-│     ├─ Check for saved session for domain                   │
-│     └─ Load session if exists                               │
-│                                                             │
-│  2. NAVIGATE                                                │
-│     ├─ Use CBrowser navigate (MCP or CLI)                   │
-│     ├─ Wait for network idle                                │
-│     └─ Handle redirects                                     │
-│                                                             │
-│  3. WAIT (AI-Powered)                                       │
-│     ├─ Take screenshot                                      │
-│     ├─ Detect loading indicators                            │
-│     ├─ Wait for dynamic content                             │
-│     └─ Timeout after 30s                                    │
-│                                                             │
-│  4. VERIFY                                                  │
-│     ├─ Screenshot current state                             │
-│     ├─ Check for error pages (404, 500)                     │
-│     ├─ Verify expected content visible                      │
-│     └─ Report any issues                                    │
-│                                                             │
-│  5. LOG                                                     │
-│     ├─ Record in audit trail                                │
-│     ├─ Save screenshot                                      │
-│     └─ Update session timestamp                             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## AI Wait Detection
-
-Instead of fixed timeouts, CBrowser uses AI to detect when a page is ready:
-
-### Detection Signals
-
-| Signal | Indicates |
-|--------|-----------|
-| Spinners visible | Still loading |
-| Skeleton screens | Content loading |
-| "Loading..." text | Still loading |
-| Progress bars | Still loading |
-| Main content visible | Ready |
-| Interactive elements enabled | Ready |
-
-### Wait Strategy
-
-```
-1. Wait for network idle (no requests for 500ms)
-2. Take screenshot
-3. AI analysis: "Is this page fully loaded?"
-4. If loading indicators found → wait 2s → retry
-5. If max attempts (15) → proceed with warning
-6. If ready → continue
-```
-
----
-
-## Error Handling
-
-### Redirect Handling
-
-```
-Original URL → Redirect detected?
-                    │
-       ┌────────────┴────────────┐
-       ↓                         ↓
-   [Same domain]           [Different domain]
-       │                         │
-       ↓                         ↓
-   [Follow]               [Verify: Red Zone]
-                                 │
-                          [Ask user if external]
-```
-
-### Error Pages
-
-| Error | Action |
-|-------|--------|
-| 404 Not Found | Report, suggest alternatives |
-| 500 Server Error | Report, offer retry |
-| SSL Error | Report, do not proceed |
-| Timeout | Report, offer retry with longer wait |
-| CAPTCHA | Notify user, pause |
-
----
-
-## Usage
-
-### MCP (Preferred when available)
-
-```
-# Basic navigation
-mcp__claude_ai_CBrowser_Demo__navigate(url: "https://example.com")
-
-# With session - load first, then navigate
-mcp__claude_ai_CBrowser_Demo__load_session(name: "github-dev")
-mcp__claude_ai_CBrowser_Demo__navigate(url: "https://github.com/settings")
-```
-
-### CLI (Fallback)
+To keep one live page across commands, start the daemon first and give every command the same `CBROWSER_DATA_DIR`:
 
 ```bash
-# Basic navigation
-npx cbrowser navigate "https://example.com"
-
-# With session
-npx cbrowser session load "github-dev"
-npx cbrowser navigate "https://github.com/settings"
-
-# Navigate and wait for element
-npx cbrowser navigate "https://example.com" --wait-for "main content area"
+export CBROWSER_DATA_DIR=~/.cbrowser   # the default; set it explicitly for parallel runs
+cbrowser daemon start                  # --port <port> if 9222 is taken; --timeout 2h for long work
+cbrowser navigate "https://example.com"
+# click, fill, extract, screenshot now act on this same page
+cbrowser daemon stop
 ```
 
-### Local Tool (Development)
+`cbrowser daemon status` exits 1 when no daemon is running. While one runs, some commands refuse because they would open a second browser on the same profile, among them `smart-click`, `dismiss-overlay`, `assert`, `ai`, `analyze`, `reset`, `session save` and `session load`. Stop the daemon to use them.
+
+## Steps
+
+### 1. Navigate
 
 ```bash
-bun run Tools/CBrowser.ts navigate "https://example.com"
+cbrowser navigate "https://example.com"
 ```
 
----
-
-## Output
+Without a daemon it prints the final URL, title, load time and a screenshot path (shown with the global `--plain` option, which swaps symbols for ASCII tags):
 
 ```
-🌐 Navigating to https://example.com...
-📸 Screenshot: /tmp/cognitive/session123/001-navigate.png
-⏳ Waiting for page load...
-✅ Page ready: "Example Domain"
-📊 Load time: 1.2s | Requests: 12 | Size: 245KB
+[PASS] Navigated to: https://example.com/
+ Title: Example Domain
+ Load time: 507ms
+ Screenshot: ~/.cbrowser/screenshots/<id>/screenshot-<n>.png
 ```
 
----
+Through the daemon the same result comes back as JSON with `url`, `title`, `screenshot`, `errors`, `warnings`, `loadTime` and `success`.
 
-## Constitutional Compliance
+MCP:
 
-This workflow is in the **Green Zone** (auto-execute):
-- ✅ Navigation to URLs
-- ✅ Reading page content
-- ✅ Taking screenshots
+```
+navigate(url: "https://example.com")
+navigate(url: "https://app.example.com", waitForSelector: "#app:not(:empty)")
+navigate(url: "https://example.com/de", waitAfterLoad: 3000)
+```
 
-No verification required for navigation itself.
+`waitForSelector` waits up to 10 s for a CSS selector and reports `waitSelectorTimedOut` if it never appears. `waitAfterLoad` adds a fixed wait for pages that render or translate after load. The CLI `navigate` has neither. With the daemon running, follow it with a wait:
+
+```bash
+cbrowser evaluate "true" --wait-for "#app" --timeout 15s --force
+```
+
+That exits 1 with `Timed out waiting for selector` if the element never shows. (`evaluate` is red zone, hence `--force`; this script only returns `true`.)
+
+### 2. Choose how the browser presents itself (optional)
+
+Global CLI options apply to any command:
+
+```bash
+cbrowser navigate "https://example.com" --device iphone-15 --color-scheme dark
+cbrowser navigate "https://example.com" --viewport 1280x720
+cbrowser navigate "https://example.com" --locale de-DE --timezone Europe/Berlin --geo 52.52,13.405
+cbrowser navigate "https://example.com" --browser firefox
+cbrowser device list iphone     # device presets
+cbrowser geo list               # location presets
+```
+
+`--geo-region <region>` sends traffic through a configured residential proxy and exits 1 if that region is not configured. With a daemon, set the device and size once on `cbrowser daemon start --device <name> --viewport <WxH>`.
+
+MCP: pass `device`, `viewport` and `colorScheme` to `navigate`. `device` and `viewport` apply only on the `navigate` that starts a session; on the hosted server, call `navigate` without a token to start an emulated one. `colorScheme` can change on an existing session. `list_devices` lists the presets.
+
+### 3. Confirm what loaded
+
+Do not trust the exit code alone:
+
+- A DNS or connection failure exits 1 with the reason, for example `Could not resolve host ... Nothing was loaded.`
+- An HTTP error page still loads. A 404 exits 0 and the CLI prints `Errors: 1` under the screenshot path. Check `errors` in the JSON or MCP response.
+- The MCP `navigate` response sets `success: false` with `desyncDetected` and `expectedUrl` when the page landed on a different host than requested, and adds `contentIntegrity` when the page looks like a challenge or interstitial rather than the content asked for. Treat either as "wrong page", not as a result to analyze.
+
+Then look at the page itself: open the screenshot, or read its text with the Extract workflow. To capture again later:
+
+```bash
+cbrowser screenshot ./page.png                          # current page (the daemon keeps it)
+cbrowser screenshot "https://example.com" ./page.png    # load a URL and capture it
+```
+
+MCP: `screenshot` (optional `path`).
+
+### 4. Pages behind a login
+
+Load a saved session before navigating. Session commands refuse while the daemon runs, so load first, then start the daemon if you need one:
+
+```bash
+cbrowser session load github-dev
+cbrowser navigate "https://github.com/settings"
+```
+
+MCP: `load_session`, then `navigate`. Creating and saving sessions is covered in `Workflows/Authenticate.md` and `SessionManagement.md`.
+
+## Related tools
+
+| Need | CLI | MCP |
+|------|-----|-----|
+| Cookie banner or modal in the way | `cbrowser dismiss-overlay --url <url>` | `dismiss_overlay` |
+| Several tabs | (none) | `manage_tabs` (list, create, switch, close) |
+| Browser seems stuck | `cbrowser status`, `cbrowser doctor` | `browser_health`, then `browser_recover` |
+| Start clean (cookies, storage) | `cbrowser reset` (daemon stopped) | `reset_browser` |
+| What the page is and what it offers | `cbrowser analyze <url>` | `page_understand`, `analyze_page` |
+
+## Gotchas
+
+- Without a daemon, every later command reloads the page and anything typed or scrolled is gone. Start the daemon for multi-step work, or run the whole flow in one process with `cbrowser test-suite --inline "go to <url> ; click ... ; verify ..."`.
+- Commands find the daemon through the data dir. A command run with a different `CBROWSER_DATA_DIR` opens its own browser instead, and says so in a "No daemon found for data dir" notice.
+- The hosted server opens only http: and https: URLs. `file:` URLs work on the CLI and the local server.
+- On the hosted server, always pass the `param: _browserToken` that `navigate` returned. A call without it starts over on a blank page.
+- Opening and reading a page is green zone: no `--force` is needed to navigate.

@@ -12,7 +12,7 @@ import { BUILTIN_PERSONAS, ACCESSIBILITY_PERSONAS, EMOTIONAL_PERSONAS, AGENT_PER
 import { TRAIT_DEFINITIONS } from "../src/trait-reference.js";
 
 const ROOT = join(import.meta.dir, "..");
-const SKILL = readFileSync(join(ROOT, "skill/SKILL.md"), "utf8");
+const SKILL = readFileSync(join(ROOT, "plugins/cbrowser/skills/cbrowser/SKILL.md"), "utf8");
 const MANIFEST = JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8")) as { description: string };
 const description = /^description: (.*)$/m.exec(SKILL)![1];
 

@@ -6,8 +6,11 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getDataDir } from "../../config.js";
 import { setAnthropicApiKey, getAnthropicApiKey, removeAnthropicApiKey } from "../../cognitive/index.js";
 import { formatBytes } from "../format.js";
@@ -119,96 +122,71 @@ export async function runUninstallCommand(ctx: PreBrowserContext): Promise<void>
 }
 
 // Install/Sync Claude skill (both commands do the same thing)
-export async function runInstallSkillCommand(): Promise<void> {
-  const path = await import("path");
-  const fs = await import("fs");
-  const os = await import("os");
+//
+// The skill ships inside this package (plugins/cbrowser/skills/cbrowser, the same
+// directory the Claude Code plugin loads), so the installed skill is always the one
+// written for the installed version. This used to download a hard-coded list of 13
+// files from GitHub main: it missed four of the skill's files, could install docs
+// for a newer release than the CLI, and needed the network.
+export function packagedSkillDir(): string {
+  // dist/cli/commands/setup.js and src/cli/commands/setup.ts are both three levels down.
+  return fileURLToPath(new URL("../../../plugins/cbrowser/skills/cbrowser/", import.meta.url));
+}
 
-  const skillDir = path.join(os.homedir(), ".claude", "skills", "CBrowser");
-  const repoUrl = "https://raw.githubusercontent.com/alexandriashai/cbrowser/main";
-
-  console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║         CBrowser Claude Skill Sync (auto-versioned)           ║
-╚═══════════════════════════════════════════════════════════════╝
-`);
-
-  // Check if ~/.claude/skills exists
-  const skillsDir = path.join(os.homedir(), ".claude", "skills");
-  if (!fs.existsSync(skillsDir)) {
-    console.log("Creating ~/.claude/skills directory...");
-    fs.mkdirSync(skillsDir, { recursive: true });
-  }
-
-  // Download everything first and change nothing unless every file arrived.
-  // This used to delete the installed skill (its .memory/sessions included)
-  // before downloading, then print "Installed Successfully" even when every
-  // download failed (audit 2026-10-21).
-  console.log("Downloading skill files...");
-  const files = [
-    "SKILL.md",
-    "Philosophy.md",
-    "AIVision.md",
-    "SessionManagement.md",
-    "Credentials.md",
-    "Personas.md",
-    "Workflows/Navigate.md",
-    "Workflows/Interact.md",
-    "Workflows/Extract.md",
-    "Workflows/Authenticate.md",
-    "Workflows/Test.md",
-    "Workflows/Journey.md",
-    "Tools/CBrowser.ts",
-  ];
-
-  const downloaded = new Map<string, string>();
-  const failed: string[] = [];
-  for (const file of files) {
-    try {
-      const url = `${repoUrl}/skill/${file}`;
-      console.log(`  - ${file}`);
-      const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      downloaded.set(file, await response.text());
-    } catch (e) {
-      failed.push(`${file} (${(e as Error).message})`);
+/** Every file of a directory tree, as forward-slash paths relative to it, sorted. */
+export function listSkillFiles(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (rel: string): void => {
+    for (const entry of readdirSync(join(dir, rel), { withFileTypes: true })) {
+      const r = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(r);
+      else if (entry.isFile()) out.push(r);
     }
-  }
-  if (failed.length > 0) {
-    console.error(`✗ ${failed.length} of ${files.length} files could not be downloaded; the installed skill was left unchanged:`);
-    for (const f of failed) console.error(`  ${f}`);
+  };
+  walk("");
+  return out.sort();
+}
+
+/** Files earlier installs put in the skill dir that this skill no longer uses. Reported, never deleted. */
+const RETIRED_SKILL_FILES = ["Tools/CBrowser.ts"];
+
+export async function runInstallSkillCommand(): Promise<void> {
+  const skillDir = join(homedir(), ".claude", "skills", "CBrowser");
+  const source = packagedSkillDir();
+
+  if (!existsSync(join(source, "SKILL.md"))) {
+    console.error(`The skill is missing from this cbrowser install (looked in ${source}). Reinstall cbrowser.`);
     process.exit(1);
   }
+  const files = listSkillFiles(source);
+  const existed = existsSync(skillDir);
+  console.log(`${existed ? "Updating" : "Installing"} the CBrowser skill (${files.length} files) in ${skillDir}`);
 
-  console.log(fs.existsSync(skillDir) ? "Updating the installed skill..." : "Creating skill directory structure...");
-  fs.mkdirSync(path.join(skillDir, "Workflows"), { recursive: true });
-  fs.mkdirSync(path.join(skillDir, "Tools"), { recursive: true });
-  fs.mkdirSync(path.join(skillDir, ".memory", "sessions"), { recursive: true });
-  for (const [file, content] of downloaded) {
-    fs.writeFileSync(path.join(skillDir, file), content, "utf-8");
+  // Write over the skill's own files only: anything else in the directory (notes,
+  // a user's own workflow) is left alone.
+  for (const file of files) {
+    mkdirSync(dirname(join(skillDir, file)), { recursive: true });
+    copyFileSync(join(source, file), join(skillDir, file));
   }
 
+  const leftovers = RETIRED_SKILL_FILES.filter((f) => existsSync(join(skillDir, f)));
   console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║              CBrowser Skill Installed Successfully!           ║
-╚═══════════════════════════════════════════════════════════════╝
-
-Skill installed to: ${skillDir}
-
-Next steps:
-  1. Add to your skill-index.json:
-     "CBrowser": "${skillDir}/SKILL.md"
-
-  2. Install all Playwright browsers (for cross-browser testing):
-     npx playwright install
-
-  3. Start using CBrowser in Claude Code!
-
-Documentation: https://github.com/alexandriashai/cbrowser/wiki
+CBrowser skill ${existed ? "updated" : "installed"}: ${skillDir}
+Claude Code finds it on its own; start a new session to load it.
 `);
-  return;
+  if (leftovers.length > 0) {
+    console.log("An older install left files this skill no longer uses. You can delete them:");
+    for (const f of leftovers) console.log(`  ${join(skillDir, f)}`);
+    console.log("");
+  }
+  console.log(`Next:
+  cbrowser doctor                              Check Node, the browser and the API key
+  cbrowser install-browsers firefox webkit     Only for cross-browser testing
+
+The Claude Code plugin bundles this skill with the MCP server:
+  /plugin marketplace add alexandriashai/cbrowser
+  /plugin install cbrowser@cbrowser
+`);
 }
 
 // Install Playwright browsers with the Playwright this package resolves. `npx

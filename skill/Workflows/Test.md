@@ -1,400 +1,202 @@
 # Test Workflow
 
-Run automated user testing scenarios with personas to validate UX flows.
+Functional tests in plain English, plus visual and performance regression. Everything on this page runs without an Anthropic API key: test steps, repair, flakiness and coverage are parsed and matched locally, and the "AI" visual commands compare images with a sliced Wasserstein distance, not a model.
+
+For a persona trying to reach a goal (patience, confusion, abandonment), use [Journey.md](./Journey.md) instead. For keyless audits (agent-readiness, accessibility, bug hunting), use [Audit.md](./Audit.md).
 
 ---
 
 ## Trigger
 
-- "test", "run test", "user test"
-- "validate flow", "check journey"
-- `bun run Tools/CBrowser.ts test <scenario>`
+- "test", "run test", "write a test", "verify the flow", "regression"
+- "is this test flaky", "fix the broken test", "what is untested"
+- "visual regression", "did the layout change", "compare staging and production", "cross-browser", "responsive"
+- "performance regression", "is it slower than before", "LCP budget"
 
 ---
 
-## Concepts
+## Pick the command
 
-### Test Scenario
+| Question | CLI | MCP tool |
+|---|---|---|
+| Does this flow still work? | `cbrowser test-suite <file.txt>` | `nl_test_file` (local only), `nl_test_inline` |
+| Quick one-off check of a flow | `cbrowser test-suite --inline "..."` | `nl_test_inline` |
+| Is one thing true on the page right now? | `cbrowser assert "<assertion>"` | `assert` |
+| Write tests for me from a page | `cbrowser generate <url>` | `generate_tests` |
+| A test broke after a UI change | `cbrowser repair-tests <file.txt>` | `repair_test` |
+| Does it pass sometimes and fail sometimes? | `cbrowser flaky-check <file.txt>` | `detect_flaky_tests` |
+| Which pages have no test? | `cbrowser coverage <url>` | `coverage_map` |
+| Did the page change visually? | `cbrowser ai-visual test <url> <baseline>` | `visual_baseline` + `visual_regression` |
+| Same rendering in Chromium, Firefox, WebKit? | `cbrowser cross-browser <url>` | `cross_browser_test`, `cross_browser_diff` |
+| Does it hold up at phone, tablet, desktop sizes? | `cbrowser responsive <url>` | `responsive_test` |
+| Staging vs production, old vs new | `cbrowser ab <urlA> <urlB>` | `ab_comparison` |
+| Is it slower than the baseline? | `cbrowser perf-regression <url> <baseline>` | `perf_baseline` + `perf_regression` |
 
-A defined user journey with:
-- **Persona**: Who is performing the test
-- **Goal**: What they're trying to accomplish
-- **Steps**: Actions to take
-- **Assertions**: What should be true
-- **Metrics**: What to measure
-
-### Test Suite
-
-A collection of related scenarios:
-- Multiple personas testing same flow
-- Same persona testing multiple flows
-- Regression tests for critical paths
+`list_baselines` lists saved visual and performance baselines over MCP.
 
 ---
 
-## Scenario Definition
+## Natural-language test files
 
-```yaml
-# ~/.claude/skills/CBrowser/.memory/scenarios/provider-signup.yaml
+One file can hold several tests. A line starting with `#` begins a new test; `//` lines are comments.
 
-name: provider-signup
-description: "Test the provider registration flow"
-persona: provider-signup
+```text
+# Test: Search
+go to https://example.com
+type "running shoes" in search box
+click search button
+wait for "results" to appear
+verify page contains "results"
+verify url contains "/search"
 
-goal: "Complete provider registration and reach pending verification status"
-
-preconditions:
-  - "Not logged in"
-  - "No existing account with test email"
-
-steps:
-  - name: "Find signup"
-    action: navigate
-    url: "https://blackbook.reviews"
-    then:
-      - find: "provider signup button"
-      - assert: "button is visible and clickable"
-
-  - name: "Start registration"
-    action: click
-    target: "Become a Provider button"
-    then:
-      - wait_for: "registration form"
-      - assert: "form has email field"
-
-  - name: "Fill registration"
-    action: fill_form
-    fields:
-      email: "$persona.test_email"
-      display_name: "Test Provider"
-      password: "$credentials.password"
-      confirm_password: "$credentials.password"
-    then:
-      - assert: "no validation errors"
-
-  - name: "Accept terms"
-    action: click
-    target: "terms checkbox"
-    then:
-      - assert: "checkbox is checked"
-
-  - name: "Submit registration"
-    action: click
-    target: "submit button"
-    zone: red  # Verification required
-    then:
-      - wait_for: "success message or next step"
-      - assert: "no error messages"
-
-  - name: "Verify account created"
-    action: verify
-    assertions:
-      - "URL contains /provider/onboarding OR /verify-email"
-      - "Welcome message visible"
-      - "Account status is pending"
-
-success_criteria:
-  - "All steps completed without error"
-  - "Account created in database"
-  - "Verification email sent"
-
-metrics:
-  - time_to_complete
-  - error_count
-  - steps_with_friction
-  - accessibility_score
+# Test: Footer
+go to https://example.com
+scroll to bottom
+verify "Privacy" is visible
+take screenshot
 ```
 
----
+Steps the parser understands:
 
-## Commands
+- Navigate: `go to`, `navigate to`, `open`, `visit` followed by a URL
+- Click: `click`, `tap`, `press` (optionally `on the`), or `click at 120,340`
+- Fill: `type "value" in field`, `enter "value" into field`, `fill field with "value"`
+- Select: `select "option" from dropdown`
+- Scroll: `scroll to top|bottom`, `scroll up|down 3 times`, `scroll down 400 pixels`
+- Wait: `wait 2 seconds`, `wait for "text" to appear`, `wait for the modal to appear`, `wait for page to load`
+- Cookie: `set cookie NAME to VALUE`
+- Assert (`verify`, `assert`, `check`, `ensure`): `title contains|is`, `url contains|is`, `page contains`, `"X" is visible`, `"X" exists`, `there are 3 results`
+- `take screenshot`
 
-### Run Single Scenario
+Content assertions are exact and case-sensitive. Add `--fuzzy-match` for case-insensitive partial matching, or paste the "Try:" text a failing assertion prints, which is the matching span from the page itself.
+
+### Run it
 
 ```bash
-bun run Tools/CBrowser.ts test "provider-signup"
+cbrowser test-suite tests/search.txt --dry-run          # parse only, show the steps
+cbrowser test-suite tests/search.txt                    # a test stops at its first failing step
+cbrowser test-suite tests/search.txt --continue-on-failure --html --output search.json
+cbrowser test-suite tests/search.txt --step-through     # pause before each step
+cbrowser test-suite --inline "go to https://example.com ; verify title contains Example"
 ```
 
-### Run with Specific Persona
+`test-suite` takes one file. Steps in `--inline` are separated by ` ; `. Each failed step prints the expected and actual value and a screenshot path, and the command exits 1 when any test fails, so it can gate CI directly. With `--html`, the report lands next to `--output` (here `search.html`).
+
+Add `--capture` (with `--capture-format gif,webm`) to record the run as video; see [Capture.md](./Capture.md).
+
+### Export and notify
+
+Every run is saved under the data directory by suite name: the file name without extension, or `Inline-Suite` for `--inline`.
 
 ```bash
-bun run Tools/CBrowser.ts test "checkout" --persona mobile-user
+cbrowser export junit search            # JUnit XML for CI dashboards
+cbrowser export tap search results.tap  # TAP
+cbrowser webhook add ci https://hooks.example.com/x --events test.fail --format slack
 ```
 
-### Run Test Suite
+### Recording a flow
+
+`record start` refuses: each CLI command is its own process, so nothing survives between commands to record. Write the flow as an inline test instead and add `--capture` if you want to watch it. For Playwright code from a page, use `cbrowser generate <url> --format playwright`.
+
+---
+
+## Single assertions and generated tests
 
 ```bash
-bun run Tools/CBrowser.ts test suite "critical-paths"
+cbrowser assert "page contains 'Welcome'" --url https://example.com
+cbrowser assert "'Login' button exists"
+cbrowser generate https://example.com --format cbrowser --output tests/generated.txt
+cbrowser analyze https://example.com      # what generate saw: forms, buttons, links
 ```
 
-### Run All Tests
+`generate --format` takes `summary`, `cbrowser` (a file `test-suite` can run), `playwright`, or `all`. Read generated tests before trusting them: they assert what the page shows now, which may already be wrong.
+
+---
+
+## Repair, flakiness, coverage
 
 ```bash
-bun run Tools/CBrowser.ts test all
+cbrowser repair-tests tests/search.txt                       # suggest fixes for failing steps
+cbrowser repair-tests tests/search.txt --auto-apply --verify --output tests/search.fixed.txt
+cbrowser flaky-check tests/search.txt --runs 10 --threshold 20
+cbrowser coverage https://example.com --tests "tests/*.txt" --html --output coverage.html
+cbrowser coverage gaps https://example.com --tests "tests/*.txt"
 ```
 
-### Generate Test Report
+- `repair-tests` finds a replacement selector or assertion for each failing step. It never edits the input file: the repaired tests are written only with `--auto-apply --output <file>`, so diff that file before replacing the original. `--verify` re-runs the repaired tests, and the command exits 1 while any failing test is left unrepaired.
+- `flaky-check` runs each test `--runs` times and flags any whose result varies more than `--threshold` percent. Fix flakes with explicit waits (`wait for "X" to appear`) rather than longer timeouts.
+- `coverage` crawls up to `--max-pages` (or reads `--sitemap`) and maps which pages the test files visit. `--min-coverage` sets the flag line.
+
+Over a hosted MCP server, `nl_test_file` and file-path inputs to `coverage_map` are refused, because the file would have to be on the server; send the test text with `nl_test_inline`.
+
+---
+
+## Visual regression
+
+Three levels, from strict to tolerant:
+
+1. **Pixel diff** of the current page against a saved screenshot:
+   ```bash
+   cbrowser visual save home --url https://example.com
+   cbrowser visual compare home --threshold 0.1
+   ```
+2. **Image-distance regression** that tolerates noise and says what moved (no model, no key):
+   ```bash
+   cbrowser ai-visual capture https://example.com --name home
+   cbrowser ai-visual test https://staging.example.com home --sensitivity high --html --output home-diff.html
+   cbrowser ai-visual suite visual-suite.json --html
+   ```
+   The test renders with the baseline's engine, device and size, so capture the baseline with the `--device` or `--viewport` you want compared.
+3. **Smart baselines** (MCP only): `visual_baseline` takes several screenshots, rejects outliers and builds a consensus reference, which copes with animations and rotating content. `visual_regression` uses the smart baseline when one exists under that name, otherwise the plain comparison.
+
+Across browsers, sizes and versions:
 
 ```bash
-bun run Tools/CBrowser.ts test "provider-signup" --report html
-# Generates: /tmp/cognitive/reports/provider-signup-2026-01-31.html
+cbrowser cross-browser https://example.com --browsers chromium,firefox,webkit --html --output xb.html
+cbrowser responsive https://example.com --viewports mobile,tablet,desktop --html --output rsp.html
+cbrowser responsive viewports                                    # list size presets
+cbrowser ab https://staging.example.com https://example.com --label-a Staging --label-b Production --html --output ab.html
+cbrowser diff https://example.com                                # load time and resource count per engine
 ```
+
+Each of these also has a `suite <file.json>` form for many URLs; the JSON shapes are in `cbrowser help`. On the visual commands, `--html --output` names the HTML file itself. `ai-visual test` exits 1 on a failed comparison and `cross-browser` exits 1 on major differences.
+
+Firefox cannot emulate the mobile and tablet presets; use Chromium or WebKit for those.
 
 ---
 
-## Test Execution
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    TEST EXECUTION                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. SETUP                                                   │
-│     ├─ Load scenario definition                             │
-│     ├─ Load persona configuration                           │
-│     ├─ Configure browser (viewport, network, etc.)          │
-│     ├─ Load credentials if needed                           │
-│     └─ Verify preconditions                                 │
-│                                                             │
-│  2. EXECUTE STEPS                                           │
-│     For each step:                                          │
-│     ├─ Screenshot before                                    │
-│     ├─ Execute action                                       │
-│     ├─ Wait for result                                      │
-│     ├─ Screenshot after                                     │
-│     ├─ Run assertions                                       │
-│     ├─ Record metrics                                       │
-│     └─ Note friction points                                 │
-│                                                             │
-│  3. EVALUATE                                                │
-│     ├─ Check success criteria                               │
-│     ├─ Calculate metrics                                    │
-│     ├─ Score accessibility                                  │
-│     └─ Identify issues                                      │
-│                                                             │
-│  4. REPORT                                                  │
-│     ├─ Generate test report                                 │
-│     ├─ Save screenshots                                     │
-│     ├─ Log results                                          │
-│     └─ Output summary                                       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Assertions
-
-### Element Assertions
-
-```yaml
-assertions:
-  - element_visible: "submit button"
-  - element_not_visible: "error message"
-  - element_enabled: "next button"
-  - element_disabled: "submit button"
-  - element_text_contains: ["heading", "Welcome"]
-  - element_count: ["product cards", ">= 3"]
-```
-
-### Page Assertions
-
-```yaml
-assertions:
-  - url_contains: "/dashboard"
-  - url_not_contains: "/login"
-  - title_contains: "Dashboard"
-  - page_has_no_errors: true  # No console errors
-  - page_loads_under: "3s"
-```
-
-### Accessibility Assertions
-
-```yaml
-assertions:
-  - has_heading_hierarchy: true
-  - all_images_have_alt: true
-  - all_inputs_have_labels: true
-  - focus_visible: true
-  - color_contrast_passes: true
-```
-
-### Form Assertions
-
-```yaml
-assertions:
-  - form_has_field: "email"
-  - field_has_validation: ["email", "email format"]
-  - required_fields_marked: true
-  - error_messages_helpful: true
-```
-
----
-
-## Friction Detection
-
-CBrowser automatically detects UX friction:
-
-| Friction Type | Detection | Severity |
-|--------------|-----------|----------|
-| Slow load | Page load > 3s | Warning |
-| Small touch target | Button < 44px | Warning (mobile) |
-| Missing label | Input without label | Error (a11y) |
-| Confusing error | Generic error message | Warning |
-| Dead end | No clear next action | Error |
-| Rage clicks | Multiple rapid clicks | Error |
-| Abandoned form | Form started but not submitted | Warning |
-
----
-
-## Test Report
-
-```markdown
-# Test Report: provider-signup
-**Date:** 2026-01-31 22:30:00
-**Persona:** provider-signup
-**Duration:** 45.2s
-
-## Summary
-- **Status:** ⚠️ PASSED WITH WARNINGS
-- **Steps Completed:** 6/6
-- **Assertions Passed:** 14/15
-- **Friction Points:** 2
-
-## Step Results
-
-### 1. Find signup ✅
-- Time: 1.2s
-- Screenshot: [view](./screenshots/001-find-signup.png)
-
-### 2. Start registration ✅
-- Time: 0.8s
-- Screenshot: [view](./screenshots/002-start-registration.png)
-
-### 3. Fill registration ⚠️
-- Time: 5.2s
-- Friction: Password field requirements not shown until error
-- Screenshot: [view](./screenshots/003-fill-registration.png)
-
-### 4. Accept terms ✅
-- Time: 0.5s
-
-### 5. Submit registration ✅
-- Time: 2.1s
-- Zone: Red (verified with user)
-
-### 6. Verify account created ✅
-- Time: 1.8s
-- Assertions: 3/3 passed
-
-## Friction Points
-
-1. **Password requirements hidden** (Step 3)
-   - Persona: "As a provider signing up, I had to guess password requirements"
-   - Recommendation: Show password requirements before user types
-   - Severity: Warning
-
-2. **Terms checkbox small on mobile** (Step 4)
-   - Target size: 24px (should be 44px+)
-   - Recommendation: Increase touch target
-   - Severity: Warning (mobile only)
-
-## Metrics
-- Total time: 45.2s
-- Errors encountered: 1 (password validation)
-- Pages loaded: 3
-- API calls: 12
-- Accessibility score: 87/100
-
-## Screenshots
-[View all screenshots](./screenshots/)
-```
-
----
-
-## Test Suites
-
-Group related tests:
-
-```yaml
-# ~/.claude/skills/CBrowser/.memory/suites/critical-paths.yaml
-
-name: critical-paths
-description: "Critical user journeys that must always work"
-
-scenarios:
-  - provider-signup
-  - client-signup
-  - provider-login
-  - client-login
-  - submit-review
-  - view-profile
-
-run_config:
-  parallel: false  # Run sequentially
-  stop_on_failure: false  # Continue after failures
-  report_format: html
-  notify_on_complete: true
-```
-
-Run suite:
-```bash
-bun run Tools/CBrowser.ts test suite "critical-paths"
-```
-
----
-
-## npm Package Test Features (v7.4.15-7.4.17)
-
-The npm package (`npx cbrowser`) provides additional test flags:
+## Performance regression
 
 ```bash
-# Dry run: parse and display test steps without executing
-npx cbrowser test-suite tests.txt --dry-run
-
-# Fuzzy matching: case-insensitive, whitespace-normalized text assertions
-npx cbrowser test-suite tests.txt --fuzzy-match
-
-# Step-through: interactive step-by-step execution (Enter=execute, s=skip, q=quit)
-npx cbrowser test-suite tests.txt --step-through
-
-# Verbose debugging: on failure, shows available elements and AI suggestions
-npx cbrowser click "search button" --verbose
-npx cbrowser fill "email" "test" --verbose --debug-dir ./debug
-
-# Dismiss overlays before interacting
-npx cbrowser click "Add to Cart" --dismiss-overlays --url https://example.com
+cbrowser perf https://example.com                                   # one measurement
+cbrowser perf audit https://example.com --budget-lcp 2000           # pass/fail against budgets
+cbrowser perf-baseline save https://example.com --name home --runs 5
+cbrowser perf-regression https://example.com home --sensitivity ci --output perf.json
+cbrowser perf-baseline list
 ```
+
+`perf-regression` compares the page against the averaged baseline (LCP, FCP, CLS, TTFB, transfer size). A metric regresses only when both the percentage and the absolute change pass the profile's threshold: `strict` (FCP 10% and 50 ms), `normal` (default, 20% and 100 ms), `ci` (25% and 150 ms), `lenient` (30% and 200 ms). Override single metrics with `--threshold-lcp`, `--threshold-fcp`, `--threshold-cls`, `--threshold-ttfb`. It exits 1 on a regression.
+
+Use at least 3 runs for a baseline (`--runs 5` on noisy hosts), and measure with the same `--device` or `--viewport` both times.
 
 ---
 
-## CI/CD Integration
+## A CI gate
 
-```yaml
-# GitHub Actions example
-- name: Run CBrowser Tests
-  run: |
-    bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts \
-      test suite "critical-paths" \
-      --headless \
-      --report junit \
-      --output ./test-results/
-
-- name: Upload Test Results
-  uses: actions/upload-artifact@v3
-  with:
-    name: test-results
-    path: ./test-results/
+```bash
+export CBROWSER_DATA_DIR="$PWD/.cbrowser"         # baselines and results live with the job
+cbrowser test-suite tests/checkout.txt --continue-on-failure --html --output results/checkout.json
+cbrowser export junit checkout results/junit.xml
+cbrowser ai-visual test "$STAGING_URL" home --html --output results/visual.html
+cbrowser perf-regression "$STAGING_URL" home --sensitivity ci --output results/perf.json
 ```
+
+Every command above exits non-zero on failure. Keep the baselines in the repo or a cache, so the comparison is against a known-good build and not the previous broken one.
 
 ---
 
-## Constitutional Compliance
+## Tips
 
-Testing follows all constitutional principles:
-
-- **Green Zone**: Navigation, screenshots, reading
-- **Yellow Zone**: Form fills, clicks (logged)
-- **Red Zone**: Submissions, account creation (requires `zone: red` in step)
-
-In automated CI runs, Red Zone actions require pre-approval in test definition.
+- Without the daemon each CLI command opens its own browser, so typed input and scroll position do not carry over between commands. Steps inside one test run share a page, which is another reason to write flows as tests.
+- Keep credentials out of test files; load a saved session instead (see [Authenticate.md](./Authenticate.md)).
+- `--plain` replaces emoji and box drawing with `[PASS]` and `[FAIL]` for logs and screen readers.

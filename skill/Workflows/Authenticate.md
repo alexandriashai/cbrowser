@@ -1,314 +1,137 @@
 # Authenticate Workflow
 
-Handle login flows for authenticated spaces with stored credentials and 2FA support.
+Log in to a site, check that the login worked, and keep the logged-in state so later work does not have to log in again.
+
+CBrowser has no credential vault and no login command. A login is ordinary browser work: open the login page, fill the fields, click the button, check the result, then save the session. Secrets come from environment variables, never from the prompt or a file in the repo. See `Credentials.md` for how to handle them and where the saved state ends up on disk.
 
 ---
 
 ## Trigger
 
-- "login to", "authenticate", "sign in"
-- Navigation to authenticated page without session
-- `bun run Tools/CBrowser.ts auth <site>`
+- "log in to", "sign in to", "authenticate with"
+- A task needs a page that redirects to a login form
+- The user wants a logged-in state reused across runs or personas
 
 ---
 
-## Process
+## Before you start
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  AUTHENTICATE WORKFLOW                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. CHECK SESSION                                           │
-│     ├─ Existing valid session?                              │
-│     │   └─ Yes → Skip to destination                        │
-│     └─ No → Continue to login                               │
-│                                                             │
-│  2. RETRIEVE CREDENTIALS                                    │
-│     ├─ Decrypt from vault                                   │
-│     ├─ Verify credential exists                             │
-│     └─ Load site-specific config                            │
-│                                                             │
-│  3. NAVIGATE TO LOGIN                                       │
-│     ├─ Go to login URL                                      │
-│     ├─ Wait for form ready                                  │
-│     └─ Screenshot (password fields masked)                  │
-│                                                             │
-│  4. FILL CREDENTIALS                                        │
-│     ├─ Find username field (AI vision)                      │
-│     ├─ Fill username                                        │
-│     ├─ Find password field                                  │
-│     ├─ Fill password (NEVER logged)                         │
-│     └─ Click submit                                         │
-│                                                             │
-│  5. HANDLE 2FA (if required)                                │
-│     ├─ Detect 2FA prompt                                    │
-│     ├─ TOTP: Generate and enter code                        │
-│     ├─ Push/SMS: Notify user, wait                          │
-│     └─ Backup codes: Use if configured                      │
-│                                                             │
-│  6. VERIFY SUCCESS                                          │
-│     ├─ Check URL changed from login                         │
-│     ├─ Check for error messages                             │
-│     ├─ Verify authenticated indicators                      │
-│     └─ Save session for reuse                               │
-│                                                             │
-│  7. NAVIGATE TO DESTINATION                                 │
-│     └─ Go to original requested URL                         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+1. **Check for a saved session.** `cbrowser session list` (or `list_sessions`) shows saved sessions with domain, creation time and cookie count. If one matches, load it and skip the login.
+2. **Get the secrets into the environment, not the conversation.** Ask the user to export them in their own shell, or put them in an untracked env file they source. You refer to them as `$SITE_USER` and `$SITE_PASS`; you never see or repeat the values.
+3. **Pick one data dir.** Every command in the flow must use the same CBROWSER_DATA_DIR (default `~/.cbrowser`). Set it on each command if your shell does not keep variables between calls.
 
 ---
 
-## Usage
+## CLI: log in with the daemon
 
-### Basic Authentication
+Without the daemon every CLI command opens its own browser and reloads the last URL, so text typed by one `fill` is gone before the next command runs. A multi-step login therefore needs the daemon, which keeps one browser and one page across commands.
 
 ```bash
-# Login to a site with stored credentials
-bun run Tools/CBrowser.ts auth "github"
+export CBROWSER_DATA_DIR=~/.cbrowser          # same value on every command
 
-# Navigate to authenticated page (auto-login if needed)
-bun run Tools/CBrowser.ts navigate "https://github.com/settings" --auth github
+cbrowser daemon start --port 9301
+cbrowser navigate "https://example.com/login"
+cbrowser fill "Email" "$SITE_USER"
+cbrowser fill "Password" "$SITE_PASS"
+cbrowser click "Sign in"
+
+# Check it worked before saving anything
+cbrowser extract headings
+cbrowser screenshot ./after-login.png
+
+cbrowser daemon stop
+cbrowser session save example-admin --url "https://example.com/account"
 ```
 
-### With Persona
+Why the order matters:
+
+- `fill` prints only `Filled: <selector>`, never the value. The transcript shows `"$SITE_PASS"`, not the password.
+- `session save` refuses while the daemon runs (it would open a second browser on the same profile). Stop the daemon first. Stopping it writes the browser's cookies, including session cookies, into the profile, so the next command still has them.
+- Give `session save` a `--url` of a page that only works when logged in. Without a daemon it otherwise reloads the last page it remembers, which may be the login form.
+
+If the field names differ, `cbrowser fill` and `cbrowser click` accept visible text, labels, placeholders, roles or CSS selectors. Add `--verbose` to list the inputs it found when a match fails.
+
+### Verify the login, not just the click
+
+A click that succeeds only means the button was pressed. Confirm the outcome:
+
+- `cbrowser extract headings` or `cbrowser extract forms`: the page after login should not still show the login form.
+- `cbrowser cookie list`: an auth cookie for the site should now exist. This prints the first 50 characters of each value, so do not paste its output anywhere shared.
+- `cbrowser screenshot <path>`: look at the page. Password inputs render as dots.
+
+---
+
+## CLI: reuse the login later
 
 ```bash
-# Login as a specific persona
-bun run Tools/CBrowser.ts auth "blackbook" --persona provider-user
+cbrowser session load example-admin
+cbrowser navigate "https://example.com/account"
 ```
 
-### Setup New Site
+`session load` puts the saved cookies into the browser, opens the saved URL, writes back localStorage and sessionStorage, and reloads. It prints how many cookies and storage keys it restored, and warns when the current page is on a different domain than the saved one. Like `session save`, it refuses while the daemon runs: load first, then start the daemon if the next steps need it.
 
-```bash
-# Interactive setup for new authenticated site
-bun run Tools/CBrowser.ts auth setup "newsite.com"
-# Prompts for:
-#   - Login URL
-#   - Credential key to use
-#   - 2FA configuration
-#   - Success indicators
-```
+You often do not need `session load` at all. The CLI uses a persistent browser profile in `<data dir>/browser-state`, so a login done in one command is still there for the next command on the same data dir. Saved sessions are for switching between accounts, keeping a known-good state, and moving a login to another data dir.
 
 ---
 
-## Site Configuration
+## MCP: log in with tools
 
-Each authenticated site needs a configuration:
+The MCP tools keep one browser between calls, so no daemon is needed.
 
-```yaml
-# ~/.claude/skills/CBrowser/.memory/sites/github.com.yaml
-domain: github.com
-credential_key: github
-login_url: https://github.com/login
+1. `navigate` to the login page.
+2. `fill` the username and password fields, then `click` the submit button. Use `type_text` when a field only reacts to key events.
+3. Check the result with `extract`, `page_understand` or `screenshot`.
+4. `save_session` with a `name` such as `example-admin`.
 
-# Field detection (AI-powered with fallbacks)
-fields:
-  username:
-    primary: "semantic:username"
-    fallbacks:
-      - "aria:textbox/Username"
-      - "css:#login_field"
-  password:
-    primary: "semantic:password"
-    fallbacks:
-      - "aria:textbox/Password"
-      - "css:#password"
-  submit:
-    primary: "semantic:submit"
-    fallbacks:
-      - "aria:button/Sign in"
-      - "css:input[type='submit']"
+On the HTTP transport (hosted servers, `cbrowser mcp-remote`) pass the token each call returns (`param: _browserToken`) to every later call, including `save_session` and `load_session`. Without it those calls bind to a different, blank browser. `save_session` refuses a blank page unless you pass `force: true`, which you should not need.
 
-# Success detection
-success:
-  url_not_contains: "/login"
-  element_visible: ".avatar"
-  element_not_visible: ".flash-error"
+**Secrets and MCP:** a value given to `fill` is part of the tool call, so it lands in the conversation. For a real password prefer one of these:
 
-# 2FA handling
-two_factor:
-  enabled: true
-  detection: "element_visible:.two-factor"
-  method: totp
-  totp_key: github_2fa
-  code_field: "semantic:verification-code"
+- Log in once with the CLI flow above (values from env vars), save the session, then call `load_session` from the local stdio MCP server. It reads the same data dir as the CLI, so `list_sessions` shows the session.
+- Use a dedicated test account whose password is fine to have in a transcript.
 
-# Session management
-session:
-  save_on_success: true
-  name: "github-session"
-  expires: 7d
-```
+The hosted servers keep each account's sessions in that account's own directory, so a session saved by your local CLI does not exist there.
 
 ---
 
-## 2FA Methods
+## Two-factor codes, CAPTCHAs and SSO
 
-### TOTP (Time-based One-Time Password)
+CBrowser does not generate one-time codes and does not solve CAPTCHAs.
 
-```yaml
-two_factor:
-  method: totp
-  totp_key: "github_2fa"  # Key in credential vault
-  auto_fill: true
-```
-
-When TOTP is configured:
-1. Detect 2FA prompt
-2. Retrieve TOTP secret from vault
-3. Generate current code
-4. Fill and submit automatically
-
-### SMS / Email
-
-```yaml
-two_factor:
-  method: sms  # or: email
-  auto_fill: false  # Cannot automate
-  user_action: prompt
-```
-
-When SMS/email:
-1. Detect 2FA prompt
-2. Notify user: "2FA code sent to your phone"
-3. Prompt user to enter code in terminal
-4. Fill and submit
-
-### Push Notification
-
-```yaml
-two_factor:
-  method: push
-  timeout: 60s
-  user_action: approve_on_device
-```
-
-When push:
-1. Detect 2FA prompt
-2. Notify user: "Approve login on your authenticator app"
-3. Wait for approval (poll page)
-4. Continue on success
-
-### Backup Codes
-
-```yaml
-two_factor:
-  backup_codes_key: "github_backup"  # In vault
-  use_backup_when: ["totp_fails", "user_requests"]
-```
+- **Code sent by SMS, email or an app:** stop and ask the user for the code, then `cbrowser fill "Verification code" "<code>"` and click submit. A one-time code expires within minutes, so it does not need the env-var treatment.
+- **TOTP the user wants automated:** generate the code with a separate TOTP tool, from a secret held in the environment, then fill it. Ask first: automating the second factor removes the protection it exists for.
+- **CAPTCHA or "verify you are human":** let a person do it. On a machine with a display, start a visible browser with `cbrowser daemon start --no-headless`, `cbrowser navigate` to the login page, and let the user finish the login by hand. Then `cbrowser daemon stop` and `cbrowser session save <name> --url <logged-in page>`. For Cloudflare's interstitial specifically, `cloudflare_detect` and `cloudflare_wait` tell you when it has cleared.
+- **SSO / OAuth ("Continue with Google"):** the flow redirects to the identity provider, which usually adds its own 2FA and consent screens. Do it once by hand in a visible browser as above and save the session. Never click through a consent screen on the user's behalf.
 
 ---
 
-## Error Handling
+## When the login stops working
 
-### Invalid Credentials
-
-```
-❌ Authentication Failed: Invalid credentials
-
-Possible causes:
-  - Password changed
-  - Account locked
-  - Wrong credential key
-
-Actions:
-  1. Update credentials: bun run Tools/CBrowser.ts creds rotate "github"
-  2. Check account status manually
-```
-
-### 2FA Failed
-
-```
-❌ 2FA Failed: Code rejected
-
-Possible causes:
-  - TOTP secret out of sync
-  - Code expired (try again)
-  - Wrong 2FA method
-
-Actions:
-  1. Regenerate code and retry
-  2. Update TOTP secret: bun run Tools/CBrowser.ts creds add-2fa "github"
-  3. Use backup code
-```
-
-### CAPTCHA Detected
-
-```
-⚠️ CAPTCHA Detected: Human verification required
-
-This workflow cannot bypass CAPTCHA.
-
-Actions:
-  1. Complete CAPTCHA manually in browser
-  2. Save session: bun run Tools/CBrowser.ts session save "github"
-  3. Future logins will use saved session
-```
+| Symptom | Likely cause | What to do |
+|---------|--------------|------------|
+| `session load` succeeds but the page shows the login form | Server-side session expired or was revoked | Log in again and `session save` under the same name (it overwrites) |
+| `Session not found` | Wrong name or wrong data dir | `cbrowser session list` with the same CBROWSER_DATA_DIR |
+| `fill` cannot find the field | Label differs, or the field is inside an iframe | `cbrowser fill <selector> <value> --verbose` to list the inputs |
+| Login works, next command is logged out | Commands ran with different data dirs | Set CBROWSER_DATA_DIR on every command |
+| `session save` refuses | The daemon is running | `cbrowser daemon stop`, then save |
+| Warning about another domain on load | Session saved on `app.example.com`, page is on `example.com` | Load first, then navigate; cookies apply per domain |
 
 ---
 
-## Constitutional Compliance
+## Logging out
 
-Authentication is **Red Zone** (verification required):
+To drop the logged-in state from the browser profile:
 
-| Action | Zone | Requirement |
-|--------|------|-------------|
-| First login to new site | Red | User confirms credentials |
-| Reuse saved session | Yellow | Logged, no confirmation |
-| Store new credentials | Red | User confirms storage |
-| 2FA code entry | Yellow | Logged (not the code) |
-| OAuth consent | Red | User must see permissions |
+- `cbrowser cookie delete <name>` removes one cookie (add `--domain` to limit it to one site).
+- `cbrowser reset` clears the profile's cookies and storage. Saved sessions in `<data dir>/sessions` are untouched.
+- Do not rely on `cbrowser cookie clear` from the CLI: it currently reports success without starting the browser, and the cookies survive. Over MCP, `manage_cookies` with `action: "clear"` after a `navigate` clears the live browser.
 
-### Audit Trail
-
-```json
-{
-  "action": "authenticate",
-  "site": "github.com",
-  "timestamp": "2026-01-31T22:30:00Z",
-  "credential_key": "github",
-  "result": "success",
-  "2fa_used": true,
-  "2fa_method": "totp",
-  "session_saved": true,
-  "screenshot": "/tmp/cognitive/xxx/auth-success.png"
-}
-```
-
-Note: Credentials and 2FA codes are NEVER in audit trail.
+To forget a saved login, `cbrowser session delete <name>` or `delete_session`. See `SessionManagement.md` for the full session reference.
 
 ---
 
-## OAuth / SSO Flows
+## Safety
 
-### Google OAuth
-
-```yaml
-oauth:
-  provider: google
-  button_selector: "Continue with Google"
-  popup_handling: true
-  credential_key: google_oauth
-  consent_auto_approve: false  # User must see permissions
-```
-
-### Generic SSO
-
-```yaml
-sso:
-  provider_name: "Okta"
-  redirect_to_idp: true
-  credential_key: okta_work
-  session_handling: follow_redirects
-```
-
-OAuth flows:
-1. Click SSO button
-2. Handle popup/redirect
-3. Authenticate with IdP using stored credentials
-4. Handle consent screen (pause for user if new permissions)
-5. Complete redirect back to original site
-6. Verify authentication success
+- A login is a state-changing action on a real account. Confirm with the user which account and site before the first login.
+- Use test accounts for automated tests. Never put a real password in a test-suite file: `cbrowser test-suite` files have no variable substitution, and each step's text is printed as it runs and in the report.
+- Do not paste the output of `cookie list`, `session show` or `manage_cookies` into tickets, chats or commits. They contain partial or full token values.

@@ -1,137 +1,152 @@
 # Cognitive State Tracking
 
-Runtime state management for cognitive user simulation. Tracks patience, confusion, frustration, and determines when a simulated user abandons.
+Runtime state for cognitive user simulation: patience, confusion, frustration, progress, and the rules that decide when a simulated user abandons.
+
+Two engines keep this state, with different rules:
+
+| Engine | Entry points | Who decides each step | API key |
+|--------|-------------|----------------------|---------|
+| Autonomous journey | `cbrowser cognitive-journey`, `compare-personas`, `competitive-benchmark`, `explore` | CBrowser calls Claude every step | Anthropic API key required |
+| MCP-driven journey | `cognitive_journey_init`, then `cognitive_journey_update_state` after each action | The calling model (for example Claude Code) | None |
+
+All numbers below are registered parameters (`src/visual/provenance/journey.ts` and `journey-mcp.ts`). Each was set by hand; the registry says so and names what measurement would set it. Treat them as consistent hypotheses, not findings about people.
 
 ---
 
 ## State Variables
 
-Track these during every cognitive journey:
+The `CognitiveState` type (`src/types.ts`):
 
 ```yaml
 cognitiveState:
-  # Core emotional state (0.0 to 1.0)
-  patienceRemaining: 1.0      # Starts full, depletes over time
-  confusionLevel: 0.0         # Builds when encountering unclear UI
-  frustrationLevel: 0.0       # Builds on failures and confusion
-
-  # Goal progress
-  goalProgress: 0.0           # 0.0 = not started, 1.0 = achieved
-  confidenceLevel: 0.5        # Belief they're on the right path
-
-  # Memory
+  patienceRemaining: 1.0      # starts full, depletes
+  confusionLevel: 0.0         # 0 clear, 1 completely lost
+  frustrationLevel: 0.0       # 0 calm, 1 very frustrated
+  goalProgress: 0.0           # 0 not started, 1 achieved
+  confidenceLevel: 0.5        # belief they are on the right path
+  currentMood: "neutral"      # neutral | hopeful | confused | frustrated | defeated | relieved
   memory:
-    pagesVisited: []          # URLs visited
-    actionsAttempted: []      # What they've tried
-    errorsEncountered: []     # Failures and their context
-    elementsClicked: []       # Elements interacted with
-    backtrackCount: 0         # Times they went "back"
-
-  # Timing
-  timeElapsed: 0              # Seconds since journey start
-  stepCount: 0                # Number of actions taken
-
-  # Emotional narrative
-  currentMood: "neutral"      # neutral, hopeful, confused, frustrated, defeated
-  innerMonologue: []          # Running thoughts
+    pagesVisited: []
+    actionsAttempted: []      # { action, target, success }
+    errorsEncountered: []     # { error, context }
+    backtrackCount: 0
+  timeElapsed: 0              # seconds
+  stepCount: 0
+  # Set by the autonomous journey:
+  decisionFatigue: { decisionsMade, fatigueLevel, lastDecisionComplexity, choosingDefaults }
+  cognitiveMode: ...          # fast or slow (dual-process)
+  scanPattern: ...            # how much of the viewport is scanned under load
+  peripheralVision: ...       # visual field narrowed by stress
+  habituation: ...            # banner blindness
+  emotionalState: ...         # anxiety, frustration, confusion, boredom, satisfaction, excitement, ...
+  emotionalJourney: []        # emotional events
 ```
+
+The inner monologue is not part of the state; the journey result carries it as `fullMonologue`.
 
 ---
 
 ## State Update Rules
 
-### After Each Action
+### MCP-driven: `cognitive_journey_update_state`
+
+The tool takes `currentState`, `actionResult` (`success`, `wasConfusing`, `progressMade`, `wentBack`), `personaTraits` (`patience`, `riskTolerance`, `comprehension`, `persistence`) and optional `personaValues`, and returns `newState`:
 
 ```
-# Patience depletes over time and with frustration
-patienceRemaining -= 0.02                    # Base time cost
-patienceRemaining -= frustrationLevel × 0.05 # Frustration accelerates
+patienceRemaining -= 0.02                                  # every step
+patienceRemaining -= frustrationLevel x 0.05 x achievement
 
-# Confusion builds from unclear elements
-IF element_purpose_unclear:
-  confusionLevel += (1 - persona.comprehension) × 0.15
+IF success:
+  confusionLevel   -= 0.1 x stimulation   (floor 0)
+  frustrationLevel -= 0.05                (floor 0)
+  IF progressMade:
+    confidenceLevel += 0.1 x achievement  (cap 1)
+    goalProgress    += 0.1                (cap 1)
+ELSE:
+  frustrationLevel += 0.2 x security      (cap 1)
 
-IF element_worked_as_expected:
-  confusionLevel -= 0.1
-  confusionLevel = max(0, confusionLevel)
+IF wasConfusing:
+  confusionLevel += (1 - comprehension) x 0.15 x conformity
+IF wentBack:
+  confidenceLevel -= 0.15 x security
 
-# Frustration builds from confusion and failures
-IF action_failed:
-  frustrationLevel += 0.2
-
-IF confused_for_long:
-  frustrationLevel += confusionLevel × 0.1
-
-# Frustration naturally decays on success
-IF action_succeeded:
-  frustrationLevel -= 0.05
-  frustrationLevel = max(0, frustrationLevel)
-
-# Confidence updates
-IF progress_toward_goal:
-  confidenceLevel += 0.1
-IF going_in_circles:
-  confidenceLevel -= 0.15
+stepCount += 1
+timeElapsed += 2            # the tool never sees a clock
 ```
+
+The value multipliers come from Schwartz values in `personaValues` (`security`, `stimulation`, `achievement`, `conformity`, ...): `1 + (value - 0.5) x 0.4`, so 0.8 to 1.2, and 1.0 when no values are passed.
+
+### Autonomous journey
+
+Here the emotional state is the single source of truth. Each step the model reports a mood, a new confusion and frustration, and the progress it believes it made. Those reports are signals: they fire emotional triggers (error, setback, clarity, progress, success, time pressure), the emotions then decay toward baseline at rates set by the persona's traits (high comprehension sheds confusion faster), and the simple fields are derived from the result (`deriveSimplifiedState` in `src/cognitive/emotions.ts`):
+
+- `confusionLevel` and `frustrationLevel` are the emotional state's confusion and frustration
+- `patienceRemaining` = 1 - (strongest negative emotion x drain) + positive buffer, where the drain is larger for a low-patience persona and satisfaction and excitement buffer it
+- `goalProgress` only moves after a real action: at most 0.05 for an in-page action, the model's full claim when the page actually navigated, and freely downward
+- `currentMood` is the mood the model reported
 
 ---
 
 ## Abandonment Thresholds
 
-The simulated user ABANDONS when ANY threshold is exceeded:
+### Autonomous journey
 
-| Trigger | Threshold | Abandonment Message |
-|---------|-----------|---------------------|
-| **Patience depleted** | `patienceRemaining < 0.1` | "This is taking too long. I give up." |
-| **Too confused** | `confusionLevel > 0.8` for 30+ seconds | "I have no idea what I'm supposed to do here." |
-| **Too frustrated** | `frustrationLevel > 0.85` | "This is so frustrating! I'm done." |
-| **No progress** | 10+ steps AND `goalProgress < 0.1` | "I'm not getting anywhere with this." |
-| **Stuck in loop** | Same page 3+ times | "I keep ending up in the same place." |
-| **Time limit** | `timeElapsed > 120s` (configurable) | "I've spent too much time on this." |
+Checked after every step (`checkAbandonmentTriggers` in `src/cognitive/index.ts`). Trait bands: low comprehension < 0.4; low patience < 0.3, high > 0.7; low persistence < 0.3, high > 0.7.
 
-### Abandonment Logic
+| Reason | Fires when | Message |
+|--------|-----------|---------|
+| patience | `patienceRemaining < 0.1` | "This is taking too long. I give up." |
+| confusion | `confusionLevel > 0.9` (0.75 for low comprehension) | "I have no idea what to do. This is too confusing." |
+| frustration | `frustrationLevel > 0.95` (0.8 for low patience) | "This is so frustrating! I'm done." |
+| decision fatigue | fatigue > 0.85 (0.95 high persistence, 0.7 low persistence) | "Too many choices... I can't think straight anymore. Maybe later." |
+| no progress | more than 15 steps (20 for high persistence) and `goalProgress < 0.1` | "I'm not making any progress. This isn't working." |
+| emotional | anxiety > 0.85 and frustration > 0.8 and patience < 0.3; or an emotional modifier above 1.3 raises the patience floor past what is left | "This is too stressful. I need to take a break." |
+| timeout | elapsed time > the time limit, or the browser stops responding | "I've spent too long on this (Ns). Giving up." |
 
-```python
-def check_abandonment(state, persona):
-    # Patience check
-    if state.patienceRemaining < 0.1:
-        return ("patience", "This is taking too long. I give up.")
+The values `abandonmentReason` takes:
 
-    # Confusion check (sustained)
-    if state.confusionLevel > 0.8 and state.confusion_duration > 30:
-        return ("confusion", "I have no idea what I'm supposed to do here.")
-
-    # Frustration check
-    if state.frustrationLevel > 0.85:
-        return ("frustration", "This is so frustrating! I'm done.")
-
-    # Progress check
-    if state.stepCount > 10 and state.goalProgress < 0.1:
-        return ("no_progress", "I'm not getting anywhere with this.")
-
-    # Loop detection
-    page_visits = Counter(state.memory.pagesVisited[-10:])
-    if any(count >= 3 for count in page_visits.values()):
-        return ("loop", "I keep ending up in the same place.")
-
-    return None  # Continue journey
 ```
+patience | confusion | frustration | decision_fatigue | no_progress | emotional | timeout
+```
+
+The time limit is `--max-time` (default 120 s). A caller of the library that passes no limit gets 120 s, 180 s for a high-patience persona, 60 s for a low-patience one. Reaching `--max-steps` (default 50) ends the run without an abandonment reason. Decision fatigue grows by `0.05 x ln(options + 1)` per decision (a fill counts as 5 options, a navigation as 8, anything else as 3); above 0.7 the persona starts choosing defaults.
+
+The result type still lists a loop reason, but nothing fires it: loop detection was removed because it could never trigger.
+
+How a run succeeds: the model claims the goal and quotes evidence. The evidence is marked `[VERIFIED]` when at least 30% of its words appear in the page text, `[UNVERIFIED]` otherwise; the claim ends the run as achieved either way. A run that ends without a claim gets a closing evaluation of the final page, which can mark it achieved and clear an abandonment reason.
+
+### MCP-driven journey
+
+`cognitive_journey_update_state` checks three limits and returns `shouldAbandon`, `abandonmentReason` and `abandonmentMessage`:
+
+| Reason | Fires when | Message |
+|--------|-----------|---------|
+| patience | `patienceRemaining < 0.1` | "This is taking too long. I give up." |
+| frustration | `frustrationLevel > 0.85 / security` | "This is so frustrating! I'm done." (high `security` value: "This doesn't feel safe or reliable. I'm leaving.") |
+| confusion | `confusionLevel > 0.8 / conformity` on this step and the previous one | "I have no idea what I'm supposed to do here." |
+
+When more than one breaches at once, the reason is the one furthest past its own limit and the rest are listed in `alsoBreached`. The tool also returns `journeyOver` (abandoned, or `goalProgress` reached 1) and releases the journey's browser session (on a hosted server, pass the session token as `param: _browserToken`).
+
+`cognitive_journey_init` also announces a no-progress limit (10 steps, 15 for high persistence), a loop limit (3 visits to one page), a time limit (120 s; 60 s for low patience, 180 s for high), and lower limits for low comprehension (confusion 0.6) and low patience (frustration 0.7). `cognitive_journey_update_state` does not apply those; the calling model has to.
 
 ---
 
-## Mood Transitions
+## Mood
 
-Current mood affects inner monologue and decision-making:
+In an autonomous journey the model reports the mood each step.
+
+`cognitive_journey_update_state` derives it from the final levels:
 
 ```
-neutral → hopeful:     On first sign of progress
-neutral → confused:    When confusionLevel > 0.3
-confused → frustrated: When frustrationLevel > 0.4
-frustrated → defeated: When frustrationLevel > 0.7
-Any → relieved:        When goal achieved or clear progress
+frustration > 0.8 AND persistence < 0.5      -> defeated
+frustration > 0.7 OR confusion > 0.5         -> frustrated or confused, whichever level is higher
+action succeeded AND progress made           -> hopeful
+otherwise                                    -> unchanged
 ```
 
-### Mood-Based Monologue Templates
+It never sets `relieved`; set it yourself when the goal is reached.
+
+### Mood-Based Monologue Examples
 
 | Mood | Example Monologue |
 |------|-------------------|
@@ -144,242 +159,141 @@ Any → relieved:        When goal achieved or clear progress
 
 ---
 
-## State Snapshot Format
+## Per-Step Log
 
-At each step, capture:
+An autonomous journey records one `journeyLog` entry per step:
 
 ```yaml
-snapshot:
-  step: 7
-  timestamp: "2026-02-04T22:45:30Z"
+- step: 7
   url: "https://example.com/checkout"
-
-  state:
-    patienceRemaining: 0.62
-    confusionLevel: 0.35
-    frustrationLevel: 0.28
-    goalProgress: 0.4
-    confidenceLevel: 0.55
-    currentMood: "confused"
-
-  perception:
-    elementsNoticed: ["Submit Order button", "Price total", "Edit cart link"]
-    elementFocused: "Submit Order button"
-    uncertainties: ["Not sure if this is final"]
-
-  decision:
-    action: "click"
-    target: "Submit Order button"
-    reasoning: "This seems to be what I need to complete my goal"
-    confidence: 0.6
-    alternatives:
-      - action: "click Edit cart"
-        rejectionReason: "That would take me backwards"
-
+  pageTitle: "Checkout"
+  phase: "decide"
+  action: "click"
+  actionTarget: "Submit Order"
+  focusedElement: "Submit Order button"
   monologue: "I think this is the button to finish... I hope it doesn't charge me twice."
+  mood: "confused"
+  goalProgress: 0.4
+  patience: 0.62
+  confusion: 0.35
+  frustration: 0.28
+  timestamp: 1795453619372
 ```
 
 ---
 
-## Metrics Collection
+## Journey Result
 
-Track for final report:
+The final report (`CognitiveJourneyResult`):
 
 ```yaml
-journeyMetrics:
-  # Outcome
-  goalAchieved: false
-  abandonmentReason: "frustration"
-  finalMonologue: "This is so frustrating! I'm done."
-
-  # Path metrics
-  totalTime: 67.4
-  stepCount: 12
-  pathEfficiency: 0.4  # Optimal steps / actual steps
-
-  # State evolution
+persona: "first-timer"
+goal: "Complete checkout"
+goalAchieved: false
+abandonmentReason: "frustration"
+abandonmentMessage: "This is so frustrating! I'm done."
+totalTime: 67.4
+stepCount: 12
+pathEfficiency: 0.4            # only when an optimal path is known
+summary:
   avgConfusionLevel: 0.42
   maxFrustrationLevel: 0.86
-  patienceAtEnd: 0.23
   backtrackCount: 3
-  timeInConfusion: 28.5
-
-  # Friction points
-  frictionEvents:
-    - step: 4
-      type: "unclear_button"
-      element: "Continue"
-      frustrationIncrease: 0.15
-      monologue: "Continue to where? What does this do?"
-    - step: 8
-      type: "form_error"
-      element: "Email field"
-      frustrationIncrease: 0.25
-      monologue: "What's wrong with my email? It looks fine to me!"
-
-  # Confusion points (for UX improvement)
-  confusionPoints:
-    - url: "https://example.com/checkout/shipping"
-      element: "Shipping options"
-      level: 0.65
-      monologue: "Which one am I supposed to pick? They all look the same."
-      screenshot: "confusion-001.png"
+  timeInConfusion: 8           # 2 s per friction point
+  decisionsMade: 12
+  finalDecisionFatigue: 0.41
+  wasChoosingDefaults: false
+  dominantEmotion: "frustration"
+frictionPoints:
+  - step: 4
+    url: "https://example.com/checkout/shipping"
+    element: "Continue"
+    type: "unclear_button"     # unclear_button | confusing_ui | form_error | slow_load | missing_element | other
+    frustrationIncrease: 0.15
+    monologue: "Continue to where? What does this do?"
+fullMonologue: [...]
+finalState: { ... }
+journeyLog: [...]
+goalEvidence: "..."
+failureReason: "..."
+navigationPath: [...]
+lastPage: { url, title }
 ```
 
----
-
-## Persona-Specific Thresholds
-
-Adjust thresholds based on persona traits:
-
-```yaml
-# Impatient user - lower thresholds
-adjustedThresholds:
-  patienceAbandon: 0.2       # Gives up sooner
-  frustrationAbandon: 0.7    # Lower tolerance
-  timeLimit: 60              # Half the time
-  stepLimit: 8               # Fewer attempts
-
-# Elderly user - higher patience, lower confusion tolerance
-adjustedThresholds:
-  patienceAbandon: 0.05      # Very patient
-  frustrationAbandon: 0.8    # Still gives up if too frustrated
-  confusionAbandon: 0.6      # Lower tolerance for confusion
-  timeLimit: 300             # More time allowed
-```
+A step is recorded as a friction point when the model describes friction and confusion or frustration is above 0.4.
 
 ---
 
 ## Integration Points
 
-This state template is used by:
-
-1. **CognitiveJourney.md workflow** — Updates state after each action
-2. **Claude Code reasoning** — References state when making decisions
-3. **Report generation** — Final metrics from state history
-
-The cognitive state is the "working memory" of the simulation.
+1. **Workflows/CognitiveJourney.md**: running either engine
+2. **CognitivePersonas.md**: the traits that set the bands and drain rates
+3. **The calling model**: in an MCP-driven journey it carries the state between `cognitive_journey_update_state` calls
 
 ---
 
-## Advanced State Systems (v11.5.0)
+## Advanced State Systems
 
-### Self-Efficacy State
+`src/types.ts` also defines four state models, exported from the `cbrowser` package with their helper functions. No journey uses them today; they are library building blocks. The effects listed are the research claims their source comments cite.
 
-Tracks belief in ability to solve problems. Based on Bandura (1977).
+### Self-Efficacy State (Bandura 1977)
 
 ```typescript
 interface SelfEfficacyState {
-  baseEfficacy: number;           // From persona trait (0-1)
-  currentEfficacy: number;        // After success/failure adjustments
-  recentSuccesses: number;        // Count of recent wins
-  recentFailures: number;         // Count of recent failures
-  domainConfidence: Record<string, number>;  // Per-domain confidence
+  baseEfficacy: number;           // from the persona trait (0-1)
+  currentEfficacy: number;        // after success/failure adjustments
+  recentSuccesses: number;
+  recentFailures: number;
+  domainConfidence: Record<string, number>;
 }
-
-// Effects:
-// - Low efficacy users abandon 40% faster on first error
-// - High efficacy users try 3x more solution paths
-// - Mastery experiences boost efficacy more than verbal encouragement
+// Helpers: createSelfEfficacyState, handleChallenge, updateSelfEfficacy
+// Cited: low-efficacy users abandon 40% faster on a first error; high-efficacy
+// users try 3x more solution paths
 ```
 
-### Satisficing State
-
-Tracks decision style (maximizer vs. satisficer). Based on Simon (1956).
+### Satisficing State (Simon 1956)
 
 ```typescript
 interface SatisficingState {
-  tendency: number;               // From persona trait (0=maximizer, 1=satisficer)
-  aspirationLevel: number;        // Current "good enough" threshold
-  optionsExamined: number;        // How many options reviewed
+  tendency: number;               // 0 maximizer, 1 satisficer
+  aspirationLevel: number;        // current "good enough" threshold
+  optionsExamined: number;
   bestOptionSeen: { value: number; position: number } | null;
-  searchFatigue: number;          // Accumulates during option review
+  searchFatigue: number;
 }
-
-// Effects:
-// - Satisficers decide 50% faster
-// - Maximizers suffer more from choice overload
-// - Aspiration level adapts based on options seen
+// Helpers: createSatisficingState, evaluateOption, updateSatisficingState
+// Cited: satisficers decide 50% faster with similar outcome quality
 ```
 
-### Trust State
-
-Tracks trust calibration toward websites. Based on Fogg (2003).
+### Trust State (Fogg 2003, Riegelsberger 2005)
 
 ```typescript
 interface TrustState {
-  baselineTrust: number;          // From persona trait (0-1)
-  currentTrust: number;           // After signal/betrayal adjustments
-  signalsDetected: TrustSignal[]; // Security indicators found
-  betrayalHistory: TrustBetrayalEvent[];  // Trust violations
+  baselineTrust: number;          // from the persona trait (0-1)
+  currentTrust: number;
+  signalsDetected: TrustSignal[];
+  betrayalHistory: TrustBetrayalEvent[];
 }
-
-// Trust signals (8 types):
-// - https, security_badge, brand_recognition, professional_design
-// - reviews_visible, contact_info, privacy_policy, social_proof
-
-// Effects:
-// - Low-trust users take 3-10x longer evaluating security
-// - Trust calibration affects CTA click-through by 40%
-// - Trust destroyed faster than built (asymmetric)
+// Signals: https, security_badge, brand_recognition, professional_design,
+//          reviews_visible, contact_info, privacy_policy, social_proof
+// Betrayals: popup_spam, redirect_unexpected, form_error, slow_load, dark_pattern
+// Helpers: createTrustState, evaluateTrustDecision, recordTrustBetrayal
+// Cited: low-trust users take 3-10x longer evaluating; trust affects
+// CTA click-through by up to 40%
 ```
 
-### Interrupt Recovery State
-
-Tracks ability to resume after interruption. Based on Mark et al. (2005).
+### Interrupt Recovery State (Mark et al. 2005)
 
 ```typescript
 interface InterruptRecoveryState {
-  recoveryAbility: number;        // From persona trait (0-1)
-  currentTaskContext: TaskContext | null;  // What they were doing
-  interruptionLog: InterruptionEvent[];    // Interruption history
-  environmentalCues: string[];    // Breadcrumbs, autosave, etc.
+  recoveryAbility: number;        // from the persona trait (0-1)
+  currentTaskContext: TaskContext | null;
+  interruptionLog: InterruptionEvent[];
+  environmentalCues: string[];    // breadcrumbs, autosave, ...
 }
-
-// Interruption types:
-// - external (phone, person) - most disruptive
-// - system (popup, alert)
-// - self_initiated (checking email)
-// - timeout (session expired) - most disruptive
-
-// Resumption outcomes:
-// - resume_exact: Back to exact spot
-// - resume_approximate: Lose 10-30% progress
-// - restart: Start from beginning
-// - abandon: Give up entirely
-```
-
----
-
-## State Integration
-
-All state systems integrate with the core cognitive state:
-
-```yaml
-cognitiveState:
-  # Core state (existing)
-  patienceRemaining: 0.62
-  confusionLevel: 0.35
-  frustrationLevel: 0.28
-
-  # Advanced states (v11.5.0)
-  selfEfficacy:
-    current: 0.55
-    recentSuccesses: 2
-    recentFailures: 1
-
-  satisficing:
-    aspirationLevel: 0.7
-    optionsExamined: 4
-    searchFatigue: 0.3
-
-  trust:
-    current: 0.65
-    signalsDetected: ["https", "brand_recognition"]
-    recentBetrayal: null
-
-  interruptRecovery:
-    contextPreserved: true
-    lastInterruption: null
-    environmentalCues: ["breadcrumbs", "form_autosave"]
+// Interruption types: external, self_initiated, system, timeout
+// Resumption: resume_exact | resume_approximate | restart | abandon
+// Helpers: createInterruptRecoveryState, handleInterruption, setTaskContext,
+//          updateEnvironmentalCues
+// Cited: average recovery time after an interruption is 23 minutes
 ```

@@ -1,154 +1,91 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
-# CBrowser Claude Skill Installer
+# Installs the CBrowser Claude skill in ~/.claude/skills/CBrowser.
 #
-# Usage:
 #   curl -fsSL https://raw.githubusercontent.com/alexandriashai/cbrowser/main/scripts/install-skill.sh | bash
 #
-# Or with npm:
-#   npx cbrowser install-skill
+# Other ways to get the same skill:
+#   cbrowser install-skill           copies the skill your installed cbrowser version ships
+#   /plugin marketplace add alexandriashai/cbrowser, then /plugin install cbrowser@cbrowser
+#                                    (Claude Code plugin: the skill plus the MCP server)
 #
+# Every file is downloaded before anything is written, so a failed download leaves an
+# existing install as it was. Only the skill's own files are written: anything else in
+# the directory is left alone. Nothing here asks a question, because under `curl | bash`
+# standard input is the script itself.
+#
+# SKILL_FILES must list exactly the files in plugins/cbrowser/skills/cbrowser/;
+# tests/skill-install.test.ts fails when they differ.
+#
+# Environment:
+#   CBROWSER_SKILL_BASE   where to download from (default: the skill on GitHub main)
+#   CBROWSER_SKILL_DIR    where to install (default: ~/.claude/skills/CBrowser)
 
-set -e
+set -euo pipefail
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+BASE="${CBROWSER_SKILL_BASE:-https://raw.githubusercontent.com/alexandriashai/cbrowser/main/plugins/cbrowser/skills/cbrowser}"
+DEST="${CBROWSER_SKILL_DIR:-${HOME}/.claude/skills/CBrowser}"
 
-# Config
-SKILL_NAME="CBrowser"
-SKILL_DIR="${HOME}/.claude/skills/${SKILL_NAME}"
-REPO_URL="https://raw.githubusercontent.com/alexandriashai/cbrowser/main"
-VERSION="7.4.8"
+SKILL_FILES=(
+  SKILL.md
+  AIVision.md
+  CognitivePersonas.md
+  CognitiveState.md
+  Credentials.md
+  Personas.md
+  Philosophy.md
+  SessionManagement.md
+  Workflows/Audit.md
+  Workflows/Authenticate.md
+  Workflows/Capture.md
+  Workflows/CognitiveJourney.md
+  Workflows/Extract.md
+  Workflows/Interact.md
+  Workflows/Journey.md
+  Workflows/Navigate.md
+  Workflows/Test.md
+)
 
-echo -e "${BLUE}"
-echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║         CBrowser Claude Skill Installer v${VERSION}            ║"
-echo "╚═══════════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-
-# Check if ~/.claude/skills exists
-if [ ! -d "${HOME}/.claude/skills" ]; then
-    echo -e "${YELLOW}Creating ~/.claude/skills directory...${NC}"
-    mkdir -p "${HOME}/.claude/skills"
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl is required." >&2
+  exit 1
 fi
 
-# Check if skill already exists
-if [ -d "${SKILL_DIR}" ]; then
-    echo -e "${YELLOW}CBrowser skill already exists at ${SKILL_DIR}${NC}"
-    read -p "Do you want to update it? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${RED}Installation cancelled.${NC}"
-        exit 0
-    fi
-    echo -e "${BLUE}Updating existing installation...${NC}"
-    rm -rf "${SKILL_DIR}"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "${STAGE}"' EXIT
+
+echo "Downloading the CBrowser skill (${#SKILL_FILES[@]} files)..."
+failed=0
+for f in "${SKILL_FILES[@]}"; do
+  mkdir -p "${STAGE}/$(dirname "${f}")"
+  if ! curl -fsSL --max-time 30 "${BASE}/${f}" -o "${STAGE}/${f}"; then
+    echo "  could not download ${f}" >&2
+    failed=$((failed + 1))
+  fi
+done
+if [ "${failed}" -gt 0 ]; then
+  echo "${failed} file(s) failed to download; nothing was changed." >&2
+  exit 1
 fi
 
-# Create skill directory structure
-echo -e "${BLUE}Creating skill directory structure...${NC}"
-mkdir -p "${SKILL_DIR}/Workflows"
-mkdir -p "${SKILL_DIR}/Tools"
-mkdir -p "${SKILL_DIR}/.memory/sessions"
-mkdir -p "${SKILL_DIR}/.memory/selectors"
-mkdir -p "${SKILL_DIR}/.memory/personas"
-mkdir -p "${SKILL_DIR}/.memory/scenarios"
-mkdir -p "${SKILL_DIR}/.memory/audit"
+if [ -d "${DEST}" ]; then action="Updated"; else action="Installed"; fi
+for f in "${SKILL_FILES[@]}"; do
+  mkdir -p "${DEST}/$(dirname "${f}")"
+  cp "${STAGE}/${f}" "${DEST}/${f}"
+done
 
-# Download skill files
-echo -e "${BLUE}Downloading skill files...${NC}"
-
-download_file() {
-    local url="$1"
-    local dest="$2"
-    if command -v curl &> /dev/null; then
-        curl -fsSL "$url" -o "$dest" 2>/dev/null || echo "  Warning: Could not download $url"
-    elif command -v wget &> /dev/null; then
-        wget -q "$url" -O "$dest" 2>/dev/null || echo "  Warning: Could not download $url"
-    else
-        echo -e "${RED}Error: Neither curl nor wget found. Please install one.${NC}"
-        exit 1
-    fi
-}
-
-# Main skill file
-echo "  - SKILL.md"
-download_file "${REPO_URL}/skill/SKILL.md" "${SKILL_DIR}/SKILL.md"
-
-# Context files
-echo "  - Philosophy.md"
-download_file "${REPO_URL}/skill/Philosophy.md" "${SKILL_DIR}/Philosophy.md"
-
-echo "  - AIVision.md"
-download_file "${REPO_URL}/skill/AIVision.md" "${SKILL_DIR}/AIVision.md"
-
-echo "  - SessionManagement.md"
-download_file "${REPO_URL}/skill/SessionManagement.md" "${SKILL_DIR}/SessionManagement.md"
-
-echo "  - Credentials.md"
-download_file "${REPO_URL}/skill/Credentials.md" "${SKILL_DIR}/Credentials.md"
-
-echo "  - Personas.md"
-download_file "${REPO_URL}/skill/Personas.md" "${SKILL_DIR}/Personas.md"
-
-# Workflow files
-echo "  - Workflows/Navigate.md"
-download_file "${REPO_URL}/skill/Workflows/Navigate.md" "${SKILL_DIR}/Workflows/Navigate.md"
-
-echo "  - Workflows/Interact.md"
-download_file "${REPO_URL}/skill/Workflows/Interact.md" "${SKILL_DIR}/Workflows/Interact.md"
-
-echo "  - Workflows/Extract.md"
-download_file "${REPO_URL}/skill/Workflows/Extract.md" "${SKILL_DIR}/Workflows/Extract.md"
-
-echo "  - Workflows/Authenticate.md"
-download_file "${REPO_URL}/skill/Workflows/Authenticate.md" "${SKILL_DIR}/Workflows/Authenticate.md"
-
-echo "  - Workflows/Test.md"
-download_file "${REPO_URL}/skill/Workflows/Test.md" "${SKILL_DIR}/Workflows/Test.md"
-
-echo "  - Workflows/Journey.md"
-download_file "${REPO_URL}/skill/Workflows/Journey.md" "${SKILL_DIR}/Workflows/Journey.md"
-
-# Tools
-echo "  - Tools/CBrowser.ts"
-download_file "${REPO_URL}/skill/Tools/CBrowser.ts" "${SKILL_DIR}/Tools/CBrowser.ts"
-
-# Update skill index if it exists
-SKILL_INDEX="${HOME}/.claude/skills/skill-index.json"
-if [ -f "${SKILL_INDEX}" ]; then
-    echo -e "${BLUE}Updating skill index...${NC}"
-    # Check if CBrowser is already in index
-    if ! grep -q '"CBrowser"' "${SKILL_INDEX}" 2>/dev/null; then
-        # Add CBrowser to index (simple append before closing bracket)
-        # This is a basic approach - a proper JSON parser would be better
-        echo "  Note: You may need to manually add CBrowser to your skill-index.json"
-    fi
+echo ""
+echo "${action} the CBrowser skill in ${DEST}"
+echo "Claude Code finds it on its own; start a new session to load it."
+if [ -f "${DEST}/Tools/CBrowser.ts" ]; then
+  echo ""
+  echo "An older install left ${DEST}/Tools/CBrowser.ts, which this skill no longer uses."
+  echo "You can delete it."
 fi
-
 echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║              CBrowser Skill Installed Successfully!           ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo "The skill drives the cbrowser CLI and MCP server. If you do not have them yet:"
+echo "  npm install -g cbrowser        (Node 20.19+ or 22.12+; downloads Chromium)"
+echo "  cbrowser doctor                checks the setup"
+echo "  cbrowser install-browsers firefox webkit   only for cross-browser testing"
 echo ""
-echo -e "Skill installed to: ${BLUE}${SKILL_DIR}${NC}"
-echo ""
-echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Ensure cbrowser npm package is installed:"
-echo "     npm install -g cbrowser"
-echo ""
-echo "  2. Install Playwright browsers (all browsers for cross-browser testing):"
-echo "     npx playwright install"
-echo ""
-echo "  3. Add to your skill-index.json if not already present:"
-echo '     "CBrowser": "'${SKILL_DIR}/SKILL.md'"'
-echo ""
-echo "  4. Start using CBrowser in Claude Code!"
-echo ""
-echo -e "${BLUE}Documentation:${NC} https://github.com/alexandriashai/cbrowser/wiki"
-echo -e "${BLUE}Demo Server:${NC}   https://demo.cbrowser.ai/mcp"
-echo ""
+echo "Docs: https://cbrowser.ai/docs"

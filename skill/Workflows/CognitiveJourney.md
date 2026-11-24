@@ -1,6 +1,6 @@
 # Cognitive Journey Workflow
 
-Autonomous, goal-driven user simulation where Claude Code IS the cognitive engine and CBrowser MCP tools are the hands.
+Goal-driven user simulation: a persona with cognitive traits tries to reach a goal on a real site, and the run records what it noticed, where it got confused, and whether and why it gave up.
 
 ---
 
@@ -20,113 +20,121 @@ Activate this workflow when request contains:
 
 ---
 
-## Architecture: Claude Code as the Brain
+## Two Ways to Run a Journey
+
+| | Autonomous (CLI) | MCP-driven |
+|---|---|---|
+| Who thinks | CBrowser calls Claude every step | The calling model (Claude Code) reasons as the persona |
+| Needs | An Anthropic API key (`cbrowser config set-api-key <key>`); costs tokens per step | The CBrowser MCP server; no key |
+| State rules | Emotional-state engine (`CognitiveState.md`, autonomous) | `cognitive_journey_update_state` rules (`CognitiveState.md`, MCP-driven) |
+| Output | JSON report, optional HTML, trace, capture | Whatever the driving model narrates |
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         COGNITIVE JOURNEY                            │
-│                                                                      │
-│  ┌─────────────────┐     ┌──────────────┐     ┌──────────────────┐ │
-│  │  Claude Code    │     │  MCP Tools   │     │  Chrome Browser  │ │
-│  │  (Intelligence) │     │  (Hands)     │     │  (User watches)  │ │
-│  │                 │     │              │     │                  │ │
-│  │  "As a confused │────▶│  navigate    │────▶│  [Page loads]   │ │
-│  │   first-timer,  │     │  click       │     │  [Click happens] │ │
-│  │   I notice..."  │◀────│  snapshot    │◀────│  [A11y tree]    │ │
-│  │                 │     │  screenshot  │     │                  │ │
-│  └─────────────────┘     └──────────────┘     └──────────────────┘ │
-│                                                                      │
-│  User watches Chrome window in real-time!                           │
-└─────────────────────────────────────────────────────────────────────┘
+MCP-driven:
+
+  Claude Code (thinks as the persona)
+      |  navigate / screenshot / extract / click / fill
+      v
+  CBrowser MCP tools  --->  browser (Chromium)
+      ^
+      |  cognitive_journey_update_state after every action
+      +-- returns newState, shouldAbandon
 ```
 
 ---
 
-## Invocation Methods
+## Option 1: Autonomous Journey (CLI)
 
-### Option 1: Local Tool (Primary)
 ```bash
-bun run ~/.claude/skills/CBrowser/Tools/CBrowser.ts cognitive-journey \
-  --persona first-timer \
-  --start "https://example.com" \
-  --goal "find help documentation"
+cbrowser cognitive-journey --persona first-timer \
+  --start "https://example.com" --goal "find help documentation"
 ```
 
-### Option 2: CLI (Fallback)
+Useful flags (the COGNITIVE JOURNEY section of the CLI help lists them all):
+
 ```bash
-npx cbrowser cognitive-journey --persona first-timer --start "https://example.com" --goal "find help documentation"
+cbrowser cognitive-journey signup-check --persona elderly-user \
+  --start "https://example.com" --goal "find the help page" \
+  --device iphone-15 --verbose --output journey.json \
+  --max-steps 30 --max-time 180 --trace --capture
 ```
 
-### Option 3: MCP (Alternative - when MCP server is running)
+- `--persona` takes a persona name or, if CBrowser does not know the name, a description of the person. Agent personas are refused.
+- The run starts in a fresh browser profile (a new visitor) unless you pass `--persistent`.
+- Each step's screenshot is sent to Claude; `--no-vision` sends text only.
+- `--trace` records every decision to `~/.cbrowser/traces/<id>.jsonl`. Replay it with no model calls and no API key:
+
+```bash
+cbrowser cognitive-journey --replay-trace ~/.cbrowser/traces/<id>.jsonl \
+  --persona elderly-user --start "https://example.com" --goal "find the help page"
 ```
-mcp__claude_ai_CBrowser_Demo__cognitive_journey_init(
+
+A replay stops with an error if the live page no longer matches the recorded one.
+
+Related commands on the same engine: `cbrowser explore <persona> --start <url> --goal <goal>` (a short journey), `cbrowser compare-personas` (several personas, same goal), `cbrowser competitive-benchmark` (same goal, several sites). All need the API key.
+
+Over MCP, `cognitive_journey_autonomous` is an Enterprise tool; on the local server it returns an upgrade message. Use the CLI, or drive the journey yourself (Option 2).
+
+---
+
+## Option 2: MCP-Driven Journey
+
+```
+cognitive_journey_init(
   persona: "first-timer",
   goal: "find help documentation",
   startUrl: "https://example.com"
 )
 ```
 
----
+`cognitive_journey_init` opens the start page and returns the persona's `cognitiveProfile`, `initialState`, `abandonmentThresholds`, step-by-step `instructions`, and a browser session token. Pass that token (`param: _browserToken`) to every later call so they act on the journey's page. Optional: `customTraits` (any of the 26 traits, including siteFamiliarity), `location`, `waitAfterLoad`, `waitForSelector`.
 
-## MCP Tools Available
+While a journey is open, `evaluate_script` is refused on its session: the persona can only look, click, fill, scroll and navigate.
 
-Use these CBrowser MCP tools during simulation:
+### MCP Tools Available
 
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
-| `mcp__claude_ai_CBrowser_Demo__navigate` | Go to URL | Start journey, follow links |
-| `mcp__claude_ai_CBrowser_Demo__screenshot` | Visual screenshot | Complex visual decisions, confusion points |
-| `mcp__claude_ai_CBrowser_Demo__click` | Click element | Execute click decision |
-| `mcp__claude_ai_CBrowser_Demo__smart_click` | Click with retry | Self-healing click |
-| `mcp__claude_ai_CBrowser_Demo__fill` | Type in input | Fill forms |
-| `mcp__claude_ai_CBrowser_Demo__extract` | Get page content | "See" the page as the persona |
-| `mcp__claude_ai_CBrowser_Demo__cognitive_journey_update_state` | Update cognitive state | After each action |
-| `mcp__claude_ai_CBrowser_Demo__list_cognitive_personas` | List personas | Check available personas |
+| `cognitive_journey_init` | Start the journey | Once, first |
+| `navigate` | Go to URL | Follow a link by address |
+| `screenshot` | Visual screenshot | Perceive the page |
+| `extract` | Links, headings, forms, images or text | "Read" the page as the persona |
+| `page_understand` | Page type, affordances, structure | Orient on a new page |
+| `find_element_by_intent` | Selector from a description | Before clicking something described in words |
+| `click` | Click element | Execute a click decision |
+| `smart_click` | Click with retry | When a click misses |
+| `fill` | Type in input | Fill forms |
+| `scroll` | Scroll the page | Look below the fold |
+| `cognitive_journey_update_state` | Update cognitive state | After every action |
+| `list_cognitive_personas` | List personas | Choose a persona |
 
 ---
 
 ## The Cognitive Loop
 
 ```
-INITIALIZE → PERCEIVE → COMPREHEND → DECIDE → EXECUTE → EVALUATE → (loop or abandon)
+INITIALIZE -> PERCEIVE -> COMPREHEND -> DECIDE -> EXECUTE -> EVALUATE -> (loop or abandon)
 ```
+
+In an MCP-driven journey you run this loop. PERCEIVE, COMPREHEND and DECIDE are reasoning you do as the persona; the scoring formulas below are heuristics for that reasoning, not code CBrowser runs. EVALUATE is where CBrowser's rules apply, through `cognitive_journey_update_state`.
 
 ### Phase 1: INITIALIZE
 
-1. **Parse the request:**
-   - Extract persona name (e.g., "first-timer", "elderly-user")
-   - Extract starting URL
-   - Extract goal statement
-   - Note any constraints
-
-2. **Load cognitive profile:**
-   - Reference `CognitivePersonas.md` for trait values
-   - Note attention pattern, decision style, inner voice template
-
-3. **Initialize state:**
-   - Set `patienceRemaining: 1.0`
-   - Set `confusionLevel: 0.0`
-   - Set `frustrationLevel: 0.0`
-   - Set `goalProgress: 0.0`
-   - Initialize memory arrays
-
-4. **Navigate to start:**
+1. **Parse the request:** persona name, starting URL, goal, constraints
+2. **Call `cognitive_journey_init`** and read the returned profile: trait values, attention pattern, decision style (null when no style clearly wins), thresholds
+3. **Keep the returned `initialState`:** patience 1.0, confusion 0, frustration 0, progress 0, confidence 0.5
+4. **Announce adoption** with the persona's real values. For `first-timer`:
    ```
-   mcp__chrome-devtools__navigate_page url="https://example.com"
-   ```
-
-5. **Announce adoption:**
-   ```
-   🎭 COGNITIVE JOURNEY
+   COGNITIVE JOURNEY
    Persona: first-timer
-   Goal: Complete provider registration
+   Goal: Create an account
    Starting URL: https://example.com
 
    Adopting persona mindset...
-   - Patience: 0.6 (medium - willing to learn)
-   - Risk tolerance: 0.3 (low - hesitates before clicking)
-   - Comprehension: 0.3 (low - doesn't know conventions)
-   - Attention: exploratory (looks around before deciding)
+   - Patience: 0.70 (moderate)
+   - Risk tolerance: 0.30 (moderate, near cautious)
+   - Comprehension: 0.30 (struggles with UI)
+   - Attention: thorough (reads before deciding)
 
    Beginning simulation...
    ```
@@ -135,223 +143,164 @@ INITIALIZE → PERCEIVE → COMPREHEND → DECIDE → EXECUTE → EVALUATE → (
 
 ### Phase 2: PERCEIVE
 
-Take a snapshot and filter by attention pattern:
-
-```
-mcp__chrome-devtools__take_snapshot
-```
-
-**Filter elements based on persona's attention pattern:**
+Look at the page with `screenshot`, and `extract` (headings, links, forms or text) or `page_understand` for structure. Then filter what you report by the persona's attention pattern:
 
 | Pattern | What to Notice First |
 |---------|---------------------|
-| targeted | Navigation, expected locations |
-| F-pattern | Top bar, left side, headings |
-| exploratory | Everything, but randomly |
-| sequential | First focusable, tab order |
+| f-pattern | Top bar, left side, headings |
+| z-pattern | Top left, top right, then across to the bottom right |
+| skim | Only the largest, boldest elements |
 | thorough | All headings, all text, all buttons |
-| skim | Only largest/boldest elements |
+| targeted | Navigation, expected locations |
+| exploratory | Everything, in no particular order |
+| sequential | First focusable element, then tab order |
 
 **Output perception:**
 ```
 Step 3 | PERCEIVE
 URL: https://example.com/register
 
-As a first-timer with exploratory attention, I notice:
-1. A big "Welcome" heading (most prominent)
-2. A form with several fields (confusing - many inputs)
+As a first-timer reading thoroughly, I notice:
+1. A big "Welcome" heading
+2. A form with several fields (a lot of inputs)
 3. A "Sign Up" button at the bottom (probably what I need)
-4. Some smaller links I'm not sure about ("Terms", "Privacy")
+4. Smaller links I'm not sure about ("Terms", "Privacy")
 5. A "Login" link (not what I want, I don't have an account)
 
 Elements that confuse me:
-- "Provider" vs "Client" - what's the difference?
-- Why are there two forms?
+- "Personal" vs "Business" account - what's the difference?
 ```
 
 ---
 
 ### Phase 3: COMPREHEND
 
-Use persona's comprehension trait to interpret elements:
+Interpret each element as the persona would. A heuristic:
 
 ```
 For each noticed element:
-  interpretedPurpose = what persona THINKS it does
-  confidence = persona.comprehension × elementClarity
-
-  IF confidence < 0.5:
-    Add to uncertainties
-    confusionLevel += (1 - confidence) × 0.1
+  interpretedPurpose = what the persona THINKS it does
+  confidence = persona.comprehension x elementClarity
+  IF confidence < 0.5: add to uncertainties, and mark this step wasConfusing
 ```
 
 **Output comprehension:**
 ```
 Step 3 | COMPREHEND
 
-My understanding of this page (as first-timer):
-- "Sign Up" button → Probably creates an account (confidence: 0.7)
-- "Provider" option → Not sure, maybe for businesses? (confidence: 0.3)
-- "Email" field → I know this one! (confidence: 0.95)
-- "Terms" link → Legal stuff, probably have to agree (confidence: 0.5)
+- "Sign Up" button -> probably creates an account (confidence: 0.7)
+- "Business" option -> maybe for companies? (confidence: 0.3)
+- "Email" field -> I know this one (confidence: 0.95)
 
 Uncertainties:
-- I don't know if I should click "Provider" or "Client"
-- What happens if I click the wrong one?
-
-Confusion level: 0.35 (+0.15 from unclear Provider/Client choice)
+- Personal or Business? What happens if I pick the wrong one?
 ```
 
 ---
 
 ### Phase 4: DECIDE
 
-Score candidates and choose action:
+Choose an action the persona would take. A heuristic:
 
 ```
 For each possible action:
-  score = goalRelevance × 0.5
-        + comprehensionConfidence × 0.3
-        + (riskTolerance × elementRisk) × 0.2
-
-bestAction = max(scores) if max(scores) > threshold else "explore more"
+  score = goalRelevance x 0.5
+        + comprehensionConfidence x 0.3
+        + (riskTolerance x elementRisk) x 0.2
 
 IF persona.riskTolerance < 0.3 AND elementRisk > 0.5:
-  Hesitate, consider alternatives
+  hesitate, consider alternatives
 ```
 
 **Output decision:**
 ```
 Step 3 | DECIDE
 
-Goal: Complete provider registration
-Current options:
-1. Click "Provider" option (score: 0.72)
-   - Goal relevance: high (I want to be a provider)
-   - Confidence: low (not sure what happens)
-   - Risk: medium (might be wrong choice)
+1. Click "Personal" (score: 0.72) - matches my goal, unsure what happens
+2. Click "Business" (score: 0.35) - not me
+3. Read more first (score: 0.45) - might explain the difference
 
-2. Click "Client" option (score: 0.35)
-   - Goal relevance: low (I'm not a client)
-   - Confidence: low
-
-3. Read the page more (score: 0.45)
-   - Might help understand Provider vs Client
-   - But patience is limited
-
-Decision: Click "Provider" option
-Reasoning: It matches my goal even though I'm nervous about it
-Confidence: 0.6
-
-Inner monologue: "I guess I should click Provider since I want to be one...
-I hope this is right. I can probably go back if it's wrong?"
+Decision: Click "Personal"
+Inner monologue: "I guess Personal is me... I hope I can go back if it's wrong."
 ```
 
 ---
 
 ### Phase 5: EXECUTE
 
-Take the action with appropriate timing:
+Use the CBrowser tools, always with the journey's session token:
 
 ```
-# Apply human-like delay based on decision style
-IF persona.decisionStyle == "cautious":
-  wait(random(2000, 5000))  # 2-5 seconds
-ELIF persona.decisionStyle == "impulsive":
-  wait(random(100, 300))    # 100-300ms
-
-# Execute the action
-mcp__chrome-devtools__click uid="ref_42"
-
-# Wait for result
-mcp__chrome-devtools__wait_for text="Registration" timeout=5000
+find_element_by_intent(intent: "Personal account option", _browserToken: "...")
+click(selector: "<selector it returned>", _browserToken: "...")
 ```
 
-**Output execution:**
-```
-Step 3 | EXECUTE
-
-[Hesitating for 2.3 seconds... typical for cautious first-timer]
-
-Action: click uid="ref_42" (Provider option)
-
-[Waiting for page response...]
-[Page changed - new content detected]
-
-Time in step: 3.1 seconds
-```
+Check `zone` and `visible` from `find_element_by_intent` before clicking. A red-zone element (purchase, delete account) is refused unless you pass `force`; a persona journey should not force it.
 
 ---
 
 ### Phase 6: EVALUATE
 
-Update cognitive state and check for abandonment:
+Report the outcome to `cognitive_journey_update_state`:
 
 ```
-# Update state based on outcome
-IF action_succeeded:
-  confusionLevel -= 0.1
-  frustrationLevel -= 0.05
-  confidenceLevel += 0.1
-  goalProgress = estimate_progress()
-ELSE:
-  frustrationLevel += 0.2
-  confusionLevel += 0.15
-
-# Deplete patience over time
-patienceRemaining -= 0.02
-patienceRemaining -= frustrationLevel × 0.05
-
-# Check abandonment triggers (see CognitiveState.md)
-abandonmentCheck = check_thresholds(state, persona)
+cognitive_journey_update_state(
+  currentState: { patienceRemaining: 0.95, confusionLevel: 0.35, frustrationLevel: 0.0,
+                  goalProgress: 0.1, confidenceLevel: 0.5, currentMood: "neutral",
+                  stepCount: 2, timeElapsed: 4 },
+  actionResult: { success: true, progressMade: true, wasConfusing: false, wentBack: false },
+  personaTraits: { patience: 0.7, riskTolerance: 0.3, comprehension: 0.3, persistence: 0.5 },
+  _browserToken: "..."
+)
 ```
 
-**Output evaluation:**
+It applies the rules in `CognitiveState.md` and returns `newState`, `shouldAbandon`, `abandonmentReason`, `abandonmentMessage`, `journeyOver` and the deltas. For the call above:
+
 ```
 Step 3 | EVALUATE
 
-Outcome: Success - page navigated to provider registration form
+Outcome: Success - the personal sign-up form opened
 
 State update:
-- Patience: 0.95 → 0.91 (-0.04)
-- Confusion: 0.35 → 0.25 (-0.10, action worked!)
-- Frustration: 0.0 → 0.0 (no change)
-- Goal progress: 0.0 → 0.2 (found the right form!)
-- Confidence: 0.5 → 0.6 (+0.10)
+- Patience: 0.95 -> 0.93 (-0.02 per step; no frustration to add)
+- Confusion: 0.35 -> 0.25 (-0.10, the action worked)
+- Frustration: 0.0 -> 0.0
+- Goal progress: 0.1 -> 0.2 (+0.1, progress made)
+- Confidence: 0.5 -> 0.6 (+0.1)
 
-Mood: neutral → hopeful
+Mood: neutral -> hopeful
 
-Inner monologue: "Oh good, that worked! Now I see a form for providers.
-This looks like the right place."
+Inner monologue: "Oh good, that worked! This looks like the right form."
 
-Abandonment check: CONTINUE (all thresholds OK)
+Abandonment check: CONTINUE
 ```
+
+`cognitive_journey_update_state` checks only patience, frustration and confusion. Apply the persona's own limits from `abandonmentThresholds` yourself: steps without progress, repeated visits to one page, the time limit, and its lower confusion and frustration limits.
 
 ---
 
 ### Phase 7: LOOP OR COMPLETE
 
 ```
-IF goalProgress >= 1.0:
-  Journey complete - SUCCESS
-ELIF abandonmentTriggered:
+IF goalProgress >= 1.0 (or the goal is plainly reached):
+  Journey complete - SUCCESS (set mood to relieved yourself)
+ELIF shouldAbandon OR one of the persona's own limits is crossed:
   Journey complete - ABANDONED
 ELSE:
-  Return to PERCEIVE phase
+  Return to PERCEIVE
 ```
 
 ---
 
 ## Abandonment Handling
 
-When thresholds exceeded, end the journey gracefully:
+When a limit is crossed, end the journey and report it:
 
 ```
-🚫 ABANDONMENT TRIGGERED
+ABANDONMENT TRIGGERED
 
-Trigger: frustration (0.87 > 0.85 threshold)
-Step: 8 of journey
-Time: 45.2 seconds
+Trigger: frustration (0.87 > 0.85 limit)
+Step: 8
 Goal progress: 0.3
 
 Final state:
@@ -361,14 +310,15 @@ Final state:
 
 Final monologue:
 "I've tried three times and it keeps saying my password is wrong
-but it won't tell me what's wrong with it! This is ridiculous.
-I'm going to try a different site."
+but it won't tell me what's wrong with it! I'm going to try a different site."
 
 Friction points identified:
 1. Password requirements not shown (step 5)
 2. Error message unhelpful (steps 6, 7, 8)
 3. No "forgot password" link visible (step 8)
 ```
+
+In the autonomous engine the limits are higher (frustration 0.95, or 0.8 for a low-patience persona); see `CognitiveState.md`.
 
 ---
 
@@ -377,79 +327,61 @@ Friction points identified:
 ```
 User: "Simulate a confused elderly user trying to find the help page on example.com"
 
-🎭 COGNITIVE JOURNEY ═══════════════════════════════════════════════════
+COGNITIVE JOURNEY
 Persona: elderly-user
 Goal: Find the help page
 Starting: https://example.com
 
 Traits loaded:
-- Patience: 0.9 (very patient)
-- Risk tolerance: 0.1 (very cautious)
+- Patience: 0.8 (patient)
+- Risk tolerance: 0.2 (cautious)
 - Comprehension: 0.2 (struggles with modern UI)
 - Attention: thorough (reads everything)
 
-━━━ Step 1 ━━━
-[navigate to https://example.com]
+--- Step 1 ---
+[cognitive_journey_init opened https://example.com]
 
 PERCEIVE: Looking at the page carefully...
-I see a lot of things. There's a menu at the top with words I don't
-recognize... "Dashboard", "Analytics"... Where is Help?
+There's a menu at the top with words I don't recognize...
+"Dashboard", "Analytics"... Where is Help?
 
 COMPREHEND:
-- Dashboard → Not sure what this means (0.2 confidence)
-- Analytics → Numbers and charts? (0.1 confidence)
-- Menu icon (three lines) → I've seen this before... (0.3 confidence)
-- Small "?" icon → Maybe that's help? (0.4 confidence)
+- Dashboard -> not sure what this means (0.2 confidence)
+- Menu icon (three lines) -> I've seen this before... (0.3 confidence)
+- Small "?" icon -> maybe that's help? (0.4 confidence)
 
-DECIDE: The question mark might be help. But it's very small.
+DECIDE: The question mark might be help, but it's very small.
 Let me look for the word "Help" first...
 
-[Inner monologue: "I wish they would just write 'Help' somewhere.
-Why do they make everything so small?"]
+[Inner monologue: "I wish they would just write 'Help' somewhere."]
 
-━━━ Step 2 ━━━
-PERCEIVE: Scrolling down slowly to look for "Help"...
+--- Step 2 ---
 [scroll down]
 
-I see a "Contact Us" at the bottom. That might help me get help.
-But I was looking for a Help page, not contact...
+PERCEIVE: "Contact Us" and "FAQ" in the footer, in very small text.
 
 COMPREHEND:
-- Contact Us → I could email them (0.6 confidence)
-- Footer links → Very small text (0.3 confidence)
-- "FAQ" → Frequently Asked Questions! (0.7 confidence)
+- Contact Us -> I could email them (0.6 confidence)
+- FAQ -> Frequently Asked Questions! (0.7 confidence)
 
-DECIDE: FAQ is probably what I need! That's where they answer questions.
+DECIDE: FAQ is probably what I need.
+[click "FAQ"]
 
-[Inner monologue: "Oh! FAQ - I know that one. Let me click it."]
+--- Step 3 ---
+PERCEIVE: A page titled "Frequently Asked Questions", a search box,
+a list of questions.
 
-[Hesitating for 4.2 seconds... making sure this is right]
-[click FAQ link]
+EVALUATE: progress made; mood hopeful -> relieved
+[Inner monologue: "This looks like what I needed."]
 
-━━━ Step 3 ━━━
-PERCEIVE: New page loaded. It says "Frequently Asked Questions" at the top.
-There's a search box and a list of questions.
-
-COMPREHEND:
-- Search box → I can look for specific help (0.7 confidence)
-- Question list → These are common problems (0.8 confidence)
-
-EVALUATE:
-- Goal progress: 0.9 (I found help content!)
-- Mood: hopeful → relieved
-
-[Inner monologue: "This looks like what I needed. Let me see if my
-question is here..."]
-
-━━━ JOURNEY COMPLETE ━━━
+--- JOURNEY COMPLETE ---
 
 Result: SUCCESS
-Time: 28.4 seconds
 Steps: 3
 Final confusion: 0.15
 Friction points: 1 (small "?" icon, missed on first scan)
 
-Recommendation: Add visible "Help" text link in main navigation
+Recommendation: Add a visible "Help" text link in the main navigation
 for users unfamiliar with icon conventions.
 ```
 
@@ -457,140 +389,128 @@ for users unfamiliar with icon conventions.
 
 ## Output Format
 
-Generate both real-time narration AND final report:
+### Real-Time
 
-### Real-Time (printed as simulation runs)
-```
-🎭 COGNITIVE JOURNEY: elderly-user seeking "find help page"
-━━━ Step 1 ━━━
-[Narration of perceive/comprehend/decide/execute]
-Patience: ████████░░ 0.87
-```
+The CLI prints each step's mood, patience, confusion, frustration, monologue and action with `--verbose`. In an MCP-driven journey, narrate the same per step.
 
 ### Final Report
+
+The autonomous journey writes a `CognitiveJourneyResult` (`--output journey.json`):
+
 ```yaml
-journeyReport:
-  persona: elderly-user
-  goal: "Find the help page"
-  result: SUCCESS
-
-  metrics:
-    totalTime: 28.4
-    stepCount: 3
-    pathEfficiency: 0.85
-    avgConfusionLevel: 0.28
-    maxFrustrationLevel: 0.15
-
-  frictionPoints:
-    - step: 1
-      element: "? icon"
-      issue: "Too small, icon-only, not recognized"
-      recommendation: "Add text label 'Help'"
-
-  fullMonologue:
-    - "I wish they would just write 'Help' somewhere..."
-    - "Oh! FAQ - I know that one."
-    - "This looks like what I needed."
+persona: elderly-user
+goal: "Find the help page"
+goalAchieved: true
+goalEvidence: "[VERIFIED - 80% match] Frequently Asked Questions"
+totalTime: 28.4
+stepCount: 3
+summary:
+  avgConfusionLevel: 0.28
+  maxFrustrationLevel: 0.15
+  backtrackCount: 0
+  timeInConfusion: 2
+frictionPoints:
+  - step: 1
+    url: "https://example.com/"
+    element: "? icon"
+    type: "unclear_button"
+    frustrationIncrease: 0.1
+    monologue: "I wish they would just write 'Help' somewhere..."
+fullMonologue:
+  - "I wish they would just write 'Help' somewhere..."
+  - "Oh! FAQ - I know that one."
+  - "This looks like what I needed."
+journeyLog: [...]      # one entry per step
+navigationPath: [...]
 ```
+
+Note: `goalAchieved` is the model's own claim. The evidence tag says whether its quoted words were found on the page; check it before trusting a success.
 
 ---
 
 ## Persistent Sessions (CLI Mode)
 
-When running cognitive journeys manually via CBrowser CLI (not MCP tools), use **daemon mode** to maintain browser state between commands.
-
-### Starting a Persistent Session
+To drive a journey by hand with individual CLI commands, start the daemon so every command shares one page.
 
 ```bash
-# Start the daemon (browser persists in background)
-npx cbrowser daemon start
+cbrowser daemon start
 
-# Now all commands use the same browser session
-npx cbrowser navigate "https://example.com"
-npx cbrowser hover "Admissions"    # Reveal dropdown
-npx cbrowser click "Apply Now"     # Click revealed item
-npx cbrowser fill "email" "test@example.com"
-npx cbrowser screenshot
+cbrowser navigate "https://example.com"
+cbrowser hover "Products"          # reveal a dropdown
+cbrowser click "Pricing"           # click the revealed item
+cbrowser fill "Email" "test@example.com"
+cbrowser screenshot
 
-# When done, stop the daemon
-npx cbrowser daemon stop
+cbrowser daemon stop
 ```
 
 ### Why Daemon Mode Matters
 
-Without daemon mode, each `npx cbrowser` command:
-- Launches a new browser
-- Loses all previous state (cookies, navigation history)
-- Cannot perform multi-step interactions
+Without a daemon, each command opens its own browser and reloads the last URL (saved for an hour). Cookies and localStorage carry over; script variables, sessionStorage, scroll position, typed input and hover state do not. So a hover followed by a click on what it revealed fails without a daemon.
 
-With daemon mode:
-- Single browser persists across all commands
-- Hover-then-click workflows work correctly
-- Sessions, cookies, and state maintained
-- More realistic simulation of continuous user interaction
+With the daemon:
+- One browser and one page persist across commands
+- Hover-then-click works
+- Typed input and scroll position survive between commands
+
+Give every command the same `CBROWSER_DATA_DIR`; commands find the daemon through it.
 
 ### Daemon Commands
 
 | Command | Purpose |
 |---------|---------|
-| `npx cbrowser daemon start` | Start persistent browser |
-| `npx cbrowser daemon stop` | Stop daemon and close browser |
-| `npx cbrowser daemon status` | Check if daemon is running |
+| `cbrowser daemon start` | Start the persistent browser (`--timeout` idle minutes, default 30) |
+| `cbrowser daemon stop` | Stop the daemon and close the browser |
+| `cbrowser daemon status` | Check whether it is running (exits 1 when not) |
 
 ### Daemon-Supported Actions
 
-All standard CBrowser commands work via daemon:
-- `navigate <url>` — Navigate to URL
-- `click <selector>` — Click element (uses hover-before-click)
-- `hover <selector>` — Hover to reveal dropdowns
-- `fill <selector> <value>` — Fill form field
-- `screenshot [path]` — Take screenshot
-- `extract <what>` — Extract data from page
+These run in the daemon's browser: navigate, click, fill, hover, type, press, keyboard, drag, upload, screenshot, extract, run, scroll, evaluate, an open-ended capture, har, network and console. Commands that would open a second browser on the same profile (script, ai, explore, a11y, perf, visual, session save and load, reset) refuse until you stop the daemon.
 
 ### Recommended Workflow for Manual Cognitive Journeys
 
-1. **Start daemon** before beginning simulation
-2. **Navigate** to starting URL
-3. **Perceive** — Use `screenshot` or `extract` to see page state
-4. **Decide** — Reason about what action to take
-5. **Execute** — Use `hover` + `click` or `fill` commands
-6. **Evaluate** — Screenshot to verify result
-7. **Loop** until goal achieved or abandoned
-8. **Stop daemon** when complete
+1. **Start the daemon** before beginning
+2. **Navigate** to the starting URL
+3. **Perceive**: `cbrowser screenshot` or `cbrowser extract headings` (also links, forms, images, text)
+4. **Decide**: reason about the next action as the persona
+5. **Execute**: `hover` + `click`, or `fill`
+6. **Evaluate**: screenshot to check the result, update the state by the rules in `CognitiveState.md`
+7. **Loop** until the goal is reached or a limit is crossed
+8. **Stop the daemon** when done
 
 ### Example Manual Journey
 
 ```bash
 # Initialize
-npx cbrowser daemon start
-npx cbrowser navigate "https://ucdenver.edu"
+cbrowser daemon start
+cbrowser navigate "https://example.com"
 
 # Step 1: Perceive
-npx cbrowser screenshot
-# [Look at screenshot, reason about page as persona]
+cbrowser screenshot
+# [Look at the screenshot, reason about the page as the persona]
 
-# Step 2: Execute (hover-before-click for dropdown)
-npx cbrowser hover "Admissions"
-npx cbrowser click "International Admissions"
+# Step 2: Execute (hover before clicking a dropdown item)
+cbrowser hover "Products"
+cbrowser click "Pricing"
 
 # Step 3: Evaluate
-npx cbrowser screenshot
-# [Verify navigation succeeded]
+cbrowser screenshot
+# [Check the navigation worked]
 
-# Continue until goal or abandonment...
+# Continue until the goal or abandonment...
 
 # Cleanup
-npx cbrowser daemon stop
+cbrowser daemon stop
 ```
 
 ---
 
 ## Integration
 
-- **CognitivePersonas.md** — Trait definitions
-- **CognitiveState.md** — State tracking and abandonment
-- **Personas.md** — Basic persona demographics
-- **Journey.md** — Non-cognitive journey workflow (simpler)
-- **SessionManagement.md** — Session persistence details
+- **CognitivePersonas.md**: trait definitions and per-persona values
+- **CognitiveState.md**: state, update rules and abandonment in both engines
+- **Personas.md**: the persona roster and custom personas
+- **Journey.md**: non-cognitive journey workflow (simpler)
+- **SessionManagement.md**: session persistence details
 
-This workflow provides the FULL cognitive simulation. For simpler persona-driven journeys without cognitive state tracking, use `Journey.md`.
+This workflow is the full cognitive simulation. For simpler persona-driven journeys without cognitive state tracking, use `Journey.md`.

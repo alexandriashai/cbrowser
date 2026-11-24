@@ -94,7 +94,7 @@ describe("stated tool counts", () => {
   });
 
   test("skill/SKILL.md states the stdio count wherever it states one", () => {
-    const counts = statedCounts(read("skill/SKILL.md").split(/^## Version History/m)[0]);
+    const counts = statedCounts(read("plugins/cbrowser/skills/cbrowser/SKILL.md").split(/^## Version History/m)[0]);
     expect(counts.length).toBeGreaterThan(0);
     for (const n of counts) expect(n, `SKILL.md states ${n}`).toBe(stdio);
   });

@@ -1,359 +1,146 @@
 # Personas System
 
-Create and manage user personas for realistic, goal-driven browser automation and testing.
+Create and use simulated users for cognitive journeys, persona comparisons, empathy audits and cognitive-effort scoring.
 
 ---
 
-## What Are Personas?
+## What a Persona Is
 
-Personas are simulated users with:
-- **Demographics**: Age, tech-savviness, accessibility needs
-- **Goals**: What they're trying to accomplish
-- **Behaviors**: How they interact with interfaces
-- **Limitations**: Constraints that affect their experience
-- **Credentials**: Which accounts they use
+A persona is a JSON record (the `Persona` type in `src/types.ts`) with:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       PERSONA                                │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Demographics│  │   Goals     │  │  Behaviors  │         │
-│  │ Age, Tech   │  │ Tasks to    │  │ Click speed │         │
-│  │ Accessibility│ │ accomplish  │  │ Read time   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Limitations │  │ Credentials │  │  Context    │         │
-│  │ Vision, Motor│ │ Accounts    │  │ Device, OS  │         │
-│  │ Cognitive   │  │ to use      │  │ Network     │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+- **demographics**: age range, tech level (beginner, intermediate, expert), device (desktop, mobile)
+- **behaviors**: descriptive flags such as keyboard only, reads everything, uses gestures
+- **humanBehavior**: timing (reaction time, click delay, typing speed, reading speed in words per minute), error rates (misclick, accidental double click, typo, backtrack), mouse movement (speed, curvature, jitter, overshoot) and attention (`pattern`: f-pattern, z-pattern, skim or thorough)
+- **cognitiveTraits**: 25 of the 26 cognitive traits on a 0-1 scale (see `CognitivePersonas.md`). The 26th, `siteFamiliarity`, is never stored on a persona; it describes a persona-site pair and is supplied per run
+- **context** and **location**: a nominal viewport, and for some personas a timezone, locale and geolocation
+
+Run `cbrowser persona show first-timer` to see a complete record.
+
+What a journey takes from the persona: its traits, its human timing and errors, and its location (timezone, locale, geolocation). The browser size does not come from the persona's `device` or `context.viewport`; set it with `--device` or `--viewport`.
 
 ---
 
 ## Built-in Personas
 
-### Power User
+29 personas ship with CBrowser: 25 human personas in three groups, plus 4 AI-agent personas.
 
-```yaml
-name: power-user
-description: "Tech-savvy user who knows shortcuts and expects efficiency"
-demographics:
-  age_range: "25-40"
-  tech_level: expert
-  device: desktop
-behaviors:
-  click_speed: fast
-  read_time: minimal
-  uses_keyboard: true
-  expects_shortcuts: true
-expectations:
-  - Fast load times (<2s)
-  - Keyboard navigation works
-  - No unnecessary confirmations
-  - Advanced features accessible
-```
+### General (10, `BUILTIN_PERSONAS`)
 
-### First-Time User
+| Name | Description | Tech | Device |
+|------|-------------|------|--------|
+| `power-user` | Tech-savvy expert who expects efficiency and knows shortcuts | expert | desktop |
+| `first-timer` | New user exploring for the first time, needs guidance | beginner | desktop |
+| `mobile-user` | Smartphone user with touch interface and limited screen | intermediate | mobile |
+| `screen-reader-user` | Blind user navigating with screen reader and keyboard | intermediate | desktop |
+| `elderly-user` | Older adult with potential vision and motor limitations | beginner | desktop |
+| `impatient-user` | Quick to abandon slow or confusing experiences | intermediate | desktop |
+| `distracted-user` | Attention repeatedly pulled away mid-task; returns with context lost | intermediate | desktop |
+| `careful-reader` | Reads before acting; verifies details and dislikes surprises | intermediate | desktop |
+| `explorer` | Wanders the interface by choice, opening things to see what they do | expert | desktop |
+| `task-focused` | Came to finish one thing; ignores everything that is not on the path | intermediate | desktop |
 
-```yaml
-name: first-timer
-description: "New user exploring the site for the first time"
-demographics:
-  age_range: "any"
-  tech_level: beginner
-  device: any
-behaviors:
-  click_speed: slow
-  read_time: long
-  hovers_before_click: true
-  reads_tooltips: true
-expectations:
-  - Clear onboarding
-  - Helpful tooltips
-  - Obvious CTAs
-  - Forgiving of mistakes
-```
+### Accessibility (11, `ACCESSIBILITY_PERSONAS`)
 
-### Mobile User
+Used by `empathy-audit` (CLI) and `empathy_audit` (MCP), and accepted by cognitive journeys.
 
-```yaml
-name: mobile-user
-description: "User on smartphone with touch interface"
-demographics:
-  age_range: "18-45"
-  tech_level: intermediate
-  device: mobile
-context:
-  viewport: [375, 812]  # iPhone X
-  touch: true
-  network: 4g
-behaviors:
-  tap_accuracy: 44px_minimum  # Touch target size
-  scrolls_frequently: true
-  avoids_typing: true
-expectations:
-  - Touch-friendly buttons (44px+)
-  - Mobile-optimized forms
-  - Fast on slow network
-  - No hover-dependent features
-```
+| Name | Description |
+|------|-------------|
+| `motor-impairment-tremor` | Essential tremor affecting fine motor control |
+| `low-vision-magnified` | Low vision, using 3x screen magnification |
+| `cognitive-adhd` | ADHD affecting focus and working memory |
+| `dyslexic-user` | Dyslexia affecting reading and text processing |
+| `deaf-user` | Deaf, relies on visual content and captions |
+| `elderly-low-vision` | Elderly (75+) with age-related vision and motor decline |
+| `color-blind-deuteranopia` | Red-green color blindness (deuteranopia) |
+| `autism-spectrum` | Autistic adult: needs predictable layouts, clear labels, reduced visual noise |
+| `intellectual-disability` | Mild intellectual disability: needs simple navigation, plain language, image support |
+| `aphasia-receptive` | Receptive aphasia: struggles with text-heavy navigation; language comprehension is impaired, intelligence is not |
+| `dyscalculia` | Struggles with pricing, quantities, dates, percentages and reference numbers |
 
-### Accessibility User (Screen Reader)
+### Emotional (4, `EMOTIONAL_PERSONAS`)
 
-```yaml
-name: screen-reader-user
-description: "Blind user navigating with screen reader"
-demographics:
-  age_range: "any"
-  tech_level: varies
-  device: desktop
-accessibility:
-  vision: blind
-  uses_screen_reader: true
-  keyboard_only: true
-behaviors:
-  navigates_by_headings: true
-  uses_landmarks: true
-  listens_to_alt_text: true
-expectations:
-  - Proper heading hierarchy
-  - ARIA labels on controls
-  - Alt text on images
-  - Skip links available
-  - Focus management correct
-```
+| Name | Description |
+|------|-------------|
+| `anxious-user` | High baseline anxiety; worries about mistakes and consequences |
+| `confident-user` | High self-efficacy; trusts their judgment and recovers quickly from errors |
+| `emotional-user` | High emotional sensitivity; strong reactions to successes and failures |
+| `stoic-user` | High emotional stability; stays calm regardless of success or failure |
 
-### Elderly User
+### AI agents (4, `AGENT_PERSONAS`)
 
-```yaml
-name: elderly-user
-description: "Older adult with potential vision and motor limitations"
-demographics:
-  age_range: "65+"
-  tech_level: beginner
-  device: desktop
-accessibility:
-  vision: reduced
-  motor: reduced_precision
-  prefers_larger_text: true
-behaviors:
-  click_speed: slow
-  double_clicks_accidentally: true
-  read_time: long
-  confused_by_jargon: true
-expectations:
-  - Large, clear text (16px+)
-  - High contrast
-  - Large click targets
-  - Simple language
-  - Clear error messages
-```
+`retrieval-agent`, `task-completion-agent`, `crawl-agent`, `conversational-agent`. These model AI agents, not people, and cognitive journeys refuse them.
 
-### Impatient User
+### Listing them
 
-```yaml
-name: impatient-user
-description: "User who abandons slow or confusing experiences"
-demographics:
-  age_range: "any"
-  tech_level: intermediate
-  device: any
-behaviors:
-  abandons_after: 3s_load_time
-  skips_long_forms: true
-  ignores_long_text: true
-  clicks_first_option: true
-expectations:
-  - Sub-3s load times
-  - Short forms
-  - Obvious next steps
-  - Progress indicators
-```
+- `cbrowser persona list` prints the 10 general personas and your custom ones
+- MCP `list_cognitive_personas` lists general, accessibility, emotional and custom personas with their traits
+- MCP `persona_lookup` returns one persona's full record
 
 ---
 
 ## Creating Custom Personas
 
+### From a description (no API key)
+
 ```bash
-bun run Tools/CBrowser.ts persona create "provider-signup"
+cbrowser persona create "nervous first-time online shopper worried about security" --name nervous-shopper
 ```
 
-Or create YAML directly:
+The description is read by keyword rules (`generatePersonaFromDescription` in `src/personas.ts`), not by a model. It sets tech level, timing, error rates, attention and the traits the words imply; any trait it does not set falls back to 0.5. Built-in names cannot be overwritten.
 
-```yaml
-# ~/.claude/skills/CBrowser/.memory/personas/provider-signup.yaml
-name: provider-signup
-description: "Escort provider signing up for BlackBook Reviews"
+### From a questionnaire
 
-demographics:
-  age_range: "21-45"
-  tech_level: intermediate
-  device: mobile
-  primary_goal: "Create verified profile quickly"
+```bash
+cbrowser persona-questionnaire start --name checkout-skeptic
+cbrowser persona-questionnaire list-traits
+```
 
-goals:
-  primary: "Complete provider registration"
-  secondary:
-    - "Upload verification photos"
-    - "Set up encrypted messaging"
-    - "Configure availability"
-  success_criteria:
-    - "Profile created and pending verification"
-    - "At least 3 photos uploaded"
-    - "Bio completed"
+### Over MCP
 
-behaviors:
-  privacy_conscious: true
-  reads_privacy_policy: true
-  hesitates_on_pii: true
-  prefers_anonymous_options: true
+`persona_create_start` offers two modes. Description mode: `persona_create_from_description` returns the trait reference, the calling model infers the values, and `persona_create_submit_traits` saves them. Questionnaire mode: `persona_create_questionnaire_start`, then `persona_create_questionnaire_answer` once per question. `persona_update` and `persona_delete` manage the result; `persona_traits_list` and `persona_trait_lookup` explain the trait scale.
 
-context:
-  credentials: "provider-test-account"
-  starting_url: "https://blackbook.reviews/register/provider"
+### Ad hoc
 
-limitations:
-  - "May not have professional photos ready"
-  - "Cautious about real name/identity"
-  - "May use VPN (slower connection)"
+- `cognitive-journey --persona "<description>"`: a name CBrowser does not know is read as a description of the person
+- MCP `cognitive_journey_init` with `customTraits` overrides any of the 26 traits for one run
 
-test_scenarios:
-  - "complete-registration"
-  - "upload-photos"
-  - "verify-identity"
+### Managing them
+
+```bash
+cbrowser persona show nervous-shopper
+cbrowser persona export nervous-shopper
+cbrowser persona import nervous-shopper.json
+cbrowser persona delete nervous-shopper
+cbrowser persona cleanup --dry-run      # list custom personas that fail validation
 ```
 
 ---
 
-## Commands
-
-### List Personas
+## Using Personas
 
 ```bash
-bun run Tools/CBrowser.ts persona list
+# Cognitive journey (needs an Anthropic API key; costs tokens)
+cbrowser cognitive-journey --persona first-timer \
+  --start "https://example.com" --goal "sign up for an account" --device iphone-15
 
-# Output:
-# Built-in Personas:
-#   power-user          Tech-savvy expert user
-#   first-timer         New user exploring
-#   mobile-user         Smartphone user
-#   screen-reader-user  Blind user with screen reader
-#   elderly-user        Older adult with limitations
-#   impatient-user      Quick to abandon
-#
-# Custom Personas:
-#   provider-signup     Escort provider signing up
-#   client-browsing     Client browsing profiles
+# Same journey, several personas side by side (needs an API key)
+cbrowser compare-personas --start "https://example.com" --goal "complete checkout" \
+  --personas power-user,first-timer,elderly-user,mobile-user
+
+# Disability barriers on the page (no API key; with --goal and a configured key
+# it also runs a journey per persona)
+cbrowser empathy-audit "https://example.com" --personas "cognitive-adhd,low-vision-magnified"
+
+# Attention overlay weighted by a persona
+cbrowser capture start "https://example.com" --duration 3s --attention-overlay --overlay-persona elderly-user
 ```
 
-### Create Persona
+`navigate`, `click` and the other interaction commands take no persona. A persona acts only through the commands above and the MCP tools that accept one: `cognitive_journey_init`, `compare_personas`, `cognitive_effort`, `site_cognitive_assessment`, `empathy_audit` and others.
 
-```bash
-bun run Tools/CBrowser.ts persona create "name"
-# Opens interactive wizard
-```
-
-### Use Persona
-
-```bash
-bun run Tools/CBrowser.ts navigate "https://example.com" --persona mobile-user
-# Configures viewport, behaviors, expectations
-```
-
-### Run as Persona
-
-```bash
-bun run Tools/CBrowser.ts run-as "first-timer" --goal "complete signup"
-# AI-driven exploration as the persona trying to achieve goal
-```
-
----
-
-## Persona-Driven Testing
-
-### Goal-Based Execution
-
-When running as a persona, CBrowser:
-
-1. **Adopts the persona's constraints**
-   - Sets viewport for device type
-   - Enables accessibility tools if specified
-   - Simulates network conditions
-
-2. **Pursues the persona's goals**
-   - AI understands what the persona is trying to do
-   - Makes decisions as the persona would
-   - Notes friction points and confusion
-
-3. **Reports from persona's perspective**
-   - "As a first-timer, the signup button was hard to find"
-   - "As a mobile user, this button was too small to tap"
-   - "As a screen reader user, this form had no labels"
-
-### Example: Run Full Journey
-
-```bash
-bun run Tools/CBrowser.ts journey "provider-signup" \
-  --start "https://blackbook.reviews" \
-  --goal "Create a verified provider profile"
-```
-
-Output:
-```
-🎭 Running as: provider-signup
-🎯 Goal: Create a verified provider profile
-
-Step 1: Landing page
-  ✅ Found "Become a Provider" CTA
-  📝 Note: CTA prominent, good
-
-Step 2: Registration form
-  ⚠️ Hesitated at "Legal Name" field (privacy concern)
-  ✅ Found "Display Name" option - continued
-  📝 Note: Privacy options appreciated
-
-Step 3: Photo upload
-  ❌ BLOCKED: Upload button not working on mobile
-  📝 Critical: Mobile users cannot upload photos
-
-Journey Status: INCOMPLETE (blocked at step 3)
-Friction Points: 1 critical, 0 warnings
-```
-
----
-
-## Integration with Test Scenarios
-
-Personas are used in test scenarios (see `Workflows/Test.md`):
-
-```yaml
-scenario: "provider-onboarding"
-persona: "provider-signup"
-steps:
-  - navigate: "/"
-  - find_and_click: "provider signup CTA"
-  - complete_form: "registration"
-  - upload: "verification photos"
-  - verify: "profile pending status"
-```
+A journey reports from the persona's perspective: an inner monologue at every step, friction points, and an abandonment reason when the persona gives up. See `Workflows/CognitiveJourney.md` for the loop and `CognitiveState.md` for the state it tracks.
 
 ---
 
 ## Storage
 
-Personas stored in:
-```
-~/.claude/skills/CBrowser/.memory/personas/
-├── _builtin/
-│   ├── power-user.yaml
-│   ├── first-timer.yaml
-│   └── ...
-└── custom/
-    ├── provider-signup.yaml
-    └── client-browsing.yaml
-```
+Custom personas are JSON files in `<data dir>/personas/<name>.json` (data dir: `CBROWSER_DATA_DIR`, default `~/.cbrowser`). The loader also reads `.yaml` and `.yml` files there. Built-in personas live in the package code, not on disk. A custom persona with a built-in's name cannot be created, but a file placed there by hand takes precedence over the built-in when looked up.

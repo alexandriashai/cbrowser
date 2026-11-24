@@ -100,7 +100,7 @@ research/study1/results/*
 !research/study1/results/README.md
 
 # PAI / oh-my-claudecode artifacts (personal AI infrastructure)
-skills/
+/skills/
 .omc/
 .claude/
 CLAUDE.md

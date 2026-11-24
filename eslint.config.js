@@ -19,6 +19,10 @@ export default [
       // consistent with the tests/ directory already being ignored.
       "src/**/*.test.ts",
       "**/examples/",
+      // skill/ is generated from plugins/cbrowser/skills/cbrowser/ for cbrowser
+      // <= 21.5.5 (scripts/sync-skill-mirror.mjs); its Tools/CBrowser.ts is a
+      // retirement stub no tsconfig includes, so the type-aware parser cannot read it.
+      "skill/",
       // research/ became tracked on 2026-08-05 (its scripts are the provenance of
       // constants that ship in src/). It is deliberately outside tsconfig — these
       // are standalone runners, not product code — so the type-aware parser cannot

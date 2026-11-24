@@ -1,335 +1,122 @@
-# Explore Workflow (formerly "Journey")
+# Journey Workflow
 
-Quick, heuristic-based site exploration. **Free, no API needed.**
+Send a persona at a goal and see where it gets stuck or gives up. This page helps you choose between the journey commands and be exact about cost. The full step-by-step cognitive loop (perceive, decide, act, abandonment rules) is in [CognitiveJourney.md](./CognitiveJourney.md).
 
-> **Looking for realistic user simulation?** Use [CognitiveJourney.md](./CognitiveJourney.md) instead — it tracks patience, frustration, and can realistically abandon.
+Every live journey is model-driven: each step is one call to Claude, so it needs an Anthropic API key and costs tokens. There is no keyless explorer. The free options are replaying a recorded trace, and the keyless audits in [Audit.md](./Audit.md).
 
 ---
 
 ## Trigger
 
-- "explore", "quick explore", "heuristic exploration"
-- "run as persona", "simulate user" (simple mode)
-- `cbrowser explore <persona> --start <url> --goal <goal>`
+- "explore the site as", "run as a first-timer", "simulate a user", "where do users get stuck"
+- "compare personas", "how do different users experience", "elderly vs power user"
+- "benchmark against competitors", "which site is easier to sign up on"
+- "replay the journey", "re-run without spending tokens"
 
 ---
 
-## What is Explore?
+## Choose
 
-Explore is a **fast, rule-based exploration** where:
-- A persona with specific timing characteristics
-- Tries to accomplish a goal using heuristics
-- Makes decisions based on built-in rules
-- Reports on friction points discovered
+| You want | Command | Model calls | Key |
+|---|---|---|---|
+| A quick look at one persona on one goal | `cbrowser explore <persona> --start <url> --goal <goal>` | one journey, up to 20 steps / 120 s | yes |
+| The full simulation, with tunable limits, trace and capture | `cbrowser cognitive-journey --persona <p> --start <url> --goal <goal>` | one journey, up to `--max-steps` (default 50) | yes |
+| Same goal, several personas side by side | `cbrowser compare-personas --start <url> --goal <goal> --personas a,b,c` | one journey per persona | yes |
+| Same goal, several sites side by side | `cbrowser competitive-benchmark --sites <a,b> --goal <goal>` | one journey per site, up to `--max-steps` (default 30) each | yes |
+| Accessibility barriers plus a goal attempt | `cbrowser empathy-audit <url> --goal <goal> --personas <list>` | one journey per persona (the barrier check itself is free) | yes for the goal part |
+| Re-run a recorded journey | `cbrowser cognitive-journey --start <url> --goal <goal> --replay-trace <file>` | none | no |
 
-**Key difference from cognitive-journey:**
-| Aspect | explore | cognitive-journey |
-|--------|---------|-------------------|
-| Intelligence | Rule-based heuristics | Claude API reasoning |
-| Cost | Free | API tokens |
-| Abandonment | Timer/step limit only | Realistic frustration-based |
-| Cognitive state | None | Patience, confusion, mood |
+Cost scales with steps times runs. Five personas at 20 steps is up to 100 model calls; `compare-personas` without `--personas` runs every built-in persona, so always name the ones you need. Lower `--max-steps` and `--max-time` while you are iterating on the goal wording.
 
----
-
-## Process
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    JOURNEY WORKFLOW                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. ADOPT PERSONA                                           │
-│     ├─ Load persona configuration                           │
-│     ├─ Configure browser (viewport, network)                │
-│     ├─ Load credentials if specified                        │
-│     └─ Set behavioral parameters                            │
-│                                                             │
-│  2. UNDERSTAND GOAL                                         │
-│     ├─ Parse the goal statement                             │
-│     ├─ Identify success criteria                            │
-│     └─ Plan initial approach                                │
-│                                                             │
-│  3. EXPLORE & ACT                                           │
-│     Loop until goal reached or stuck:                       │
-│     ├─ Screenshot current state                             │
-│     ├─ AI: "What would this persona do next?"               │
-│     ├─ Execute action                                       │
-│     ├─ Evaluate result                                      │
-│     ├─ Note any friction/confusion                          │
-│     └─ Check if goal reached                                │
-│                                                             │
-│  4. REPORT                                                  │
-│     ├─ Journey complete or blocked?                         │
-│     ├─ Steps taken                                          │
-│     ├─ Friction points discovered                           │
-│     ├─ Time and effort metrics                              │
-│     └─ Recommendations                                      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+Set the key once with `cbrowser config set-api-key <key>`; `cbrowser config set-model <model>` changes the model. `cbrowser doctor` reports whether a key is configured. Without one, `explore`, `cognitive-journey`, `compare-personas` and `competitive-benchmark` refuse and run nothing.
 
 ---
 
-## Commands
-
-### Basic Journey
+## explore: a short journey
 
 ```bash
-bun run Tools/CBrowser.ts journey "first-timer" \
-  --start "https://blackbook.reviews" \
-  --goal "Find and view a provider profile"
+cbrowser explore first-timer --start https://example.com --goal "find the pricing page"
+cbrowser explore mobile-user --start https://example.com --goal "sign up" --record-video
 ```
 
-### With Credentials
+`explore` is the shortest form of a cognitive journey: fixed limits (20 steps, 120 seconds), a pass or fail, the step count and friction points. It exits 1 when the goal is not reached. Reach for it to sanity-check a goal before spending a longer `cognitive-journey` on it. It takes no trace, so it cannot be replayed.
+
+---
+
+## cognitive-journey: the full run
 
 ```bash
-bun run Tools/CBrowser.ts journey "provider-signup" \
-  --start "https://blackbook.reviews" \
-  --goal "Complete registration and reach dashboard" \
-  --auth provider-test
+cbrowser cognitive-journey --persona elderly-user --start https://shop.example.com \
+  --goal "buy a blue shirt in size M" --max-steps 30 --verbose --trace --output journey.json
 ```
 
-### Recording Journey
+Use it when you need the internal monologue (`--verbose`), patience and frustration over time, a JSON report, a video (`--capture`), or a trace for replay. It starts in a fresh browser profile, so the persona is a new visitor; `--persistent` uses the shared profile instead (for example after loading a logged-in session). Locale, timezone and location can be overridden with `--locale`, `--timezone` and `--geo`.
+
+The loop, abandonment thresholds and report fields are documented in [CognitiveJourney.md](./CognitiveJourney.md).
+
+---
+
+## Replay a journey for free
+
+A traced run writes one line per step to `traces/<id>.jsonl` in the data directory (by default `~/.cbrowser/traces/`) and prints the exact replay command when it finishes.
 
 ```bash
-bun run Tools/CBrowser.ts journey "mobile-user" \
-  --start "https://blackbook.reviews" \
-  --goal "Submit a review" \
-  --record  # Creates video/gif of journey
+# 1. Paid once: record the decisions
+cbrowser cognitive-journey --persona first-timer --start https://example.com \
+  --goal "start a free trial" --trace
+
+# 2. Free afterwards: replay them, no model calls, no key
+cbrowser cognitive-journey --persona first-timer --start https://example.com \
+  --goal "start a free trial" --replay-trace ~/.cbrowser/traces/<id>.jsonl
 ```
+
+Each recorded step carries a hash of the page's URL and content. Replay checks that hash before every step and stops with a divergence error at the first step where the live page differs from the recorded one. That makes a replay a cheap regression check: it passes while the path the persona took is unchanged, and it names the step where it changed. Pages with rotating content, dates or randomised copy will diverge on every run; replay those against a staging build with stable content.
+
+Traces hold no raw HTML and no page text (only the hash), and `sk-` key-shaped strings are scrubbed. They do hold each decision as the model wrote it, including any text it typed into a field, so read one before committing or sharing it.
 
 ---
 
-## Persona Decision Making
-
-The AI makes decisions as the persona would:
-
-### Power User
-```
-Current page: Homepage
-Goal: Find account settings
-
-Thinking as power-user:
-  - "I expect settings in the account menu"
-  - "Looking for gear icon or avatar menu"
-  - "Will try keyboard shortcut if available"
-
-Action: Click avatar in header → Opens dropdown → Click "Settings"
-Time: 2.1s
-```
-
-### First-Timer
-```
-Current page: Homepage
-Goal: Find account settings
-
-Thinking as first-timer:
-  - "Where are my settings?"
-  - "Maybe in the menu... which menu?"
-  - "Let me look around first..."
-
-Action: Hover various elements → Read tooltips → Find avatar → Click → Read options → Click "Settings"
-Time: 12.4s
-Friction: Took 6x longer than power user
-```
-
-### Mobile User
-```
-Current page: Homepage (mobile)
-Goal: Find account settings
-
-Thinking as mobile-user:
-  - "Looking for hamburger menu"
-  - "Or maybe bottom navigation"
-  - "Can't use hover on mobile"
-
-Action: Tap hamburger → Scroll menu → Tap "Account" → Tap "Settings"
-Time: 5.2s
-Note: Menu required scrolling on mobile
-```
-
----
-
-## Journey Output
-
-### Real-Time Progress
-
-```
-🎭 Journey: first-timer
-🎯 Goal: Complete provider registration
-
-Step 1: Landing page (0.0s)
-  📍 At: https://blackbook.reviews
-  🤔 Looking for: registration option
-  👆 Action: Scrolling to explore page
-
-Step 2: Finding signup (3.2s)
-  📍 At: https://blackbook.reviews
-  ✅ Found: "Become a Provider" button in hero
-  👆 Action: Clicking signup button
-
-Step 3: Registration form (5.1s)
-  📍 At: https://blackbook.reviews/register/provider
-  🤔 Reading form fields...
-  📝 Filling: email, display name, password
-
-Step 4: Password trouble (8.4s)
-  ⚠️ Friction: Password rejected, no requirements shown
-  🤔 Trying different password...
-  ✅ Password accepted on second try
-
-Step 5: Terms acceptance (12.2s)
-  📍 Scrolling to terms
-  👆 Action: Checking terms checkbox
-  👆 Action: Clicking Submit
-
-Step 6: Success! (15.8s)
-  📍 At: https://blackbook.reviews/provider/onboarding
-  ✅ Goal reached: Registration complete
-
-─────────────────────────────────────────
-📊 Journey Complete
-   Duration: 15.8s
-   Steps: 6
-   Friction points: 1
-   Status: SUCCESS
-```
-
-### Journey Report
-
-```markdown
-# Journey Report: Provider Registration
-
-**Persona:** first-timer
-**Goal:** Complete provider registration
-**Result:** ✅ SUCCESS
-
-## Summary
-
-| Metric | Value |
-|--------|-------|
-| Duration | 15.8s |
-| Steps | 6 |
-| Friction Points | 1 |
-| Errors Encountered | 1 |
-| Recovery Success | Yes |
-
-## Path Taken
-
-1. **Landing Page** → Scrolled to find CTA
-2. **Clicked "Become a Provider"** → Navigated to registration
-3. **Filled Registration Form** → Hit password validation error
-4. **Retried Password** → Success
-5. **Accepted Terms** → Submitted form
-6. **Reached Onboarding** → Goal complete
-
-## Friction Points
-
-### 1. Password Requirements Hidden (Severity: Medium)
-
-**What happened:** Password was rejected without prior indication of requirements.
-
-**Persona perspective:** "I had to guess what password format was needed. Frustrating for a first-time user."
-
-**Recommendation:** Display password requirements inline before user types.
-
-**Screenshot:** [View friction point](./screenshots/friction-001.png)
-
-## Accessibility Notes
-
-- All form fields had proper labels ✅
-- Error messages were announced to screen readers ✅
-- Submit button was keyboard accessible ✅
-
-## Recommendations
-
-1. Show password requirements proactively
-2. Consider password strength meter
-3. Pre-fill display name from email if possible
-
----
-*Generated by CBrowser Journey Workflow*
-*Date: 2026-01-31 22:30:00*
-```
-
----
-
-## Multiple Personas
-
-Run the same journey with different personas to compare:
+## compare-personas
 
 ```bash
-bun run Tools/CBrowser.ts journey compare \
-  --personas "first-timer,power-user,mobile-user,elderly-user" \
-  --start "https://blackbook.reviews" \
-  --goal "Complete provider registration"
+cbrowser compare-personas --start https://example.com --goal "complete checkout" \
+  --personas power-user,first-timer,elderly-user,mobile-user --html --output compare.json
 ```
 
-Output:
-```
-📊 Journey Comparison: Complete provider registration
+Runs one journey per persona (3 at a time; `--concurrency` changes that) and reports success, time, steps, friction and the reason each abandoning persona gave up (patience, frustration, confusion). `--device` and `--viewport` apply to every journey. The HTML report is written next to `--output` (here `compare.html`). It exits 1 when any persona fails, which is usually the finding rather than an error.
 
-| Persona       | Duration | Steps | Friction | Result   |
-|---------------|----------|-------|----------|----------|
-| power-user    | 8.2s     | 4     | 0        | ✅ Success |
-| first-timer   | 15.8s    | 6     | 1        | ✅ Success |
-| mobile-user   | 22.4s    | 8     | 2        | ✅ Success |
-| elderly-user  | 45.2s    | 12    | 3        | ✅ Success |
+`cbrowser persona list` shows the built-in and custom personas.
 
-Key Findings:
-- Mobile: Upload button too small for touch
-- Elderly: Text too small in terms section
-- First-timer: Password requirements unclear
+## competitive-benchmark
+
+```bash
+cbrowser competitive-benchmark --sites "https://yoursite.com,https://competitor.com" \
+  --goal "sign up for a free trial" --persona first-timer --max-steps 20 --html
 ```
+
+The same persona and goal on each site, ranked head to head. Phrase the goal so it means the same thing on every site. For a keyless comparison of how well the sites work for AI agents, use `cbrowser ai-benchmark` from [Audit.md](./Audit.md) instead.
 
 ---
 
-## Stuck Detection
+## Over MCP
 
-If the persona gets stuck:
+| Tool | Who does the thinking | Key on the server |
+|---|---|---|
+| `cognitive_journey_init` + `cognitive_journey_update_state` | the calling model (Claude in your session) drives the browser tools step by step | no; it costs your session's tokens |
+| `compare_personas_init` + `compare_personas_complete` | the calling model runs one journey per persona, then hands the results back for aggregation | no |
+| `compare_personas` | the server | yes; without one it returns the bridge instructions above |
+| `competitive_benchmark` | the server | yes |
+| `cognitive_journey_autonomous` | the server, whole journey in one call | Enterprise only |
 
-```
-⚠️ Persona appears stuck
+In Claude Code, the init/update-state pair is the usual route: no separate key, and you can watch and steer each step. [CognitiveJourney.md](./CognitiveJourney.md) walks through it.
 
-Current state: Registration form
-Attempting: Find submit button
-Problem: No visible submit button
-
-AI Analysis:
-  - Submit button may be below fold
-  - Form may have validation errors
-  - Page may be broken
-
-Actions tried:
-  1. Scrolled down - no button found
-  2. Checked for validation errors - none visible
-  3. Tried keyboard submit - no response
-
-Options:
-  1. Screenshot current state and report
-  2. Try alternative approach
-  3. Ask for human guidance
-```
+The hosted servers open only public internet addresses. To run a journey against `localhost` or a private network, use the local CLI or the local stdio server (`npx cbrowser mcp-server`).
 
 ---
 
-## Constitutional Compliance
+## Reading the result
 
-Journeys follow all constitutional principles:
-
-- **Red Zone actions**: AI pauses for confirmation
-- **Authentication**: Uses stored credentials, never prompts
-- **Privacy**: PII in forms is never logged
-- **Politeness**: Realistic delays between actions
-
-### Audit Trail
-
-Every journey is fully logged:
-```
-~/.claude/skills/CBrowser/.memory/journeys/
-├── 2026-01-31/
-│   ├── first-timer-registration-22-30-00.json
-│   ├── screenshots/
-│   └── report.md
-```
+- A persona that abandons is a result, not a failure of the tool. Read the reason and the step where it happened.
+- One run is one sample. Before acting on a single abandonment, re-run it or compare two or three personas.
+- Treat the persona's monologue as the model's account of the page, not a user quote. Confirm the friction it names on the page itself (a screenshot, `cbrowser a11y audit`, or `empathy-audit`).
+- When the goal "succeeds" too easily, check the final URL and screenshot: a vague goal ("explore the site") is reached by almost anything.

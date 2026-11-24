@@ -62,7 +62,6 @@ const ALLOWED: Record<string, { uses: number; reason: string }> = {
   "mcp-tools/base/security-tools.ts": { uses: 1, reason: "security_audit's scan of this server itself at localhost:PORT, taken only when no mcp_url is given" },
   "daemon.ts": { uses: 3, reason: "CLI only: the local daemon on 127.0.0.1" },
   "webhooks.ts": { uses: 1, reason: "CLI only: a webhook URL the operator stored, sent with redirect: error" },
-  "cli/commands/setup.ts": { uses: 1, reason: "CLI only: the skill files from this project's repository" },
   "cli/commands/testing.ts": { uses: 1, reason: "CLI only: the webhook test" },
 };
 

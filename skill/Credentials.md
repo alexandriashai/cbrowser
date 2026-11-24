@@ -1,251 +1,128 @@
-# Credential Vault
+# Credentials
 
-Secure credential storage for authenticated browser automation.
+How to handle passwords, tokens and logged-in state safely when you drive CBrowser.
 
----
+CBrowser has no credential vault. It never asks for a password and never stores one. What it does store is the result of a login: cookies and web storage, in plain JSON and in a browser profile on disk. Those are as good as the password for as long as the site honors them, so treat them the same way.
 
-## Security Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CREDENTIAL VAULT                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
-│  │ User Input  │ →  │ Encryption  │ →  │ Secure      │     │
-│  │ (one-time)  │    │ AES-256-GCM │    │ Storage     │     │
-│  └─────────────┘    └─────────────┘    └─────────────┘     │
-│                                                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
-│  │ Auth Flow   │ ←  │ Decryption  │ ←  │ Retrieval   │     │
-│  │ (in-memory) │    │ (runtime)   │    │ (key req)   │     │
-│  └─────────────┘    └─────────────┘    └─────────────┘     │
-│                                                             │
-│  ⛔ NEVER: Logged | Displayed | Transmitted | Cached       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+For the login steps themselves see `Workflows/Authenticate.md`. For session commands see `SessionManagement.md`.
 
 ---
 
-## Commands
+## Rules for secrets
 
-### Store Credentials
+1. **Never paste a password into the prompt.** Anything in the conversation can end up in logs, transcripts and shared screenshots. If the user offers one, ask them to put it in an environment variable instead.
+2. **Never write a password into a file in the repo.** That includes test-suite files: `cbrowser test-suite` has no variable substitution, and it prints each step's text as it runs and in its report, so `type "hunter2" in password field` leaks the password twice.
+3. **Pass secrets through environment variables.** The user exports them in their own shell, or keeps them in an untracked env file:
+
+   ```bash
+   # .env.cbrowser  (chmod 600, listed in .gitignore)
+   SITE_USER=qa-bot@example.com
+   SITE_PASS=...
+
+   set -a; . ./.env.cbrowser; set +a
+   cbrowser fill "Password" "$SITE_PASS"
+   ```
+
+   The command you write contains `"$SITE_PASS"`, not the value, and `fill` prints only `Filled: <selector>`. The expanded value is still visible to the local system for the life of the process (for example in the process list), so on a shared machine prefer a dedicated test account.
+4. **Over MCP the value is in the tool call.** `fill` and `type_text` take the text as an argument, which the conversation records. For a real account, log in with the CLI using env vars, save the session, and `load_session` it from the local stdio MCP server instead.
+5. **Use test accounts for automation.** A throwaway account with the least privilege the test needs is the only kind whose password can safely appear anywhere.
+6. **Never automate a consent screen or a second factor without asking.** Both exist to require a person.
+
+---
+
+## What CBrowser keeps on disk
+
+Everything lives under the data dir: CBROWSER_DATA_DIR, default `~/.cbrowser`. The sensitive parts:
+
+| Path (under the data dir) | What it holds |
+|---------------------------|---------------|
+| `sessions/<name>.json` | Saved sessions: every cookie (HttpOnly ones included) with its value, localStorage, sessionStorage, the URL and viewport. Plain JSON, not encrypted. |
+| `browser-state/` | The persistent browser profile the CLI reuses between commands: cookies and storage of every site you visited, plus `persisted-cookies.json` (a plain JSON copy of the cookies, written when a browser closes) and `last-session.json` (the last URL). |
+| `har/` | HAR recordings. They include request headers, so they can contain auth tokens. |
+| `config.json` | The Anthropic API key, if you set one with `cbrowser config set-api-key`. |
+| `geo-proxy.json` | Residential proxy credentials, if configured. |
+| `accounts/` | Per-account data on a hosted server. |
+
+Session files are written with your default file permissions, so on a typical system other local users can read them. Lock the directory down:
 
 ```bash
-# Interactive (secure - credentials never shown)
-bun run Tools/CBrowser.ts creds add "github"
-# Prompts for username/password securely
-
-# From environment variables (for CI/CD)
-CRED_USER=myuser CRED_PASS=mypass bun run Tools/CBrowser.ts creds add "github" --from-env
+chmod 700 ~/.cbrowser          # or your CBROWSER_DATA_DIR
 ```
 
-### List Stored Credentials
+A session name may contain only letters, digits, dot, dash and underscore (64 characters at most), so a name cannot point outside the sessions directory.
 
-```bash
-bun run Tools/CBrowser.ts creds list
-
-# Output (passwords NEVER shown):
-# Stored Credentials:
-#   github        (user: octocat, stored: 2026-01-31)
-#   blackbook     (user: provider@example.com, stored: 2026-01-30)
-#   amazon        (user: buyer@email.com, stored: 2026-01-28)
-```
-
-### Delete Credentials
-
-```bash
-bun run Tools/CBrowser.ts creds delete "github"
-```
-
-### Rotate Credentials
-
-```bash
-bun run Tools/CBrowser.ts creds rotate "github"
-# Prompts for new password, keeps username
-```
+On the hosted MCP servers each account's sessions are kept in that account's own directory: `list_sessions` there shows only yours, and a session saved on your machine is not on the server.
 
 ---
 
-## Storage
+## Output that shows secret values
 
-Credentials stored in:
-```
-~/.claude/skills/CBrowser/.vault/
-├── credentials.enc      # Encrypted credential store
-├── key.enc              # Encrypted master key (machine-bound)
-└── manifest.json        # Metadata (no secrets)
-```
+Some commands print parts of cookie or storage values. Do not paste their output into tickets, chats, commits or reports.
 
-### Encryption Details
+- `cbrowser cookie list` prints the first 50 characters of each cookie value.
+- `cbrowser cookie set <name> <value>` echoes the full value back.
+- `cbrowser session show <name>` prints the first 60 characters of each localStorage and sessionStorage value. Tokens kept in localStorage show up here.
+- `manage_cookies` with `action: "get"` and `manage_storage` with `action: "get"` return full values to the conversation.
+- `cbrowser network list`, `get_network_requests` and HAR files can include request headers.
 
-| Component | Algorithm | Notes |
-|-----------|-----------|-------|
-| Master Key | PBKDF2 + machine ID | Derived from hardware fingerprint |
-| Credentials | AES-256-GCM | Authenticated encryption |
-| At Rest | Always encrypted | Never plaintext on disk |
-| In Memory | Cleared after use | No persistent memory |
+`cbrowser session list` and `list_sessions` are safe to show: they report names, domains, dates, counts and sizes, not values.
 
 ---
 
-## Authentication Patterns
+## Exported sessions
 
-### Username/Password
-
-```yaml
-pattern: username-password
-fields:
-  username:
-    selectors: ["semantic:username", "semantic:email", "aria:textbox/Username"]
-  password:
-    selectors: ["semantic:password", "aria:textbox/Password"]
-  submit:
-    selectors: ["semantic:submit", "aria:button/Sign in", "aria:button/Log in"]
-```
-
-### OAuth/SSO
-
-```yaml
-pattern: oauth
-providers:
-  - google: "Continue with Google"
-  - github: "Sign in with GitHub"
-  - apple: "Sign in with Apple"
-flow:
-  1. Click provider button
-  2. Handle popup/redirect
-  3. Use stored OAuth credentials
-  4. Complete authorization
-  5. Return to original site
-```
-
-### Two-Factor Authentication
-
-```yaml
-pattern: 2fa
-methods:
-  totp:
-    # TOTP secrets can be stored (optional, user must explicitly enable)
-    secret_storage: optional
-    auto_generate: true
-  sms:
-    # Cannot automate - notify user
-    action: pause_and_notify
-  email:
-    # Can check email if configured
-    action: check_email_for_code
-  authenticator_app:
-    # Push notification - notify user
-    action: pause_and_notify
-```
-
----
-
-## Site-Specific Configurations
-
-Store login flow configurations per site:
-
-```json
-{
-  "site": "github.com",
-  "credential_key": "github",
-  "login_url": "https://github.com/login",
-  "flow": [
-    {"action": "fill", "target": "semantic:username", "value": "$username"},
-    {"action": "fill", "target": "semantic:password", "value": "$password"},
-    {"action": "click", "target": "semantic:submit"},
-    {"action": "wait", "for": "url_contains", "value": "github.com/"}
-  ],
-  "success_indicators": [
-    "url_not_contains:/login",
-    "element_visible:avatar"
-  ],
-  "2fa": {
-    "enabled": true,
-    "method": "totp",
-    "secret_key": "github_2fa"
-  }
-}
-```
-
----
-
-## Constitutional Compliance
-
-Credential operations are **Red Zone** (verification required):
-
-| Action | Zone | Verification |
-|--------|------|--------------|
-| Store credentials | Red | Confirm storage |
-| Use credentials | Yellow | Log usage (not values) |
-| Delete credentials | Red | Confirm deletion |
-| Export credentials | Black | Never allowed |
-
-### What is NEVER Done
-
-- ❌ Credentials logged to any file
-- ❌ Credentials shown in output
-- ❌ Credentials transmitted externally
-- ❌ Credentials stored unencrypted
-- ❌ Passwords included in screenshots
-- ❌ Credentials exported or backed up in plaintext
-
----
-
-## Usage in Workflows
-
-### With Navigate
+`cbrowser session export <name>` writes a copy of the session JSON, with every cookie value, to `<name>.json` in the current directory unless you pass `--output <file>`. If you are inside a repo, that file is one `git add .` away from being published. Write it outside the repo, and delete it once it has been imported where it was needed:
 
 ```bash
-bun run Tools/CBrowser.ts navigate "https://github.com/settings" --auth github
-# Automatically logs in using stored credentials if needed
+cbrowser session export example-admin --output ~/private/example-admin.json
+cbrowser session import ~/private/example-admin.json
 ```
 
-### With Personas
-
-```yaml
-persona: "power-user"
-credentials: "github-premium"
-# Persona uses specific credential set
-```
-
-### In Test Scenarios
-
-```yaml
-scenario: "checkout-flow"
-steps:
-  - login:
-      credentials: "amazon-test-buyer"
-  - navigate: "/cart"
-  - action: "complete checkout"
-```
+`session import` names the session after the file name.
 
 ---
 
-## Troubleshooting
+## Deleting logged-in state
 
-### "Credential not found"
+Deleting a file does not log the session out on the server. If a session file may have leaked, also log out on the site or revoke the session in the site's security settings.
+
+| To remove | Command |
+|-----------|---------|
+| One saved session | `cbrowser session delete <name>` or `delete_session` |
+| Saved sessions not used for N days | `cbrowser session cleanup --older-than <days>` (default 30) |
+| One cookie from the browser profile | `cbrowser cookie delete <name>` (add `--domain` to limit it) |
+| All cookies and storage in the browser profile | `cbrowser reset` (saved sessions are kept) |
+| Everything CBrowser wrote | `cbrowser uninstall --yes` (see below) |
+
+`cbrowser cookie clear` currently reports success from the CLI without starting the browser, so the profile's cookies survive it. Use `cbrowser reset` or `cookie delete` instead. Over MCP, `manage_cookies` with `action: "clear"` works on the live browser after a `navigate`.
+
+Note that the general `cbrowser cleanup` also prunes saved sessions: it keeps the newest 3 and deletes older ones last written more than 7 days ago. Run `cbrowser cleanup --dry-run` first, or raise `--keep-sessions <n>`, if you rely on older sessions.
+
+---
+
+## Removing everything: `cbrowser uninstall`
+
+`npm uninstall -g cbrowser` removes the package and nothing it wrote. The API key, proxy credentials, browser profile and saved sessions all survive it.
 
 ```bash
-# List available credentials
-bun run Tools/CBrowser.ts creds list
-
-# Add missing credential
-bun run Tools/CBrowser.ts creds add "site-name"
+cbrowser uninstall                 # dry run: lists what would go, removes nothing
+cbrowser uninstall --yes           # actually removes it
+cbrowser uninstall --yes --keep-config   # keep the API key and proxy config for a reinstall
 ```
 
-### "Authentication failed"
+The dry run lists credentials and sessions first, with sizes, and counts how many items hold credentials or live session cookies. It also lists the Claude skill directory installed by `cbrowser install-skill`. It acts on the current CBROWSER_DATA_DIR, so run it once per data dir you used.
 
-1. Verify credentials are correct: re-add with `creds add`
-2. Check if site changed login flow: update site config
-3. Check for CAPTCHA: may need manual intervention
-4. Check for 2FA: ensure TOTP secret is stored
+---
 
-### "2FA required"
+## CI and shared machines
 
-```bash
-# Add TOTP secret for automatic 2FA
-bun run Tools/CBrowser.ts creds add-2fa "github"
-# Prompts for TOTP secret securely
-```
+- Give every job its own data dir and remove it afterwards:
+
+  ```bash
+  export CBROWSER_DATA_DIR=$(mktemp -d)
+  # ... run the job ...
+  rm -rf "$CBROWSER_DATA_DIR"
+  ```
+
+- Keep the test account's password in the CI secret store and expose it to the job as an environment variable.
+- Do not cache or upload the data dir as a build artifact. Screenshots and reports are usually fine to keep; `sessions/`, `browser-state/` and `har/` are not.

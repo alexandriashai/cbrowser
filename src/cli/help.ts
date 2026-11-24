@@ -712,11 +712,13 @@ UNINSTALL
                               'npm uninstall -g cbrowser' does NOT remove any of this
 
 CLAUDE SKILL INSTALLATION & SYNC
-  install-skill               Install CBrowser as a Claude skill to ~/.claude/skills/
-  sync-skill                  Sync local skill to match npm version (same as install-skill)
-                              Downloads latest skill files from GitHub
-                              Run after 'npm update -g cbrowser' to stay in sync
-                              Add to skill-index.json after first installation
+  install-skill               Install the CBrowser Claude skill in ~/.claude/skills/CBrowser
+  sync-skill                  Same as install-skill: copies the skill this version ships
+                              (no download). Run again after 'npm update -g cbrowser'.
+                              Files you added to that directory are left alone.
+    The Claude Code plugin bundles the skill with the MCP server:
+      /plugin marketplace add alexandriashai/cbrowser
+      /plugin install cbrowser@cbrowser
 
 BROWSERS
   install-browsers [name...]  Download browsers with cbrowser's own Playwright
