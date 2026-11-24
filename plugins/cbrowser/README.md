@@ -19,12 +19,13 @@ Never paste a password or API key into the chat. The sign-in page is the only pl
 
 ## What data it sends
 
-Everything this plugin does runs on CBrowser's servers, so the following leaves your machine:
+The plugin's tools run on CBrowser's servers, so the following leaves your machine:
 
 - **Your sign-in or sign-up details**: email, name and password, entered on the CBrowser sign-in page (not in Claude). Passwords are stored only as a one-way hash.
 - **Every tool call**: the tool name and its arguments, which include the URLs you test and any text Claude types into a page for you. CBrowser's servers load those pages in a headless browser.
 - **Results**: tool results (scores, findings, screenshots of the pages tested) are stored with your account so your dashboard at cbrowser.ai can show them, along with which tools you called and the credits each used.
 - **Request logs**: IP address, time and user agent, for security and debugging.
+- **If Claude uses the `cbrowser` command line instead**: the skill can fall back to it when Claude has a shell. `npx cbrowser` downloads the package from npm, and installing it downloads Chromium. The CLI then loads the pages you test from your own machine; your tool calls and results do not go to CBrowser. Two exceptions: `cbrowser ask` sends your question, with no account details, to cbrowser.ai for an answer, and features that need an AI model send page content to Anthropic only if you set your own Anthropic API key.
 
 The server opens only public internet addresses: it will not load `localhost` or a private network. Browser sessions are isolated per user and closed after five minutes idle; cookies and history from them are not kept. Details: [Privacy Policy](https://cbrowser.ai/privacy) and [Terms](https://cbrowser.ai/terms).
 
