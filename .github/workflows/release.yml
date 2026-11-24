@@ -45,7 +45,7 @@ jobs:
       # deliberately no registry-url: setup-node would write an .npmrc that reads
       # NODE_AUTH_TOKEN, and npm tries a token before the OIDC exchange.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
