@@ -156,7 +156,7 @@
     "lint-staged": "^17.6.0",
     "release-it": "^21.1.1",
     "typedoc": "^0.28.16",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "yaml": "^2.9.0"
   },
   "lint-staged": {
